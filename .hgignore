@@ -1,0 +1,17 @@
+syntax:glob
+*.DS_Store
+.svn
+*.svn
+.coverage
+*.swp
+*.swo
+*.pyc
+*.egg-info
+*.db
+ez_setup
+*~
+build/
+dist/
+sandbox
+*.tmproj
+doc/_build

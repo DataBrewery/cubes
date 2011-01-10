@@ -1,0 +1,25 @@
+{
+    "name": "geography",
+    "label": "Región",
+    "levels": {
+        "county": {
+            "label": "Okres",
+            "attributes": ["county_code", "county"]
+        },
+        "region": {
+            "label": "Kraj",
+            "attributes": ["region_code", "region"]
+        }
+    },
+    "attributes": {
+        "county_code": { "label" : "Kod okresu" },
+        "county": { "label" : "Okres" },
+        "region_code": { "label" : "Kod kraja" },
+        "region": { "label" : "Kraj" }
+    },
+    "hierarchies": {
+        "default": {
+            "levels": ["region", "county"]
+        }
+    }
+}

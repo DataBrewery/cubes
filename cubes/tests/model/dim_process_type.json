@@ -1,0 +1,20 @@
+{
+    "name": "process_type",
+    "label": "Druh postupu",
+    "levels": {
+        "process_type": {
+            "label": "Druh postupu",
+            "attributes": ["process_type_code", "process_type_desc", "process_type_sdesc"]
+        }
+    },
+    "attributes": {
+        "process_type_desc": { "label" : "Druh postupu" },
+        "process_type_sdesc": { "label" : "Druh postupu (srk.)" },
+        "process_type_code": { "label" : "Kod druhu postupu" }
+    },
+    "hierarchies": {
+        "default": {
+            "levels": ["process_type"]
+        }
+    }
+}

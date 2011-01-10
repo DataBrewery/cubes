@@ -1,0 +1,41 @@
+{
+    "name": "supplier",
+    "label": "Dodávateľ",
+    "levels": {
+        "supplier": {
+            "label": "Dodávateľ",
+            "key": "ico",
+            "label_attribute": "name",
+            "attributes": ["ico", "name", "address", "date_start", "date_end",
+                            "legal_form", "ownership"]
+        }
+    },
+    "attributes":{
+        "ico": {
+            "label": "ICO"
+        },
+        "name" : {
+            "label": "Nazov"
+        },
+        "address" : {
+            "label": "Adresa"
+        },
+        "date_start" : {
+            "label": "Datum zalozenia"
+        },
+        "date_end" : {
+            "label": "Datum ukonecnia cinnosti"
+        },
+        "legal_form" : {
+            "label": "Pravna forma"
+        },
+        "ownership" : {
+            "label": "Druh vlastnictva"
+        }
+    },
+    "hierarchies": {
+        "default": {
+            "levels": ["supplier"]
+        }
+    }
+}

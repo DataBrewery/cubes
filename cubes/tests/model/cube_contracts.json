@@ -1,0 +1,49 @@
+{
+	"name": "contracts",
+	"label": "Uzatvorené zmluvy verejného obstarávania",
+	"description": "Uzatvorené zmluvy verejného obstarávania Slovenskej Republiky",
+
+	"dimensions": [ "date",
+					"cpv",
+					"procurer",
+					"supplier",
+					"process_type",
+					"geography"],
+	"joins": [
+		{
+			"master": "zmluvy.vestnik_datum_id",
+			"detail": "date.id"
+		},
+		{
+			"master": "zmluvy.cpv_kod_id",
+			"detail": "cpv.id"
+		},
+		{
+			"master": "zmluvy.obstaravatel_org_id",
+			"detail": "obstaravatel.id"
+		},
+		{
+			"master": "zmluvy.dodavatel_id",
+			"detail": "dodavatel.id"
+		},
+		{
+			"master": "zmluvy.druh_postupu_id",
+			"detail": "druh_postupu.id"
+		},
+		{
+			"master": "zmluvy.kriteria_vyhodnotenia_id",
+			"detail": "kriteria_vyhodnotenia.id"
+		},
+		{
+			"master": "zmluvy.geography_id",
+			"detail": "geography.id"
+		}
+	],
+	"mappings": {
+	    "date.year": "dim_date.year",
+	    "date.month": "dim_date.month",
+	    "date.day": "dim_date.day",
+	    "cpv.group": "dim_cpv.cpv_group",
+	    "cpv.class": "dim_cpv.cpv_class"
+	}
+}

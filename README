@@ -1,0 +1,17 @@
+Cubes - Online Analytical Processing Framework for Python
+
+ABOUT
+
+Cubes is a python framework for:
+* Online Analytical Processing - OLAP
+* multidimensional analysis
+* cube comptutation
+
+Framework is database agnostic and supports:
+
+* relational databases with SQL (through SQL Alchemy)
+* MongoDB
+
+AUTHOR
+
+Stefan Urbanek <stefan.urbanek@gmail.com>
