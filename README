@@ -12,6 +12,10 @@ Framework is database agnostic and supports:
 * relational databases with SQL (through SQL Alchemy)
 * MongoDB
 
+DOCUMENTATION
+
+    http://databrewery.org/cubes/doc/
+
 AUTHOR
 
 Stefan Urbanek <stefan.urbanek@gmail.com>
