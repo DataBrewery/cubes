@@ -331,7 +331,15 @@ class Cube(object):
 
     def dimension(self, name):
         """Get dimension by name"""
-        return self._dimensions[name]
+        
+        # Fixme: check for existence
+        if type(name) == str:
+            return self._dimensions[name]
+        elif issubclass(name.__class__, Dimension):
+             return name
+        else:
+            raise AttributeError("Invalid dimension or dimension reference '%s' for cube '%s'" %
+                                    name, self.name)
 
     def to_dict(self):
         """Convert to dictionary"""
@@ -484,6 +492,30 @@ class Dimension(object):
 
         self.default_hierarchy_name = desc.get("default_hierarchy", None)
         self.key_field = desc.get("key_field")
+
+    def __eq__(self, other):
+        if not other:
+            return False
+            
+        if self.name != other.name or self.label != other.label \
+            or self.description != other.description:
+            return False
+        elif self.default_hierarchy != other.default_hierarchy:
+            return False
+
+        for level in other.levels:
+            if level not in self.levels:
+                return False
+
+        for hier in other.hierarchies:
+            if hier not in self.hierarchies:
+                return False
+
+        return True
+        
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
     def __init_levels(self, desc):
         self.levels = {}
@@ -652,7 +684,7 @@ class Dimension(object):
         return "<dimension: {name: '%s', levels: %s}>" % (self.name, self.level_names)
     def __repr__(self):
         return self.__str__()
-        
+    
 class Hierarchy(object):
     """Dimension hierarchy
 
@@ -668,6 +700,21 @@ class Hierarchy(object):
         self.label = info.get("label", "")
         self.level_names = info.get("levels", [])
         self.dimension = dimension
+        self.levels = []
+
+    def __eq__(self, other):
+        if not other:
+            return False
+        elif self.name != other.name or self.label != other.label:
+            return False
+        elif self.levels != other.levels:
+            return False
+        # elif self._dimension != other._dimension:
+        #     return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
     def dimension(self):
@@ -714,8 +761,30 @@ class Level(object):
         self.label = desc.get("label", "")
         self._key = desc.get("key", None)
         self.attributes = desc.get("attributes", [])
-        self.label_attribute = desc.get("label_attribute", [])
+        self.label_attribute = desc.get("label_attribute", "")
         self.dimension = dimension
+
+    def __eq__(self, other):
+        if not other:
+            return False
+        elif self.name != other.name or self.label != other.label or self._key != other._key:
+            return False
+        elif self.label_attribute != other.label_attribute:
+            return False
+        # elif self.dimension != other.dimension:
+        #     return False
+
+        if self.attributes != other.attributes:
+            return False
+            
+        # for attr in other.attributes:
+        #     if attr not in self.attributes:
+        #         return False
+
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def to_dict(self):
         """Convert to dictionary"""

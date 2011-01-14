@@ -107,6 +107,22 @@ class ModelValidatorTestCase(unittest.TestCase):
                              "ymd": { "levels": ["year", "month", "day"] } }
         self.date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers }
 
+    def test_comparisons(self):
+        lvl1 = cubes.Level('lvl1', {"key": "year", "attributes": ["foo", "bar"]})
+        lvl2 = cubes.Level('lvl1', {"key": "year", "attributes": ["foo", "bar"]})
+        lvl3 = cubes.Level('lvl1', {"key": "year", "attributes": ["bar", "foo"]})
+
+        self.assertEqual(lvl1, lvl2)
+        self.assertNotEqual(lvl2, lvl3)
+        
+        dim1 = cubes.Dimension('date', self.date_desc)
+        dim2 = cubes.Dimension('date', self.date_desc)
+
+        self.assertListEqual(dim1.levels.items(), dim2.levels.items())
+        self.assertListEqual(dim1.hierarchies.items(), dim2.hierarchies.items())
+
+        self.assertEqual(dim1, dim2)
+
     def test_default_dimension(self):
         date_desc = { "name": "date", "levels": {"year": {"key": "year"}}}
         dim = cubes.Dimension('date', date_desc)
