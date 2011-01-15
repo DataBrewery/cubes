@@ -1,5 +1,8 @@
 import aggregation_browser
 import itertools
+import utils
+import logging
+import base
 
 try:
     import pymongo
@@ -316,19 +319,25 @@ class MongoSimpleCubeBuilder(object):
     def __init__(self, cube, database, 
                     fact_collection, 
                     cube_collection,
-                    measure = "amount",
+                    measures = ["amount"],
                     aggregate_flag_field = "is_aggregate",
                     required_dimensions = ["date"]):
                     
         self.cube = cube
         self.database = database
-        self.fact_collection = fact_collection
         self.aggregate_flag_field = aggregate_flag_field
 
+        self.fact_collection = fact_collection
         if cube_collection:
             self.cube_collection = cube_collection
         else:
             self.cube_collection = fact_collection
+            
+        if type(self.fact_collection) == str:
+            self.fact_collection = self.database[self.fact_collection]
+
+        if type(self.cube_collection) == str:
+            self.cube_collection = self.database[self.cube_collection]
             
         if required_dimensions:
             dims = []
@@ -337,9 +346,11 @@ class MongoSimpleCubeBuilder(object):
 
         self.required_dimensions = dims
         self.measure_agg = None
-        self.combined_points = None
+        self.selectors = None
 
-        self.measure = measure
+        self.measures = measures
+        
+        self.log = logging.getLogger(base.default_logger_name())
         
     def compute(self):
         """Find all dimensional points, compute cube for each point
@@ -347,22 +358,121 @@ class MongoSimpleCubeBuilder(object):
         This is naive non-optimized method of cube computation: each point is computed separately.
         """
 
-        print("==> Computing cube %s" % self.cube.name)
+        self.log.info("Computing cube %s" % self.cube.name)
 
-        combined_points = create_combined_dimension_points(self.cube.dimensions,
-                                                            self.required_dimensions)
 
-        print("--- got %d points" % len(combined_points))
+        selectors = utils.compute_dimension_cell_selectors(self.cube.dimensions, self.required_dimensions)
 
-        for point in combined_points:
-            self.compute_cuboid(point)
+        self.log.info("got %d dimension level selectors ", len(selectors))
+
+        for selector in selectors:
+            self.compute_cuboid(selector)
                                                                 
-    def compute_cuboid(self, point):
+    def compute_cuboid(self, selector):
         """ 
+        :Arguments:
+            * `selector` is a list of tuples: (dimension, level_names)
+        
         From wdmmg.aggregator.compute_aggregations()
         """
-        aggregates = {}
-        print("Computing %s" % point)
+        self.log.info("computing selector")
+
+        key_maps = []
+        attrib_maps = []
+        for dimsel in selector:
+            dim = dimsel[0]
+            levels = dimsel[1]
+            self.log.info("-- dimension: %s levels: %s", dim.name, levels)
+            
+            for level in levels:
+                # self.log.info("---- level: %s", level.name)
+                mapped = self.cube.dimension_field_mapping(dim, level.key)
+                key_maps.append(mapped)
+                
+                for field in level.attributes:
+                    mapped = self.cube.dimension_field_mapping(dim, field)
+                    attrib_maps.append((mapped[0], field))
+
+        ###########################################
+        # Prepare group command parameters
+        #
+        # condition - filter condition for find() (check for existence of keys)
+        # keys - list of keys to be used for grouping
+        # measures - list of measures
+
+        condition = {}
+        keys = []
+        for mapping in key_maps:
+            mapped_key = mapping[0]
+            condition[mapped_key] = { "$exists" : True}
+            keys.append(mapped_key)
+
+        fields = []
+        for mapping in attrib_maps:
+            mapped = mapping[0]
+            fields.append(mapped)
+        
+        for measure in self.measures:
+            mapping = self.cube.fact_field_mapping(measure)
+            fields.append(mapping[0])
+            
+        self.log.info("condition: %s", condition)
+        self.log.info("fields: %s", fields)
+
+        # Exclude aggregates:
+        condition['is_aggregate'] = {'$ne': True}
+
+        ####################################################
+        # Prepare group functions + reduce + finalize
+        #
+
+        initial = { "record_count": 0, "amount_sum": 0}
+
+        aggregate_lines = []
+        for measure in self.measures:
+            measure_agg_name = measure + "_sum"
+            line = "out.%s += doc.%s;" % (measure_agg_name, measure)
+            aggregate_lines.append(line)
+            initial[measure_agg_name] = 0
+
+        reduce_function = '''
+        function(doc, out) {
+                out.record_count ++;
+                %(aggregate_lines)s
+        }\n''' % {"aggregate_lines": "\n".join(aggregate_lines)}
+
+        # print "\n"
+        # print "--- BOOOOOO: REDUCE: %s" % reduce_function
+
+        finalize_function = None
+        # cursor = self.fact_collection.find(spec = selection, fields = fields)
+        cursor = self.fact_collection.group(key = keys, condition = condition,
+                                            initial = initial, reduce = reduce_function,
+                                            finalize = finalize_function)
+
+        for record in cursor:
+            print record
+            
+            # try:
+            #     interest = {}
+            #     for key in keys:
+            #         interest[key[1]] = record[key[0]]
+            #     interest["measure"] = record[self.measure]
+            #     print interest
+            # except:
+            #     self.log.error("invalid record: %s", record)
+            #     raise Exception("invalid record")
+
+        # for dimpoint in point:
+        #     dim = dimpoint[0]
+        #     print "---     dim: %s" % dim.name
+        #     attributes = []
+        #     for level_name in dimpoint[1]:
+        #         print "---     level: %s" % level_name
+        #         level = dim.level(level_name)
+        #         for field in level.attributes:
+        #             mapped = self.cube.dimension_field_mapping(dim, field)
+        #             attributes.append((mapped[0], field))
         
         # cursor = self.fact_collection.find({self.aggregate_flag_field: {'$ne': True}})
         

@@ -447,16 +447,12 @@ class Cube(object):
 
     def fact_field_mapping(self, field):
         """Return physical field name"""
-        split = field.split('.')
-        logical = field
 
-        if len(split) == 1:
-            physical = self.measure_mapping(field)
-        elif split[0] == 'fact':
-            physical = self.measure_mapping(field[1])
-        else:
-            raise ValueError("Invalid mapping of field '%s' in cube '%s'" % (field, self.name))
-        return (physical, logical)
+        physical = self.mappings.get(field)
+        if not physical:
+            physical = field
+
+        return (physical, field)
 
 class Dimension(object):
     """
@@ -789,6 +785,11 @@ class Level(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __str__(self):
+        return "<level: {name: '%s', key: %s, attributes: %s}>" % (self.name, self.key, self.attributes)
+    def __repr__(self):
+        return self.__str__()
 
     def to_dict(self):
         """Convert to dictionary"""
