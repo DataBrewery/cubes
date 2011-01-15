@@ -82,16 +82,28 @@ def combine_nodes(all_nodes, required_nodes = []):
 
     return all_combinations
     
-def compute_dimension_cell_selectors(dimensions, required):
+def compute_dimension_cell_selectors(dimensions, required = []):
     all_nodes = []
     required_nodes = []
     
-    for dim in dimensions:
-        all_nodes.append( (dim, dim.levels) )
-        
     for dim in required:
-        required_nodes.append( (dim, dim.level_names) )
+        if dim not in dimensions:
+            raise AttributeError("Required dimension '%s' does not exist in list of computed "\
+                                 "dimensions" % dim.name)
+        required_nodes.append( (dim, dim.levels) )
+
+    for dim in dimensions:
+        all_nodes.append( (dim, dim.levels) )        
         
     combos = combine_nodes(all_nodes, required_nodes)
-    
-    return combos
+
+    result = []
+    for combo in combos:
+        new_selector = []
+        for selector in combo:
+            dim = selector[0][0]
+            levels = selector[1]
+            new_selector.append( (dim, levels) )
+        result.append(new_selector)
+            
+    return result

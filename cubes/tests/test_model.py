@@ -20,8 +20,8 @@ class ModelTestCase(unittest.TestCase):
         dim = cubes.Dimension("date", info)
         self.assertEqual(len(dim.levels), 3, "invalid number of levels for date dimension")
         self.assertEqual(len(dim.hierarchies), 2, "invalid number of hierarchies for date dimension")
-        self.assertItemsEqual(dim.levels.keys(), ["year", "day", "month"],
-                                        "invalid levels %s" % dim.levels.keys())
+        self.assertItemsEqual(dim.level_names, ["year", "day", "month"],
+                                        "invalid levels %s" % dim.level_names)
         self.assertItemsEqual(dim.hierarchies.keys(), ["default", "ymd"],
                                         "invalid hierarchies %s" % dim.hierarchies.keys())
         self.assertEqual(dim.hierarchies["default"], dim.default_hierarchy, "Default hierarchy does not match")
@@ -30,12 +30,9 @@ class ModelTestCase(unittest.TestCase):
         self.assertEqual(len(hlevels), 2, "Default hierarchy level count is not 2 (%s)" % hlevels)
         
 
-        dlevels = dim.levels
         hlevels = dim.hierarchies["default"].levels
-        self.assertTrue(issubclass(dlevels["year"].__class__, cubes.Level), "Level should be subclass of Level")
         self.assertTrue(issubclass(hlevels[0].__class__, cubes.Level), "Level should be subclass of Level")
-        
-        self.assertEqual(dlevels["year"], hlevels[0], "Level should be equal")
+        self.assertEqual(dim.level("year"), hlevels[0], "Level should be equal")
 
     def test_cube_from_file(self):
         info = self._model_file_dict("cube_contracts.json")
@@ -118,7 +115,7 @@ class ModelValidatorTestCase(unittest.TestCase):
         dim1 = cubes.Dimension('date', self.date_desc)
         dim2 = cubes.Dimension('date', self.date_desc)
 
-        self.assertListEqual(dim1.levels.items(), dim2.levels.items())
+        self.assertListEqual(dim1.levels, dim2.levels)
         self.assertListEqual(dim1.hierarchies.items(), dim2.hierarchies.items())
 
         self.assertEqual(dim1, dim2)
@@ -138,6 +135,13 @@ class ModelValidatorTestCase(unittest.TestCase):
         dim = cubes.Dimension('date', date_desc)
         test = lambda: dim.default_hierarchy
         self.assertRaises(KeyError, test)
+
+    def test_dimension_types(self):
+        date_desc = { "name": "date", "levels": {"year": {"key": "year"}}}
+        dim = cubes.Dimension('date', date_desc)
+
+        for level in dim.levels:
+            self.assertEqual(type(level), cubes.Level)
 
     def test_dimension_validation(self):
         date_desc = { "name": "date"}
@@ -178,6 +182,7 @@ class ModelValidatorTestCase(unittest.TestCase):
         self.assertValidation(results, "Default hierarchy .* does not")
 
         date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers2 }
+        # cubes.Dimension('date', date_desc)
         self.assertRaisesRegexp(KeyError, 'No level day in dimension', cubes.Dimension, 'date', date_desc)
 
         date_desc = { "name": "date", "levels": self.date_levels2 , "hierarchies": self.date_hiers2 }

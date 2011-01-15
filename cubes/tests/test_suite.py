@@ -9,6 +9,7 @@ from test_model import *
 from test_query_generator import *
 from test_aggregations import *
 from test_combinations import *
+from test_cubes import *
 
 test_cases = [
               ModelValidatorTestCase,
@@ -16,7 +17,8 @@ test_cases = [
               ModelTestCase,
               QueryGeneratorTestCase,
               AggregationsBasicsTestCase,
-              CombinationsTestCase
+              CombinationsTestCase,
+              CubeComputationTestCase
                 ]
 
 def load_tests(loader, tests, pattern):

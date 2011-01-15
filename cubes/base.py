@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 
 try:
     import json
@@ -36,3 +37,6 @@ class IgnoringDictionary(dict):
         """Set value in a dictionary if value is not null"""
         if value:
             self[key] = value
+
+def default_logger_name():
+    return 'brewery.cubes'

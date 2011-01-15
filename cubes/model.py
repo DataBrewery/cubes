@@ -483,7 +483,7 @@ class Dimension(object):
         self.label = desc.get("label", "")
         self.description = desc.get("description", "")
 
-        self.levels = []
+        self._levels = []
         self.level_names = []
 
         self.__init_levels(desc.get("levels", None))
@@ -502,12 +502,14 @@ class Dimension(object):
         elif self.default_hierarchy != other.default_hierarchy:
             return False
 
+        levels = self.levels
         for level in other.levels:
-            if level not in self.levels:
+            if level not in levels:
                 return False
 
+        hierarchies = self.hierarchies
         for hier in other.hierarchies:
-            if hier not in self.hierarchies:
+            if hier not in hierarchies:
                 return False
 
         return True
@@ -517,7 +519,7 @@ class Dimension(object):
 
 
     def __init_levels(self, desc):
-        self.levels = {}
+        self._levels = {}
 
         if desc == None:
             return
@@ -525,7 +527,7 @@ class Dimension(object):
         for level_name, level_info in desc.items():
             level = Level(level_name, level_info)
             level.dimension = self
-            self.levels[level_name] = level
+            self._levels[level_name] = level
             self.level_names.append(level_name)
 
     def __init_hierarchies(self, desc):
@@ -542,7 +544,18 @@ class Dimension(object):
 
     def _initialize_default_flat_hierarchy(self):
         if not self._flat_hierarchy:
-            self._flat_hierarchy = self.flat_hierarchy(self.levels.values()[0])
+            self._flat_hierarchy = self.flat_hierarchy(self.levels[0])
+
+    @property
+    def levels(self):
+        """Get list of hierarchy levels (unordered)"""
+        return self._levels.values()
+    
+    def level(self, name):
+        """Get level by name."""
+        if name not in self._levels:
+            raise KeyError("No level %s in dimension %s" % (name, self.name))
+        return self._levels[name]
 
     @property
     def default_hierarchy(self):
@@ -586,10 +599,6 @@ class Dimension(object):
         hier.dimension = self
         return hier
 
-    def level(self, name):
-        """Return level with given name"""
-        return self.levels[name]
-
     @property
     def is_flat(self):
         """Return true if dimension has only one level"""
@@ -618,7 +627,7 @@ class Dimension(object):
         out.setnoempty("default_hierarchy_name", self.default_hierarchy_name)
 
         levels_dict = {}
-        for level in self.levels.values():
+        for level in self.levels:
             levels_dict[level.name] = level.to_dict()
         out["levels"] = levels_dict
 
@@ -643,7 +652,7 @@ class Dimension(object):
         if not self.hierarchies:
             base = "No hierarchies in dimension '%s'" % (self.name)
             if self.is_flat:
-                level = self.levels.values()[0]
+                level = self.levels[0]
                 results.append( ('warning', base + ", flat level '%s' will be used" % (level.name)) )
             elif len(self.levels) > 1:
                 results.append( ('error', base + ", more than one levels exist (%d)" % len(self.levels)) )
@@ -663,7 +672,7 @@ class Dimension(object):
             results.append( ('warning', "Default hierarchy '%s' does not exist in dimension '%s'" % 
                             (self.default_hierarchy_name, self.name)) )
 
-        for level_name, level in self.levels.items():
+        for level_name, level in self._levels.items():
             if not level.attributes:
                 results.append( ('error', "Level '%s' in dimension '%s' has no attributes" % (level.name, self.name)) )
             else:
@@ -725,11 +734,7 @@ class Hierarchy(object):
         self.levels = []
         if a_dimension != None:
             for level_name in self.level_names:
-                level = self.dimension.levels.get(level_name)
-
-                if not level:
-                    raise KeyError("No level %s in dimension %s" % (level_name, a_dimension.name))
-
+                level = self.dimension.level(level_name)
                 self.levels.append(level)
 
     def to_dict(self):
