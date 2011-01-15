@@ -7,3 +7,4 @@ from cubes.view_builder import *
 from cubes.aggregation_browser import *
 
 from cubes.mongo import *
+from cubes.combinations import *

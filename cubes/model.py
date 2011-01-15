@@ -494,9 +494,8 @@ class Dimension(object):
         self.key_field = desc.get("key_field")
 
     def __eq__(self, other):
-        if not other:
+        if not other or type(other) != type(self):
             return False
-            
         if self.name != other.name or self.label != other.label \
             or self.description != other.description:
             return False
@@ -703,7 +702,7 @@ class Hierarchy(object):
         self.levels = []
 
     def __eq__(self, other):
-        if not other:
+        if not other or type(other) != type(self):
             return False
         elif self.name != other.name or self.label != other.label:
             return False
@@ -765,7 +764,7 @@ class Level(object):
         self.dimension = dimension
 
     def __eq__(self, other):
-        if not other:
+        if not other or type(other) != type(self):
             return False
         elif self.name != other.name or self.label != other.label or self._key != other._key:
             return False

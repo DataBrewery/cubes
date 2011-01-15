@@ -1,7 +1,7 @@
 Installation
 ++++++++++++
 
-Project is being hosted at Github: https://bitbucket.org/Stiivi/cubes
+Project is being hosted at Bitbucket: https://bitbucket.org/Stiivi/cubes
 
 Download from Bitbucket::
 

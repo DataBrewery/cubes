@@ -8,13 +8,15 @@ import cubes
 from test_model import *
 from test_query_generator import *
 from test_aggregations import *
+from test_combinations import *
 
 test_cases = [
               ModelValidatorTestCase,
               ModelFromDictionaryTestCase, 
               ModelTestCase,
               QueryGeneratorTestCase,
-              AggregationsBasicsTestCase
+              AggregationsBasicsTestCase,
+              CombinationsTestCase
                 ]
 
 def load_tests(loader, tests, pattern):
