@@ -189,7 +189,7 @@ are warnings, some functionalities might or might not fail or might not work as 
 
 You can validate model from command line::
 
-    brewery validate_model /path/to/model
+    slicer model validate /path/to/model
 
 Errors
 ------

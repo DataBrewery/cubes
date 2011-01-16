@@ -128,13 +128,13 @@ def compute_dimension_cell_selectors(dimensions, required = []):
     
         (D, (d1))
         (D, (d1, d2))
-        (D, (d1)), (B, (b1))
+        (D, (d1)),     (B, (b1))
         (D, (d1, d2)), (B, (b1))
-        (D, (d1)), (B, (b1, b2))
+        (D, (d1)),     (B, (b1, b2))
         (D, (d1, d2)), (B, (b1, b2))
-        (D, (d1)), (B, (b1)), (C, (c))
-        (D, (d1, d2)), (B, (b1)), (C, (c))
-        (D, (d1)), (B, (b1, b2)), (C, (c))
+        (D, (d1)),     (B, (b1)),     (C, (c))
+        (D, (d1, d2)), (B, (b1)),     (C, (c))
+        (D, (d1)),     (B, (b1, b2)), (C, (c))
         (D, (d1, d2)), (B, (b1, b2)), (C, (c))
         
     """

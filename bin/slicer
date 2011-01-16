@@ -1,0 +1,81 @@
+"""Slicer tool
+
+    For more information run: slicer --help
+    
+    Author: Stefan Urbanek <stefan.urbanek@gmail.com>
+    Date: 2011-01
+"""
+
+import argparse
+import pymongo
+import json
+import argparse
+import sys
+import cubes
+import urlparse
+
+def validate_model(args):
+    """docstring for validate_model"""
+    print("loading model %s" % args.ref)
+    model = cubes.load_model(args.ref)
+
+    print("-------------------------")
+    print("cubes: %d" % len(model.cubes))
+    for cube_name, cube in model.cubes.items():
+        print("    %s" % cube_name)
+        
+    print("dimensions: %d" % len(model.dimensions))
+    for dim in model.dimensions:
+        print("    %s" % dim.name)
+
+    print("-------------------------")
+    error_count = 0
+    warning_count = 0
+    results = model.validate()
+
+    if not results:
+        print("model is valid")
+    else:
+        print("found %d issues" % len(results))
+        print("validation results:")
+        for result in results:
+            if result[0] == "error":
+                error_count += 1
+            elif result[0] == "warning":
+                warning_count += 1
+            print("%s: %s" % result)
+    print("%d errors, %d warnings" % (error_count, warning_count))
+
+def model_to_json(args):
+    """docstring for validate_model"""
+    model = brewery.cubes.load_model(args.ref)
+    print json.dumps(model.to_dict())
+
+################################################################################
+# Main code
+
+parser = argparse.ArgumentParser(description='Cubes runner')
+# parser.add_argument('command')
+# parser.add_argument('command_args', nargs = '*', default = [])
+subparsers = parser.add_subparsers(title='commands', help='additional help')
+
+################################################################################
+# Command: valdate_model
+
+model_parser = subparsers.add_parser('model')
+model_subparsers = model_parser.add_subparsers(title='model commands', help='additional model help')
+
+parser_validate = model_subparsers.add_parser('validate')
+parser_validate.add_argument('ref', help='model reference - can be a local file path or URL')
+parser_validate.set_defaults(func=validate_model)
+
+################################################################################
+# Command: model_to_json
+
+parser_validate = model_subparsers.add_parser('json')
+parser_validate.add_argument('ref', help='model reference - can be a local file path or URL')
+parser_validate.set_defaults(func=model_to_json)
+
+args = parser.parse_args(sys.argv[1:])
+
+args.func(args)

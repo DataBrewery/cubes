@@ -33,6 +33,9 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         cuboid = cuboid.slice("date", [2011])
         self.assertEqual(3, len(cuboid.cuts))
 
+    def test_multi_slice(self):
+        full_cube = self.browser.full_cube()
+
         cuts_list = (("date", [2010]), ("cpv", [50, 20]), ("supplier", [1234]))
         cuts_dict = {"date": [2010], "cpv": [50, 20], "supplier": [1234]}
 

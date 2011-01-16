@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.INFO,
                     
 __all__ = {
     "default_logger_name",
+    "load_model",
     "model_from_url",
     "model_from_path",
     "model_from_dict",

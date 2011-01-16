@@ -1,11 +1,36 @@
 import cubes.base as base
 import os
 import re
+import urllib2
+import urlparse
 
 try:
     import json
 except ImportError:
     import simplejson as json
+
+def load_model(resource):
+    """Load logical model from object reference. `ref` can be an URL, local file path or file-like
+    object."""
+
+    handle = None
+    if type(resource) == str or type(resource) == unicode:
+        parts = urlparse.urlparse(resource)
+        if parts.scheme == '' or parts.scheme == 'file':
+            handle = file(resource)
+            should_close = True
+        else:
+            handle = urllib2.urlopen(resource)
+            should_close = True
+    else:
+        handle = resource
+
+    model_desc = json.load(handle)
+
+    if should_close:
+        handle.close()
+
+    return model_from_dict(model_desc)
 
 def model_from_url(url):
     """Load logical model from a URL.
@@ -19,7 +44,10 @@ def model_from_url(url):
     .. warning::
         Not implemented yet
     """
-    raise NotImplementedError
+    handle = urllib2.urlopen(url)
+    model_desc = json.load(handle)
+    handle.close()
+    return model_from_dict(model_desc)
 
 def model_from_path(path):
     """Load logical model from a directory specified by path
@@ -364,12 +392,12 @@ class Cube(object):
         """Validate cube. See Model.validate() for more information. """
         results = []
 
-        if not self.mappings:
-            results.append( ('warning', "No mappings for cube '%s'" % self.name) )
+        # if not self.mappings:
+        #     results.append( ('warning', "No mappings for cube '%s'" % self.name) )
 
-        if not self.fact:
-            results.append( ('warning', "No fact specified for cube '%s' (factless cubes are not yet supported, "
-                                        "using 'fact' as default dataset/table name)" % self.name) )
+        # if not self.fact:
+        #     results.append( ('warning', "No fact specified for cube '%s' (factless cubes are not yet supported, "
+        #                                 "using 'fact' as default dataset/table name)" % self.name) )
 
         # 1. collect all fields(attributes) and check whether there is a mapping for that
         for measure in self.measures:

@@ -13,7 +13,8 @@ setup(
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
     },
-    scripts = [],
+
+    scripts = ['bin/slicer'],
     
     classifiers = [
         'Development Status :: 3 - Alpha',
@@ -31,7 +32,7 @@ setup(
     # metadata for upload to PyPI
     author = "Stefan Urbanek",
     author_email = "stefan.urbanek@gmail.com",
-    description = "Framework for Online Analytical Processing (CUBES), multidimensional analysis and cube precomputation",
+    description = "Framework for Online Analytical Processing (OLAP), multidimensional analysis and cube precomputation",
     license = "GPL",
     keywords = "olap multidimensional data analysis",
     url = "http://databrewery.org"
