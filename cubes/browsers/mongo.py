@@ -1,7 +1,7 @@
 import base
 import cubes.utils
 
-class MongoPreaggregatedBrowser(base.AggregationBrowser):
+class MongoSimpleCubeBrowser(base.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.builders.MongoSimpleCubeBuilder` """
     
     def __init__(self, cube, collection, database = None, aggregate_flag_field = "_is_aggregate"):
@@ -15,7 +15,7 @@ class MongoPreaggregatedBrowser(base.AggregationBrowser):
               ``'_is_aggregate'``
         
         """
-        super(MongoPreaggregatedBrowser, self).__init__(cube)
+        super(MongoSimpleCubeBrowser, self).__init__(cube)
 
         if type(collection) == str:
             if not database:
@@ -38,6 +38,11 @@ class MongoPreaggregatedBrowser(base.AggregationBrowser):
         condition = { self.cuboid_selector_name: selector }
         condition[self.aggregate_flag_field] = True
         
+        if drill_down:
+            drill_dimension = self.cube.dimension(drill_down)
+        else:
+            drill_dimension = None
+
         ###################################################
         # 2. Prepare dimension filter conditions
         
@@ -63,8 +68,25 @@ class MongoPreaggregatedBrowser(base.AggregationBrowser):
         dim_conditions = cubes.utils.expand_dictionary(dim_conditions)
         
         condition.update(dim_conditions)
+        
         ###################################################
-        # 3. Perform selection - find records in collection
+        # 3. Prepare drill-down if requested
+        
+        if drill_down:
+            drill_dimension = self.cube.dimension(drill_down)
+            dimension_cut = cuboid.cut_for_dimension(drill_dimension)
+            if not dimension_cut:
+                raise NotImplementedError("No drill down dimension cut %s" % drill_dimension.name)
+
+            # add one level to levels for goo bar
+            drill_hier = drill_dimension.default_hierarchy
+            levels = drill_hier.levels_for_path(dimension_cut.path, drill_down = True)
+            print "-- PATH        : %s" % dimension_cut.path
+            print "-- DRILL LEVELS: %s" % levels
+            
+        
+        ###################################################
+        # 4. Perform selection - find records in collection
         
         cursor = self.collection.find(spec = condition)
         print condition

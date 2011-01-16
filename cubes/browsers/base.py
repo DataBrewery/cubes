@@ -94,9 +94,24 @@ class Cuboid(object):
             
         return cuboid
     
-    
+    def cut_for_dimension(self, dimension):
+        """Return a cut for given `dimension`"""
+        dimension = self.browser.cube.dimension(dimension)
+            
+        cut_dimension = None
+        for cut in self.cuts:
+            try:
+                cut_dimension = self.browser.cube.dimension(cut.dimension)
+            except:
+                pass
+
+            if cut_dimension == dimension:
+                return cut
+                
+        return None
+
     def _filter_dimension_cuts(self, dimension, exclude = False):
-        dimension = self.browser.dimension_object(dimension)
+        dimension = self.browser.cube.dimension(dimension)
         cuts = []
         for cut in self.cuts:
             if (exclude and cut.dimension != dimension) or (not exclude and cut.dimension == dimension):

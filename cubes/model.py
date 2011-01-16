@@ -761,6 +761,24 @@ class Hierarchy(object):
                 level = self.dimension.level(level_name)
                 self.levels.append(level)
 
+    def levels_for_path(self, path, drill_down = False):
+        """Returns levels for given path. If path is longer than hierarchy levels, exception is raised"""
+        if not path:
+            if drill_down:
+                return self.levels[0:1]
+            else:
+                return []
+
+        if drill_down:
+            extend = 1
+        else:
+            extend = 0
+        
+        if len(path) + extend > len(self.levels):
+            raise AttributeError("Path %s is longer than hierarchy levels %s" % (path, self.level_names))
+
+        return self.levels[0:len(path)+extend]
+
     def to_dict(self):
         """Convert to dictionary"""
 
