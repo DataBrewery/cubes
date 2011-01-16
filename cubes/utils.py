@@ -83,6 +83,62 @@ def combine_nodes(all_nodes, required_nodes = []):
     return all_combinations
     
 def compute_dimension_cell_selectors(dimensions, required = []):
+    """Create selector for all possible combinations of dimensions for each levels in hierarchical
+    order.
+    
+    Returns list of dimension selectors. Each dimension selector is a list of tuples where first element
+    is a dimension and second element is list of levels. Order of selectors and also dimensions within
+    selector is undefined.
+
+    *Example 1*:
+
+    If there are no hierarchies (dimensions are flat), then this method returns all combinations of all
+    dimensions. If there are dimensions A, B, C with single level a, b, c, respectivelly, the output
+    will be:
+    
+    Output::
+    
+        (A, (a)) 
+        (B, (b)) 
+        (C, (c)) 
+        (A, (a)), (B, (b))
+        (A, (a)), (C, (c))
+        (B, (b)), (C, (c))
+        (A, (a)), (B, (b)), (C, (c))
+
+    *Example 2*:
+    
+    Take dimensions from example 1 and add requirement for dimension A (might be date usually). then
+    the youtput will contain dimension A in each returned tuple. Tuples without dimension A will
+    be ommited.
+
+    Output::
+    
+        (A, (a)) 
+        (A, (a)), (B, (b))
+        (A, (a)), (C, (c))
+        (A, (a)), (B, (b)), (C, (c))
+
+    *Example 3*:
+    
+    If there are multiple hierarchies, then all levels are combined. Say we have D with d1, d2, B with 
+    b1, b2, and C with c. D (as date) is required:
+    
+    Output::
+    
+        (D, (d1))
+        (D, (d1, d2))
+        (D, (d1)), (B, (b1))
+        (D, (d1, d2)), (B, (b1))
+        (D, (d1)), (B, (b1, b2))
+        (D, (d1, d2)), (B, (b1, b2))
+        (D, (d1)), (B, (b1)), (C, (c))
+        (D, (d1, d2)), (B, (b1)), (C, (c))
+        (D, (d1)), (B, (b1, b2)), (C, (c))
+        (D, (d1, d2)), (B, (b1, b2)), (C, (c))
+        
+    """
+    
     all_nodes = []
     required_nodes = []
     

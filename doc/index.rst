@@ -14,6 +14,7 @@ Contents:
    introduction
    install
    cubes
+   computing
    tools
    api/index
 
