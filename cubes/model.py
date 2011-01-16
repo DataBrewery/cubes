@@ -837,3 +837,18 @@ class Level(object):
             return self._key
         else:
             return self.attributes[0]
+
+# class DimensionSelector(tuple):
+#     """DimensionSelector - specifies a dimension and level depth to be selected. This is utility
+#     class that might be used internally in cube aggregations or aggregation browsers.
+#     
+#     :Attributes:
+#     
+#         * `dimension`: dimension object
+#         * `levels`: list of levels
+#     
+#     """
+#     def __init__(self, dimension, levels):
+#         super(DimensionSelector, self).__init__()
+#         self.arg = arg
+#         

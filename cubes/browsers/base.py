@@ -9,6 +9,10 @@ class AggregationBrowser(object):
 
     def __init__(self, cube):
         super(AggregationBrowser, self).__init__()
+        
+        if not cube:
+            raise AttributeError("No cube given for aggregation browser")
+            
         self.cube = cube
 
     def full_cube(self):
@@ -26,6 +30,23 @@ class AggregationBrowser(object):
             return self.cube.dimension(dimension)
         else:
             return dimension
+
+    def aggregate(self, cuboid, measures = None, drill_down = None):
+        """Return aggregate of a cuboid.
+        
+        Subclasses of aggregation browser should implement this method.
+        
+        :Attributes:
+        
+            * `measures` - list of measures to be aggregated. By default all measures are aggregated.
+            * `drill_down` - dimension through which to drill-down, default `None`
+        
+        If `drill_down` dimension is specified, then result contains aggregations for each value of
+        the dimension in next level.
+        
+        If no `drill_down` dimension is specified, then result contains only aggregate of whole cuboid.
+        """
+        raise NotImplementedError
             
 class Cuboid(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
@@ -81,6 +102,12 @@ class Cuboid(object):
             if (exclude and cut.dimension != dimension) or (not exclude and cut.dimension == dimension):
                 cuts.append(cut)
         return cuts
+
+    def aggregate(self, measures = None, drill_down = None):
+        """Return computed aggregate of the coboid.
+        """
+        
+        return self.browser.aggregate(self, measures, drill_down)
 
     def __eq__(self, other):
         """Cuboids are considered equal if:

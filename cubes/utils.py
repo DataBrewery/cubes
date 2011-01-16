@@ -163,3 +163,17 @@ def compute_dimension_cell_selectors(dimensions, required = []):
         result.append(new_selector)
             
     return result
+
+def expand_dictionary(record, separator = '.'):
+    """Return expanded dictionary: treat keys are paths separated by `separator`, create
+    sub-dictionaries as necessary"""
+    result = {}
+    for key, value in record.items():
+        current = result
+        path = key.split(separator)
+        for part in path[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+        current[path[-1]] = value
+    return result

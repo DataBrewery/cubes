@@ -12,13 +12,12 @@ except ImportError:
 
 class MongoSimpleCubeBuilder(object):
     """Construct preaggregated cube.
-    
     """
     def __init__(self, cube, database, 
                     fact_collection, 
                     cube_collection = None,
                     measures = ["amount"],
-                    aggregate_flag_field = "is_aggregate",
+                    aggregate_flag_field = "_is_aggregate",
                     required_dimensions = ["date"]):
         """Creates simple cube builder in mongo. See :meth:`MongoSimpleCubeBuilder.compute` for more 
         information about computation algorithm
@@ -34,7 +33,7 @@ class MongoSimpleCubeBuilder(object):
               ``[amount]``
             * `aggregate_flag_field` - name of field (key) that distincts fact fields from aggregated
               records. Should be used when fact collection and cube collection is the same. By default
-              it is ``is_aggregate``.
+              it is ``_is_aggregate``.
             * `required_dimensions` - dimensions that are required for all cuboids. By default: 
               ``[date]``
         """
@@ -68,6 +67,8 @@ class MongoSimpleCubeBuilder(object):
         
         self.log = logging.getLogger(base.default_logger_name())
         
+        self.cuboid_record_name = "_cuboid"
+        
     def compute(self):
         """Compute a multidimensional cube. Computed aggregations for cuboids can be stored either
         in separate collection or in the same source - fact collection. Attribute `aggregate_flag_field`
@@ -91,6 +92,7 @@ class MongoSimpleCubeBuilder(object):
         self.log.info("Computing cube %s" % self.cube.name)
 
         condition = {}
+        
         condition[self.aggregate_flag_field] = {'$eq': True}
         self.cube_collection.remove(condition)
 
@@ -125,19 +127,25 @@ class MongoSimpleCubeBuilder(object):
 
         key_maps = []
         attrib_maps = []
+        selector_record = {}
+        
         for dimsel in selector:
             dim = dimsel[0]
             levels = dimsel[1]
             self.log.info("-- dimension: %s levels: %s", dim.name, levels)
-            
+
+            level_names = []
             for level in levels:
-                # self.log.info("---- level: %s", level.name)
+                level_names.append(level.name)
                 mapped = self.cube.dimension_field_mapping(dim, level.key)
                 key_maps.append(mapped)
                 
                 for field in level.attributes:
                     mapped = self.cube.dimension_field_mapping(dim, field)
                     attrib_maps.append((mapped[0], field))
+
+            selector_record[dim.name] = level_names
+            
 
         ###########################################
         # Prepare group command parameters
@@ -195,8 +203,10 @@ class MongoSimpleCubeBuilder(object):
                                             finalize = finalize_function)
 
         for record in cursor:
+            # use: cubes.utils.expand_dictionary(record)
             record = self.construct_record(record)
             record[self.aggregate_flag_field] = True
+            record[self.cuboid_record_name] = selector_record
             self.cube_collection.insert(record)
 
     def construct_record(self, record):
