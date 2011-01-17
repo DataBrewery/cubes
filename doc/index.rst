@@ -12,6 +12,7 @@ Contents:
    introduction
    install
    cubes
+   aggregate
    computing
    tools
    api/index
