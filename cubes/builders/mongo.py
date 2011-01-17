@@ -68,6 +68,7 @@ class MongoSimpleCubeBuilder(object):
         self.log = logging.getLogger(base.default_logger_name())
         
         self.cuboid_record_name = "_cuboid"
+        self.cell_reference_record_name = "_cell"
         
     def compute(self):
         """Compute a multidimensional cube. Computed aggregations for cuboids can be stored either
@@ -204,9 +205,19 @@ class MongoSimpleCubeBuilder(object):
 
         for record in cursor:
             # use: cubes.utils.expand_dictionary(record)
+            cell = {}
+            for dimsel in selector:
+                dimension, levels = dimsel
+                path = []
+                for level in levels:
+                    mapped = self.cube.dimension_field_mapping(dimension, level.key)
+                    path.append(record[mapped[0]])
+                cell[dimension.name] = path
+
             record = self.construct_record(record)
             record[self.aggregate_flag_field] = True
             record[self.cuboid_record_name] = selector_record
+            record[self.cell_reference_record_name] = cell
             self.cube_collection.insert(record)
 
     def construct_record(self, record):

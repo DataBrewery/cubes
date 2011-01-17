@@ -367,7 +367,7 @@ class Cube(object):
              return name
         else:
             raise AttributeError("Invalid dimension or dimension reference '%s' for cube '%s'" %
-                                    name, self.name)
+                                    (name, self.name))
 
     def to_dict(self):
         """Convert to dictionary"""

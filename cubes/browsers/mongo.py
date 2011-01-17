@@ -34,7 +34,12 @@ class MongoSimpleCubeBrowser(base.AggregationBrowser):
         ###################################################
         # 1. Prepare cuboid selector
 
-        selector = self.selector_object(cuboid)
+        if drill_down:
+            drill_dimension = self.cube.dimension(drill_down)
+        else:
+            drill_dimension = None
+            
+        selector = self.selector_object(cuboid, drill_dimension)
         condition = { self.cuboid_selector_name: selector }
         condition[self.aggregate_flag_field] = True
         
@@ -54,7 +59,6 @@ class MongoSimpleCubeBrowser(base.AggregationBrowser):
             dimension = self.cube.dimension(cut.dimension)
             path = cut.path
 
-            # FIXME: allow use of other hierarchies as well (requires precomputation)
             dim_levels = dimension.default_hierarchy.levels
 
             # Get physical field names from field mappings specified in cube and use them
@@ -66,43 +70,38 @@ class MongoSimpleCubeBrowser(base.AggregationBrowser):
                 
         # Expand dictionary: convert key1.key2 = value into 'key1 : { key2 : value}'
         dim_conditions = cubes.utils.expand_dictionary(dim_conditions)
-        
         condition.update(dim_conditions)
         
         ###################################################
-        # 3. Prepare drill-down if requested
-        
-        if drill_down:
-            drill_dimension = self.cube.dimension(drill_down)
-            dimension_cut = cuboid.cut_for_dimension(drill_dimension)
-            if not dimension_cut:
-                raise NotImplementedError("No drill down dimension cut %s" % drill_dimension.name)
-
-            # add one level to levels for goo bar
-            drill_hier = drill_dimension.default_hierarchy
-            levels = drill_hier.levels_for_path(dimension_cut.path, drill_down = True)
-            print "-- PATH        : %s" % dimension_cut.path
-            print "-- DRILL LEVELS: %s" % levels
-            
-        
-        ###################################################
-        # 4. Perform selection - find records in collection
+        # 3. Perform selection - find records in collection
         
         cursor = self.collection.find(spec = condition)
-        print condition
         return cursor
 
-    def selector_object(self, cuboid):
+    def selector_object(self, cuboid, drill_dimension = None):
+        """Return a dictionary object for finding specified cuboid. If drill_dimension is set, then
+        selector for all descendants of cuboid through drill dimension is returned."""
+        
         selector = {}
+        drilled = False
         for cut in cuboid.cuts:
             if type(cut) != base.PointCut:
                 raise AttributeError("only point cuts are currently supported for mongo aggregation browsing")
             
             dimension = self.cube.dimension(cut.dimension)
-            dim_levels = dimension.default_hierarchy.levels
-            levels = dim_levels[0:len(cut.path)]
-            
+            hierarchy = dimension.default_hierarchy
+
+            if dimension == drill_dimension:
+                levels = hierarchy.levels_for_path(cut.path, drill_down = True)
+                drilled = True
+            else:
+                levels = hierarchy.levels_for_path(cut.path, drill_down = False)
+
             level_names = [level.name for level in levels]
             selector[dimension.name] = level_names
+        
+        if drill_dimension and not drilled:
+            hierarchy = drill_dimension.default_hierarchy
+            selector[drill_dimension.name] = [hierarchy.levels[0].name]
             
         return selector

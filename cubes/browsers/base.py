@@ -57,7 +57,8 @@ class Cuboid(object):
 
     def slice(self, dimension, path):
         """Create another cuboid by slicing receiving cuboid through `dimension` at `path`.
-        Receiving object is not modified. If cut with dimension exists it is replaced with new one 
+        Receiving object is not modified. If cut with dimension exists it is replaced with new one.
+        If path is empty list or is none, then cut for given dimension is removed.
         
         Example::
 
@@ -68,8 +69,9 @@ class Cuboid(object):
         """
         dimension = self.browser.dimension_object(dimension)
         cuts = self._filter_dimension_cuts(dimension, exclude = True)
-        cut = PointCut(dimension, path)
-        cuts.append(cut)
+        if path:
+            cut = PointCut(dimension, path)
+            cuts.append(cut)
         return Cuboid(self.browser, cuts = cuts)
     
     def multi_slice(self, cuts):
