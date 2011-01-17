@@ -113,6 +113,10 @@ class MongoSimpleCubeBuilder(object):
         * key fields used for grouping
         * aggregated measures suffixed with `_sum`, for example: `amount_sum`
         * record count in `record_count`
+        * cuboid selector as `_selector` (configurable) with dimension names as keys and current
+          dimension levels as values, for example: {"date": ["year", "month"] }
+        * cell reference as `_cell` (configurable) with dimension names as keys and level 
+          keys forming dimension paths as values, for example: {"date": [2010, 10] }
 
         .. _aggregate: http://www.mongodb.org/display/DOCS/Aggregation#Aggregation-Group
 
