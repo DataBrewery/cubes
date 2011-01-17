@@ -779,6 +779,12 @@ class Hierarchy(object):
 
         return self.levels[0:len(path)+extend]
 
+    def path_is_base(self, path):
+        """Returns True if path is base path for the hierarchy. Base path is a path where there are
+        no more levels to be added - no drill down possible."""
+        
+        return len(path) == len(self.levels)
+
     def to_dict(self):
         """Convert to dictionary"""
 
