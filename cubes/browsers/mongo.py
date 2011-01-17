@@ -26,7 +26,7 @@ class MongoSimpleCubeBrowser(base.AggregationBrowser):
             self.collection = collection
         
         self.aggregate_flag_field = aggregate_flag_field
-        self.cuboid_selector_name = "_cuboid"
+        self.cuboid_selector_name = "_selector"
 
     def aggregate(self, cuboid, measures = None, drill_down = None):
         """See :meth:`cubes.browsers.Cuboid.aggregate`."""

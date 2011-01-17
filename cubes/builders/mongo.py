@@ -67,7 +67,7 @@ class MongoSimpleCubeBuilder(object):
         
         self.log = logging.getLogger(base.default_logger_name())
         
-        self.cuboid_record_name = "_cuboid"
+        self.cuboid_record_name = "_selector"
         self.cell_reference_record_name = "_cell"
         
     def compute(self):
@@ -92,10 +92,7 @@ class MongoSimpleCubeBuilder(object):
 
         self.log.info("Computing cube %s" % self.cube.name)
 
-        condition = {}
-        
-        condition[self.aggregate_flag_field] = {'$eq': True}
-        self.cube_collection.remove(condition)
+        self.cube_collection.remove({self.aggregate_flag_field: True})
 
         selectors = utils.compute_dimension_cell_selectors(self.cube.dimensions,
                                                            self.required_dimensions)
@@ -104,6 +101,8 @@ class MongoSimpleCubeBuilder(object):
 
         for selector in selectors:
             self.compute_cuboid(selector)
+
+        self.cube_collection.ensure_index(self.cuboid_record_name)
                                                                 
     def compute_cuboid(self, selector):
         """ 
