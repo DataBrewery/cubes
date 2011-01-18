@@ -27,7 +27,7 @@ Prepare aggregation browser:
 
 .. code-block:: python
 
-    browser = cubes.browsers.MongoSimpleCubeBrowser(cube = cube, 
+    browser = cubes.browse.MongoSimpleCubeBrowser(cube = cube, 
                                                          collection = "cube",
                                                          database = database)
 

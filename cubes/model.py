@@ -4,6 +4,8 @@ import re
 import urllib2
 import urlparse
 
+from cubes.util import IgnoringDictionary
+
 try:
     import json
 except ImportError:
@@ -225,7 +227,7 @@ class Model(object):
                 d[key] = value
                 
         
-        out = base.IgnoringDictionary()
+        out = IgnoringDictionary()
 
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
@@ -372,7 +374,7 @@ class Cube(object):
     def to_dict(self):
         """Convert to dictionary"""
 
-        out = base.IgnoringDictionary()
+        out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("measures", self.measures)
@@ -645,7 +647,7 @@ class Dimension(object):
     def to_dict(self):
         """Return dict representation of the dimension"""
 
-        out = base.IgnoringDictionary()
+        out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("default_hierarchy_name", self.default_hierarchy_name)
@@ -788,7 +790,7 @@ class Hierarchy(object):
     def to_dict(self):
         """Convert to dictionary"""
 
-        out = base.IgnoringDictionary()
+        out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("levels", self.level_names)
@@ -846,7 +848,7 @@ class Level(object):
     def to_dict(self):
         """Convert to dictionary"""
 
-        out = base.IgnoringDictionary()
+        out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("key", self.key)

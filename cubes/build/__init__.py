@@ -1,4 +1,4 @@
-from mongo import *
+from cubes.backends.mongo.builder import *
 
 __all__ = [
     "MongoSimpleCubeBuilder"

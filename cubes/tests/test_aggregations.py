@@ -10,7 +10,7 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         self.model_path = os.path.join(cubes.tests.tests_path, 'model')
         self.model = cubes.model_from_path(self.model_path)
         self.cube = self.model.cubes["contracts"]
-        self.browser = cubes.browsers.AggregationBrowser(self.cube)
+        self.browser = cubes.AggregationBrowser(self.cube)
     
     def test_basics(self):
         dim = self.browser.dimension_object("date")

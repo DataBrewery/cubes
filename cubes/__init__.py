@@ -4,13 +4,12 @@ from base import *
 from cubes.model import *
 from cubes.view_builder import *
 
-import utils
-import builders
-import browsers
-
-# Initialize logging
+import util
+import browse
+import build
 
 import logging
+
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
                     # datefmt='%a, %d %b %Y %H:%M:%S',
@@ -25,5 +24,8 @@ __all__ = [
     "Cube",
     "Dimension",
     "Hierarchy",
-    "Level"
+    "Level",
+    "AggregationBrowser",
+    "Cuboid",
+    "PointCut",
 ]

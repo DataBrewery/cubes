@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc']
 autoclass_content = 'init'
-autodoc_default_flags = ['members', 'inherited-members']
+autodoc_default_flags = ['members']
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 

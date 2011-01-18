@@ -1,6 +1,6 @@
 Utility functions
 +++++++++++++++++
 
-.. automodule:: cubes.utils
+.. automodule:: cubes.util
     :members:
 

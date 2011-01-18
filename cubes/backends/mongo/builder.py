@@ -1,4 +1,4 @@
-import cubes.utils as utils
+import cubes.util as utils
 import cubes.base as base
 
 import itertools
@@ -79,7 +79,7 @@ class MongoSimpleCubeBuilder(object):
         
         #. Compute all dimension combinations (for all levels if there are any hierarchies). Each
            combination is called `selector` and is represented by a list of tuples: (dimension, levels).
-           For more information see: :meth:`cubes.utils.compute_dimension_cell_selectors`.
+           For more information see: :meth:`cubes.util.compute_dimension_cell_selectors`.
 
         #. Compute aggregations for each point within dimension selector. Use MongoDB group function
            (alternative to map-reduce).
