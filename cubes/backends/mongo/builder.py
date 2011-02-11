@@ -16,7 +16,7 @@ class MongoSimpleCubeBuilder(object):
     def __init__(self, cube, database, 
                     fact_collection, 
                     cube_collection = None,
-                    measures = ["amount"],
+                    measures = None,
                     aggregate_flag_field = "_is_aggregate",
                     required_dimensions = ["date"]):
         """Creates simple cube builder in mongo. See :meth:`MongoSimpleCubeBuilder.compute` for more 
@@ -62,7 +62,10 @@ class MongoSimpleCubeBuilder(object):
         self.required_dimensions = dims
         self.measure_agg = None
         self.selectors = None
-
+        
+        if measures == None:
+            measures = ["amount"]
+            
         self.measures = measures
         
         self.log = logging.getLogger(base.default_logger_name())
@@ -185,7 +188,7 @@ class MongoSimpleCubeBuilder(object):
         # Prepare group functions + reduce + finalize
         #
 
-        initial = { "record_count": 0, "amount_sum": 0}
+        initial = { "record_count": 0 }
 
         aggregate_lines = []
         for measure in self.measures:
