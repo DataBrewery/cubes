@@ -15,7 +15,7 @@ test_cases = [
               ModelValidatorTestCase,
               ModelFromDictionaryTestCase, 
               ModelTestCase,
-              QueryGeneratorTestCase,
+              #QueryGeneratorTestCase,
               AggregationsBasicsTestCase,
               CombinationsTestCase,
               CubeComputationTestCase
