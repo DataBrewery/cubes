@@ -576,6 +576,16 @@ class Dimension(object):
     def levels(self):
         """Get list of hierarchy levels (unordered)"""
         return self._levels.values()
+
+    @property
+    def levelsByDefaultHierarchy(self):
+        """Get list of levels in the order specified by the hierarchy"""
+        if self.default_hierarchy:
+            orderedLevels = []
+            for level in self.default_hierarchy.levels:
+                orderedLevels.append(level)
+            return orderedLevels
+
     
     def level(self, name):
         """Get level by name."""

@@ -30,10 +30,10 @@
     },
     "hierarchies": {
         "default": {
-            "levels": ["year", "month"]
-        },
-        "ymd": {
             "levels": ["year", "month", "day"]
+        },
+        "ym": {
+            "levels": ["year", "month"]
         }
     }
 }
