@@ -102,7 +102,7 @@ class Cuboid(object):
         return cuboid
 
     def cut_for_dimension(self, dimension):
-        """Return a cut for given `dimension`"""
+        """Return first found cut for given `dimension`"""
         dimension = self.browser.cube.dimension(dimension)
 
         cut_dimension = None

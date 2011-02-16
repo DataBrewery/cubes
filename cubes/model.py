@@ -11,6 +11,10 @@ try:
 except ImportError:
     import simplejson as json
 
+class ModelError(Exception):
+    """Model related exception."""
+    pass
+
 def load_model(resource):
     """Load logical model from object reference. `ref` can be an URL, local file path or file-like
     object."""
@@ -70,14 +74,14 @@ def model_from_path(path):
     info_path = os.path.join(path, 'model.json')
 
     if not os.path.exists(info_path):
-        raise RuntimeError('main model info %s does not exist' % info_path)
+        raise ModelError('main model info %s does not exist' % info_path)
 
     a_file = open(info_path)
     model_desc = json.load(a_file)
     a_file.close()
 
     if not "name" in model_desc:
-        raise KeyError("model has no name")
+        raise ModelError("model has no name")
 
     # Find model object files and load them
 
@@ -87,12 +91,12 @@ def model_from_path(path):
     if not "dimensions" in model_desc:
         model_desc["dimensions"] = {}
     elif type(model_desc["dimensions"]) != dict:
-        raise ValueError("dimensions object in model file be a dictionary")
+        raise ModelError("dimensions object in model file be a dictionary")
 
     if not "cubes" in model_desc:
         model_desc["cubes"] = {}
     elif type(model_desc["cubes"]) != dict:
-        raise ValueError("cubes object in model file should be a dictionary")
+        raise ModelError("cubes object in model file should be a dictionary")
 
     for dirname, dirnames, filenames in os.walk(path):
         for filename in filenames:
@@ -105,12 +109,12 @@ def model_from_path(path):
             if prefix == 'dim' or prefix == 'dimension':
                 desc = _model_desc_from_json_file(obj_path)
                 if "name" not in desc:
-                    raise KeyError("Dimension file '%s' has no name key" % obj_path)
+                    raise ModelError("Dimension file '%s' has no name key" % obj_path)
                 model_desc["dimensions"][desc["name"]] = desc
             elif prefix == 'cube':
                 desc = _model_desc_from_json_file(obj_path)
                 if "name" not in desc:
-                    raise KeyError("Cube file '%s' has no name key" % obj_path)
+                    raise ModelError("Cube file '%s' has no name key" % obj_path)
                 model_desc["cubes"][desc["name"]] = desc
 
     return model_from_dict(model_desc)
@@ -192,12 +196,17 @@ class Model(object):
     	
     	if dims and type(dims) == list:
     	    for dim_name in dims:
-    	        dim = self.dimension(dim_name)
-    	        if not dim:
+                try:
+    	            dim = self.dimension(dim_name)
+    	        except:
     	            raise KeyError("There is no dimension '%s' for cube '%s' in model '%s'" % (dim_name, cube_name, self.name))
                 cube.add_dimension(dim)
 
         return cube
+
+    def cube(self, name):
+        """Get a cube with name `name`."""
+        return self.cubes[name]
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name"""
@@ -338,37 +347,51 @@ class Cube(object):
         self.measures = info.get("measures", [])
         self.attributes = info.get("attributes", [])
         self.model = None
-        self._dimensions = {}
         self.mappings = info.get("mappings", {})
         self.fact = info.get("fact", None)
         self.joins = info.get("joins", [])
+
+        # FIXME: Replace this with ordered dictionary in Python 3
+        self._dimensions = {}
+        self._dimension_order = []
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name"""
 
         # FIXME: Do not allow to add dimension if one already exists
+        if dimension.name in self._dimensions:
+            raise Exception("Dimension with name %s already exits" % dimension.name)
         self._dimensions[dimension.name] = dimension
+        self._dimension_order.append(dimension.name)
         if self.model:
             self.model.add_dimension(dimension)
 
     def remove_dimension(self, dimension):
         """Remove a dimension from receiver"""
-        del self._dimensions[dimension.name]
+        dim = self.dimension(dimension)
+
+        self._dimension_order.remove(dim.name)
+        del self._dimensions[dim.name]
 
     @property
     def dimensions(self):
-        return self._dimensions.values()
+        dims = [self._dimensions[name] for name in self._dimension_order]
+        return dims
 
     def dimension(self, name):
         """Get dimension by name"""
         
         # Fixme: check for existence
-        if type(name) == str:
-            return self._dimensions[name]
+        if type(name) == str or type(name) == unicode:
+            if name in self._dimensions:
+                return self._dimensions[name]
+            else:
+                raise ModelError("Invalid dimension reference '%s' for cube '%s'" %
+                                    (name, self.name))
         elif issubclass(name.__class__, Dimension):
              return name
         else:
-            raise AttributeError("Invalid dimension or dimension reference '%s' for cube '%s'" %
+            raise ModelError("Invalid dimension or dimension reference '%s' for cube '%s'" %
                                     (name, self.name))
 
     def to_dict(self):
@@ -402,20 +425,20 @@ class Cube(object):
         #                                 "using 'fact' as default dataset/table name)" % self.name) )
 
         # 1. collect all fields(attributes) and check whether there is a mapping for that
-        for measure in self.measures:
-            try:
-                mapping = self.fact_field_mapping(measure)
-            except KeyError:
-                results.append( ('warning', "No mapping for measure '%s' in cube '%s'" % (measure, self.name)) )
+        # for measure in self.measures:
+        #     try:
+        #         mapping = self.fact_field_mapping(measure)
+        #     except KeyError:
+        #         results.append( ('warning', "No mapping for measure '%s' in cube '%s'" % (measure, self.name)) )
 
-        for dimension in self.dimensions:
-            attributes = dimension.all_attributes()
-            for attribute in attributes:
-                try:
-                    mapping = self.dimension_field_mapping(dimension, attribute)
-                except KeyError:
-                    results.append( ('warning', "No mapping for dimension '%s' attribute '%s' in cube '%s' " \
-                                                "(using default mapping)" % (dimension.name, attribute, self.name)) )
+        # for dimension in self.dimensions:
+        #     attributes = dimension.all_attributes()
+        #     for attribute in attributes:
+        #         try:
+        #             mapping = self.dimension_field_mapping(dimension, attribute)
+        #         except KeyError:
+        #             results.append( ('warning', "No mapping for dimension '%s' attribute '%s' in cube '%s' " \
+        #                                         "(using default mapping)" % (dimension.name, attribute, self.name)) )
 
 
         # 2. check whether dimension attributes are unique
@@ -444,45 +467,6 @@ class Cube(object):
         # }
         # 
         return results
-
-    def measure_mapping(self, measure):
-        """Return mapping for a measure"""
-
-        mapped = self.mappings.get(measure)
-        if not mapped:
-            mapped = self.mappings.get("fact." + measure)
-
-        if not mapped:
-            mapped = measure
-            # FIXME: raise this on "strict mappings"?
-            # raise KeyError("Cube '%s' has no mapping for measure '%s'" % (self.name, measure))
-
-        return mapped
-
-    def dimension_field_mapping(self, dimension, attribute):
-        """Return mapping for a dimension attribute. If there is no mapping defined return default mapping where
-        table/dataset name is same as dimension name and column/field name is same as dimension attribute
-
-        Return: string
-        """
-
-        reference = "%s.%s" % (dimension.name, attribute)
-        physical = self.mappings.get(reference)
-
-        # If there is no mapping, use default mapping
-        if not physical:
-            physical = reference
-
-        return (physical, reference)
-
-    def fact_field_mapping(self, field):
-        """Return physical field name"""
-
-        physical = self.mappings.get(field)
-        if not physical:
-            physical = field
-
-        return (physical, field)
 
 class Dimension(object):
     """

@@ -55,7 +55,7 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         cut = cuboid.cut_for_dimension("date")
         self.assertEqual(cut.dimension, self.cube.dimension("date"))
 
-        self.assertRaises(KeyError, cuboid.cut_for_dimension, "someunknown")
+        self.assertRaises(cubes.ModelError, cuboid.cut_for_dimension, "someunknown")
         
         cut = cuboid.cut_for_dimension("cpv")
         self.assertEqual(cut, None)

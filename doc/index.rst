@@ -16,6 +16,7 @@ Contents:
    computing
    tools
    api/index
+   notes
 
 Indices and tables
 ==================

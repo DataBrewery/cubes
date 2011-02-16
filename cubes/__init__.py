@@ -2,7 +2,7 @@
 
 from base import *
 from cubes.model import *
-from cubes.view_builder import *
+# from cubes.view_builder import *
 
 import util
 import browse

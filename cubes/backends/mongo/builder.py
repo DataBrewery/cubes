@@ -1,5 +1,6 @@
-import cubes.util as utils
-import cubes.base as base
+import cubes.util
+import cubes.base
+import base
 
 import itertools
 import logging
@@ -65,7 +66,7 @@ class MongoSimpleCubeBuilder(object):
 
         self.measures = measures
         
-        self.log = logging.getLogger(base.default_logger_name())
+        self.log = logging.getLogger(cubes.base.default_logger_name())
         
         self.cuboid_record_name = "_selector"
         self.cell_reference_record_name = "_cell"
@@ -94,7 +95,7 @@ class MongoSimpleCubeBuilder(object):
 
         self.cube_collection.remove({self.aggregate_flag_field: True})
 
-        selectors = utils.compute_dimension_cell_selectors(self.cube.dimensions,
+        selectors = cubes.util.compute_dimension_cell_selectors(self.cube.dimensions,
                                                            self.required_dimensions)
 
         self.log.info("got %d dimension level selectors ", len(selectors))
@@ -141,11 +142,11 @@ class MongoSimpleCubeBuilder(object):
             level_names = []
             for level in levels:
                 level_names.append(level.name)
-                mapped = self.cube.dimension_field_mapping(dim, level.key)
+                mapped = base.dimension_field_mapping(self.cube, dim, level.key)
                 key_maps.append(mapped)
                 
                 for field in level.attributes:
-                    mapped = self.cube.dimension_field_mapping(dim, field)
+                    mapped = base.dimension_field_mapping(self.cube, dim, field)
                     attrib_maps.append((mapped[0], field))
 
             selector_record[dim.name] = level_names
@@ -171,7 +172,7 @@ class MongoSimpleCubeBuilder(object):
             fields.append(mapped)
         
         for measure in self.measures:
-            mapping = self.cube.fact_field_mapping(measure)
+            mapping = base.fact_field_mapping(self.cube, measure)
             fields.append(mapping[0])
             
         self.log.info("condition: %s", condition)
@@ -213,7 +214,7 @@ class MongoSimpleCubeBuilder(object):
                 dimension, levels = dimsel
                 path = []
                 for level in levels:
-                    mapped = self.cube.dimension_field_mapping(dimension, level.key)
+                    mapped = base.dimension_field_mapping(self.cube, dimension, level.key)
                     path.append(record[mapped[0]])
                 cell[dimension.name] = path
 

@@ -1,5 +1,6 @@
 from cubes.base import *
 import cubes.util
+import base
 
 class MongoSimpleCubeBrowser(AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
@@ -67,7 +68,7 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
             # in selection condition
             for i, value in enumerate(path):
                 level = dim_levels[i]
-                mapped = self.cube.dimension_field_mapping(dimension, level.key)
+                mapped = base.dimension_field_mapping(self.cube, dimension, level.key)
                 dim_conditions[mapped[0]] = value
                 
         # Expand dictionary: convert key1.key2 = value into 'key1 : { key2 : value}'
