@@ -20,14 +20,14 @@ class ModelTestCase(unittest.TestCase):
         dim = cubes.Dimension("date", info)
         self.assertEqual(len(dim.levels), 3, "invalid number of levels for date dimension")
         self.assertEqual(len(dim.hierarchies), 2, "invalid number of hierarchies for date dimension")
-        self.assertItemsEqual(dim.level_names, ["year", "day", "month"],
+        self.assertItemsEqual(dim.level_names, ["year", "month", "day"],
                                         "invalid levels %s" % dim.level_names)
-        self.assertItemsEqual(dim.hierarchies.keys(), ["default", "ymd"],
+        self.assertItemsEqual(dim.hierarchies.keys(), ["default", "ym"],
                                         "invalid hierarchies %s" % dim.hierarchies.keys())
         self.assertEqual(dim.hierarchies["default"], dim.default_hierarchy, "Default hierarchy does not match")
 
         hlevels = dim.default_hierarchy.levels
-        self.assertEqual(len(hlevels), 2, "Default hierarchy level count is not 2 (%s)" % hlevels)
+        self.assertEqual(len(hlevels), 3, "Default hierarchy level count is not 3 (%s)" % hlevels)
         
 
         hlevels = dim.hierarchies["default"].levels

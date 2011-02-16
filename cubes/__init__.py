@@ -2,11 +2,11 @@
 
 from base import *
 from cubes.model import *
-# from cubes.view_builder import *
 
 import util
 import browse
 import build
+import backends
 
 import logging
 
@@ -28,4 +28,5 @@ __all__ = [
     "AggregationBrowser",
     "Cuboid",
     "PointCut",
+    "MongoSimpleCubeBuilder",
 ]

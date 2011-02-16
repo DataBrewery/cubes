@@ -146,11 +146,13 @@ def compute_dimension_cell_selectors(dimensions, required = []):
         if dim not in dimensions:
             raise AttributeError("Required dimension '%s' does not exist in list of computed "\
                                  "dimensions" % dim.name)
-        required_nodes.append( (dim, dim.levels) )
+        required_nodes.append( (dim, dim.default_hierarchy.levels) )
+
+
 
     for dim in dimensions:
-        all_nodes.append( (dim, dim.levels) )        
-        
+        all_nodes.append( (dim, dim.default_hierarchy.levels) )
+
     combos = combine_nodes(all_nodes, required_nodes)
 
     result = []

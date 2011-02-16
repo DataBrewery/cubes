@@ -560,7 +560,7 @@ class Dimension(object):
     def levels(self):
         """Get list of hierarchy levels (unordered)"""
         return self._levels.values()
-    
+
     def level(self, name):
         """Get level by name."""
         if name not in self._levels:
