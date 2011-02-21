@@ -34,7 +34,7 @@ class SimpleSQLBuilder(object):
         else:
             self.fact_table = self.cube.name
 
-        self.fact_alias = "fact"
+        self.fact_alias = "f"
         
         self.dimension_table_prefix = dimension_table_prefix
      
@@ -188,11 +188,13 @@ class SimpleSQLBuilder(object):
         self.tables = set([self.fact_table])
         for mapping in self.mappings.values():
             table = self.split_field(mapping)[0]
-            self.logger.debug("found mapping table: '%s'" % (table))
-            self.tables.add(table)
+            if table:
+                self.logger.debug("found mapping table: '%s'" % (table))
+                self.tables.add(table)
         
         self.table_aliases = {}
-        self.table_aliases[self.fact_table] = "f"
+        self.table_aliases[self.fact_table] = self.fact_alias
+
         index = 1
         for table in self.tables:
             if table not in self.table_aliases:
@@ -212,8 +214,11 @@ class SimpleSQLBuilder(object):
         self.aliased_mappings = {}
         for (field, mapping) in self.mappings.items():
             (table, column) = self.split_field(mapping)
-            alias = self.table_aliases[table]
-            aliased_mapping = self.join_field(alias, column)
+            if table:
+                alias = self.table_aliases[table]
+                aliased_mapping = self.join_field(alias, column)
+            else:
+                aliased_mapping = self.join_field(self.fact_alias, column)
             self.aliased_mappings[field] = aliased_mapping
 
         for old, new in self.aliased_mappings.items():
