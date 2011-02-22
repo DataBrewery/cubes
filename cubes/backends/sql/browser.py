@@ -43,7 +43,16 @@ class SimpleSQLBrowser(base.AggregationBrowser):
         # Create query
         query = CubeQuery(cuboid, self.view)
         print "EXECUTING SQL: %s" % str(query.aggregate_statement())
-        return self.connection.execute(query.aggregate_statement())
+        row = self.connection.execute(query.aggregate_statement()).fetchone()
+        summary = {}
+        if row:
+            for field in query.fields:
+                summary[field] = row[field]
+
+        result = base.AggregationResult()
+        result.summary = summary
+        
+        return result
         
     def selected_fields(self, cuboid):
         selected_fields = []
@@ -67,6 +76,7 @@ class CubeQuery(object):
         self.cube = cuboid.cube
         self.view = view
         self.condition_expression = None
+        self.fields = None
         
     def fact_statement(self, fact_id):        
         self._prepare()
@@ -89,8 +99,11 @@ class CubeQuery(object):
             label = measure + "_sum"
             s = functions.sum(self.column(measure)).label(label)
             selection.append(s)
+            self.fields.append(label)
 
-        rcount = functions.count().label("record_count")
+        rcount_label = "record_count"
+        rcount = functions.count().label(rcount_label)
+        self.fields.append(rcount_label)
         selection.append(rcount)
 
         stmt = expression.select(selection, 
@@ -104,12 +117,13 @@ class CubeQuery(object):
         self.conditions = []
         self.group_by = []
         self.selection = []
+        self.fields = []
 
         for cut in self.cuboid.cuts:
             if not isinstance(cut, base.PointCut):
                 raise Exception("Only point cuts are supported in SQL browser at the moment")
             
-            dim = cut.dimension
+            dim = self.cube.dimension(cut.dimension)
             path = cut.path
             levels = dim.default_hierarchy.levels
 
@@ -128,6 +142,7 @@ class CubeQuery(object):
                     column = self.column(attr, dim)
                     self.group_by.append(column)
                     self.selection.append(column)
+                    self.fields.append(column.name)
                     
         self.condition = expression.and_(*self.conditions)
         

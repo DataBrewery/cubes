@@ -20,6 +20,7 @@ __all__ = [
     "model_from_url",
     "model_from_path",
     "model_from_dict",
+    "cuts_from_string",
     "Model",
     "Cube",
     "Dimension",

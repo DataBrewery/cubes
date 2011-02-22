@@ -8,7 +8,7 @@ from utils import local, local_manager, url_map
 import models
 import controllers
 
-url_map = Map([
+rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
     Rule('/model', 
                         endpoint = (controllers.ModelController, 'show')),
@@ -32,20 +32,32 @@ url_map = Map([
 
 class Slicer(object):
 
-    def __init__(self, model):
+    def __init__(self, config = None):
+        """Create a WSGI server for providing OLAP web service.
+        
+        API:
+            * ``/model`` - get model metadata
+            * ``/model/dimension/dimension_name`` - get dimension metadata
+            * ``/model/dimension/dimension_name/levels`` - get levels of default dimension hierarchy
+            * ``/model/dimension/dimension_name/level_names`` - get just names of levels 
+            * ``/aggregate`` - return aggregation result
+        
+        
+        """
+        
         local.application = self
-        self.model = model
+        self.config = config
 
     def __call__(self, environ, start_response):
         local.application = self
         request = Request(environ)
-        urls = url_map.bind_to_environ(environ)
+        urls = rules.bind_to_environ(environ)
         
         try:
             endpoint, params = urls.match()
-
+            print "ENDPOINT: %s PARAMS: %s" % (endpoint, params)
             (controller_class, action) = endpoint
-            controller = controller_class()
+            controller = controller_class(self.config)
             
             response = self.dispatch(controller, action, request, params)
         except HTTPException, e:
@@ -54,10 +66,13 @@ class Slicer(object):
                                [local_manager.cleanup])
         
     def dispatch(self, controller, action_name, request, params):
+        controller.initialize()
+
         controller.request = request
         controller.params = params
-        controller.model = self.model
         
         action = getattr(controller, action_name)
+        retval = action()
+        controller.finalize()
 
-        return action()
+        return retval

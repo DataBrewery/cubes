@@ -1,4 +1,6 @@
 import logging
+import json
+import decimal
 
 def default_logger_name():
     return 'brewery.cubes'
@@ -154,6 +156,47 @@ class Cuboid(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+CUT_STRING_SEPARATOR = '|'
+DIMENSION_STRING_SEPARATOR = ':'
+PATH_STRING_SEPARATOR = ','
+
+def cuts_from_string(string):
+    """Return list of cuts specified in `string`.
+    
+    Grammar::
+    
+        <list> ::= <cut> | <cut> '|' <list>
+        <cut> ::= <dimension> ':' <path>
+        <dimension> ::= <identifier>
+        <path> ::= <value> | <value> ',' <path>
+        
+    Examples::
+
+        date:2004
+        date:2004,1
+        date:2004,1|class=5
+        date:2004,1,1|category:5,10,12|class:5
+
+    The characters '|', ':' and ',' are configured in `CUT_STRING_SEPARATOR`,
+    `DIMENSION_STRING_SEPARATOR`, `PATH_STRING_SEPARATOR` respectively.
+    """
+    cut_strings = string.split(CUT_STRING_SEPARATOR)
+
+    if not cut_strings:
+        return []
+
+    cuts = []
+    
+    for cut_string in cut_strings:
+        (dimension_name, path_string) = cut_string.split(DIMENSION_STRING_SEPARATOR)
+        
+        path = path_string.split(PATH_STRING_SEPARATOR)
+        if not path:
+            path = []
+        cut = PointCut(dimension_name, path)
+        cuts.append(cut)
+        
+    return cuts
 
 class PointCut(object):
     """Object describing way of slicing a cube (cuboid) through point in a dimension"""
@@ -161,6 +204,20 @@ class PointCut(object):
     def __init__(self, dimension, path):
         self.dimension = dimension
         self.path = path
+
+    def __str__(self):
+        """Return string representation of point cut, you can use it in URLs"""
+        strings = [str(value) for value in self.path]
+        path_str = PATH_STRING_SEPARATOR.join(strings)
+        
+        if type(self.dimension) == str or type(self.dimension) == unicode:
+            dim_name = self.dimension
+        else:
+            dim_name = self.dimension.name
+            
+        string = dim_name + DIMENSION_STRING_SEPARATOR + path_str
+        
+        return string        
 
     def __repr__(self):
         if type(self.dimension) == str:
@@ -180,3 +237,32 @@ class PointCut(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+
+class AggregationResult(object):
+    """docstring for AggregationResult"""
+    def __init__(self):
+        super(AggregationResult, self).__init__()
+        self.summary = {}
+        self.drilldown = {}
+        self.remainder = {}
+
+    def __dict__(self):
+        d = {}
+        
+        d["summary"] = self.summary
+        d["drilldown"] = self.drilldown
+        d["remainder"] = self.remainder
+        
+        return d
+
+    def as_json(self):
+        def default(o):
+            if type(o) == decimal.Decimal:
+                return float(o)
+            else:
+                return JSONEncoder.default(self, o)
+
+        encoder = json.JSONEncoder(default = default, indent = 4)
+        json_string = encoder.encode(self.__dict__())
+
+        return json_string
