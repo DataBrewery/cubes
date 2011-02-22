@@ -1,7 +1,8 @@
-from cubes.base import *
+import cubes.base as base
 import sqlalchemy
+import sqlalchemy.sql.expression as expression
 
-class SimpleSQLBrowser(AggregationBrowser):
+class SimpleSQLBrowser(base.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
     def __init__(self, cube, connection, view_name, schema = None):
@@ -15,65 +16,98 @@ class SimpleSQLBrowser(AggregationBrowser):
         """
         super(SimpleSQLBrowser, self).__init__(cube)
 
-        self.connection = connection
         self.view_name = view_name
 
-        self.connection = connection
-        self.engine = self.connection.engine
-        
-        self.metadata = sqlalchemy.MetaData()
-        self.metadata.bind = self.engine
-        self.metadata.reflect()
+        if connection:
+            self.connection = connection
+            self.engine = self.connection.engine
+            self.metadata = sqlalchemy.MetaData()
+            self.metadata.bind = self.engine
+            self.metadata.reflect()
+
+            self.view = sqlalchemy.Table(self.view_name, self.metadata, autoload = True, schema = schema)
+        else:
+            self.connection = None
+            self.engine = None
+            self.view = None
+
         self.schema = schema
 
-        self.table = sqlalchemy.Table(self.view_name, self.metadata, autoload = True, schema = schema)
+        self.cube = cube
+        
         
     def aggregate(self, cuboid, measures = None, drill_down = None):
         """See :meth:`cubes.browsers.Cuboid.aggregate`."""
         
-        ###################################################
-        # 1. Prepare cuboid selector
-
-        if drill_down:
-            drill_dimension = self.cube.dimension(drill_down)
-        else:
-            drill_dimension = None
-            
-        selector = self.selector_object(cuboid, drill_dimension)
-        condition = { self.cuboid_selector_name: selector }
-        condition[self.aggregate_flag_field] = True
+        # Create query
+        query = CubeQuery(cuboid, self.view)
+        return self.connection.execute(query.detail_statement())
         
-        if drill_down:
-            drill_dimension = self.cube.dimension(drill_down)
-        else:
-            drill_dimension = None
-
-        ###################################################
-        # 2. Prepare dimension filter conditions
-        
-        dim_conditions = {}
+    def selected_fields(self, cuboid):
+        selected_fields = []
         for cut in cuboid.cuts:
-            if type(cut) != PointCut:
-                raise AttributeError("only point cuts are currently supported for mongo aggregation browsing")
+            if not isinstance(cut, base.PointCut):
+                raise Exception("Only point cuts are supported in SQL browser at the moment")
+            
+            for dimension in cut.dimensions:
+                for level in dimension.default_hierarchy.levels:
+                    for attribute in level.attributes:
+                        field = dimension.name + "." + attribute
+                        selected_fields.append(field)
+                        
+        return selected_fields
+        
+class CubeQuery(object):
+    """docstring for CuboidQuery"""
+    def __init__(self, cuboid, view):
+        super(CubeQuery, self).__init__()
+        self.cuboid = cuboid
+        self.view = view
+        self.condition_expression = None
+        
+    def fact_statement(self, fact_id):        
+        # self._prepare_condition_expression()
+        self._prepare_conditions()
 
-            dimension = self.cube.dimension(cut.dimension)
+        key_condition = self.key_column == fact_id
+
+        if self.conditions:
+            condition = expression.and_(self.condition, key_condition)
+        else:
+            condition = key_condition
+
+        stmt = self.view.select(condition)
+        return str(stmt)
+
+    def _prepare_conditions(self):
+        self.conditions = []
+        for cut in self.cuboid.cuts:
+            if not isinstance(cut, base.PointCut):
+                raise Exception("Only point cuts are supported in SQL browser at the moment")
+            
+            dim = cut.dimension
             path = cut.path
+            levels = dim.default_hierarchy.levels
 
-            dim_levels = dimension.default_hierarchy.levels
+            if len(path) > len(levels):
+                raise Exception("Path has more items (%d) than there are levels (%d) "
+                                "in dimension %s" % (len(path), len(levels), dim.name))
 
-            # Get physical field names from field mappings specified in cube and use them
-            # in selection condition
             for i, value in enumerate(path):
-                level = dim_levels[i]
-                mapped = base.dimension_field_mapping(self.cube, dimension, level.key)
-                dim_conditions[mapped[0]] = value
+                column = self.column(levels[i].key, dim)
+                self.conditions.append(column == value)
                 
-        # Expand dictionary: convert key1.key2 = value into 'key1 : { key2 : value}'
-        dim_conditions = cubes.util.expand_dictionary(dim_conditions)
-        condition.update(dim_conditions)
+        self.condition = expression.and_(*self.conditions)
+
+    def column(self, field, dimension = None):
+        if dimension:
+            name = dimension.name + '.' + field
+        else:
+            name = field
+
+        return self.view.c[name]
+
+    @property
+    def key_column(self):
+        return self.view.c["id"]
         
-        ###################################################
-        # 3. Perform selection - find records in collection
-        
-        cursor = self.collection.find(spec = condition)
-        return cursor
