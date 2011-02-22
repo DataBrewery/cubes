@@ -42,7 +42,6 @@ class Slicer(object):
             * ``/model/dimension/dimension_name/level_names`` - get just names of levels 
             * ``/aggregate`` - return aggregation result
         
-        
         """
         
         local.application = self
@@ -55,7 +54,7 @@ class Slicer(object):
         
         try:
             endpoint, params = urls.match()
-            print "ENDPOINT: %s PARAMS: %s" % (endpoint, params)
+
             (controller_class, action) = endpoint
             controller = controller_class(self.config)
             
