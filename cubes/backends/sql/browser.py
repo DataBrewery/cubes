@@ -1,6 +1,7 @@
 import cubes.base as base
 import sqlalchemy
 import sqlalchemy.sql.expression as expression
+import sqlalchemy.sql.functions as functions
 
 class SimpleSQLBrowser(base.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
@@ -62,12 +63,12 @@ class CubeQuery(object):
     def __init__(self, cuboid, view):
         super(CubeQuery, self).__init__()
         self.cuboid = cuboid
+        self.cube = cuboid.cube
         self.view = view
         self.condition_expression = None
         
     def fact_statement(self, fact_id):        
-        # self._prepare_condition_expression()
-        self._prepare_conditions()
+        self._prepare()
 
         key_condition = self.key_column == fact_id
 
@@ -75,12 +76,31 @@ class CubeQuery(object):
             condition = expression.and_(self.condition, key_condition)
         else:
             condition = key_condition
+        
+        stmt = expression.select(whereclause = condition, from_obj = self.view)
+        return stmt
 
-        stmt = self.view.select(condition)
-        return str(stmt)
+    def aggregate_statement(self):
+        self._prepare()
+        
+        selection = self.selection[:]
+        for measure in self.cube.measures:
+            label = measure + "_sum"
+            s = functions.sum(self.column(measure)).label(label)
+            selection.append(s)
 
-    def _prepare_conditions(self):
+        stmt = expression.select(selection, 
+                                 whereclause = self.condition, 
+                                 from_obj = self.view,
+                                 group_by = self.group_by)
+        
+        return stmt
+
+    def _prepare(self):
         self.conditions = []
+        self.group_by = []
+        self.selection = []
+
         for cut in self.cuboid.cuts:
             if not isinstance(cut, base.PointCut):
                 raise Exception("Only point cuts are supported in SQL browser at the moment")
@@ -94,11 +114,19 @@ class CubeQuery(object):
                                 "in dimension %s" % (len(path), len(levels), dim.name))
 
             for i, value in enumerate(path):
-                column = self.column(levels[i].key, dim)
+                level = levels[i]
+                # Prepare condition: dimension.level_key = path_value
+                column = self.column(level.key, dim)
                 self.conditions.append(column == value)
                 
+                # Collect grouping columns
+                for attr in level.attributes:
+                    column = self.column(attr, dim)
+                    self.group_by.append(column)
+                    self.selection.append(column)
+                    
         self.condition = expression.and_(*self.conditions)
-
+        
     def column(self, field, dimension = None):
         if dimension:
             name = dimension.name + '.' + field

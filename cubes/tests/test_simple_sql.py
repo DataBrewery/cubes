@@ -166,7 +166,8 @@ class SQLBrowserTestCase(SQLTestCase):
         
         query = CubeQuery(self.full_cube, self.view)
         stmt = query.fact_statement(1)
-        self.assertRegexpMatches(stmt, 'view\.id =')
+        s = str(stmt)
+        self.assertRegexpMatches(s, 'view\.id =')
 
     def test_fact_with_conditions(self):
 
@@ -174,15 +175,72 @@ class SQLBrowserTestCase(SQLTestCase):
 
         query = CubeQuery(cuboid, self.view)
         stmt = query.fact_statement(1)
+        s = str(stmt)
+        self.assertRegexpMatches(s, 'WHERE')
+        self.assertRegexpMatches(s, 'view\."date\.year" =')
+        self.assertNotRegexpMatches(s, 'view\."date\.month" =')
+        self.assertNotRegexpMatches(s, 'view\."class\.[^=]*"=')
 
         cuboid = self.full_cube.slice(self.date_dim, [2010, 4])
         query = CubeQuery(cuboid, self.view)
         stmt = query.fact_statement(1)
-        self.assertRegexpMatches(stmt, 'WHERE')
-        self.assertRegexpMatches(stmt, 'view\."date\.year" =')
-        self.assertRegexpMatches(stmt, 'view\."date\.month" =')
+        s = str(stmt)
+        self.assertRegexpMatches(s, 'WHERE')
+        self.assertRegexpMatches(s, r'view\."date\.year" =')
+        self.assertRegexpMatches(s, r'view\."date\.month" =')
 
+    def test_aggregate_full(self):
+        query = CubeQuery(self.full_cube, self.view)
+        stmt = query.aggregate_statement()
+        s = str(stmt)
+        self.assertNotRegexpMatches(s, 'WHERE')
+        self.assertRegexpMatches(s, r'sum(.*amount.*) AS amount_sum')
+        self.execute(stmt)
 
+    def test_aggregate_point(self):
+        cuboid = self.full_cube.slice(self.date_dim, [2010])
+
+        query = CubeQuery(cuboid, self.view)
+        stmt = query.aggregate_statement()
+        s = str(stmt)
+        s = re.sub(r'\n', ' ', s)
+        self.assertRegexpMatches(s, r'WHERE')
+        self.assertRegexpMatches(s, r'sum(.*amount.*) AS amount_sum')
+        self.assertRegexpMatches(s, r'view\."date\.year" =')
+        self.assertRegexpMatches(s, r'GROUP BY .*date\.year')
+        self.assertNotRegexpMatches(s, r'GROUP BY .*date\.month')
+        self.assertRegexpMatches(s, r'SELECT.*date\.year.*FROM')
+        self.assertNotRegexpMatches(s, r'SELECT.*date\.month.*FROM')
+        self.assertNotRegexpMatches(s, r'cls')
+        self.execute(stmt)
+        
+        cuboid = self.full_cube.slice(self.date_dim, [2010, 4])
+
+        query = CubeQuery(cuboid, self.view)
+        stmt = query.aggregate_statement()
+        s = str(stmt)
+        self.assertRegexpMatches(s, r'GROUP BY .*date\.year')
+        self.assertRegexpMatches(s, r'GROUP BY .*date\.month')
+        self.assertRegexpMatches(s, r'SELECT .*date\.year')
+        self.assertRegexpMatches(s, r'SELECT.*date\.month')
+        self.assertRegexpMatches(s, r'SELECT.*date\.month_name')
+        self.assertNotRegexpMatches(s, r'cls')
+        self.execute(stmt)
+        
+        cuboid = self.full_cube.slice(self.class_dim, [1])
+
+        query = CubeQuery(cuboid, self.view)
+        stmt = query.aggregate_statement()
+        s = str(stmt)
+        self.assertRegexpMatches(s, r'cls')
+        self.assertRegexpMatches(s, r'group_id')
+        self.assertRegexpMatches(s, r'group_desc')
+        self.assertNotRegexpMatches(s, r'class')
+        self.execute(stmt)
+
+    def execute(self, stmt):
+        self.connection.execute(stmt)
+        
 if __name__ == '__main__':
     unittest.main()
 
