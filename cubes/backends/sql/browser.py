@@ -42,7 +42,8 @@ class SimpleSQLBrowser(base.AggregationBrowser):
         
         # Create query
         query = CubeQuery(cuboid, self.view)
-        return self.connection.execute(query.detail_statement())
+        print "EXECUTING SQL: %s" % str(query.aggregate_statement())
+        return self.connection.execute(query.aggregate_statement())
         
     def selected_fields(self, cuboid):
         selected_fields = []
@@ -88,6 +89,9 @@ class CubeQuery(object):
             label = measure + "_sum"
             s = functions.sum(self.column(measure)).label(label)
             selection.append(s)
+
+        rcount = functions.count().label("record_count")
+        selection.append(rcount)
 
         stmt = expression.select(selection, 
                                  whereclause = self.condition, 
