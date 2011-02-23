@@ -1,6 +1,7 @@
 import logging
 import sets
 import cubes.model as model
+import base
 
 class SimpleSQLBuilder(object):
     """Create denormalized SQL views based on logical model. The views are used by SQL aggregation browser
@@ -35,6 +36,15 @@ class SimpleSQLBuilder(object):
             self.fact_table = self.cube.name
 
         self.fact_alias = "f"
+        self.cube_key = self.cube.key
+
+        if not self.cube_key:
+            self.cube_key = base.DEFAULT_KEY_FIELD
+
+        self.cube_attributes = [ self.cube_key ]
+        for measure in self.cube.measures:
+            print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
+            self.cube_attributes.append(str(measure))
         
         self.dimension_table_prefix = dimension_table_prefix
      
@@ -106,7 +116,7 @@ class SimpleSQLBuilder(object):
         """
         self.logger.info("collecting fact attributes...")
         self.fact_attributes = []
-        for attribute in self.cube.measures:
+        for attribute in self.cube_attributes:
             self.fact_attributes.append(attribute)
         self.logger.debug("found: %s" % self.fact_attributes)
 
@@ -151,7 +161,7 @@ class SimpleSQLBuilder(object):
         
         for dim_attr in self.dim_attributes:
             dim, attribute = dim_attr
-            full_name = dim.name + "." + attribute
+            full_name = dim.name + "." + str(attribute)
             if full_name in self.cube.mappings:
                 mapping = self.cube.mappings[full_name]
             else:
@@ -257,7 +267,7 @@ class SimpleSQLBuilder(object):
         self.logger.info("collecting selection")
         expressions = []
         self.selected_fields = []
-        for attribute in self.cube.measures:
+        for attribute in self.cube_attributes:
             mapping = self.mapping(attribute)
             expr = "%s AS %s" % (mapping, self.quote_field(attribute))
             expressions.append(expr)
@@ -295,7 +305,7 @@ class SimpleSQLBuilder(object):
     def split_field(self, field):
         """Split field into table and field name: before first '.' is table name, everything else
         is field name. If there is no '.', then table name is None."""
-        split = field.split('.')
+        split = str(field).split('.')
         if len(split) > 1:
             table_name = split[0]
             field_name = ".".join(split[1:])
@@ -304,7 +314,7 @@ class SimpleSQLBuilder(object):
             return (None, field)
 
     def join_field(self, table, field):
-        return table + "." + field
+        return table + "." + str(field)
         
     def validate(self):
         """Validates cube, whether its specification is suficient for view creation.

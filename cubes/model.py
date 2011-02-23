@@ -331,6 +331,8 @@ class Cube(object):
     	* mappings: map logical attributes to physical dataset fields (table columns)
     	* joins
         * fact: dataset containing facts (fact table)
+        * key: fact key field (if not specified, then backend default key will be used, mostly
+          ``id`` for SLQ or ``_id`` for document based databases)
     """
 
     def __init__(self, name, info = {}):
@@ -344,12 +346,13 @@ class Cube(object):
 
         self.label = info.get("label", "")
         self.description = info.get("description", "")
-        self.measures = info.get("measures", [])
+        self.measures = attribute_list(info.get("measures", []))
         self.attributes = info.get("attributes", [])
         self.model = None
         self.mappings = info.get("mappings", {})
         self.fact = info.get("fact", None)
         self.joins = info.get("joins", [])
+        self.key = info.get("key", None)
 
         # FIXME: Replace this with ordered dictionary in Python 3
         self._dimensions = {}
@@ -400,7 +403,11 @@ class Cube(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
-        out.setnoempty("measures", self.measures)
+
+        array = []
+        for attr in self.measures:
+            array.append(attr.__dict__())
+        out.setnoempty("measures", array)
 
         dims = [dim.name for dim in self.dimensions]
 
@@ -410,6 +417,7 @@ class Cube(object):
         out.setnoempty("mappings", self.mappings)
         out.setnoempty("fact", self.fact)
         out.setnoempty("joins", self.joins)
+        out.setnoempty("key", self.key)
 
         return out
 
@@ -561,11 +569,16 @@ class Dimension(object):
         """Get list of hierarchy levels (unordered)"""
         return self._levels.values()
 
-    def level(self, name):
+    def level(self, obj):
         """Get level by name."""
-        if name not in self._levels:
-            raise KeyError("No level %s in dimension %s" % (name, self.name))
-        return self._levels[name]
+        if type(obj) == str or type(obj) == unicode:
+            if obj not in self._levels:
+                raise KeyError("No level %s in dimension %s" % (obj, self.name))
+            return self._levels[obj]
+        elif type(obj) == Level:
+            return obj
+        else:
+            raise ValueError("Unknown level object %s (should be a string or Level)" % obj)
 
     @property
     def default_hierarchy(self):
@@ -692,8 +705,15 @@ class Dimension(object):
                                                 "first attribute will be used: '%s'" 
                                                 % (level.name, self.name, attr)) )
 
-            if level.attributes and level._key and level._key not in level.attributes:
-                results.append( ('error', "Key '%s' in level '%s' in dimension '%s' in not in attribute list"
+            if level.attributes and level._key:
+                found = False
+                for attr in level.attributes:
+                    if attr.name == level._key:
+                        found = True
+                        break
+                if not found:
+                    results.append( ('error', "Key '%s' in level '%s' in dimension '%s' " \
+                                              "is not in attribute list"
                                                 % (level.key, level.name, self.name)) )
 
         return results
@@ -747,15 +767,15 @@ class Hierarchy(object):
                 level = self.dimension.level(level_name)
                 self.levels.append(level)
 
-    def levels_for_path(self, path, drill_down = False):
+    def levels_for_path(self, path, drilldown = False):
         """Returns levels for given path. If path is longer than hierarchy levels, exception is raised"""
         if not path:
-            if drill_down:
+            if drilldown:
                 return self.levels[0:1]
             else:
                 return []
 
-        if drill_down:
+        if drilldown:
             extend = 1
         else:
             extend = 0
@@ -764,6 +784,18 @@ class Hierarchy(object):
             raise AttributeError("Path %s is longer than hierarchy levels %s" % (path, self.level_names))
 
         return self.levels[0:len(path)+extend]
+
+    def next_level(self, level):
+        """Returns next level in hierarchy after `level`. If `level` is last level, returns
+        ``None``"""
+
+        level = self._dimension.level(level)
+        index = self.level_names.index(level.name)
+        if index + 1 == len(self.level_names):
+            return None
+        else:
+            return self.levels[index + 1]
+        
 
     def path_is_base(self, path):
         """Returns True if path is base path for the hierarchy. Base path is a path where there are
@@ -798,8 +830,9 @@ class Level(object):
         self.name = name
         self.label = desc.get("label", "")
         self._key = desc.get("key", None)
-        self.attributes = desc.get("attributes", [])
-        self.label_attribute = desc.get("label_attribute", "")
+        self.attributes = attribute_list(desc.get("attributes", []))
+        self._label_attribute = desc.get("label_attribute", None)
+            
         self.dimension = dimension
 
     def __eq__(self, other):
@@ -807,7 +840,7 @@ class Level(object):
             return False
         elif self.name != other.name or self.label != other.label or self._key != other._key:
             return False
-        elif self.label_attribute != other.label_attribute:
+        elif self._label_attribute != other._label_attribute:
             return False
         # elif self.dimension != other.dimension:
         #     return False
@@ -836,8 +869,11 @@ class Level(object):
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("key", self.key)
-        out.setnoempty("attributes", self.attributes)
-        out.setnoempty("label_attribute", self.label_attribute)
+        array = []
+        for attr in self.attributes:
+            array.append(attr.__dict__())
+        out.setnoempty("attributes", array)
+        out.setnoempty("label_attribute", self._label_attribute)
 
         return out
 
@@ -847,6 +883,53 @@ class Level(object):
             return self._key
         else:
             return self.attributes[0]
+            
+    @property
+    def label_attribute(self):
+        if self._label_attribute:
+            return self._label_attribute
+        else:
+            if len(self.attributes) > 1:
+                return self.attributes[1]
+            else:
+                return self.key
+
+def attribute_list(attributes):
+    """Create a list of attributes from a list of strings or dictionaries."""
+
+    if not attributes:
+        return []
+    array = []
+    for attr in attributes:
+        if type(attr) == str or type(attr) == unicode:
+            new = Attribute(name = attr)
+        else:
+            new = Attribute(**attr)
+        array.append(new)
+    return array
+
+class Attribute(object):
+    """Cube attribute - represents any fact field/column"""
+    def __init__(self, name, label = None, **kwargs):
+        super(Attribute, self).__init__()
+        self.name = name
+        self.label = label
+        
+    def __dict__(self):
+        return {"name": self.name, "label": self.label}
+        
+    def __str__(self):
+        return self.name
+        
+    def __eq__(self, other):
+        if type(other) != Attribute:
+            return False
+
+        return self.name == other.name and self.label == other.label
+        
+    def __ne__(self,other):
+        return not self.__eq__(other)
+        
 
 # class DimensionSelector(tuple):
 #     """DimensionSelector - specifies a dimension and level depth to be selected. This is utility

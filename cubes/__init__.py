@@ -21,6 +21,7 @@ __all__ = [
     "model_from_path",
     "model_from_dict",
     "cuts_from_string",
+    "attribute_list",
     "Model",
     "Cube",
     "Dimension",

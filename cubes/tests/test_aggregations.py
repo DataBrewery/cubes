@@ -80,10 +80,10 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         dim =self.cube.dimension("cpv")
         hier = dim.default_hierarchy
 
-        levels = hier.levels_for_path([], drill_down = True)
+        levels = hier.levels_for_path([], drilldown = True)
         self.assertEqual(len(levels), 1)
         self.assertEqual(levels[0].name, 'division')
-        levels = hier.levels_for_path(None, drill_down = True)
+        levels = hier.levels_for_path(None, drilldown = True)
         self.assertEqual(len(levels), 1)
         self.assertEqual(levels[0].name, 'division')
     

@@ -1,11 +1,11 @@
 import logging
 import json
 import decimal
+import copy
 
 def default_logger_name():
     return 'brewery.cubes'
 
-    import copy
 
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
@@ -28,6 +28,10 @@ class AggregationBrowser(object):
     def dimension_object(self, dimension):
         """Helper function to return proper dimension object as a subclass of Dimension.
 
+        .. Warning::
+        
+            Depreciated. Use :meth:`cubes.Cube.dimension`
+
         :Arguments:
             * `dimension` - a dimension object or a string, if it is a string, then dimension object
                 is retrieved from cube
@@ -38,23 +42,43 @@ class AggregationBrowser(object):
         else:
             return dimension
 
-    def aggregate(self, cuboid, measures = None, drill_down = None):
+    def aggregate(self, cuboid, measures = None, drilldown = None):
         """Return aggregate of a cuboid.
 
         Subclasses of aggregation browser should implement this method.
 
         :Attributes:
 
-            * `measures` - list of measures to be aggregated. By default all measures are aggregated.
-            * `drill_down` - dimension through which to drill-down, default `None`
-
-        If `drill_down` dimension is specified, then result contains aggregations for each value of
-        the dimension in next level.
-
-        If no `drill_down` dimension is specified, then result contains only aggregate of whole cuboid.
+            * `drilldown` - dimensions and levels through which to drill-down, default `None`
+            * `measures` - list of measures to be aggregated. By default all measures are
+              aggregated.
+            
+        Drill down can be specified in two ways: as a list of dimensions or as a dictionary. If it
+        is specified as list of dimensions, then cuboid is going to be drilled down on the next
+        level of specified dimension. Say you have a cuboid for year 2010 and you want to drill
+        down by months, then you specify ``drilldown = ["date"]``.
+        
+        If `drilldown` is a dictionary, then key is dimension or dimension name and value is last
+        level to be drilled-down by. If the cuboid is at `year` level and drill down is: ``{
+        "date": "day" }`` then both `month` and `day` levels are added.
+        
+        If there are no more levels to be drilled down, an exception is raised. Say your model has
+        three levels of the `date` dimension: `year`, `month`, `day` and you try to drill down by
+        `date` then ``ValueError`` will be raised.
+        
+        Retruns a :class:AggregationResult object.
         """
         raise NotImplementedError
+        
+    def facts(self, cuboid):
+        """Return list of all facts within cuboid"""
+        
+        raise NotImplementedError
 
+    def fact(self, key):
+        """Returns a single fact from cube specified by fact key `key`"""
+        raise NotImplementedError
+        
 class Cuboid(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
     def __init__(self, browser, cuts = []):
@@ -127,11 +151,11 @@ class Cuboid(object):
                 cuts.append(cut)
         return cuts
 
-    def aggregate(self, measures = None, drill_down = None):
+    def aggregate(self, measures = None, drilldown = None):
         """Return computed aggregate of the coboid.
         """
 
-        return self.browser.aggregate(self, measures, drill_down)
+        return self.browser.aggregate(self, measures, drilldown)
 
     def __eq__(self, other):
         """Cuboids are considered equal if:
