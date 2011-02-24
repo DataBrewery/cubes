@@ -868,7 +868,7 @@ class Level(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
-        out.setnoempty("key", self.key)
+        out.setnoempty("key", str(self.key))
         array = []
         for attr in self.attributes:
             array.append(attr.__dict__())

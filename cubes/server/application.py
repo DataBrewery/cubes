@@ -8,7 +8,6 @@ from utils import local, local_manager, url_map
 
 import json
 
-import models
 import controllers
 
 rules = Map([
