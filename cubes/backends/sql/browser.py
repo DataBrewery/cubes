@@ -84,9 +84,9 @@ class SimpleSQLBrowser(cubes.base.AggregationBrowser):
 
         return result
 
-    def facts(self, cuboid):
+    def facts(self, cuboid, **options):
         # Create query
-        query = CubeQuery(cuboid, self.view)
+        query = CubeQuery(cuboid, self.view, **options)
 
         query.prepare()
         statement = query.facts_statement()

@@ -188,7 +188,8 @@ DIMENSION_STRING_SEPARATOR = ':'
 PATH_STRING_SEPARATOR = ','
 
 def cuts_from_string(string):
-    """Return list of cuts specified in `string`.
+    """Return list of cuts specified in `string`. You can use this function to parse cuts encoded
+    in a URL.
     
     Grammar::
     
@@ -224,6 +225,12 @@ def cuts_from_string(string):
         cuts.append(cut)
         
     return cuts
+
+def string_from_cuts(cuts):
+    """Returns a string represeting cuts. String can be used in URLs"""
+    strings = [str(cut) for cut in cuts]
+    string = CUT_STRING_SEPARATOR.join(strings)
+    return string
 
 class PointCut(object):
     """Object describing way of slicing a cube (cuboid) through point in a dimension"""
