@@ -2,9 +2,17 @@ from werkzeug.wrappers import Response
 from werkzeug.utils import redirect
 from werkzeug.exceptions import NotFound
 import sqlalchemy
+import decimal
 
 import cubes
 import json
+
+class FixingEncoder(json.JSONEncoder):
+    def default(self, o):
+        if type(o) == decimal.Decimal:
+            return float(o)
+        else:
+            return json.JSONEncoder.default(self, o)
 
 class ApplicationController(object):
     def __init__(self, config):
@@ -27,14 +35,33 @@ class ApplicationController(object):
         return Response("CUBES OLAP Server version 0.1")
     
     def json_response(self, obj):
-        string = json.dumps(obj)
-        return Response(string, mimetype='application/json')
+
+        encoder = FixingEncoder(indent = 4)
+        json_string = encoder.encode(obj)
+
+        return Response(json_string, mimetype='application/json')
         
     def initialize(self):
         pass
         
     def finalize(self):
         pass
+        
+    def error(self, message = None, exception = None, status = None):
+        if not message:
+            message = "An unknown error occured"
+            
+        error = {}
+        error["message"] = message
+        if exception:
+            error["reason"] = str(exception)
+
+        string = json.dumps({"error": error})
+        
+        if not status:
+            status = 500
+        
+        return Response(string, mimetype='application/json', status = status)
         
 class ModelController(ApplicationController):
 
@@ -72,18 +99,49 @@ class AggregationController(ApplicationController):
 
     def finalize(self):
         self.connection.close()
-        
-    def aggregate(self):
+    
+    def prepare_cuboid(self):
         cut_string = self.request.args.get("cut")
-        print "CUT_STRING: %s" % self.request.args.keys()
+
         if cut_string:
             cuts = cubes.cuts_from_string(cut_string)
         else:
             cuts = []
 
-        cuboid = cubes.Cuboid(self.browser, cuts)
+        self.cuboid = cubes.Cuboid(self.browser, cuts)
         
-        result = self.browser.aggregate(cuboid)
-        print "RESULT: %s" % result
+    def aggregate(self):
+        self.prepare_cuboid()
+
+        drilldown = self.request.args.getlist("drilldown")
+
+        try:
+            result = self.cuboid.aggregate(drilldown = drilldown)
+        except Exception, e:
+            return self.error("Aggregation failed", e)
+
         return Response(result.as_json())
-        # return self.json_response(result.__dict__())
+
+    def facts(self):
+        self.prepare_cuboid()
+
+        try:
+            result = self.cuboid.facts()
+        except Exception, e:
+            return self.error("Fetching facts failed", e)
+
+        return self.json_response(result)
+
+    def fact(self):
+        fact_id = self.params["id"]
+
+        try:
+            fact = self.browser.fact(fact_id)
+        except Exception, e:
+            return self.error("Fetching single fact failed", e)
+
+        if fact:
+            return self.json_response(fact)
+        else:
+            return self.error("No fact with id=%s" % fact_id, status = 404)
+        

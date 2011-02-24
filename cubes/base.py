@@ -157,6 +157,9 @@ class Cuboid(object):
 
         return self.browser.aggregate(self, measures, drilldown)
 
+    def facts(self):
+        return self.browser.facts(self)
+
     def __eq__(self, other):
         """Cuboids are considered equal if:
             * they refer to the same cube within same browser

@@ -1,9 +1,12 @@
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Request
 from werkzeug.wsgi import ClosingIterator
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, NotFound
+from werkzeug.wrappers import Response
 
 from utils import local, local_manager, url_map
+
+import json
 
 import models
 import controllers
@@ -61,6 +64,7 @@ class Slicer(object):
             response = self.dispatch(controller, action, request, params)
         except HTTPException, e:
             response = e
+
         return ClosingIterator(response(environ, start_response),
                                [local_manager.cleanup])
         
@@ -75,3 +79,8 @@ class Slicer(object):
         controller.finalize()
 
         return retval
+
+    def error(self, message, exception):
+        string = json.dumps({"error": {"message": message, "reason": str(exception)}})
+        return Response(string, mimetype='application/json')
+    

@@ -72,10 +72,10 @@ class SimpleSQLBrowser(cubes.base.AggregationBrowser):
             statement = query.drilldown_statement()
             # print("executing drill down statement")
             # print("%s" % str(statement))
-            result = self.connection.execute(statement)
+            rows = self.connection.execute(statement)
             fields = query.fields + query.drilldown_fields
             records = []
-            for row in result:
+            for row in rows:
                 record = {}
                 for field in fields:
                     record[field] = row[field]
@@ -87,24 +87,38 @@ class SimpleSQLBrowser(cubes.base.AggregationBrowser):
     def facts(self, cuboid):
         # Create query
         query = CubeQuery(cuboid, self.view)
-        query.drilldown = drilldown
+
         query.prepare()
         statement = query.facts_statement()
-        if not statement:
-            # This should not happen, just in case we issue more descriptive error
-            raise RuntimeError("No facts statement was prepared")
-        result = connection.execute(statement)
 
-        return result
+        result = self.connection.execute(statement)
+
+        # FIXME: Return nice iterable
+        
+        rows = []
+        for row in result:
+            record = {}
+            for (key, value) in row.items():
+                record[key] = value
+            rows.append(record)
+
+        return rows
         
     def fact(self, key):
         """Fetch single row based on fact key"""
 
         condition = self.key_column == key
 
-        stmt = expression.select(whereclause = condition, from_obj = self.view)
-        row = self.connection.execute(query.aggregate_statement()).fetchone()
-        return row
+        stmt = self.view.select(whereclause = condition)
+        row = self.connection.execute(stmt).fetchone()
+        if row:
+            record = {}
+            for (key, value) in row.items():
+                record[key] = value
+        else:
+            record = None
+            
+        return record
         
 class CubeQuery(object):
     """docstring for CuboidQuery"""
@@ -234,8 +248,7 @@ class CubeQuery(object):
 
         self.condition = expression.and_(*self.conditions)
 
-        self._facts_statement = expression.select( whereclause = self.condition, 
-                                                   from_obj = self.view)
+        self._facts_statement = self.view.select(whereclause = self.condition)
 
         self._summary_statement = expression.select(selection, 
                                 whereclause = self.condition, 
@@ -302,8 +315,9 @@ class CubeQuery(object):
                 if last_level:
                     next_level = dim.default_hierarchy.next_level(self._last_levels[dim.name])
                     if not next_level:
-                        raise ValueError("Unable to drill-down after level %s. It is last level "
-                                         "in default hierarchy in dimension %s" % (last_level, dim.name))
+                        raise ValueError("Unable to drill-down after level '%s'. It is last level "
+                                         "in default hierarchy in dimension '%s'" % 
+                                         (last_level.name, dim.name))
                 else:
                     next_level = dim.default_hierarchy.levels[0]
 
