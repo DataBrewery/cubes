@@ -227,9 +227,16 @@ class Model(object):
         """Get dimension by name"""
         return self._dimensions[name]
 
-    def to_dict(self):
+    def to_dict(self, **options):
         """Return dictionary representation of the model. All object references within the dictionary are
-        name based"""
+        name based
+
+        Options:
+        
+            * `expand_dimensions` - if set to True then fully expand dimension information in cubes
+            * `full_attribute_names` - if set to True then attribute names will be written as
+              ``dimension_name.attribute_name``
+        """
 
         def add_value(d, key, value):
             if value:
@@ -243,22 +250,22 @@ class Model(object):
         out.setnoempty("description", self.description)
 
         dims = {}
-        for dim in self.dimensions:
-            dims[dim.name] = dim.to_dict()
+        for dim in self._dimensions.values():
+            dims[dim.name] = dim.to_dict(**options)
 
         out.setnoempty("dimensions", dims)
 
         cubes = {}
         for cube in self.cubes.values():
-            cubes[cube.name] = cube.to_dict()
+            cubes[cube.name] = cube.to_dict(**options)
 
         out.setnoempty("cubes", cubes)
 
         return out
 
-    def to_json(self):
+    def to_json(self, **options):
         """Return json representation of the model"""
-        return json.dumps(self.to_dict())
+        return json.dumps(self.to_dict(**options))
 
     def validate(self):
         """Validate the model, check for model consistency. Validation result is array of tuples in form:
@@ -397,8 +404,14 @@ class Cube(object):
             raise ModelError("Invalid dimension or dimension reference '%s' for cube '%s'" %
                                     (name, self.name))
 
-    def to_dict(self):
-        """Convert to dictionary"""
+    def to_dict(self, expand_dimensions = False, with_mappings = True, **options):
+        """Convert to dictionary
+        
+        Options:
+        
+            * `expand_dimensions` - if set to True then fully expand dimension information
+        
+        """
 
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
@@ -409,14 +422,18 @@ class Cube(object):
             array.append(attr.__dict__())
         out.setnoempty("measures", array)
 
-        dims = [dim.name for dim in self.dimensions]
+        if expand_dimensions:
+            dims = [dim.to_dict(**options) for dim in self.dimensions]
+        else:
+            dims = [dim.name for dim in self.dimensions]
 
-        # Give sorted list so we can nicely compare dictionaries
-        out.setnoempty("dimensions", dims.sort())
+        out.setnoempty("dimensions", dims)
 
-        out.setnoempty("mappings", self.mappings)
-        out.setnoempty("fact", self.fact)
-        out.setnoempty("joins", self.joins)
+        if with_mappings:
+            out.setnoempty("mappings", self.mappings)
+            out.setnoempty("fact", self.fact)
+            out.setnoempty("joins", self.joins)
+
         out.setnoempty("key", self.key)
 
         return out
@@ -641,7 +658,7 @@ class Dimension(object):
 
         return attributes
 
-    def to_dict(self):
+    def to_dict(self, **options):
         """Return dict representation of the dimension"""
 
         out = IgnoringDictionary()
@@ -651,12 +668,12 @@ class Dimension(object):
 
         levels_dict = {}
         for level in self.levels:
-            levels_dict[level.name] = level.to_dict()
+            levels_dict[level.name] = level.to_dict(**options)
         out["levels"] = levels_dict
 
         hier_dict = {}
         for hier in self.hierarchies.values():
-            hier_dict[hier.name] = hier.to_dict()
+            hier_dict[hier.name] = hier.to_dict(**options)
         out["hierarchies"] = hier_dict
 
 
@@ -803,7 +820,7 @@ class Hierarchy(object):
         
         return len(path) == len(self.levels)
 
-    def to_dict(self):
+    def to_dict(self, **options):
         """Convert to dictionary"""
 
         out = IgnoringDictionary()
@@ -862,16 +879,24 @@ class Level(object):
     def __repr__(self):
         return self.__str__()
 
-    def to_dict(self):
+    def to_dict(self, full_attribute_names = False, **options):
         """Convert to dictionary"""
 
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
-        out.setnoempty("key", str(self.key))
+
+        dimname = self.dimension.name
+
+        key_name = str(self.key)
+        if full_attribute_names:
+            out.setnoempty("key", dimname + "." + key_name)
+        else:
+            out.setnoempty("key", key_name)
+
         array = []
         for attr in self.attributes:
-            array.append(attr.__dict__())
+            array.append(attr.to_dict(dimension = self.dimension, **options))
         out.setnoempty("attributes", array)
         out.setnoempty("label_attribute", self._label_attribute)
 
@@ -916,7 +941,10 @@ class Attribute(object):
         self.label = label
         
     def __dict__(self):
-        return {"name": self.name, "label": self.label}
+        d = {"name": self.name}
+        if self.label:
+            d["label"] = self.label
+        return d
         
     def __str__(self):
         return self.name
@@ -929,8 +957,19 @@ class Attribute(object):
         
     def __ne__(self,other):
         return not self.__eq__(other)
+    def to_dict(self, dimension = None):
+        d = self.__dict__()
+        if dimension:
+            d["full_name"] = self.full_name(dimension)
+        return d
         
-
+    def full_name(self, dimension):
+        if type(dimension) == str or type(dimension) == unicode:
+            return dimension + "." + self.name
+        else:
+            return dimension.name + "." + self.name
+        
+        
 # class DimensionSelector(tuple):
 #     """DimensionSelector - specifies a dimension and level depth to be selected. This is utility
 #     class that might be used internally in cube aggregations or aggregation browsers.

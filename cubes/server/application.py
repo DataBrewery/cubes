@@ -12,10 +12,16 @@ import controllers
 
 rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
+    Rule('/version', 
+                        endpoint = (controllers.ApplicationController, 'version')),
     Rule('/model', 
                         endpoint = (controllers.ModelController, 'show')),
     Rule('/model/dimension/<string:name>',
                         endpoint = (controllers.ModelController, 'dimension')),
+    Rule('/model/cube',
+                        endpoint = (controllers.ModelController, 'get_default_cube')),
+    Rule('/model/cube/<string:name>',
+                        endpoint = (controllers.ModelController, 'get_cube')),
     Rule('/model/dimension/<string:name>/levels', 
                         endpoint = (controllers.ModelController, 'dimension_levels')),
     Rule('/model/dimension/<string:name>/level_names', 
