@@ -693,7 +693,7 @@ class Dimension(object):
             base = "No hierarchies in dimension '%s'" % (self.name)
             if self.is_flat:
                 level = self.levels[0]
-                results.append( ('warning', base + ", flat level '%s' will be used" % (level.name)) )
+                results.append( ('default', base + ", flat level '%s' will be used" % (level.name)) )
             elif len(self.levels) > 1:
                 results.append( ('error', base + ", more than one levels exist (%d)" % len(self.levels)) )
             else:
@@ -705,7 +705,7 @@ class Dimension(object):
                                               "more than one hierarchy in dimension '%s'" % self.name) )
                 else:
                     def_name = self.default_hierarchy.name
-                    results.append( ('warning', "No default hierarchy name specified in dimension '%s', using "
+                    results.append( ('default', "No default hierarchy name specified in dimension '%s', using "
                                                 "'%s'"% (self.name, def_name)) )
 
         if self.default_hierarchy_name and not self.hierarchies.get(self.default_hierarchy_name):
@@ -718,7 +718,7 @@ class Dimension(object):
             else:
                 if not level._key:
                     attr = level.attributes[0]
-                    results.append( ('warning', "Level '%s' in dimension '%s' has no key attribute specified, "\
+                    results.append( ('default', "Level '%s' in dimension '%s' has no key attribute specified, "\
                                                 "first attribute will be used: '%s'" 
                                                 % (level.name, self.name, attr)) )
 

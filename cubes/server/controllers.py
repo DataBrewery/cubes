@@ -4,6 +4,8 @@ from werkzeug.exceptions import NotFound
 import sqlalchemy
 import decimal
 import os.path
+import logging
+import urllib
 
 version = "0.1"
 api_version = "1"
@@ -37,6 +39,7 @@ class ApplicationController(object):
         self.params = None
         self.query = None
         self.browser = None
+        self.locale = None
         
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
@@ -58,6 +61,19 @@ class ApplicationController(object):
         doc = template.format(**context)
         
         return Response(doc, mimetype = 'text/html')
+
+    def load_model(self):
+        pass
+
+    def __set_model(self, model):
+        self._model = model
+        if self.locale:
+            self._localized_model = cubes.localize_model(model)
+        else:
+            self._localized_model = model
+
+    def __get_model(self):
+        return self._localized_model
     
     def version(self):
         response = {
@@ -147,6 +163,7 @@ class AggregationController(ApplicationController):
     def initialize(self):
 
         self.engine = sqlalchemy.create_engine(self.dburl)
+        
         self.connection = self.engine.connect()
 
         self.browser = cubes.backends.SimpleSQLBrowser(self.cube, self.connection, self.view_name)
@@ -156,6 +173,7 @@ class AggregationController(ApplicationController):
     
     def prepare_cuboid(self):
         cut_string = self.request.args.get("cut")
+        logging.info("CUT: %s" % cut_string)
 
         if cut_string:
             cuts = cubes.cuts_from_string(cut_string)

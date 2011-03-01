@@ -54,9 +54,11 @@ class SlicerBrowser(cubes.base.AggregationBrowser):
         result = cubes.base.AggregationResult()
         
         cut_string = cubes.base.string_from_cuts(cuboid.cuts)
-        params = {"cut": cut_string}
+        params = [ ("cut", cut_string) ]
         if drilldown:
-            params["drilldown"] = drilldown
+            for dd in drilldown:
+                params.append( ("drilldown", dd) )
+                
         url = self.baseurl + "/aggregate?" + urllib.urlencode(params)
         
         return self.request(url)

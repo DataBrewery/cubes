@@ -2,7 +2,211 @@ import logging
 import sets
 import cubes.model as model
 import base
+try:
+    import sqlalchemy
+    import sqlalchemy.sql.expression as expression
+    import sqlalchemy.sql.functions as function
+except:
+    pass
 
+import collections
+    
+Attribute = collections.namedtuple("Attribute", "attribute, alias, dimension, locales")
+
+class SQLBuilder(object):
+    """SQLAlchemy based builder - recommended to be used"""
+    
+    def __init__(self, cube, connection = None, schema = None, dimension_table_prefix = None):
+        """Creates a simple SQL view builder.
+        
+        :Parameters:
+            * `cube` - cube from logical model
+            * `connection` - database connection, default None if you want only to create SELECT statement
+            * `dimension_table_prefix` - default prefix for dimension tables - used if there is no
+              mapping for dimension attribute. Say you have dimension `supplier` and field `name` and
+              dimension table prefix ``dm_`` then default physical mapping for that field would be:
+              ``dm_supplier.name``
+        
+        """
+        if not cube:
+            raise ValueError("Cube should be not null")
+            
+        self.cube = cube
+        self.select_statement = None
+        self.field_names = []
+        self.table_aliases = {}
+        self.schema = schema
+        
+        self.logger = logging.getLogger("brewery.cubes")
+
+        # Use fact table name from model specification. If there is no fact specified, we assume
+        # that the fact table has same name as cube.
+        if self.cube.fact:
+            self.fact_name = self.cube.fact
+        else:
+            self.fact_name = self.cube.name
+
+        self.fact_alias = "__f"
+        self.cube_key = self.cube.key
+
+        if not self.cube_key:
+            self.cube_key = base.DEFAULT_KEY_FIELD
+
+        self.cube_attributes = [ self.cube_key ]
+        for measure in self.cube.measures:
+            print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
+            self.cube_attributes.append(str(measure))
+        
+        self.dimension_table_prefix = dimension_table_prefix
+     
+        if connection:
+            self.connection = connection
+            self.engine = self.connection.engine
+            self.metadata = sqlalchemy.MetaData()
+            self.metadata.bind = self.engine
+            self.metadata.reflect()
+            self.fact_table = self._table(self.fact_name, self.schema)
+        else:
+            self.connection = None
+            self.engine = None
+            self.fact = None
+            
+    def create_materialized_view(self, view_name, schema = None):
+    
+        
+        # Get all attributes that we are going to consider
+        self._collect_attributes()
+    
+        # Get all tables that we are going to use
+        self.expression = None
+        self._collect_joins()
+
+        self._collect_columns()
+
+        # selection = self.expression.select(self.columns)
+        selection = expression.select(self.columns, from_obj = self.expression)
+        self.logger.info("SQL:\n%s" % str(selection))
+
+        count = self.connection.execute(selection).rowcount
+        self.logger.info("rows: %d" % count)
+        self.logger.info("rows: %d" % self.connection.execute(self.fact_table.select()).rowcount)
+    
+        table = self._table(view_name, schema = schema, autoload = False)
+        if table.exists():
+            table.drop(checkfirst=False)
+
+        full_view_name = schema + "." + view_name if schema else view_name
+        statement = "CREATE TABLE %s AS %s" % (full_view_name, str(selection))
+        self.connection.execute(statement)
+
+    def _collect_attributes(self):
+        """Collect all attributes from model and create mappings from logical to physical representation
+        """
+        self.logger.info("collecting fact attributes...")
+
+        # self.attributes contains tuples: attribute, dimension
+        self.attributes = [ Attribute(self.cube_key, str(self.cube_key), None, None) ]
+
+        for attribute in self.cube.measures:
+            self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
+
+        self.logger.info("collecting dimension attributes...")
+
+        for dim in self.cube.dimensions:
+            hier = dim.default_hierarchy
+            for level in hier.levels:
+                for attribute in level.attributes:
+                    # FIXME: add localization
+                    alias = attribute.full_name(dim)
+                    self.attributes.append( Attribute(attribute, alias, dim, None) )
+
+    def _collect_joins(self):
+        self.logger.info("collecting joins...")
+
+        self.expression = self.fact_table
+        
+        for join in self.cube.joins:
+            self.logger.info("join: %s" % join)
+            
+            master_name, master_key = self.split_field(join["master"])
+            detail_name, detail_key = self.split_field(join["detail"])
+
+            if not detail_name or detail_name == self.fact_name:
+                raise ValueError("Detail should not be a fact table")
+
+            master_table = self._table(master_name, self.schema) if master_name else self.fact_table
+            detail_table = self._table(detail_name, self.schema)
+            
+            master_column = master_table.c[master_key]
+            detail_column = detail_table.c[detail_key]
+            
+            onclause = master_column == detail_column
+            print onclause
+            self.expression = expression.join(self.expression, detail_table, onclause = onclause)
+
+    def _collect_columns(self):
+        """Collect selected columns
+        
+        Rules:
+            * dimension field is mapped as "dimname.attribute"
+            * fact field is mapped as "attribute"
+        
+        """
+        self.logger.info("building mappings...")
+        self.mappings = {}
+
+        if self.dimension_table_prefix:
+            prefix = self.dimension_table_prefix
+        else:
+            prefix = ""
+
+        self.columns = []
+        
+        for attribute in self.attributes:
+            # Get logical alias
+            if attribute.alias in self.cube.mappings:
+                mapping = self.cube.mappings[attribute.alias]
+                original_mapping = mapping
+            else:
+                original_mapping = None
+                if attribute.dimension:
+                    mapping = prefix + attribute.alias
+                else:
+                    mapping = attribute.alias
+
+            if attribute.alias in self.mappings:
+                raise model.ModelError("Dimension attribute '%s' is specified more than once", alias)
+
+            (table_name, field_name) = self.split_field(mapping)
+            table = self._table(table_name, self.schema) if table_name else self.fact_table
+            try:
+                column = table.c[field_name]
+            except KeyError:
+                raise model.ModelError("Mapped column '%s' for fact attribute '%s'"
+                                       " does not exist" % (original_mapping, attribute.alias) )
+            
+            self.mappings[attribute.alias] = column
+            alias = expression.label(attribute.alias, column)
+            self.columns.append(alias)            
+            
+    def split_field(self, field):
+        """Split field into table and field name: before first '.' is table name, everything else
+        is field name. If there is no '.', then table name is None."""
+        split = str(field).split('.')
+        if len(split) > 1:
+            table_name = split[0]
+            field_name = ".".join(split[1:])
+            return (table_name, field_name)
+        else:
+            return (None, field)
+        
+    def _table(self, table_name, schema = None, autoload = True):
+        table = sqlalchemy.Table(table_name, self.metadata, 
+                                     autoload = autoload, 
+                                     schema = schema)
+                                
+        return table
+        
 class SimpleSQLBuilder(object):
     """Create denormalized SQL views based on logical model. The views are used by SQL aggregation browser
     (query generator)"""

@@ -78,6 +78,7 @@ class Slicer(object):
 
         controller.request = request
         controller.params = params
+        controller.locale = params.get("lang")
         
         action = getattr(controller, action_name)
         retval = action()

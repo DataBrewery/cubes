@@ -31,6 +31,7 @@ def validate_model(args):
     print("-------------------------")
     error_count = 0
     warning_count = 0
+    default_count = 0
     results = model.validate()
 
     if not results:
@@ -43,8 +44,25 @@ def validate_model(args):
                 error_count += 1
             elif result[0] == "warning":
                 warning_count += 1
+            elif result[0] == "default":
+                default_count += 1
             print("%s: %s" % result)
-    print("%d errors, %d warnings" % (error_count, warning_count))
+
+    if error_count == 0:
+        if warning_count == 0:
+            if default_count == 0:
+                message = "model can be used"
+            else:
+                message = "model can be used, make sure that defaults reflect reality"
+        else:
+            message = "not recommended to use the model, some issues might emerge"
+    else:
+        message = "model can not be used"
+        
+            
+
+    print("\n%d errors, %d warnings, %d defaults: %s" % (error_count, warning_count, default_count, message))
+
 
 def model_to_json(args):
     """docstring for validate_model"""
