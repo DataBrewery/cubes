@@ -935,15 +935,23 @@ def attribute_list(attributes):
 
 class Attribute(object):
     """Cube attribute - represents any fact field/column"""
-    def __init__(self, name, label = None, **kwargs):
+    def __init__(self, name, label = None, locales = None, **kwargs):
         super(Attribute, self).__init__()
         self.name = name
         self.label = label
+
+        if locales == None:
+            self.locales = []
+        else:
+            self.locales = locales
         
     def __dict__(self):
         d = {"name": self.name}
-        if self.label:
+        if self.label != None:
             d["label"] = self.label
+        if self.locales != None:
+            d["locales"] = self.locales
+
         return d
         
     def __str__(self):
@@ -953,22 +961,33 @@ class Attribute(object):
         if type(other) != Attribute:
             return False
 
-        return self.name == other.name and self.label == other.label
+        return self.name == other.name and self.label == other.label \
+                    and self.locales == other.locales
         
     def __ne__(self,other):
         return not self.__eq__(other)
+        
     def to_dict(self, dimension = None):
         d = self.__dict__()
         if dimension:
             d["full_name"] = self.full_name(dimension)
         return d
         
-    def full_name(self, dimension):
-        if type(dimension) == str or type(dimension) == unicode:
-            return dimension + "." + self.name
+    def full_name(self, dimension, locale = None):
+        """Return full name of an attribute as if it was part of `dimension`.
+        """
+        if locale:
+            if locale in self.locales:
+                raise ValueError("Attribute '%s' has no localization %s" % self.name)
+            else:
+                locale_suffix = "." + locale
         else:
-            return dimension.name + "." + self.name
+            locale_suffix = ""
         
+        if type(dimension) == str or type(dimension) == unicode:
+            return dimension + "." + self.name + locale_suffix
+        else:
+            return dimension.name + "." + self.name + locale_suffix
         
 # class DimensionSelector(tuple):
 #     """DimensionSelector - specifies a dimension and level depth to be selected. This is utility

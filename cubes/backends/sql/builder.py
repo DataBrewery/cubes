@@ -72,24 +72,18 @@ class SQLBuilder(object):
             self.fact = None
             
     def create_materialized_view(self, view_name, schema = None):
-    
-        
-        # Get all attributes that we are going to consider
-        self._collect_attributes()
-    
-        # Get all tables that we are going to use
         self.expression = None
-        self._collect_joins()
 
+        self._collect_attributes()
+        self._collect_joins()
         self._collect_columns()
 
-        # selection = self.expression.select(self.columns)
         selection = expression.select(self.columns, from_obj = self.expression)
-        self.logger.info("SQL:\n%s" % str(selection))
+        self.logger.debug("SQL:\n%s" % str(selection))
 
-        count = self.connection.execute(selection).rowcount
-        self.logger.info("rows: %d" % count)
-        self.logger.info("rows: %d" % self.connection.execute(self.fact_table.select()).rowcount)
+        # count = self.connection.execute(selection).rowcount
+        # self.logger.info("rows: %d" % count)
+        # self.logger.info("rows: %d" % self.connection.execute(self.fact_table.select()).rowcount)
     
         table = self._table(view_name, schema = schema, autoload = False)
         if table.exists():
@@ -118,7 +112,7 @@ class SQLBuilder(object):
                 for attribute in level.attributes:
                     # FIXME: add localization
                     alias = attribute.full_name(dim)
-                    self.attributes.append( Attribute(attribute, alias, dim, None) )
+                    self.attributes.append( Attribute(attribute, alias, dim, attribute.locales) )
 
     def _collect_joins(self):
         self.logger.info("collecting joins...")
@@ -155,39 +149,55 @@ class SQLBuilder(object):
         self.logger.info("building mappings...")
         self.mappings = {}
 
+        self.columns = []
+        
+        for attribute in self.attributes:
+            if attribute.locales:
+                for locale in attribute.locales:
+                    self._select_attribute(attribute, locale)
+            else:
+                self._select_attribute(attribute)
+                
+    def _select_attribute(self, attribute, locale = None):
+
+        if locale:
+            localized_alias = attribute.alias + "." + locale
+        else:
+            localized_alias = attribute.alias
+
         if self.dimension_table_prefix:
             prefix = self.dimension_table_prefix
         else:
             prefix = ""
+        self.logger.info("looking for mapping %s" % (localized_alias))
 
-        self.columns = []
-        
-        for attribute in self.attributes:
-            # Get logical alias
-            if attribute.alias in self.cube.mappings:
-                mapping = self.cube.mappings[attribute.alias]
-                original_mapping = mapping
+        if localized_alias in self.cube.mappings:
+            mapping = self.cube.mappings[localized_alias]
+            original_mapping = mapping
+            self.logger.info("  is in mappings: %s" % mapping)
+        elif attribute.alias in self.cube.mappings:
+            mapping = self.cube.mappings[attribute.alias]
+            original_mapping = mapping
+            self.logger.info("  not in mappings, using default trans: %s" % mapping)
+        else:
+            original_mapping = None
+            if attribute.dimension:
+                mapping = prefix + attribute.alias
             else:
-                original_mapping = None
-                if attribute.dimension:
-                    mapping = prefix + attribute.alias
-                else:
-                    mapping = attribute.alias
+                mapping = attribute.alias
+            self.logger.info("  defaulting to: %s" % mapping)
 
-            if attribute.alias in self.mappings:
-                raise model.ModelError("Dimension attribute '%s' is specified more than once", alias)
-
-            (table_name, field_name) = self.split_field(mapping)
-            table = self._table(table_name, self.schema) if table_name else self.fact_table
-            try:
-                column = table.c[field_name]
-            except KeyError:
-                raise model.ModelError("Mapped column '%s' for fact attribute '%s'"
-                                       " does not exist" % (original_mapping, attribute.alias) )
-            
-            self.mappings[attribute.alias] = column
-            alias = expression.label(attribute.alias, column)
-            self.columns.append(alias)            
+        (table_name, field_name) = self.split_field(mapping)
+        table = self._table(table_name, self.schema) if table_name else self.fact_table
+        try:
+            column = table.c[field_name]
+        except KeyError:
+            raise model.ModelError("Mapped column '%s' for fact attribute '%s'"
+                                   " does not exist" % (original_mapping, attribute.alias) )
+        
+        self.logger.info("adding column %s as %s" % (column, localized_alias))
+        self.mappings[localized_alias] = column
+        self.columns.append(expression.label(localized_alias, column))
             
     def split_field(self, field):
         """Split field into table and field name: before first '.' is table name, everything else
