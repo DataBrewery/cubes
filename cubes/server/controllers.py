@@ -34,6 +34,11 @@ class ApplicationController(object):
         else:
             self.view_name = self.cube_name
 
+        if "schema" in config:
+            self.schema = config["schema"]
+        else:
+            self.schema = None
+
         self.dburl = config["connection"]
 
         self.params = None
@@ -166,7 +171,10 @@ class AggregationController(ApplicationController):
         
         self.connection = self.engine.connect()
 
-        self.browser = cubes.backends.SQLBrowser(self.cube, self.connection, self.view_name)
+        self.browser = cubes.backends.SQLBrowser(self.cube,
+                                                    self.connection, 
+                                                    self.view_name,
+                                                    self.schema)
 
     def finalize(self):
         self.connection.close()
@@ -220,10 +228,14 @@ class AggregationController(ApplicationController):
         self.prepare_cuboid()
 
         dim_name = self.params["dimension"]
-        try:
-            depth = int(self.request.args.get("depth"))
-        except:
-            return self.error("depth should be an integer")
+        depth_string = self.request.args.get("depth")
+        if depth_string:
+            try:
+                depth = int(self.request.args.get("depth"))
+            except:
+                return self.error("depth should be an integer")
+        else:
+            depth = None
         
         try:
             dimension = self.cube.dimension(dim_name)
@@ -238,7 +250,7 @@ class AggregationController(ApplicationController):
         result = {
             "dimension": dimension.name,
             "depth": depth,
-            "values": values
+            "data": values
         }
         
         return self.json_response(result)
