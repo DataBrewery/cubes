@@ -156,6 +156,74 @@ Run the server using the Slicer tool (see :doc:`/slicer`)::
 
     slicer serve grants_config.json
 
+Apache mod_wsgi deployment
+--------------------------
+
+Deploying Cubes OLAP Web service server (for analytical API) can be done in four very simple
+steps:
+
+1. Create server configuration json file
+2. Create WSGI script
+3. Prepare apache site configuration
+4. Reload apache configuration
+
+Create server configuration ``procurements_server.json`` json file as in the example before::
+
+    {
+        "model": "/path/to/procurements_model.json",
+        "cube": "contracts",
+        "view": "mft_contracts",
+        "connection": "postgres://localhost/procurements"
+    }
+
+Place the file in the same directory as the following WSGI script (for convenience).
+
+Create a WSGI script ``/var/www/wsgi/olap/procurements.wsgi``:
+
+.. code-block:: python
+
+    import sys
+    import os.path
+    import json
+
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+    CONFIG_PATH = os.path.join(CURRENT_DIR, "procurements_server.json")
+
+    handle = open(CONFIG_PATH)
+    try:
+        config = json.load(handle)
+    except Exception as e:
+        raise Exception("Unable to load configuration: %s" % e)
+    finally:
+        handle.close()
+
+    import cubes.server
+    application = cubes.server.Slicer(config)
+
+Apache site configuration (for example in ``/etc/apache2/sites-enabled/``)::
+
+    <VirtualHost *:80>
+        ServerName olap.democracyfarm.org
+
+        WSGIScriptAlias /vvo /var/www/wsgi/olap/procurements.wsgi
+
+        <Directory /var/www/wsgi/olap>
+            WSGIProcessGroup olap
+            WSGIApplicationGroup %{GLOBAL}
+            Order deny,allow
+            Allow from all
+        </Directory>
+
+        ErrorLog /var/log/apache2/olap.democracyfarm.org.error.log
+        CustomLog /var/log/apache2/olap.democracyfarm.org.log combined
+
+    </VirtualHost>
+
+Reload apache configuration::
+
+    sudo /etc/init.d/apache2 reload
+
+And you are done. Server is running at http://olap.democracyfarm.org/vvo
 
 Server requests
 ---------------
