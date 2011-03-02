@@ -12,7 +12,7 @@ __all__ = {
 def run_server(config):
     """Run OLAP server with configuration specified in `config`"""
     host = config["host"] if "host" in config else "localhost"
-    port = config["port"] if "port" in config else "5000"
+    port = int(config["port"]) if "port" in config else 5000
     use_reloader = config["reload"] if "reload" in config else False
 
     application = Slicer(config)

@@ -28,12 +28,12 @@ rules = Map([
                         endpoint = (controllers.ModelController, 'dimension_level_names')),
     Rule('/aggregate', 
                         endpoint = (controllers.AggregationController, 'aggregate')),
-    Rule('/dimension/<string:name>', 
-                        endpoint = (controllers.AggregationController, 'dimension_values')),
     Rule('/facts', 
                         endpoint = (controllers.AggregationController, 'facts')),
     Rule('/fact/<string:id>', 
                         endpoint = (controllers.AggregationController, 'fact')),
+    Rule('/dimension/<string:dimension>', 
+                        endpoint = (controllers.AggregationController, 'values')),
     Rule('/report/<string:id>', 
                         endpoint = (controllers.AggregationController, 'report'))
 ])

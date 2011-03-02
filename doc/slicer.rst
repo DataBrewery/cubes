@@ -1,10 +1,11 @@
-Command Line Tools
-******************
+slicer - Command Line Tool
+**************************
 
-slicer
-======
+Cubes comes with a command line tool that can:
 
-Tool for logical model and cube operations from command line.
+* run OLAP server
+* build and compute cubes
+* validate and translate models
 
 Usage::
 
@@ -19,11 +20,42 @@ Commands are:
 +-----------------------+----------------------------------------------------------------------+
 | Command               | Description                                                          |
 +=======================+======================================================================+
+|``serve``              | Start OLAP server                                                    |
++-----------------------+----------------------------------------------------------------------+
 |``model validate``     | Validates logical model for OLAP cubes                               |
 +-----------------------+----------------------------------------------------------------------+
 |``model json``         | Create JSON representation of a model (can be used)                  |
 |                       | when model is a directory.                                           |
 +-----------------------+----------------------------------------------------------------------+
+|``build``              | Build OLAP cube from source data using model                         |
++-----------------------+----------------------------------------------------------------------+
+
+serve
+-----
+
+Run Cubes OLAP HTTP server.
+
+Example server configuration file ``config.json``::
+
+    {
+        "port": 5000,
+        "model": "contracts.json",
+        "cube": "contracts",
+        "view": "ft_contracts",
+        "connection": "postgres://localhost/contracts"
+    }
+    
+.. note::
+
+    Currently the connection can be only a SQL database connection. Access to other existing
+    backends from this tool will be added in the future.
+
+To run local server::
+
+    slicer serve config.json
+
+For more information about OLAP HTTP server see :doc:`/server`
+
 
 model validate
 --------------

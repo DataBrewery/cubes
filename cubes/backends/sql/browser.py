@@ -9,6 +9,17 @@ try:
     import sqlalchemy.sql.functions as functions
 except:
     pass
+    
+    
+# FIXME: required functionality TODO
+# 
+# * [DONE] number of items in drill-down
+# * [DONE] dimension values
+# * drill-down sorting and pagination
+# * drill-down limits (such as top-10)
+# * dimension values sorting and pagination
+# * remainder
+# * ratio - aggregate sum(current)/sum(total) 
 
 class SQLBrowser(cubes.base.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
@@ -65,7 +76,7 @@ class SQLBrowser(cubes.base.AggregationBrowser):
 
         ############################################
         # Get summary
-        row = self.connection.execute(query.summary_statement()).fetchone()
+        row = self.connection.execute(query.summary_statement).fetchone()
         summary = {}
         if row:
             for field in query.fields:
@@ -80,10 +91,12 @@ class SQLBrowser(cubes.base.AggregationBrowser):
         #
         
         if drilldown:
-            statement = query.drilldown_statement()
+            statement = query.drilldown_statement
             # print("executing drill down statement")
             # print("%s" % str(statement))
+            
             rows = self.connection.execute(statement)
+            
             fields = query.fields + query.drilldown_fields
             records = []
             for row in rows:
@@ -91,7 +104,12 @@ class SQLBrowser(cubes.base.AggregationBrowser):
                 for field in fields:
                     record[field] = row[field]
                 records.append(record)
-            result.drilldown = records
+
+            count_statement = query.full_drilldown_statement.alias().count()
+            row_count = self.connection.execute(count_statement).fetchone()
+            total_cell_count = row_count[0]
+
+            result.drilldown = { "cells": records, "total_cell_count": total_cell_count }
 
         return result
 
@@ -100,7 +118,7 @@ class SQLBrowser(cubes.base.AggregationBrowser):
         query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
 
         query.prepare()
-        statement = query.facts_statement()
+        statement = query.facts_statement
 
         result = self.connection.execute(statement)
 
@@ -131,6 +149,27 @@ class SQLBrowser(cubes.base.AggregationBrowser):
             
         return record
         
+    def values(self, cuboid, dimension, depth = None, **options):
+        """Get values for dimension at given path within cuboid"""
+
+        dimension = self.cube.dimension(dimension)
+        query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
+
+        statement = query.values_statement(dimension, depth)
+
+        rows = self.connection.execute(statement)
+
+        fields = rows.keys()
+        
+        records = []
+        for row in rows:
+            record = {}
+            for field in fields:
+                record[field] = row[field]
+            records.append(record)
+            
+        return records
+    
 class CubeQuery(object):
     """docstring for CuboidQuery"""
     def __init__(self, cuboid, view, locale = None):
@@ -162,7 +201,12 @@ class CubeQuery(object):
 
         self.key_column = self.view.c[self.cube_key]
 
-        self.fields = None
+        self._conditions = []
+        self._condition = None
+        self._group_by = []
+        self.selection = []
+        self.fields = []
+        self._last_levels = {}
 
     def fact_statement(self, fact_id):        
         if not self._prepared:
@@ -173,73 +217,69 @@ class CubeQuery(object):
         stmt = expression.select(whereclause = condition, from_obj = self.view)
         return stmt
 
+    @property
     def facts_statement(self):
         if not self._prepared:
             raise Exception("Query is not prepared")
         
         return self._facts_statement
         
+    @property
     def summary_statement(self):
         if not self._prepared:
             raise Exception("Query is not prepared")
         
         return self._summary_statement
 
-    def drilldown_statement(self):
+    @property
+    def full_drilldown_statement(self):
+        """Return a drill-down statement that will return all cells without limit"""
         if not self._prepared:
             raise Exception("Query is not prepared")
 
         return self._drilldown_statement
 
+    @property
+    def drilldown_statement(self):
+        """Return a drill-down statement that will return limited cells (like "top 10")"""
+        if not self._prepared:
+            raise Exception("Query is not prepared")
+
+        return self._drilldown_statement
+
+    def values_statement(self, dimension, depth = None):
+        """Get a statement that will select all values for dimension for `depth` levels. If
+        depth is ``None`` then all levels are returned, that is all dimension values at all levels"""
+
+        levels = dimension.default_hierarchy.levels
+
+        if depth is not None:
+            levels = levels[0:depth]
+            
+        self._prepare_condition()
+
+        selection = []
+        for level in levels:
+            for attribute in level.attributes:
+                column = self.column(attribute, dimension)
+                selection.append(column)
+
+        values_statement = expression.select(selection,
+                                    whereclause = self._condition,
+                                    from_obj = self.view,
+                                    group_by = selection)
+
+        return values_statement
+
     def prepare(self):
         """Prepare star query statement"""
         
         self.logger.info("preparing query")
-        
-        self.conditions = []
 
-        self.group_by = []
-        self.selection = []
-        self.fields = []
-
-        self._last_levels = {}
-
-        ################################################################
         # 1. Collect conditions and grouping fields
+        self._prepare_condition()
 
-        for cut in self.cuboid.cuts:
-            if not isinstance(cut, cubes.base.PointCut):
-                raise Exception("Only point cuts are supported in SQL browser at the moment")
-            
-            dim = self.cube.dimension(cut.dimension)
-            path = cut.path
-            levels = dim.default_hierarchy.levels
-
-            if len(path) > len(levels):
-                raise Exception("Path has more items (%d) than there are levels (%d) "
-                                "in dimension %s" % (len(path), len(levels), dim.name))
-
-            level = None
-            for i, value in enumerate(path):
-                level = levels[i]
-                # Prepare condition: dimension.level_key = path_value
-                column = self.column(level.key, dim)
-                self.conditions.append(column == value)
-                
-                # Collect grouping columns
-                for attr in level.attributes:
-                    column = self.column(attr, dim)
-                    self.group_by.append(column)
-                    self.selection.append(column)
-                    self.fields.append(column.name)
-
-            # Remember last level of cut dimension for further use, such as drill-down
-            if level:
-                self._last_levels[dim.name] = level
-
-        ################################################################
-        # Prepare drill-down
-        
+        # 2. Prepare drill-down
         if self.drilldown:
             self._prepare_drilldown()
                     
@@ -258,24 +298,58 @@ class CubeQuery(object):
         self.fields.append(rcount_label)
         selection.append(rcount)
 
-        self.condition = expression.and_(*self.conditions)
-
-        self._facts_statement = self.view.select(whereclause = self.condition)
+        self._facts_statement = self.view.select(whereclause = self._condition)
 
         self._summary_statement = expression.select(selection, 
-                                whereclause = self.condition, 
+                                whereclause = self._condition, 
                                 from_obj = self.view,
-                                group_by = self.group_by)
+                                group_by = self._group_by)
         if self.drilldown:
             drilldown_selection = selection + self.drilldown_selection
-            drilldown_group_by = self.group_by + self.drilldown_group_by
+            drilldown_group_by = self._group_by + self.drilldown_group_by
 
             self._drilldown_statement = expression.select(drilldown_selection, 
-                                        whereclause = self.condition, 
+                                        whereclause = self._condition, 
                                         from_obj = self.view,
                                         group_by = drilldown_group_by)
         self._prepared = True
-        
+
+    def _prepare_condition(self):
+        self._conditions = []
+        self._group_by = []
+
+        for cut in self.cuboid.cuts:
+            if not isinstance(cut, cubes.base.PointCut):
+                raise Exception("Only point cuts are supported in SQL browser at the moment")
+            
+            dim = self.cube.dimension(cut.dimension)
+            path = cut.path
+            levels = dim.default_hierarchy.levels
+
+            if len(path) > len(levels):
+                raise Exception("Path has more items (%d) than there are levels (%d) "
+                                "in dimension %s" % (len(path), len(levels), dim.name))
+
+            level = None
+            for i, value in enumerate(path):
+                level = levels[i]
+                # Prepare condition: dimension.level_key = path_value
+                column = self.column(level.key, dim)
+                self._conditions.append(column == value)
+                
+                # Collect grouping columns
+                for attr in level.attributes:
+                    column = self.column(attr, dim)
+                    self._group_by.append(column)
+                    self.selection.append(column)
+                    self.fields.append(column.name)
+
+            # Remember last level of cut dimension for further use, such as drill-down
+            if level:
+                self._last_levels[dim.name] = level
+
+        self._condition = expression.and_(*self._conditions)
+
     def _prepare_drilldown(self):
         """Prepare drill down selection, groupings and fields"""
         
@@ -305,7 +379,7 @@ class CubeQuery(object):
                 for attr in level.attributes:
                     self.logger.debug("adding drill down attribute %s.%s" % (dim.name, attr))
                     column = self.column(attr, dim)
-                    if column not in self.group_by:
+                    if column not in self._group_by:
                         self.drilldown_group_by.append(column)
                     if column not in self.selection:
                         self.drilldown_selection.append(column)

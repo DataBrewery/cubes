@@ -105,7 +105,7 @@ class ApplicationController(object):
         if exception:
             error["reason"] = str(exception)
 
-        string = json.dumps({"error": error})
+        string = json.dumps({"error": error},indent = 4)
         
         if not status:
             status = 500
@@ -173,7 +173,6 @@ class AggregationController(ApplicationController):
     
     def prepare_cuboid(self):
         cut_string = self.request.args.get("cut")
-        logging.info("CUT: %s" % cut_string)
 
         if cut_string:
             cuts = cubes.cuts_from_string(cut_string)
@@ -216,4 +215,31 @@ class AggregationController(ApplicationController):
             return self.json_response(fact)
         else:
             return self.error("No fact with id=%s" % fact_id, status = 404)
+        
+    def values(self):
+        self.prepare_cuboid()
+
+        dim_name = self.params["dimension"]
+        try:
+            depth = int(self.request.args.get("depth"))
+        except:
+            return self.error("depth should be an integer")
+        
+        try:
+            dimension = self.cube.dimension(dim_name)
+        except:
+            return self.error("No dimension '%s'" % dim_name, status = 404)
+
+        try:
+            values = self.cuboid.values(dimension, depth = depth)
+        except Exception, e:
+            return self.error("Getting values for dimension %s failed" % dim_name, e)
+
+        result = {
+            "dimension": dimension.name,
+            "depth": depth,
+            "values": values
+        }
+        
+        return self.json_response(result)
         

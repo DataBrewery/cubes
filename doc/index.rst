@@ -16,7 +16,7 @@ Contents:
    computing
    localization
    server
-   tools
+   slicer
    api/index
    notes
 

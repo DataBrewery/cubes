@@ -78,6 +78,15 @@ class AggregationBrowser(object):
     def fact(self, key):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
+
+    def values(self, cuboid, dimension, depth = None, **options):
+        """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
+        levels are returned.
+        
+        .. note::
+            
+            Currently only default hierarchy is used. 
+        """
         
 class Cuboid(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
@@ -156,6 +165,10 @@ class Cuboid(object):
         """
 
         return self.browser.aggregate(self, measures, drilldown)
+
+    def values(self, dimension, depth = None):
+        """Return values for dimension."""
+        return self.browser.values(self, dimension, depth)
 
     def facts(self):
         return self.browser.facts(self)

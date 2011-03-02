@@ -28,19 +28,40 @@ API
     
     If no arguments are given, then whole cube is aggregated.
     
-    Possible arguments:
+    :Paramteres:
+        * `cut` - specification of cuboid, for example:
+          ``cut=date:2004,1|category=2|entity=12345``
+        * `drilldown` - dimension to be drilled down. For example ``drilldown=date`` will give
+          rows for each value of next level of dimension date.
+        * `page` - page number for paginated results
+        * `pagesize` - size of a page for paginated results
+        * `order` - list of attributes to be ordered by
+        * `limit` - limit number of results in form `limit`[,`measure`[,`order_direction`]]:
+          ``limit=5:received_amount_sum:asc``
+
+``/facts``
+    Return all facts (details) within cuboid.
+
+    :Parameters:
+        * `cut` - see ``/aggregate``
+        * `page`, `pagesize` - paginate results
+        * `order` - order results
     
-    * `cut` - specification of cuboid, for example: ``cut=date:2004,1|category=2|entity=12345``
-    * `drilldown` - dimension to be drilled down. For example ``drilldown=date`` will give rows for
-      each value of next level of dimension date.
-    * `page` - page number for paginated results
-    * `pagesize` - size of a page for paginated results
-    * `order` - list of attributes to be ordered by
-    * `limit` - limit number of results in form `limit`[,`measure`[,`order_direction`]]:
-      ``limit=5:received_amount_sum:asc``
-      
+``/fact/<id>``
+    Get single fact with specified `id`. For example: ``/fact/1024``
+    
+``/dimension/<dimension>``
+    Get values for attributes of a `dimension`.
+    
+    :Parameters:
+        * `depth` - specify depth (number of levels) to retrieve. If not specified, then all
+          levels are returned
+        * `cut` - see ``/aggregate``
+        * `page`, `pagesize` - paginate results
+        * `order` - order results
+        
 ``/report``
-    Process ultiple aggregate request within one API call.
+    Process multiple request within one API call. (Not yet implemented)
     
 Cuts in URLs
 ------------
@@ -85,66 +106,56 @@ request where posted data are JSON with report specification. If report name is 
 server should have a repository of report specifications.
 
 Keys:
-* `datasets` - dictionary reported dataset specifications
+
+    * `datasets` - dictionary reported dataset specifications
 
 Dataset specification:
-* `type` - query type: ``aggregate``, ``details`` (list of facts) or ``values`` for dimension values
-* `cut` - cut specification - a string similar to URL request (might be a dictionary in the future)
 
+    * `type` - query type: ``aggregate``, ``details`` (list of facts) or ``values`` for dimension values
+    * `cut` - cut specification - a string same as the one used in URL request (might be a
+      dictionary in the future)
 
-Simple example server
----------------------
+Following example report query from a `contracts` cube will return three datasets (results):
 
-Here is example of simple OLAP Cubes server. The server shown in the example is serving data from
-a SQL database.
+    * total amount of contracts (aggregation "summary" - one record)
+    * number of contracts and contracted amount for each year (aggregation drill down)
+    * list of contractors and contracted amounts for contracts within IT segment
 
-Import basics and configure paths, notably path to the logical model description. Let us assume
-that the model is stored in the same directory as the server script:
+Report request::
 
-.. code-block:: python
-
-    #!/usr/bin/env python
-    from werkzeug import script
-    import os.path
-
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    MODEL_PATH = os.path.join(CURRENT_DIR, "model.json")
-
-Prepare server configuration:
-
-.. code-block:: python
-
-    config = {
-        "model": MODEL_PATH,
-
-        # Name of served cube
-        "cube": "grants",
-
-        # Name of materialized denomralized view/table containing the cube data
-        "view": "mft_grants",
+    {
+        "summary": { 
+            "request": "aggregate" 
+        },
+        "year_drilldown" : { 
+            "request": "aggregate", 
+            "drilldown": "date" 
+        },
+        "it_contractors" : { 
+            "request": "aggregate",
+            "drilldown": "contractor",
+            "cut": { "subject": "it" }
+        }
         
-        # SQL Alchemy Database URL
+    }
+
+
+Local Server
+------------
+
+To run your local server, prepare server configuration ``grants_config.json``::
+
+    {
+        "model": "grants_model.json",
+        "cube": "grants",
+        "view": "mft_grants",
         "connection": "postgres://localhost/mydata"
     }
 
-Functions to create and run the server:
+Run the server using the Slicer tool (see :doc:`/slicer`)::
 
-.. code-block:: python
+    slicer serve grants_config.json
 
-    def make_app():
-        import cubes.server
-        app = cubes.server.Slicer(config)
-        return app
-
-    def make_shell():
-        from slicer import utils
-        application = make_app()
-        return locals()
-
-    action_runserver = script.make_runserver(make_app, use_reloader=True)
-    action_shell = script.make_shell(make_shell)
-
-    script.run()
 
 Server requests
 ---------------
