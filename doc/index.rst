@@ -14,6 +14,7 @@ Contents:
    cubes
    aggregate
    computing
+   localization
    server
    tools
    api/index

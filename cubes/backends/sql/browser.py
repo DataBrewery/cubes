@@ -1,27 +1,38 @@
 import cubes.base
 import base
-import sqlalchemy
-import sqlalchemy.sql.expression as expression
-import sqlalchemy.sql.functions as functions
 import logging
+import cubes.model
 
-class SimpleSQLBrowser(cubes.base.AggregationBrowser):
+try:
+    import sqlalchemy
+    import sqlalchemy.sql.expression as expression
+    import sqlalchemy.sql.functions as functions
+except:
+    pass
+
+class SQLBrowser(cubes.base.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, connection, view_name, schema = None):
+    def __init__(self, cube, connection, view_name, schema = None, locale = None):
         """Create a browser.
         
         :Attributes:
             * `cube` - cube object to be browsed
             * `connection` - sqlalchemy database connection object
             * `view_name` - name of denormalized view (might be VIEW or TABLE)
+            * `locale` - locale to be used for localized attributes
 
         """
-        super(SimpleSQLBrowser, self).__init__(cube)
+        super(SQLBrowser, self).__init__(cube)
 
         self.cube = cube
         self.view_name = view_name
 
+        if locale:
+            self.locale = locale
+        else:
+            self.locale = cube.model.locale
+        
         self.fact_key = cube.key
         if not self.fact_key:
             self.fact_key = base.DEFAULT_KEY_FIELD
@@ -48,7 +59,7 @@ class SimpleSQLBrowser(cubes.base.AggregationBrowser):
         result = cubes.base.AggregationResult()
         
         # Create query
-        query = CubeQuery(cuboid, self.view)
+        query = CubeQuery(cuboid, self.view, locale = self.locale)
         query.drilldown = drilldown
         query.prepare()
 
@@ -86,7 +97,7 @@ class SimpleSQLBrowser(cubes.base.AggregationBrowser):
 
     def facts(self, cuboid, **options):
         # Create query
-        query = CubeQuery(cuboid, self.view, **options)
+        query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
 
         query.prepare()
         statement = query.facts_statement()
@@ -122,7 +133,7 @@ class SimpleSQLBrowser(cubes.base.AggregationBrowser):
         
 class CubeQuery(object):
     """docstring for CuboidQuery"""
-    def __init__(self, cuboid, view):
+    def __init__(self, cuboid, view, locale = None):
         """Creates a cube query.
         
         :Attributes:
@@ -137,6 +148,7 @@ class CubeQuery(object):
         self.view = view
         self.condition_expression = None
         self.drilldown = None
+        self.locale = locale
 
         self._last_levels = {}
 
@@ -330,10 +342,22 @@ class CubeQuery(object):
             raise TypeError("Drilldown is of unknown type: %s" % self.drilldown.__class__)
         
     def column(self, field, dimension = None):
-        if dimension:
-            name = dimension.name + '.' + str(field)
-        else:
-            name = field
+        # FIXME: should use: field.full_name(dimension, self.locale)
+        # if there is no localization for field, use default name/first locale
+        locale_suffix = ""
 
-        return self.view.c[name]
+        if dimension:
+            if isinstance(field, cubes.model.Attribute) and field.locales:
+                if self.locale in field.locales:
+                    locale = self.locale
+                else:
+                    locale = field.locales[0]
+                locale_suffix = "." + locale
+            logical_name = dimension.name + '.' + str(field)
+        else:
+            logical_name = field
+
+        localized_name = logical_name + locale_suffix
+        column = self.view.c[localized_name]
+        return expression.label(logical_name, column)
         

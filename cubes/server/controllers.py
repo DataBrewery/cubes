@@ -34,7 +34,7 @@ class ApplicationController(object):
         else:
             self.view_name = self.cube_name
 
-        self.dburl = config["dburl"]
+        self.dburl = config["connection"]
 
         self.params = None
         self.query = None
@@ -166,7 +166,7 @@ class AggregationController(ApplicationController):
         
         self.connection = self.engine.connect()
 
-        self.browser = cubes.backends.SimpleSQLBrowser(self.cube, self.connection, self.view_name)
+        self.browser = cubes.backends.SQLBrowser(self.cube, self.connection, self.view_name)
 
     def finalize(self):
         self.connection.close()

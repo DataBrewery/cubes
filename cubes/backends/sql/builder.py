@@ -16,6 +16,8 @@ Attribute = collections.namedtuple("Attribute", "attribute, alias, dimension, lo
 class SQLBuilder(object):
     """SQLAlchemy based builder - recommended to be used"""
     
+    capabilities = ["localization"]
+    
     def __init__(self, cube, connection = None, schema = None, dimension_table_prefix = None):
         """Creates a simple SQL view builder.
         

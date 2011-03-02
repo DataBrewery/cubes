@@ -12,12 +12,13 @@ import json
 import argparse
 import sys
 import cubes
+import cubes.server
 import urlparse
 
 def validate_model(args):
     """docstring for validate_model"""
-    print("loading model %s" % args.ref)
-    model = cubes.load_model(args.ref)
+    print("loading model %s" % args.model)
+    model = cubes.load_model(args.model)
 
     print("-------------------------")
     print("cubes: %d" % len(model.cubes))
@@ -71,39 +72,72 @@ def validate_model(args):
 
 def model_to_json(args):
     """docstring for validate_model"""
-    model = brewery.cubes.load_model(args.ref)
+    model = brewery.cubes.load_model(args.model)
     print json.dumps(model.to_dict())
+
+def translate_model(args):
+    pass
+
+def run_server(args):
+    handle = open(args.config)
+    try:
+        config = json.load(handle)
+    except Exception as e:
+        raise "Unable to load model: %s" % e
+    finally:
+        handle.close()
+
+    cubes.server.run_server(config)
 
 ################################################################################
 # Main code
 
-parser = argparse.ArgumentParser(description='Cubes runner')
+parser = argparse.ArgumentParser(description='Cubes tool')
 # parser.add_argument('command')
 # parser.add_argument('command_args', nargs = '*', default = [])
-subparsers = parser.add_subparsers(title='commands', help='additional help')
+subparsers = parser.add_subparsers(title='commands')
 
 ################################################################################
 # Command: valdate_model
 
-model_parser = subparsers.add_parser('model')
-model_subparsers = model_parser.add_subparsers(title='model commands', help='additional model help')
+model_parser = subparsers.add_parser('model', help = "logical model validation, translation, conversion")
+model_subparsers = model_parser.add_subparsers(title='model commands', 
+                            help='additional model help')
 
-parser_validate = model_subparsers.add_parser('validate')
+parser_validate = model_subparsers.add_parser('validate', 
+                            help = "validate model and print validation report")
+
 parser_validate.add_argument('-d', '--defaults', 
                             dest = 'show_defaults', action = 'store_true', default = False,
                             help='show defaults')
 parser_validate.add_argument('-w', '--no-warnings', 
                             dest = 'show_warnings', action = 'store_false', default = True, 
                             help='disable warnings')
-parser_validate.add_argument('ref', help='model reference - can be a local file path or URL')
+parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
 parser_validate.set_defaults(func=validate_model)
+
+
+################################################################################
+# Command: translate_model
+
+parser_translate = model_subparsers.add_parser('translate', help = "translate model")
+parser_validate.add_argument('model', help='model file or URL')
+parser_validate.add_argument('translation', help='translation file or URL')
+parser_validate.set_defaults(func=translate_model)
 
 ################################################################################
 # Command: model_to_json
 
 parser_validate = model_subparsers.add_parser('json')
-parser_validate.add_argument('ref', help='model reference - can be a local file path or URL')
+parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
 parser_validate.set_defaults(func=model_to_json)
+
+################################################################################
+# Command: serve
+
+parser_serve = subparsers.add_parser('serve', help = "run slicer server")
+parser_serve.add_argument('config', help='json file with server confuguration')
+parser_serve.set_defaults(func=run_server)
 
 args = parser.parse_args(sys.argv[1:])
 

@@ -159,6 +159,7 @@ class Model(object):
     	self.name = name
     	self.label = desc.get('label','')
     	self.description = desc.get('description','')
+    	self.locale = desc.get('locale',None)
 
     	self._dimensions = {}
 
@@ -466,31 +467,19 @@ class Cube(object):
         #                                         "(using default mapping)" % (dimension.name, attribute, self.name)) )
 
 
+        # Check whether all attributes, measures and keys are Attribute objects
+        # This is internal consistency chceck
+        
+        for measure in self.measures:
+            if not isinstance(measure, Attribute):
+                results.append( ('error', "Measure '%s' in cube '%s' is not instance of Attribute" % (measure, self.name)) )
+
         # 2. check whether dimension attributes are unique
+
+        
+
         # 3. check whether dimension has valid keys
 
-
-        # if !fact_dataset
-        #     results << [:error, "Unable to find fact dataset '#{fact_dataset_name}' for cube '#{name}'"]
-        # end
-        # 
-        # dimensions.each { | dim |
-        #     dim.levels.each { |level|
-        #         level.level_fields.each { |field|
-        #             ref = field_reference(field)
-        #             ds = logical_model.dataset_description_with_name(ref[0])
-        #             if !ds
-        #                 results << [:error, "Unknown dataset '#{ref[0]}' for field '#{field}', dimension '#{dim.name}', level '#{level.name}', cube '#{name}'"]
-        #             else
-        #                 fd = ds.field_with_name(ref[1])
-        #                 if !fd
-        #                     results << [:error, "Unknown dataset field '#{ref[0]}.#{ref[1]}' specified in dimension '#{dim.name}', level '#{level.name}', cube '#{name}'"]
-        #                 end
-        #             end
-        #         }
-        #     }
-        # }
-        # 
         return results
 
 class Dimension(object):
@@ -715,12 +704,13 @@ class Dimension(object):
         for level_name, level in self._levels.items():
             if not level.attributes:
                 results.append( ('error', "Level '%s' in dimension '%s' has no attributes" % (level.name, self.name)) )
-            else:
-                if not level._key:
-                    attr = level.attributes[0]
-                    results.append( ('default', "Level '%s' in dimension '%s' has no key attribute specified, "\
-                                                "first attribute will be used: '%s'" 
-                                                % (level.name, self.name, attr)) )
+                continue
+
+            if not level._key:
+                attr = level.attributes[0]
+                results.append( ('default', "Level '%s' in dimension '%s' has no key attribute specified, "\
+                                            "first attribute will be used: '%s'" 
+                                            % (level.name, self.name, attr)) )
 
             if level.attributes and level._key:
                 found = False
@@ -733,6 +723,10 @@ class Dimension(object):
                                               "is not in attribute list"
                                                 % (level.key, level.name, self.name)) )
 
+            for attribute in level.attributes:
+                if not isinstance(attribute, Attribute):
+                    results.append( ('error', "Attribute '%s' in dimension '%s' is not instance of Attribute" % (attribute, self.name)) )
+                
         return results
 
     def __str__(self):
