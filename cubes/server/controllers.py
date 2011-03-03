@@ -122,7 +122,7 @@ class ApplicationController(object):
 class ModelController(ApplicationController):
 
     def show(self):
-        return self.json_response(self.model.to_dict())
+        return self.json_response(self.model.to_dict(with_mappings = False))
 
     def dimension(self):
         dim_name = self.params["name"]
@@ -132,14 +132,10 @@ class ModelController(ApplicationController):
 
     def _cube_dict(self, cube):
         d = cube.to_dict(expand_dimensions = True, 
-                         full_attribute_names = True,
-                         with_mappings = False)
+                         with_mappings = False,
+                         full_attribute_names = True
+                         )
 
-        # array = []
-        # for dim in cube.dimensions:
-        #     array.append(dim.to_dict())
-        #     
-        # d["dimensions"] = array
         return d
 
     def get_default_cube(self):

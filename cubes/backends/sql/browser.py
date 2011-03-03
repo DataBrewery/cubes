@@ -165,7 +165,6 @@ class SQLBrowser(cubes.base.AggregationBrowser):
         if row:
             record = {}
             for (key, value) in row.items():
-                print "fetching wor item '%s' = %s" % (key, value)
                 record[key] = value
         else:
             record = None
@@ -420,6 +419,7 @@ class CubeQuery(object):
             for level in levels:
                 for attr in level.attributes:
                     self.logger.debug("adding drill down attribute %s.%s" % (dim.name, attr))
+
                     column = self.column(attr, dim)
                     if column not in self._group_by:
                         self.drilldown_group_by.append(column)

@@ -1004,7 +1004,7 @@ class Attribute(object):
     def __ne__(self,other):
         return not self.__eq__(other)
         
-    def to_dict(self, dimension = None):
+    def to_dict(self, dimension = None, **options):
         d = self.__dict__()
         if dimension:
             d["full_name"] = self.full_name(dimension)
