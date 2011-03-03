@@ -74,15 +74,18 @@ class Slicer(object):
                                [local_manager.cleanup])
         
     def dispatch(self, controller, action_name, request, params):
-        controller.initialize()
 
         controller.request = request
         controller.params = params
         controller.locale = params.get("lang")
         
         action = getattr(controller, action_name)
-        retval = action()
-        controller.finalize()
+
+        try:
+            controller.initialize()
+            retval = action()
+        finally:
+            controller.finalize()
 
         return retval
 

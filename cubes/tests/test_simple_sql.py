@@ -19,8 +19,20 @@ class SQLTestCase(unittest.TestCase):
         
         date_desc = { "name": "date", 
                       "levels": { 
-                                    "year": { "key": "year", "attributes": ["year"] }, 
-                                    "month": { "key": "month", "attributes": ["month", "month_name"] }
+                                    "year": { 
+                                        "key": "year", 
+                                        "attributes": [
+                                            {
+                                                "name":"year",
+                                                "order":"ascending"
+                                            }
+                                            ]
+                                        }, 
+                                    "month": {
+                                        "key": "month", 
+                                        "attributes": [
+                                            {"name":"month", "order":"ascending"},
+                                            {"name":"month_name"}] }
                                 } , 
                        "default_hierarchy": "ym",
                        "hierarchies": { 
@@ -50,7 +62,7 @@ class SQLTestCase(unittest.TestCase):
         self.class_dim = cubes.Dimension("cls", class_desc)
         self.cube.add_dimension(self.class_dim)
         
-        self.cube.measures = ["amount"]
+        self.cube.measures = [cubes.Attribute("amount")]
         self.cube.mappings = {
                                 "amount": "ft_contracts.amount",
                                 "date.year": "dm_date.year",
@@ -160,7 +172,7 @@ class SQLBrowserTestCase(SQLTestCase):
 
     def setUp(self):
         super(SQLBrowserTestCase, self).setUp()
-        self.browser = cubes.backends.SimpleSQLBrowser(self.cube, connection = self.connection, 
+        self.browser = cubes.backends.SQLBrowser(self.cube, connection = self.connection, 
                                                          view_name="view")
         self.full_cube = self.browser.full_cube()
 
@@ -179,13 +191,21 @@ class SQLBrowserTestCase(SQLTestCase):
         s = str(stmt)
         self.assertNotRegexpMatches(s, 'view\."date\.year" =')
 
+    def test_natural_order(self):
+        query = CubeQuery(self.full_cube, self.view)
+        query.prepare()
+        stmt = query.facts_statement
+        s = str(stmt)
+        self.assertRegexpMatches(s, 'ORDER BY')
+        # self.assertRegexpMatches(s, 'ORDER BY.*date\.year')
+
     def test_fact_with_conditions(self):
 
         cuboid = self.full_cube.slice(self.date_dim, [2010])
 
         query = CubeQuery(cuboid, self.view)
         query.prepare()
-        stmt = query.facts_statement()
+        stmt = query.facts_statement
         s = str(stmt)
         self.assertRegexpMatches(s, 'WHERE')
         self.assertRegexpMatches(s, 'view\."date\.year" =')
@@ -195,7 +215,7 @@ class SQLBrowserTestCase(SQLTestCase):
         cuboid = self.full_cube.slice(self.date_dim, [2010, 4])
         query = CubeQuery(cuboid, self.view)
         query.prepare()
-        stmt = query.facts_statement()
+        stmt = query.facts_statement
         s = str(stmt)
         self.assertRegexpMatches(s, 'WHERE')
         self.assertRegexpMatches(s, r'view\."date\.year" =')
@@ -204,7 +224,7 @@ class SQLBrowserTestCase(SQLTestCase):
     def test_aggregate_full(self):
         query = CubeQuery(self.full_cube, self.view)
         query.prepare()
-        stmt = query.summary_statement()
+        stmt = query.summary_statement
         s = str(stmt)
         self.assertNotRegexpMatches(s, 'WHERE')
         self.assertRegexpMatches(s, r'sum(.*amount.*) AS amount_sum')
@@ -215,7 +235,7 @@ class SQLBrowserTestCase(SQLTestCase):
 
         query = CubeQuery(cuboid, self.view)
         query.prepare()
-        stmt = query.summary_statement()
+        stmt = query.summary_statement
         s = str(stmt)
         s = re.sub(r'\n', ' ', s)
         self.assertRegexpMatches(s, r'WHERE')
@@ -232,7 +252,7 @@ class SQLBrowserTestCase(SQLTestCase):
 
         query = CubeQuery(cuboid, self.view)
         query.prepare()
-        stmt = query.summary_statement()
+        stmt = query.summary_statement
         s = str(stmt)
         self.assertRegexpMatches(s, r'GROUP BY .*date\.year')
         self.assertRegexpMatches(s, r'GROUP BY .*date\.month')
@@ -246,7 +266,7 @@ class SQLBrowserTestCase(SQLTestCase):
 
         query = CubeQuery(cuboid, self.view)
         query.prepare()
-        stmt = query.summary_statement()
+        stmt = query.summary_statement
         s = str(stmt)
         self.assertRegexpMatches(s, r'cls')
         self.assertRegexpMatches(s, r'group_id')
@@ -261,7 +281,7 @@ class SQLBrowserTestCase(SQLTestCase):
         query = CubeQuery(cuboid, self.view)
         query.drilldown = ["date"]
         query.prepare()
-        stmt = query.drilldown_statement()
+        stmt = query.drilldown_statement
         s = str(stmt)
         self.assertRegexpMatches(s, r'date\.year')
         self.assertNotRegexpMatches(s, r'date\.month')
@@ -270,7 +290,7 @@ class SQLBrowserTestCase(SQLTestCase):
         query = CubeQuery(cuboid, self.view)
         query.drilldown = ["date"]
         query.prepare()
-        stmt = query.drilldown_statement()
+        stmt = query.drilldown_statement
         s = str(stmt)
         self.assertRegexpMatches(s, r'date\.year')
         self.assertRegexpMatches(s, r'date\.month')
@@ -286,7 +306,7 @@ class SQLBrowserTestCase(SQLTestCase):
         query = CubeQuery(cuboid, self.view)
         query.drilldown = {"date": "year"}
         query.prepare()
-        stmt = query.drilldown_statement()
+        stmt = query.drilldown_statement
         s = str(stmt)
         self.assertRegexpMatches(s, r'date\.year')
         self.assertNotRegexpMatches(s, r'date\.month')
@@ -295,7 +315,7 @@ class SQLBrowserTestCase(SQLTestCase):
         query = CubeQuery(cuboid, self.view)
         query.drilldown = {"date": "month"}
         query.prepare()
-        stmt = query.drilldown_statement()
+        stmt = query.drilldown_statement
         s = str(stmt)
 
         self.assertRegexpMatches(s, r'date\.year')

@@ -6,10 +6,10 @@ import decimal
 import os.path
 import logging
 import urllib
+import datetime
 
 version = "0.1"
-api_version = "1"
-
+api_version = "0"
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -20,6 +20,8 @@ class FixingEncoder(json.JSONEncoder):
     def default(self, o):
         if type(o) == decimal.Decimal:
             return float(o)
+        if type(o) == datetime.date or type(o) == datetime.datetime:
+            return o.isoformat()
         else:
             return json.JSONEncoder.default(self, o)
 
@@ -176,8 +178,25 @@ class AggregationController(ApplicationController):
                                                     self.view_name,
                                                     self.schema)
 
+
+        if "page" in self.request.args:
+            self.page = int(self.request.args.get("page"))
+        else:
+            self.page = None
+        if "pagesize" in self.request.args:
+            self.page_size = int(self.request.args.get("pagesize"))
+        else:
+            self.page_size = None
+        
     def finalize(self):
-        self.connection.close()
+        if self.browser:
+            del self.browser
+
+        if self.connection:
+            self.connection.close()
+            self.engine.dispose()
+            del self.connection
+            del self.engine
     
     def prepare_cuboid(self):
         cut_string = self.request.args.get("cut")
@@ -195,7 +214,7 @@ class AggregationController(ApplicationController):
         drilldown = self.request.args.getlist("drilldown")
 
         try:
-            result = self.cuboid.aggregate(drilldown = drilldown)
+            result = self.cuboid.aggregate(drilldown = drilldown, page = self.page, page_size = self.page_size)
         except Exception, e:
             return self.error("Aggregation failed", e)
 
@@ -205,7 +224,7 @@ class AggregationController(ApplicationController):
         self.prepare_cuboid()
 
         try:
-            result = self.cuboid.facts()
+            result = self.cuboid.facts(page = self.page, page_size = self.page_size)
         except Exception, e:
             return self.error("Fetching facts failed", e)
 
@@ -243,7 +262,7 @@ class AggregationController(ApplicationController):
             return self.error("No dimension '%s'" % dim_name, status = 404)
 
         try:
-            values = self.cuboid.values(dimension, depth = depth)
+            values = self.cuboid.values(dimension, depth = depth, page = self.page, page_size = self.page_size)
         except Exception, e:
             return self.error("Getting values for dimension %s failed" % dim_name, e)
 

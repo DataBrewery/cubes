@@ -926,13 +926,54 @@ def attribute_list(attributes):
             new = Attribute(**attr)
         array.append(new)
     return array
+    
+# def attribute_list(attributes):
+#     """Create a list of attributes from a list of strings or dictionaries."""
+# 
+#     odict = collections.OrderedDict()
+# 
+#     if not attributes:
+#         return odict
+# 
+#     for attr in attributes:
+#         if type(attr) == str or type(attr) == unicode:
+#             new = Attribute(name = attr)
+#         else:
+#             new = Attribute(**attr)
+#         odict[new.name] = new
+#     return odict
 
 class Attribute(object):
     """Cube attribute - represents any fact field/column"""
-    def __init__(self, name, label = None, locales = None, **kwargs):
+    
+    ASC = 'asc'
+    DESC = 'desc'
+    
+    def __init__(self, name, label = None, locales = None, order = None, **kwargs):
+        """Create an attribute.
+        
+        :Attributes:
+            * `name` - attribute name, used as identifier
+            * `label` - attribute label displayed to a user
+            * `locales` = list of locales that the attribute is localized to
+            * `order` - default order of this attribute. If not specified, then order is
+              unexpected. Possible values are: ``'asc'``/``'ascending'`` or
+              ``'desc'``/``'descending'``. It is recommended and safe to use ``Attribute.ASC`` and
+              ``Attribute.DESC``
+        
+        """
         super(Attribute, self).__init__()
         self.name = name
         self.label = label
+
+        if order:
+            self.order = order.lower()
+            if self.order == 'ascending':
+                self.order = Attribute.ASC
+            if self.order == 'descending':
+                self.order = Attribute.DESC
+        else:
+            self.order = None
 
         if locales == None:
             self.locales = []
@@ -945,6 +986,8 @@ class Attribute(object):
             d["label"] = self.label
         if self.locales != None:
             d["locales"] = self.locales
+        if self.order != None:
+            d["order"] = self.order
 
         return d
         

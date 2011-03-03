@@ -156,7 +156,7 @@ class ModelValidatorTestCase(unittest.TestCase):
         self.assertValidation(results, "No levels")
         self.assertValidation(results, "No defaut hierarchy")
 
-        self.assertValidationError(results, "No hierarchies in dimension", expected_type = "warning")
+        self.assertValidationError(results, "No hierarchies in dimension", expected_type = "default")
 
         date_desc = { "name": "date", "levels": self.date_levels}
         dim = cubes.Dimension('date', date_desc)

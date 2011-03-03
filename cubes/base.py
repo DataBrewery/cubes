@@ -42,7 +42,7 @@ class AggregationBrowser(object):
         else:
             return dimension
 
-    def aggregate(self, cuboid, measures = None, drilldown = None):
+    def aggregate(self, cuboid, measures = None, drilldown = None, **options):
         """Return aggregate of a cuboid.
 
         Subclasses of aggregation browser should implement this method.
@@ -70,7 +70,7 @@ class AggregationBrowser(object):
         """
         raise NotImplementedError
         
-    def facts(self, cuboid):
+    def facts(self, cuboid, **options):
         """Return list of all facts within cuboid"""
         
         raise NotImplementedError
@@ -160,18 +160,19 @@ class Cuboid(object):
                 cuts.append(cut)
         return cuts
 
-    def aggregate(self, measures = None, drilldown = None):
+    def aggregate(self, measures = None, drilldown = None, **options):
         """Return computed aggregate of the coboid.
         """
 
-        return self.browser.aggregate(self, measures, drilldown)
+        return self.browser.aggregate(self, measures, drilldown, **options)
 
-    def values(self, dimension, depth = None):
+    def values(self, dimension, depth = None, **options):
         """Return values for dimension."""
-        return self.browser.values(self, dimension, depth)
+        return self.browser.values(self, dimension, depth, **options)
 
-    def facts(self):
-        return self.browser.facts(self)
+    def facts(self, **options):
+        """Get all facts within cuboid."""
+        return self.browser.facts(self, **options)
 
     def __eq__(self, other):
         """Cuboids are considered equal if:
