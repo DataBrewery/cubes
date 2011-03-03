@@ -10,14 +10,17 @@ try:
 except:
     pass
     
-    
 # FIXME: required functionality TODO
 # 
 # * [DONE] number of items in drill-down
 # * [DONE] dimension values
-# * drill-down sorting and pagination
+# * drill-down sorting
+# * [DONE] drill-down pagination
 # * drill-down limits (such as top-10)
-# * dimension values sorting and pagination
+# * facts sorting
+# * [DONE] facts pagination
+# * dimension values sorting
+# * [DONE] dimension values pagination
 # * remainder
 # * ratio - aggregate sum(current)/sum(total) 
 
@@ -64,8 +67,8 @@ class SQLBrowser(cubes.base.AggregationBrowser):
             self.key_column = None
 
         self.logger = logging.getLogger("brewery.cubes")
-        
-    def aggregate(self, cuboid, measures = None, drilldown = None):
+
+    def aggregate(self, cuboid, measures = None, drilldown = None, **options):
         """See :meth:`cubes.browsers.Cuboid.aggregate`."""
         result = cubes.base.AggregationResult()
         
@@ -76,12 +79,13 @@ class SQLBrowser(cubes.base.AggregationBrowser):
 
         ############################################
         # Get summary
-        row = self.connection.execute(query.summary_statement).fetchone()
+        cursor = self.connection.execute(query.summary_statement)
+        row = cursor.fetchone()
         summary = {}
         if row:
             for field in query.fields:
                 summary[field] = row[field]
-
+        cursor.close()
         result.summary = summary
 
         ############################################
@@ -94,6 +98,11 @@ class SQLBrowser(cubes.base.AggregationBrowser):
             statement = query.drilldown_statement
             # print("executing drill down statement")
             # print("%s" % str(statement))
+            page = options.get("page")
+            page_size = options.get("page_size")
+
+            if page is not None and page_size is not None:
+                statement = statement.offset(page * page_size).limit(page_size)
             
             rows = self.connection.execute(statement)
             
@@ -120,6 +129,12 @@ class SQLBrowser(cubes.base.AggregationBrowser):
         query.prepare()
         statement = query.facts_statement
 
+        page = options.get("page")
+        page_size = options.get("page_size")
+
+        if page is not None and page_size is not None:
+            statement = statement.offset(page * page_size).limit(page_size)
+
         result = self.connection.execute(statement)
 
         # FIXME: Return nice iterable
@@ -139,10 +154,18 @@ class SQLBrowser(cubes.base.AggregationBrowser):
         condition = self.key_column == key
 
         stmt = self.view.select(whereclause = condition)
-        row = self.connection.execute(stmt).fetchone()
+
+        # stmt = expression.select(columns,
+        #                             whereclause = condition,
+        #                             from_obj = self.view)
+
+        cursor = self.connection.execute(stmt)
+        
+        row = cursor.fetchone()
         if row:
             record = {}
             for (key, value) in row.items():
+                print "fetching wor item '%s' = %s" % (key, value)
                 record[key] = value
         else:
             record = None
@@ -156,6 +179,12 @@ class SQLBrowser(cubes.base.AggregationBrowser):
         query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
 
         statement = query.values_statement(dimension, depth)
+
+        page = options.get("page")
+        page_size = options.get("page_size")
+
+        if page is not None and page_size is not None:
+            statement = statement.offset(page * page_size).limit(page_size)
 
         rows = self.connection.execute(statement)
 
@@ -172,13 +201,19 @@ class SQLBrowser(cubes.base.AggregationBrowser):
     
 class CubeQuery(object):
     """docstring for CuboidQuery"""
-    def __init__(self, cuboid, view, locale = None):
+    def __init__(self, cuboid, view, locale = None, **options):
         """Creates a cube query.
         
         :Attributes:
         
             * `cuboid` - cuboid within query will be executed
+            * `view` - denormalized view/table where data is stored
+            * `locale` - locale to be used for fetching data. if none specified, then default
+              locale is used (first locale for attributes with multiple locales)
+
+        .. note::
         
+            This class requires refactoring for optimisation.
         """
         
         super(CubeQuery, self).__init__()
@@ -207,6 +242,9 @@ class CubeQuery(object):
         self.selection = []
         self.fields = []
         self._last_levels = {}
+        
+        self.page = None
+        self.page_size = None
 
     def fact_statement(self, fact_id):        
         if not self._prepared:
@@ -350,6 +388,10 @@ class CubeQuery(object):
 
         self._condition = expression.and_(*self._conditions)
 
+    def _prepare_order_by(self):
+        # FIXME: Continue here
+        pass
+        
     def _prepare_drilldown(self):
         """Prepare drill down selection, groupings and fields"""
         
@@ -414,6 +456,14 @@ class CubeQuery(object):
             self._drilldown = self.drilldown
         else:
             raise TypeError("Drilldown is of unknown type: %s" % self.drilldown.__class__)
+
+    # def attribute(self, field):
+    #     """Return Attribute object based on field specification."""
+    #     if isinstance(field, cubes.model.Attribute):
+    #         return field
+    #         
+    #     split = field.split(".")
+    #     if len(split) == 1:
         
     def column(self, field, dimension = None):
         # FIXME: should use: field.full_name(dimension, self.locale)
