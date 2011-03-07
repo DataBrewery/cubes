@@ -91,8 +91,12 @@ class ApplicationController(object):
         return self.json_response(response)
 
     def json_response(self, obj):
-
-        encoder = FixingEncoder(indent = 4)
+        if "_prettyjson" in self.request.args:
+            indent = 4
+        else:
+            indent = None
+        
+        encoder = FixingEncoder(indent = indent)
         reply = encoder.iterencode(obj)
 
         return Response(reply, mimetype='application/json')

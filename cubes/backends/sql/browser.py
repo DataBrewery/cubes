@@ -389,6 +389,18 @@ class CubeQuery(object):
 
     def _prepare_order_by(self):
         # FIXME: Continue here
+        oder = []
+        if self.order_by:
+            for field in self.order_by:
+                if type(field) == tuple or type(field) == list:
+                    field_name = field[0]
+                    field_order = field[1]
+                else:
+                    field_name = field
+                    field_order = None
+                if field_name in self.fields:
+                    order.append( (field_name, field_order) )
+        
         pass
         
     def _prepare_drilldown(self):
