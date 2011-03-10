@@ -1026,6 +1026,15 @@ class Attribute(object):
         else:
             return dimension.name + "." + self.name + locale_suffix
         
+class Measure(Attribute):
+    """Class representing a cube measure."""
+    def __init__(self, name, label = None, locales = None, order = None, aggregations = None, **kwargs):
+        """Creates a cube measure object. In addition to Attribute object it contains list of
+        meaningful aggregations that can be performed on this attribute."""
+
+        super(Measure, self).__init__(name, label, locales, order, **kwargs)
+        self.aggregations = aggregations
+        
 # class DimensionSelector(tuple):
 #     """DimensionSelector - specifies a dimension and level depth to be selected. This is utility
 #     class that might be used internally in cube aggregations or aggregation browsers.

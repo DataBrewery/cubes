@@ -56,7 +56,7 @@ class SQLBuilder(object):
 
         self.cube_attributes = [ self.cube_key ]
         for measure in self.cube.measures:
-            print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
+            # print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
             self.cube_attributes.append(str(measure))
         
         self.dimension_table_prefix = dimension_table_prefix
