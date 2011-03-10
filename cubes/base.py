@@ -294,7 +294,7 @@ class AggregationResult(object):
         self.drilldown = {}
         self.remainder = {}
 
-    def __dict__(self):
+    def as_dict(self):
         d = {}
         
         d["summary"] = self.summary
@@ -311,6 +311,6 @@ class AggregationResult(object):
                 return JSONEncoder.default(self, o)
 
         encoder = json.JSONEncoder(default = default, indent = 4)
-        json_string = encoder.encode(self.__dict__())
+        json_string = encoder.encode(self.as_dict())
 
         return json_string

@@ -237,7 +237,8 @@ class AggregationController(ApplicationController):
         except Exception, e:
             return self.error("Aggregation failed", e)
 
-        return Response(result.as_json())
+        # return Response(result.as_json())
+        return self.json_response(result.as_dict())
 
     def facts(self):
         self.prepare_cuboid()
