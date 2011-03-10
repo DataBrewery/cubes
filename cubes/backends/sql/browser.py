@@ -3,6 +3,7 @@ import base
 import logging
 import cubes.model
 import collections
+from collections import OrderedDict
 
 try:
     import sqlalchemy
@@ -85,7 +86,7 @@ class SQLBrowser(cubes.base.AggregationBrowser):
         row = cursor.fetchone()
         summary = {}
         if row:
-            for field in query.summary_fields:
+            for field in query.summary_selection.keys():
                 summary[field] = row[field]
         cursor.close()
         result.summary = summary
@@ -109,7 +110,7 @@ class SQLBrowser(cubes.base.AggregationBrowser):
             
             # FIXME: change this into iterable, do not fetch everythig - we want to get plain dict
             # fields = query.fields + query.drilldown_fields
-            fields = [attr.name for attr in query.selection]
+            fields = [attr.name for attr in query.selection.values()]
             records = []
             for row in rows:
                 record = {}
@@ -247,9 +248,9 @@ class CubeQuery(object):
         self._conditions = []
         self._condition = None
         self._group_by = []
-        self.selection = []
-        self.fields = []
         self._last_levels = {}
+        self.summary_selection = OrderedDict()
+        self.selection = OrderedDict()
         
         self.page = None
         self.page_size = None
@@ -358,7 +359,7 @@ class CubeQuery(object):
         ## -- 1 -- FACTS
         self._facts_statement = self.view.select(whereclause = self._condition)
 
-        columns = [col.column for col in self.selection]
+        columns = [col.column for col in self.selection.values()]
 
         ##########################
         ## -- 2 -- SUMMARY
@@ -366,18 +367,16 @@ class CubeQuery(object):
                                 whereclause = self._condition, 
                                 from_obj = self.view,
                                 group_by = self._group_by)
-        self.summary_selection = self.selection[:]
-        self.summary_fields = self.fields[:]
+        self.summary_selection = OrderedDict(self.selection)
 
         ##########################
         ## -- 2 -- DRILL DOWN
         if self.drilldown:
-            self.selection += self.drilldown_selection
-            self.fields += self.drilldown_fields
+            self.selection.update(self.drilldown_selection)
 
             drilldown_group_by = self._group_by + self.drilldown_group_by
 
-            columns = [col.column for col in self.selection]
+            columns = [col.column for col in self.selection.values()]
             
             self._drilldown_statement = expression.select(columns, 
                                         whereclause = self._condition, 
@@ -392,14 +391,12 @@ class CubeQuery(object):
             label = str(measure) + "_sum"
             s = functions.sum(self.column(str(measure))).label(label)
             cellattr = CellAttribute(None, label, s)
-            self.selection.append(cellattr)
-            self.fields.append(label)
+            self.selection[label] = cellattr
 
         rcount_label = "record_count"
         rcount = functions.count().label(rcount_label)
         cellattr = CellAttribute(None, rcount_label, rcount)
-        self.selection.append(cellattr)
-        self.fields.append(rcount_label)
+        self.selection[rcount_label] = cellattr
 
     def _prepare_order(self):
         """Prepare ORDER BY expression.
@@ -416,10 +413,10 @@ class CubeQuery(object):
         """
         
         # Collect explicit order atributes
-        ex_order_attribs = [a for a in self.selection if a.name in self._order_fields]
+        ex_order_attribs = [a for a in self.selection.values() if a.name in self._order_fields]
 
         # Collect natural (default) order attributes, skip those that are explicitly mentioned
-        natural_order = [a for a in self.selection 
+        natural_order = [a for a in self.selection.values()
                                 if a.attribute and a.attribute.order and
                                     a.name not in self._order_fields]
 
@@ -454,9 +451,8 @@ class CubeQuery(object):
                 for attr in level.attributes:
                     column = self.column(attr, dim)
                     self._group_by.append(column)
-                    self.fields.append(column.name)
                     cellattr = CellAttribute(attr, column.name, column)
-                    self.selection.append(cellattr)
+                    self.selection[column.name] = cellattr
 
             # Remember last level of cut dimension for further use, such as drill-down
             if level:
@@ -469,7 +465,7 @@ class CubeQuery(object):
         
         self.logger.info("preparing drill-down")
         self.drilldown_group_by = []
-        self.drilldown_selection = []
+        self.drilldown_selection = OrderedDict()
         self.drilldown_fields = []
 
         self._normalize_drilldown()
@@ -497,9 +493,8 @@ class CubeQuery(object):
                     cellattr = CellAttribute(attr, column.name, column)
                     if column not in self._group_by:
                         self.drilldown_group_by.append(column)
-                    if cellattr not in self.selection:
-                        self.drilldown_selection.append(cellattr)
-                        self.drilldown_fields.append(column.name)
+                    if column.name not in self.selection:
+                        self.drilldown_selection[column.name] = cellattr
 
     def _normalize_drilldown(self):
         """ Normalize drilldown variable: if it is list or tuple, then "next level" is
