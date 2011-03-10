@@ -255,7 +255,6 @@ class CubeQuery(object):
         self.page = None
         self.page_size = None
         self._order = None
-        self._order_fields = None
 
     @property
     def order(self):
@@ -265,15 +264,13 @@ class CubeQuery(object):
     def order(self, order):
         """Set order. Oder should be a list of tuples (field, order). If only string is provided,
         then it is converted to (string, None)."""
-        self._order = []
+        self._order = OrderedDict()
         if order is not None:
             for item in order:
                 if isinstance(item, basestring):
-                    self._order.append( (item, None) )
+                    self._order[item] = None
                 else:
-                    self._order.append(item)
-                
-        self._order_fields = [o[0] for o in self._order]
+                    self._order[item[0]] = item[1]
 
     def fact_statement(self, fact_id):        
         if not self._prepared:
@@ -413,14 +410,15 @@ class CubeQuery(object):
         """
         
         # Collect explicit order atributes
-        ex_order_attribs = [a for a in self.selection.values() if a.name in self._order_fields]
+        explicit_order = [(f,o) for (f,o) in self._order.items() if f in self.selection]
+        print "ORDER EXPLICIT: %s" % explicit_order
 
-        # Collect natural (default) order attributes, skip those that are explicitly mentioned
-        natural_order = [a for a in self.selection.values()
-                                if a.attribute and a.attribute.order and
-                                    a.name not in self._order_fields]
-
-        order_attributes = ex_order_attribs + natural_order
+        # # Collect natural (default) order attributes, skip those that are explicitly mentioned
+        # natural_order = [a for a in self.selection.values()
+        #                         if a.attribute and a.attribute.order and
+        #                             a.name not in self._order_fields]
+        # 
+        # order_attributes = ex_order_attribs + natural_order
         
         
                                     
