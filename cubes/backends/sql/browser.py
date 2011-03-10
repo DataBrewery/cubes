@@ -373,12 +373,16 @@ class CubeQuery(object):
 
             drilldown_group_by = self._group_by + self.drilldown_group_by
 
+            self._prepare_order()
+
             columns = [col.column for col in self.selection.values()]
             
             self._drilldown_statement = expression.select(columns, 
                                         whereclause = self._condition, 
                                         from_obj = self.view,
-                                        group_by = drilldown_group_by)
+                                        group_by = drilldown_group_by,
+                                        order_by = self.order_by)
+
         self._prepared = True
 
     def _prepare_aggregations(self):
@@ -410,16 +414,35 @@ class CubeQuery(object):
         """
         
         # Collect explicit order atributes
-        explicit_order = [(f,o) for (f,o) in self._order.items() if f in self.selection]
-        print "ORDER EXPLICIT: %s" % explicit_order
+        
+        # 'ordering' values will be tuples: (CellAttribute, order)
+        ordering = OrderedDict()
+        for field, order in self._order.items():
+            if field in self.selection:
+                ordering[field] = (self.selection[field], order)
 
-        # # Collect natural (default) order attributes, skip those that are explicitly mentioned
+        # Collect natural (default) order attributes, skip those that are explicitly mentioned
+        for cell_attr in self.selection.values():
+            if cell_attr.attribute and cell_attr.name not in ordering:
+                ordering[cell_attr.name] = (cell_attr, cell_attr.attribute.order)
+                
+        # print "ORDER: %s" % ordering
         # natural_order = [a for a in self.selection.values()
         #                         if a.attribute and a.attribute.order and
         #                             a.name not in self._order_fields]
         # 
         # order_attributes = ex_order_attribs + natural_order
         
+        # Construct ORDER BY:
+        self.order_by = []
+        for (attr, order) in ordering.values():
+            column = attr.column
+            if order:
+                if order.lower().startswith("asc"):
+                    column = column.asc()
+                elif order.lower().startswith("desc"):
+                    column = column.desc()
+            self.order_by.append(column)
         
                                     
     def _prepare_condition(self):
