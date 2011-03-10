@@ -187,6 +187,22 @@ class AggregationController(ApplicationController):
             self.page_size = int(self.request.args.get("pagesize"))
         else:
             self.page_size = None
+            
+        # Collect orderings:
+        # order is specified as order=<field>[:<direction>]
+        # examples:
+        #
+        #     order=date.year     # order by year, unspecified direction
+        #     order=date.year:asc # order by year ascending
+        #
+        
+        self.order = []
+        for order in self.request.args.getlist("order"):
+            split = order.split(":")
+            if len(split) == 1:
+                self.order.append( (order, None) )
+            else:
+                self.order.append( (split[0], split[1]) )
         
     def finalize(self):
         if self.browser:
@@ -214,7 +230,10 @@ class AggregationController(ApplicationController):
         drilldown = self.request.args.getlist("drilldown")
 
         try:
-            result = self.cuboid.aggregate(drilldown = drilldown, page = self.page, page_size = self.page_size)
+            result = self.cuboid.aggregate(drilldown = drilldown, 
+                                            page = self.page, 
+                                            page_size = self.page_size,
+                                            order = self.order)
         except Exception, e:
             return self.error("Aggregation failed", e)
 

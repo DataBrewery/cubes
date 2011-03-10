@@ -16,7 +16,7 @@ except:
 # 
 # * [DONE] number of items in drill-down
 # * [DONE] dimension values
-# * drill-down sorting
+# * [DONE] drill-down sorting
 # * [DONE] drill-down pagination
 # * drill-down limits (such as top-10)
 # * facts sorting
