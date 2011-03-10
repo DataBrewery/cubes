@@ -1,10 +1,10 @@
-import cubes.base
+import cubes.browser
 import urllib2
 import json
 import logging
 import urllib
 
-class SlicerBrowser(cubes.base.AggregationBrowser):
+class SlicerBrowser(cubes.browser.AggregationBrowser):
     """Aggregation browser for Cubes Slicer OLAP server."""
     
     def __init__(self, url, cube):

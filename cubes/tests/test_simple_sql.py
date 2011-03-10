@@ -191,6 +191,7 @@ class SQLBrowserTestCase(SQLTestCase):
         s = str(stmt)
         self.assertNotRegexpMatches(s, 'view\."date\.year" =')
 
+    @unittest.skip("ordering facts not yet implemented")
     def test_natural_order(self):
         query = CubeQuery(self.full_cube, self.view)
         query.prepare()

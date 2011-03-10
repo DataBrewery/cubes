@@ -1,4 +1,4 @@
-import cubes.base
+import cubes.browser
 import base
 import logging
 import cubes.model
@@ -26,7 +26,7 @@ except:
 # * remainder
 # * ratio - aggregate sum(current)/sum(total) 
 
-class SQLBrowser(cubes.base.AggregationBrowser):
+class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
     def __init__(self, cube, connection, view_name, schema = None, locale = None):
@@ -72,7 +72,7 @@ class SQLBrowser(cubes.base.AggregationBrowser):
 
     def aggregate(self, cuboid, measures = None, drilldown = None, order = None, **options):
         """See :meth:`cubes.browsers.Cuboid.aggregate`."""
-        result = cubes.base.AggregationResult()
+        result = cubes.browser.AggregationResult()
         
         # Create query
         query = CubeQuery(cuboid, self.view, locale = self.locale)
@@ -254,7 +254,7 @@ class CubeQuery(object):
         
         self.page = None
         self.page_size = None
-        self._order = None
+        self._order = OrderedDict()
 
     @property
     def order(self):
@@ -450,7 +450,7 @@ class CubeQuery(object):
         self._group_by = []
 
         for cut in self.cuboid.cuts:
-            if not isinstance(cut, cubes.base.PointCut):
+            if not isinstance(cut, cubes.browser.PointCut):
                 raise Exception("Only point cuts are supported in SQL browser at the moment")
             
             dim = self.cube.dimension(cut.dimension)

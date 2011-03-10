@@ -1,4 +1,3 @@
-import cubes.base as base
 import os
 import re
 import urllib2

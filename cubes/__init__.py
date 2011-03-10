@@ -1,7 +1,7 @@
 """OLAP Cubes"""
 
-from base import *
-from cubes.model import *
+from browser import *
+from model import *
 
 import util
 import browse

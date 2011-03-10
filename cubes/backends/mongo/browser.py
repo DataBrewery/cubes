@@ -1,4 +1,4 @@
-from cubes.base import *
+from cubes.browser import *
 import cubes.util
 import base
 

@@ -1,5 +1,5 @@
 import cubes.util
-import cubes.base
+import cubes.browser
 import base
 
 import itertools
@@ -69,7 +69,7 @@ class MongoSimpleCubeBuilder(object):
             
         self.measures = measures
         
-        self.log = logging.getLogger(cubes.base.default_logger_name())
+        self.log = logging.getLogger(cubes.browser.default_logger_name())
         
         self.cuboid_record_name = "_selector"
         self.cell_reference_record_name = "_cell"
