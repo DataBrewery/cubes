@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Brewery documentation build configuration file, created by
+# Cubes documentation build configuration file, created by
 # sphinx-quickstart on Wed Dec 15 11:57:31 2010.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -49,7 +49,7 @@ copyright = u'2010, Stefan Urbanek'
 # built documents.
 #
 # The short X.Y version.
-# import brewery
+# import cubes
 version = '0.1.0'
 # The full version, including alpha/beta/rc tags.
 release = '0.1.0'
@@ -166,7 +166,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Brewerydoc'
+htmlhelp_basename = 'Cubesdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -180,7 +180,7 @@ htmlhelp_basename = 'Brewerydoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'Brewery.tex', u'Brewery Documentation',
+  ('index', 'Cubes.tex', u'Cubes Documentation',
    u'Stefan Urbanek', 'manual'),
 ]
 

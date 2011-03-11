@@ -39,6 +39,20 @@ API
         * `limit` - limit number of results in form `limit`[,`measure`[,`order_direction`]]:
           ``limit=5:received_amount_sum:asc``
 
+    Reply:
+    
+        * ``summary`` - dictionary of fields/values for summary aggregation
+        * ``drilldown`` - list of drilled-down cells
+        * ``remainder`` - summary of remaining cells (not in drilldown), if limit is specified.
+          **Not implemented yet**
+        * ``total_cell_count`` - number of total cells in drilldown (after `limir`, before pagination)
+
+    If pagination is used, then ``drilldown`` will not contain more than ``pagesize`` cells.
+    
+    Note that not all backengs might implement ``total_cell_count`` or providing this information
+    can be configurable therefore might be disabled (for example for performance reasons).
+    
+
 ``/facts``
     Return all facts (details) within cuboid.
 
@@ -63,6 +77,32 @@ API
 ``/report``
     Process multiple request within one API call. (Not yet implemented)
     
+``/drilldown/<dimension>/<path>``
+    Aggregate next level of dimension. This is similar to ``/aggregate`` with
+    ``drilldown=<dimension>`` parameter. Does not result in error when path has largest possible
+    length, returns empty results instead and result count 0. 
+    
+    If ``<path>`` is specified, it replaces any path specified in ``cut=`` parameter for given
+    dimension. If ``<path>`` is not specified, it is taken from cut, where it should be
+    represented as a point (not range nor set).
+    
+    
+    In addition to ``/aggregate``
+    result, folloing is returned:
+    
+    * ``is_leaf`` - Flag determining whether path refers to leaf or not. For example, this flag
+      can be used to determine whether create links (is not last) or not (is last)
+    * ``dimension`` - name of drilled dimension
+    * ``path`` - path passed to drilldown
+
+    In addition to this, each returned cell contains additional attributes:
+    * ``_path`` - path to the cell - can be used for constructing further browsable links
+    
+    
+Parameters that can be used in any request:
+
+    * `prettyprint` - if set to ``true`` formatting spaces are added to json output
+
 Cuts in URLs
 ------------
 
@@ -103,7 +143,7 @@ Reports
 
 Report queries are done either by specifying a report name in the request URL or using HTTP POST
 request where posted data are JSON with report specification. If report name is specified, then
-server should have a repository of report specifications.
+server should have a repository of named report specifications.
 
 Keys:
 
@@ -129,7 +169,8 @@ Report request::
         },
         "year_drilldown" : { 
             "request": "aggregate", 
-            "drilldown": "date" 
+            "rollup": "date",
+            "drilldown": "date"
         },
         "it_contractors" : { 
             "request": "aggregate",

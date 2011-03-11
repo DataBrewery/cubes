@@ -11,7 +11,7 @@ Contents:
    
    introduction
    install
-   cubes
+   model
    aggregate
    computing
    localization
