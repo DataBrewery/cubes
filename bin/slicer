@@ -7,7 +7,6 @@
 """
 
 import argparse
-import pymongo
 import json
 import argparse
 import sys
@@ -75,6 +74,12 @@ def model_to_json(args):
     model = brewery.cubes.load_model(args.model)
     print json.dumps(model.to_dict())
 
+def model_pickle(args):
+    model = brewery.cubes.load_model(args.model)
+    pickled = args.pickledmodel
+    
+    print "PICKLING TO %s" % pickled
+
 def translate_model(args):
     pass
 
@@ -83,7 +88,7 @@ def run_server(args):
     try:
         config = json.load(handle)
     except Exception as e:
-        raise "Unable to load model: %s" % e
+        raise Exception("Unable to load config: %s" % e)
     finally:
         handle.close()
 
@@ -120,17 +125,25 @@ parser_validate.set_defaults(func=validate_model)
 ################################################################################
 # Command: translate_model
 
-parser_translate = model_subparsers.add_parser('translate', help = "translate model")
-parser_validate.add_argument('model', help='model file or URL')
-parser_validate.add_argument('translation', help='translation file or URL')
-parser_validate.set_defaults(func=translate_model)
+subparser = model_subparsers.add_parser('translate', help = "translate model")
+subparser.add_argument('model', help='model file or URL')
+subparser.add_argument('translation', help='translation file or URL')
+subparser.set_defaults(func=translate_model)
 
 ################################################################################
 # Command: model_to_json
 
-parser_validate = model_subparsers.add_parser('json')
-parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
-parser_validate.set_defaults(func=model_to_json)
+subparser = model_subparsers.add_parser('json')
+subparser.add_argument('model', help='model reference - can be a local file path or URL')
+subparser.set_defaults(func=model_to_json)
+
+################################################################################
+# Command: model_pickle
+
+subparser = model_subparsers.add_parser('pickle')
+subparser.add_argument('model', help='model reference - can be a local file path or URL')
+subparser.add_argument('pickledmodel', help='output file - pickled model (will be overwritten)')
+subparser.set_defaults(func=model_pickle)
 
 ################################################################################
 # Command: serve

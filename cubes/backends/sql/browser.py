@@ -123,7 +123,8 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             row_count = self.connection.execute(count_statement).fetchone()
             total_cell_count = row_count[0]
 
-            result.drilldown = { "cells": records, "total_cell_count": total_cell_count }
+            result.drilldown = records
+            result.total_cell_count = total_cell_count
 
         return result
 

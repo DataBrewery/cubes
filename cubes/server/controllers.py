@@ -47,6 +47,17 @@ class ApplicationController(object):
         self.query = None
         self.browser = None
         self.locale = None
+
+        
+        ppflag = self.request.args.get("prettyprint")
+        if ppflag:
+            ppflag = ppflag.lower()
+            if ppflag in ["true", "yes", "1"]:
+                self.prettyprint = True
+            else:
+                self.prettyprint = False
+        else:
+            self.prettyprint = False
         
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
@@ -91,7 +102,7 @@ class ApplicationController(object):
         return self.json_response(response)
 
     def json_response(self, obj):
-        if "_prettyjson" in self.request.args:
+        if self.prettyprint:
             indent = 4
         else:
             indent = None
