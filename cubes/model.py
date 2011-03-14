@@ -2,6 +2,8 @@ import os
 import re
 import urllib2
 import urlparse
+import copy
+from collections import OrderedDict
 
 from cubes.util import IgnoringDictionary
 
@@ -265,6 +267,7 @@ class Model(object):
 
     def to_json(self, **options):
         """Return json representation of the model"""
+        # FIXME: Depreciate this
         return json.dumps(self.to_dict(**options))
 
     def validate(self):
@@ -324,7 +327,38 @@ class Model(object):
                 return False
                 
         return True
-    
+
+    # def translate(self, translation):
+    #     """Return translated version of model"""
+    #     
+    #     def translate_common(obj, trans):
+    #         """Translate common attributes: label and description"""
+    #         if "label" in trans:
+    #             obj.label = trans["label"]
+    #         if "description" in trans:
+    #             obj.description = trans["description"]
+    #     
+    #     def translate_attributes(attribs, translations):
+    #         """Translate list of attributes"""
+    #         for attr_trans in translations:
+    #             name = attr_trans.name
+    #         
+    #     model = copy.copy(self)
+    #     
+    #     if "locale" not in translation:
+    #         raise ValueError("No locale specified in model translation")
+    # 
+    #     model.locale = translation["locale"]
+    #     translate_common(model, translation)
+    #         
+    #     if translation["cubes"]:
+    #         for name, cube_trans in translation["cubes"]:
+    #             cube = model.cube(name)
+    #             translate_common(cube, cube_trans)
+    #         
+    #         
+    #     for cube_trans in tran
+        
 class Cube(object):
     """
     OLAP Cube - Logical Representation
@@ -362,8 +396,7 @@ class Cube(object):
         self.key = info.get("key", None)
 
         # FIXME: Replace this with ordered dictionary in Python 3
-        self._dimensions = {}
-        self._dimension_order = []
+        self._dimensions = OrderedDict()
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name"""
@@ -372,32 +405,29 @@ class Cube(object):
         if dimension.name in self._dimensions:
             raise Exception("Dimension with name %s already exits" % dimension.name)
         self._dimensions[dimension.name] = dimension
-        self._dimension_order.append(dimension.name)
+
+        # FIXME: this is some historical remnant, check it
         if self.model:
             self.model.add_dimension(dimension)
 
     def remove_dimension(self, dimension):
         """Remove a dimension from receiver"""
         dim = self.dimension(dimension)
-
-        self._dimension_order.remove(dim.name)
         del self._dimensions[dim.name]
 
     @property
     def dimensions(self):
-        dims = [self._dimensions[name] for name in self._dimension_order]
-        return dims
+        return self._dimensions.values()
 
     def dimension(self, name):
         """Get dimension by name"""
         
-        # Fixme: check for existence
         if type(name) == str or type(name) == unicode:
             if name in self._dimensions:
                 return self._dimensions[name]
             else:
-                raise ModelError("Invalid dimension reference '%s' for cube '%s'" %
-                                    (name, self.name))
+                raise ModelError("cube '%s' has no dimension '%s'" %
+                                    (self.name, name))
         elif issubclass(name.__class__, Dimension):
              return name
         else:
@@ -806,6 +836,41 @@ class Hierarchy(object):
         else:
             return self.levels[index + 1]
         
+
+    def previous_level(self, level):
+        """Returns previous level in hierarchy after `level`. If `level` is first level, 
+        returns ``Nonte``"""
+        
+        level = self._dimension(level)
+        index = self.level_names.index(level.name)
+
+        if index == 0:
+            return None
+        else:
+            return self.levels[index - 1]
+
+    def rollup(self, path, level = None):
+        """Rolls-up the path to the `level`. If `level` is None then path is rolled-up only
+        one level. If `level` is deeper than last level of `path` the exception is raised. If 
+        `level` is the same as `path` level, nothing happens."""
+        
+        if level:
+            level = self.dimension.level(level)
+        
+            last = self.level_names.index(level.name) + 1
+            if last > len(path):
+                raise ValueError("Can not roll-up: level '%s' in dimension '%s' is deeper than "
+                                 "deepest element of path %s", level.name, self.dimension.name, path)
+        else:
+            if len(path) > 0:
+                last = len(path) - 1
+            else:
+                last = None
+                
+        if last is None:
+            return []
+        else:
+            return path[0:last]
 
     def path_is_base(self, path):
         """Returns True if path is base path for the hierarchy. Base path is a path where there are

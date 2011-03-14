@@ -86,4 +86,16 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         levels = hier.levels_for_path(None, drilldown = True)
         self.assertEqual(len(levels), 1)
         self.assertEqual(levels[0].name, 'division')
-    
+
+    def test_hierarchy_rollup(self):
+        dim =self.cube.dimension("cpv")
+        hier = dim.default_hierarchy
+
+        path = [1,2,3,4]
+        
+        self.assertEqual([1,2,3], hier.rollup(path))
+        self.assertEqual([1], hier.rollup(path,"division"))
+        self.assertEqual([1,2], hier.rollup(path,"group"))
+        self.assertEqual([1,2,3], hier.rollup(path,"class"))
+        self.assertEqual([1,2,3,4], hier.rollup(path,"category"))
+        self.assertRaises(ValueError, hier.rollup, path,"detail")
