@@ -23,6 +23,11 @@ Logical Model
 .. autoclass:: cubes.Level
     :members:
 
+.. autoclass:: cubes.Attribute
+    :members:
+
+.. autofunction:: cubes.attributelist
+
 Aggregate browsing
 ==================
 

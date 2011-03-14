@@ -7,21 +7,23 @@ Cubes logical model metadata and aggregation browsing functionality.
 
 Server requires the werkzeug_ framework.
 
-API
----
-
 .. _werkzeug: http://werkzeug.pocoo.org/
 
-``/model``
+API
+===
+
+``GET /model``
     Get model metadata as JSON
     
-``/model/dimension/<name>``
+``GET /model/dimension/<name>``
     Get dimension metadata as JSON
 
-``/model/dimension/<name>/levels``
+``GET /model/dimension/<name>/levels``
     Get list level metadata from default hierarchy of requested dimension.
     
-``/aggregate``
+.. _serveraggregate:
+
+``GET /aggregate``
     Return aggregation result as JSON. The result will contain keys: `summary` and `drilldown`. The
     summary contains one row and represents aggregation of whole cuboid specified in the cut. The
     `drilldown` contains rows for each value of drilled-down dimension.
@@ -53,7 +55,7 @@ API
     can be configurable therefore might be disabled (for example for performance reasons).
     
 
-``/facts``
+``GET /facts``
     Return all facts (details) within cuboid.
 
     :Parameters:
@@ -61,10 +63,10 @@ API
         * `page`, `pagesize` - paginate results
         * `order` - order results
     
-``/fact/<id>``
+``GET /fact/<id>``
     Get single fact with specified `id`. For example: ``/fact/1024``
     
-``/dimension/<dimension>``
+``GET /dimension/<dimension>``
     Get values for attributes of a `dimension`.
     
     :Parameters:
@@ -74,10 +76,14 @@ API
         * `page`, `pagesize` - paginate results
         * `order` - order results
         
-``/report``
-    Process multiple request within one API call. (Not yet implemented)
+``POST /report``
+    Process multiple request within one API call. The ``POST`` data should be a JSON containig
+    report specification where keys are names of queries and values are dictionaries describing
+    the queries.
     
-``/drilldown/<dimension>/<path>``
+    See :ref:`serverreport` for more information.
+    
+``GET /drilldown/<dimension>/<path>``
     Aggregate next level of dimension. This is similar to ``/aggregate`` with
     ``drilldown=<dimension>`` parameter. Does not result in error when path has largest possible
     length, returns empty results instead and result count 0. 
@@ -97,6 +103,10 @@ API
 
     In addition to this, each returned cell contains additional attributes:
     * ``_path`` - path to the cell - can be used for constructing further browsable links
+    
+    .. note::
+    
+        Not yet implemented
     
     
 Parameters that can be used in any request:
@@ -134,26 +144,23 @@ Following image contains examples of cuts in URLs and how they change by browsin
     Example of how cuts in URL work and how they should be used in application view templates.
 
 
+.. _serverreport:
+
 Reports
--------
+=======
 
-.. warning::
-
-    Reports are neot yet implemented, this is preliminary proposal.
-
-Report queries are done either by specifying a report name in the request URL or using HTTP POST
-request where posted data are JSON with report specification. If report name is specified, then
-server should have a repository of named report specifications.
+Report queries are done either by specifying a report name in the request URL or using HTTP
+``POST`` request where posted data are JSON with report specification. If report name is specified
+in ``GET`` request instead, then server should have a repository of named report specifications.
 
 Keys:
 
-    * `datasets` - dictionary reported dataset specifications
+    * `queries` - dictionary of named queries
 
-Dataset specification:
+Query specification:
 
-    * `type` - query type: ``aggregate``, ``details`` (list of facts) or ``values`` for dimension values
-    * `cut` - cut specification - a string same as the one used in URL request (might be a
-      dictionary in the future)
+    * `query` - query type: ``aggregate``, ``details`` (list of facts), ``values`` for dimension
+      values, ``facts`` or ``fact`` for multiple or single fact respectively
 
 Following example report query from a `contracts` cube will return three datasets (results):
 
@@ -164,22 +171,51 @@ Following example report query from a `contracts` cube will return three dataset
 Report request::
 
     {
-        "summary": { 
-            "request": "aggregate" 
-        },
-        "year_drilldown" : { 
-            "request": "aggregate", 
-            "rollup": "date",
-            "drilldown": "date"
-        },
-        "it_contractors" : { 
-            "request": "aggregate",
-            "drilldown": "contractor",
-            "cut": { "subject": "it" }
+        "queries": {
+            "summary": { 
+                "query": "aggregate" 
+            },
+            "year_drilldown" : { 
+                "query": "aggregate", 
+                "rollup": "date",
+                "drilldown": "date"
+            },
+            "it_contractors" : { 
+                "query": "aggregate",
+                "drilldown": "contractor",
+                "cut": { "subject": "it" }
+            }
         }
         
     }
 
+Result is a dictionary where keys are the query names specified in report specification and values
+are result values from each query call.
+
+Roll-up
+-------
+
+Report queries might contain ``rollup`` specification which will result in "rolling-up"
+one or more dimensions to desired level. This functionality is provided for cases when you
+would like to report at higher level of aggregation than the cell you provided is in.
+It works in similar way as drill down in :ref:`serveraggregate` but in
+the opposite direction (it is like ``cd ..`` in a UNIX shell).
+
+Example: You are reporting for year 2010, but you want to have a bar chart with all years.
+You specify rollup::
+
+    ...
+    "rollup": "date",
+    ...
+
+Roll-up can be:
+
+    * a string - single dimension to be rolled up one level
+    * an array - list of dimension names to be rolled-up one level
+    * a dictionary where keys are dimension names and values are levels to be rolled up-to
+
+Running and Deployment
+======================
 
 Local Server
 ------------
