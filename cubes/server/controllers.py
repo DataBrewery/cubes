@@ -22,6 +22,8 @@ class FixingEncoder(json.JSONEncoder):
             return float(o)
         if type(o) == datetime.date or type(o) == datetime.datetime:
             return o.isoformat()
+        if type(o) == cubes.browser.AggregationResult:
+            return o.as_dict()
         else:
             return json.JSONEncoder.default(self, o)
 
@@ -47,18 +49,8 @@ class ApplicationController(object):
         self.query = None
         self.browser = None
         self.locale = None
-
-        
-        ppflag = self.request.args.get("prettyprint")
-        if ppflag:
-            ppflag = ppflag.lower()
-            if ppflag in ["true", "yes", "1"]:
-                self.prettyprint = True
-            else:
-                self.prettyprint = False
-        else:
-            self.prettyprint = False
-        
+        self.prettyprint = None
+                
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
         template = handle.read()
@@ -113,7 +105,15 @@ class ApplicationController(object):
         return Response(reply, mimetype='application/json')
         
     def initialize(self):
-        pass
+        ppflag = self.request.args.get("prettyprint")
+        if ppflag:
+            ppflag = ppflag.lower()
+            if ppflag in ["true", "yes", "1"]:
+                self.prettyprint = True
+            else:
+                self.prettyprint = False
+        else:
+            self.prettyprint = False
         
     def finalize(self):
         pass
@@ -133,6 +133,14 @@ class ApplicationController(object):
             status = 500
         
         return Response(string, mimetype='application/json', status = status)
+
+    def json_request(self):
+        content_type = self.request.headers.get('content-type')
+        if content_type == 'application/json':
+            return json.loads(self.request.data)
+        else:
+            raise Exception("JSON requested from unknown content-type '%s'" % content_type)
+
         
 class ModelController(ApplicationController):
 
@@ -179,6 +187,7 @@ class ModelController(ApplicationController):
 
 class AggregationController(ApplicationController):
     def initialize(self):
+        super(AggregationController, self).initialize()
 
         self.engine = sqlalchemy.create_engine(self.dburl)
         
@@ -249,7 +258,7 @@ class AggregationController(ApplicationController):
             return self.error("Aggregation failed", e)
 
         # return Response(result.as_json())
-        return self.json_response(result.as_dict())
+        return self.json_response(result)
 
     def facts(self):
         self.prepare_cuboid()
@@ -304,4 +313,14 @@ class AggregationController(ApplicationController):
         }
         
         return self.json_response(result)
+    
+    def report(self):
+        """Create multi-query report response."""
+        self.prepare_cuboid()
         
+        report_request = self.json_request()
+        
+        result = self.browser.report(self.cuboid, report_request)
+        
+        return self.json_response(result)
+    

@@ -34,7 +34,7 @@ rules = Map([
                         endpoint = (controllers.AggregationController, 'fact')),
     Rule('/dimension/<string:dimension>', 
                         endpoint = (controllers.AggregationController, 'values')),
-    Rule('/report/<string:id>', 
+    Rule('/report', methods = ['POST'],
                         endpoint = (controllers.AggregationController, 'report'))
 ])
 

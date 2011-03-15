@@ -2,7 +2,7 @@ import logging
 import json
 import decimal
 import copy
-
+from collections import OrderedDict
 
 def default_logger_name():
     return 'brewery.cubes'
@@ -139,7 +139,7 @@ class AggregationBrowser(object):
         report_result = {}
         
         for result_name, report_query in report.items():
-            query = report_query.get(query)
+            query = report_query.get("query")
             if not query:
                 raise KeyError("No report query for '%s'" % result_name)
                 
@@ -157,9 +157,9 @@ class AggregationBrowser(object):
                 query_cuboid = cuboid
 
             if query == "aggregate":
-                result = self.aggregate(cuboid, **args)
+                result = self.aggregate(query_cuboid, **args)
             elif query == "facts":
-                result = self.facts(cuboid, **args)
+                result = self.facts(query_cuboid, **args)
             elif query == "fact":
                 # Be more tolerant: by default we want "key", but "id" might be common
                 key = args.get("key")
@@ -167,12 +167,12 @@ class AggregationBrowser(object):
                     key = args.get("id")
                 result = self.fact(key)
             elif query == "values":
-                result = self.values(cuboid, **args)
+                result = self.values(query_cuboid, **args)
             elif query == "drilldown":
                 raise NotImplementedError("Drill-down queries are not yet implemented")
             else:
                 raise KeyError("Unknown report query '%s' for '%s'" % (query, result_name))
-                
+
             report_result[result_name] = result
             
         return report_result
@@ -273,22 +273,23 @@ class Cuboid(object):
         new_cuts = []
 
         # If it is a string, handle it as list of single string
-        if issubclass(rollup, basestring):
+        if isinstance(rollup, basestring):
             rollup = [rollup]
 
         if type(rollup) == list or type(rollup) == tuple:
             for dim_name in rollup:
-                cut = cuts[dim_name]
-                if not cut:
-                    raise ValueError("No cut to roll-up for dimension '%s'" % dim_name)
+                cut = cuts.get(dim_name)
+                if cut is None:
+                    continue
+                #     raise ValueError("No cut to roll-up for dimension '%s'" % dim_name)
                 if type(cut) != PointCut:
                     raise NotImplementedError("Only PointCuts are currently supported for "
                                               "roll-up (rollup dimension: %s)" % dim_name)
 
-                dim = selfcube.dimension(cut.dimension)
+                dim = self.cube.dimension(cut.dimension)
                 hier = dim.default_hierarchy
                 
-                rollup_path = hier.rollup(path)
+                rollup_path = hier.rollup(cut.path)
                 
                 cut = PointCut(cut.dimension, rollup_path)
                 new_cuts.append(cut)
@@ -313,8 +314,9 @@ class Cuboid(object):
             raise TypeError("Rollup is of unknown type: %s" % self.drilldown.__class__)
         
         # FIXME: write tests
-        raise NotImplementedError("Contue here... write tests and stuff")
-        return Cuboid(self.browser, new_cuts)
+        # raise NotImplementedError("Contue here... write tests and stuff")
+        cuboid = Cuboid(self.browser, new_cuts)
+        return cuboid
 
     def _filter_dimension_cuts(self, dimension, exclude = False):
         dimension = self.browser.cube.dimension(dimension)
