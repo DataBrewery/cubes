@@ -8,7 +8,7 @@ import logging
 import urllib
 import datetime
 
-version = "0.1"
+version = "0.2"
 api_version = "0"
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')

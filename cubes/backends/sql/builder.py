@@ -13,8 +13,8 @@ import collections
     
 Attribute = collections.namedtuple("Attribute", "attribute, alias, dimension, locales")
 
-class SQLBuilder(object):
-    """SQLAlchemy based builder - recommended to be used"""
+class SQLDenormalizer(object):
+    """Star/Snowflake schema denormalizer, uses SQL alchemy"""
     
     capabilities = ["localization"]
     

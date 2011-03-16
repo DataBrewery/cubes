@@ -1,22 +1,19 @@
 import unittest
 import os
 import cubes
-import cubes.tests
+from cubes.tests import DATA_PATH
 import json
 import re
 
 class ModelTestCase(unittest.TestCase):
 	
     def setUp(self):
-        self.model_path = os.path.join(cubes.tests.tests_path, 'model')
-
-    def _model_file_dict(self, file_name):
-        path = os.path.join(self.model_path, file_name)
-        file = open(path)
-        return json.load(file)
+        self.model_path = os.path.join(DATA_PATH, 'model.json')
+        handle = open(self.model_path)
+        self.model_dict = json.load(handle)
 
     def test_dimension_from_file(self):
-        info = self._model_file_dict("dim_date.json")
+        info = self.model_dict["dimensions"]["date"]
         dim = cubes.Dimension("date", info)
         self.assertEqual(len(dim.levels), 3, "invalid number of levels for date dimension")
         self.assertEqual(len(dim.hierarchies), 2, "invalid number of hierarchies for date dimension")
@@ -35,7 +32,7 @@ class ModelTestCase(unittest.TestCase):
         self.assertEqual(dim.level("year"), hlevels[0], "Level should be equal")
 
     def test_cube_from_file(self):
-        info = self._model_file_dict("cube_contracts.json")
+        info = self.model_dict["cubes"]["contracts"]
         self.skipTest("Cubes are not yet implemented")
 
     def test_model_from_path(self):
@@ -69,7 +66,7 @@ class ModelTestCase(unittest.TestCase):
         
 class ModelFromDictionaryTestCase(unittest.TestCase):
     def setUp(self):
-        self.model_path = os.path.join(cubes.tests.tests_path, 'model')
+        self.model_path = os.path.join(DATA_PATH, 'model.json')
         self.model = cubes.model_from_path(self.model_path)
 
     def test_model_from_dictionary(self):

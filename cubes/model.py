@@ -547,7 +547,7 @@ class Dimension(object):
         self.key_field = desc.get("key_field")
 
     def __eq__(self, other):
-        if not other or type(other) != type(self):
+        if other is None or type(other) != type(self):
             return False
         if self.name != other.name or self.label != other.label \
             or self.description != other.description:

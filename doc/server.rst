@@ -81,6 +81,8 @@ API
     report specification where keys are names of queries and values are dictionaries describing
     the queries.
     
+    ``/report`` expects ``Content-type`` header to be set to ``application/json``.
+    
     See :ref:`serverreport` for more information.
     
 ``GET /drilldown/<dimension>/<path>``
@@ -162,35 +164,69 @@ Query specification:
     * `query` - query type: ``aggregate``, ``details`` (list of facts), ``values`` for dimension
       values, ``facts`` or ``fact`` for multiple or single fact respectively
 
-Following example report query from a `contracts` cube will return three datasets (results):
-
-    * total amount of contracts (aggregation "summary" - one record)
-    * number of contracts and contracted amount for each year (aggregation drill down)
-    * list of contractors and contracted amounts for contracts within IT segment
-
-Report request::
-
-    {
-        "queries": {
-            "summary": { 
-                "query": "aggregate" 
-            },
-            "year_drilldown" : { 
-                "query": "aggregate", 
-                "rollup": "date",
-                "drilldown": "date"
-            },
-            "it_contractors" : { 
-                "query": "aggregate",
-                "drilldown": "contractor",
-                "cut": { "subject": "it" }
-            }
-        }
-        
-    }
+Note that you have to set content type to ``application/json``.
 
 Result is a dictionary where keys are the query names specified in report specification and values
 are result values from each query call.
+
+Example: ``report.json``::
+
+    {
+        "summary": {
+            "query": "aggregate"
+        },
+        "by_year": {
+            "query": "aggregate",
+            "drilldown": ["date"],
+            "rollup": "date"
+        }
+    }
+
+Request::
+
+    curl -H "Content-Type: application/json" --data-binary "@report.json" \
+        "http://localhost:5000/report?prettyprint=true&cut=date:2004"
+
+Reply::
+
+    {
+        "by_year": {
+            "total_cell_count": 6, 
+            "drilldown": [
+                {
+                    "record_count": 4390, 
+                    "requested_amount_sum": 2394804837.56, 
+                    "received_amount_sum": 399136450.0, 
+                    "date.year": "2004"
+                }, 
+                ...
+                {
+                    "record_count": 265, 
+                    "requested_amount_sum": 17963333.75, 
+                    "received_amount_sum": 6901530.0, 
+                    "date.year": "2010"
+                }
+            ], 
+            "remainder": {}, 
+            "summary": {
+                "record_count": 33038, 
+                "requested_amount_sum": 2412768171.31, 
+                "received_amount_sum": 2166280591.0
+            }
+        }, 
+        "summary": {
+            "total_cell_count": null, 
+            "drilldown": {}, 
+            "remainder": {}, 
+            "summary": {
+                "date.year": "2004", 
+                "requested_amount_sum": 2394804837.56, 
+                "received_amount_sum": 399136450.0, 
+                "record_count": 4390
+            }
+        }
+    }
+
 
 Roll-up
 -------

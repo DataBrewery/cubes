@@ -1,0 +1,430 @@
+{
+   "name" : "public_procurements",
+   "label" : "Public Procurements of Slovakia",
+   "cubes" : {
+      "contracts" : {
+          "name" : "contracts",
+          "label" : "Uzatvorené zmluvy verejného obstarávania",
+          "dimensions" : [
+             "date",
+             "cpv",
+             "procurer",
+             "supplier",
+             "process_type",
+             "geography"
+          ],
+         "mappings" : {
+            "cpv.group" : "dim_cpv.cpv_group",
+            "date.month" : "dim_date.month",
+            "date.day" : "dim_date.day",
+            "cpv.class" : "dim_cpv.cpv_class",
+            "date.year" : "dim_date.year"
+         },
+         "joins" : [
+            {
+               "detail" : "date.id",
+               "master" : "zmluvy.vestnik_datum_id"
+            },
+            {
+               "detail" : "cpv.id",
+               "master" : "zmluvy.cpv_kod_id"
+            },
+            {
+               "detail" : "obstaravatel.id",
+               "master" : "zmluvy.obstaravatel_org_id"
+            },
+            {
+               "detail" : "dodavatel.id",
+               "master" : "zmluvy.dodavatel_id"
+            },
+            {
+               "detail" : "druh_postupu.id",
+               "master" : "zmluvy.druh_postupu_id"
+            },
+            {
+               "detail" : "kriteria_vyhodnotenia.id",
+               "master" : "zmluvy.kriteria_vyhodnotenia_id"
+            },
+            {
+               "detail" : "geography.id",
+               "master" : "zmluvy.geography_id"
+            }
+         ]
+      }
+   },
+   "dimensions" : {
+      "cpv" : {
+         "levels" : {
+            "detail" : {
+               "name" : "detail",
+               "label" : "predmet",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "cpv_code",
+                     "full_name" : "cpv.cpv_code"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "cpv_code_desc",
+                     "full_name" : "cpv.cpv_code_desc"
+                  }
+               ],
+               "key" : "cpv_code"
+            },
+            "group" : {
+               "name" : "group",
+               "label" : "skupina",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "cpv_group",
+                     "full_name" : "cpv.cpv_group"
+                  }
+               ],
+               "key" : "cpv_group"
+            },
+            "division" : {
+               "name" : "division",
+               "label" : "oddiel",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "cpv_division",
+                     "full_name" : "cpv.cpv_division"
+                  }
+               ],
+               "key" : "cpv_division"
+            },
+            "class" : {
+               "label_attribute" : "cpv_class_desc",
+               "name" : "class",
+               "label" : "trieda",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "cpv_class",
+                     "full_name" : "cpv.cpv_class"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "cpv_class_desc",
+                     "full_name" : "cpv.cpv_class_desc"
+                  }
+               ],
+               "key" : "cpv_class"
+            },
+            "category" : {
+               "name" : "category",
+               "label" : "kategória",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "cpv_category",
+                     "full_name" : "cpv.cpv_category"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "cpv_category_desc",
+                     "full_name" : "cpv.cpv_category_desc"
+                  }
+               ],
+               "key" : "cpv_category"
+            }
+         },
+         "name" : "cpv",
+         "label" : "Predmet obstarávania",
+         "hierarchies" : {
+            "default" : {
+               "levels" : [
+                  "division",
+                  "group",
+                  "class",
+                  "category",
+                  "detail"
+               ],
+               "name" : "default"
+            }
+         }
+      },
+      "procurer" : {
+         "levels" : {
+            "organisation" : {
+               "label_attribute" : "name",
+               "name" : "organisation",
+               "label" : "Organizácia",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "ico",
+                     "full_name" : "procurer.ico"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "name",
+                     "full_name" : "procurer.name"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "address",
+                     "full_name" : "procurer.address"
+                  }
+               ],
+               "key" : "ico"
+            },
+            "sector" : {
+               "label_attribute" : "account_sector",
+               "name" : "sector",
+               "label" : "Sektor",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "account_sector_code",
+                     "full_name" : "procurer.account_sector_code"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "account_sector",
+                     "full_name" : "procurer.account_sector"
+                  }
+               ],
+               "key" : "account_sector_code"
+            }
+         },
+         "name" : "procurer",
+         "label" : "Obstarávateľ",
+         "hierarchies" : {
+            "default" : {
+               "levels" : [
+                  "sector",
+                  "organisation"
+               ],
+               "name" : "default"
+            }
+         }
+      },
+      "geography" : {
+         "levels" : {
+            "region" : {
+               "name" : "region",
+               "label" : "Kraj",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "region_code",
+                     "full_name" : "geography.region_code"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "region",
+                     "full_name" : "geography.region"
+                  }
+               ],
+               "key" : "region_code"
+            },
+            "county" : {
+               "name" : "county",
+               "label" : "Okres",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "county_code",
+                     "full_name" : "geography.county_code"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "county",
+                     "full_name" : "geography.county"
+                  }
+               ],
+               "key" : "county_code"
+            }
+         },
+         "name" : "geography",
+         "label" : "Región",
+         "hierarchies" : {
+            "default" : {
+               "levels" : [
+                  "region",
+                  "county"
+               ],
+               "name" : "default"
+            }
+         }
+      },
+      "date" : {
+         "levels" : {
+            "month" : {
+               "label_attribute" : "month_name",
+               "name" : "month",
+               "label" : "Mesiac",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "month",
+                     "full_name" : "date.month"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "month_name",
+                     "full_name" : "date.month_name"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "month_sname",
+                     "full_name" : "date.month_sname"
+                  }
+               ],
+               "key" : "month"
+            },
+            "day" : {
+               "name" : "day",
+               "label" : "Deň",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "day",
+                     "full_name" : "date.day"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "weekday_name",
+                     "full_name" : "date.weekday_name"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "weekday_number",
+                     "full_name" : "date.weekday_number"
+                  }
+               ],
+               "key" : "day"
+            },
+            "year" : {
+               "name" : "year",
+               "label" : "Rok",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "year",
+                     "full_name" : "date.year"
+                  }
+               ],
+               "key" : "year"
+            }
+         },
+         "name" : "date",
+         "label" : "Dátum",
+         "hierarchies" : {
+            "default" : {
+               "levels" : [
+                  "year",
+                  "month",
+                  "day"
+               ],
+               "name" : "default"
+            },
+            "ym" : {
+               "levels" : [
+                  "year",
+                  "month"
+               ],
+               "name" : "ym"
+            }
+         }
+      },
+      "supplier" : {
+         "levels" : {
+            "supplier" : {
+               "label_attribute" : "name",
+               "name" : "supplier",
+               "label" : "Dodávateľ",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "ico",
+                     "full_name" : "supplier.ico"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "name",
+                     "full_name" : "supplier.name"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "address",
+                     "full_name" : "supplier.address"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "date_start",
+                     "full_name" : "supplier.date_start"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "date_end",
+                     "full_name" : "supplier.date_end"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "legal_form",
+                     "full_name" : "supplier.legal_form"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "ownership",
+                     "full_name" : "supplier.ownership"
+                  }
+               ],
+               "key" : "ico"
+            }
+         },
+         "name" : "supplier",
+         "label" : "Dodávateľ",
+         "hierarchies" : {
+            "default" : {
+               "levels" : [
+                  "supplier"
+               ],
+               "name" : "default"
+            }
+         }
+      },
+      "process_type" : {
+         "levels" : {
+            "process_type" : {
+               "name" : "process_type",
+               "label" : "Druh postupu",
+               "attributes" : [
+                  {
+                     "locales" : [],
+                     "name" : "process_type_code",
+                     "full_name" : "process_type.process_type_code"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "process_type_desc",
+                     "full_name" : "process_type.process_type_desc"
+                  },
+                  {
+                     "locales" : [],
+                     "name" : "process_type_sdesc",
+                     "full_name" : "process_type.process_type_sdesc"
+                  }
+               ],
+               "key" : "process_type_code"
+            }
+         },
+         "name" : "process_type",
+         "label" : "Druh postupu",
+         "hierarchies" : {
+            "default" : {
+               "levels" : [
+                  "process_type"
+               ],
+               "name" : "default"
+            }
+         }
+      }
+   },
+   "description" : "Contracts of public procurement winners in Slovakia"
+}

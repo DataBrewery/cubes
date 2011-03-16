@@ -1,12 +1,5 @@
 import unittest
 import os
 
-tests_path = os.path.dirname(os.path.abspath(__file__))
-
-class BaseCase(object):
-
-    def setup(self):
-        pass
-
-    def teardown(self):
-        pass
+TESTS_PATH = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(TESTS_PATH, 'data')

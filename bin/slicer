@@ -71,11 +71,11 @@ def validate_model(args):
 
 def model_to_json(args):
     """docstring for validate_model"""
-    model = brewery.cubes.load_model(args.model)
+    model = cubes.model_from_path(args.model)
     print json.dumps(model.to_dict())
 
 def model_pickle(args):
-    model = brewery.cubes.load_model(args.model)
+    model = cubes.load_model(args.model)
     pickled = args.pickledmodel
     
     print "PICKLING TO %s" % pickled

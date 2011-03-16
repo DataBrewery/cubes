@@ -1,13 +1,14 @@
 import unittest
 import os
 import cubes
-import cubes.tests
 import json
 import re
 
+from cubes.tests import DATA_PATH
+
 class AggregationsBasicsTestCase(unittest.TestCase):
     def setUp(self):
-        self.model_path = os.path.join(cubes.tests.tests_path, 'model')
+        self.model_path = os.path.join(DATA_PATH, 'model.json')
         self.model = cubes.model_from_path(self.model_path)
         self.cube = self.model.cubes["contracts"]
         self.browser = cubes.AggregationBrowser(self.cube)
