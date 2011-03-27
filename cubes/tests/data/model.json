@@ -1,6 +1,7 @@
 {
    "name" : "public_procurements",
    "label" : "Public Procurements of Slovakia",
+   "locale" : "sk",
    "cubes" : {
       "contracts" : {
           "name" : "contracts",

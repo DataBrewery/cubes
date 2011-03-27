@@ -72,6 +72,24 @@ def validate_model(args):
 def model_to_json(args):
     """docstring for validate_model"""
     model = cubes.model_from_path(args.model)
+    dump_model(model)
+    
+def extract_locale(args):
+    """docstring for validate_model"""
+    model = cubes.model_from_path(args.model)
+    print json.dumps(model.localizable_dictionary())
+
+def translate_model(args):
+    model = cubes.model_from_path(args.model)
+    trans_path = args.translation
+    handle = open(trans_path)
+    trans_dict = json.load(handle)
+    handle.close()
+    
+    model.localize(trans_dict)
+    dump_model(model)
+
+def dump_model(model):
     print json.dumps(model.to_dict())
 
 def model_pickle(args):
@@ -79,9 +97,6 @@ def model_pickle(args):
     pickled = args.pickledmodel
     
     print "PICKLING TO %s" % pickled
-
-def translate_model(args):
-    pass
 
 def run_server(args):
     handle = open(args.config)
@@ -136,6 +151,13 @@ subparser.set_defaults(func=translate_model)
 subparser = model_subparsers.add_parser('json')
 subparser.add_argument('model', help='model reference - can be a local file path or URL')
 subparser.set_defaults(func=model_to_json)
+
+################################################################################
+# Command: extract_locale
+
+subparser = model_subparsers.add_parser('extract_locale', help = "extract model localization dictionary")
+subparser.add_argument('model', help='model reference - can be a local file path or URL')
+subparser.set_defaults(func=extract_locale)
 
 ################################################################################
 # Command: model_pickle

@@ -186,3 +186,37 @@ class IgnoringDictionary(dict):
         """Set value in a dictionary if value is not null"""
         if value:
             self[key] = value
+
+def localize_common(obj, trans):
+    """Localize common attributes: label and description"""
+    if "label" in trans:
+        obj.label = trans["label"]
+    if "description" in trans:
+        obj.description = trans["description"]
+
+def localize_attributes(attribs, translations):
+    """Localize list of attributes. `translations` should be a dictionary with keys as
+    attribute names, values are dictionaries with localizable attribute metadata, such as
+    ``label`` or ``description``."""
+    for (name, atrans) in translations.items():
+        attrib = attribs[name]
+        localize_common(attrib, atrans)
+
+def get_localizable_attributes(obj):
+    """Returns a dictionary with localizable attributes of `obj`."""
+
+    # FIXME: use some kind of class attribute to get list of localizable attributes
+
+    locale = {}
+    try:
+        if obj.label:
+            locale["label"] = obj.label
+    except:
+        pass
+            
+    try:
+        if obj.description:
+                locale["description"] = obj.description
+    except:
+        pass
+    return locale

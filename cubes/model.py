@@ -6,6 +6,7 @@ import copy
 from collections import OrderedDict
 
 from cubes.util import IgnoringDictionary
+import cubes.util as util
 
 try:
     import json
@@ -328,36 +329,43 @@ class Model(object):
                 
         return True
 
-    # def translate(self, translation):
-    #     """Return translated version of model"""
-    #     
-    #     def translate_common(obj, trans):
-    #         """Translate common attributes: label and description"""
-    #         if "label" in trans:
-    #             obj.label = trans["label"]
-    #         if "description" in trans:
-    #             obj.description = trans["description"]
-    #     
-    #     def translate_attributes(attribs, translations):
-    #         """Translate list of attributes"""
-    #         for attr_trans in translations:
-    #             name = attr_trans.name
-    #         
-    #     model = copy.copy(self)
-    #     
-    #     if "locale" not in translation:
-    #         raise ValueError("No locale specified in model translation")
-    # 
-    #     model.locale = translation["locale"]
-    #     translate_common(model, translation)
-    #         
-    #     if translation["cubes"]:
-    #         for name, cube_trans in translation["cubes"]:
-    #             cube = model.cube(name)
-    #             translate_common(cube, cube_trans)
-    #         
-    #         
-    #     for cube_trans in tran
+    def localize(self, translation):
+        """Return localized version of model"""
+        
+        model = copy.copy(self)
+        
+        if "locale" not in translation:
+            raise ValueError("No locale specified in model translation")
+    
+        model.locale = translation["locale"]
+        util.localize_common(model, translation)
+            
+        if "cubes" in translation:
+            for name, cube_trans in translation["cubes"].items():
+                cube = model.cube(name)
+                util.localize_common(cube, cube_trans)
+                
+        if "dimensions" in translation:
+            for name, dim_trans in translation["dimensions"].items():
+                dim = model.dimension(name)
+                dim.localize(dim_trans)
+
+    def localizable_dictionary(self):
+        """Get model locale dictionary - localizable parts of the model"""
+        locale = {}
+        locale.update(util.get_localizable_attributes(self))
+        clocales = {}
+        locale["cubes"] = clocales
+        for cube in self.cubes.values():
+            clocales[cube.name] = cube.localizable_dictionary()
+
+        dlocales = {}
+        locale["dimensions"] = dlocales
+        for dim in self.dimensions:
+            dlocales[dim.name] = dim.localizable_dictionary()
+        
+        return locale
+        
         
 class Cube(object):
     """
@@ -510,6 +518,18 @@ class Cube(object):
         # 3. check whether dimension has valid keys
 
         return results
+
+    def localizable_dictionary(self):
+        locale = {}
+        locale.update(util.get_localizable_attributes(self))
+        
+        mdict = {}
+        locale["measures"] = mdict
+        
+        for measure in self.measures:
+            mdict[measure.name] = measure.localizable_dictionary()
+            
+        return locale
 
 class Dimension(object):
     """
@@ -762,6 +782,39 @@ class Dimension(object):
         return "<dimension: {name: '%s', levels: %s}>" % (self.name, self.level_names)
     def __repr__(self):
         return self.__str__()
+        
+    def localize(self, locale):
+        util.localize_common(self, locale)
+
+        level_locales = locale.get("levels")
+        if level_locales:
+            for level in self.levels:
+                level_locale = level_locales.get(level.name)
+                level.localize(level_locale)
+
+        hier_locales = locale.get("hierarcies")
+        if hier_locales:
+            for hier in self.hierarchies:
+                hier_locale = hier_locales.get(hier.name)
+                hier.localize(hier_locale)
+
+    def localizable_dictionary(self):
+        locale = {}
+        locale.update(util.get_localizable_attributes(self))
+
+        ldict = {}
+        locale["levels"] = ldict
+
+        for level in self.levels:
+            ldict[level.name] = level.localizable_dictionary()
+
+        hdict = {}
+        locale["hierarchies"] = hdict
+
+        for hier in self.hierarchies.values():
+            hdict[hier.name] = hier.localizable_dictionary()
+
+        return locale
     
 class Hierarchy(object):
     """Dimension hierarchy
@@ -887,6 +940,16 @@ class Hierarchy(object):
         out.setnoempty("levels", self.level_names)
 
         return out
+        
+    def localize(self, locale):
+        util.localize_common(self,locale)
+
+
+    def localizable_dictionary(self):
+        locale = {}
+        locale.update(util.get_localizable_attributes(self))
+
+        return locale
 
 class Level(object):
     """Hierarchy level
@@ -976,6 +1039,28 @@ class Level(object):
                 return self.attributes[1]
             else:
                 return self.key
+                
+    def localize(self, locale):
+        util.localize_common(self,locale)
+        
+        attr_locales = locale.get("attributes")
+        if attr_locales:
+            for attrib in self.attributes:
+                if attrib.name in attr_locales:
+                    util.localize_common(attrib, attr_locales[attrib.name])
+
+    def localizable_dictionary(self):
+        locale = {}
+        locale.update(util.get_localizable_attributes(self))
+
+        adict = {}
+        locale["attributes"] = adict
+
+        for attribute in self.attributes:
+            adict[attribute.name] = attribute.localizable_dictionary()
+            
+        return locale
+
 
 def attribute_list(attributes):
     """Create a list of attributes from a list of strings or dictionaries."""
@@ -1013,7 +1098,8 @@ class Attribute(object):
     ASC = 'asc'
     DESC = 'desc'
     
-    def __init__(self, name, label = None, locales = None, order = None, **kwargs):
+    def __init__(self, name, label = None, locales = None, order = None, description = None,
+                 **kwargs):
         """Create an attribute.
         
         :Attributes:
@@ -1029,6 +1115,7 @@ class Attribute(object):
         super(Attribute, self).__init__()
         self.name = name
         self.label = label
+        self.description = description
 
         if order:
             self.order = order.lower()
@@ -1046,12 +1133,14 @@ class Attribute(object):
         
     def __dict__(self):
         d = {"name": self.name}
-        if self.label != None:
+        if self.label is not None:
             d["label"] = self.label
-        if self.locales != None:
+        if self.locales is not None:
             d["locales"] = self.locales
-        if self.order != None:
+        if self.order is not None:
             d["order"] = self.order
+        if self.description is not None:
+            d["description"] = self.description
 
         return d
         
@@ -1089,7 +1178,13 @@ class Attribute(object):
             return dimension + "." + self.name + locale_suffix
         else:
             return dimension.name + "." + self.name + locale_suffix
-        
+
+    def localizable_dictionary(self):
+        locale = {}
+        locale.update(util.get_localizable_attributes(self))
+
+        return locale
+
 class Measure(Attribute):
     """Class representing a cube measure."""
     def __init__(self, name, label = None, locales = None, order = None, aggregations = None, **kwargs):
