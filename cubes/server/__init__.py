@@ -11,9 +11,21 @@ __all__ = {
 
 def run_server(config):
     """Run OLAP server with configuration specified in `config`"""
-    host = config["host"] if "host" in config else "localhost"
-    port = int(config["port"]) if "port" in config else 5000
-    use_reloader = config["reload"] if "reload" in config else False
+    if config.has_option("server", "host"):
+        host = config.get("server", "host")
+    else: 
+        host = "localhost"
+    
+    
+    if config.has_option("server", "port"):
+        port = config.getint("server", "port")
+    else:
+        port = 5000
+
+    if config.has_option("server", "reload"):
+        use_reloader = config.getboolean("server", "reload")
+    else:
+        use_reloader = False
 
     application = Slicer(config)
     werkzeug.serving.run_simple(host, port, application, use_reloader = use_reloader)

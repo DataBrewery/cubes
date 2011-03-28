@@ -29,21 +29,21 @@ class FixingEncoder(json.JSONEncoder):
 
 class ApplicationController(object):
     def __init__(self, config):
-        self.model = cubes.load_model(config["model"])
-        self.cube_name = config["cube"]
+        self.model = cubes.load_model(config.get("model", "path"))
+        self.cube_name = config.get("model","cube")
         self.cube = self.model.cube(self.cube_name)
 
-        if "view" in config:
-            self.view_name = config["view"]
+        if config.has_option("model","view"):
+            self.view_name = config.get("model", "view")
         else:
             self.view_name = self.cube_name
 
-        if "schema" in config:
-            self.schema = config["schema"]
+        if config.has_option("model","schema"):
+            self.schema = config.get("model","schema")
         else:
             self.schema = None
 
-        self.dburl = config["connection"]
+        self.dburl = config.get("model", "connection")
 
         self.params = None
         self.query = None

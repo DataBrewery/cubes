@@ -280,14 +280,19 @@ steps:
 3. Prepare apache site configuration
 4. Reload apache configuration
 
-Create server configuration ``procurements_server.json`` json file as in the example before::
+Create server configuration file ``server.ini``::
 
-    {
-        "model": "/path/to/procurements_model.json",
-        "cube": "contracts",
-        "view": "mft_contracts",
-        "connection": "postgres://localhost/procurements"
-    }
+    [server]
+    host: localhost
+    port: 5001
+    reload: yes
+
+    [model]
+    path: /path/to/model.json
+    cube: procurements
+    view: mft_procurements
+    schema: datamarts
+    connection: postgres://localhost/transparency
 
 Place the file in the same directory as the following WSGI script (for convenience).
 
