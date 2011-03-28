@@ -93,3 +93,14 @@ model json
 ----------
 
 For any given input model produce reusable JSON model.
+
+model extract_locale
+--------------------
+
+Extract localizable parts of the model. Use this before you start translating the model to get
+translation template.
+
+model translate
+---------------
+
+Translate model using translation file.

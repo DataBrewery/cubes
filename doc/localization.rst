@@ -34,10 +34,6 @@ The metadata are used to display report labels or provide attribute descriptions
 metadata are mostly ``label`` and ``description`` metadata attributes, such as dimension label or
 attribute description.
 
-.. warning::
-
-    Localization of metadata is not fully implemented yet.
-    
 Say we have three locales: Slovak, English, Hungarian with Slovak being the main language. The
 master model is described using Slovak language and we have to provide two model translation
 specifications: one for English and another for Hungarian.
@@ -46,6 +42,23 @@ The model translation file has the same structure as model definition file, but 
 localizable metadata attributes is ignored. That is, only ``label`` and ``description`` keys are
 considered in most cases. You can not change structure of mode in translation file. If structure
 does not match you will get warning or error, depending on structure change severity.
+
+There is one major difference between master model file and model translations: all attribute
+lists, such as cube measures or dimension level attributes are dictionaries, not arrays. Keys are
+attribute names, values are metadata translations. Therefore in master model file you will have::
+
+    attributes = [
+                    { "name": "name", "label": "Name" },
+                    { "name": "cat", "label": "Category" }
+                 ]
+
+in translation file you will have::
+
+    attributes = {
+                    "name": {"label": "Meno"},
+                    "cat": {"label": "Kategoria"}
+                 }
+
 
 If a translation of a metadata attribute is missing, then the one in master model description is
 used.
@@ -80,6 +93,16 @@ To get translated version of a model:
     model_en = model.translate("en")
     model_hu = model.translate("hu")
 
+Or you can get translated version of the model by directly passing translation dictionary:
+
+.. code-block:: python
+
+    handle = open("procurements_en.json")
+    trans = json.load(handle)
+    handle.close()
+    
+    model_en = model.translate("en", trans)
+
 
 Data Localization
 -----------------
@@ -89,7 +112,7 @@ definition in :ref:`PhysicalAttributeMappings`.
 
 .. note::
 
-    Data localization **is** implemented for Relational/SQL backend.
+    Data localization is implemented only for Relational/SQL backend.
 
 .. _LocalizedReporting:
 

@@ -302,18 +302,16 @@ Create a WSGI script ``/var/www/wsgi/olap/procurements.wsgi``:
 
     import sys
     import os.path
-    import json
+    import ConfigParser
 
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
     CONFIG_PATH = os.path.join(CURRENT_DIR, "procurements_server.json")
 
-    handle = open(CONFIG_PATH)
     try:
-        config = json.load(handle)
+        config = ConfigParser.SafeConfigParser()
+        config.read(CONFIG_PATH)
     except Exception as e:
         raise Exception("Unable to load configuration: %s" % e)
-    finally:
-        handle.close()
 
     import cubes.server
     application = cubes.server.Slicer(config)
@@ -362,3 +360,22 @@ Reply::
             "record_count": 4390
         }
     }
+
+Configuration
+-------------
+
+Server configuration is stored in .ini files with sections:
+
+* ``[server]`` - server related configuration, such as host, port
+    * ``host`` - host where the server runs, defaults to ``localhost``
+    * ``port`` - port on which the server listens, defaults to ``5000``
+* ``[model]`` - model and cube configuration
+    * ``path`` - path to model .json file
+    * ``cube`` - cube to serve
+* ``[db]`` - relational database configuration
+    * ``url`` - database URL in form: ``adapter://user:password@host:port/database``
+    * ``schema`` - schema containing denormalized views for relational DB cubes
+    * ``view`` - view or table name for serving single cube
+* ``[translations]`` - model translation files, option keys in this section are locale names and
+  values are paths to model translation files
+

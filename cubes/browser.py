@@ -12,7 +12,8 @@ class AggregationBrowser(object):
     """Class for browsing data cube aggregations
 
     :Attributes:
-    * `cube` - cube for browsing
+      * `cube` - cube for browsing
+
     """
 
     def __init__(self, cube):
@@ -106,8 +107,7 @@ class AggregationBrowser(object):
         you might want to have always on a page: total transaction count, total transaction amount,
         drill-down by year and drill-down by transaction type.
 
-        Roll-up
-        +++++++
+        *Roll-up*
         
         Report queries might contain ``rollup`` specification which will result in "rolling-up"
         one or more dimensions to desired level. This functionality is provided for cases when you
@@ -128,8 +128,7 @@ class AggregationBrowser(object):
             * an array - list of dimension names to be rolled-up one level
             * a dictionary where keys are dimension names and values are levels to be rolled up-to
         
-        Future
-        ++++++
+        *Future*
         
         In the future there might be optimisations added to this method, therefore it will become
         faster than subsequent separate requests. Also when used with Slicer OLAP service server

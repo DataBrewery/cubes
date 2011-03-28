@@ -29,28 +29,43 @@ class FixingEncoder(json.JSONEncoder):
 
 class ApplicationController(object):
     def __init__(self, config):
+        self.config = config
+
         self.model = cubes.load_model(config.get("model", "path"))
         self.cube_name = config.get("model","cube")
         self.cube = self.model.cube(self.cube_name)
 
-        if config.has_option("model","view"):
-            self.view_name = config.get("model", "view")
+        if config.has_option("db","view"):
+            self.view_name = config.get("db", "view")
         else:
             self.view_name = self.cube_name
 
-        if config.has_option("model","schema"):
-            self.schema = config.get("model","schema")
+        if config.has_option("db","schema"):
+            self.schema = config.get("db","schema")
         else:
             self.schema = None
 
-        self.dburl = config.get("model", "connection")
+        self.dburl = config.get("db", "url")
 
         self.params = None
         self.query = None
         self.browser = None
         self.locale = None
         self.prettyprint = None
-                
+
+    def _localize_model(self, lang):
+        """Tries to translate the model. Looks for language in configuration file under 
+        ``[translations]``, if no translation is provided, then model remains untouched."""
+
+        if self.config.has_option("translations", lang):
+            path = self.config.get("translations", lang)
+            handle = open(path)
+            trans = json.load(handle)
+            handle.close()
+            self.model = self.model.localize(trans)
+        else:
+            raise Exception("No trnslation for language '%s'" % lang)
+        
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
         template = handle.read()
@@ -114,6 +129,10 @@ class ApplicationController(object):
                 self.prettyprint = False
         else:
             self.prettyprint = False
+        
+        locale = self.request.args.get("lang")
+        if locale:
+            self._localize_model(locale)
         
     def finalize(self):
         pass

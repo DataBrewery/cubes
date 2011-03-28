@@ -26,7 +26,7 @@ Logical Model
 .. autoclass:: cubes.Attribute
     :members:
 
-.. autofunction:: cubes.attributelist
+.. autofunction:: cubes.attribute_list
 
 Aggregate browsing
 ==================

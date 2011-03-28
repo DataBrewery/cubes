@@ -17,7 +17,7 @@ class ModelError(Exception):
     """Model related exception."""
     pass
 
-def load_model(resource):
+def load_model(resource, translations = None):
     """Load logical model from object reference. `ref` can be an URL, local file path or file-like
     object."""
 
@@ -38,7 +38,16 @@ def load_model(resource):
     if should_close:
         handle.close()
 
-    return model_from_dict(model_desc)
+    model = model_from_dict(model_desc)
+    
+    if translations:
+        for lang, path in translations.items():
+            handle = urllib2.urlopen(path)
+            trans = json.load(handle)
+            handle.close()
+            model._add_translation(lang, trans)
+
+    return model
 
 def model_from_url(url):
     """Load logical model from a URL.
@@ -178,7 +187,8 @@ class Model(object):
     	    for cube_name, cube_desc in cubes.items():
                 self.create_cube(cube_name, cube_desc)
     	        
-
+        self.translations = {}
+        
     def create_cube(self, cube_name, info ={}):
         """Create a Cube instance for the model. This is designated factory method for cubes as it
         properrely creates references to dimension objects
@@ -329,11 +339,17 @@ class Model(object):
                 
         return True
 
+    def _add_translation(self, lang, translation):
+        self.translations[lang] = translation
+
     def localize(self, translation):
         """Return localized version of model"""
         
         model = copy.copy(self)
         
+        if type(translation) == str or type(translation) == unicode:
+            translation = self.translations[translation]
+            
         if "locale" not in translation:
             raise ValueError("No locale specified in model translation")
     
@@ -343,12 +359,14 @@ class Model(object):
         if "cubes" in translation:
             for name, cube_trans in translation["cubes"].items():
                 cube = model.cube(name)
-                util.localize_common(cube, cube_trans)
+                cube.localize(cube_trans)
                 
         if "dimensions" in translation:
             for name, dim_trans in translation["dimensions"].items():
                 dim = model.dimension(name)
                 dim.localize(dim_trans)
+
+        return model
 
     def localizable_dictionary(self):
         """Get model locale dictionary - localizable parts of the model"""
@@ -518,6 +536,15 @@ class Cube(object):
         # 3. check whether dimension has valid keys
 
         return results
+
+    def localize(self, locale):
+        util.localize_common(self,locale)
+        
+        attr_locales = locale.get("measures")
+        if attr_locales:
+            for attrib in self.measures:
+                if attrib.name in attr_locales:
+                    util.localize_common(attrib, attr_locales[attrib.name])
 
     def localizable_dictionary(self):
         locale = {}
