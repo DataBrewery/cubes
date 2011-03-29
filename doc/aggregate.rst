@@ -4,10 +4,25 @@ Aggregations and Aggregation Browsing
 
 This is MongoDB example, other systems coming soon.
 
-In this example, we are going to use preaggregated MongoDB cube which was created as described
-in :doc:`computing`.
+First you have to prepare logical model and cube. In relational database:
 
-Prepare logical model and cube:
+.. code-block:: python
+
+    import cubes
+    
+    # connection is SQLAlchemy database connection
+    
+    # Create aggregation browser
+    browser = cubes.backends.SQLBrowser(cube, connection, "mft_contracts")
+
+To browse localized data, just pass locale to the browser and all results will contain localized
+values for localizable attributes:
+
+.. code-block:: python
+
+    browser = cubes.backends.SQLBrowser(cube, connection, "mft_contracts", locale = "sk")
+
+To browse pre-aggregated mongo data:
 
 .. code-block:: python
 
@@ -34,7 +49,7 @@ Prepare aggregation browser:
     # Get the whole cube
     full_cube = browser.full_cube()
 
-Aggregate all data for year 2009:
+Following aggregation code is backend-independent. Aggregate all data for year 2009:
 
 .. code-block:: python
 

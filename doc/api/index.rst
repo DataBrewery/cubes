@@ -7,6 +7,5 @@ Contents:
    :maxdepth: 2
 
    cubes
-   browsers
-   builders
+   backends
    utils

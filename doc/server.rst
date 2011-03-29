@@ -280,19 +280,21 @@ steps:
 3. Prepare apache site configuration
 4. Reload apache configuration
 
-Create server configuration file ``server.ini``::
-
-    [server]
-    host: localhost
-    port: 5001
-    reload: yes
+Create server configuration file ``procurements.ini``::
 
     [model]
     path: /path/to/model.json
     cube: procurements
+
+    [db]
     view: mft_procurements
     schema: datamarts
     connection: postgres://localhost/transparency
+
+    [translations]
+    en: /path/to/model-en.json
+    hu: /path/to/model-hu.json
+
 
 Place the file in the same directory as the following WSGI script (for convenience).
 
@@ -305,7 +307,7 @@ Create a WSGI script ``/var/www/wsgi/olap/procurements.wsgi``:
     import ConfigParser
 
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    CONFIG_PATH = os.path.join(CURRENT_DIR, "procurements_server.json")
+    CONFIG_PATH = os.path.join(CURRENT_DIR, "procurements.ini")
 
     try:
         config = ConfigParser.SafeConfigParser()
@@ -377,5 +379,5 @@ Server configuration is stored in .ini files with sections:
     * ``schema`` - schema containing denormalized views for relational DB cubes
     * ``view`` - view or table name for serving single cube
 * ``[translations]`` - model translation files, option keys in this section are locale names and
-  values are paths to model translation files
+  values are paths to model translation files. See :doc:`localization` for more information.
 

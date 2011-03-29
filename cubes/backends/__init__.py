@@ -3,8 +3,8 @@ from sql import *
 from slicer import *
 
 __all__ = [
-    "SQLBuilder",
-    "SimpleSQLBuilder",
+    "SQLDenormalizer",
+    "SQLBrowser",
     "MongoSimpleCubeBrowser",
     "MongoSimpleCubeBuilder",
     "SlicerBrowser"

@@ -2,7 +2,9 @@ Cubes - OLAP Framework
 ===================================
 
 Cubes is a framework for Online Analytical Processing (OLAP), multidimensional analysis and aggregated
-cube computation.
+cube computation. It is part of `Data Brewery`_.
+
+.. _Data Brewery: http://databrewery.org/
 
 Contents:
 

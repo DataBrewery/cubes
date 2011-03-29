@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "cubes",
-    version = '0.1.0',
+    version = '0.5.0',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
@@ -18,7 +18,7 @@ setup(
     scripts = ['bin/slicer'],
     
     classifiers = [
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: GNU General Public License (GPL)',
