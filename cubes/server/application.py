@@ -81,8 +81,8 @@ class Slicer(object):
         
         action = getattr(controller, action_name)
 
+        controller.initialize()
         try:
-            controller.initialize()
             retval = action()
         finally:
             controller.finalize()

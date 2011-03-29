@@ -93,6 +93,8 @@ class SQLDenormalizer(object):
 
         full_view_name = schema + "." + view_name if schema else view_name
         statement = "CREATE TABLE %s AS %s" % (full_view_name, str(selection))
+        self.logger.info("creating table %s" % full_view_name)
+        self.logger.debug("SQL statement: %s" % statement)
         self.connection.execute(statement)
 
     def _collect_attributes(self):
@@ -122,7 +124,7 @@ class SQLDenormalizer(object):
         self.expression = self.fact_table
         
         for join in self.cube.joins:
-            self.logger.info("join: %s" % join)
+            self.logger.debug("join: %s" % join)
             
             master_name, master_key = self.split_field(join["master"])
             detail_name, detail_key = self.split_field(join["detail"])
@@ -171,23 +173,23 @@ class SQLDenormalizer(object):
             prefix = self.dimension_table_prefix
         else:
             prefix = ""
-        self.logger.info("looking for mapping %s" % (localized_alias))
+        self.logger.debug("looking for mapping %s" % (localized_alias))
 
         if localized_alias in self.cube.mappings:
             mapping = self.cube.mappings[localized_alias]
             original_mapping = mapping
-            self.logger.info("  is in mappings: %s" % mapping)
+            self.logger.debug("  is in mappings: %s" % mapping)
         elif attribute.alias in self.cube.mappings:
             mapping = self.cube.mappings[attribute.alias]
             original_mapping = mapping
-            self.logger.info("  not in mappings, using default trans: %s" % mapping)
+            self.logger.debug("  not in mappings, using default trans: %s" % mapping)
         else:
             original_mapping = None
             if attribute.dimension:
                 mapping = prefix + attribute.alias
             else:
                 mapping = attribute.alias
-            self.logger.info("  defaulting to: %s" % mapping)
+            self.logger.debug("  defaulting to: %s" % mapping)
 
         (table_name, field_name) = self.split_field(mapping)
         table = self._table(table_name, self.schema) if table_name else self.fact_table
@@ -197,7 +199,7 @@ class SQLDenormalizer(object):
             raise model.ModelError("Mapped column '%s' for fact attribute '%s'"
                                    " does not exist" % (original_mapping, attribute.alias) )
         
-        self.logger.info("adding column %s as %s" % (column, localized_alias))
+        self.logger.debug("adding column %s as %s" % (column, localized_alias))
         self.mappings[localized_alias] = column
         self.columns.append(expression.label(localized_alias, column))
             

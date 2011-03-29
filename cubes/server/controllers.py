@@ -16,6 +16,10 @@ TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 import cubes
 import json
 
+class InvalidRequestError(exception):
+    """Raised by controllers and handled more gracefuly with JSON reply"""
+    pass
+
 class FixingEncoder(json.JSONEncoder):
     def default(self, o):
         if type(o) == decimal.Decimal:
@@ -53,18 +57,22 @@ class ApplicationController(object):
         self.locale = None
         self.prettyprint = None
 
-    def _localize_model(self, lang):
+    def _localize_model(self):
         """Tries to translate the model. Looks for language in configuration file under 
         ``[translations]``, if no translation is provided, then model remains untouched."""
 
-        if self.config.has_option("translations", lang):
-            path = self.config.get("translations", lang)
+        # Do not translate if already translated
+        if self.model.locale == self.locale:
+            return
+
+        if self.config.has_option("translations", self.locale):
+            path = self.config.get("translations", self.locale)
             handle = open(path)
             trans = json.load(handle)
             handle.close()
             self.model = self.model.localize(trans)
         else:
-            raise Exception("No trnslation for language '%s'" % lang)
+            raise Exception("No translation for language '%s'" % self.locale)
         
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
@@ -130,9 +138,9 @@ class ApplicationController(object):
         else:
             self.prettyprint = False
         
-        locale = self.request.args.get("lang")
-        if locale:
-            self._localize_model(locale)
+        self.locale = self.request.args.get("lang")
+        if self.locale:
+            self._localize_model()
         
     def finalize(self):
         pass
@@ -215,7 +223,7 @@ class AggregationController(ApplicationController):
         self.browser = cubes.backends.SQLBrowser(self.cube,
                                                     self.connection, 
                                                     self.view_name,
-                                                    self.schema)
+                                                    self.schema, locale = self.locale)
 
 
         if "page" in self.request.args:
