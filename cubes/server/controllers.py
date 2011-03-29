@@ -16,7 +16,7 @@ TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 import cubes
 import json
 
-class InvalidRequestError(exception):
+class InvalidRequestError(Exception):
     """Raised by controllers and handled more gracefuly with JSON reply"""
     pass
 
