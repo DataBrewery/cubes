@@ -305,6 +305,10 @@ class CubeQuery(object):
     def _prepare_fact_selection(self):
         self.selection = OrderedDict()
 
+        column = self.column(self.cube_key)
+        cellattr = CellAttribute(None, column.name, column)
+        self.selection[column.name] = cellattr
+
         for measure in self.cube.measures:
             column = self.column(measure.name)
             cellattr = CellAttribute(measure, column.name, column)
