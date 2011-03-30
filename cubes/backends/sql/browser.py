@@ -19,7 +19,7 @@ except:
 # * [DONE] drill-down sorting
 # * [DONE] drill-down pagination
 # * drill-down limits (such as top-10)
-# * facts sorting
+# * [DONE] facts sorting
 # * [DONE] facts pagination
 # * dimension values sorting
 # * [DONE] dimension values pagination
@@ -128,10 +128,10 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         return result
 
-    def facts(self, cuboid, **options):
+    def facts(self, cuboid, order = None, **options):
         # Create query
         query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
-
+        query.order = order
         query.prepare()
         statement = query.facts_statement
 
@@ -157,15 +157,11 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
     def fact(self, key):
         """Fetch single row based on fact key"""
 
-        condition = self.key_column == key
+        query = CubeQuery(self.full_cube(), self.view, locale = self.locale)
 
-        stmt = self.view.select(whereclause = condition)
+        statement = query.fact_statement(key)
 
-        # stmt = expression.select(columns,
-        #                             whereclause = condition,
-        #                             from_obj = self.view)
-
-        cursor = self.connection.execute(stmt)
+        cursor = self.connection.execute(statement)
         
         row = cursor.fetchone()
         if row:
@@ -225,7 +221,7 @@ class CubeQuery(object):
         
         super(CubeQuery, self).__init__()
         self.cuboid = cuboid
-        self.cube = cuboid.cube
+
         self.view = view
         self.condition_expression = None
         self.drilldown = None
@@ -237,6 +233,7 @@ class CubeQuery(object):
         
         self._prepared = False
 
+        self.cube = cuboid.cube
         self.cube_key = self.cube.key
         if not self.cube_key:
             self.cube_key = base.DEFAULT_KEY_FIELD
@@ -246,6 +243,7 @@ class CubeQuery(object):
         # FIXME: Refactor this! Remove unnecessary arrays
         # FIXME: Replace self._group_by with cell_attributes
 
+        self._fact_columns = None
         self._conditions = []
         self._condition = None
         self._group_by = []
@@ -274,21 +272,53 @@ class CubeQuery(object):
                     self._order[item[0]] = item[1]
 
     def fact_statement(self, fact_id):        
-        if not self._prepared:
-            raise Exception("Query is not prepared")
-            
-        condition = self.key_column == fact_id
+        if not self._fact_columns:
+            self._prepare_fact_selection()
 
-        stmt = expression.select(whereclause = condition, from_obj = self.view)
+        condition = self.key_column == fact_id
+        columns = [col.column for col in self.selection.values()]
+
+        stmt = expression.select(columns, 
+                                    whereclause = condition, 
+                                    from_obj = self.view)
         return stmt
 
     @property
     def facts_statement(self):
         if not self._prepared:
             raise Exception("Query is not prepared")
-        
+
+        if not self._fact_columns:
+            self._prepare_fact_selection()
+
+        self._prepare_order()
+
+        columns = [col.column for col in self.selection.values()]
+
+        self._facts_statement = expression.select(columns, 
+                                    whereclause = self._condition, 
+                                    from_obj = self.view,
+                                    order_by = self.order_by)
+
         return self._facts_statement
-        
+
+    def _prepare_fact_selection(self):
+        self.selection = OrderedDict()
+
+        for measure in self.cube.measures:
+            column = self.column(measure.name)
+            cellattr = CellAttribute(measure, column.name, column)
+            self.selection[column.name] = cellattr
+
+        # FIXME: missing (hybrid) cube detail attributes - not implemented yet
+
+        for dimension in self.cube.dimensions:
+            for level in dimension.default_hierarchy.levels:
+                for attribute in level.attributes:
+                    column = self.column(attribute, dimension)
+                    cellattr = CellAttribute(attribute, column.name, column)
+                    self.selection[column.name] = cellattr
+
     @property
     def summary_statement(self):
         if not self._prepared:
@@ -355,7 +385,6 @@ class CubeQuery(object):
 
         ##########################
         ## -- 1 -- FACTS
-        self._facts_statement = self.view.select(whereclause = self._condition)
 
         columns = [col.column for col in self.selection.values()]
 
@@ -427,13 +456,6 @@ class CubeQuery(object):
             if cell_attr.attribute and cell_attr.name not in ordering:
                 ordering[cell_attr.name] = (cell_attr, cell_attr.attribute.order)
                 
-        # print "ORDER: %s" % ordering
-        # natural_order = [a for a in self.selection.values()
-        #                         if a.attribute and a.attribute.order and
-        #                             a.name not in self._order_fields]
-        # 
-        # order_attributes = ex_order_attribs + natural_order
-        
         # Construct ORDER BY:
         self.order_by = []
         for (attr, order) in ordering.values():
@@ -561,6 +583,7 @@ class CubeQuery(object):
         locale_suffix = ""
 
         if dimension:
+            # FIXME: this will not work when fact decoration/detail attributes will be introduced
             if isinstance(field, cubes.model.Attribute) and field.locales:
                 if self.locale in field.locales:
                     locale = self.locale
@@ -574,4 +597,3 @@ class CubeQuery(object):
         localized_name = logical_name + locale_suffix
         column = self.view.c[localized_name]
         return expression.label(logical_name, column)
-        

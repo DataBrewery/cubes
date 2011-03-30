@@ -8,7 +8,7 @@ import logging
 import urllib
 import datetime
 
-version = "0.2"
+version = "0.3"
 api_version = "0"
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
@@ -291,7 +291,9 @@ class AggregationController(ApplicationController):
         self.prepare_cuboid()
 
         try:
-            result = self.cuboid.facts(page = self.page, page_size = self.page_size)
+            result = self.cuboid.facts(order = self.order,
+                                        page = self.page, 
+                                        page_size = self.page_size)
         except Exception, e:
             return self.error("Fetching facts failed", e)
 
