@@ -314,6 +314,11 @@ class CubeQuery(object):
             cellattr = CellAttribute(measure, column.name, column)
             self.selection[column.name] = cellattr
 
+        for attr in self.cube.details:
+            column = self.column(attr.name)
+            cellattr = CellAttribute(attr, column.name, column)
+            self.selection[column.name] = cellattr
+
         # FIXME: missing (hybrid) cube detail attributes - not implemented yet
 
         for dimension in self.cube.dimensions:

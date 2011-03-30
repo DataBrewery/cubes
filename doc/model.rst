@@ -127,6 +127,10 @@ name           dimension name
 label          human readable name - can be used in an application
 measures       list of cube measures (as Attributes)
 dimensions     list of cube dimension names
+details        list of fact details (as Attributes) - attributes
+               that are not relevant to aggregation, but are
+               nice-to-have when displaying facts (might be
+               separately stored)
 joins          specification of physical table joins
 mappings       mapping of logical attributes to physical attributes
 ============== ====================================================
@@ -137,6 +141,9 @@ Example::
         "name": "date",
         "label": "Dátum",
         "dimensions": [ "date", ... ]
+
+    	"measures": [...],
+    	"details": [...],
 
     	"fact": "fact_table_name",
     	"mappings": { ... },

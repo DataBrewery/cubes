@@ -394,6 +394,8 @@ class Cube(object):
     	* name: cube name
     	* label: name that will be displayed (human readable)
     	* measures: list of fact measures
+    	* details: list attributes that give more information about facts, but are not relevant
+        from analysis or aggregation point of view in this context
     	* dimensions: list of fact dimensions
     	* mappings: map logical attributes to physical dataset fields (table columns)
     	* joins
@@ -414,7 +416,7 @@ class Cube(object):
         self.label = info.get("label", "")
         self.description = info.get("description", "")
         self.measures = attribute_list(info.get("measures", []))
-        self.attributes = info.get("attributes", [])
+        self.details = attribute_list(info.get("details", []))
         self.model = None
         self.mappings = info.get("mappings", {})
         self.fact = info.get("fact", None)
@@ -478,6 +480,11 @@ class Cube(object):
             array.append(attr.__dict__())
         out.setnoempty("measures", array)
 
+        array = []
+        for attr in self.details:
+            array.append(attr.__dict__())
+        out.setnoempty("details", array)
+
         if expand_dimensions:
             dims = [dim.to_dict(**options) for dim in self.dimensions]
         else:
@@ -529,6 +536,10 @@ class Cube(object):
             if not isinstance(measure, Attribute):
                 results.append( ('error', "Measure '%s' in cube '%s' is not instance of Attribute" % (measure, self.name)) )
 
+        for detail in self.details:
+            if not isinstance(detail, Attribute):
+                results.append( ('error', "Detail '%s' in cube '%s' is not instance of Attribute" % (measure, self.name)) )
+
         # 2. check whether dimension attributes are unique
 
         
@@ -546,6 +557,12 @@ class Cube(object):
                 if attrib.name in attr_locales:
                     util.localize_common(attrib, attr_locales[attrib.name])
 
+        attr_locales = locale.get("details")
+        if attr_locales:
+            for attrib in self.details:
+                if attrib.name in attr_locales:
+                    util.localize_common(attrib, attr_locales[attrib.name])
+
     def localizable_dictionary(self):
         locale = {}
         locale.update(util.get_localizable_attributes(self))
@@ -554,6 +571,12 @@ class Cube(object):
         locale["measures"] = mdict
         
         for measure in self.measures:
+            mdict[measure.name] = measure.localizable_dictionary()
+
+        mdict = {}
+        locale["details"] = mdict
+
+        for measure in self.details:
             mdict[measure.name] = measure.localizable_dictionary()
             
         return locale

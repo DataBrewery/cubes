@@ -44,8 +44,9 @@ considered in most cases. You can not change structure of mode in translation fi
 does not match you will get warning or error, depending on structure change severity.
 
 There is one major difference between master model file and model translations: all attribute
-lists, such as cube measures or dimension level attributes are dictionaries, not arrays. Keys are
-attribute names, values are metadata translations. Therefore in master model file you will have::
+lists, such as cube measures, cube details or dimension level attributes are dictionaries, not
+arrays. Keys are attribute names, values are metadata translations. Therefore in master model file
+you will have::
 
     attributes = [
                     { "name": "name", "label": "Name" },

@@ -100,12 +100,15 @@ class SQLDenormalizer(object):
     def _collect_attributes(self):
         """Collect all attributes from model and create mappings from logical to physical representation
         """
-        self.logger.info("collecting fact attributes...")
+        self.logger.info("collecting fact attributes (key, mesures and details)...")
 
         # self.attributes contains tuples: attribute, dimension
         self.attributes = [ Attribute(self.cube_key, str(self.cube_key), None, None) ]
 
         for attribute in self.cube.measures:
+            self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
+
+        for attribute in self.cube.details:
             self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
 
         self.logger.info("collecting dimension attributes...")
