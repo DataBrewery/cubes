@@ -1,0 +1,17 @@
+Changes in the Cubes
+++++++++++++++++++++
+
+Version 0.6
+===========
+
+News:
+
+* added 'details' to cube - attributes that might contain fact details which are not relevant to
+  aggregation, but might be interesting when displaying facts
+* added ordering of facts in aggregation browser
+
+Fixes:
+
+* fixed localization bug in fact(s) - now uses proper attribute name without locale suffix
+* fixed passing of pagination and ordering parameters from server to aggregation browser when
+  requesting facts

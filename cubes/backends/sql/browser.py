@@ -173,11 +173,12 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             
         return record
         
-    def values(self, cuboid, dimension, depth = None, **options):
+    def values(self, cuboid, dimension, depth = None, order = None, **options):
         """Get values for dimension at given path within cuboid"""
 
         dimension = self.cube.dimension(dimension)
         query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
+        query.order = order
 
         statement = query.values_statement(dimension, depth)
 
@@ -361,17 +362,22 @@ class CubeQuery(object):
             levels = levels[0:depth]
             
         self._prepare_condition()
-
-        selection = []
+        self.selection = OrderedDict()
         for level in levels:
             for attribute in level.attributes:
                 column = self.column(attribute, dimension)
-                selection.append(column)
+                cellattr = CellAttribute(attribute, column.name, column)
+                self.selection[column.name] = cellattr
 
-        values_statement = expression.select(selection,
+        self._prepare_order()
+
+        columns = [col.column for col in self.selection.values()]
+
+        values_statement = expression.select(columns,
                                     whereclause = self._condition,
                                     from_obj = self.view,
-                                    group_by = selection)
+                                    group_by = columns,
+                                    order_by = self.order_by)
 
         return values_statement
 
