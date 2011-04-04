@@ -7,6 +7,7 @@ import util
 import browse
 import build
 import backends
+import search
 
 import logging
 

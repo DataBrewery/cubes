@@ -72,6 +72,23 @@ class AggregationBrowser(object):
         """
         raise NotImplementedError
         
+    # def crosstab(self, cuboid, measures, drilldown, rows = None, columns = None, **options):
+    #     """Aggregate facts and return cross-table. Calls `aggregate()` to get results then
+    #     transforms the `AggregationResult` into a cross-tab.
+    # 
+    #     :Parameters:
+    #         * cuboid - cuboid to be aggregated
+    #         * rows - list of dimensions to be put on rows
+    #         * columns - list of dimensions to be put on columns
+    #     """
+    #     raise NotImplementedError("cross tab is under development, body of this function should be considered as development notes")
+    #     
+    #     drilldown = []
+    # 
+    #     if rows:
+    #         for dim in rows:
+    #             dim = self.cube.dimension(dim)
+
     def facts(self, cuboid, **options):
         """Return list of all facts within cuboid"""
         
@@ -420,6 +437,22 @@ def string_from_cuts(cuts):
     string = CUT_STRING_SEPARATOR.join(strings)
     return string
 
+def string_from_path(path):
+    """Returns a string representing dimension path."""
+    
+    # FIXME: do some escaping or something like URL encoding
+    path = [unicode(s) if s is not None else "" for s in path]
+    string = PATH_STRING_SEPARATOR.join(path)
+    return string
+    
+def path_from_string(string):
+    """Returns a dimension path from string"""
+    
+    # FIXME: do some un-escaping when escaping in string_from_path is implemented
+    path = string.split(PATH_STRING_SEPARATOR)
+    path = [v if v != "" else None for v in path]
+    return path
+
 class Cut(object):
     def __init__(self, dimension):
         self.dimension = dimension
@@ -536,6 +569,9 @@ class AggregationResult(object):
         self.total_cell_count = None
 
     def as_dict(self):
+        """Return dictionary representation of the aggregation result. Can be used for JSON
+        serialisation"""
+        
         d = {}
         
         d["summary"] = self.summary

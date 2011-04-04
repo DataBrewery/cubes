@@ -352,13 +352,17 @@ class CubeQuery(object):
 
         return self._drilldown_statement
 
-    def values_statement(self, dimension, depth = None):
+    def values_statement(self, dimension, depth = None, hierarchy = None):
         """Get a statement that will select all values for dimension for `depth` levels. If
         depth is ``None`` then all levels are returned, that is all dimension values at all levels"""
 
-        levels = dimension.default_hierarchy.levels
+        if not hierarchy:
+            hierarchy = dimension.default_hierarchy
+        levels = hierarchy.levels
 
-        if depth is not None:
+        if depth == 0:
+            raise ValueError("Depth for dimension values should not be 0")
+        elif depth is not None:
             levels = levels[0:depth]
             
         self._prepare_condition()
