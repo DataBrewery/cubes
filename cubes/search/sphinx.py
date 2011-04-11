@@ -1,5 +1,5 @@
 """Multidimensional searching using Sphinx search engine"""
-import cubes.browser as browser
+# import cubes.browser as browser
 import sphinxapi
 import xml.sax.saxutils
 from xml.sax.xmlreader import AttributesImpl

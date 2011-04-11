@@ -496,7 +496,7 @@ class CubeQuery(object):
             if isinstance(cut, cubes.browser.PointCut):
                 path = cut.path
                 self._condition = self._path_condition(dim, path)
-            if isinstance(cut, cubes.browser.SetCut):
+            elif isinstance(cut, cubes.browser.SetCut):
                 conditions = []
                 for path in cut.paths:
                     conditions.append(self._path_condition(dim, path))
