@@ -12,6 +12,9 @@ Framework is database agnostic and supports:
 * relational databases with SQL (through SQL Alchemy)
 * MongoDB
 
+Includes Sphinx search engine API source from: http://sphinxsearch.com/
+
+
 DOCUMENTATION
 
 Documentation can be found at: http://packages.python.org/cubes

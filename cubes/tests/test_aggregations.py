@@ -100,3 +100,9 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         self.assertEqual([1,2,3], hier.rollup(path,"class"))
         self.assertEqual([1,2,3,4], hier.rollup(path,"category"))
         self.assertRaises(ValueError, hier.rollup, path,"detail")
+        
+    def test_set_cut_string(self):
+        cut = cubes.browser.SetCut("date", [[1], [2,3], ["qwe", "asd",100]])
+        
+        self.assertEqual('qwe,asd,100', cubes.browser.string_from_path(["qwe", "asd",100]))
+        self.assertEqual("date:1+2,3+qwe,asd,100", str(cut))

@@ -492,36 +492,46 @@ class CubeQuery(object):
         self._group_by = []
 
         for cut in self.cuboid.cuts:
-            if not isinstance(cut, cubes.browser.PointCut):
-                raise Exception("Only point cuts are supported in SQL browser at the moment")
-            
             dim = self.cube.dimension(cut.dimension)
-            path = cut.path
-            levels = dim.default_hierarchy.levels
+            if isinstance(cut, cubes.browser.PointCut):
+                path = cut.path
+                self._condition = self._path_condition(dim, path)
+            if isinstance(cut, cubes.browser.SetCut):
+                conditions = []
+                for path in cut.paths:
+                    conditions.append(self._path_condition(dim, path))
+                self._condition = expression.or_(*conditions)
+            else:
+                raise Exception("Only point and set cuts are supported in SQL browser at the moment")
 
-            if len(path) > len(levels):
-                raise Exception("Path has more items (%d) than there are levels (%d) "
-                                "in dimension %s" % (len(path), len(levels), dim.name))
+    def _path_condition(self, dim, path):
+        """Adds a condition for `dimension` point at `path`."""
+        conditions = [] 
+        levels = dim.default_hierarchy.levels
 
-            level = None
-            for i, value in enumerate(path):
-                level = levels[i]
-                # Prepare condition: dimension.level_key = path_value
-                column = self.column(level.key, dim)
-                self._conditions.append(column == value)
-                
-                # Collect grouping columns
-                for attr in level.attributes:
-                    column = self.column(attr, dim)
-                    self._group_by.append(column)
-                    cellattr = CellAttribute(attr, column.name, column)
-                    self.selection[column.name] = cellattr
+        if len(path) > len(levels):
+            raise Exception("Path has more items (%d: %s) than there are levels (%d) "
+                            "in dimension %s" % (len(path), path, len(levels), dim.name))
 
-            # Remember last level of cut dimension for further use, such as drill-down
-            if level:
-                self._last_levels[dim.name] = level
+        level = None
+        for i, value in enumerate(path):
+            level = levels[i]
+            # Prepare condition: dimension.level_key = path_value
+            column = self.column(level.key, dim)
+            conditions.append(column == value)
+            
+            # Collect grouping columns
+            for attr in level.attributes:
+                column = self.column(attr, dim)
+                self._group_by.append(column)
+                cellattr = CellAttribute(attr, column.name, column)
+                self.selection[column.name] = cellattr
 
-        self._condition = expression.and_(*self._conditions)
+        # Remember last level of cut dimension for further use, such as drill-down
+        if level:
+            self._last_levels[dim.name] = level
+
+        return expression.and_(*conditions)
         
     def _prepare_drilldown(self):
         """Prepare drill down selection, groupings and fields"""

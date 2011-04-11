@@ -35,7 +35,9 @@ rules = Map([
     Rule('/dimension/<string:dimension>', 
                         endpoint = (controllers.AggregationController, 'values')),
     Rule('/report', methods = ['POST'],
-                        endpoint = (controllers.AggregationController, 'report'))
+                        endpoint = (controllers.AggregationController, 'report')),
+    Rule('/search',
+                        endpoint = (controllers.SearchController, 'search'))
 ])
 
 class Slicer(object):

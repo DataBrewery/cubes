@@ -1,4 +1,4 @@
-from application import *
+from slicer import *
 try:
     import werkzeug.serving
 except:
@@ -6,7 +6,7 @@ except:
 
 __all__ = {
     "Slicer",
-    "serve"
+    "run_server"
 }
 
 def run_server(config):

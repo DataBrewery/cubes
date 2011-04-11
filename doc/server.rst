@@ -85,6 +85,26 @@ API
     
     See :ref:`serverreport` for more information.
     
+``GET /search/dimension/<dimension>/<query>``
+    Search values of `dimensions` for `query`. If `dimension` is ``_all`` then all
+    dimensions are searched. Returns search results as list of dictionaries with attributes:
+    
+    :Search result:
+        * `dimension` - dimension name
+        * `level` - level name
+        * `depth` - level depth
+        * `level_key` - value of key attribute for level
+        * `attribute` - dimension attribute name where searched value was found
+        * `value` - value of dimension attribute that matches search query
+        * `path` - dimension hierarchy path to the found value
+        * `level_label` - label for dimension level (value of label_attribute for level)
+        
+        
+    .. warning::
+    
+        Not yet fully implemented, just proposal.
+        
+
 ``GET /drilldown/<dimension>/<path>``
     Aggregate next level of dimension. This is similar to ``/aggregate`` with
     ``drilldown=<dimension>`` parameter. Does not result in error when path has largest possible

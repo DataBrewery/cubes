@@ -142,6 +142,50 @@ class ApplicationController(object):
         if self.locale:
             self._localize_model()
         
+    def initialize_cube(self):
+        self.engine = sqlalchemy.create_engine(self.dburl)
+        self.connection = self.engine.connect()
+
+        self.browser = cubes.backends.SQLBrowser(self.cube,
+                                                    self.connection, 
+                                                    self.view_name,
+                                                    self.schema, locale = self.locale)
+
+        if "page" in self.request.args:
+            self.page = int(self.request.args.get("page"))
+        else:
+            self.page = None
+        if "pagesize" in self.request.args:
+            self.page_size = int(self.request.args.get("pagesize"))
+        else:
+            self.page_size = None
+
+        # Collect orderings:
+        # order is specified as order=<field>[:<direction>]
+        # examples:
+        #
+        #     order=date.year     # order by year, unspecified direction
+        #     order=date.year:asc # order by year ascending
+        #
+
+        self.order = []
+        for order in self.request.args.getlist("order"):
+            split = order.split(":")
+            if len(split) == 1:
+                self.order.append( (order, None) )
+            else:
+                self.order.append( (split[0], split[1]) )
+
+    def finalize_cube(self):
+        if self.browser:
+            del self.browser
+
+        if self.connection:
+            self.connection.close()
+            self.engine.dispose()
+            del self.connection
+            del self.engine
+
     def finalize(self):
         pass
         
@@ -215,51 +259,10 @@ class ModelController(ApplicationController):
 class AggregationController(ApplicationController):
     def initialize(self):
         super(AggregationController, self).initialize()
-
-        self.engine = sqlalchemy.create_engine(self.dburl)
-        
-        self.connection = self.engine.connect()
-
-        self.browser = cubes.backends.SQLBrowser(self.cube,
-                                                    self.connection, 
-                                                    self.view_name,
-                                                    self.schema, locale = self.locale)
-
-
-        if "page" in self.request.args:
-            self.page = int(self.request.args.get("page"))
-        else:
-            self.page = None
-        if "pagesize" in self.request.args:
-            self.page_size = int(self.request.args.get("pagesize"))
-        else:
-            self.page_size = None
-            
-        # Collect orderings:
-        # order is specified as order=<field>[:<direction>]
-        # examples:
-        #
-        #     order=date.year     # order by year, unspecified direction
-        #     order=date.year:asc # order by year ascending
-        #
-        
-        self.order = []
-        for order in self.request.args.getlist("order"):
-            split = order.split(":")
-            if len(split) == 1:
-                self.order.append( (order, None) )
-            else:
-                self.order.append( (split[0], split[1]) )
+        self.initialize_cube()
         
     def finalize(self):
-        if self.browser:
-            del self.browser
-
-        if self.connection:
-            self.connection.close()
-            self.engine.dispose()
-            del self.connection
-            del self.engine
+        self.finalize_cube()
     
     def prepare_cuboid(self):
         cut_string = self.request.args.get("cut")
@@ -353,3 +356,26 @@ class AggregationController(ApplicationController):
         
         return self.json_response(result)
     
+class SearchController(ApplicationController):
+    """docstring for SearchController"""
+    def initialize(self):
+        super(AggregationController, self).initialize()
+        self.initialize_cube(self)
+        self.sphinx_host = config.get("sphinx","host")
+        self.sphinx_port = config.get("sphinx","port")
+
+    def finalize(self):
+        self.finalize_cube(self)
+        
+    def search(self):
+        sphinx = SphinxSearch(self.browser, self.sphinx_host, self.sphinx_port)
+        query = self.request.args.get("q")
+        dimension = self.request.args.get("dimension")
+        
+        if dimension:
+            result = sphinx.search(query, dimension)
+        else:
+            result = sphinx.search(query)
+
+        return self.json_response(result)
+        

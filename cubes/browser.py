@@ -98,7 +98,7 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def values(self, cuboid, dimension, depth = None, **options):
+    def values(self, cuboid, dimension, depth = None, paths = None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
         levels are returned.
         
@@ -348,9 +348,10 @@ class Cuboid(object):
 
         return self.browser.aggregate(self, measures, drilldown, **options)
 
-    def values(self, dimension, depth = None, **options):
-        """Return values for dimension."""
-        return self.browser.values(self, dimension, depth, **options)
+    def values(self, dimension, depth = None, paths = None, **options):
+        """Return values for dimension up to `depth` levels. If `paths` is speciied, then only
+        values which match given path set will be returned."""
+        return self.browser.values(self, dimension, depth, paths, **options)
 
     def facts(self, **options):
         """Get all facts within cuboid."""
@@ -383,6 +384,7 @@ CUT_STRING_SEPARATOR = '|'
 DIMENSION_STRING_SEPARATOR = ':'
 PATH_STRING_SEPARATOR = ','
 RANGE_CUT_SEPARATOR = '-'
+SET_CUT_SEPARATOR = '+'
 
 """
 point: date:2004
@@ -466,8 +468,7 @@ class PointCut(Cut):
 
     def __str__(self):
         """Return string representation of point cut, you can use it in URLs"""
-        strings = [str(value) for value in self.path]
-        path_str = PATH_STRING_SEPARATOR.join(strings)
+        path_str = string_from_path(self.path)
         
         if type(self.dimension) == str or type(self.dimension) == unicode:
             dim_name = self.dimension
@@ -508,16 +509,13 @@ class RangeCut(object):
     def __str__(self):
         """Return string representation of point cut, you can use it in URLs"""
         if self.from_path:
-            strings = [str(value) for value in self.from_path]
-            from_path_str = PATH_STRING_SEPARATOR.join(strings)
+            from_path_str = string_from_path(self.from_path)
         else:
-            from_path_str = str([])
-
+            from_path_str = string_from_path([])
         if self.to_path:
-            strings = [str(value) for value in self.to_path]
-            to_path_str = PATH_STRING_SEPARATOR.join(strings)
+            to_path_str = string_from_path(self.to_path)
         else:
-            to_path_str = str([])
+            to_path_str = string_from_path([])
 
         if type(self.dimension) == str or type(self.dimension) == unicode:
             dim_name = self.dimension
@@ -549,7 +547,49 @@ class RangeCut(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+        
+class SetCut(Cut):
+    """Object describing way of slicing a cube (cuboid) between two points of a dimension that
+    has ordered points. For dimensions with unordered points behaviour is unknown."""
 
+    def __init__(self, dimension, paths):
+        super(SetCut, self).__init__(dimension)
+        self.paths = paths
+
+    def __str__(self):
+        """Return string representation of set cut, you can use it in URLs"""
+        path_strings = []
+        for path in self.paths:
+            path_strings.append(string_from_path(path))
+
+        if type(self.dimension) == str or type(self.dimension) == unicode:
+            dim_name = self.dimension
+        else:
+            dim_name = self.dimension.name
+
+        set_string = SET_CUT_SEPARATOR.join(path_strings)
+        string = dim_name + DIMENSION_STRING_SEPARATOR + set_string
+
+        return string        
+
+    def __repr__(self):
+        if type(self.dimension) == str:
+            dim_name = self.dimension
+        else:
+            dim_name = self.dimension.name
+
+        return '{"cut": "%s", "dimension":"%s", "paths": "%s"}' % \
+                    ("SetCut", dim_name, self.paths)
+
+    def __eq__(self, other):
+        if self.dimension != other.dimension:
+            return False
+        elif self.paths != other.paths:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 class AggregationResult(object):
     """Result of aggregation or drill down.
