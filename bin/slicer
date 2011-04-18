@@ -6,7 +6,6 @@
     Date: 2011-01
 """
 
-import argparse
 import json
 import argparse
 import sys
@@ -179,7 +178,7 @@ subparser.set_defaults(func=model_pickle)
 # Command: serve
 
 parser_serve = subparsers.add_parser('serve', help = "run slicer server")
-parser_serve.add_argument('config', help='json file with server confuguration')
+parser_serve.add_argument('config', help='server confuguration .ini file')
 parser_serve.set_defaults(func=run_server)
 
 args = parser.parse_args(sys.argv[1:])

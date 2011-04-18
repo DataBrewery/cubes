@@ -35,7 +35,14 @@ class ApplicationController(object):
     def __init__(self, config):
         self.config = config
 
-        self.model = cubes.load_model(config.get("model", "path"))
+        model_path = config.get("model", "path")
+        try:
+            self.model = cubes.load_model(model_path)
+        except:
+            if not model_path:
+                model_path = 'unknown path'
+            raise Exception("Unable to load model from %s" % model_path)
+            
         self.cube_name = config.get("model","cube")
         self.cube = self.model.cube(self.cube_name)
 
@@ -356,26 +363,3 @@ class AggregationController(ApplicationController):
         
         return self.json_response(result)
     
-class SearchController(ApplicationController):
-    """docstring for SearchController"""
-    def initialize(self):
-        super(AggregationController, self).initialize()
-        self.initialize_cube(self)
-        self.sphinx_host = config.get("sphinx","host")
-        self.sphinx_port = config.get("sphinx","port")
-
-    def finalize(self):
-        self.finalize_cube(self)
-        
-    def search(self):
-        sphinx = SphinxSearch(self.browser, self.sphinx_host, self.sphinx_port)
-        query = self.request.args.get("q")
-        dimension = self.request.args.get("dimension")
-        
-        if dimension:
-            result = sphinx.search(query, dimension)
-        else:
-            result = sphinx.search(query)
-
-        return self.json_response(result)
-        

@@ -9,6 +9,7 @@ from utils import local, local_manager, url_map
 import json
 
 import controllers
+import search
 
 rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
@@ -37,7 +38,7 @@ rules = Map([
     Rule('/report', methods = ['POST'],
                         endpoint = (controllers.AggregationController, 'report')),
     Rule('/search',
-                        endpoint = (controllers.SearchController, 'search'))
+                        endpoint = (search.SearchController, 'search'))
 ])
 
 class Slicer(object):
