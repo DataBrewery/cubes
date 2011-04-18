@@ -31,11 +31,15 @@ class SearchController(controllers.ApplicationController):
     def initialize(self):
         super(SearchController, self).initialize()
         self.initialize_cube()
-        if self.config.has_section("sphinx"):
+
+        if self.config.has_option("sphinx", "host"):
             self.sphinx_host = self.config.get("sphinx","host")
-            self.sphinx_port = self.config.get("sphinx","port")
         else:
             self.sphinx_host = None
+            
+        if self.config.has_option("sphinx", "port"):
+            self.sphinx_port = self.config.getint("sphinx","port")
+        else:
             self.sphinx_port = None
         
     def finalize(self):
