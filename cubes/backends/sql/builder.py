@@ -73,8 +73,10 @@ class SQLDenormalizer(object):
             self.engine = None
             self.fact = None
             
-    def create_materialized_view(self, view_name, schema = None):
+    def create_materialized_view(self, view_name, schema = None, index = False):
         self.expression = None
+        
+        self.index_attributes = []
 
         self._collect_attributes()
         self._collect_joins()
@@ -92,18 +94,35 @@ class SQLDenormalizer(object):
             table.drop(checkfirst=False)
 
         full_view_name = schema + "." + view_name if schema else view_name
+
         statement = "CREATE TABLE %s AS %s" % (full_view_name, str(selection))
         self.logger.info("creating table %s" % full_view_name)
         self.logger.debug("SQL statement: %s" % statement)
         self.connection.execute(statement)
 
+        if index:
+            # self.metadata.reflect(schema = schema, only = [view_name] )
+            table = self._table(view_name, schema = schema, autoload = True)
+            self.engine.reflecttable(table)
+
+            for attribute in self.index_attributes:
+                self.logger.info("creating index for %s" % attribute.alias)
+                column = table.c[attribute.alias]
+                name = "idx_%s_%s" % (view_name, attribute.alias)
+                index = sqlalchemy.schema.Index(name, column)
+                index.create(self.engine)
+                
     def _collect_attributes(self):
-        """Collect all attributes from model and create mappings from logical to physical representation
+        """Collect all attributes from model and create mappings from logical to physical
+        representation
         """
+
         self.logger.info("collecting fact attributes (key, mesures and details)...")
 
         # self.attributes contains tuples: attribute, dimension
-        self.attributes = [ Attribute(self.cube_key, str(self.cube_key), None, None) ]
+        key_attribute = Attribute(self.cube_key, str(self.cube_key), None, None)
+        self.attributes = [ key_attribute ]
+        self.index_attributes = [ key_attribute ]
 
         for attribute in self.cube.measures:
             self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
@@ -119,7 +138,11 @@ class SQLDenormalizer(object):
                 for attribute in level.attributes:
                     # FIXME: add localization
                     alias = attribute.full_name(dim)
-                    self.attributes.append( Attribute(attribute, alias, dim, attribute.locales) )
+                    obj = Attribute(attribute, alias, dim, attribute.locales)
+                    self.attributes.append(obj)
+
+                    if attribute.name == level.key:
+                        self.index_attributes.append(obj)
 
     def _collect_joins(self):
         self.logger.info("collecting joins...")
@@ -142,7 +165,7 @@ class SQLDenormalizer(object):
             detail_column = detail_table.c[detail_key]
             
             onclause = master_column == detail_column
-            print onclause
+
             self.expression = expression.join(self.expression, detail_table, onclause = onclause)
 
     def _collect_columns(self):
@@ -192,15 +215,21 @@ class SQLDenormalizer(object):
                 mapping = prefix + attribute.alias
             else:
                 mapping = attribute.alias
+
+            # FIXME: make this work
+            if locale:
+                mapping = mapping + "_" + locale
+                
             self.logger.debug("  defaulting to: %s" % mapping)
 
         (table_name, field_name) = self.split_field(mapping)
         table = self._table(table_name, self.schema) if table_name else self.fact_table
+
         try:
             column = table.c[field_name]
         except KeyError:
-            raise model.ModelError("Mapped column '%s' for fact attribute '%s'"
-                                   " does not exist" % (original_mapping, attribute.alias) )
+            raise model.ModelError("Mapped column '%s' does not exist (as %s.%s)" \
+                                        % (localized_alias, table_name, field_name) )
         
         self.logger.debug("adding column %s as %s" % (column, localized_alias))
         self.mappings[localized_alias] = column
@@ -264,7 +293,7 @@ class SimpleSQLBuilder(object):
 
         self.cube_attributes = [ self.cube_key ]
         for measure in self.cube.measures:
-            print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
+            # print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
             self.cube_attributes.append(str(measure))
         
         self.dimension_table_prefix = dimension_table_prefix

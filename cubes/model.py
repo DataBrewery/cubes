@@ -1078,7 +1078,7 @@ class Level(object):
         if self._key:
             return self._key
         else:
-            return self.attributes[0]
+            return self.attributes[0].name
             
     @property
     def label_attribute(self):
