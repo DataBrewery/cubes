@@ -107,7 +107,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
                 statement = statement.offset(page * page_size).limit(page_size)
             
             rows = self.connection.execute(statement)
-            
+            # print "SQL:\n%s"% statement
             # FIXME: change this into iterable, do not fetch everythig - we want to get plain dict
             # fields = query.fields + query.drilldown_fields
             fields = [attr.name for attr in query.selection.values()]
@@ -495,15 +495,18 @@ class CubeQuery(object):
             dim = self.cube.dimension(cut.dimension)
             if isinstance(cut, cubes.browser.PointCut):
                 path = cut.path
-                self._condition = self._path_condition(dim, path)
+                condition = self._path_condition(dim, path)
             elif isinstance(cut, cubes.browser.SetCut):
                 conditions = []
                 for path in cut.paths:
                     conditions.append(self._path_condition(dim, path))
-                self._condition = expression.or_(*conditions)
+                condition = expression.or_(*conditions)
             else:
                 raise Exception("Only point and set cuts are supported in SQL browser at the moment")
-
+            self._conditions.append(condition)
+        
+        self._condition = expression.and_(*self._conditions)
+        
     def _path_condition(self, dim, path):
         """Adds a condition for `dimension` point at `path`."""
         conditions = [] 

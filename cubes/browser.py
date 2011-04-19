@@ -480,7 +480,7 @@ class PointCut(Cut):
         return string        
 
     def __repr__(self):
-        if type(self.dimension) == str:
+        if isinstance(self.dimension, basestring):
             dim_name = self.dimension
         else:
             dim_name = self.dimension.name

@@ -65,28 +65,11 @@ class SearchController(controllers.ApplicationController):
             return self.error("No query provided")
         
         search_result = sphinx.search(query)
+
         result = {
             "values": search_result.values(dimension),
             "dimension": dimension,
             "total_found": search_result.total_found
         }
         
-        
         return self.json_response(result)
-    
-    
-# class SearchController(ApplicationController):
-#     """docstring for SearchController"""
-# 
-#     def search(self):
-#         sphinx = SphinxSearch(self.browser, self.sphinx_host, self.sphinx_port)
-#         query = self.request.args.get("q")
-#         dimension = self.request.args.get("dimension")
-# 
-#         if dimension:
-#             result = sphinx.search(query, dimension)
-#         else:
-#             result = sphinx.search(query)
-# 
-#         return self.json_response(result)
-
