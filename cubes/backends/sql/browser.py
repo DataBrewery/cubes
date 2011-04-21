@@ -29,20 +29,26 @@ except:
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, connection, view_name, schema = None, locale = None):
+    def __init__(self, cube, connection = None, view_name = None, schema = None, view = None, locale = None):
         """Create a browser.
         
         :Attributes:
             * `cube` - cube object to be browsed
             * `connection` - sqlalchemy database connection object
             * `view_name` - name of denormalized view (might be VIEW or TABLE)
+            * `view` - SLQ alchemy view/table object
             * `locale` - locale to be used for localized attributes
+
+        To initialize SQL browser you should provide either a `connection`, `view_name` and optionally
+        `shcema` or `view`.
 
         """
         super(SQLBrowser, self).__init__(cube)
 
         self.cube = cube
-        self.view_name = view_name
+
+        if not connection and not view:
+            raise Exception("SQLBrowser requires either connection or view to be provided.")
 
         if locale:
             self.locale = locale
@@ -54,19 +60,19 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             self.fact_key = base.DEFAULT_KEY_FIELD
 
         if connection:
-            
             # FIXME: This reflection is somehow slow (is there anotherway how to do it?)
             self.connection = connection
+            self.view_name = view_name
             self.engine = self.connection.engine
-            self.metadata = sqlalchemy.MetaData(bind = self.engine)
+            metadata = sqlalchemy.MetaData(bind = self.engine)
 
-            self.view = sqlalchemy.Table(self.view_name, self.metadata, autoload = True, schema = schema)
+            self.view = sqlalchemy.Table(self.view_name, metadata, autoload = True, schema = schema)
             self.key_column = self.view.c[self.fact_key]
-        else:
-            self.connection = None
-            self.engine = None
-            self.view = None
-            self.key_column = None
+        elif view:
+            self.connection = view.bind
+            self.engine = self.connection.engine
+            self.view = view
+            self.key_column = self.view.c[self.fact_key]
 
         self.logger = logging.getLogger("brewery.cubes")
 

@@ -34,18 +34,7 @@ class FixingEncoder(json.JSONEncoder):
 class ApplicationController(object):
     def __init__(self, config):
         self.config = config
-
-        model_path = config.get("model", "path")
-        try:
-            self.model = cubes.load_model(model_path)
-        except:
-            if not model_path:
-                model_path = 'unknown path'
-            raise Exception("Unable to load model from %s" % model_path)
             
-        self.cube_name = config.get("model","cube")
-        self.cube = self.model.cube(self.cube_name)
-
         if config.has_option("db","view"):
             self.view_name = config.get("db", "view")
         else:
@@ -56,13 +45,15 @@ class ApplicationController(object):
         else:
             self.schema = None
 
-        self.dburl = config.get("db", "url")
-
         self.params = None
         self.query = None
-        self.browser = None
+        self.engine = None
+        self.connection = None
+        self.model = None
+        self.master_model = None
         self.locale = None
         self.prettyprint = None
+        self.browser = None
 
     def _localize_model(self):
         """Tries to translate the model. Looks for language in configuration file under 
@@ -77,7 +68,7 @@ class ApplicationController(object):
             handle = open(path)
             trans = json.load(handle)
             handle.close()
-            self.model = self.model.localize(trans)
+            self.model = self.master_model.localize(trans)
         else:
             raise Exception("No translation for language '%s'" % self.locale)
         
@@ -102,19 +93,6 @@ class ApplicationController(object):
         
         return Response(doc, mimetype = 'text/html')
 
-    def load_model(self):
-        pass
-
-    def __set_model(self, model):
-        self._model = model
-        if self.locale:
-            self._localized_model = cubes.localize_model(model)
-        else:
-            self._localized_model = model
-
-    def __get_model(self):
-        return self._localized_model
-    
     def version(self):
         response = {
             "server_version": version,
@@ -135,6 +113,8 @@ class ApplicationController(object):
         return Response(reply, mimetype='application/json')
         
     def initialize(self):
+        self.model = self.master_model
+        
         ppflag = self.request.args.get("prettyprint")
         if ppflag:
             ppflag = ppflag.lower()
@@ -150,9 +130,9 @@ class ApplicationController(object):
             self._localize_model()
         
     def initialize_cube(self):
-        self.engine = sqlalchemy.create_engine(self.dburl)
         self.connection = self.engine.connect()
-
+        self.cube_name = self.config.get("model","cube")
+        self.cube = self.model.cube(self.cube_name)
         self.browser = cubes.backends.SQLBrowser(self.cube,
                                                     self.connection, 
                                                     self.view_name,
@@ -189,9 +169,9 @@ class ApplicationController(object):
 
         if self.connection:
             self.connection.close()
-            self.engine.dispose()
             del self.connection
-            del self.engine
+        #     # self.engine.dispose()
+        #     # del self.engine
 
     def finalize(self):
         pass

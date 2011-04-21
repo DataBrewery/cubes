@@ -1,13 +1,18 @@
+# Werkzeug
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Request
 from werkzeug.wsgi import ClosingIterator
 from werkzeug.exceptions import HTTPException, NotFound
 from werkzeug.wrappers import Response
+import werkzeug.serving
 
-from utils import local, local_manager, url_map
-
+# Package imports
 import json
+import sqlalchemy
+import cubes
 
+# Local imports
+from utils import local, local_manager, url_map
 import controllers
 import search
 
@@ -58,6 +63,17 @@ class Slicer(object):
         local.application = self
         self.config = config
 
+        self.dburl = config.get("db", "url")
+        self.engine = sqlalchemy.create_engine(self.dburl)
+
+        model_path = config.get("model", "path")
+        try:
+            self.model = cubes.load_model(model_path)
+        except:
+            if not model_path:
+                model_path = 'unknown path'
+            raise Exception("Unable to load model from %s" % model_path)
+        
     def __call__(self, environ, start_response):
         local.application = self
         request = Request(environ)
@@ -81,6 +97,8 @@ class Slicer(object):
         controller.request = request
         controller.params = params
         controller.locale = params.get("lang")
+        controller.engine = self.engine
+        controller.master_model = self.model
         
         action = getattr(controller, action_name)
 
@@ -96,3 +114,23 @@ class Slicer(object):
         string = json.dumps({"error": {"message": message, "reason": str(exception)}})
         return Response(string, mimetype='application/json')
     
+def run_server(config):
+    """Run OLAP server with configuration specified in `config`"""
+    if config.has_option("server", "host"):
+        host = config.get("server", "host")
+    else: 
+        host = "localhost"
+
+    if config.has_option("server", "port"):
+        port = config.getint("server", "port")
+    else:
+        port = 5000
+
+    if config.has_option("server", "reload"):
+        use_reloader = config.getboolean("server", "reload")
+    else:
+        use_reloader = False
+
+    application = Slicer(config)
+    werkzeug.serving.run_simple(host, port, application, use_reloader = use_reloader)
+
