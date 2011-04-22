@@ -11,6 +11,7 @@ import json
 import sqlalchemy
 import cubes
 import logging
+import common
 
 # Local imports
 from utils import local, local_manager, url_map
@@ -94,7 +95,7 @@ class Slicer(object):
         except:
             if not model_path:
                 model_path = 'unknown path'
-            raise Exception("Unable to load model from %s" % model_path)
+            raise common.ServerError("Unable to load model from %s" % model_path)
         
     def __call__(self, environ, start_response):
         local.application = self
@@ -106,7 +107,7 @@ class Slicer(object):
 
             (controller_class, action) = endpoint
             controller = controller_class(self.config)
-            
+
             response = self.dispatch(controller, action, request, params)
         except HTTPException, e:
             response = e
