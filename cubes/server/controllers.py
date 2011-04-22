@@ -131,6 +131,8 @@ class ApplicationController(object):
         
     def initialize_cube(self):
         self.connection = self.engine.connect()
+        self.logger.info("connection created")
+
         self.cube_name = self.config.get("model","cube")
         self.cube = self.model.cube(self.cube_name)
         self.browser = cubes.backends.SQLBrowser(self.cube,
@@ -170,9 +172,21 @@ class ApplicationController(object):
         if self.connection:
             self.connection.close()
             del self.connection
+            self.logger.info("connection closed")
         #     # self.engine.dispose()
         #     # del self.engine
 
+    @property
+    def app(self):
+        return self._app
+
+    @app.setter
+    def app(self, app):
+        self._app = app
+        self.engine = app.engine
+        self.master_model = app.model
+        self.logger = app.logger
+        
     def finalize(self):
         pass
         
