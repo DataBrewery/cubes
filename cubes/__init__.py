@@ -8,14 +8,13 @@ import browse
 import build
 import backends
 
-import logging
+import common
+from common import logger_name
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s %(levelname)s %(message)s')
-                    # datefmt='%a, %d %b %Y %H:%M:%S',
+common._configure_logger()
 
 __all__ = [
-    "default_logger_name",
+    "logger_name",
     "load_model",
     "model_from_url",
     "model_from_path",

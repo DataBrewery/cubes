@@ -10,6 +10,8 @@ import werkzeug.serving
 import json
 import sqlalchemy
 import cubes
+import logging
+import common
 
 # Local imports
 from utils import local, local_manager, url_map
@@ -63,8 +65,29 @@ class Slicer(object):
         local.application = self
         self.config = config
 
+        # Configure logger
+
+        self.logger = logging.getLogger(cubes.common.logger_name)
+        if self.config.has_option("server", "log"):
+            formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
+            handler = logging.FileHandler(self.config.get("server", "log"))
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            
+        if self.config.has_option("server", "log_level"):
+            level_str = self.config.get("server", "log_level").lower()
+            levels = {  "info": logging.INFO, 
+                        "debug": logging.DEBUG, 
+                        "warn":logging.WARN,
+                        "error": logging.ERROR}
+            if level_str not in levels:
+                self.logger.warn("Unknown logging level '%s', keeping default" % level_str)
+            else:
+                self.logger.setLevel(levels[level_str])
+
         self.dburl = config.get("db", "url")
         self.engine = sqlalchemy.create_engine(self.dburl)
+        self.logger.info("creatign new database engine")
 
         model_path = config.get("model", "path")
         try:
@@ -72,7 +95,7 @@ class Slicer(object):
         except:
             if not model_path:
                 model_path = 'unknown path'
-            raise Exception("Unable to load model from %s" % model_path)
+            raise common.ServerError("Unable to load model from %s" % model_path)
         
     def __call__(self, environ, start_response):
         local.application = self
@@ -84,7 +107,7 @@ class Slicer(object):
 
             (controller_class, action) = endpoint
             controller = controller_class(self.config)
-            
+
             response = self.dispatch(controller, action, request, params)
         except HTTPException, e:
             response = e
@@ -94,11 +117,10 @@ class Slicer(object):
         
     def dispatch(self, controller, action_name, request, params):
 
+        controller.app = self
         controller.request = request
         controller.params = params
         controller.locale = params.get("lang")
-        controller.engine = self.engine
-        controller.master_model = self.model
         
         action = getattr(controller, action_name)
 

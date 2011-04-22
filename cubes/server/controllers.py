@@ -7,6 +7,7 @@ import os.path
 import logging
 import urllib
 import datetime
+import common
 
 version = "0.3"
 api_version = "0"
@@ -15,10 +16,6 @@ TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
 import cubes
 import json
-
-class InvalidRequestError(Exception):
-    """Raised by controllers and handled more gracefuly with JSON reply"""
-    pass
 
 class FixingEncoder(json.JSONEncoder):
     def default(self, o):
@@ -70,7 +67,7 @@ class ApplicationController(object):
             handle.close()
             self.model = self.master_model.localize(trans)
         else:
-            raise Exception("No translation for language '%s'" % self.locale)
+            raise common.RequestError("No translation for language '%s'" % self.locale)
         
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
@@ -131,6 +128,8 @@ class ApplicationController(object):
         
     def initialize_cube(self):
         self.connection = self.engine.connect()
+        self.logger.info("connection created")
+
         self.cube_name = self.config.get("model","cube")
         self.cube = self.model.cube(self.cube_name)
         self.browser = cubes.backends.SQLBrowser(self.cube,
@@ -170,9 +169,21 @@ class ApplicationController(object):
         if self.connection:
             self.connection.close()
             del self.connection
+            self.logger.info("connection closed")
         #     # self.engine.dispose()
         #     # del self.engine
 
+    @property
+    def app(self):
+        return self._app
+
+    @app.setter
+    def app(self, app):
+        self._app = app
+        self.engine = app.engine
+        self.master_model = app.model
+        self.logger = app.logger
+        
     def finalize(self):
         pass
         
@@ -197,7 +208,7 @@ class ApplicationController(object):
         if content_type == 'application/json':
             return json.loads(self.request.data)
         else:
-            raise Exception("JSON requested from unknown content-type '%s'" % content_type)
+            raise common.RequestError("JSON requested from unknown content-type '%s'" % content_type)
 
         
 class ModelController(ApplicationController):
@@ -266,13 +277,12 @@ class AggregationController(ApplicationController):
 
         drilldown = self.request.args.getlist("drilldown")
 
-        try:
-            result = self.cuboid.aggregate(drilldown = drilldown, 
-                                            page = self.page, 
-                                            page_size = self.page_size,
-                                            order = self.order)
-        except Exception, e:
-            return self.error("Aggregation failed", e)
+        result = self.cuboid.aggregate(drilldown = drilldown, 
+                                        page = self.page, 
+                                        page_size = self.page_size,
+                                        order = self.order)
+
+        return self.error("Aggregation failed", e)
 
         # return Response(result.as_json())
         return self.json_response(result)
@@ -280,22 +290,16 @@ class AggregationController(ApplicationController):
     def facts(self):
         self.prepare_cuboid()
 
-        try:
-            result = self.cuboid.facts(order = self.order,
-                                        page = self.page, 
-                                        page_size = self.page_size)
-        except Exception, e:
-            return self.error("Fetching facts failed", e)
+        result = self.cuboid.facts(order = self.order,
+                                    page = self.page, 
+                                    page_size = self.page_size)
 
         return self.json_response(result)
 
     def fact(self):
         fact_id = self.params["id"]
 
-        try:
-            fact = self.browser.fact(fact_id)
-        except Exception, e:
-            return self.error("Fetching single fact failed", e)
+        fact = self.browser.fact(fact_id)
 
         if fact:
             return self.json_response(fact)
@@ -311,19 +315,17 @@ class AggregationController(ApplicationController):
             try:
                 depth = int(self.request.args.get("depth"))
             except:
-                return self.error("depth should be an integer")
+                return common.RequestError("depth should be an integer")
         else:
             depth = None
         
         try:
             dimension = self.cube.dimension(dim_name)
         except:
-            return self.error("No dimension '%s'" % dim_name, status = 404)
+            return common.NotFoundError(dim_name, "dimension", 
+                                        message = "Dimension '%s' was not found" % dim_name)
 
-        try:
-            values = self.cuboid.values(dimension, depth = depth, page = self.page, page_size = self.page_size)
-        except Exception, e:
-            return self.error("Getting values for dimension %s failed" % dim_name, e)
+        values = self.cuboid.values(dimension, depth = depth, page = self.page, page_size = self.page_size)
 
         result = {
             "dimension": dimension.name,

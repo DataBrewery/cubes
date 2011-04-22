@@ -391,13 +391,40 @@ Server configuration is stored in .ini files with sections:
 * ``[server]`` - server related configuration, such as host, port
     * ``host`` - host where the server runs, defaults to ``localhost``
     * ``port`` - port on which the server listens, defaults to ``5000``
+    * ``log`` - path to a log file
+    * ``log_level`` - level of log details, from least to most: ``error``, ``warn``, ``info``,
+      ``debug``
 * ``[model]`` - model and cube configuration
     * ``path`` - path to model .json file
     * ``cube`` - cube to serve
+    * ``locales`` - comma separated list of locales the model is provided in. Currently this
+      variable is optional and it is used only by experimental sphinx search backend.
 * ``[db]`` - relational database configuration
     * ``url`` - database URL in form: ``adapter://user:password@host:port/database``
     * ``schema`` - schema containing denormalized views for relational DB cubes
     * ``view`` - view or table name for serving single cube
 * ``[translations]`` - model translation files, option keys in this section are locale names and
   values are paths to model translation files. See :doc:`localization` for more information.
+
+Example configuration file::
+
+    [server]
+    host: localhost
+    port: 5001
+    reload: yes
+    log: /var/log/cubes.log
+    log_level: info
+
+    [db]
+    url: postgresql://localhost/data
+    view: contracts
+    schema: cubes
+
+    [model]
+    path: ~/models/contracts_model.json
+    cube: contracts
+    locales: en,sk
+
+    [translations]
+    sk: ~/models/contracts_model-sk.json
 
