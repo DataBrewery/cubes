@@ -86,6 +86,7 @@ class Slicer(object):
 
         self.dburl = config.get("db", "url")
         self.engine = sqlalchemy.create_engine(self.dburl)
+        self.logger.info("creatign new database engine")
 
         model_path = config.get("model", "path")
         try:
@@ -115,11 +116,10 @@ class Slicer(object):
         
     def dispatch(self, controller, action_name, request, params):
 
+        controller.app = self
         controller.request = request
         controller.params = params
         controller.locale = params.get("lang")
-        controller.engine = self.engine
-        controller.master_model = self.model
         
         action = getattr(controller, action_name)
 
