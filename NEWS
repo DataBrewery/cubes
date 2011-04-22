@@ -4,14 +4,32 @@ Changes in the Cubes
 Version 0.6
 ===========
 
-News:
+New features
+------------
+
+Cubes:
 
 * added 'details' to cube - attributes that might contain fact details which are not relevant to
   aggregation, but might be interesting when displaying facts
 * added ordering of facts in aggregation browser
+* SQL denormalizer can now add indexes to key columns, if requested
 
-Fixes:
+Slicer server:
+
+* added ``log`` a and ``log_level`` configuration options (under ``[server]``)
+* share single sqlalchemy engine within server thread
+
+Experimental:
+(might change or be removed, use with caution)
+
+* added cubes searching frontend for separate cubes_search experimenal Sphinx backend (see
+  https://bitbucket.org/Stiivi/cubes-search)
+
+Fixes
+-----
 
 * fixed localization bug in fact(s) - now uses proper attribute name without locale suffix
 * fixed passing of pagination and ordering parameters from server to aggregation browser when
   requesting facts
+* fixed bug when using multiple conditions in SQL aggregator
+* make host/port optional separately
