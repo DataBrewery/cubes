@@ -4,6 +4,7 @@ import logging
 import cubes.model
 import collections
 from collections import OrderedDict
+from cubes.common import logger_name
 
 try:
     import sqlalchemy
@@ -74,7 +75,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             self.view = view
             self.key_column = self.view.c[self.fact_key]
 
-        self.logger = logging.getLogger("brewery.cubes")
+        self.logger = logging.getLogger(logger_name)
 
     def aggregate(self, cuboid, measures = None, drilldown = None, order = None, **options):
         """See :meth:`cubes.browsers.Cuboid.aggregate`."""
@@ -236,7 +237,7 @@ class CubeQuery(object):
 
         self._last_levels = {}
 
-        self.logger = logging.getLogger("brewery.cubes")
+        self.logger = logging.getLogger(logger_name)
         
         self._prepared = False
 

@@ -10,6 +10,7 @@ import werkzeug.serving
 import json
 import sqlalchemy
 import cubes
+import logging
 
 # Local imports
 from utils import local, local_manager, url_map
@@ -62,6 +63,26 @@ class Slicer(object):
         
         local.application = self
         self.config = config
+
+        # Configure logger
+
+        self.logger = logging.getLogger(cubes.common.logger_name)
+        if self.config.has_option("server", "log"):
+            formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
+            handler = logging.FileHandler(self.config.get("server", "log"))
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            
+        if self.config.has_option("server", "log_level"):
+            level_str = self.config.get("server", "log_level").lower()
+            levels = {  "info": logging.INFO, 
+                        "debug": logging.DEBUG, 
+                        "warn":logging.WARN,
+                        "error": logging.ERROR}
+            if level_str not in levels:
+                self.logger.warn("Unknown logging level '%s', keeping default" % level_str)
+            else:
+                self.logger.setLevel(levels[level_str])
 
         self.dburl = config.get("db", "url")
         self.engine = sqlalchemy.create_engine(self.dburl)

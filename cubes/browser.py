@@ -4,10 +4,6 @@ import decimal
 import copy
 from collections import OrderedDict
 
-def default_logger_name():
-    return 'brewery.cubes'
-
-
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
 
