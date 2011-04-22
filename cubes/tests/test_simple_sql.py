@@ -9,9 +9,6 @@ from cubes.backends.sql.browser import CubeQuery
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
 
-logger = logging.getLogger(cubes.default_logger_name())
-logger.setLevel(logging.DEBUG)
-
 class SQLTestCase(unittest.TestCase):
 	
     def setUp(self):

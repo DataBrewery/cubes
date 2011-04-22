@@ -39,7 +39,7 @@ class SQLDenormalizer(object):
         self.table_aliases = {}
         self.schema = schema
         
-        self.logger = logging.getLogger("brewery.cubes")
+        self.logger = logging.getLogger(logger_name)
 
         # Use fact table name from model specification. If there is no fact specified, we assume
         # that the fact table has same name as cube.
