@@ -62,8 +62,8 @@ class ApplicationController(object):
         template = handle.read()
         handle.close()
         
-        context = {"version": common.VERSION, "api_version": common.API_VERSION}
-        
+        context.update(self.server_info())
+
         context["model"] = self.model.name
         array = []
         for cube in self.model.cubes.values():
@@ -78,13 +78,15 @@ class ApplicationController(object):
         
         return Response(doc, mimetype = 'text/html')
 
-    def version(self):
-        response = {
+    def server_info(self):
+        info = {
             "server_version": common.VERSION,
             "api_version": common.API_VERSION
         }
-
-        return self.json_response(response)
+        return info
+        
+    def version(self):
+        return self.json_response(self.server_info())
 
     def json_response(self, obj):
         if self.prettyprint:
