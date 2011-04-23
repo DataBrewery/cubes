@@ -2,36 +2,29 @@ from werkzeug.wrappers import Response
 from werkzeug.utils import redirect
 from werkzeug.exceptions import NotFound
 import sqlalchemy
-import decimal
-import os.path
 import logging
-import urllib
-import datetime
-import common
-
-version = "0.3"
-api_version = "0"
-
-TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
-
 import cubes
-import json
+import os.path
+from .. import common
 
-class FixingEncoder(json.JSONEncoder):
-    def default(self, o):
-        if type(o) == decimal.Decimal:
-            return float(o)
-        if type(o) == datetime.date or type(o) == datetime.datetime:
-            return o.isoformat()
-        if type(o) == cubes.browser.AggregationResult:
-            return o.as_dict()
-        else:
-            return json.JSONEncoder.default(self, o)
+import json
 
 class ApplicationController(object):
     def __init__(self, config):
-        self.config = config
+        self._configure(config)
             
+        self.params = None
+        self.query = None
+        self.engine = None
+        self.connection = None
+        self.model = None
+        self.master_model = None
+        self.locale = None
+        self.prettyprint = None
+        self.browser = None
+
+    def _configure(self, config):
+        self.config = config
         if config.has_option("db","view"):
             self.view_name = config.get("db", "view")
         else:
@@ -42,15 +35,10 @@ class ApplicationController(object):
         else:
             self.schema = None
 
-        self.params = None
-        self.query = None
-        self.engine = None
-        self.connection = None
-        self.model = None
-        self.master_model = None
-        self.locale = None
-        self.prettyprint = None
-        self.browser = None
+        if config.has_option("server","json_record_limit"):
+            self.json_record_limit = config.get("server","json_record_limit")
+        else:
+            self.json_record_limit = 1000
 
     def _localize_model(self):
         """Tries to translate the model. Looks for language in configuration file under 
@@ -70,11 +58,11 @@ class ApplicationController(object):
             raise common.RequestError("No translation for language '%s'" % self.locale)
         
     def index(self):
-        handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
+        handle = open(os.path.join(common.TEMPLATE_PATH, "index.html"))
         template = handle.read()
         handle.close()
         
-        context = {"version": version, "api_version": api_version}
+        context = {"version": common.VERSION, "api_version": common.API_VERSION}
         
         context["model"] = self.model.name
         array = []
@@ -92,8 +80,8 @@ class ApplicationController(object):
 
     def version(self):
         response = {
-            "server_version": version,
-            "api_version": api_version
+            "server_version": common.VERSION,
+            "api_version": common.API_VERSION
         }
 
         return self.json_response(response)
@@ -104,7 +92,8 @@ class ApplicationController(object):
         else:
             indent = None
         
-        encoder = FixingEncoder(indent = indent)
+        encoder = common.SlicerJSONEncoder(indent = indent)
+        encoder.iterator_limit = self.json_record_limit
         reply = encoder.iterencode(obj)
 
         return Response(reply, mimetype='application/json')
@@ -209,139 +198,3 @@ class ApplicationController(object):
             return json.loads(self.request.data)
         else:
             raise common.RequestError("JSON requested from unknown content-type '%s'" % content_type)
-
-        
-class ModelController(ApplicationController):
-
-    def show(self):
-        return self.json_response(self.model.to_dict(with_mappings = False))
-
-    def dimension(self):
-        dim_name = self.params["name"]
-
-        dim = self.model.dimension(dim_name)
-        return self.json_response(dim.to_dict())
-
-    def _cube_dict(self, cube):
-        d = cube.to_dict(expand_dimensions = True, 
-                         with_mappings = False,
-                         full_attribute_names = True
-                         )
-
-        return d
-
-    def get_default_cube(self):
-        return self.json_response(self._cube_dict(self.cube))
-
-    def get_cube(self):
-        cube_name = self.params["name"]
-
-        cube = self.model.cube(cube_name)
-        return self.json_response(self._cube_dict(cube))
-        
-    def dimension_levels(self):
-        dim_name = self.params["name"]
-        dim = self.model.dimension(dim_name)
-        levels = [l.to_dict() for l in dim.default_hierarchy.levels]
-
-        string = json.dumps(levels)
-
-        return Response(string)
-
-    def dimension_level_names(self):
-        dim_name = self.params["name"]
-        dim = self.model.dimension(dim_name)
-
-        return self.json_response(dim.default_hierarchy.level_names)
-
-class AggregationController(ApplicationController):
-    def initialize(self):
-        super(AggregationController, self).initialize()
-        self.initialize_cube()
-        
-    def finalize(self):
-        self.finalize_cube()
-    
-    def prepare_cuboid(self):
-        cut_string = self.request.args.get("cut")
-
-        if cut_string:
-            cuts = cubes.cuts_from_string(cut_string)
-        else:
-            cuts = []
-
-        self.cuboid = cubes.Cuboid(self.browser, cuts)
-        
-    def aggregate(self):
-        self.prepare_cuboid()
-
-        drilldown = self.request.args.getlist("drilldown")
-
-        result = self.cuboid.aggregate(drilldown = drilldown, 
-                                        page = self.page, 
-                                        page_size = self.page_size,
-                                        order = self.order)
-
-        return self.error("Aggregation failed", e)
-
-        # return Response(result.as_json())
-        return self.json_response(result)
-
-    def facts(self):
-        self.prepare_cuboid()
-
-        result = self.cuboid.facts(order = self.order,
-                                    page = self.page, 
-                                    page_size = self.page_size)
-
-        return self.json_response(result)
-
-    def fact(self):
-        fact_id = self.params["id"]
-
-        fact = self.browser.fact(fact_id)
-
-        if fact:
-            return self.json_response(fact)
-        else:
-            return self.error("No fact with id=%s" % fact_id, status = 404)
-        
-    def values(self):
-        self.prepare_cuboid()
-
-        dim_name = self.params["dimension"]
-        depth_string = self.request.args.get("depth")
-        if depth_string:
-            try:
-                depth = int(self.request.args.get("depth"))
-            except:
-                return common.RequestError("depth should be an integer")
-        else:
-            depth = None
-        
-        try:
-            dimension = self.cube.dimension(dim_name)
-        except:
-            return common.NotFoundError(dim_name, "dimension", 
-                                        message = "Dimension '%s' was not found" % dim_name)
-
-        values = self.cuboid.values(dimension, depth = depth, page = self.page, page_size = self.page_size)
-
-        result = {
-            "dimension": dimension.name,
-            "depth": depth,
-            "data": values
-        }
-        
-        return self.json_response(result)
-    
-    def report(self):
-        """Create multi-query report response."""
-        self.prepare_cuboid()
-        
-        report_request = self.json_request()
-        
-        result = self.browser.report(self.cuboid, report_request)
-        
-        return self.json_response(result)
-    
