@@ -62,6 +62,14 @@ API
         * `cut` - see ``/aggregate``
         * `page`, `pagesize` - paginate results
         * `order` - order results
+        * `format` - result format: ``json`` (default; see note below), ``csv``
+        * `fields` - comma separated list of fact fields, by default all fields are returned
+    
+    .. note::
+
+        Number of facts in JSON is limited to configuration value of ``json_record_limit``, which is
+        1000 by default. To get more records, either use pages with size less than record limit or
+        use alternate result format, such as ``csv``.
     
 ``GET /fact/<id>``
     Get single fact with specified `id`. For example: ``/fact/1024``
@@ -394,6 +402,9 @@ Server configuration is stored in .ini files with sections:
     * ``log`` - path to a log file
     * ``log_level`` - level of log details, from least to most: ``error``, ``warn``, ``info``,
       ``debug``
+    * ``json_record_limit`` - number of rows to limit when generating JSON output with iterable
+      objects, such as facts. Default is 1000. It is recommended to use alternate response format,
+      such as CSV, to get more records.
 * ``[model]`` - model and cube configuration
     * ``path`` - path to model .json file
     * ``cube`` - cube to serve
