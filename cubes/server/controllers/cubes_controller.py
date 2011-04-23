@@ -127,6 +127,12 @@ class CubesController(application_controller.ApplicationController):
         else:
             format = "json"
 
+        fields_str = self.request.args.get("fields")
+        if fields_str:
+            fields = fields_str.lower().split(',')
+        else:
+            fields = None
+
         result = self.cuboid.facts(order = self.order,
                                     page = self.page, 
                                     page_size = self.page_size)
@@ -134,7 +140,9 @@ class CubesController(application_controller.ApplicationController):
         if format == "json":
             return self.json_response(result)
         elif format == "csv":
-            generator = CSVGenerator(result, result.field_names())
+            if not fields:
+                fields = result.field_names()
+            generator = CSVGenerator(result, fields)
             return Response(generator.csvrows(), 
                             mimetype='text/csv')
         else:
