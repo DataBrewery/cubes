@@ -46,6 +46,8 @@ class FactsIterator(object):
             raise StopIteration
         self.batch = deque(many)
         # self.batch = [obj for obj in batch]
+    def field_names(self):
+        return self.result.keys()
         
     def next(self):
         if not self.batch:
@@ -53,7 +55,7 @@ class FactsIterator(object):
 
         row = self.batch.popleft()
 
-        return zip(row.items())
+        return dict(row.items())
 
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """

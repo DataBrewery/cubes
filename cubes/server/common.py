@@ -77,7 +77,7 @@ class SlicerJSONEncoder(json.JSONEncoder):
             return float(o)
         if type(o) == datetime.date or type(o) == datetime.datetime:
             return o.isoformat()
-        if callable(getattr(o, "as_dict")):
+        if hasattr(o, "as_dict") and callable(getattr(o, "as_dict")):
             return o.as_dict()
         else:
             array = None
