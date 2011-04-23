@@ -86,7 +86,7 @@ class AggregationBrowser(object):
     #             dim = self.cube.dimension(dim)
 
     def facts(self, cuboid, **options):
-        """Return list of all facts within cuboid"""
+        """Return an iterable object with of all facts within cuboid"""
         
         raise NotImplementedError
 
@@ -350,7 +350,13 @@ class Cuboid(object):
         return self.browser.values(self, dimension, depth, paths, **options)
 
     def facts(self, **options):
-        """Get all facts within cuboid."""
+        """Return an iterable object with of all facts within cuboid.
+        
+        
+        .. note:
+
+            For performance reasons, some backends, such as SQL will return an iterator
+            that can be used only once."""
         return self.browser.facts(self, **options)
 
     def __eq__(self, other):
