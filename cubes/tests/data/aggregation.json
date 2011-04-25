@@ -1,0 +1,56 @@
+{
+    "dimensions" : {
+        "entity": {
+                "key": "id",
+                "attributes": ["name", "id", "address", "city"]
+            },
+        "color": {
+                "key": "code",
+                "attributes":["name", "label", "code"]
+            },
+        "tone": {
+                "key": "code",
+                "attributes": ["name", "label", "code", "color"]
+            },
+        "temp": {
+            "key": "name",
+            "attributes": ["name", "label", ["value", "integer"]]
+            },
+        "size": {
+            "key": "code",
+            "attributes": ["name", "label", "code", ["value", "integer"]]
+        }
+    },
+    "data" : {
+        "entity" : [
+            {"name": "Fernando", "id": "10", "address": "North street 10", "city": "Paris"},
+            {"name": "Chicquitita", "id": "20", "address": "South street 20", "city": "Paris"},
+            {"name": "Waterloo", "id": "30", "address": "East street 30", "city": "Moscow"},
+            {"name": "Cassandra", "id": "40", "address": "West street 40", "city": "Moscow"}
+        ],
+        "color": [
+            {"name": "red", "label": "Red Color", "code": "r"},
+            {"name": "green", "label": "Green Color", "code": "g"},
+            {"name": "blue", "label": "Blue Color", "code": "b"}
+        ],
+        "tone": [
+            {"name": "pink", "label": "Pink Color", "code": "1", "color":"r"},
+            {"name": "orange", "label": "Orange Color", "code": "2", "color":"r"},
+            {"name": "azure", "label": "Azure Color", "code": "3", "color":"b"},
+            {"name": "aquamarine", "label": "Aquamarine Color", "code": "4", "color":"b"},
+            {"name": "grass", "label": "Grass Color", "code": "5", "color":"g"},
+            {"name": "lime", "label": "Lime Color", "code": "6", "color":"g"}
+        ],
+        "temp": [
+            {"name": "hot", "label": "hot hot hot", "value": 50},
+            {"name": "warm", "label": "just fine", "value": 25},
+            {"name": "cold", "label": "almost freezing", "value": 0}
+        ],
+        "size": [
+            {"name": "small", "label": "small", "code":"s", "value": 0},
+            {"name": "medium", "label": "medium", "code":"m", "value": 1},
+            {"name": "large", "label": "large", "code":"l", "value": 2}
+        ]
+        
+    }
+}

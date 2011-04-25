@@ -610,7 +610,23 @@ class Dimension(object):
         self.level_names = []
 
         self.__init_levels(desc.get("levels", None))
-        self.__init_hierarchies(desc.get("hierarchies", None))
+        
+        one_hier_desc = desc.get("hierarchy")
+        many_hiers_desc = desc.get("hierarchies")
+        
+        if one_hier_desc and many_hiers_desc:
+            raise ModelError("Both 'hierarchy' and 'hierarchies' specified in model, "\
+                             "use only one")
+
+        if one_hier_desc:
+            if type(one_hier_desc) == list or type(one_hier_desc) == tuple:
+                hier = { "levels": one_hier_desc, "name": "default" }
+            else:
+                hier = one_hier_desc
+            many_hiers_desc =  { "default": hier }
+            
+        self.__init_hierarchies(many_hiers_desc)
+        
         self._flat_hierarchy = None
 
         self.default_hierarchy_name = desc.get("default_hierarchy", None)
@@ -880,6 +896,7 @@ class Hierarchy(object):
         self._dimension = None
         self.label = info.get("label", "")
         self.level_names = info.get("levels", [])
+        self.null_value = info.get("missing_key_value", None)
         self.dimension = dimension
         self.levels = []
 
@@ -889,6 +906,8 @@ class Hierarchy(object):
         elif self.name != other.name or self.label != other.label:
             return False
         elif self.levels != other.levels:
+            return False
+        elif self.null_value != other.null_value:
             return False
         # elif self._dimension != other._dimension:
         #     return False
@@ -988,6 +1007,7 @@ class Hierarchy(object):
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("levels", self.level_names)
+        out.setnoempty("missing_key_value", self.null_value)
 
         return out
         
@@ -1017,6 +1037,7 @@ class Level(object):
     def __init__(self, name, desc, dimension = None):
         self.name = name
         self.label = desc.get("label", "")
+        self.null_value = desc.get("missing_key_value", None)
         self._key = desc.get("key", None)
         self.attributes = attribute_list(desc.get("attributes", []))
         self._label_attribute = desc.get("label_attribute", None)
@@ -1029,6 +1050,8 @@ class Level(object):
         elif self.name != other.name or self.label != other.label or self._key != other._key:
             return False
         elif self._label_attribute != other._label_attribute:
+            return False
+        elif self.null_value != other.null_value:
             return False
         # elif self.dimension != other.dimension:
         #     return False
@@ -1056,6 +1079,7 @@ class Level(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
+        out.setnoempty("missing_key_value", self.null_value)
 
         dimname = self.dimension.name
 

@@ -112,59 +112,6 @@ class SQLTestCase(unittest.TestCase):
         str2 = re.sub(r, "@", str2)
         self.assertEqual(str1, str2)
 
-class SQLBuiderTestCase(SQLTestCase):
-
-    def setUp(self):
-        super(SQLBuiderTestCase, self).setUp()
-        
-        self.builder = cubes.backends.SimpleSQLBuilder(self.cube, connection = None)
-        self.stmt_expexted = '''
-                    SELECT f.id AS "id",
-                            f.amount AS "amount", 
-                            d1.year AS "date.year", 
-                            d1.month AS "date.month", 
-                            d1.month_name AS "date.month_name", 
-                            d2.group_id AS "cls.group_id", 
-                            d2.group_desc AS "cls.group_desc", 
-                            d2.class_id AS "cls.class_id", 
-                            d2.class_desc AS "cls.class_desc" 
-                    FROM ft_contracts AS f 
-                    JOIN dm_date AS d1 ON (d1.id = f.date_id) 
-                    JOIN dm_cls AS d2 ON (d2.id = f.cls_id)
-                    '''
-
-    def test_build(self):
-        results = self.model.validate()
-
-        self.assertEqual(True, self.model.is_valid(), 'Model is not valid (contains errors)')
-
-        self.builder.create_select_statement()
-        
-        fields = self.builder.selected_fields
-
-        expected = ['id',
-                    'amount',
-                    'date.year',
-                    'date.month',
-                    'date.month_name',
-                    'cls.group_id',
-                    'cls.group_desc',
-                    'cls.class_id',
-                    'cls.class_desc']
-
-        self.assertEqual(fields, expected)
-            
-        stmt = self.builder.select_statement
-        self.assertStatementEqual(stmt, self.stmt_expexted)
-        
-    def test_default_dims(self):
-        self.cube.mappings = self.mappings2
-        self.builder.dimension_table_prefix = "dm_"
-
-        self.builder.create_select_statement()
-        stmt = self.builder.select_statement
-        self.assertStatementEqual(stmt, self.stmt_expexted)
-        
 class SQLBrowserTestCase(SQLTestCase):
 
     def setUp(self):
