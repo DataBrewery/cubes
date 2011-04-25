@@ -5,6 +5,7 @@ import cubes.model
 import collections
 from collections import OrderedDict
 from cubes.common import logger_name
+from collections import deque
 
 try:
     import sqlalchemy
@@ -26,6 +27,35 @@ except:
 # * [DONE] dimension values pagination
 # * remainder
 # * ratio - aggregate sum(current)/sum(total) 
+
+
+class FactsIterator(object):
+    """
+    Iterator that returns rows as dictionaries
+    """
+    def __init__(self, result):
+        self.result = result
+        self.batch = None
+
+    def __iter__(self):
+        return self
+
+    def _fetch_batch(self):
+        many = self.result.fetchmany()
+        if not many:
+            raise StopIteration
+        self.batch = deque(many)
+        # self.batch = [obj for obj in batch]
+    def field_names(self):
+        return self.result.keys()
+        
+    def next(self):
+        if not self.batch:
+            self._fetch_batch()
+
+        row = self.batch.popleft()
+
+        return dict(row.items())
 
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
@@ -136,6 +166,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         return result
 
     def facts(self, cuboid, order = None, **options):
+        """Retruns iterable objects with facts"""
         # Create query
         query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
         query.order = order
@@ -150,16 +181,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         result = self.connection.execute(statement)
 
-        # FIXME: Return nice iterable
-        
-        rows = []
-        for row in result:
-            record = {}
-            for (key, value) in row.items():
-                record[key] = value
-            rows.append(record)
-
-        return rows
+        return FactsIterator(result)
         
     def fact(self, key):
         """Fetch single row based on fact key"""

@@ -8,15 +8,15 @@ Requires sphinx_search package from:
     https://bitbucket.org/Stiivi/cubes-search
 
 """
+import application_controller
+from .. import common
 
 try:
     from cubes_search.sphinx import SphinxSearcher
 except:
     SphinxSearcher = None
     
-import controllers
-
-class SearchController(controllers.ApplicationController):
+class SearchController(application_controller.ApplicationController):
     """docstring for SearchController
     
     Config options:
@@ -49,7 +49,7 @@ class SearchController(controllers.ApplicationController):
     def search(self):
         
         if not SphinxSearcher:
-            return self.error("Search extension cubes_search is not installed")
+            raise common.ServerError("Search extension cubes_search is not installed")
 
         sphinx = SphinxSearcher(self.browser, self.sphinx_host, self.sphinx_port)
         

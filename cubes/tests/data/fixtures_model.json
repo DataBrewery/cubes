@@ -1,0 +1,101 @@
+{
+    "name": "fixtures",
+    "cubes": {
+        "test": {
+            "dimensions": [
+                "from", 
+                "color",
+                "temp",
+                "size"
+            ],
+            "measures": [
+                { "name": "amount"},
+                { "name": "discount"}
+            ],
+            "fact": "fact",
+            "mappings": {
+                "from.name": "from_entity.name",
+                "from.id": "from_entity.id",
+                "from.city": "from_entity.city",
+                "from.address": "from_entity.address",
+                "color.color_code": "color.code",
+                "color.color_name": "color.name",
+                "color.color_label": "color.label",
+                "color.tone_code": "tone.code",
+                "color.tone_name": "tone.name",
+                "color.tone_label": "tone.label"
+            },
+            "joins": [
+                {
+                   "detail" : "entity.id",
+                   "master" : "fact.from",
+                   "alias"  : "from_entity"
+                },
+                {
+                   "detail" : "color.code",
+                   "master" : "fact.color"
+                },
+                {
+                   "detail" : "tone.code",
+                   "master" : "fact.tone"
+                },
+                {
+                   "detail" : "temp.name",
+                   "master" : "fact.temp"
+                },
+                {
+                   "detail" : "size.code",
+                   "master" : "fact.size"
+                }
+            ]
+        }
+    },
+    "dimensions": {
+        "from": {
+            "levels": {
+                "entity": {
+                    "key": "id",
+                    "attributes": ["name", "id", "address", "city"]
+                }
+            }
+        },
+        "to": {
+            "levels": {
+                "entity": {
+                    "key": "id",
+                    "attributes": ["name", "id", "address", "city"]
+                }
+            }
+        },
+        "color": {
+            "levels": {
+                "color": {
+                    "key": "color_code",
+                    "attributes":["color_name", "color_label", "color_code"]
+                },
+                "tone": {
+                    "key": "tone_code",
+                    "attributes": ["tone_name", "tone_label", "tone_code"]
+                }
+            },
+            "hierarchy": ["color", "tone"]
+        },
+        "temp": {
+            "levels": {
+                "temp": {
+                    "key": "name",
+                    "attributes": ["name", "label", "value"]
+                }
+            }
+        },
+        "size": {
+            "levels": {
+                "size": {
+                    "key": "code",
+                    "attributes": ["name", "label", "code", "value"]
+                }
+            }
+        }
+    }
+    
+}
