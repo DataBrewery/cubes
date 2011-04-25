@@ -10,6 +10,7 @@ from test_simple_sql import *
 from test_aggregations import *
 from test_combinations import *
 from test_cubes import *
+from test_sql import *
 
 test_cases = [
               ModelValidatorTestCase,
@@ -18,8 +19,8 @@ test_cases = [
               AggregationsBasicsTestCase,
               CombinationsTestCase,
               CubeComputationTestCase,
-              SQLBuiderTestCase,
-              SQLBrowserTestCase
+              SQLBrowserTestCase,
+              SQLBackendTestCase
                 ]
 
 def load_tests(loader, tests, pattern):

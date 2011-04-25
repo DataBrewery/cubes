@@ -17,7 +17,10 @@ Cubes:
 Slicer server:
 
 * added ``log`` a and ``log_level`` configuration options (under ``[server]``)
+* added ``format=`` parameter to ``/facts``, accepts ``json`` and ``csv``
+* added ``fields=`` parameter to ``/facts`` - comma separated list of returned fields in CSV
 * share single sqlalchemy engine within server thread
+* limit number of facts returned in JSON (configurable by ``json_record_limit`` in ``[server]`` section)
 
 Experimental:
 (might change or be removed, use with caution)
