@@ -13,6 +13,8 @@ Cubes:
   aggregation, but might be interesting when displaying facts
 * added ordering of facts in aggregation browser
 * SQL denormalizer can now add indexes to key columns, if requested
+* one detail table can be used more than once in SQL denomralizer (such as an organisation for both -
+  receiver and donor), added key ``alias`` to ``joins`` in model description
 
 Slicer server:
 
