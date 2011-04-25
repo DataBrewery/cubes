@@ -62,6 +62,7 @@ class ApplicationController(object):
         template = handle.read()
         handle.close()
         
+        context = {}
         context.update(self.server_info())
 
         context["model"] = self.model.name
