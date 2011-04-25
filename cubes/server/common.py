@@ -1,6 +1,14 @@
-"""Common objects fo slicer server"""
+"""Common objects for slicer server"""
 from werkzeug.exceptions import HTTPException
 import json
+import os.path
+import decimal
+import datetime
+
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
+
+VERSION = "0.4"
+API_VERSION = "0"
 
 class ServerError(HTTPException):
     code = 500
@@ -49,3 +57,45 @@ class NotFoundError(ServerError):
 
 class AggregationError(ServerError):
     code = 400
+
+
+class SlicerJSONEncoder(json.JSONEncoder):
+    def __init__(self, *args, **kwargs):
+        """Creates a JSON encoder that will convert some data values and also allows
+        iterables to be used in the object graph.
+
+        :Attributes:
+        * `iterator_limit` - limits number of objects to be fetched from iterator. Default: 1000.
+        """
+
+        super(SlicerJSONEncoder, self).__init__(*args, **kwargs)
+
+        self.iterator_limit = 1000
+
+    def default(self, o):
+        if type(o) == decimal.Decimal:
+            return float(o)
+        if type(o) == datetime.date or type(o) == datetime.datetime:
+            return o.isoformat()
+        if hasattr(o, "as_dict") and callable(getattr(o, "as_dict")):
+            return o.as_dict()
+        else:
+            array = None
+            try:
+                # If it is an iterator, then try to construct array and limit number of objects
+                iterator = iter(o)
+                count = self.iterator_limit
+                array = []
+                for obj in iterator:
+                    array.append(obj)
+                    count -= 1
+                    if count <= 0:
+                        break
+            except TypeError as e:
+                # not iterable
+                pass
+
+            if array is not None:
+                return array
+            else:
+                return json.JSONEncoder.default(self, o)

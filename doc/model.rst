@@ -131,7 +131,7 @@ details        list of fact details (as Attributes) - attributes
                that are not relevant to aggregation, but are
                nice-to-have when displaying facts (might be
                separately stored)
-joins          specification of physical table joins
+joins          specification of physical table joins (order matters)
 mappings       mapping of logical attributes to physical attributes
 ============== ====================================================
 
@@ -169,6 +169,8 @@ label          human readable name - can be used in an application
 levels         dictionary of hierarchy levels
 attributes     dictionary of dimension attributes
 hierarchies    dictionary of dimension hierarchies
+hierarchy      if dimension has only one hierarchy, you can
+               specify it hiere. 
 ============== ===================================================
 
 Example::
@@ -180,6 +182,8 @@ Example::
         "attributes": [ ... ]
         "hierarchies": { ... }
     }
+
+Use either ``hierarchies`` or ``hierarchy``, using both results in an error.
 
 Hierarchy levels are described:
 
@@ -342,8 +346,9 @@ the mapping for such attribute will look like::
 Joins
 -----
 
-If you are using star or snowflake schema in relational database, Cubes requires information on
-how to join the tables into the star/snowflake. Tables are joined by matching single-column keys.
+If you are using star or snowflake schema in relational database, Cubes requires information
+on how to join the tables into the star/snowflake. Tables are joined by matching
+single-column keys.
 
 Say we have a fact table named ``fact_contracts`` and dimension table with categories named
 ``dm_categories``. To join them we define following join specification:
@@ -356,6 +361,26 @@ Say we have a fact table named ``fact_contracts`` and dimension table with categ
             "detail": "dm_categories.id"
          }
     ]
+
+There might be situiations when you would need to join one detail table more than once. Example of such situation is a dimension with list of organisations and in fact table you have two organisational references, such as `receiver` and `donor`. In this case you specify
+alias for detail table::
+
+    "joins" = [
+        {
+            "master": "fact_contracts.receiver_id",
+            "detail": "dm_organisation.id",
+            "alias": "dm_receiver"
+        }
+        {
+            "master": "fact_contracts.donor_id",
+            "detail": "dm_organisation.id",
+            "alias": "dm_donor"
+        }
+    ]
+
+Note that order of joins matters, if you have snowflake and would like to join deeper detail, then you have to have all required tables joined (and properely aliased, if necessary) already.
+
+In mappings you refer to table aliases, if you joined with an alias.
 
 Model validation
 ================

@@ -13,11 +13,16 @@ Cubes:
   aggregation, but might be interesting when displaying facts
 * added ordering of facts in aggregation browser
 * SQL denormalizer can now add indexes to key columns, if requested
+* one detail table can be used more than once in SQL denomralizer (such as an organisation for both -
+  receiver and donor), added key ``alias`` to ``joins`` in model description
 
 Slicer server:
 
 * added ``log`` a and ``log_level`` configuration options (under ``[server]``)
+* added ``format=`` parameter to ``/facts``, accepts ``json`` and ``csv``
+* added ``fields=`` parameter to ``/facts`` - comma separated list of returned fields in CSV
 * share single sqlalchemy engine within server thread
+* limit number of facts returned in JSON (configurable by ``json_record_limit`` in ``[server]`` section)
 
 Experimental:
 (might change or be removed, use with caution)
