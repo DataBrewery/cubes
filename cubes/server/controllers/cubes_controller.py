@@ -90,13 +90,12 @@ class UnicodeCSVWriter:
 class CubesController(application_controller.ApplicationController):
     def initialize(self):
         super(CubesController, self).initialize()
-        self.initialize_cube()
+        cube_name = self.params["cube"]
+        self.cube = self.model.cube(cube_name)
+        self.browser = self.app.workspace.browser_for_cube(self.cube)
         
-    def finalize(self):
-        self.finalize_cube()
-    
     def prepare_cuboid(self):
-        cut_string = self.request.args.get("cut")
+        cut_string = self.args.get("cut")
 
         if cut_string:
             cuts = cubes.cuts_from_string(cut_string)
@@ -108,7 +107,7 @@ class CubesController(application_controller.ApplicationController):
     def aggregate(self):
         self.prepare_cuboid()
 
-        drilldown = self.request.args.getlist("drilldown")
+        drilldown = self.args.getlist("drilldown")
 
         result = self.cuboid.aggregate(drilldown = drilldown, 
                                         page = self.page, 
@@ -121,13 +120,13 @@ class CubesController(application_controller.ApplicationController):
     def facts(self):
         self.prepare_cuboid()
 
-        format = self.request.args.get("format")
+        format = self.args.get("format")
         if format:
             format = format.lower()
         else:
             format = "json"
 
-        fields_str = self.request.args.get("fields")
+        fields_str = self.args.get("fields")
         if fields_str:
             fields = fields_str.lower().split(',')
         else:
@@ -162,10 +161,10 @@ class CubesController(application_controller.ApplicationController):
         self.prepare_cuboid()
 
         dim_name = self.params["dimension"]
-        depth_string = self.request.args.get("depth")
+        depth_string = self.args.get("depth")
         if depth_string:
             try:
-                depth = int(self.request.args.get("depth"))
+                depth = int(self.args.get("depth"))
             except:
                 return common.RequestError("depth should be an integer")
         else:

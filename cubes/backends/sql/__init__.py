@@ -3,5 +3,6 @@ from browser import *
 
 __all__ = [
     "SQLDenormalizer",
-    "SQLBrowser"
+    "SQLBrowser",
+    "SQLWorkspace"
 ]

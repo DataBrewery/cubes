@@ -217,9 +217,12 @@ class Model(object):
 
         return cube
 
-    def cube(self, name):
-        """Get a cube with name `name`."""
-        return self.cubes[name]
+    def cube(self, cube):
+        """Get a cube with name `name` or coalesce object to a cube."""
+        if isinstance(cube, basestring):
+            return self.cubes[cube]
+        else:
+            return self.cubes[cube.name]
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name"""

@@ -60,7 +60,8 @@ class FactsIterator(object):
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, connection = None, view_name = None, schema = None, view = None, locale = None):
+    def __init__(self, cube, connection = None, view_name = None, schema = None, 
+                    view = None, locale = None):
         """Create a browser.
         
         :Attributes:
@@ -76,9 +77,12 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         """
         super(SQLBrowser, self).__init__(cube)
 
+        if not cube:
+            raise Exception("Cube is not provided (should be not None)")
+
         self.cube = cube
 
-        if not connection and not view:
+        if (connection is None) and (view is None):
             raise Exception("SQLBrowser requires either connection or view to be provided.")
 
         if locale:
@@ -90,7 +94,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         if not self.fact_key:
             self.fact_key = base.DEFAULT_KEY_FIELD
 
-        if connection:
+        if connection is not None:
             # FIXME: This reflection is somehow slow (is there anotherway how to do it?)
             self.connection = connection
             self.view_name = view_name
@@ -99,7 +103,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
             self.view = sqlalchemy.Table(self.view_name, metadata, autoload = True, schema = schema)
             self.key_column = self.view.c[self.fact_key]
-        elif view:
+        elif view is not None:
             self.connection = view.bind
             self.engine = self.connection.engine
             self.view = view
@@ -658,3 +662,41 @@ class CubeQuery(object):
         localized_name = logical_name + locale_suffix
         column = self.view.c[localized_name]
         return expression.label(logical_name, column)
+
+class SQLWorkspace(object):
+    """Factory for browsers"""
+    def __init__(self, model, engine, schema = None, name_prefix = None, name_suffix = None):
+        """Create a workspace"""
+        super(SQLWorkspace, self).__init__()
+        self.model = model
+        self.engine = engine
+        self.metadata = sqlalchemy.MetaData(bind = self.engine)
+        self.name_prefix = name_prefix
+        self.name_suffix = name_suffix
+        self.views = {}
+        self.schema = schema
+        
+    def browser_for_cube(self, cube, locale = None):
+        """Creates, configures and returns a browser for a cube"""
+        cube = self.model.cube(cube)
+        view = self.view_for_cube(cube)
+        browser = SQLBrowser(cube, view = view, locale = locale)
+        return browser
+        
+    def view_for_cube(self, cube, view_name = None):
+        if cube.name in self.views:
+            view = self.views[cube.name]
+        else:
+            if not view_name:
+                if self.name_prefix:
+                    view_name = self.name_prefix
+                else:
+                    view_name = ""
+                view_name += cube.name
+                if self.name_suffix:
+                    view_name += self.name_suffix
+
+            view = sqlalchemy.Table(view_name, self.metadata, autoload = True, schema = self.schema)
+            self.views[cube.name] = view            
+            
+        return view
