@@ -30,7 +30,9 @@ class SearchController(application_controller.ApplicationController):
 
     def initialize(self):
         super(SearchController, self).initialize()
-        self.initialize_cube()
+        cube_name = self.params["cube"]
+        self.cube = self.model.cube(cube_name)
+        self.browser = self.app.workspace.browser_for_cube(self.cube)
 
         if self.config.has_option("sphinx", "host"):
             self.sphinx_host = self.config.get("sphinx","host")
@@ -53,13 +55,13 @@ class SearchController(application_controller.ApplicationController):
 
         sphinx = SphinxSearcher(self.browser, self.sphinx_host, self.sphinx_port)
         
-        dimension = self.request.args.get("dimension")
+        dimension = self.args.get("dimension")
         if not dimension:
             return self.error("No dimension provided")
 
-        query = self.request.args.get("q")
+        query = self.args.get("q")
         if not query:
-            query = self.request.args.get("query")
+            query = self.args.get("query")
         
         if not query:
             return self.error("No query provided")

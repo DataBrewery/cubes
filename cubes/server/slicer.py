@@ -34,17 +34,17 @@ rules = Map([
                         endpoint = (controllers.ModelController, 'dimension_levels')),
     Rule('/model/dimension/<string:name>/level_names', 
                         endpoint = (controllers.ModelController, 'dimension_level_names')),
-    Rule('/aggregate', 
+    Rule('/cube/<string:cube>/aggregate', 
                         endpoint = (controllers.CubesController, 'aggregate')),
-    Rule('/facts', 
+    Rule('/cube/<string:cube>/facts', 
                         endpoint = (controllers.CubesController, 'facts')),
-    Rule('/fact/<string:id>', 
+    Rule('/cube/<string:cube>/fact/<string:id>', 
                         endpoint = (controllers.CubesController, 'fact')),
-    Rule('/dimension/<string:dimension>', 
+    Rule('/cube/<string:cube>/dimension/<string:dimension>', 
                         endpoint = (controllers.CubesController, 'values')),
-    Rule('/report', methods = ['POST'],
+    Rule('/cube/<string:cube>/report', methods = ['POST'],
                         endpoint = (controllers.CubesController, 'report')),
-    Rule('/search',
+    Rule('/cube/<string:cube>/search',
                         endpoint = (search.SearchController, 'search'))
 ])
 
@@ -85,8 +85,30 @@ class Slicer(object):
             else:
                 self.logger.setLevel(levels[level_str])
 
+        db_defaults = {
+            "schema": None,
+            "view_prefix": None,
+            "view_suffix": None
+        }
+
         self.dburl = config.get("db", "url")
+
+        self.schema = None
+        if config.has_option("db","schema"):
+            self.schema = config.get("db","schema")
+
+        self.view_prefix = None
+        if config.has_option("db","view_prefix"):
+            self.view_prefix = config.get("db", "view_prefix")
+
+        self.view_suffix = None
+        if config.has_option("db","view_suffix"):
+            self.view_suffix = config.get("db", "view_suffix")
+
+        print "BOO: %s %s %s" % (self.dburl, self.schema, self.view_prefix)
+
         self.engine = sqlalchemy.create_engine(self.dburl)
+        
         self.logger.info("creatign new database engine")
 
         model_path = config.get("model", "path")
@@ -96,6 +118,10 @@ class Slicer(object):
             if not model_path:
                 model_path = 'unknown path'
             raise common.ServerError("Unable to load model from %s" % model_path)
+
+        self.workspace = cubes.backends.sql.SQLWorkspace(self.model, self.engine, self.schema, 
+                                        name_prefix = self.view_prefix,
+                                        name_suffix = self.view_suffix)
         
     def __call__(self, environ, start_response):
         local.application = self
@@ -119,9 +145,10 @@ class Slicer(object):
 
         controller.app = self
         controller.request = request
+        controller.args = request.args
         controller.params = params
         controller.locale = params.get("lang")
-        
+
         action = getattr(controller, action_name)
 
         controller.initialize()
@@ -135,7 +162,7 @@ class Slicer(object):
     def error(self, message, exception):
         string = json.dumps({"error": {"message": message, "reason": str(exception)}})
         return Response(string, mimetype='application/json')
-    
+        
 def run_server(config):
     """Run OLAP server with configuration specified in `config`"""
     if config.has_option("server", "host"):

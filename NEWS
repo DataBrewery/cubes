@@ -1,6 +1,19 @@
 Changes in the Cubes
 ++++++++++++++++++++
 
+Version 0.7
+===========
+
+New features
+------------
+
+Slicer server:
+* changed to handle multiple cubes within model: you have to specify a cube for /aggregate, /facts,... in form: /cube/<cube_name>/<browser_action>
+* reflect change in configuration: removed ``view``, added ``view_prefix`` and ``view_suffix``, the cube view name will be constructed by concatenating `view prefix` + `cube name` + `view suffix`
+
+This change is considered final and therefore we can mark it is as API version 1.
+
+
 Version 0.6
 ===========
 

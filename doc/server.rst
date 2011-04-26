@@ -12,6 +12,9 @@ Server requires the werkzeug_ framework.
 API
 ===
 
+Model
+-----
+
 ``GET /model``
     Get model metadata as JSON
     
@@ -20,10 +23,16 @@ API
 
 ``GET /model/dimension/<name>/levels``
     Get list level metadata from default hierarchy of requested dimension.
-    
+
+
+Cube
+----
+
+Cube API calls have format: ``/cube/<cube_name>/<browser_action>`` where the browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and ``report``.
+
 .. _serveraggregate:
 
-``GET /aggregate``
+``GET /cube/<cube>/aggregate``
     Return aggregation result as JSON. The result will contain keys: `summary` and `drilldown`. The
     summary contains one row and represents aggregation of whole cuboid specified in the cut. The
     `drilldown` contains rows for each value of drilled-down dimension.
@@ -55,7 +64,7 @@ API
     can be configurable therefore might be disabled (for example for performance reasons).
     
 
-``GET /facts``
+``GET /cube/<cube>/facts``
     Return all facts (details) within cuboid.
 
     :Parameters:
@@ -71,10 +80,10 @@ API
         1000 by default. To get more records, either use pages with size less than record limit or
         use alternate result format, such as ``csv``.
     
-``GET /fact/<id>``
+``GET /cube/<cube>/fact/<id>``
     Get single fact with specified `id`. For example: ``/fact/1024``
     
-``GET /dimension/<dimension>``
+``GET /cube/<cube>/dimension/<dimension>``
     Get values for attributes of a `dimension`.
     
     :Parameters:
@@ -84,16 +93,16 @@ API
         * `page`, `pagesize` - paginate results
         * `order` - order results
         
-``POST /report``
+``POST /cube/<cube>/report``
     Process multiple request within one API call. The ``POST`` data should be a JSON containig
     report specification where keys are names of queries and values are dictionaries describing
     the queries.
     
-    ``/report`` expects ``Content-type`` header to be set to ``application/json``.
+    ``report`` expects ``Content-type`` header to be set to ``application/json``.
     
     See :ref:`serverreport` for more information.
     
-``GET /search/dimension/<dimension>/<query>``
+``GET /cube/<cube>/search/dimension/<dimension>/<query>``
     Search values of `dimensions` for `query`. If `dimension` is ``_all`` then all
     dimensions are searched. Returns search results as list of dictionaries with attributes:
     
@@ -113,7 +122,7 @@ API
         Not yet fully implemented, just proposal.
         
 
-``GET /drilldown/<dimension>/<path>``
+``GET /cube/<cube>/drilldown/<dimension>/<path>``
     Aggregate next level of dimension. This is similar to ``/aggregate`` with
     ``drilldown=<dimension>`` parameter. Does not result in error when path has largest possible
     length, returns empty results instead and result count 0. 
@@ -213,7 +222,7 @@ Example: ``report.json``::
 Request::
 
     curl -H "Content-Type: application/json" --data-binary "@report.json" \
-        "http://localhost:5000/report?prettyprint=true&cut=date:2004"
+        "http://localhost:5000/cube/contracts/report?prettyprint=true&cut=date:2004"
 
 Reply::
 
@@ -312,10 +321,9 @@ Create server configuration file ``procurements.ini``::
 
     [model]
     path: /path/to/model.json
-    cube: procurements
 
     [db]
-    view: mft_procurements
+    view_prefix: mft_
     schema: datamarts
     connection: postgres://localhost/transparency
 
@@ -369,14 +377,14 @@ Reload apache configuration::
 
     sudo /etc/init.d/apache2 reload
 
-And you are done. Server is running at http://olap.democracyfarm.org/vvo
+And you are done.
 
 Server requests
 ---------------
 
 Example server request to get aggregate for whole cube::
 
-    $ curl http://localhost:5000/aggregate?cut=date:2004
+    $ curl http://localhost:5000/cube/procurements/aggregate?cut=date:2004
     
 Reply::
 
@@ -407,13 +415,13 @@ Server configuration is stored in .ini files with sections:
       such as CSV, to get more records.
 * ``[model]`` - model and cube configuration
     * ``path`` - path to model .json file
-    * ``cube`` - cube to serve
     * ``locales`` - comma separated list of locales the model is provided in. Currently this
       variable is optional and it is used only by experimental sphinx search backend.
 * ``[db]`` - relational database configuration
     * ``url`` - database URL in form: ``adapter://user:password@host:port/database``
     * ``schema`` - schema containing denormalized views for relational DB cubes
-    * ``view`` - view or table name for serving single cube
+    * ``view_prefix``, ``view_suffix`` - prefix and suffix for view or table containing cube facts, name
+      is constructed by concatenating `prefix` + `cube name` + `suffix`
 * ``[translations]`` - model translation files, option keys in this section are locale names and
   values are paths to model translation files. See :doc:`localization` for more information.
 

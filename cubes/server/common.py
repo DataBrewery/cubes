@@ -7,8 +7,8 @@ import datetime
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
-VERSION = "0.4"
-API_VERSION = "0"
+VERSION = "0.5"
+API_VERSION = "1"
 
 class ServerError(HTTPException):
     code = 500

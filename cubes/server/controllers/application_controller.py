@@ -25,15 +25,6 @@ class ApplicationController(object):
 
     def _configure(self, config):
         self.config = config
-        if config.has_option("db","view"):
-            self.view_name = config.get("db", "view")
-        else:
-            self.view_name = self.cube_name
-
-        if config.has_option("db","schema"):
-            self.schema = config.get("db","schema")
-        else:
-            self.schema = None
 
         if config.has_option("server","json_record_limit"):
             self.json_record_limit = config.get("server","json_record_limit")
@@ -104,37 +95,23 @@ class ApplicationController(object):
     def initialize(self):
         self.model = self.master_model
         
-        ppflag = self.request.args.get("prettyprint")
-        if ppflag:
-            ppflag = ppflag.lower()
-            if ppflag in ["true", "yes", "1"]:
-                self.prettyprint = True
-            else:
-                self.prettyprint = False
-        else:
-            self.prettyprint = False
-        
-        self.locale = self.request.args.get("lang")
         if self.locale:
             self._localize_model()
+    
+    @property
+    def args(self):
+        return self._args
         
-    def initialize_cube(self):
-        self.connection = self.engine.connect()
-        self.logger.info("connection created")
+    @args.setter
+    def args(self, args):
+        self._args = args
 
-        self.cube_name = self.config.get("model","cube")
-        self.cube = self.model.cube(self.cube_name)
-        self.browser = cubes.backends.SQLBrowser(self.cube,
-                                                    self.connection, 
-                                                    self.view_name,
-                                                    self.schema, locale = self.locale)
-
-        if "page" in self.request.args:
-            self.page = int(self.request.args.get("page"))
+        if "page" in args:
+            self.page = int(args.get("page"))
         else:
             self.page = None
-        if "pagesize" in self.request.args:
-            self.page_size = int(self.request.args.get("pagesize"))
+        if "pagesize" in args:
+            self.page_size = int(args.get("pagesize"))
         else:
             self.page_size = None
 
@@ -147,24 +124,24 @@ class ApplicationController(object):
         #
 
         self.order = []
-        for order in self.request.args.getlist("order"):
+        for order in args.getlist("order"):
             split = order.split(":")
             if len(split) == 1:
                 self.order.append( (order, None) )
             else:
                 self.order.append( (split[0], split[1]) )
 
-    def finalize_cube(self):
-        if self.browser:
-            del self.browser
+        ppflag = args.get("prettyprint")
+        if ppflag:
+            if ppflag.lower() in ["true", "yes", "1"]:
+                self.prettyprint = True
+            else:
+                self.prettyprint = False
+        else:
+            self.prettyprint = False
 
-        if self.connection:
-            self.connection.close()
-            del self.connection
-            self.logger.info("connection closed")
-        #     # self.engine.dispose()
-        #     # del self.engine
-
+        self.locale = args.get("lang")
+        
     @property
     def app(self):
         return self._app
@@ -201,3 +178,10 @@ class ApplicationController(object):
             return json.loads(self.request.data)
         else:
             raise common.RequestError("JSON requested from unknown content-type '%s'" % content_type)
+
+class Workspace(object):
+    """OLAP Workspace for serving browsers."""
+    def __init__(self, arg):
+        super(Workspace, self).__init__()
+        self.arg = arg
+        
