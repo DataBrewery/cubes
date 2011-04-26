@@ -89,17 +89,23 @@ class UnicodeCSVWriter:
 
 class CubesController(application_controller.ApplicationController):
     def initialize(self):
-        super(CubesController, self).initialize()
-        cube_name = self.params["cube"]
+        # FIXME: remove this (?)
+        cube_name = self.params.get("cube")
+        if not cube_name:
+            cube_name = self.config.get("model", "cube")
+            
+        self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
         self.cube = self.model.cube(cube_name)
-        self.browser = self.app.workspace.browser_for_cube(self.cube)
+        self.browser = self.app.workspace.browser_for_cube(self.cube, self.locale)
         
     def prepare_cuboid(self):
         cut_string = self.args.get("cut")
 
         if cut_string:
+            self.logger.debug("preparing cuboid for cut string: '%s'" % cut_string)
             cuts = cubes.cuts_from_string(cut_string)
         else:
+            self.logger.debug("preparing cuboid for whole cube")
             cuts = []
 
         self.cuboid = cubes.Cuboid(self.browser, cuts)
