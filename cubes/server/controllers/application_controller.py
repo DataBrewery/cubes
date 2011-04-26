@@ -10,36 +10,39 @@ from .. import common
 import json
 
 class ApplicationController(object):
-    def __init__(self, config):
-        self._configure(config)
-            
-        self.params = None
-        self.query = None
-        self.engine = None
-        self.connection = None
-        self.model = None
-        self.master_model = None
-        self.locale = None
-        self.prettyprint = None
-        self.browser = None
+    def __init__(self, app, config):
 
-    def _configure(self, config):
+        self.app = app
+        self.engine = app.engine
+        self.master_model = app.model
+        self.logger = app.logger
+
         self.config = config
 
         if config.has_option("server","json_record_limit"):
             self.json_record_limit = config.get("server","json_record_limit")
         else:
             self.json_record_limit = 1000
+            
+        self.params = None
+        self.query = None
+        self.locale = None
+        self.prettyprint = None
+        self.browser = None
+        self.model = None
 
     def _localize_model(self):
         """Tries to translate the model. Looks for language in configuration file under 
         ``[translations]``, if no translation is provided, then model remains untouched."""
 
+        self.logger.debug("localization requested (model locale: %s)" % self.model.locale)
         # Do not translate if already translated
         if self.model.locale == self.locale:
+            self.logger.debug("no localization needed")
             return
 
         if self.config.has_option("translations", self.locale):
+            self.logger.debug("translating model to %s" % self.locale)
             path = self.config.get("translations", self.locale)
             handle = open(path)
             trans = json.load(handle)
@@ -91,12 +94,6 @@ class ApplicationController(object):
         reply = encoder.iterencode(obj)
 
         return Response(reply, mimetype='application/json')
-        
-    def initialize(self):
-        self.model = self.master_model
-        
-        if self.locale:
-            self._localize_model()
     
     @property
     def args(self):
@@ -141,21 +138,17 @@ class ApplicationController(object):
             self.prettyprint = False
 
         self.locale = args.get("lang")
+        self.model = self.master_model
         
-    @property
-    def app(self):
-        return self._app
-
-    @app.setter
-    def app(self, app):
-        self._app = app
-        self.engine = app.engine
-        self.master_model = app.model
-        self.logger = app.logger
-        
+        if self.locale:
+            self._localize_model()
+                
     def finalize(self):
         pass
-        
+    
+    def initialize(self):
+        pass
+    
     def error(self, message = None, exception = None, status = None):
         if not message:
             message = "An unknown error occured"

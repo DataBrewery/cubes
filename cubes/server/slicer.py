@@ -16,7 +16,6 @@ import common
 # Local imports
 from utils import local, local_manager, url_map
 import controllers
-import search
 
 rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
@@ -45,7 +44,21 @@ rules = Map([
     Rule('/cube/<string:cube>/report', methods = ['POST'],
                         endpoint = (controllers.CubesController, 'report')),
     Rule('/cube/<string:cube>/search',
-                        endpoint = (search.SearchController, 'search'))
+                        endpoint = (controllers.SearchController, 'search')),
+
+    # FIXME: Remove this sooner or later:
+    Rule('/aggregate', 
+                        endpoint = (controllers.CubesController, 'aggregate')),
+    Rule('/facts', 
+                        endpoint = (controllers.CubesController, 'facts')),
+    Rule('/fact/<string:id>', 
+                        endpoint = (controllers.CubesController, 'fact')),
+    Rule('/dimension/<string:dimension>', 
+                        endpoint = (controllers.CubesController, 'values')),
+    Rule('/report', methods = ['POST'],
+                        endpoint = (controllers.CubesController, 'report')),
+    Rule('/search',
+                        endpoint = (controllers.SearchController, 'search'))
 ])
 
 class Slicer(object):
@@ -105,8 +118,6 @@ class Slicer(object):
         if config.has_option("db","view_suffix"):
             self.view_suffix = config.get("db", "view_suffix")
 
-        print "BOO: %s %s %s" % (self.dburl, self.schema, self.view_prefix)
-
         self.engine = sqlalchemy.create_engine(self.dburl)
         
         self.logger.info("creatign new database engine")
@@ -132,7 +143,7 @@ class Slicer(object):
             endpoint, params = urls.match()
 
             (controller_class, action) = endpoint
-            controller = controller_class(self.config)
+            controller = controller_class(self, self.config)
 
             response = self.dispatch(controller, action, request, params)
         except HTTPException, e:
@@ -143,11 +154,9 @@ class Slicer(object):
         
     def dispatch(self, controller, action_name, request, params):
 
-        controller.app = self
         controller.request = request
         controller.args = request.args
         controller.params = params
-        controller.locale = params.get("lang")
 
         action = getattr(controller, action_name)
 
