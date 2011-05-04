@@ -35,7 +35,7 @@ class SearchController(application_controller.ApplicationController):
             cube_name = self.config.get("model", "cube")
 
         self.cube = self.model.cube(cube_name)
-        self.browser = self.app.workspace.browser_for_cube(self.cube)
+        self.browser = self.app.workspace.browser_for_cube(self.cube, locale = self.locale)
 
         if self.config.has_option("sphinx", "host"):
             self.sphinx_host = self.config.get("sphinx","host")
