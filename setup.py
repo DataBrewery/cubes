@@ -1,4 +1,9 @@
+import sys
 from setuptools import setup, find_packages
+
+requirements = []
+if sys.version_info < (2,7):
+    requirements += ['ordereddict']
 
 setup(
     name = "cubes",
@@ -6,7 +11,7 @@ setup(
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
-    install_requires = [],
+    install_requires = requirements,
 
     packages=find_packages(exclude=['ez_setup']),
     package_data = {
