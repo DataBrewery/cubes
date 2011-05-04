@@ -64,9 +64,21 @@ class SearchController(application_controller.ApplicationController):
         
         if not query:
             return self.error("No query provided")
+
+        zipped = self.args.get("_zip")
+        
+        locale_tag = 0
+        if self.locale:
+            for (i, locale) in enumerate(self.app.locales):
+                if locale == self.locale:
+                    locale_tag = i
+                    break
+                    
+        
+        search_result = sphinx.search(query, dimension, locale_tag = locale_tag)
         
         result = {
-            "values": search_result.values(dimension),
+            "values": search_result.values(dimension, zipped),
             "dimension": dimension,
             "total_found": search_result.total_found
         }

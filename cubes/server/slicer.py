@@ -130,6 +130,14 @@ class Slicer(object):
                 model_path = 'unknown path'
             raise common.ServerError("Unable to load model from %s" % model_path)
 
+        if config.has_option("model", "locales"):
+            self.locales = config.get("model", "locales").split(",")
+            self.logger.info("model locales: %s" % self.locales)
+        elif self.model.locale:
+            self.locales = [self.model.locale]
+        else:
+            self.locales = []
+            
         self.workspace = cubes.backends.sql.SQLWorkspace(self.model, self.engine, self.schema, 
                                         name_prefix = self.view_prefix,
                                         name_suffix = self.view_suffix)

@@ -659,6 +659,8 @@ class CubeQuery(object):
         else:
             logical_name = field
 
+        self.logger.debug("getting column %s(%s) loc: %s - %s" % (field, type(field), self.locale, locale_suffix))
+
         localized_name = logical_name + locale_suffix
         column = self.view.c[localized_name]
         return expression.label(logical_name, column)
