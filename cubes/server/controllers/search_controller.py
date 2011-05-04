@@ -82,7 +82,8 @@ class SearchController(application_controller.ApplicationController):
             "dimension": dimension,
             "total_found": search_result.total_found,
             "locale": self.locale,
-            "_locale_tag": locale_tag
+            "_locale_tag": locale_tag,
+            "_browser_locale": self.browser.locale
         }
         
         return self.json_response(result)
