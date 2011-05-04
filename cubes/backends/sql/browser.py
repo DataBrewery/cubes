@@ -3,7 +3,11 @@ import base
 import logging
 import cubes.model
 import collections
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+    
 from cubes.common import logger_name
 from collections import deque
 
