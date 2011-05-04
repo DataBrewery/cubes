@@ -80,7 +80,9 @@ class SearchController(application_controller.ApplicationController):
         result = {
             "values": search_result.values(dimension, zipped),
             "dimension": dimension,
-            "total_found": search_result.total_found
+            "total_found": search_result.total_found,
+            "locale": self.locale,
+            "_locale_tag": locale_tag
         }
         
         return self.json_response(result)
