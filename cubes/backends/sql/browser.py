@@ -123,7 +123,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         ############################################
         # Get summary
-        cursor = self.connection.execute(query.summary_statement)
+        cursor = self.engine.execute(query.summary_statement)
         row = cursor.fetchone()
         summary = {}
         if row:
@@ -147,7 +147,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             if page is not None and page_size is not None:
                 statement = statement.offset(page * page_size).limit(page_size)
             
-            rows = self.connection.execute(statement)
+            rows = self.engine.execute(statement)
             # print "SQL:\n%s"% statement
             # FIXME: change this into iterable, do not fetch everythig - we want to get plain dict
             # fields = query.fields + query.drilldown_fields
@@ -161,7 +161,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
                 records.append(record)
 
             count_statement = query.full_drilldown_statement.alias().count()
-            row_count = self.connection.execute(count_statement).fetchone()
+            row_count = self.engine.execute(count_statement).fetchone()
             total_cell_count = row_count[0]
 
             result.drilldown = records
@@ -183,7 +183,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         if page is not None and page_size is not None:
             statement = statement.offset(page * page_size).limit(page_size)
 
-        result = self.connection.execute(statement)
+        result = self.engine.execute(statement)
 
         return FactsIterator(result)
         
@@ -194,7 +194,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         statement = query.fact_statement(key)
 
-        cursor = self.connection.execute(statement)
+        cursor = self.engine.execute(statement)
         
         row = cursor.fetchone()
         if row:
@@ -221,7 +221,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         if page is not None and page_size is not None:
             statement = statement.offset(page * page_size).limit(page_size)
 
-        rows = self.connection.execute(statement)
+        rows = self.engine.execute(statement)
 
         fields = rows.keys()
         
