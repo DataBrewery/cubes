@@ -77,8 +77,10 @@ class SearchController(application_controller.ApplicationController):
         
         search_result = sphinx.search(query, dimension, locale_tag = locale_tag)
         
+        # FIXME: remove "values" - backward compatibility key
         result = {
-            "values": search_result.values(dimension, zipped),
+            "values": None,
+            "matches": search_result.dimension_matches(dimension),
             "dimension": dimension,
             "total_found": search_result.total_found,
             "locale": self.locale,
@@ -86,4 +88,9 @@ class SearchController(application_controller.ApplicationController):
             "_browser_locale": self.browser.locale
         }
         
+        if search_result.error:
+            result["error"] = search_result.error
+        if search_result.warning:
+            result["warning"] = search_result.warning
+
         return self.json_response(result)
