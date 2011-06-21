@@ -27,7 +27,7 @@ class MongoSimpleCubeBuilder(object):
             * `cube` - description of a cube from logical model
             * `fact_collection` - either name or mongo collection containing facts (should correspond)
               to `cube` definition
-            * `cube_collection` - name or mongo collection where computed cuboid aggregates will be
+            * `cube_collection` - name or mongo collection where computed cell aggregates will be
               stored. By default it is the same collection as fact collection. Make sure to properely
               set `aggregate_flag_field`.
             * `measures` - list of attributes that are going to be aggregated. By default it is
@@ -35,7 +35,7 @@ class MongoSimpleCubeBuilder(object):
             * `aggregate_flag_field` - name of field (key) that distincts fact fields from aggregated
               records. Should be used when fact collection and cube collection is the same. By default
               it is ``_is_aggregate``.
-            * `required_dimensions` - dimensions that are required for all cuboids. By default: 
+            * `required_dimensions` - dimensions that are required for all cells. By default: 
               ``[date]``
         """
                     
@@ -71,13 +71,13 @@ class MongoSimpleCubeBuilder(object):
         
         self.log = logging.getLogger(cubes.logger_name)
         
-        self.cuboid_record_name = "_selector"
+        self.cell_record_name = "_selector"
         self.cell_reference_record_name = "_cell"
         
     def compute(self):
-        """Compute a multidimensional cube. Computed aggregations for cuboids can be stored either
+        """Compute a multidimensional cube. Computed aggregations for cells can be stored either
         in separate collection or in the same source - fact collection. Attribute `aggregate_flag_field`
-        is used to distinct between facts and aggregated cuboids.
+        is used to distinct between facts and aggregated cells.
         
         Algorithm:
         
@@ -88,7 +88,7 @@ class MongoSimpleCubeBuilder(object):
         #. Compute aggregations for each point within dimension selector. Use MongoDB group function
            (alternative to map-reduce).
         
-        #. Each record for aggregated cuboid is stored in target collection (see above).
+        #. Each record for aggregated cell is stored in target collection (see above).
 
         This is naive non-optimized method of cube computation: no aggregations are reused for
         computation.
@@ -104,19 +104,19 @@ class MongoSimpleCubeBuilder(object):
         self.log.info("got %d dimension level selectors ", len(selectors))
 
         for selector in selectors:
-            self.compute_cuboid(selector)
+            self.compute_cell(selector)
 
-        self.cube_collection.ensure_index(self.cuboid_record_name)
+        self.cube_collection.ensure_index(self.cell_record_name)
                                                                 
-    def compute_cuboid(self, selector):
+    def compute_cell(self, selector):
         """ 
-        Compute aggregation for cuboid specified by selector. Cuboid is computed using MongoDB
+        Compute aggregation for cell specified by selector. cell is computed using MongoDB
         aggregate_ function. Computed records are inserted into `cube_collection` and they contain:
         
         * key fields used for grouping
         * aggregated measures suffixed with `_sum`, for example: `amount_sum`
         * record count in `record_count`
-        * cuboid selector as `_selector` (configurable) with dimension names as keys and current
+        * cell selector as `_selector` (configurable) with dimension names as keys and current
           dimension levels as values, for example: {"date": ["year", "month"] }
         * cell reference as `_cell` (configurable) with dimension names as keys and level 
           keys forming dimension paths as values, for example: {"date": [2010, 10] }
@@ -223,7 +223,7 @@ class MongoSimpleCubeBuilder(object):
 
             record = self.construct_record(record)
             record[self.aggregate_flag_field] = True
-            record[self.cuboid_record_name] = selector_record
+            record[self.cell_record_name] = selector_record
             record[self.cell_reference_record_name] = cell
             self.cube_collection.insert(record)
 
@@ -238,4 +238,4 @@ class MongoSimpleCubeBuilder(object):
                 current = current[part]
             current[path[-1]] = value
         return result
-        
+      

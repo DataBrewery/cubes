@@ -82,8 +82,9 @@ def combine_nodes(all_nodes, required_nodes = []):
 
     return all_combinations
     
-def compute_dimension_cell_selectors(dimensions, required = []):
-    """Create selector for all possible combinations of dimensions for each levels in hierarchical
+# FIXME: move this to Cube as Cube.all_cuboids(requred = [])
+def all_cuboids(dimensions, required = []):
+    """Create cuboids for all possible combinations of dimensions for each levels in hierarchical
     order.
     
     Returns list of dimension selectors. Each dimension selector is a list of tuples where first element
