@@ -1,6 +1,17 @@
 Changes in the Cubes
 ++++++++++++++++++++
 
+Version 0.8
+===========
+
+WARNING: Minor backward API incompatibility - Cuboid renamed to Cell. 
+
+Changes
+-------
+* Class 'Cuboid' was renamed to more correct 'Cell'. 'Cuboid' is a part of cube with subset of
+  dimensions.
+* all APIs with 'cuboid' in their name/arguments were renamed to use 'cell' instead
+
 Version 0.7
 ===========
 

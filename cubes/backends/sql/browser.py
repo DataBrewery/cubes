@@ -111,12 +111,12 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         self.logger = logging.getLogger(logger_name)
 
-    def aggregate(self, cuboid, measures = None, drilldown = None, order = None, **options):
-        """See :meth:`cubes.browsers.Cuboid.aggregate`."""
+    def aggregate(self, cell, measures = None, drilldown = None, order = None, **options):
+        """See :meth:`cubes.browsers.cell.aggregate`."""
         result = cubes.browser.AggregationResult()
         
         # Create query
-        query = CubeQuery(cuboid, self.view, locale = self.locale)
+        query = CubeQuery(cell, self.view, locale = self.locale)
         query.drilldown = drilldown
         query.order = order
         query.prepare()
@@ -169,10 +169,10 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         return result
 
-    def facts(self, cuboid, order = None, **options):
+    def facts(self, cell, order = None, **options):
         """Retruns iterable objects with facts"""
         # Create query
-        query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
+        query = CubeQuery(cell, self.view, locale = self.locale, **options)
         query.order = order
         query.prepare()
         statement = query.facts_statement
@@ -206,11 +206,11 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             
         return record
         
-    def values(self, cuboid, dimension, depth = None, order = None, **options):
-        """Get values for dimension at given path within cuboid"""
+    def values(self, cell, dimension, depth = None, order = None, **options):
+        """Get values for dimension at given path within cell"""
 
         dimension = self.cube.dimension(dimension)
-        query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
+        query = CubeQuery(cell, self.view, locale = self.locale, **options)
         query.order = order
 
         statement = query.values_statement(dimension, depth)
@@ -237,13 +237,13 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 CellAttribute = collections.namedtuple("CellAttribute", "attribute, name, column")
 
 class CubeQuery(object):
-    """docstring for CuboidQuery"""
-    def __init__(self, cuboid, view, locale = None, **options):
+    """docstring for CubeQuery"""
+    def __init__(self, cell, view, locale = None, **options):
         """Creates a cube query.
         
         :Attributes:
         
-            * `cuboid` - cuboid within query will be executed
+            * `cell` - cell within query will be executed
             * `view` - denormalized view/table where data is stored
             * `locale` - locale to be used for fetching data. if none specified, then default
               locale is used (first locale for attributes with multiple locales)
@@ -254,7 +254,7 @@ class CubeQuery(object):
         """
         
         super(CubeQuery, self).__init__()
-        self.cuboid = cuboid
+        self.cell = cell
 
         self.view = view
         self.condition_expression = None
@@ -267,7 +267,7 @@ class CubeQuery(object):
         
         self._prepared = False
 
-        self.cube = cuboid.cube
+        self.cube = cell.cube
         self.cube_key = self.cube.key
         if not self.cube_key:
             self.cube_key = base.DEFAULT_KEY_FIELD
@@ -524,7 +524,7 @@ class CubeQuery(object):
         self._conditions = []
         self._group_by = []
 
-        for cut in self.cuboid.cuts:
+        for cut in self.cell.cuts:
             dim = self.cube.dimension(cut.dimension)
             if isinstance(cut, cubes.browser.PointCut):
                 path = cut.path

@@ -128,8 +128,8 @@ class SQLBrowserTestCase(SQLTestCase):
         s = str(stmt)
         self.assertRegexpMatches(s, 'view\.id =')
 
-        cuboid = self.full_cube.slice(self.date_dim, [2010])
-        query = CubeQuery(cuboid, self.view)
+        cell = self.full_cube.slice(self.date_dim, [2010])
+        query = CubeQuery(cell, self.view)
         query.prepare()
         stmt = query.fact_statement(1)
         s = str(stmt)
@@ -146,9 +146,9 @@ class SQLBrowserTestCase(SQLTestCase):
 
     def test_fact_with_conditions(self):
 
-        cuboid = self.full_cube.slice(self.date_dim, [2010])
+        cell = self.full_cube.slice(self.date_dim, [2010])
 
-        query = CubeQuery(cuboid, self.view)
+        query = CubeQuery(cell, self.view)
         query.prepare()
         stmt = query.facts_statement
         s = str(stmt)
@@ -157,8 +157,8 @@ class SQLBrowserTestCase(SQLTestCase):
         self.assertNotRegexpMatches(s, 'view\."date\.month" =')
         self.assertNotRegexpMatches(s, 'view\."class\.[^=]*"=')
 
-        cuboid = self.full_cube.slice(self.date_dim, [2010, 4])
-        query = CubeQuery(cuboid, self.view)
+        cell = self.full_cube.slice(self.date_dim, [2010, 4])
+        query = CubeQuery(cell, self.view)
         query.prepare()
         stmt = query.facts_statement
         s = str(stmt)
@@ -176,9 +176,9 @@ class SQLBrowserTestCase(SQLTestCase):
         self.execute(stmt)
 
     def test_aggregate_point(self):
-        cuboid = self.full_cube.slice(self.date_dim, [2010])
+        cell = self.full_cube.slice(self.date_dim, [2010])
 
-        query = CubeQuery(cuboid, self.view)
+        query = CubeQuery(cell, self.view)
         query.prepare()
         stmt = query.summary_statement
         s = str(stmt)
@@ -193,9 +193,9 @@ class SQLBrowserTestCase(SQLTestCase):
         self.assertNotRegexpMatches(s, r'cls')
         self.execute(stmt)
         
-        cuboid = self.full_cube.slice(self.date_dim, [2010, 4])
+        cell = self.full_cube.slice(self.date_dim, [2010, 4])
 
-        query = CubeQuery(cuboid, self.view)
+        query = CubeQuery(cell, self.view)
         query.prepare()
         stmt = query.summary_statement
         s = str(stmt)
@@ -207,9 +207,9 @@ class SQLBrowserTestCase(SQLTestCase):
         self.assertNotRegexpMatches(s, r'cls')
         self.execute(stmt)
         
-        cuboid = self.full_cube.slice(self.class_dim, [1])
+        cell = self.full_cube.slice(self.class_dim, [1])
 
-        query = CubeQuery(cuboid, self.view)
+        query = CubeQuery(cell, self.view)
         query.prepare()
         stmt = query.summary_statement
         s = str(stmt)
@@ -221,9 +221,9 @@ class SQLBrowserTestCase(SQLTestCase):
         
     # @unittest.skip("not yet implemented")
     def test_next_drill_down(self):
-        cuboid = self.full_cube
+        cell = self.full_cube
 
-        query = CubeQuery(cuboid, self.view)
+        query = CubeQuery(cell, self.view)
         query.drilldown = ["date"]
         query.prepare()
         stmt = query.drilldown_statement
@@ -231,8 +231,8 @@ class SQLBrowserTestCase(SQLTestCase):
         self.assertRegexpMatches(s, r'date\.year')
         self.assertNotRegexpMatches(s, r'date\.month')
 
-        cuboid = self.full_cube.slice(self.date_dim, [2010])
-        query = CubeQuery(cuboid, self.view)
+        cell = self.full_cube.slice(self.date_dim, [2010])
+        query = CubeQuery(cell, self.view)
         query.drilldown = ["date"]
         query.prepare()
         stmt = query.drilldown_statement
@@ -240,15 +240,15 @@ class SQLBrowserTestCase(SQLTestCase):
         self.assertRegexpMatches(s, r'date\.year')
         self.assertRegexpMatches(s, r'date\.month')
 
-        cuboid = self.full_cube.slice(self.date_dim, [2010, 4])
-        query = CubeQuery(cuboid, self.view)
+        cell = self.full_cube.slice(self.date_dim, [2010, 4])
+        query = CubeQuery(cell, self.view)
         query.drilldown = ["date"]
         self.assertRaisesRegexp(ValueError, "Unable to drill-down.*last level", query.prepare)
 
 
     def test_explicit_drill_down(self):
-        cuboid = self.full_cube
-        query = CubeQuery(cuboid, self.view)
+        cell = self.full_cube
+        query = CubeQuery(cell, self.view)
         query.drilldown = {"date": "year"}
         query.prepare()
         stmt = query.drilldown_statement
@@ -256,8 +256,8 @@ class SQLBrowserTestCase(SQLTestCase):
         self.assertRegexpMatches(s, r'date\.year')
         self.assertNotRegexpMatches(s, r'date\.month')
 
-        cuboid = cuboid.slice("date", [2010])
-        query = CubeQuery(cuboid, self.view)
+        cell = cell.slice("date", [2010])
+        query = CubeQuery(cell, self.view)
         query.drilldown = {"date": "month"}
         query.prepare()
         stmt = query.drilldown_statement

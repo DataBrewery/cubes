@@ -49,11 +49,11 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         
         return reply            
                 
-    def aggregate(self, cuboid, measures = None, drilldown = None):
-        """See :meth:`cubes.browsers.Cuboid.aggregate`."""
+    def aggregate(self, cell, measures = None, drilldown = None):
+        """See :meth:`cubes.browsers.Cell.aggregate`."""
         result = cubes.base.AggregationResult()
         
-        cut_string = cubes.base.string_from_cuts(cuboid.cuts)
+        cut_string = cubes.base.string_from_cuts(cell.cuts)
         params = [ ("cut", cut_string) ]
         if drilldown:
             for dd in drilldown:
@@ -63,7 +63,7 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         
         return self.request(url)
         
-    def facts(self, cuboid, **options):
+    def facts(self, cell, **options):
         raise NotImplementedError
 
     def fact(self, key):
