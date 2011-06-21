@@ -60,7 +60,8 @@ class FactsIterator(object):
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, connection = None, view_name = None, schema = None, view = None, locale = None):
+    def __init__(self, cube, connection = None, view_name = None, schema = None, 
+                    view = None, locale = None):
         """Create a browser.
         
         :Attributes:
@@ -76,9 +77,12 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         """
         super(SQLBrowser, self).__init__(cube)
 
+        if not cube:
+            raise Exception("Cube is not provided (should be not None)")
+
         self.cube = cube
 
-        if not connection and not view:
+        if (connection is None) and (view is None):
             raise Exception("SQLBrowser requires either connection or view to be provided.")
 
         if locale:
@@ -90,7 +94,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         if not self.fact_key:
             self.fact_key = base.DEFAULT_KEY_FIELD
 
-        if connection:
+        if connection is not None:
             # FIXME: This reflection is somehow slow (is there anotherway how to do it?)
             self.connection = connection
             self.view_name = view_name
@@ -99,7 +103,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
             self.view = sqlalchemy.Table(self.view_name, metadata, autoload = True, schema = schema)
             self.key_column = self.view.c[self.fact_key]
-        elif view:
+        elif view is not None:
             self.connection = view.bind
             self.engine = self.connection.engine
             self.view = view
@@ -107,19 +111,19 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         self.logger = logging.getLogger(logger_name)
 
-    def aggregate(self, cuboid, measures = None, drilldown = None, order = None, **options):
-        """See :meth:`cubes.browsers.Cuboid.aggregate`."""
+    def aggregate(self, cell, measures = None, drilldown = None, order = None, **options):
+        """See :meth:`cubes.browsers.cell.aggregate`."""
         result = cubes.browser.AggregationResult()
         
         # Create query
-        query = CubeQuery(cuboid, self.view, locale = self.locale)
+        query = CubeQuery(cell, self.view, locale = self.locale)
         query.drilldown = drilldown
         query.order = order
         query.prepare()
 
         ############################################
         # Get summary
-        cursor = self.connection.execute(query.summary_statement)
+        cursor = self.engine.execute(query.summary_statement)
         row = cursor.fetchone()
         summary = {}
         if row:
@@ -143,7 +147,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             if page is not None and page_size is not None:
                 statement = statement.offset(page * page_size).limit(page_size)
             
-            rows = self.connection.execute(statement)
+            rows = self.engine.execute(statement)
             # print "SQL:\n%s"% statement
             # FIXME: change this into iterable, do not fetch everythig - we want to get plain dict
             # fields = query.fields + query.drilldown_fields
@@ -157,7 +161,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
                 records.append(record)
 
             count_statement = query.full_drilldown_statement.alias().count()
-            row_count = self.connection.execute(count_statement).fetchone()
+            row_count = self.engine.execute(count_statement).fetchone()
             total_cell_count = row_count[0]
 
             result.drilldown = records
@@ -165,10 +169,10 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         return result
 
-    def facts(self, cuboid, order = None, **options):
+    def facts(self, cell, order = None, **options):
         """Retruns iterable objects with facts"""
         # Create query
-        query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
+        query = CubeQuery(cell, self.view, locale = self.locale, **options)
         query.order = order
         query.prepare()
         statement = query.facts_statement
@@ -179,7 +183,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         if page is not None and page_size is not None:
             statement = statement.offset(page * page_size).limit(page_size)
 
-        result = self.connection.execute(statement)
+        result = self.engine.execute(statement)
 
         return FactsIterator(result)
         
@@ -190,7 +194,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         statement = query.fact_statement(key)
 
-        cursor = self.connection.execute(statement)
+        cursor = self.engine.execute(statement)
         
         row = cursor.fetchone()
         if row:
@@ -202,11 +206,11 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             
         return record
         
-    def values(self, cuboid, dimension, depth = None, order = None, **options):
-        """Get values for dimension at given path within cuboid"""
+    def values(self, cell, dimension, depth = None, order = None, **options):
+        """Get values for dimension at given path within cell"""
 
         dimension = self.cube.dimension(dimension)
-        query = CubeQuery(cuboid, self.view, locale = self.locale, **options)
+        query = CubeQuery(cell, self.view, locale = self.locale, **options)
         query.order = order
 
         statement = query.values_statement(dimension, depth)
@@ -217,7 +221,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         if page is not None and page_size is not None:
             statement = statement.offset(page * page_size).limit(page_size)
 
-        rows = self.connection.execute(statement)
+        rows = self.engine.execute(statement)
 
         fields = rows.keys()
         
@@ -233,13 +237,13 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 CellAttribute = collections.namedtuple("CellAttribute", "attribute, name, column")
 
 class CubeQuery(object):
-    """docstring for CuboidQuery"""
-    def __init__(self, cuboid, view, locale = None, **options):
+    """docstring for CubeQuery"""
+    def __init__(self, cell, view, locale = None, **options):
         """Creates a cube query.
         
         :Attributes:
         
-            * `cuboid` - cuboid within query will be executed
+            * `cell` - cell within query will be executed
             * `view` - denormalized view/table where data is stored
             * `locale` - locale to be used for fetching data. if none specified, then default
               locale is used (first locale for attributes with multiple locales)
@@ -250,7 +254,7 @@ class CubeQuery(object):
         """
         
         super(CubeQuery, self).__init__()
-        self.cuboid = cuboid
+        self.cell = cell
 
         self.view = view
         self.condition_expression = None
@@ -263,7 +267,7 @@ class CubeQuery(object):
         
         self._prepared = False
 
-        self.cube = cuboid.cube
+        self.cube = cell.cube
         self.cube_key = self.cube.key
         if not self.cube_key:
             self.cube_key = base.DEFAULT_KEY_FIELD
@@ -520,7 +524,7 @@ class CubeQuery(object):
         self._conditions = []
         self._group_by = []
 
-        for cut in self.cuboid.cuts:
+        for cut in self.cell.cuts:
             dim = self.cube.dimension(cut.dimension)
             if isinstance(cut, cubes.browser.PointCut):
                 path = cut.path
@@ -655,6 +659,46 @@ class CubeQuery(object):
         else:
             logical_name = field
 
+        self.logger.debug("getting column %s(%s) loc: %s - %s" % (field, type(field), self.locale, locale_suffix))
+
         localized_name = logical_name + locale_suffix
         column = self.view.c[localized_name]
         return expression.label(logical_name, column)
+
+class SQLWorkspace(object):
+    """Factory for browsers"""
+    def __init__(self, model, engine, schema = None, name_prefix = None, name_suffix = None):
+        """Create a workspace"""
+        super(SQLWorkspace, self).__init__()
+        self.model = model
+        self.engine = engine
+        self.metadata = sqlalchemy.MetaData(bind = self.engine)
+        self.name_prefix = name_prefix
+        self.name_suffix = name_suffix
+        self.views = {}
+        self.schema = schema
+        
+    def browser_for_cube(self, cube, locale = None):
+        """Creates, configures and returns a browser for a cube"""
+        cube = self.model.cube(cube)
+        view = self.view_for_cube(cube)
+        browser = SQLBrowser(cube, view = view, locale = locale)
+        return browser
+        
+    def view_for_cube(self, cube, view_name = None):
+        if cube.name in self.views:
+            view = self.views[cube.name]
+        else:
+            if not view_name:
+                if self.name_prefix:
+                    view_name = self.name_prefix
+                else:
+                    view_name = ""
+                view_name += cube.name
+                if self.name_suffix:
+                    view_name += self.name_suffix
+
+            view = sqlalchemy.Table(view_name, self.metadata, autoload = True, schema = self.schema)
+            self.views[cube.name] = view            
+            
+        return view

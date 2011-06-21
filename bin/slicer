@@ -19,6 +19,15 @@ def validate_model(args):
     print("loading model %s" % args.model)
     model = cubes.load_model(args.model)
 
+    if args.translation:
+        print("translating using %s" % args.translation)
+        handle = open(args.translation)
+        translation = json.load(handle)
+        handle.close
+        model.localize(translation)
+    print("model locale: %s" % model.locale)
+            
+
     print("-------------------------")
     print("cubes: %d" % len(model.cubes))
     for cube_name, cube in model.cubes.items():
@@ -132,6 +141,9 @@ parser_validate.add_argument('-d', '--defaults',
 parser_validate.add_argument('-w', '--no-warnings', 
                             dest = 'show_warnings', action = 'store_false', default = True, 
                             help='disable warnings')
+parser_validate.add_argument('-t', '--translation', 
+                            dest = 'translation',
+                            help='model translation file')
 parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
 parser_validate.set_defaults(func=validate_model)
 

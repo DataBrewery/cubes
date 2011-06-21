@@ -22,17 +22,17 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         self.assertEqual(self.cube, full_cube.cube)
         self.assertEqual(0, len(full_cube.cuts))
         
-        cuboid = full_cube.slice("date", [2010])
-        self.assertEqual(1, len(cuboid.cuts))
+        cell = full_cube.slice("date", [2010])
+        self.assertEqual(1, len(cell.cuts))
         
-        cuboid = cuboid.slice("supplier", [1234])
-        cuboid = cuboid.slice("cpv", [50, 20])
-        self.assertEqual(3, len(cuboid.cuts))
-        self.assertEqual(self.cube, cuboid.cube)
+        cell = cell.slice("supplier", [1234])
+        cell = cell.slice("cpv", [50, 20])
+        self.assertEqual(3, len(cell.cuts))
+        self.assertEqual(self.cube, cell.cube)
 
         # Adding existing slice should result in changing the slice properties
-        cuboid = cuboid.slice("date", [2011])
-        self.assertEqual(3, len(cuboid.cuts))
+        cell = cell.slice("date", [2011])
+        self.assertEqual(3, len(cell.cuts))
 
     def test_multi_slice(self):
         full_cube = self.browser.full_cube()
@@ -40,25 +40,25 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         cuts_list = (("date", [2010]), ("cpv", [50, 20]), ("supplier", [1234]))
         cuts_dict = {"date": [2010], "cpv": [50, 20], "supplier": [1234]}
 
-        cuboid_list = full_cube.multi_slice(cuts_list)
-        self.assertEqual(3, len(cuboid_list.cuts))
+        cell_list = full_cube.multi_slice(cuts_list)
+        self.assertEqual(3, len(cell_list.cuts))
 
-        cuboid_dict = full_cube.multi_slice(cuts_dict)
-        self.assertEqual(3, len(cuboid_dict.cuts))
+        cell_dict = full_cube.multi_slice(cuts_dict)
+        self.assertEqual(3, len(cell_dict.cuts))
 
-        self.assertEqual(cuboid_list, cuboid_dict)
+        self.assertEqual(cell_list, cell_dict)
 
-    def test_get_cuboid_dimension_cut(self):
+    def test_get_cell_dimension_cut(self):
         full_cube = self.browser.full_cube()
-        cuboid = full_cube.slice("date", [2010])
-        cuboid = cuboid.slice("supplier", [1234])
+        cell = full_cube.slice("date", [2010])
+        cell = cell.slice("supplier", [1234])
 
-        cut = cuboid.cut_for_dimension("date")
+        cut = cell.cut_for_dimension("date")
         self.assertEqual(cut.dimension, self.cube.dimension("date"))
 
-        self.assertRaises(cubes.ModelError, cuboid.cut_for_dimension, "someunknown")
+        self.assertRaises(cubes.ModelError, cell.cut_for_dimension, "someunknown")
         
-        cut = cuboid.cut_for_dimension("cpv")
+        cut = cell.cut_for_dimension("cpv")
         self.assertEqual(cut, None)
         
     def test_hierarchy_path(self):
