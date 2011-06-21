@@ -29,8 +29,13 @@ class SearchController(application_controller.ApplicationController):
     """        
 
     def initialize(self):
-        super(SearchController, self).initialize()
-        self.initialize_cube()
+        # FIXME: remove this (?)
+        cube_name = self.params.get("cube")
+        if not cube_name:
+            cube_name = self.config.get("model", "cube")
+
+        self.cube = self.model.cube(cube_name)
+        self.browser = self.app.workspace.browser_for_cube(self.cube, locale = self.locale)
 
         if self.config.has_option("sphinx", "host"):
             self.sphinx_host = self.config.get("sphinx","host")
@@ -42,10 +47,6 @@ class SearchController(application_controller.ApplicationController):
         else:
             self.sphinx_port = None
         
-    def finalize(self):
-        self.finalize_cube()
-        
-        
     def search(self):
         
         if not SphinxSearcher:
@@ -53,23 +54,43 @@ class SearchController(application_controller.ApplicationController):
 
         sphinx = SphinxSearcher(self.browser, self.sphinx_host, self.sphinx_port)
         
-        dimension = self.request.args.get("dimension")
+        dimension = self.args.get("dimension")
         if not dimension:
             return self.error("No dimension provided")
 
-        query = self.request.args.get("q")
+        query = self.args.get("q")
         if not query:
-            query = self.request.args.get("query")
+            query = self.args.get("query")
         
         if not query:
             return self.error("No query provided")
-        
-        search_result = sphinx.search(query)
 
+        zipped = self.args.get("_zip")
+        
+        locale_tag = 0
+        if self.locale:
+            for (i, locale) in enumerate(self.app.locales):
+                if locale == self.locale:
+                    locale_tag = i
+                    break
+                    
+        
+        search_result = sphinx.search(query, dimension, locale_tag = locale_tag)
+        
+        # FIXME: remove "values" - backward compatibility key
         result = {
-            "values": search_result.values(dimension),
+            "values": None,
+            "matches": search_result.dimension_matches(dimension),
             "dimension": dimension,
-            "total_found": search_result.total_found
+            "total_found": search_result.total_found,
+            "locale": self.locale,
+            "_locale_tag": locale_tag,
+            "_browser_locale": self.browser.locale
         }
         
+        if search_result.error:
+            result["error"] = search_result.error
+        if search_result.warning:
+            result["warning"] = search_result.warning
+
         return self.json_response(result)

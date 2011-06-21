@@ -89,28 +89,33 @@ class UnicodeCSVWriter:
 
 class CubesController(application_controller.ApplicationController):
     def initialize(self):
-        super(CubesController, self).initialize()
-        self.initialize_cube()
+        # FIXME: remove this (?)
+        cube_name = self.params.get("cube")
+        if not cube_name:
+            cube_name = self.config.get("model", "cube")
+            
+        self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
+        self.cube = self.model.cube(cube_name)
+        self.browser = self.app.workspace.browser_for_cube(self.cube, self.locale)
         
-    def finalize(self):
-        self.finalize_cube()
-    
-    def prepare_cuboid(self):
-        cut_string = self.request.args.get("cut")
+    def prepare_cell(self):
+        cut_string = self.args.get("cut")
 
         if cut_string:
+            self.logger.debug("preparing cell for cut string: '%s'" % cut_string)
             cuts = cubes.cuts_from_string(cut_string)
         else:
+            self.logger.debug("preparing cell for whole cube")
             cuts = []
 
-        self.cuboid = cubes.Cuboid(self.browser, cuts)
+        self.cell = cubes.cell(self.browser, cuts)
         
     def aggregate(self):
-        self.prepare_cuboid()
+        self.prepare_cell()
 
-        drilldown = self.request.args.getlist("drilldown")
+        drilldown = self.args.getlist("drilldown")
 
-        result = self.cuboid.aggregate(drilldown = drilldown, 
+        result = self.cell.aggregate(drilldown = drilldown, 
                                         page = self.page, 
                                         page_size = self.page_size,
                                         order = self.order)
@@ -119,21 +124,21 @@ class CubesController(application_controller.ApplicationController):
         return self.json_response(result)
 
     def facts(self):
-        self.prepare_cuboid()
+        self.prepare_cell()
 
-        format = self.request.args.get("format")
+        format = self.args.get("format")
         if format:
             format = format.lower()
         else:
             format = "json"
 
-        fields_str = self.request.args.get("fields")
+        fields_str = self.args.get("fields")
         if fields_str:
             fields = fields_str.lower().split(',')
         else:
             fields = None
 
-        result = self.cuboid.facts(order = self.order,
+        result = self.cell.facts(order = self.order,
                                     page = self.page, 
                                     page_size = self.page_size)
 
@@ -159,13 +164,13 @@ class CubesController(application_controller.ApplicationController):
             return self.error("No fact with id=%s" % fact_id, status = 404)
         
     def values(self):
-        self.prepare_cuboid()
+        self.prepare_cell()
 
         dim_name = self.params["dimension"]
-        depth_string = self.request.args.get("depth")
+        depth_string = self.args.get("depth")
         if depth_string:
             try:
-                depth = int(self.request.args.get("depth"))
+                depth = int(self.args.get("depth"))
             except:
                 return common.RequestError("depth should be an integer")
         else:
@@ -177,7 +182,7 @@ class CubesController(application_controller.ApplicationController):
             return common.NotFoundError(dim_name, "dimension", 
                                         message = "Dimension '%s' was not found" % dim_name)
 
-        values = self.cuboid.values(dimension, depth = depth, page = self.page, page_size = self.page_size)
+        values = self.cell.values(dimension, depth = depth, page = self.page, page_size = self.page_size)
 
         result = {
             "dimension": dimension.name,
@@ -189,11 +194,11 @@ class CubesController(application_controller.ApplicationController):
     
     def report(self):
         """Create multi-query report response."""
-        self.prepare_cuboid()
+        self.prepare_cell()
         
         report_request = self.json_request()
         
-        result = self.browser.report(self.cuboid, report_request)
+        result = self.browser.report(self.cell, report_request)
         
         return self.json_response(result)
     

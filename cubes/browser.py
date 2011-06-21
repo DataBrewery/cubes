@@ -21,7 +21,7 @@ class AggregationBrowser(object):
         self.cube = cube
 
     def full_cube(self):
-        return Cuboid(self)
+        return Cell(self)
 
     def dimension_object(self, dimension):
         """Helper function to return proper dimension object as a subclass of Dimension.
@@ -40,8 +40,8 @@ class AggregationBrowser(object):
         else:
             return dimension
 
-    def aggregate(self, cuboid, measures = None, drilldown = None, **options):
-        """Return aggregate of a cuboid.
+    def aggregate(self, cell, measures = None, drilldown = None, **options):
+        """Return aggregate of a cell.
 
         Subclasses of aggregation browser should implement this method.
 
@@ -52,12 +52,12 @@ class AggregationBrowser(object):
               aggregated.
             
         Drill down can be specified in two ways: as a list of dimensions or as a dictionary. If it
-        is specified as list of dimensions, then cuboid is going to be drilled down on the next
-        level of specified dimension. Say you have a cuboid for year 2010 and you want to drill
+        is specified as list of dimensions, then cell is going to be drilled down on the next
+        level of specified dimension. Say you have a cell for year 2010 and you want to drill
         down by months, then you specify ``drilldown = ["date"]``.
         
         If `drilldown` is a dictionary, then key is dimension or dimension name and value is last
-        level to be drilled-down by. If the cuboid is at `year` level and drill down is: ``{
+        level to be drilled-down by. If the cell is at `year` level and drill down is: ``{
         "date": "day" }`` then both `month` and `day` levels are added.
         
         If there are no more levels to be drilled down, an exception is raised. Say your model has
@@ -68,12 +68,12 @@ class AggregationBrowser(object):
         """
         raise NotImplementedError
         
-    # def crosstab(self, cuboid, measures, drilldown, rows = None, columns = None, **options):
+    # def crosstab(self, cell, measures, drilldown, rows = None, columns = None, **options):
     #     """Aggregate facts and return cross-table. Calls `aggregate()` to get results then
     #     transforms the `AggregationResult` into a cross-tab.
     # 
     #     :Parameters:
-    #         * cuboid - cuboid to be aggregated
+    #         * cell - cell to be aggregated
     #         * rows - list of dimensions to be put on rows
     #         * columns - list of dimensions to be put on columns
     #     """
@@ -85,8 +85,8 @@ class AggregationBrowser(object):
     #         for dim in rows:
     #             dim = self.cube.dimension(dim)
 
-    def facts(self, cuboid, **options):
-        """Return an iterable object with of all facts within cuboid"""
+    def facts(self, cell, **options):
+        """Return an iterable object with of all facts within cell"""
         
         raise NotImplementedError
 
@@ -94,7 +94,7 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def values(self, cuboid, dimension, depth = None, paths = None, **options):
+    def values(self, cell, dimension, depth = None, paths = None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
         levels are returned.
         
@@ -103,7 +103,7 @@ class AggregationBrowser(object):
             Currently only default hierarchy is used. 
         """
         
-    def report(self, cuboid, report):
+    def report(self, cell, report):
         """Creates multiple outputs specified in the `report`.
         
         `report` is a dictionary with multiple aggregation browser queries. Keys are custom names
@@ -164,14 +164,14 @@ class AggregationBrowser(object):
             # Handle rollup
             rollup = report_query.get("rollup")
             if rollup:
-                query_cuboid = cuboid.rollup(rollup)
+                query_cell = cell.rollup(rollup)
             else:
-                query_cuboid = cuboid
+                query_cell = cell
 
             if query == "aggregate":
-                result = self.aggregate(query_cuboid, **args)
+                result = self.aggregate(query_cell, **args)
             elif query == "facts":
-                result = self.facts(query_cuboid, **args)
+                result = self.facts(query_cell, **args)
             elif query == "fact":
                 # Be more tolerant: by default we want "key", but "id" might be common
                 key = args.get("key")
@@ -179,7 +179,7 @@ class AggregationBrowser(object):
                     key = args.get("id")
                 result = self.fact(key)
             elif query == "values":
-                result = self.values(query_cuboid, **args)
+                result = self.values(query_cell, **args)
             elif query == "drilldown":
                 raise NotImplementedError("Drill-down queries are not yet implemented")
             else:
@@ -190,7 +190,7 @@ class AggregationBrowser(object):
         return report_result
         
         
-class Cuboid(object):
+class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
     def __init__(self, browser, cuts = []):
         self.browser = browser
@@ -198,7 +198,7 @@ class Cuboid(object):
         self.cuts = cuts
 
     def slice(self, dimension, path):
-        """Create another cuboid by slicing receiving cuboid through `dimension` at `path`.
+        """Create another cell by slicing receiving cell through `dimension` at `path`.
         Receiving object is not modified. If cut with dimension exists it is replaced with new one.
         If path is empty list or is none, then cut for given dimension is removed.
 
@@ -207,43 +207,43 @@ class Cuboid(object):
             full_cube = browser.full_cube()
             contracts_2010 = full_cube.slice("date", [2010])
 
-        Returns: new derived Cuboid object.
+        Returns: new derived cell object.
         """
         dimension = self.browser.dimension_object(dimension)
         cuts = self._filter_dimension_cuts(dimension, exclude = True)
         if path:
             cut = PointCut(dimension, path)
             cuts.append(cut)
-        return Cuboid(self.browser, cuts = cuts)
+        return Cell(self.browser, cuts = cuts)
 
     # def cut(self, cuts):
-    #     """Cretes another cuboid by cutting with multiple cuts. `cut` can be a :class:`cubes.Cut`
+    #     """Cretes another cell by cutting with multiple cuts. `cut` can be a :class:`cubes.Cut`
     #     subclass instance or list of such instances."""
     #     
     # raise NotImplementedError()
             
 
     def multi_slice(self, cuts):
-        """Create another cuboid by slicing through multiple slices. `cuts` can be list or a dictionry.
+        """Create another cell by slicing through multiple slices. `cuts` can be list or a dictionry.
         If it is a list, it should be a list of two item tuples where first item is a dimension, second
         item is a dimension cut path. If `cuts` is a dictionary, then keys are dimensions, values are
         cut paths.
 
-        See :meth:`Cuboid.slice` for more information about slicing."""
+        See :meth:`Cell.slice` for more information about slicing."""
 
-        cuboid = self
+        cell = self
 
         if type(cuts) == dict:
             for dim, path in cuts.items():
-                cuboid = cuboid.slice(dim, path)
+                cell = cell.slice(dim, path)
         elif type(cuts) == list or type(cuts) == tuple:
             for dim, path in cuts:
-                cuboid = cuboid.slice(dim, path)
+                cell = cell.slice(dim, path)
         else:
             raise TypeError("Cuts for multi_slice sohuld be a list or a dictionary, is '%s'" \
                                 % cuts.__class__)
 
-        return cuboid
+        return cell
 
     def cut_for_dimension(self, dimension):
         """Return first found cut for given `dimension`"""
@@ -262,7 +262,7 @@ class Cuboid(object):
         return None
 
     def rollup(self, rollup):
-        """Rolls-up cuboid - goes one or more levels up through dimension hierarchy. It works in
+        """Rolls-up cell - goes one or more levels up through dimension hierarchy. It works in
         similar way as drill down in :meth:`AggregationBrowser.aggregate` but in the opposite
         direction (it is like ``cd ..`` in a UNIX shell).
         
@@ -327,8 +327,8 @@ class Cuboid(object):
         
         # FIXME: write tests
         # raise NotImplementedError("Contue here... write tests and stuff")
-        cuboid = Cuboid(self.browser, new_cuts)
-        return cuboid
+        cell = Cell(self.browser, new_cuts)
+        return cell
 
     def _filter_dimension_cuts(self, dimension, exclude = False):
         dimension = self.browser.cube.dimension(dimension)
@@ -350,7 +350,7 @@ class Cuboid(object):
         return self.browser.values(self, dimension, depth, paths, **options)
 
     def facts(self, **options):
-        """Return an iterable object with of all facts within cuboid.
+        """Return an iterable object with of all facts within cell.
         
         
         .. note:
@@ -360,7 +360,7 @@ class Cuboid(object):
         return self.browser.facts(self, **options)
 
     def __eq__(self, other):
-        """Cuboids are considered equal if:
+        """cells are considered equal if:
             * they refer to the same cube within same browser
             * they have same set of cuts (regardless of their order)
         """
@@ -462,7 +462,7 @@ class Cut(object):
         self.dimension = dimension
         
 class PointCut(Cut):
-    """Object describing way of slicing a cube (cuboid) through point in a dimension"""
+    """Object describing way of slicing a cube (cell) through point in a dimension"""
 
     def __init__(self, dimension, path):
         super(PointCut, self).__init__(dimension)
@@ -500,7 +500,7 @@ class PointCut(Cut):
         return not self.__eq__(other)
 
 class RangeCut(object):
-    """Object describing way of slicing a cube (cuboid) between two points of a dimension that
+    """Object describing way of slicing a cube (cell) between two points of a dimension that
     has ordered points. For dimensions with unordered points behaviour is unknown."""
 
     def __init__(self, dimension, from_path, to_path):
@@ -551,7 +551,7 @@ class RangeCut(object):
         return not self.__eq__(other)
         
 class SetCut(Cut):
-    """Object describing way of slicing a cube (cuboid) between two points of a dimension that
+    """Object describing way of slicing a cube (cell) between two points of a dimension that
     has ordered points. For dimensions with unordered points behaviour is unknown."""
 
     def __init__(self, dimension, paths):

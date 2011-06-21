@@ -29,21 +29,21 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
             self.collection = collection
         
         self.aggregate_flag_field = aggregate_flag_field
-        self.cuboid_selector_name = "_selector"
+        self.cell_selector_name = "_selector"
 
-    def aggregate(self, cuboid, measures = None, drill_down = None):
-        """See :meth:`cubes.browsers.Cuboid.aggregate`."""
+    def aggregate(self, cell, measures = None, drill_down = None):
+        """See :meth:`cubes.browsers.cell.aggregate`."""
         
         ###################################################
-        # 1. Prepare cuboid selector
+        # 1. Prepare cell selector
 
         if drill_down:
             drill_dimension = self.cube.dimension(drill_down)
         else:
             drill_dimension = None
             
-        selector = self.selector_object(cuboid, drill_dimension)
-        condition = { self.cuboid_selector_name: selector }
+        selector = self.selector_object(cell, drill_dimension)
+        condition = { self.cell_selector_name: selector }
         condition[self.aggregate_flag_field] = True
         
         if drill_down:
@@ -55,7 +55,7 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
         # 2. Prepare dimension filter conditions
         
         dim_conditions = {}
-        for cut in cuboid.cuts:
+        for cut in cell.cuts:
             if type(cut) != PointCut:
                 raise AttributeError("only point cuts are currently supported for mongo aggregation browsing")
 
@@ -81,13 +81,13 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
         cursor = self.collection.find(spec = condition)
         return cursor
 
-    def selector_object(self, cuboid, drill_dimension = None):
-        """Return a dictionary object for finding specified cuboid. If drill_dimension is set, then
-        selector for all descendants of cuboid through drill dimension is returned."""
+    def selector_object(self, cell, drill_dimension = None):
+        """Return a dictionary object for finding specified cell. If drill_dimension is set, then
+        selector for all descendants of cell through drill dimension is returned."""
         
         selector = {}
         drilled = False
-        for cut in cuboid.cuts:
+        for cut in cell.cuts:
             if type(cut) != PointCut:
                 raise AttributeError("only point cuts are currently supported for mongo aggregation browsing")
             
