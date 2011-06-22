@@ -2,7 +2,10 @@ import logging
 import json
 import decimal
 import copy
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations

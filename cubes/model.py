@@ -3,7 +3,10 @@ import re
 import urllib2
 import urlparse
 import copy
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 
 from cubes.util import IgnoringDictionary
 import cubes.util as util
