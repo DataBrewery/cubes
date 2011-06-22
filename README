@@ -19,6 +19,17 @@ DOCUMENTATION
 
 Documentation can be found at: http://packages.python.org/cubes
 
+
+REQUIREMENTS
+
+Most of the requirements are soft (optional) and need to be satisfied only if certain parts of cubes are
+being used.
+
+* SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7 - for SQL backend
+* PyMogno - for MongoDB backend
+* Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
+
+
 SUPPORT
 
 If you have questions, problems or suggestions, you can send a message to the Google group or 
