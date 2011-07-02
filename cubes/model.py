@@ -188,11 +188,27 @@ class Model(object):
     	cubes = desc.get('cubes', None)
     	if cubes:
     	    for cube_name, cube_desc in cubes.items():
-                self.create_cube(cube_name, cube_desc)
+    	        cube = Cube(cube_name, model = self, info = cube_desc)
+                self.cubes[cube_name] = cube
     	        
         self.translations = {}
+    def add_cube(self, cube):
+        """Adds cube to the model and also assigns the model to the cube. If cube has a model assigned
+        and it is not this model, then error is raised."""
+        if cube.model and cube.model != self:
+            raise ModelError("Trying to assign a cube with different model (%s) to model %s" % 
+                (cube.model.name, self.name))
+
+        cube.model = self
+        self.cubes[cube.name] = cube
         
-    def create_cube(self, cube_name, info ={}):
+    def remove_cube(self, cube):
+        """Removes cube from the model"""
+        cube.model = None
+        del self.cubes[cube.name]
+        
+        
+    def create_cube(self, cube_name, info = {}):
         """Create a Cube instance for the model. This is designated factory method for cubes as it
         properrely creates references to dimension objects
         
@@ -203,6 +219,7 @@ class Model(object):
         Returns:
             * freshly created and initialized Cube instance
         """
+        raise Exception("create_cube is depreciated, create cube with Cube(info, model, ...)")
 
         cube = Cube(cube_name, info)
         cube.model = self
@@ -242,9 +259,14 @@ class Model(object):
     def dimensions(self):
         return self._dimensions.values()
 
-    def dimension(self, name):
-        """Get dimension by name"""
-        return self._dimensions[name]
+    def dimension(self, obj):
+        """Get dimension by name or by object"""
+        if isinstance(obj, basestring) and obj in self._dimensions:
+            return self._dimensions[obj]
+        elif obj.name in self._dimensions:
+            return obj
+        else:
+            raise KeyError("Unknown dimension '%s' in model '%s'" % (obj, self.name))
 
     def to_dict(self, **options):
         """Return dictionary representation of the model. All object references within the dictionary are
@@ -410,7 +432,7 @@ class Cube(object):
           ``id`` for SLQ or ``_id`` for document based databases)
     """
 
-    def __init__(self, name, info = {}):
+    def __init__(self, name, model = None, info = {}):
         """Create a new cube
 
         Args:
@@ -423,29 +445,36 @@ class Cube(object):
         self.description = info.get("description", "")
         self.measures = attribute_list(info.get("measures", []))
         self.details = attribute_list(info.get("details", []))
-        self.model = None
         self.mappings = info.get("mappings", {})
         self.fact = info.get("fact", None)
         self.joins = info.get("joins", [])
         self.key = info.get("key", None)
 
-        # FIXME: Replace this with ordered dictionary in Python 3
+        # This is stored to get dimensions, if dimensions are not defined in-place
+        self.model = model
+
         self._dimensions = OrderedDict()
+
+        if "dimensions" in info:
+            dimensions = info["dimensions"]
+            for obj in dimensions:
+                if isinstance(obj, basestring):
+                    dimension = self.model.dimension(obj)
+                    self.add_dimension(dimension)
+                else:
+                    self.add_dimension(dimension)
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name"""
 
         # FIXME: Do not allow to add dimension if one already exists
         if dimension.name in self._dimensions:
-            raise Exception("Dimension with name %s already exits" % dimension.name)
+            raise ModelError("Dimension with name %s already exits in cube %s" % (dimension.name, self.name))
+
         self._dimensions[dimension.name] = dimension
 
-        # FIXME: this is some historical remnant, check it
-        if self.model:
-            self.model.add_dimension(dimension)
-
     def remove_dimension(self, dimension):
-        """Remove a dimension from receiver"""
+        """Remove a dimension from receiver. `dimension` can be either dimension name or dimension object."""
         dim = self.dimension(dimension)
         del self._dimensions[dim.name]
 
@@ -453,20 +482,21 @@ class Cube(object):
     def dimensions(self):
         return self._dimensions.values()
 
-    def dimension(self, name):
-        """Get dimension by name"""
+    def dimension(self, obj):
+        """Get dimension object. If `obj` is a string, then dimension with given name is returned, otherwise
+        dimension object is returned if it belongs to the cube."""
         
-        if type(name) == str or type(name) == unicode:
-            if name in self._dimensions:
-                return self._dimensions[name]
+        if isinstance(obj, basestring):
+            if obj in self._dimensions:
+                return self._dimensions[obj]
             else:
                 raise ModelError("cube '%s' has no dimension '%s'" %
-                                    (self.name, name))
-        elif issubclass(name.__class__, Dimension):
-             return name
+                                    (self.name, obj))
+        elif issubclass(obj.__class__, Dimension):
+             return obj
         else:
             raise ModelError("Invalid dimension or dimension reference '%s' for cube '%s'" %
-                                    (name, self.name))
+                                    (obj, self.name))
 
     def to_dict(self, expand_dimensions = False, with_mappings = True, **options):
         """Convert to dictionary

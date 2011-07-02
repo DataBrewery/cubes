@@ -105,6 +105,7 @@ class AggregationBrowser(object):
             
             Currently only default hierarchy is used. 
         """
+        raise NotImplementedError
         
     def report(self, cell, report):
         """Creates multiple outputs specified in the `report`.
