@@ -52,7 +52,8 @@ class SQLTestCase(unittest.TestCase):
                         }
                     }
 
-        self.cube = self.model.create_cube("testcube")
+        self.cube = cubes.Cube("testcube")
+        self.model.add_cube(self.cube)
 
         self.date_dim = cubes.Dimension("date", date_desc)
         self.cube.add_dimension(self.date_dim)

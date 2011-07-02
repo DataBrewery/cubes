@@ -11,7 +11,7 @@ class CubeComputationTestCase(unittest.TestCase):
 
     def test_combine_dimensions(self):
         dims = self.cube.dimensions
-        results = cubes.util.compute_dimension_cell_selectors(dims)
+        results = cubes.util.all_cuboids(dims)
         # for r in results:
         #     print "=== COMBO:"
         #     for c in r:
@@ -20,13 +20,13 @@ class CubeComputationTestCase(unittest.TestCase):
         self.assertEqual(len(results), 863)
 
         dim = self.cube.dimension("date")
-        results = cubes.util.compute_dimension_cell_selectors(dims, [dim])
+        results = cubes.util.all_cuboids(dims, [dim])
         self.assertEqual(len(results), 648)
 
     def test_should_not_accept_unknown_dimension(self):
         foo_desc = { "name": "foo", "levels": {"level": {"key": "boo"}}}
         foo_dim = cubes.Dimension('foo', foo_desc)
 
-        self.assertRaises(AttributeError, cubes.util.compute_dimension_cell_selectors,
+        self.assertRaises(AttributeError, cubes.util.all_cuboids,
                                           self.cube.dimensions, [foo_dim])
 

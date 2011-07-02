@@ -108,7 +108,7 @@ class CubesController(application_controller.ApplicationController):
             self.logger.debug("preparing cell for whole cube")
             cuts = []
 
-        self.cell = cubes.cell(self.browser, cuts)
+        self.cell = cubes.Cell(self.browser, cuts)
         
     def aggregate(self):
         self.prepare_cell()
