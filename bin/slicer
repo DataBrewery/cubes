@@ -17,7 +17,12 @@ import ConfigParser
 def validate_model(args):
     """docstring for validate_model"""
     print("loading model %s" % args.model)
-    model = cubes.load_model(args.model)
+
+    try:
+        model = cubes.load_model(args.model)
+    except cubes.ModelError as e:
+        print("error: model loading failed because of logical model error: %s" % e)
+        exit(1)
 
     if args.translation:
         print("translating using %s" % args.translation)
@@ -76,7 +81,8 @@ def validate_model(args):
 
     print("\ndefaults used: %d" % default_count)
     print("%d errors, %d warnings: %s" % (error_count, warning_count, message))
-
+    if error_count > 0:
+        exit(1)
 
 def model_to_json(args):
     """docstring for validate_model"""

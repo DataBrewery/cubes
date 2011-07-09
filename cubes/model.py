@@ -139,6 +139,8 @@ def model_from_dict(desc):
     Arguments:
         desc: model dictionary
     """
+    if not "name" in desc:
+        raise ModelError("No model name specified")
 
     model = Model(desc["name"], desc)
     return model
@@ -189,15 +191,32 @@ class Model(object):
     	if cubes:
     	    for cube_name, cube_desc in cubes.items():
     	        cube = Cube(cube_name, model = self, info = cube_desc)
-                self.cubes[cube_name] = cube
+                self.add_cube(cube)
     	        
         self.translations = {}
     def add_cube(self, cube):
         """Adds cube to the model and also assigns the model to the cube. If cube has a model assigned
-        and it is not this model, then error is raised."""
+        and it is not this model, then error is raised.
+        
+        Cube's dimensions are collected to the model. If cube has a dimension with same name as one of
+        existing model's dimensions, but has different structure, an exception is raised. Dimensions
+        in cube should be the same as in model.
+        """
         if cube.model and cube.model != self:
             raise ModelError("Trying to assign a cube with different model (%s) to model %s" % 
                 (cube.model.name, self.name))
+
+        # Collect dimensions from cube
+        my_dimensions = set(self.dimensions)
+        my_dimension_names = set([dim.name for dim in self.dimensions])
+
+        for dimension in cube.dimensions:
+            if dimension not in my_dimensions:
+                if dimension.name not in my_dimension_names:
+                    self.add_dimension(dimension)
+                else:
+                    raise ModelError("Dimension %s of cube %s has different specification as model's dimension"
+                                            % (dimension.name, cube.name) )
 
         cube.model = self
         self.cubes[cube.name] = cube
@@ -261,12 +280,15 @@ class Model(object):
 
     def dimension(self, obj):
         """Get dimension by name or by object"""
-        if isinstance(obj, basestring) and obj in self._dimensions:
-            return self._dimensions[obj]
+        if isinstance(obj, basestring):
+            if obj in self._dimensions:
+                return self._dimensions[obj]
+            else:
+                raise ModelError("Unknown dimension with name '%s' in model '%s'" % (obj, self.name))
         elif obj.name in self._dimensions:
             return obj
         else:
-            raise KeyError("Unknown dimension '%s' in model '%s'" % (obj, self.name))
+            raise ModelError("Unknown dimension '%s' in model '%s'" % (obj, self.name))
 
     def to_dict(self, **options):
         """Return dictionary representation of the model. All object references within the dictionary are
@@ -462,6 +484,7 @@ class Cube(object):
                     dimension = self.model.dimension(obj)
                     self.add_dimension(dimension)
                 else:
+                    dimension = Dimension(obj["name"], obj)
                     self.add_dimension(dimension)
 
     def add_dimension(self, dimension):
@@ -636,6 +659,10 @@ class Dimension(object):
         Args:
             * name (str): dimension name
             * desc (dict): dict object containing keys label, description, levels, hierarchies, default_hierarchy, key_field
+
+        Defaults:
+            * if no levels are specified, nor attributes, then dimension namee is considered single attribute
+            
         """
         self.name = name
 
@@ -645,7 +672,15 @@ class Dimension(object):
         self._levels = []
         self.level_names = []
 
-        self.__init_levels(desc.get("levels", None))
+        levels = desc.get("levels")
+        # Default behaviour
+        if not levels:
+            attributes = desc.get("attributes")
+            if not attributes:
+                attributes = [self.name]
+            levels = {"default": {"attributes": attributes} }
+            print levels
+        self.__init_levels(levels)
         
         one_hier_desc = desc.get("hierarchy")
         many_hiers_desc = desc.get("hierarchies")
@@ -826,27 +861,30 @@ class Dimension(object):
         """Validate dimension. See Model.validate() for more information. """
         results = []
 
+        skip_hierarchy_check = False
         if not self.levels:
-            results.append( ('error', "No levels in dimension '%s'" % (self.name)) )
+            skip_hierarchy_check = True
+            results.append( ('error', "No attributes or levels in dimension '%s'" % (self.name)) )
 
-        if not self.hierarchies:
-            base = "No hierarchies in dimension '%s'" % (self.name)
-            if self.is_flat:
-                level = self.levels[0]
-                results.append( ('default', base + ", flat level '%s' will be used" % (level.name)) )
-            elif len(self.levels) > 1:
-                results.append( ('error', base + ", more than one levels exist (%d)" % len(self.levels)) )
-            else:
-                results.append( ('error', base) )
-        else:
-            if not self.default_hierarchy_name:
-                if len(self.hierarchies) > 1 and not "default" in self.hierarchies:
-                    results.append( ('error', "No defaut hierarchy specified, there is "\
-                                              "more than one hierarchy in dimension '%s'" % self.name) )
+        if not skip_hierarchy_check:
+            if not self.hierarchies:
+                base = "No hierarchies in dimension '%s'" % (self.name)
+                if self.is_flat:
+                    level = self.levels[0]
+                    results.append( ('default', base + ", flat level '%s' will be used" % (level.name)) )
+                elif len(self.levels) > 1:
+                    results.append( ('error', base + ", more than one levels exist (%d)" % len(self.levels)) )
                 else:
-                    def_name = self.default_hierarchy.name
-                    results.append( ('default', "No default hierarchy name specified in dimension '%s', using "
-                                                "'%s'"% (self.name, def_name)) )
+                    results.append( ('error', base) )
+            else:
+                if not self.default_hierarchy_name:
+                    if len(self.hierarchies) > 1 and not "default" in self.hierarchies:
+                        results.append( ('error', "No defaut hierarchy specified, there is "\
+                                                  "more than one hierarchy in dimension '%s'" % self.name) )
+                    else:
+                        def_name = self.default_hierarchy.name
+                        results.append( ('default', "No default hierarchy name specified in dimension '%s', using "
+                                                    "'%s'"% (self.name, def_name)) )
 
         if self.default_hierarchy_name and not self.hierarchies.get(self.default_hierarchy_name):
             results.append( ('warning', "Default hierarchy '%s' does not exist in dimension '%s'" % 
