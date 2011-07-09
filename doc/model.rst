@@ -89,6 +89,10 @@ dim_*dimension_name*.json  Dimension description, one file per dimension
 ========================== =============================================
 
 
+..note::
+
+    JSON description of logical model and it's parts degrades
+
 Model
 -----
 
@@ -126,7 +130,8 @@ Key            Description
 name           dimension name
 label          human readable name - can be used in an application
 measures       list of cube measures (as Attributes)
-dimensions     list of cube dimension names
+dimensions     list of cube dimensions - either names of dimensions
+               from model or full dimension descriptions
 details        list of fact details (as Attributes) - attributes
                that are not relevant to aggregation, but are
                nice-to-have when displaying facts (might be
