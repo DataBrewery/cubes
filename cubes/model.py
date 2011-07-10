@@ -700,7 +700,7 @@ class Dimension(object):
                 attributes = [self.name]
             levels = {"default": {"attributes": attributes} }
 
-        self.__init_levels(levels)
+        self._init_levels(levels)
         
         hierarchies = desc.get("hierarchies")
         
@@ -714,7 +714,7 @@ class Dimension(object):
                 hier = hierarchy
             hierarchies =  { "default": hier }
             
-        self.__init_hierarchies(hierarchies)
+        self._init_hierarchies(hierarchies)
         
         self._flat_hierarchy = None
 
@@ -746,7 +746,7 @@ class Dimension(object):
         return not self.__eq__(other)
 
 
-    def __init_levels(self, desc):
+    def _init_levels(self, desc):
         self._levels = {}
 
         if desc == None:
@@ -758,7 +758,7 @@ class Dimension(object):
             self._levels[level_name] = level
             self.level_names.append(level_name)
 
-    def __init_hierarchies(self, desc):
+    def _init_hierarchies(self, desc):
         """booo bar"""
         self.hierarchies = {}
 
@@ -766,8 +766,10 @@ class Dimension(object):
             return
 
         for hier_name, hier_info in desc.items():
-            hier = Hierarchy(hier_name, hier_info)
-            hier.dimension = self
+            hdesc = {"name":hier_name}
+            hdesc.update(hier_info)
+
+            hier = Hierarchy(dimension = self, **hdesc)
             self.hierarchies[hier_name] = hier
 
     def _initialize_default_flat_hierarchy(self):
@@ -827,9 +829,8 @@ class Dimension(object):
         # if len(levels) > 0:
         #     raise AttributeError("Could not create default flat hierarchy in dimension '%s' if there "
         #                          "are more than one level" % self.name)
-        hier = Hierarchy(level.name)
-        hier.level_names = [level.name]
-        hier.dimension = self
+        hier = Hierarchy(name = level.name, dimension = self)
+        hier.levels = [level.name]
         return hier
 
     @property
@@ -983,15 +984,29 @@ class Hierarchy(object):
         * levels: ordered list of levels from dimension
     """
 
-    def __init__(self, name, info = {}, dimension = None):
+    def __init__(self, name = None, levels = None, label = None, dimension = None):
         self.name = name
-        self._dimension = None
-        self.label = info.get("label", "")
-        self.level_names = info.get("levels", [])
-        self.null_value = info.get("missing_key_value", None)
+        self.label = label
         self.dimension = dimension
-        self.levels = []
-
+        self._levels = OrderedDict()
+        self.levels = levels
+    
+    @property
+    def levels(self):
+        return self._levels.values()
+        
+    @levels.setter
+    def levels(self, levels):
+        self._levels = OrderedDict()
+        if levels:
+            for level in levels:
+                if isinstance(level, basestring):
+                    if not self.dimension:
+                        raise ModelError("Unable to set hierarchy level '%s' by name, no dimension specified"
+                                            % level)
+                    level = self.dimension.level(level)
+                self._levels[level.name] = level
+                
     def __eq__(self, other):
         if not other or type(other) != type(self):
             return False
@@ -999,27 +1014,10 @@ class Hierarchy(object):
             return False
         elif self.levels != other.levels:
             return False
-        elif self.null_value != other.null_value:
-            return False
-        # elif self._dimension != other._dimension:
-        #     return False
         return True
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    @property
-    def dimension(self):
-        return self._dimension
-
-    @dimension.setter
-    def dimension(self, a_dimension):
-        self._dimension = a_dimension
-        self.levels = []
-        if a_dimension != None:
-            for level_name in self.level_names:
-                level = self.dimension.level(level_name)
-                self.levels.append(level)
 
     def levels_for_path(self, path, drilldown = False):
         """Returns levels for given path. If path is longer than hierarchy levels, exception is raised"""
@@ -1043,9 +1041,13 @@ class Hierarchy(object):
         """Returns next level in hierarchy after `level`. If `level` is last level, returns
         ``None``"""
 
-        level = self._dimension.level(level)
-        index = self.level_names.index(level.name)
-        if index + 1 == len(self.level_names):
+        if isinstance(level, basestring):
+            level_name = level
+        else:
+            level_name = level.name
+
+        index = self._levels.keys().index(level_name)
+        if index + 1 == len(self._levels):
             return None
         else:
             return self.levels[index + 1]
@@ -1055,9 +1057,12 @@ class Hierarchy(object):
         """Returns previous level in hierarchy after `level`. If `level` is first level, 
         returns ``Nonte``"""
         
-        level = self._dimension(level)
-        index = self.level_names.index(level.name)
+        if isinstance(level, basestring):
+            level_name = level
+        else:
+            level_name = level.name
 
+        index = self._levels.keys().index(level_name)
         if index == 0:
             return None
         else:
@@ -1071,7 +1076,7 @@ class Hierarchy(object):
         if level:
             level = self.dimension.level(level)
         
-            last = self.level_names.index(level.name) + 1
+            last = self._levels.keys().index(level.name) + 1
             if last > len(path):
                 raise ValueError("Can not roll-up: level '%s' in dimension '%s' is deeper than "
                                  "deepest element of path %s", level.name, self.dimension.name, path)
@@ -1090,7 +1095,7 @@ class Hierarchy(object):
         """Returns True if path is base path for the hierarchy. Base path is a path where there are
         no more levels to be added - no drill down possible."""
         
-        return len(path) == len(self.levels)
+        return len(path) == len(self._levels)
 
     def to_dict(self, **options):
         """Convert to dictionary"""
@@ -1098,8 +1103,7 @@ class Hierarchy(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
-        out.setnoempty("levels", self.level_names)
-        out.setnoempty("missing_key_value", self.null_value)
+        out.setnoempty("levels", self._levels.keys())
 
         return out
         
