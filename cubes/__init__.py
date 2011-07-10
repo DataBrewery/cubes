@@ -16,9 +16,7 @@ common._configure_logger()
 __all__ = [
     "logger_name",
     "load_model",
-    "model_from_url",
     "model_from_path",
-    "model_from_dict",
     "cuts_from_string",
     "string_from_cuts",
     "attribute_list",

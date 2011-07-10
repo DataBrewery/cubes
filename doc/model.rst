@@ -1,5 +1,8 @@
-Logical Model
-*************
+:mod:`model` --- Logical Model
+==============================
+
+.. module:: model
+   :synopsis: logical model representation, cube descriptions, dimensions
 
 Logical model describes the data from user's or analyst's perspective: data how they are being
 measured, aggregated and reported. Model is independent of physical implementation of data. This
@@ -56,8 +59,8 @@ focus on reporting and keep their way of looking on data.
 Logical Model description
 =========================
 
-The logical model can be either constructed programmatically or provided as JSON, where the later
-is preferred. The model entities and their structure is depicted on the following figure:
+The logical model can be either constructed programmatically or provided as JSON. The model entities and
+their structure is depicted on the following figure:
 
 .. figure:: logical_model.png
     :align: center
@@ -65,95 +68,17 @@ is preferred. The model entities and their structure is depicted on the followin
 
     The logical model entities and relationships.
    
-Load a model::
+Load a model
+------------
 
-    model = cubes.load_model(path)
+.. autofunction::cubes.model.load_model
 
-The ``path`` might be:
+Model components
+----------------
 
-* JSON file with a dictionary describing model
-* URL with a JSON dictionary
-* a directory with logical model description files (model, cubes, dimensions) - note that this is
-  the old way of specifying model and is being depreciated
+.. autoclass:: cubes.model.Model
 
-Model can be represented also as a single json file containing all model objects. 
-
-The directory ("the old way") contains:
-
-========================== =============================================
-File                       Description
-========================== =============================================
-model.json                 Core model information
-cube_*cube_name*.json      Cube description, one file per cube
-dim_*dimension_name*.json  Dimension description, one file per dimension
-========================== =============================================
-
-
-..note::
-
-    JSON description of logical model and it's parts degrades
-
-Model
------
-
-The `model` dictionary contains main model description. The structure is::
-
-    {
-    	"name": "public_procurements",
-    	"label": "Public Procurements of Slovakia",
-    	"description": "Contracts of public procurement winners in Slovakia"
-    	"cubes": {...}
-    	"dimensions": {...}
-    }
-
-============== ===================================================
-Key            Description
-============== ===================================================
-name           dimension name
-label          human readable name - can be used in an application
-description    longer human-readable description of the model
-cubes          dictionary of cube descriptions (see below)
-dimensions     dictionary of dimension descriptions (see below)
-============== ===================================================
-
-For information about physical mapping see :ref:`PhysicalMapping`.
-
-Cubes
------
-
-Cube descriptions are stored in json files with prefix ``cube_`` like ``cube_contracts``, or as
-a dictionary for key ``cubes`` in the model description dictionary.
-
-============== ====================================================
-Key            Description
-============== ====================================================
-name           dimension name
-label          human readable name - can be used in an application
-measures       list of cube measures (as Attributes)
-dimensions     list of cube dimensions - either names of dimensions
-               from model or full dimension descriptions
-details        list of fact details (as Attributes) - attributes
-               that are not relevant to aggregation, but are
-               nice-to-have when displaying facts (might be
-               separately stored)
-joins          specification of physical table joins (order matters)
-mappings       mapping of logical attributes to physical attributes
-============== ====================================================
-
-Example::
-
-    {
-        "name": "date",
-        "label": "Dátum",
-        "dimensions": [ "date", ... ]
-
-    	"measures": [...],
-    	"details": [...],
-
-    	"fact": "fact_table_name",
-    	"mappings": { ... },
-    	"joins": [ ... ]
-    }
+.. autoclass:: cubes.model.Cube
 
 Dimensions
 ----------

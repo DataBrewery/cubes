@@ -55,9 +55,9 @@ class SQLTestCase(unittest.TestCase):
         self.cube = cubes.Cube("testcube")
         self.model.add_cube(self.cube)
 
-        self.date_dim = cubes.Dimension("date", date_desc)
+        self.date_dim = cubes.Dimension(**date_desc)
         self.cube.add_dimension(self.date_dim)
-        self.class_dim = cubes.Dimension("cls", class_desc)
+        self.class_dim = cubes.Dimension(**class_desc)
         self.cube.add_dimension(self.class_dim)
         
         self.cube.measures = [cubes.Attribute("amount")]
