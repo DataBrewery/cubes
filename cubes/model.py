@@ -46,7 +46,7 @@ def load_model(resource, translations = None):
         parts = urlparse.urlparse(resource)
         should_close = True
         if parts.scheme == '' or parts.scheme == 'file':
-            handle = file(resource)
+            handle = open(resource)
         else:
             handle = urllib2.urlopen(resource)
     else:
@@ -293,11 +293,6 @@ class Model(object):
               ``dimension_name.attribute_name``
         """
 
-        def add_value(d, key, value):
-            if value:
-                d[key] = value
-                
-        
         out = IgnoringDictionary()
 
         out.setnoempty("name", self.name)
@@ -1286,19 +1281,6 @@ class Attribute(object):
         else:
             self.locales = locales
         
-    def __dict__(self):
-        d = {"name": self.name}
-        if self.label is not None:
-            d["label"] = self.label
-        if self.locales:
-            d["locales"] = self.locales
-        if self.order is not None:
-            d["order"] = self.order
-        if self.description is not None:
-            d["description"] = self.description
-
-        return d
-        
     def __str__(self):
         return self.name
         
@@ -1313,7 +1295,15 @@ class Attribute(object):
         return not self.__eq__(other)
         
     def to_dict(self, dimension = None, **options):
-        d = self.__dict__()
+        d = {"name": self.name}
+        if self.label is not None:
+            d["label"] = self.label
+        if self.locales:
+            d["locales"] = self.locales
+        if self.order is not None:
+            d["order"] = self.order
+        if self.description is not None:
+            d["description"] = self.description
         if dimension:
             d["full_name"] = self.full_name(dimension)
         return d
