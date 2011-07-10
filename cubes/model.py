@@ -753,8 +753,8 @@ class Dimension(object):
             return
 
         for level_name, level_info in desc.items():
-            level = Level(level_name, level_info)
-            level.dimension = self
+            info = dict([("name", level_name)] + level_info.items())
+            level = Level(dimension = self, **info)
             self._levels[level_name] = level
             self.level_names.append(level_name)
 
@@ -1130,13 +1130,14 @@ class Level(object):
         * attributes: list of other additional attributes that are related to the level. The attributes are not being used for aggregations, 
             they provide additional useful information
     """
-    def __init__(self, name, desc, dimension = None):
+    def __init__(self, name = None, key = None, attributes = None, null_value = None, 
+                label = None, label_attribute = None, dimension = None):
         self.name = name
-        self.label = desc.get("label", "")
-        self.null_value = desc.get("missing_key_value", None)
-        self._key = desc.get("key", None)
-        self.attributes = attribute_list(desc.get("attributes", []))
-        self._label_attribute = desc.get("label_attribute", None)
+        self.label = label
+        self.null_value = null_value
+        self._key = key
+        self.attributes = attribute_list(attributes)
+        self._label_attribute = label_attribute
             
         self.dimension = dimension
 
@@ -1245,22 +1246,6 @@ def attribute_list(attributes):
             new = Attribute(**attr)
         array.append(new)
     return array
-    
-# def attribute_list(attributes):
-#     """Create a list of attributes from a list of strings or dictionaries."""
-# 
-#     odict = collections.OrderedDict()
-# 
-#     if not attributes:
-#         return odict
-# 
-#     for attr in attributes:
-#         if type(attr) == str or type(attr) == unicode:
-#             new = Attribute(name = attr)
-#         else:
-#             new = Attribute(**attr)
-#         odict[new.name] = new
-#     return odict
 
 class Attribute(object):
     """Cube attribute - represents any fact field/column"""
@@ -1363,18 +1348,3 @@ class Measure(Attribute):
 
         super(Measure, self).__init__(name, label, locales, order, **kwargs)
         self.aggregations = aggregations
-        
-# class DimensionSelector(tuple):
-#     """DimensionSelector - specifies a dimension and level depth to be selected. This is utility
-#     class that might be used internally in cube aggregations or aggregation browsers.
-#     
-#     :Attributes:
-#     
-#         * `dimension`: dimension object
-#         * `levels`: list of levels
-#     
-#     """
-#     def __init__(self, dimension, levels):
-#         super(DimensionSelector, self).__init__()
-#         self.arg = arg
-#         
