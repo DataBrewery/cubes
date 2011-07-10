@@ -14,12 +14,14 @@ class ModelTestCase(unittest.TestCase):
 
     def test_dimension_from_file(self):
         info = self.model_dict["dimensions"]["date"]
-        dim = cubes.Dimension("date", info)
-        self.assertEqual(len(dim.levels), 3, "invalid number of levels for date dimension")
-        self.assertEqual(len(dim.hierarchies), 2, "invalid number of hierarchies for date dimension")
-        self.assertItemsEqual(dim.level_names, ["year", "month", "day"],
+        dim = cubes.Dimension(**info)
+
+        self.assertEqual(3, len(dim.levels))
+        self.assertEqual(2, len(dim.hierarchies))
+
+        self.assertItemsEqual(["year", "month", "day"], dim.level_names,
                                         "invalid levels %s" % dim.level_names)
-        self.assertItemsEqual(dim.hierarchies.keys(), ["default", "ym"],
+        self.assertItemsEqual(["default", "ym"], dim.hierarchies.keys(),
                                         "invalid hierarchies %s" % dim.hierarchies.keys())
         self.assertEqual(dim.hierarchies["default"], dim.default_hierarchy, "Default hierarchy does not match")
 
@@ -33,19 +35,21 @@ class ModelTestCase(unittest.TestCase):
 
     def test_cube_from_file(self):
         info = self.model_dict["cubes"]["contracts"]
-        self.skipTest("Cubes are not yet implemented")
+        self.skipTest("Cubes test is not yet implemented")
 
     def test_model_from_path(self):
         model = cubes.model_from_path(self.model_path)
+
         self.assertEqual(model.name, "public_procurements", "Model was not properely loaded")
-        self.assertEqual(len(model.dimensions), 6, "Model dimensions were not properely loaded")
-        self.assertEqual(len(model.cubes), 1, "Model cubes were not loaded")
+        self.assertEqual(len(model.dimensions), 6)
+        self.assertEqual('cpv', model.dimension('cpv').name)
+        self.assertEqual(len(model.cubes), 1)
         cube = model.cubes.get("contracts")
         self.assertNotEqual(None, cube, 'No expected "contracts" cube found')
         self.assertEqual(cube.name, "contracts", "Model cube was not properely loaded")
 
         self.assertModelValid(model)
-        
+                
     def model_validation(self):
         self.skipTest("Model validation is not yet implemented")
 
@@ -67,11 +71,11 @@ class ModelTestCase(unittest.TestCase):
 class ModelFromDictionaryTestCase(unittest.TestCase):
     def setUp(self):
         self.model_path = os.path.join(DATA_PATH, 'model.json')
-        self.model = cubes.model_from_path(self.model_path)
+        self.model = cubes.load_model(self.model_path)
 
     def test_model_from_dictionary(self):
         model_dict = self.model.to_dict()
-        new_model = cubes.model_from_dict(model_dict)
+        new_model = cubes.model.Model(**model_dict)
         new_model_dict = new_model.to_dict()
         
         # Break-down comparison to see where the difference is
@@ -109,8 +113,8 @@ class ModelValidatorTestCase(unittest.TestCase):
         self.assertEqual(lvl1, lvl2)
         self.assertNotEqual(lvl2, lvl3)
         
-        dim1 = cubes.Dimension('date', self.date_desc)
-        dim2 = cubes.Dimension('date', self.date_desc)
+        dim1 = cubes.Dimension(**self.date_desc)
+        dim2 = cubes.Dimension(**self.date_desc)
 
         self.assertListEqual(dim1.levels, dim2.levels)
         self.assertListEqual(dim1.hierarchies.items(), dim2.hierarchies.items())
@@ -119,35 +123,25 @@ class ModelValidatorTestCase(unittest.TestCase):
 
     def test_default_dimension(self):
         date_desc = { "name": "date", "levels": {"year": {"key": "year"}}}
-        dim = cubes.Dimension('date', date_desc)
+        dim = cubes.Dimension(**date_desc)
         h = dim.default_hierarchy
         self.assertEqual("year", h.name)
 
         date_desc = { "name": "date", "levels": self.date_levels2}
-        dim = cubes.Dimension('date', date_desc)
-        test = lambda: dim.default_hierarchy
-        self.assertRaises(KeyError, test)
-        
-        date_desc = { "name": "date", "levels": {}}
-        dim = cubes.Dimension('date', date_desc)
+        dim = cubes.Dimension(**date_desc)
         test = lambda: dim.default_hierarchy
         self.assertRaises(KeyError, test)
 
     def test_dimension_types(self):
         date_desc = { "name": "date", "levels": {"year": {"key": "year"}}}
-        dim = cubes.Dimension('date', date_desc)
+        dim = cubes.Dimension(**date_desc)
 
         for level in dim.levels:
             self.assertEqual(type(level), cubes.Level)
 
     def test_dimension_validation(self):
-        date_desc = { "name": "date"}
-        dim = cubes.Dimension('date', date_desc)
-        results = dim.validate()
-        self.assertValidationError(results, "No levels in dimension")
-
         date_desc = { "name": "date", "levels": {"year": {"key": "year"}}}
-        dim = cubes.Dimension('date', date_desc)
+        dim = cubes.Dimension(**date_desc)
         self.assertEqual(1, len(dim.levels))
         results = dim.validate()
         self.assertValidation(results, "No levels")
@@ -156,13 +150,12 @@ class ModelValidatorTestCase(unittest.TestCase):
         self.assertValidationError(results, "No hierarchies in dimension", expected_type = "default")
 
         date_desc = { "name": "date", "levels": self.date_levels}
-        dim = cubes.Dimension('date', date_desc)
+        dim = cubes.Dimension(**date_desc)
         results = dim.validate()
-
         self.assertValidationError(results, "No hierarchies in dimension.*more", expected_type = "error")
 
         date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers }
-        dim = cubes.Dimension('date', date_desc)
+        dim = cubes.Dimension(**date_desc)
         results = dim.validate()
 
         self.assertValidation(results, "No levels in dimension", "Dimension is invalid without levels")
@@ -180,10 +173,10 @@ class ModelValidatorTestCase(unittest.TestCase):
 
         date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers2 }
         # cubes.Dimension('date', date_desc)
-        self.assertRaisesRegexp(KeyError, 'No level day in dimension', cubes.Dimension, 'date', date_desc)
+        self.assertRaisesRegexp(KeyError, 'No level day in dimension', cubes.Dimension, **date_desc)
 
         date_desc = { "name": "date", "levels": self.date_levels2 , "hierarchies": self.date_hiers2 }
-        dim = cubes.Dimension('date', date_desc)
+        dim = cubes.Dimension(**date_desc)
         results = dim.validate()
         self.assertValidationError(results, "No defaut hierarchy .* more than one")
 
