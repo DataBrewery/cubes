@@ -637,14 +637,6 @@ class CubeQuery(object):
             self._drilldown = self.drilldown
         else:
             raise TypeError("Drilldown is of unknown type: %s" % self.drilldown.__class__)
-
-    # def attribute(self, field):
-    #     """Return Attribute object based on field specification."""
-    #     if isinstance(field, cubes.model.Attribute):
-    #         return field
-    #         
-    #     split = field.split(".")
-    #     if len(split) == 1:
         
     def column(self, field, dimension = None):
         # FIXME: should use: field.full_name(dimension, self.locale)

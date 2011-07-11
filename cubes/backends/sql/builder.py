@@ -153,7 +153,7 @@ class SQLDenormalizer(object):
 
         for attribute in self.cube.details:
             self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
-
+            
         self.logger.info("collecting dimension attributes...")
 
         for dim in self.cube.dimensions:

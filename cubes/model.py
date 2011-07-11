@@ -476,10 +476,11 @@ class Cube(object):
             self.measures = attribute_list([])
         else:
             self.measures = attribute_list(measures)
+
         if details is None:
             self.details = attribute_list([])
         else:
-            self.details = attribute_list("details")
+            self.details = attribute_list(details)
 
         self.mappings = mappings
         self.fact = fact
