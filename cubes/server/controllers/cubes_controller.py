@@ -115,7 +115,16 @@ class CubesController(application_controller.ApplicationController):
 
         drilldown = self.args.getlist("drilldown")
 
-        result = self.cell.aggregate(drilldown = drilldown, 
+        dic_drilldown = {}
+
+        # Allow dimension:level specification for drilldown
+
+        if drilldown:
+            for drill_dim in drilldown:
+                split = drill_dim.split(":")
+                dic_drilldown[split[0]] = split[1] if len(split) >= 2 else None
+
+        result = self.cell.aggregate(drilldown = dic_drilldown, 
                                         page = self.page, 
                                         page_size = self.page_size,
                                         order = self.order)

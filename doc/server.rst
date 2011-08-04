@@ -43,7 +43,8 @@ Cube API calls have format: ``/cube/<cube_name>/<browser_action>`` where the bro
         * `cut` - specification of cuboid, for example:
           ``cut=date:2004,1|category=2|entity=12345``
         * `drilldown` - dimension to be drilled down. For example ``drilldown=date`` will give
-          rows for each value of next level of dimension date.
+          rows for each value of next level of dimension date. You can explicitly specify level to
+          drill down in form: ``dimension:level``, such as: ``drilldown=date:month``
         * `page` - page number for paginated results
         * `pagesize` - size of a page for paginated results
         * `order` - list of attributes to be ordered by

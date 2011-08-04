@@ -247,6 +247,23 @@ class SQLBrowserTestCase(SQLTestCase):
         self.assertRaisesRegexp(ValueError, "Unable to drill-down.*last level", query.prepare)
 
 
+    def test_explicit_drill_down_next_default(self):
+        cell = self.full_cube
+
+        query = CubeQuery(cell, self.view)
+        query.drilldown = {"date": "year"}
+        query.prepare()
+        stmt = query.drilldown_statement
+        s1 = str(stmt)
+
+        query = CubeQuery(cell, self.view)
+        query.drilldown = {"date": None}
+        query.prepare()
+        stmt = query.drilldown_statement
+        s2 = str(stmt)
+
+        self.assertEqual(s1, s2)
+
     def test_explicit_drill_down(self):
         cell = self.full_cube
         query = CubeQuery(cell, self.view)

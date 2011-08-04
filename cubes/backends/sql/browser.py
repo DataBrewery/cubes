@@ -614,29 +614,47 @@ class CubeQuery(object):
         considered"""
 
         if type(self.drilldown) == list or type(self.drilldown) == tuple:
-            self.logger.debug("normalizing drill-down")
+            self.logger.debug("converting drill-down specification to a dictionary")
             self._drilldown = {}
 
-            for obj in self.drilldown:
-                dim = self.cube.dimension(obj)
-                last_level = self._last_levels.get(dim.name)
-
-                if last_level:
-                    next_level = dim.default_hierarchy.next_level(self._last_levels[dim.name])
-                    if not next_level:
-                        raise ValueError("Unable to drill-down after level '%s'. It is last level "
-                                         "in default hierarchy in dimension '%s'" % 
-                                         (last_level.name, dim.name))
-                else:
-                    next_level = dim.default_hierarchy.levels[0]
-
-                self.logger.debug("dimension %s last level: %s next: %s" % (dim.name, last_level, next_level.name))
+            for dim in self.drilldown:
+                dim = self.cube.dimension(dim)
+                next_level = self._next_drilldown_level(dim)
                 self._drilldown[dim.name] = next_level
         elif isinstance(self.drilldown, dict):
-            self.logger.debug("no normalization of drill-down required")
-            self._drilldown = self.drilldown
+            self.logger.debug("updating next levels in drill-down dictionary")
+
+            # FIXME: shouldn't it be an ordered dictionary?
+            self._drilldown = {}
+            
+            for dim, level in self.drilldown.items():
+                dim = self.cube.dimension(dim)
+                if level:
+                    self._drilldown[dim.name] = level
+                else:
+                    next_level = self._next_drilldown_level(dim)
+                    self._drilldown[dim.name] = next_level
         else:
             raise TypeError("Drilldown is of unknown type: %s" % self.drilldown.__class__)
+
+    def _next_drilldown_level(self, dimension):
+        """Get next drilldown level for dimension. If we are already cutting the dimension, then return
+        next level to the last cut level. If we are not cutting, return first level."""
+        
+        # FIXME: only default hierarchy is currently used
+        
+        dim = self.cube.dimension(dimension)
+        last_level = self._last_levels.get(dim.name)
+        if last_level:
+            next_level = dim.default_hierarchy.next_level(self._last_levels[dim.name])
+            if not next_level:
+                raise ValueError("Unable to drill-down after level '%s'. It is last level "
+                                 "in default hierarchy in dimension '%s'" % 
+                                 (last_level.name, dim.name))
+        else:
+            next_level = dim.default_hierarchy.levels[0]
+
+        return next_level
         
     def column(self, field, dimension = None):
         # FIXME: should use: field.full_name(dimension, self.locale)
