@@ -8,6 +8,11 @@ Version 0.8a
   instead of using initialization dictionary, each attribute is listed as parameter, rest is handled from
   variable list of key word arguments
 
+Slicer Server:
+
+* in aggregate drill-down: explicit dimension can be specified with drilldown=dimension:level, such as:
+  date:month
+
 Version 0.7
 ===========
 
