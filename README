@@ -1,42 +1,54 @@
 Cubes - Online Analytical Processing Framework for Python
 
 ABOUT
+=====
 
 Cubes is a python framework for:
 * Online Analytical Processing - OLAP
 * multidimensional analysis
 * cube comptutation
 
-Framework is database agnostic and supports:
+Framework is database agnostic and supports (weak dependency):
 
 * relational databases with SQL (through SQL Alchemy)
 * MongoDB
 
-Includes Sphinx search engine API source from: http://sphinxsearch.com/
-
-
 DOCUMENTATION
+=============
 
 Documentation can be found at: http://packages.python.org/cubes
 
+SOURCE
+======
+
+Main source repository: https://github.com/Stiivi/cubes
+Bitbucket copy (for mercurial users): https://bitbucket.org/Stiivi/cubes
+
 
 REQUIREMENTS
+============
+
+Developed using python 2.7, reported to work with 2.6.
 
 Most of the requirements are soft (optional) and need to be satisfied only if certain parts of cubes are
 being used.
 
-* SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7 - for SQL backend
+* SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.1 - for SQL backend
 * PyMogno - for MongoDB backend
 * Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
 
 
 SUPPORT
+=======
 
 If you have questions, problems or suggestions, you can send a message to the Google group or 
 write to the author.
 
 * Google group: http://groups.google.com/group/cubes-discuss
 
+Report bugs using github issue tracking: https://github.com/Stiivi/cubes/issues
+
 AUTHOR
+======
 
 Stefan Urbanek <stefan.urbanek@gmail.com>

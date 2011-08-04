@@ -1,12 +1,27 @@
 Installation
 ++++++++++++
 
-Project is being hosted at Bitbucket: https://bitbucket.org/Stiivi/cubes
+To install cubes, you can use ``easy_install``::
 
-Download from Bitbucket::
+    easy_install cubes
 
-    hg clone https://Stiivi@bitbucket.org/Stiivi/cubes
+or ``pip``::
+    
+    pip install cubes
+
+Main project repository at Github: https://github.com/Stiivi/cubes
+
+Bitbucket copy for mercurial users: https://bitbucket.org/Stiivi/cubes
+
+
+From sources
+~~~~~~~~~~~~
+
+Download from Github::
+
+    git clone git://github.com/Stiivi/cubes.git
 
 Install::
 
+    cd cubes
     python setup.py install
