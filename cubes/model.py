@@ -553,12 +553,12 @@ class Cube(object):
 
         array = []
         for attr in self.measures:
-            array.append(attr.__dict__())
+            array.append(attr.to_dict())
         out.setnoempty("measures", array)
 
         array = []
         for attr in self.details:
-            array.append(attr.__dict__())
+            array.append(attr.to_dict())
         out.setnoempty("details", array)
 
         if expand_dimensions:
