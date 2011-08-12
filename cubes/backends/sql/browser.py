@@ -102,10 +102,14 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             # FIXME: This reflection is somehow slow (is there anotherway how to do it?)
             self.connection = connection
             self.view_name = view_name
+
+            if not self.view_name:
+                raise Exception("No view name specified for browser")
+                
             self.engine = self.connection.engine
             metadata = sqlalchemy.MetaData(bind = self.engine)
 
-            self.view = sqlalchemy.Table(self.view_name, metadata, autoload = True, schema = schema)
+            self.view = sqlalchemy.Table(self.view_name, metadata, autoload=True, schema=schema)
             self.key_column = self.view.c[self.fact_key]
         elif view is not None:
             self.connection = view.bind
@@ -115,12 +119,13 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         self.logger = logging.getLogger(logger_name)
 
-    def aggregate(self, cell, measures = None, drilldown = None, order = None, **options):
+    def aggregate(self, cell, measures=None, drilldown=None, order=None, **options):
         """See :meth:`cubes.browsers.cell.aggregate`."""
+
         result = cubes.browser.AggregationResult()
         
         # Create query
-        query = CubeQuery(cell, self.view, locale = self.locale)
+        query = CubeQuery(cell, self.view, locale=self.locale)
         query.drilldown = drilldown
         query.order = order
         query.prepare()
@@ -176,6 +181,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
     def facts(self, cell, order = None, **options):
         """Retruns iterable objects with facts"""
         # Create query
+
         query = CubeQuery(cell, self.view, locale = self.locale, **options)
         query.order = order
         query.prepare()
@@ -657,6 +663,15 @@ class CubeQuery(object):
         return next_level
         
     def column(self, field, dimension = None):
+        """Return a table column for `field` which can be either :class:`cubes.Attribute` or a string.
+        
+        Possible column names:
+        * ``field`` for fact field or flat dimension
+        * ``field.locale`` for localized fact field or flat dimension
+        * ``dimension.field`` for multi-level dimension field
+        * ``dimension.field.locale`` for localized multi-level dimension field
+        """
+
         # FIXME: should use: field.full_name(dimension, self.locale)
         # if there is no localization for field, use default name/first locale
         locale_suffix = ""
