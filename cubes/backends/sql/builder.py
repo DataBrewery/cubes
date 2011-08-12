@@ -179,6 +179,10 @@ class SQLDenormalizer(object):
         self.expression = self.fact_table
         self.tables[self.fact_name] = self.fact_table
 
+        if not self.cube.joins:
+            self.logger.info("no joins")
+            return
+
         for join in self.cube.joins:
             self.logger.debug("join: %s" % join)
 
@@ -243,11 +247,11 @@ class SQLDenormalizer(object):
             prefix = ""
         self.logger.debug("looking for mapping %s" % (localized_alias))
 
-        if localized_alias in self.cube.mappings:
+        if self.cube.mappings and localized_alias in self.cube.mappings:
             mapping = self.cube.mappings[localized_alias]
             original_mapping = mapping
             self.logger.debug("  is in mappings: %s" % mapping)
-        elif attribute.alias in self.cube.mappings:
+        elif self.cube.mappings and attribute.alias in self.cube.mappings:
             mapping = self.cube.mappings[attribute.alias]
             original_mapping = mapping
             self.logger.debug("  not in mappings, using default trans: %s" % mapping)

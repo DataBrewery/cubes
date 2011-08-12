@@ -613,8 +613,14 @@ class AggregationResult(object):
         self.drilldown = {}
         self.remainder = {}
         self.total_cell_count = None
+    
 
     def as_dict(self):
+        """Depreciated, use to_dict instead. """
+        # FIXME: remove this
+        return self.to_dict()
+        
+    def to_dict(self):
         """Return dictionary representation of the aggregation result. Can be used for JSON
         serialisation"""
         

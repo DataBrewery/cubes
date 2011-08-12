@@ -668,6 +668,9 @@ class Dimension(object):
     	* levels: list of dimension levels (see: :class:`brewery.cubes.Level`)
     	* hierarchies: list of dimension hierarchies
     	* default_hierarchy_name: name of a hierarchy that will be used when no hierarchy is explicitly specified
+
+    String representation of a dimension ``str(dimension)`` is equal to dimension name.
+
     """
 
     def __init__(self, name = None, label = None, levels = None,
@@ -755,7 +758,7 @@ class Dimension(object):
             self.level_names.append(level_name)
 
     def _init_hierarchies(self, desc):
-        """booo bar"""
+        """Initialize hierarches from description dictionary"""
         self.hierarchies = {}
 
         if desc == None:
@@ -771,6 +774,14 @@ class Dimension(object):
     def _initialize_default_flat_hierarchy(self):
         if not self._flat_hierarchy:
             self._flat_hierarchy = self.flat_hierarchy(self.levels[0])
+    @property
+    def is_flat(self):
+        """Returns ``True`` when dimension is flat, that means that it has no multiple levels. In
+        addition, this method is little bit more extreme and considers a flat dimension only dimension
+        consisting of only one attribute (no additional detail attributes). """
+        
+        # FIXME: this looks somehow hacky, make it more explicit somewhere
+        return not self._levels or len(self._levels) == 1 and len(self._levels[0].attributes) == 1
 
     @property
     def levels(self):
@@ -934,9 +945,10 @@ class Dimension(object):
         return results
 
     def __str__(self):
-        return "<dimension: {name: '%s', levels: %s}>" % (self.name, self.level_names)
+        return self.name
+        
     def __repr__(self):
-        return self.__str__()
+        return "<dimension: {name: '%s', levels: %s}>" % (self.name, self.level_names)
         
     def localize(self, locale):
         util.localize_common(self, locale)
@@ -1310,20 +1322,23 @@ class Attribute(object):
         return d
         
     def full_name(self, dimension, locale = None):
-        """Return full name of an attribute as if it was part of `dimension`.
+        """Return full name of an attribute as if it was part of `dimension`. Append `locale` if
+        it is one of of attribute's locales, otherwise raise an error. If no locale is specified
+        and attribute is localized, then first locale from list of locales is used.
         """
+
         if locale:
             if locale in self.locales:
                 raise ValueError("Attribute '%s' has no localization %s" % self.name)
             else:
                 locale_suffix = "." + locale
         else:
-            locale_suffix = ""
-        
-        if type(dimension) == str or type(dimension) == unicode:
-            return dimension + "." + self.name + locale_suffix
-        else:
-            return dimension.name + "." + self.name + locale_suffix
+            if self.locales:
+                locale_suffix = "." + locales[0]
+            else:
+                locale_suffix = ""
+
+        return str(dimension) + "." + self.name + locale_suffix
 
     def localizable_dictionary(self):
         locale = {}
