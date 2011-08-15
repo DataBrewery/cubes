@@ -538,11 +538,11 @@ class CubeQuery(object):
             dim = self.cube.dimension(cut.dimension)
             if isinstance(cut, cubes.browser.PointCut):
                 path = cut.path
-                condition = self._path_condition(dim, path)
+                condition = self._point_condition(dim, path)
             elif isinstance(cut, cubes.browser.SetCut):
                 conditions = []
                 for path in cut.paths:
-                    conditions.append(self._path_condition(dim, path))
+                    conditions.append(self._point_condition(dim, path))
                 condition = expression.or_(*conditions)
             else:
                 raise Exception("Only point and set cuts are supported in SQL browser at the moment")
@@ -550,7 +550,7 @@ class CubeQuery(object):
         
         self._condition = expression.and_(*self._conditions)
         
-    def _path_condition(self, dim, path):
+    def _point_condition(self, dim, path):
         """Adds a condition for `dimension` point at `path`."""
         conditions = [] 
         levels = dim.default_hierarchy.levels
