@@ -196,9 +196,14 @@ class AggregationBrowser(object):
         
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
-    def __init__(self, browser, cuts = []):
+    def __init__(self, browser=None, cube=None, cuts = []):
+        # FIXME: depreciate browser, require cube
         self.browser = browser
-        self.cube = browser.cube
+        if not cube:
+            self.cube = self.browser.cube
+        else:
+            self.cube = cube
+
         self.cuts = cuts
 
     def slice(self, dimension, path):
@@ -213,7 +218,7 @@ class Cell(object):
 
         Returns: new derived cell object.
         """
-        dimension = self.browser.dimension_object(dimension)
+        dimension = self.cube.dimension(dimension)
         cuts = self._filter_dimension_cuts(dimension, exclude = True)
         if path:
             cut = PointCut(dimension, path)
@@ -251,12 +256,12 @@ class Cell(object):
 
     def cut_for_dimension(self, dimension):
         """Return first found cut for given `dimension`"""
-        dimension = self.browser.cube.dimension(dimension)
+        dimension = self.cube.dimension(dimension)
 
         cut_dimension = None
         for cut in self.cuts:
             try:
-                cut_dimension = self.browser.cube.dimension(cut.dimension)
+                cut_dimension = self.cube.dimension(cut.dimension)
             except:
                 pass
 
@@ -335,7 +340,7 @@ class Cell(object):
         return cell
 
     def _filter_dimension_cuts(self, dimension, exclude = False):
-        dimension = self.browser.cube.dimension(dimension)
+        dimension = self.cube.dimension(dimension)
         cuts = []
         for cut in self.cuts:
             if (exclude and cut.dimension != dimension) or (not exclude and cut.dimension == dimension):
@@ -345,12 +350,13 @@ class Cell(object):
     def aggregate(self, measures = None, drilldown = None, **options):
         """Return computed aggregate of the coboid.
         """
-
+        # FIXME: depreciate this, use browser methods
         return self.browser.aggregate(self, measures, drilldown, **options)
 
     def values(self, dimension, depth = None, paths = None, **options):
         """Return values for dimension up to `depth` levels. If `paths` is speciied, then only
         values which match given path set will be returned."""
+        # FIXME: depreciate this, use browser methods
         return self.browser.values(self, dimension, depth, paths, **options)
 
     def facts(self, **options):
@@ -361,6 +367,7 @@ class Cell(object):
 
             For performance reasons, some backends, such as SQL will return an iterator
             that can be used only once."""
+        # FIXME: depreciate this, use browser methods
         return self.browser.facts(self, **options)
 
     def __eq__(self, other):
@@ -369,12 +376,9 @@ class Cell(object):
             * they have same set of cuts (regardless of their order)
         """
 
-        if self.browser != other.browser:
+        if self.cube != other.cube:
             return False
-        elif self.cube != other.cube:
-            return False
-
-        if len(self.cuts) != len(other.cuts):
+        elif len(self.cuts) != len(other.cuts):
             return False
 
         for cut in self.cuts:

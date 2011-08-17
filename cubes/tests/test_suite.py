@@ -20,7 +20,8 @@ test_cases = [
               CombinationsTestCase,
               CubeComputationTestCase,
               SQLBrowserTestCase,
-              SQLBackendTestCase
+              SQLBackendTestCase,
+              SQLQueryTestCase
                 ]
 
 def load_tests(loader, tests, pattern):

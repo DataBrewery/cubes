@@ -690,16 +690,35 @@ class Dimension(object):
         self.label = label
         self.description = description
 
-        self._levels = []
+        # FIXME: make this an OrderedDict
+        # If there are not levels, create one default level with one default attribute
+        self._levels = {}
         self.level_names = []
 
-        # Default behaviour
         if not levels:
             if not attributes:
                 attributes = [self.name]
-            levels = {"default": {"attributes": attributes} }
+            level = Level(name="default", dimension=self, attributes=attributes)
+            self._levels["default"] = level
+            self.level_names.append("default")
+        else:
+            # FIXME: depreciate levels as dictionary, use only list
+            if isinstance(levels, dict):
+                for level_name, level_info in levels.items():
+                    # FIXME: this is a hack for soon-to-be obsolete level specification
+                    info = dict([("name", level_name)] + level_info.items())
+                    level = Level(dimension = self, **info)
+                    self._levels[level_name] = level
+                    self.level_names.append(level_name)
+            else: # a tuple/list expected
+                for level_info in levels:
+                    if isinstance(level_info, basestring):
+                        level = Level(dimension=self, name=level_info, attributes=[level_info])
+                    else:
+                        level = Level(dimension=self, **level_info)
 
-        self._init_levels(levels)
+                    self._levels[level.name] = level
+                    self.level_names.append(level.name)
         
         hierarchies = desc.get("hierarchies")
         
@@ -744,19 +763,6 @@ class Dimension(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-
-    def _init_levels(self, desc):
-        self._levels = {}
-
-        if desc == None:
-            return
-
-        for level_name, level_info in desc.items():
-            info = dict([("name", level_name)] + level_info.items())
-            level = Level(dimension = self, **info)
-            self._levels[level_name] = level
-            self.level_names.append(level_name)
-
     def _init_hierarchies(self, desc):
         """Initialize hierarches from description dictionary"""
         self.hierarchies = {}
@@ -775,13 +781,10 @@ class Dimension(object):
         if not self._flat_hierarchy:
             self._flat_hierarchy = self.flat_hierarchy(self.levels[0])
     @property
-    def is_flat(self):
-        """Returns ``True`` when dimension is flat, that means that it has no multiple levels. In
-        addition, this method is little bit more extreme and considers a flat dimension only dimension
-        consisting of only one attribute (no additional detail attributes). """
-        
-        # FIXME: this looks somehow hacky, make it more explicit somewhere
-        return not self._levels or len(self._levels) == 1 and len(self._levels[0].attributes) == 1
+    def has_details(self):
+        """Returns ``True`` when each level has only one attribute, usually key."""
+
+        return True in [level.has_details for level in self._levels.values()]
 
     @property
     def levels(self):
@@ -860,7 +863,7 @@ class Dimension(object):
         return attributes
 
     def to_dict(self, **options):
-        """Return dict representation of the dimension"""
+        """Return dictionary representation of the dimension"""
 
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
@@ -876,6 +879,11 @@ class Dimension(object):
         for hier in self.hierarchies.values():
             hier_dict[hier.name] = hier.to_dict(**options)
         out["hierarchies"] = hier_dict
+
+        # Use only for reading, during initialization these keys are ignored, as they are derived
+        # They are provided here for convenience.
+        out["is_flat"] = self.is_flat
+        out["has_details"] = self.has_details
 
 
     	# * levels: list of dimension levels (see: :class:`brewery.cubes.Level`)
@@ -1118,7 +1126,6 @@ class Hierarchy(object):
     def localize(self, locale):
         util.localize_common(self,locale)
 
-
     def localizable_dictionary(self):
         locale = {}
         locale.update(util.get_localizable_attributes(self))
@@ -1201,6 +1208,10 @@ class Level(object):
         out.setnoempty("label_attribute", self._label_attribute)
 
         return out
+
+    @property
+    def has_details(self):
+        return len(self.attributes) > 1
 
     @property
     def key(self):

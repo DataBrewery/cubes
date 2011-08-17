@@ -64,8 +64,8 @@ class FactsIterator(object):
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, connection = None, view_name = None, schema = None, 
-                    view = None, locale = None):
+    def __init__(self, cube, connection=None, view_name=None, schema=None, 
+                    view=None, locale=None):
         """Create a browser.
         
         :Attributes:

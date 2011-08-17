@@ -13,6 +13,7 @@ FACT_COUNT = 100
 class SQLBackendTestCase(unittest.TestCase):
     def setUp(self):
 
+        self.view_name = "test_view"
         engine = sqlalchemy.create_engine('sqlite://')
         self.connection = engine.connect()
         self.metadata = sqlalchemy.MetaData()
@@ -139,3 +140,41 @@ class SQLBackendTestCase(unittest.TestCase):
         result = cell.aggregate()
         self.assertEqual(FACT_COUNT, result.summary["record_count"])
     
+class SQLQueryTestCase(unittest.TestCase):
+    def setUp(self):
+        engine = sqlalchemy.create_engine('sqlite://')
+        self.connection = engine.connect()
+        self.metadata = sqlalchemy.MetaData()
+        self.metadata.bind = engine
+        
+        self.table_name = "test"
+        
+        # Prepare table
+        table = sqlalchemy.Table(self.table_name, self.metadata)
+        table.append_column(Column("id", String))
+        table.append_column(Column("color", String))
+        table.append_column(Column("tone", String))
+        table.append_column(Column("size", String))
+        table.append_column(Column("temperature", String))
+        table.create(self.connection)
+
+        # Prepare model
+        self.model = cubes.Model()
+        cube = cubes.Cube("test")
+        self.model.add_cube(cube)
+
+        dimension = cubes.Dimension("color", levels=["color", "tone"])
+        cube.add_dimension(dimension)
+
+    # def test_query_column(self):
+    #     model = cubes.Model()
+    #     cube = cubes.Cube("test")
+    #     model.add_cube(cube)
+    #     dimension = cubes.Dimension("color")
+    #     cube.add_dimension(dimension)
+    # 
+    #     metadata = sqlalchemy.MetaData(bind=self.connection)
+    #     view = sqlalchemy.Table(self.table_name, metadata, autoload=True)
+    # 
+    #     cell = cubes.Cell(cube=self.cube)
+    #     # query = cubes.backends.sql.CubeQuery(self.cube, view=view)
