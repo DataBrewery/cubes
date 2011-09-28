@@ -33,6 +33,8 @@ class SQLDenormalizer(object):
         if not cube:
             raise ValueError("Cube should be not null")
             
+        self.expression = None
+        
         self.cube = cube
         self.select_statement = None
         self.field_names = []
@@ -78,19 +80,16 @@ class SQLDenormalizer(object):
             self.engine = None
             self.fact = None
 
-    def create_materialized_view(self, view_name, schema = None, index = False):
-        self.logger.warn("create_materialized_view is depreciated, " \
-                         "use create_view with materialize=True instead")
-        self.create_view(view_name, schema, instead, materialize = True)
-            
-    def create_view(self, view_name, schema = None, index = False, materialize = True):
-        """Creates a view.
+    def denormalized_view(self):
+        """Returns SQLAlchemy expression representing select from denormalized view."""
         
-        :Arguments:
-            * `view_name` - name of a view or a table to be created
-            * `schema` - target database schema
-            * `index` - create indexes on level key columns if ``True``. default ``False``
-            * `materialize` - create materialized view (currently as table) if ``True`` (default)
+        if not self.expression:
+            self._create_view_expression()
+
+        return self.expression
+        
+    def _create_view_expression(self):
+        """Creates a view expression - SQLAlchemy expression statement.
         """
 
         self.expression = None
@@ -101,13 +100,25 @@ class SQLDenormalizer(object):
         self._collect_joins()
         self._collect_columns()
 
-        selection = expression.select(self.columns, from_obj = self.expression)
-        self.logger.debug("SQL:\n%s" % str(selection))
+        self.expression = expression.select(self.columns, from_obj = self.expression)
 
+        # self.logger.debug("SQL:\n%s" % str(self.sexpression))
         # count = self.connection.execute(selection).rowcount
         # self.logger.info("rows: %d" % count)
         # self.logger.info("rows: %d" % self.connection.execute(self.fact_table.select()).rowcount)
     
+    def create_view(self, view_name, schema=None, index=False, materialize=True):
+        """Creates a view.
+
+        :Arguments:
+            * `view_name` - name of a view or a table to be created
+            * `schema` - target database schema
+            * `index` - create indexes on level key columns if ``True``. default ``False``
+            * `materialize` - create materialized view (currently as table) if ``True`` (default)
+        """
+        if not self.expression:
+            self._create_view_expression()
+
         table = self._table(view_name, schema = schema, autoload = False)
         if table.exists():
             table.drop(checkfirst=False)
@@ -119,7 +130,7 @@ class SQLDenormalizer(object):
         else:
             create_statement = "CREATE OR REPLACE VIEW"
 
-        statement = "%s %s AS %s" % (create_statement, full_view_name, str(selection))
+        statement = "%s %s AS %s" % (create_statement, full_view_name, str(self.expression))
         self.logger.info("creating table %s" % full_view_name)
         self.logger.debug("SQL statement: %s" % statement)
         self.connection.execute(statement)
@@ -157,6 +168,9 @@ class SQLDenormalizer(object):
         self.logger.info("collecting dimension attributes...")
 
         for dim in self.cube.dimensions:
+            # FIXME: treat flat dimensions with no hierarchies differently here
+            if dim.is_flat and not dim.has_details:
+                self.attributes.append
             hier = dim.default_hierarchy
             for level in hier.levels:
                 for attribute in level.attributes:
@@ -175,7 +189,6 @@ class SQLDenormalizer(object):
         self.logger.info("collecting joins and registering tables...")
 
         self.tables = {}
-        # self.expression = sqlalchemy.sql.expression.alias(self.fact_table, self.fact_name)
         self.expression = self.fact_table
         self.tables[self.fact_name] = self.fact_table
 

@@ -108,7 +108,7 @@ class CubesController(application_controller.ApplicationController):
             self.logger.debug("preparing cell for whole cube")
             cuts = []
 
-        self.cell = cubes.Cell(self.browser, cuts)
+        self.cell = cubes.Cell(self.cube, cuts)
         
     def aggregate(self):
         self.prepare_cell()
@@ -123,8 +123,8 @@ class CubesController(application_controller.ApplicationController):
             for drill_dim in drilldown:
                 split = drill_dim.split(":")
                 dic_drilldown[split[0]] = split[1] if len(split) >= 2 else None
-
-        result = self.cell.aggregate(drilldown = dic_drilldown, 
+        
+        result = self.browser.aggregate(self.cell, drilldown = dic_drilldown, 
                                         page = self.page, 
                                         page_size = self.page_size,
                                         order = self.order)

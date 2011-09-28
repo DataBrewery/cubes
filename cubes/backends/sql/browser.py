@@ -31,7 +31,7 @@ except:
 # * [DONE] dimension values pagination
 # * remainder
 # * ratio - aggregate sum(current)/sum(total) 
-
+# * derived measures (should be in builder)
 
 class FactsIterator(object):
     """
@@ -676,15 +676,17 @@ class CubeQuery(object):
         # if there is no localization for field, use default name/first locale
         locale_suffix = ""
 
+        if isinstance(field, cubes.model.Attribute) and field.locales:
+            locale = self.locale if self.locale in field.locales else field.locales[0]
+            locale_suffix = "." + locale
+
         if dimension:
-            # FIXME: this will not work when fact decoration/detail attributes will be introduced
-            if isinstance(field, cubes.model.Attribute) and field.locales:
-                if self.locale in field.locales:
-                    locale = self.locale
-                else:
-                    locale = field.locales[0]
-                locale_suffix = "." + locale
-            logical_name = dimension.name + '.' + str(field)
+            # FIXME: temporary flat dimension hack, not sure about impact of this to other parts of the
+            # framework
+            if not dimension.is_flat or dimension.has_details:
+                logical_name = dimension.name + '.' + str(field)
+            else:
+                logical_name = str(field)
         else:
             logical_name = field
 
