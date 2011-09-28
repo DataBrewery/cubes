@@ -30,9 +30,9 @@ If you have questions, problems or suggestions, you can send a message to `Googl
 
 Report bugs in `github issues`_ tracking
 
+.. _github issues: https://github.com/Stiivi/cubes/issues
 .. _Google group: http://groups.google.com/group/cubes-discuss
 .. _write to me: stefan.urbanek@gmail.com
-.. _github issues: https://github.com/Stiivi/cubes/issues
 
 Indices and tables
 ==================

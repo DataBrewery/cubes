@@ -67,6 +67,65 @@ class ModelTestCase(unittest.TestCase):
 
         if error_count > 0:
             self.fail("Model validation failed")
+            
+    def test_flat_dimension(self):
+        dim = cubes.Dimension("foo")
+        self.assertEqual(True, dim.is_flat)
+        self.assertEqual(False, dim.has_details)
+        self.assertEqual(1, len(dim.levels))
+
+        level=dim.level("default")
+        self.assertEqual(True, isinstance(level, cubes.Level))
+        self.assertEqual("default", level.name)
+        self.assertEqual(1, len(level.attributes))
+        self.assertEqual("foo", str(level.key))
+
+        attr=level.attributes[0]
+        self.assertEqual(True, isinstance(attr, cubes.Attribute))
+        self.assertEqual("foo", attr.name)
+
+    def test_level_construction(self):
+        dim = cubes.Dimension("foo", levels=["category", "subcategory"])
+        self.assertEqual(2, len(dim.levels))
+        level=dim.level("category")
+        self.assertEqual(True, isinstance(level, cubes.Level))
+        self.assertEqual("category", level.name)
+        self.assertEqual(1, len(level.attributes))
+        self.assertEqual("category", str(level.key))
+
+        attr=level.attributes[0]
+        self.assertEqual(True, isinstance(attr, cubes.Attribute))
+        self.assertEqual("category", attr.name)
+        
+    def test_dimension_dict_construction(self):
+        # Simple dimension: flat, no details
+        info = {"name": "city"}
+        dim = cubes.Dimension(**info)
+        self.assertEqual("city", dim.name)
+        self.assertEqual(1, len(dim.levels))
+
+        # Hierarchical dimension, no details
+        level_names = ["country", "city"]
+        info = {"name": "geography", "levels": level_names}
+        dim = cubes.Dimension(**info)
+        self.assertEqual("geography", dim.name)
+        self.assertEqual(2, len(dim.levels))
+        self.assertEqual(level_names, [level.name for level in dim.levels])
+        self.assertEqual(level_names, [level.key for level in dim.levels])
+
+        # Hierarchical dimension with details
+        levels = [ { "name": "country", "attributes": ["code", "name"]},
+                    { "name": "city", "attributes": ["code", "name", "zip"]} ]
+
+        info = {"name": "geography", "levels": levels}
+
+        dim = cubes.Dimension(**info)
+        self.assertEqual("geography", dim.name)
+        self.assertEqual(2, len(dim.levels))
+        self.assertEqual(level_names, [level.name for level in dim.levels])
+        self.assertEqual(["code", "code"], [level.key for level in dim.levels])
+        
+
         
 class ModelFromDictionaryTestCase(unittest.TestCase):
     def setUp(self):
