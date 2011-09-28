@@ -31,7 +31,7 @@ except:
 # * [DONE] dimension values pagination
 # * remainder
 # * ratio - aggregate sum(current)/sum(total) 
-
+# * derived measures (should be in builder)
 
 class FactsIterator(object):
     """
@@ -64,8 +64,8 @@ class FactsIterator(object):
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, connection = None, view_name = None, schema = None, 
-                    view = None, locale = None):
+    def __init__(self, cube, connection=None, view_name=None, schema=None, 
+                    view=None, locale=None):
         """Create a browser.
         
         :Attributes:
@@ -538,11 +538,11 @@ class CubeQuery(object):
             dim = self.cube.dimension(cut.dimension)
             if isinstance(cut, cubes.browser.PointCut):
                 path = cut.path
-                condition = self._path_condition(dim, path)
+                condition = self._point_condition(dim, path)
             elif isinstance(cut, cubes.browser.SetCut):
                 conditions = []
                 for path in cut.paths:
-                    conditions.append(self._path_condition(dim, path))
+                    conditions.append(self._point_condition(dim, path))
                 condition = expression.or_(*conditions)
             else:
                 raise Exception("Only point and set cuts are supported in SQL browser at the moment")
@@ -550,7 +550,7 @@ class CubeQuery(object):
         
         self._condition = expression.and_(*self._conditions)
         
-    def _path_condition(self, dim, path):
+    def _point_condition(self, dim, path):
         """Adds a condition for `dimension` point at `path`."""
         conditions = [] 
         levels = dim.default_hierarchy.levels
@@ -676,15 +676,17 @@ class CubeQuery(object):
         # if there is no localization for field, use default name/first locale
         locale_suffix = ""
 
+        if isinstance(field, cubes.model.Attribute) and field.locales:
+            locale = self.locale if self.locale in field.locales else field.locales[0]
+            locale_suffix = "." + locale
+
         if dimension:
-            # FIXME: this will not work when fact decoration/detail attributes will be introduced
-            if isinstance(field, cubes.model.Attribute) and field.locales:
-                if self.locale in field.locales:
-                    locale = self.locale
-                else:
-                    locale = field.locales[0]
-                locale_suffix = "." + locale
-            logical_name = dimension.name + '.' + str(field)
+            # FIXME: temporary flat dimension hack, not sure about impact of this to other parts of the
+            # framework
+            if not dimension.is_flat or dimension.has_details:
+                logical_name = dimension.name + '.' + str(field)
+            else:
+                logical_name = str(field)
         else:
             logical_name = field
 
