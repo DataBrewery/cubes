@@ -7,6 +7,20 @@ Version 0.8a
 * Changed initialization of model classes: Model, Cube, Dimension, Hierarchy, Level to be more "pythony":
   instead of using initialization dictionary, each attribute is listed as parameter, rest is handled from
   variable list of key word arguments
+* Improved handling of flat and detail-less dimensions (dimensions represented just by one attribute which
+  is also a key)
+
+Model Initialization Defaults:
+
+* If no levels are specified during initialization, then dimension name is considered flat, with single
+  attribute.
+* If no hierarchy is specified and levels are specified, then default hierarchy will be created from order
+  of levels
+* If no levels are specified, then one level is created, with name `default` and dimension will be
+  considered flat
+
+Note: This initialization defaults might be moved into a separate utility function/class that will populate
+incomplete model
 
 Slicer Server:
 
