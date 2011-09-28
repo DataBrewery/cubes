@@ -137,7 +137,7 @@ class SQLBackendTestCase(unittest.TestCase):
         browser = cubes.backends.sql.SQLBrowser(self.cube, connection = self.connection, 
                                                 view_name = view_name)
         cell = browser.full_cube()
-        result = cell.aggregate()
+        result = browser.aggregate(cell)
         self.assertEqual(FACT_COUNT, result.summary["record_count"])
     
 class SQLQueryTestCase(unittest.TestCase):
@@ -158,23 +158,21 @@ class SQLQueryTestCase(unittest.TestCase):
         table.append_column(Column("temperature", String))
         table.create(self.connection)
 
+        self.table = table
+
         # Prepare model
         self.model = cubes.Model()
-        cube = cubes.Cube("test")
-        self.model.add_cube(cube)
+        self.cube = cubes.Cube("test")
+        self.model.add_cube(self.cube)
 
         dimension = cubes.Dimension("color", levels=["color", "tone"])
-        cube.add_dimension(dimension)
+        self.cube.add_dimension(dimension)
 
-    # def test_query_column(self):
-    #     model = cubes.Model()
-    #     cube = cubes.Cube("test")
-    #     model.add_cube(cube)
-    #     dimension = cubes.Dimension("color")
-    #     cube.add_dimension(dimension)
-    # 
-    #     metadata = sqlalchemy.MetaData(bind=self.connection)
-    #     view = sqlalchemy.Table(self.table_name, metadata, autoload=True)
-    # 
-    #     cell = cubes.Cell(cube=self.cube)
-    #     # query = cubes.backends.sql.CubeQuery(self.cube, view=view)
+        dimension = cubes.Dimension("size")
+        self.cube.add_dimension(dimension)
+
+    def test_query_column(self):
+        full_cube = cubes.browser.Cell(self.cube)
+        query = cubes.backends.sql.CubeQuery(full_cube, view=self.table)
+        
+        
