@@ -9,8 +9,6 @@ Logical Model
 
 .. autofunction:: cubes.load_model
 
-.. autofunction:: cubes.model_from_dict
-
 .. autoclass:: cubes.Model
     :members:
 
@@ -31,7 +29,7 @@ Logical Model
 Aggregate browsing
 ==================
 
-.. autoclass:: cubes.Cuboid
+.. autoclass:: cubes.Cell
     :members:
 
 .. autoclass:: cubes.PointCut

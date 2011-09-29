@@ -1,6 +1,12 @@
 Aggregations and Aggregation Browsing
 +++++++++++++++++++++++++++++++++++++
 
+.. warning::
+    This information is obsolete.
+    
+    * ``Cell`` is no longer used for browsing, you use only ``Browser`` and pass a cell as first argument
+      to get aggregated or other results.
+    * Mongo backend is no logner maintained, only ``cubes.backends.sql.SQLBrowser`` is available
 
 This is MongoDB example, other systems coming soon.
 

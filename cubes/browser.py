@@ -197,7 +197,6 @@ class AggregationBrowser(object):
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
     def __init__(self, cube=None, cuts=[]):
-        # FIXME: depreciate browser, require cube
         self.cube = cube
         self.cuts = cuts
 
@@ -329,8 +328,6 @@ class Cell(object):
         else:
             raise TypeError("Rollup is of unknown type: %s" % self.drilldown.__class__)
         
-        # FIXME: write tests
-        # raise NotImplementedError("Contue here... write tests and stuff")
         cell = Cell(cube=self.cube, cuts=new_cuts)
         return cell
 
