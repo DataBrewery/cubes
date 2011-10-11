@@ -191,7 +191,7 @@ class CubesController(application_controller.ApplicationController):
             return common.NotFoundError(dim_name, "dimension", 
                                         message = "Dimension '%s' was not found" % dim_name)
 
-        values = self.cell.values(dimension, depth = depth, page = self.page, page_size = self.page_size)
+        values = self.browser.values(self.cell, dimension, depth = depth, page = self.page, page_size = self.page_size)
 
         result = {
             "dimension": dimension.name,
