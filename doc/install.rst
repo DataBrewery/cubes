@@ -36,3 +36,8 @@ Install::
     python setup.py install
 
 .. _setuptools: http://pypi.python.org/pypi/setuptools
+
+Indirect dependencies
+~~~~~~~~~~~~~~~~~~~~~
+
+For PostgreSQL, you have to install ``psycopg2`` or some other SQL Alchemy postgres backend.

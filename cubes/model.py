@@ -1302,9 +1302,10 @@ class Attribute(object):
         
     def full_name(self, dimension, locale = None):
         """Return full name of an attribute as if it was part of `dimension`. Append `locale` if
-        it is one of of attribute's locales, otherwise raise an error. If no locale is specified
-        and attribute is localized, then first locale from list of locales is used.
+        it is one of of attribute's locales, otherwise raise an error.
         """
+        # Old behaviour: If no locale is specified and attribute is localized, then first locale from
+        # list of locales is used.
 
         if locale:
             if locale in self.locales:
@@ -1312,10 +1313,7 @@ class Attribute(object):
             else:
                 locale_suffix = "." + locale
         else:
-            if self.locales:
-                locale_suffix = "." + locales[0]
-            else:
-                locale_suffix = ""
+            locale_suffix = ""
 
         return str(dimension) + "." + self.name + locale_suffix
 
