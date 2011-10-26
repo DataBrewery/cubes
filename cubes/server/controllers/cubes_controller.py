@@ -147,7 +147,7 @@ class CubesController(application_controller.ApplicationController):
         else:
             fields = None
 
-        result = self.cell.facts(order = self.order,
+        result = self.browser.facts(self.cell, order = self.order,
                                     page = self.page, 
                                     page_size = self.page_size)
 
