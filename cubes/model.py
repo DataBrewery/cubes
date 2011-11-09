@@ -373,7 +373,7 @@ class Model(object):
     def localize(self, translation):
         """Return localized version of model"""
         
-        model = copy.copy(self)
+        model = copy.deepcopy(self)
         
         if type(translation) == str or type(translation) == unicode:
             translation = self.translations[translation]
