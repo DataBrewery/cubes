@@ -683,10 +683,12 @@ class CubeQuery(object):
         if dimension:
             # FIXME: temporary flat dimension hack, not sure about impact of this to other parts of the
             # framework
-            if not dimension.is_flat or dimension.has_details:
-                logical_name = dimension.name + '.' + str(field)
+            # FIXME: the third condition is a temporary quick fix for https://github.com/Stiivi/cubes/issues/14
+            field_name = str(field)
+            if not dimension.is_flat or dimension.has_details or dimension.name != field_name:
+                logical_name = dimension.name + '.' + field_name
             else:
-                logical_name = str(field)
+                logical_name = field_name
         else:
             logical_name = field
 
