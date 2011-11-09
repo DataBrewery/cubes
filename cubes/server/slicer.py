@@ -130,6 +130,9 @@ class Slicer(object):
                 model_path = 'unknown path'
             raise common.ServerError("Unable to load model from %s" % model_path)
 
+        self.model_localizations = {}
+
+
         if config.has_option("model", "locales"):
             self.locales = config.get("model", "locales").split(",")
             self.logger.info("model locales: %s" % self.locales)

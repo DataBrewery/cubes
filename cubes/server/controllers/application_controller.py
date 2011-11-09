@@ -35,19 +35,28 @@ class ApplicationController(object):
         """Tries to translate the model. Looks for language in configuration file under 
         ``[translations]``, if no translation is provided, then model remains untouched."""
 
-        self.logger.debug("localization requested (model locale: %s)" % self.model.locale)
-        # Do not translate if already translated
-        if self.model.locale == self.locale:
-            self.logger.debug("no localization needed")
-            return
+        # FIXME: Rewrite this to make it thread safer
 
-        if self.config.has_option("translations", self.locale):
-            self.logger.debug("translating model to %s" % self.locale)
+        self.logger.debug("localization to '%s' (current: '%s') requested (has: %s)" % (self.locale, self.model.locale, self.app.model_localizations.keys()))
+
+        if self.locale in self.app.model_localizations:
+            self.logger.debug("localization '%s' found" % self.locale)
+            self.model = self.app.model_localizations[self.locale]
+
+        elif self.locale == self.master_model.locale:
+            self.app.model_localizations[self.locale] = self.master_model
+            self.model = self.master_model
+
+        elif self.config.has_option("translations", self.locale):
             path = self.config.get("translations", self.locale)
-            handle = open(path)
-            trans = json.load(handle)
-            handle.close()
-            self.model = self.master_model.localize(trans)
+            self.logger.debug("translating model to '%s' translation path: %s" % (self.locale, path))
+            with open(path) as handle:
+                trans = json.load(handle)
+            model = self.master_model.localize(trans)
+                
+            self.app.model_localizations[self.locale] = model
+            self.model = model
+
         else:
             raise common.RequestError("No translation for language '%s'" % self.locale)
         
