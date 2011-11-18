@@ -197,10 +197,14 @@ class Model(object):
 
         # FIXME: pythonify: allow dimension objects
     	if dimensions:
-    	    for dim_name, dim_desc in dimensions.items():
-    	        desc = dict([("name", dim_name)] + dim_desc.items())
-    	        dim = Dimension(**desc)
-                self.add_dimension(dim)
+            if isinstance(dimensions, dict):
+                for dim_name, dim_desc in dimensions.items():
+                    desc = dict([("name", dim_name)] + dim_desc.items())
+                    dim = Dimension(**desc)
+                    self.add_dimension(dim)
+            else:
+                for desc in dimensions:
+                    self.add_dimension(Dimension(**desc))
 
     	self.cubes = {}
 
@@ -254,7 +258,6 @@ class Model(object):
 
     def add_dimension(self, dimension):
         """Add dimension to model. Replace dimension with same name"""
-
         self._dimensions[dimension.name] = dimension
 
     def remove_dimension(self, dimension):
