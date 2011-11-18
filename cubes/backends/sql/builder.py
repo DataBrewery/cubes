@@ -167,20 +167,22 @@ class SQLDenormalizer(object):
             
         self.logger.info("collecting dimension attributes...")
 
+        # FIXME: refactor this
         for dim in self.cube.dimensions:
-            # FIXME: treat flat dimensions with no hierarchies differently here
+            # Treat flat dimensions with no hierarchies differently here
             if dim.is_flat and not dim.has_details:
-                self.attributes.append
-            hier = dim.default_hierarchy
-            for level in hier.levels:
-                for attribute in level.attributes:
-                    # FIXME: add localization
-                    alias = attribute.full_name(dim)
-                    obj = Attribute(attribute, alias, dim, attribute.locales)
-                    self.attributes.append(obj)
+                self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
+            else:
+                hier = dim.default_hierarchy
+                for level in hier.levels:
+                    for attribute in level.attributes:
+                        # FIXME: add localization
+                        alias = attribute.full_name(dim)
+                        obj = Attribute(attribute, alias, dim, attribute.locales)
+                        self.attributes.append(obj)
 
-                    if attribute.name == level.key:
-                        self.index_attributes.append(obj)
+                        if attribute.name == level.key:
+                            self.index_attributes.append(obj)
 
     def _collect_joins(self):
         """Collect joins and register joined tables. All tables used should be collected in this
