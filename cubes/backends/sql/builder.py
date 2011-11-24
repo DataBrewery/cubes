@@ -165,13 +165,13 @@ class SQLDenormalizer(object):
         for attribute in self.cube.details:
             self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
             
-        self.logger.info("collecting dimension attributes...")
-
         # FIXME: refactor this
         for dim in self.cube.dimensions:
             # Treat flat dimensions with no hierarchies differently here
             if dim.is_flat and not dim.has_details:
-                self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
+                attr = Attribute(dim.name, str(dim.name), None, None)
+                self.attributes.append(attr)
+                self.index_attributes.append(attr)
             else:
                 hier = dim.default_hierarchy
                 for level in hier.levels:
