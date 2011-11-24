@@ -653,8 +653,8 @@ class Dimension(object):
     Class is not meant to be mutable.
     """
 
-    def __init__(self, name = None, label = None, levels = None,
-                 attributes = None, hierarchy = None, description = None, **desc):
+    def __init__(self, name=None, label=None, levels=None,
+                 attributes=None, hierarchy=None, description=None, **desc):
         """Create a new dimension
         """
         self.name = name
@@ -818,6 +818,14 @@ class Dimension(object):
     def is_flat(self):
         """Return true if dimension has only one level"""
         return len(self.levels) == 1
+
+    def attribute_reference(self, attribute, locale=None):
+        """Return an Attribute object if it is a string, otherwise just return the object."""
+        if isinstance(attribute, basestring):
+            attr = Attribute(attribute,locale=locale)
+            return attr.full_name(dimension=self)
+        else:
+            return attribute.full_name(dimension=self)
 
     def all_attributes(self, hierarchy = None):
         if not hierarchy:
@@ -1082,7 +1090,7 @@ class Hierarchy(object):
         """Returns True if path is base path for the hierarchy. Base path is a path where there are
         no more levels to be added - no drill down possible."""
         
-        return len(path) == len(self._levels)
+        return path != None and len(path) == len(self._levels)
 
     def to_dict(self, **options):
         """Convert to dictionary"""
@@ -1105,7 +1113,7 @@ class Hierarchy(object):
 
 class Level(object):
     """Hierarchy level
-
+    
     Attributes:
         * name: level name
         * label: human readable label 
@@ -1200,7 +1208,7 @@ class Level(object):
                 return self.attributes[1]
             else:
                 return self.key
-                
+
     def localize(self, locale):
         util.localize_common(self,locale)
         
@@ -1243,7 +1251,7 @@ class Attribute(object):
     ASC = 'asc'
     DESC = 'desc'
     
-    def __init__(self, name, label = None, locales = None, order = None, description = None,
+    def __init__(self, name, label=None, locales=None, order=None, description=None,
                  **kwargs):
         """Create an attribute.
         
@@ -1261,7 +1269,7 @@ class Attribute(object):
         self.name = name
         self.label = label
         self.description = description
-
+        
         if order:
             self.order = order.lower()
             if self.order == 'ascending':
@@ -1303,7 +1311,7 @@ class Attribute(object):
             d["full_name"] = self.full_name(dimension)
         return d
         
-    def full_name(self, dimension, locale = None):
+    def full_name(self, dimension, locale=None):
         """Return full name of an attribute as if it was part of `dimension`. Append `locale` if
         it is one of of attribute's locales, otherwise raise an error.
         """
