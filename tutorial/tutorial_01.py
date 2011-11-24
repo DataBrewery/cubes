@@ -1,7 +1,19 @@
 import sqlalchemy
 import cubes
 import cubes.tutorial.sql as tutorial
+
+# In this tutorial you are going to learn how to start with cubes. The example shows:
+# 
+# how to build a model programatically
+# how to create a model with flat dimensions
+# how to aggregate whole cube
+# how to drill-down and aggregate through a dimension
+# The example data used are IBRD Balance Sheet taken from The World Bank
+# Source: https://raw.github.com/Stiivi/cubes/master/tutorial/data/IBRD_Balance_Sheet__FY2010.csv
+# 
+# Create a tutorial directory and download the file:
         
+
 # 1. Prepare SQL data in memory
 
 engine = sqlalchemy.create_engine('sqlite:///:memory:')
