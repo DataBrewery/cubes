@@ -358,6 +358,10 @@ class Cell(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+        
+    def __str__(self):
+        """Return string representation of the cell by using standard cuts-to-string conversion"""
+        return string_from_cuts(self.cuts)
 
 CUT_STRING_SEPARATOR = '|'
 DIMENSION_STRING_SEPARATOR = ':'
