@@ -206,13 +206,17 @@ class Model(object):
                 for desc in dimensions:
                     self.add_dimension(Dimension(**desc))
 
-    	self.cubes = {}
+        self.cubes = OrderedDict()
 
     	if cubes:
-    	    for cube_name, cube_desc in cubes.items():
-    	        desc = dict([("name", cube_name)] + cube_desc.items())
-    	        cube = Cube(model = self, **desc)
-                self.add_cube(cube)
+            if isinstance(cubes, dict):
+                for cube_name, cube_desc in cubes.items():
+                    desc = dict([("name", cube_name)] + cube_desc.items())
+                    cube = Cube(model=self, **desc)
+                    self.add_cube(cube)
+            else:
+                for desc in cubes:
+                    self.add_cube(Cube(model=self,**desc))
     	        
         self.translations = {}
         
