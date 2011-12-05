@@ -92,6 +92,10 @@ class ApplicationController(object):
     def version(self):
         return self.json_response(self.server_info())
 
+    def locales(self):
+        """Return list of available model locales"""
+        return self.json_response(self.app.locales)
+
     def json_response(self, obj):
         if self.prettyprint:
             indent = 4

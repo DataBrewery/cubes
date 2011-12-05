@@ -21,6 +21,8 @@ rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
     Rule('/version', 
                         endpoint = (controllers.ApplicationController, 'version')),
+    Rule('/locales', 
+                        endpoint = (controllers.ApplicationController, 'locales')),
     Rule('/model', 
                         endpoint = (controllers.ModelController, 'show')),
     Rule('/model/dimension/<string:name>',
@@ -172,12 +174,15 @@ class Slicer(object):
         action = getattr(controller, action_name)
 
         controller.initialize()
+
+        response = None
         try:
-            retval = action()
+            response = action()
+            response.headers.add("Access-Control-Allow-Origin", "*")
         finally:
             controller.finalize()
 
-        return retval
+        return response
 
     def error(self, message, exception):
         string = json.dumps({"error": {"message": message, "reason": str(exception)}})

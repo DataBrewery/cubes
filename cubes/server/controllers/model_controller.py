@@ -3,7 +3,11 @@ import application_controller
 class ModelController(application_controller.ApplicationController):
 
     def show(self):
-        return self.json_response(self.model.to_dict(with_mappings = False))
+        d = self.model.to_dict(with_mappings = False)
+
+        # Add available model locales based on server configuration
+        d["locales"] = self.app.locales;
+        return self.json_response(d)
 
     def dimension(self):
         dim_name = self.params["name"]
