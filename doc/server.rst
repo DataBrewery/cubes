@@ -16,7 +16,8 @@ Model
 -----
 
 ``GET /model``
-    Get model metadata as JSON
+    Get model metadata as JSON. In addition to standard model attributes a ``locales`` key is added with
+    list of available model locales.
     
 ``GET /model/dimension/<name>``
     Get dimension metadata as JSON
@@ -24,6 +25,8 @@ Model
 ``GET /model/dimension/<name>/levels``
     Get list level metadata from default hierarchy of requested dimension.
 
+``GET /locales``
+    Get list of model locales
 
 Cube
 ----
