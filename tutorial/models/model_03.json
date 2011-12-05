@@ -1,0 +1,34 @@
+{
+    "dimensions": [
+        {
+         "name":"item",
+         "levels": [
+                {
+                    "name":"category",
+                    "label":"Category",
+                    "attributes": ["category"]
+                },
+                {
+                    "name":"subcategory",
+                    "label":"Sub-category",
+                    "attributes": ["subcategory"]
+                },
+                {
+                    "name":"line_item",
+                    "label":"Line Item",
+                    "attributes": ["line_item"]
+                }
+            ]
+        },
+        {"name":"year"}
+    ],
+    "cubes": {
+        "irbd_balance": {
+            "dimensions": ["item", "year"],
+            "measures": ["amount"],
+            "mappings": { "item.line_item": "line_item",
+                          "item.subcategory": "subcategory",
+                          "item.category": "category" }
+        }
+    }
+}
