@@ -89,13 +89,31 @@ class UnicodeCSVWriter:
 
 class CubesController(application_controller.ApplicationController):
     def initialize(self):
-        # FIXME: remove this (?)
+        """Initializes the controller:
+        
+        * tries to get cube name
+        * if no cube name is specified, then tries to get default cube: either explicityly specified
+          in configuration under ``[model]`` option ``cube`` or first cube in model cube list
+        * assigns a browser for the controller
+        
+        """
+
+        # FIXME: keep or remove default cube?
         cube_name = self.params.get("cube")
-        if not cube_name:
-            cube_name = self.config.get("model", "cube")
+
+        if cube_name:
+            self.cube = self.model.cube(cube_name)
+        else:
+            if self.config.has_option("model", "cube"):
+                self.logger.debug("using default cube specified in cofiguration")
+                cube_name = self.config.get("model", "cube")
+                self.cube = self.model.cube(cube_name)
+            else:
+                self.logger.debug("using first cube from model")
+                self.cube = self.model.cubes.values()[0]
+                cube_name = self.cube.name
             
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
-        self.cube = self.model.cube(cube_name)
         self.browser = self.app.workspace.browser_for_cube(self.cube, self.locale)
         
     def prepare_cell(self):
