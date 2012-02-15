@@ -7,19 +7,15 @@ import copy
 # In this tutorial you are going to learn how to run and use Slicer OLAP server
 #
 # The file is only for database initialization
-# 
-# Before running this script, create an empty sqlite3 database file named tutorial.sqlite:
-#    $ sqlite3 tutorial.sqlite
-#    sqlite> CREATE TABLE temp (id integer);
-#    sqlite> .quit
 #
-# The example data used are IBRD Balance Sheet taken from The World Bank
-# Source: https://raw.github.com/Stiivi/cubes/master/tutorial/data/IBRD_Balance_Sheet__FY2010.csv
-# 
-# The source data file is manually modified for this tutorial: column "Line Item" is split into two:
-# Subcategory and Line Item
+# Run this script:
+#      python tutorial_04.py
+# Run slicer server:
+#      slicer serve tutorial_04.py
 #
-# Create a tutorial directory and download the file:
+# Query the server:
+#      curl http://localhost:5000/aggregate
+
 
 # 1. Prepare SQL data in memory
 
@@ -45,7 +41,7 @@ tutorial.create_table_from_csv(engine,
                         
                         )
 
-model = cubes.load_model("models/model_03.json")
+model = cubes.load_model("models/model_04.json")
 
 cube = model.cube("irbd_balance")
 cube.fact = FACT_TABLE
