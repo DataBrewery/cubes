@@ -35,8 +35,8 @@ Slicer server:
 Changes
 -------
 
-* Allow dimensions in cube to be a list, noy only a dictionary (internally it is ordered dictionary)
-* Allow cubes in model to be a list, noy only a dictionary (internally it is ordered dictionary)
+* Allow dimensions in cube to be a list, not only a dictionary (internally it is ordered dictionary)
+* Allow cubes in model to be a list, not only a dictionary (internally it is ordered dictionary)
 
 Slicer server:
 
