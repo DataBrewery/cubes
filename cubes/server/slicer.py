@@ -122,7 +122,7 @@ class Slicer(object):
 
         self.engine = sqlalchemy.create_engine(self.dburl)
         
-        self.logger.info("creatign new database engine")
+        self.logger.info("creating new database engine")
 
         model_path = config.get("model", "path")
         try:
