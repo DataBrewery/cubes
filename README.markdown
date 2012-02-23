@@ -1,32 +1,35 @@
 Cubes - Online Analytical Processing Framework for Python
+=========================================================
 
-ABOUT
-=====
+About
+-----
 
-Cubes is a python framework for:
+Cubes is a light-weight Python framework for:
+
 * Online Analytical Processing - OLAP
 * multidimensional analysis
-* cube comptutation
+* cube computation
 
-Framework is database agnostic and supports (weak dependency):
+Framework is database agnostic, has modular backend architecture. Currently supports:
 
 * relational databases with SQL (through SQL Alchemy)
-* MongoDB
 
-DOCUMENTATION
-=============
+Did support once in history, code is kept intentionally:
+
+* MongoDB (not working anymore, is missing maintainer/developer)
+
+Documentation
+-------------
 
 Documentation can be found at: http://packages.python.org/cubes
 
-SOURCE
-======
+Source
+------
 
-Main source repository: https://github.com/Stiivi/cubes
-Bitbucket copy (for mercurial users): https://bitbucket.org/Stiivi/cubes
+Github source repository: https://github.com/Stiivi/cubes
 
-
-REQUIREMENTS
-============
+Requirements
+------------
 
 Developed using python 2.7, reported to work with 2.6.
 
@@ -34,11 +37,10 @@ Most of the requirements are soft (optional) and need to be satisfied only if ce
 being used.
 
 * SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.1 - for SQL backend
-* PyMogno - for MongoDB backend
 * Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
+* PyMogno - for MongoDB backend
 
-
-SUPPORT
+Support
 =======
 
 If you have questions, problems or suggestions, you can send a message to the Google group or 
@@ -49,7 +51,20 @@ write to the author.
 
 Report bugs using github issue tracking: https://github.com/Stiivi/cubes/issues
 
-AUTHOR
-======
+Authors
+=======
 
-Stefan Urbanek <stefan.urbanek@gmail.com>
+Cubes is written and maintained by Stefan Urbanek @Stiivi <stefan.urbanek@gmail.com> and various
+contributors. See AUTHORS file for more information.
+
+License
+=======
+
+Cubes is licensed under MIT license with following addition:
+
+    If your version of the Software supports interaction with it remotely through a computer network, the
+    above copyright notice and this permission notice shall be accessible to all users.
+
+Simply said, that if you use it as part of software as a service (SaaS) you have to provide the copyright notice in an about, legal info, credits or some similar kind of page or info box.
+
+For full license see the LICENSE file.
