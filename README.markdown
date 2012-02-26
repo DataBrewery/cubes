@@ -18,6 +18,9 @@ Did support once in history, code is kept intentionally:
 
 * MongoDB (not working anymore, is missing maintainer/developer)
 
+
+**Follow @DataBrewery** on Twitter for updates.
+
 Documentation
 -------------
 
