@@ -1,11 +1,14 @@
-Cubes API
-+++++++++
+#########
+Reference
+#########
 
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+	:maxdepth: 2
 
-   cubes
-   backends
-   utils
+	model
+	browser
+	backends
+	server
+	utils

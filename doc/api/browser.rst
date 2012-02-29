@@ -1,0 +1,61 @@
+**************************************
+:mod:`browser` --- Aggregation Browser
+**************************************
+
+.. module:: browser
+   :synopsis: aggregation browser, slicing and dicing functions
+
+:mod:`browser` is a package that provides abstraction for aggregated browsing (concrete implementation is provided by one of the backends in package :mod:`backend` or a custom backend).
+
+.. figure:: images/browser-package.png
+    :align: center
+    :width: 400px
+
+    Browser package classes.
+
+Aggregate browsing
+==================
+
+.. autoclass:: cubes.AggregationBrowser
+    :members:
+
+Result
+------
+
+The result of aggregated browsing is returned as object:
+
+.. autoclass:: cubes.AggregationResult
+    :members:
+
+Slicing and Dicing
+==================
+
+.. autoclass:: cubes.Cell
+    :members:
+
+Cuts
+----
+
+.. autoclass:: cubes.PointCut
+    :members:
+
+.. autoclass:: cubes.RangeCut
+    :members:
+
+.. autoclass:: cubes.SetCut
+    :members:
+
+String conversions
+------------------
+
+In applications where slicing and dicing can be specified in form of a string, such as arguments of HTTP requests of an web application, there are couple helper methods that do the string-to-object conversion:
+
+.. autofunction:: cubes.browser.cuts_from_string
+
+.. autofunction:: cubes.browser.string_from_cuts
+
+.. autofunction:: cubes.browser.string_from_path
+
+.. autofunction:: cubes.browser.path_from_string
+
+

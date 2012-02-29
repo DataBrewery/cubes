@@ -1,6 +1,8 @@
 Aggregations and Aggregation Browsing
 +++++++++++++++++++++++++++++++++++++
 
+For aggregation browser reference, please see :mod:`browser` module documentation.
+
 .. warning::
     This information is obsolete.
     
