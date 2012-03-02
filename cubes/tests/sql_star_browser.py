@@ -31,12 +31,17 @@ class StarSQLTestCase(unittest.TestCase):
                     "hierarchy": ["year", "month", "day"]
                 },
                 { "name": "flag" },
-                { "name": "product", "attributes": ["category", "subcategory"] }
+                { "name": "product", 
+                    "attributes": [
+                        {"name": "category", "locales": ["en", "sk"] },
+                        {"name":"subcategory", "locales": ["en", "sk"] }
+                    ]
+                }
             ]
         }       
         self.model = cubes.Model(**model_desc)
         self.cube = self.model.cube("star")
-        # self.query = StarQuery(self.cube)
+        self.browser = StarBrowser(self.cube)
 
         engine = sqlalchemy.create_engine('sqlite://')
         self.connection = engine.connect()
@@ -77,10 +82,46 @@ class StarSQLTestCase(unittest.TestCase):
 
         metadata.create_all(engine)
         self.metadata = metadata
-        
+
     def test_valid_model(self):
+        """Model is valid"""
         self.assertEqual(True, self.model.is_valid())
         
+    def test_logical_reference(self):
+
+        dim = self.model.dimension("date")
+        attr = "month"
+        self.assertEqual("date.month", self.browser.logical_reference(dim, attr))
+
+        dim = self.model.dimension("product")
+        attr = "category"
+        self.assertEqual("product.category", self.browser.logical_reference(dim, attr))
+
+        dim = self.model.dimension("flag")
+        attr = "flag"
+        self.assertEqual("flag", self.browser.logical_reference(dim, attr))
+
+        attr = "anything"
+        self.assertEqual("flag", self.browser.logical_reference(dim, attr))
+
+        self.assertEqual("amount", self.browser.logical_reference(None, "amount"))
+
+    def test_simplify_dimension_references(self):
+        self.browser.simplify_dimension_references = False
+
+        dim = self.model.dimension("flag")
+        attr = "flag"
+        self.assertEqual("flag.flag", self.browser.logical_reference(dim, attr))
+
+        attr = "anything"
+        self.assertEqual("flag.anything", self.browser.logical_reference(dim, attr))
+
+    def test_physical_reference(self):
+        mappings = { "" } # FIXME: continue here
+        
+        # dim = self.model.dimension("date")
+        pass
+    
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):
         """Aggregation result should: SELECT from fact only"""
