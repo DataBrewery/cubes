@@ -1,6 +1,16 @@
 Changes in the Cubes
 ++++++++++++++++++++
 
+Current Version
+===============
+
+* Started writing StarBrowser - another SQL aggregation browser with different 
+  approach (see code/docs)
+* Changed license to MIT + small addition. Please refer to the LICENSE file.
+* Updated documentation - added missing parts, made reference more readable, 
+  moved class and function reference docs from descriptive part to reference 
+  (API) part.
+
 Version 0.7.1
 =============
 

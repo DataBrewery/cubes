@@ -39,7 +39,7 @@ setup(
     author = "Stefan Urbanek",
     author_email = "stefan.urbanek@gmail.com",
     description = "Framework for Online Analytical Processing (OLAP), multidimensional analysis and cube precomputation",
-    license = "GPL",
+    license = "MIT license with following addition: If your version of the Software supports interaction with it remotely through a computer network, the above copyright notice and this permission notice shall be accessible to all users.",
     keywords = "olap multidimensional data analysis",
     url = "http://databrewery.org"
 

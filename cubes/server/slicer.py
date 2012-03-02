@@ -66,15 +66,8 @@ rules = Map([
 class Slicer(object):
 
     def __init__(self, config = None):
-        """Create a WSGI server for providing OLAP web service.
-        
-        API:
-            * ``/model`` - get model metadata
-            * ``/model/dimension/dimension_name`` - get dimension metadata
-            * ``/model/dimension/dimension_name/levels`` - get levels of default dimension hierarchy
-            * ``/model/dimension/dimension_name/level_names`` - get just names of levels 
-            * ``/aggregate`` - return aggregation result
-        
+        """Create a WSGI server for providing OLAP web service. You might provide ``config``
+        as ``ConfigParser`` object.
         """
         
         local.application = self
