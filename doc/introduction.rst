@@ -23,4 +23,3 @@ and ways of browsing aggregated data.
 
 * relational databases with SQL through SQL alchemy
 * document based database in MongoDB
-

@@ -64,7 +64,7 @@ class FactsIterator(object):
 class SQLBrowser(cubes.browser.AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, connection=None, view_name=None, schema=None, 
+    def __init__(self, cube, connection=None, view_name=None, schema=None,
                     view=None, locale=None):
         """Create a browser.
         
@@ -99,7 +99,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
             self.fact_key = base.DEFAULT_KEY_FIELD
 
         if connection is not None:
-            # FIXME: This reflection is somehow slow (is there anotherway how to do it?)
+            # FIXME: This reflection is somehow slow (is there another way how to do it?)
             self.connection = connection
             self.view_name = view_name
 
