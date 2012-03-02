@@ -237,7 +237,7 @@ class SQLDenormalizer(object):
         
         """
         self.logger.info("building mappings...")
-        self.mappings = {}
+        # self.mappings = {}
 
         self.columns = []
         
@@ -296,7 +296,7 @@ class SQLDenormalizer(object):
                                         % (localized_alias, table_name, field_name) )
         
         self.logger.debug("adding column %s as %s" % (column, localized_alias))
-        self.mappings[localized_alias] = column
+        # self.mappings[localized_alias] = column
         return expression.label(localized_alias, column)
             
     def split_field(self, field):

@@ -13,4 +13,4 @@ The standard SQL backend provides full-featured aggregation browser of denormali
 .. autoclass:: cubes.backends.sql.SQLDenormalizer
 .. autoclass:: cubes.backends.sql.SQLBrowser
 
-
+.. autoclass:: cubes.backends.sql.StarBrowser

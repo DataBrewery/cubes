@@ -757,7 +757,7 @@ class Dimension(object):
     def has_details(self):
         """Returns ``True`` when each level has only one attribute, usually key."""
 
-        return True in [level.has_details for level in self._levels.values()]
+        return any([level.has_details for level in self._levels.values()])
 
     @property
     def levels(self):
