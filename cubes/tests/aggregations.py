@@ -4,7 +4,7 @@ import cubes
 import json
 import re
 
-from cubes.tests import DATA_PATH
+from common import DATA_PATH
 
 class AggregationsBasicsTestCase(unittest.TestCase):
     def setUp(self):
@@ -106,3 +106,10 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         
         self.assertEqual('qwe,asd,100', cubes.browser.string_from_path(["qwe", "asd",100]))
         self.assertEqual("date:1+2,3+qwe,asd,100", str(cut))
+
+def suite():
+    suite = unittest.TestSuite()
+
+    suite.addTest(unittest.makeSuite(AggregationsBasicsTestCase))
+
+    return suite

@@ -33,7 +33,7 @@ setup(
         'Topic :: Utilities'
     ],
     
-    test_suite = "cubes.tests.test_suite",
+    test_suite = "cubes.tests.suite",
 
     # metadata for upload to PyPI
     author = "Stefan Urbanek",

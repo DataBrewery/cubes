@@ -1,9 +1,10 @@
 import unittest
 import os
-import cubes
-from cubes.tests import DATA_PATH
 import json
 import re
+import cubes
+
+from common import DATA_PATH
 
 class ModelTestCase(unittest.TestCase):
 	
@@ -267,6 +268,11 @@ class ModelValidatorTestCase(unittest.TestCase):
                     return
         self.fail(message)
         		
-if __name__ == '__main__':
-    unittest.main()
+def suite():
+    suite = unittest.TestSuite()
 
+    suite.addTest(unittest.makeSuite(ModelValidatorTestCase))
+    suite.addTest(unittest.makeSuite(ModelFromDictionaryTestCase))
+    suite.addTest(unittest.makeSuite(ModelTestCase))
+
+    return suite
