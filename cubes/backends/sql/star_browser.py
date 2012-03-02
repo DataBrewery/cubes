@@ -36,73 +36,73 @@ class StarBrowser(object):
             
             Not fully implemented yet.
 
+        **Limitations:**
+        
+        * only one locale can be used for browsing at a time
+        * locale is implemented as denormalized: one column for each language
+
         """
         super(StarBrowser, self).__init__()
         self.cube = cube
         self.simplify_dimension_references = True
         
-    def logical_reference(self, attribute, dimension = None, locale = None):
+    def split_reference_string(self, string):
+        """Split reference string to attribute and dimension"""
+        pass
+    
+    def logical_reference(self, dimension, attribute):
         """Returns logical reference as string for `attribute` in `dimension`. 
         If `dimension` is ``Null`` then fact table is assumed. The logical reference might have
         following forms:
 
         * ``dimension.attribute`` - dimension attribute
-        * ``dimension.attribute.locale`` - localized dimension attribute
         * ``attribute`` - fact measure or detail
-        * ``attribute.locale`` - localized fact measure or detail
         
         If `simplify_dimension_references` is ``True`` then references for flat 
-        dimensios without details look like:
-
-        * ``dimension``
-        * ``dimension.locale``
+        dimensios without details is ``dimension``
         """
 
-        if self.simplify_dimension_references and (dimension.is_flat and not dimension.has_details):
-            logical_name = field_name
-        else:
-            logical_name = dimension.name + '.' + field_name
-        
         if dimension:
-            alias = str(dimension) + "." + str(attribute)
+            if self.simplify_dimension_references and \
+                               (dimension.is_flat and not dimension.has_details):
+                reference = dimension.name
+            else:
+                reference = dimension.name + '.' + str(attribute)
         else:
-            alias = str(attribute)
-        
-        if locale:
-            reference = alias + "." + locale
-        else:
-            reference = alias
+            reference = str(attribute)
             
         return reference
 
-    def physical_reference(self, attribute, dimension = None, locale = None):
-        """Returns physical reference as tuple for `attribute` in `dimension`. 
-        If `dimension` is ``Null`` then fact table is assumed. The returned tuple
-        has structure: (table, column).
-        
+    def physical_reference(self, logical_reference, locale = None):
+        """Returns physical reference as tuple for `logical_reference`. 
+        If there is no dimension in logical reference, then fact table is 
+        assumed. The returned tuple has structure: (table, column).
+
         The algorithm to find physicl reference is as follows::
         
             create logical reference string
+
             IF there is mapping for the logical reference:
                 use the mapped value as physical reference
+
             ELSE:
+
                 IF dimension specified:
                     table name is dimension name
-                    if there is dimension table prefix, then use the prefix for table name
+                    IF there is dimension table prefix, THEN use the prefix for table name
                     column name is attribute name
+
                 ELSE (if no dimension is specified):
                     table name is fact table name
+                    
                 IF locale is specified:
                     append '_' and locale to the column name
-        * 
-        
         """
-
-        logical_reference = self.logical_reference(attribute, dimension, locale)
 
         if logical_reference in self.mappings:
             reference = self.mappings[logical_reference]
         else:
+            
             if dimension:
                 table_name = str(dimension)
                 if self.dimension_table_prefix:
