@@ -1,13 +1,14 @@
-:mod:`model` --- Logical Model
-==============================
+**************************
+Logical Model and Metadata
+**************************
 
-.. module:: model
-   :synopsis: logical model representation, cube descriptions, dimensions
+Introduction
+============
 
 Logical model describes the data from user's or analyst's perspective: data how they are being
 measured, aggregated and reported. Model is independent of physical implementation of data. This
 physical independence makes it easier to focus on data instead on ways of how to get the data in
-understandable form.
+understandable form. Objects and functionality for working with metadata are provided by the :mod:`model` package.
 
 In short, logical model enables users to:
 
@@ -67,18 +68,6 @@ their structure is depicted on the following figure:
     :width: 550px
 
     The logical model entities and relationships.
-   
-Load a model
-------------
-
-.. autofunction::cubes.model.load_model
-
-Model components
-----------------
-
-.. autoclass:: cubes.model.Model
-
-.. autoclass:: cubes.model.Cube
 
 Dimensions
 ----------

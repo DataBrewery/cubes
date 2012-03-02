@@ -26,14 +26,10 @@ star/snowflake relational schema:
 
     connection.close()
 
-API
-===
-
-
 .. seealso::
 
-    Module :mod:`cubes.backends`.
+    Module :mod:`backends`.
         More information about cube builders in different database environments.
 
-    Module :mod:`cubes`.
+    Module :mod:`model`.
         Logical model description - required for preaggregated cube computation.

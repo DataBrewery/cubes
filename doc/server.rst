@@ -9,6 +9,8 @@ Server requires the werkzeug_ framework.
 
 .. _werkzeug: http://werkzeug.pocoo.org/
 
+For more information about how to run the server programatically, please refer to the :mod:`server` module.
+
 API
 ===
 
