@@ -1,5 +1,19 @@
 import unittest
 import os
 
-TESTS_PATH = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(TESTS_PATH, 'data')
+import model
+import aggregations
+import combinations
+import default_sql_backend
+import sql_star_browser
+
+def suite():
+    suite = unittest.TestSuite()
+
+    suite.addTest(model.suite())
+    suite.addTest(aggregations.suite())
+    suite.addTest(combinations.suite())
+    suite.addTest(default_sql_backend.suite())
+    suite.addTest(sql_star_browser.suite())
+
+    return suite
