@@ -120,7 +120,7 @@ class SQLDenormalizer(object):
             self._create_view_expression()
 
         table = self._table(view_name, schema = schema, autoload = False)
-        if table.exists():
+        if materialize and table.exists():
             table.drop(checkfirst=False)
 
         full_view_name = schema + "." + view_name if schema else view_name
