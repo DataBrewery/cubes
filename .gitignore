@@ -4,3 +4,4 @@ build
 *.iml
 .idea
 *.egg-info
+*.swp
