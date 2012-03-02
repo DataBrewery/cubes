@@ -54,6 +54,17 @@ write to the author.
 
 Report bugs using github issue tracking: https://github.com/Stiivi/cubes/issues
 
+Development
+-----------
+
+If you are browsing the code and you find something that:
+
+* is over-complicated or not obvious
+* is redundant
+* can be done in better Python-way
+
+... please let it be known.
+
 Authors
 =======
 
