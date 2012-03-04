@@ -182,6 +182,8 @@ class AttributeMapper(object):
             if attribute.locales:
                 locale = locale if locale in attribute.locales \
                                     else attribute.locales[0]
+            else:
+                locale = None
         except:
             locale = None
 
@@ -210,13 +212,9 @@ class AttributeMapper(object):
         if not reference:
 
             column_name = str(attribute)
-            try:
-                if attribute.locales:
-                    locale = locale if locale in attribute.locales \
-                                        else attribute.locales[0]
-                    column_name += "_" + locale
-            except:
-                pass
+
+            if locale:
+                column_name += "_" + locale
             
             if dimension and not (self.simplify_dimension_references \
                                    and (dimension.is_flat 
