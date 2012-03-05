@@ -1,4 +1,5 @@
 """Common objects for slicer server"""
+
 from werkzeug.exceptions import HTTPException
 import json
 import os.path
@@ -7,7 +8,7 @@ import datetime
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
-VERSION = "0.5"
+VERSION = "0.7"
 API_VERSION = "1"
 
 class ServerError(HTTPException):
@@ -57,7 +58,6 @@ class NotFoundError(ServerError):
 
 class AggregationError(ServerError):
     code = 400
-
 
 class SlicerJSONEncoder(json.JSONEncoder):
     def __init__(self, *args, **kwargs):

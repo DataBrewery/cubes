@@ -699,6 +699,36 @@ class CubeQuery(object):
         column = self.view.c[localized_name]
         return expression.label(logical_name, column)
 
+#
+# Slicer server - backend handling
+#
+
+# Backward compatibility - use [db] section in slicer configuration
+config_section = "db"
+
+def create_workspace(model, config):
+    """Create workspace for `model` with configuration in dictionary `config`. 
+    This method is used by the slicer server."""
+
+    print "CONFIG: %s" % (config, )
+
+    try:
+        dburl = config["url"]
+    except KeyError:
+        raise Exception("No URL specified in configuration")
+
+    schema = config.get("schema")
+    view_prefix = config.get("view_prefix")
+    view_suffix = config.get("view_suffix")
+
+    engine = sqlalchemy.create_engine(dburl)
+
+    workspace = SQLWorkspace(model, engine, schema, 
+                                    name_prefix = view_prefix,
+                                    name_suffix = view_suffix)
+
+    return workspace
+
 class SQLWorkspace(object):
     """Factory for browsers"""
     def __init__(self, model, engine, schema = None, name_prefix = None, name_suffix = None):
@@ -715,11 +745,11 @@ class SQLWorkspace(object):
     def browser_for_cube(self, cube, locale = None):
         """Creates, configures and returns a browser for a cube"""
         cube = self.model.cube(cube)
-        view = self.view_for_cube(cube)
+        view = self._view_for_cube(cube)
         browser = SQLBrowser(cube, view = view, locale = locale)
         return browser
         
-    def view_for_cube(self, cube, view_name = None):
+    def _view_for_cube(self, cube, view_name = None):
         if cube.name in self.views:
             view = self.views[cube.name]
         else:
