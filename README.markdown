@@ -41,7 +41,7 @@ being used.
 
 * SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.1 - for SQL backend
 * Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
-* PyMogno - for MongoDB backend
+* PyMongo - for MongoDB backend
 
 Support
 =======
