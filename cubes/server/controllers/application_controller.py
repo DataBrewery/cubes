@@ -13,7 +13,6 @@ class ApplicationController(object):
     def __init__(self, app, config):
 
         self.app = app
-        self.engine = app.engine
         self.master_model = app.model
         self.logger = app.logger
 
@@ -184,10 +183,3 @@ class ApplicationController(object):
             return json.loads(self.request.data)
         else:
             raise common.RequestError("JSON requested from unknown content-type '%s'" % content_type)
-
-class Workspace(object):
-    """OLAP Workspace for serving browsers."""
-    def __init__(self, arg):
-        super(Workspace, self).__init__()
-        self.arg = arg
-        
