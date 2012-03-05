@@ -5,3 +5,5 @@ build
 .idea
 *.egg-info
 *.swp
+doc/_build/
+sandbox

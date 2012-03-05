@@ -11,6 +11,13 @@ Current Version
   moved class and function reference docs from descriptive part to reference 
   (API) part.
 
+Slicer Server:
+
+* added ability to specify backend module
+* backend configuration is in [backend] by default, for SQL it stays in [db]
+* removed default SQL backend from the server, moved worskpace creation into the backend module
+* added backend documentation 
+
 Version 0.7.1
 =============
 
