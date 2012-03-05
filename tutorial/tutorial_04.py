@@ -11,7 +11,7 @@ import copy
 # Run this script:
 #      python tutorial_04.py
 # Run slicer server:
-#      slicer serve tutorial_04.py
+#      slicer serve tutorial_04.ini
 #
 # Query the server:
 #      curl http://localhost:5000/aggregate
