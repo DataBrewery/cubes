@@ -13,9 +13,12 @@ Current Version
 
 Slicer Server:
 
+* added configuration option `modules` under `[server]` to load additional 
+  modules
 * added ability to specify backend module
 * backend configuration is in [backend] by default, for SQL it stays in [db]
-* removed default SQL backend from the server, moved worskpace creation into the backend module
+* removed default SQL backend from the server, moved worskpace creation into 
+  the backend module
 * added backend documentation 
 
 Version 0.7.1
