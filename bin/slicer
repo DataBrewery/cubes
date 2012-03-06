@@ -13,8 +13,8 @@ import argparse
 import sys
 import cubes
 import cubes.server
-import urlparse
 import ConfigParser
+import shlex
 
 def validate_model(args):
     """docstring for validate_model"""
@@ -112,12 +112,6 @@ def translate_model(args):
 def dump_model(model):
     print json.dumps(model.to_dict())
 
-def model_pickle(args):
-    model = cubes.load_model(args.model)
-    pickled = args.pickledmodel
-    
-    print "PICKLING TO %s" % pickled
-
 def run_server(args):
     config = ConfigParser.SafeConfigParser()
     try:
@@ -125,6 +119,13 @@ def run_server(args):
     except Exception as e:
         raise Exception("Unable to load config: %s" % e)
 
+    # Load extensions
+    
+    if config.has_option("server", "modules"):
+        modules = shlex.split(config.get("server", "modules"))
+        for module in modules:
+            e = __import__(module)
+    
     cubes.server.run_server(config)
 
 ################################################################################
@@ -185,14 +186,6 @@ subparser = model_subparsers.add_parser('update_locale', help = "update model lo
 subparser.add_argument('model', help='model reference - can be a local file path or URL')
 subparser.add_argument('translation', help='translation file or URL')
 subparser.set_defaults(func=update_locale)
-
-################################################################################
-# Command: model_pickle
-
-subparser = model_subparsers.add_parser('pickle')
-subparser.add_argument('model', help='model reference - can be a local file path or URL')
-subparser.add_argument('pickledmodel', help='output file - pickled model (will be overwritten)')
-subparser.set_defaults(func=model_pickle)
 
 ################################################################################
 # Command: serve
