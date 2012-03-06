@@ -35,24 +35,31 @@ serve
 
 Run Cubes OLAP HTTP server.
 
-Example server configuration file ``config.json``::
+Example server configuration file ``slicer.ini``::
 
-    {
-        "port": 5000,
-        "model": "contracts.json",
-        "cube": "contracts",
-        "view": "ft_contracts",
-        "connection": "postgres://localhost/contracts"
-    }
+    [server]
+    host: localhost
+    port: 5000
+    reload: yes
+    log_level: info
+
+    [db]
+    url: sqlite:///tutorial.sqlite
+    view_prefix: vft_
+
+    [model]
+    path: models/model_04.json
     
-.. note::
-
-    Currently the connection can be only a SQL database connection. Access to other existing
-    backends from this tool will be added in the future.
-
 To run local server::
 
-    slicer serve config.json
+    slicer serve slicer.ini
+
+In the ``[server]`` section, space separated list of modules to be imported can 
+be specified under option ``modules``::
+
+    [server]
+    modules=cutom_backend
+    ...
 
 For more information about OLAP HTTP server see :doc:`/server`
 
