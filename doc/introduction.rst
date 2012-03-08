@@ -34,7 +34,7 @@ The framework thiks of the data as a cube with multiple dimensions:
     :width: 400px
 
     a data cube
-	
+    
 The most detailed unit of the data is a *fact*. Fact can be a contract, 
 invoice, spending, task, etc. Each fact might have a *measure* – an attribute 
 that can be measured, such as: price, amount, revenue, duration, tax, discount, 
@@ -83,7 +83,7 @@ Browser
 -------
 
 Core of the Cubes analytics functionality is the aggregation browser. The 
-<code>browser</code> module contains utility classes and functions for the 
+browser module contains utility classes and functions for the 
 browser to work.
 
 More information about browser can be found in the chapter :doc:`aggregate`. 
