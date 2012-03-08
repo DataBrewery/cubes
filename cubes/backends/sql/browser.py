@@ -16,8 +16,10 @@ try:
     import sqlalchemy.sql.expression as expression
     import sqlalchemy.sql.functions as functions
 except:
-    pass
-    
+    from cubes.util import MissingPackage
+    _missing = MissingPackage("sqlalchemy", "Built-in SQL aggregation browser")
+    sqlalchemy = expression = functions = _missing
+
 # FIXME: required functionality TODO
 # 
 # * [DONE] number of items in drill-down
