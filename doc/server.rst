@@ -1,5 +1,6 @@
-OLAP Web Service
-++++++++++++++++
++++++++++++
+OLAP Server
++++++++++++
 
 
 Cubes framework provides easy to install web service WSGI server with API that 
@@ -8,15 +9,15 @@ functionality.
 
 .. note::
 
-    Server requires the werkzeug_ framework.
+    Server requires the Werkzeug_ framework.
 
-.. _werkzeug: http://werkzeug.pocoo.org/
+.. _Werkzeug: http://werkzeug.pocoo.org/
 
 For more information about how to run the server programatically, please refer 
 to the :mod:`server` module.
 
-API
-===
+HTTP API
+========
 
 Model
 -----
