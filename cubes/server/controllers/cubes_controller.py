@@ -1,4 +1,9 @@
-from werkzeug.wrappers import Response
+try:
+    from werkzeug.wrappers import Response
+except:
+    from cubes.util import MissingPackage
+    Response = MissingPackage("werkzeug", "Slicer server")
+
 import application_controller
 import cubes
 from .. import common

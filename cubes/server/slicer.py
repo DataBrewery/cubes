@@ -1,19 +1,24 @@
-# Werkzeug
-from werkzeug.routing import Map, Rule
-from werkzeug.wrappers import Request
-from werkzeug.wsgi import ClosingIterator
-from werkzeug.exceptions import HTTPException, NotFound
-from werkzeug.wrappers import Response
-import werkzeug.serving
-
 # Package imports
 import json
 import cubes
 import logging
-import common
 
+# Werkzeug - soft dependency
+try:
+    from werkzeug.routing import Map, Rule
+    from werkzeug.wrappers import Request
+    from werkzeug.wsgi import ClosingIterator
+    from werkzeug.exceptions import HTTPException, NotFound
+    from werkzeug.wrappers import Response
+    import werkzeug.serving
+except:
+    from cubes.util import MissingPackage
+    _missing = MissingPackage("werkzeug", "Slicer server")
+    Map = Rule = Request = ClosingIterator = HTTPException = _missing
+    NotFound = Response = werkzeug = _missing
+
+import common
 # Local imports
-from utils import local, local_manager, url_map
 import controllers
 
 rules = Map([

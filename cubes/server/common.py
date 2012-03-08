@@ -1,6 +1,13 @@
 """Common objects for slicer server"""
 
-from werkzeug.exceptions import HTTPException
+try:
+    from werkzeug.exceptions import HTTPException
+except:
+    # No need to bind objects here to dependency-sink, as the user
+    # will be notified when he tries to use Slicer or run_server about
+    # the missing package
+    HTTPException = object
+
 import json
 import os.path
 import decimal
