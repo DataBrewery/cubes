@@ -17,23 +17,25 @@ In short, logical model enables users to:
     * `product category > product > subcategory > product`
     * `country > region > county > town`.
 * specify attribute labels to be displayed in end-user application
-* for all localizations use the same attribute name, therefore write only one query for all report
-  translations
+* for all localizations use the same attribute name, therefore write only one 
+  query for all report translations
 
-Analysts or report writers do not have to know where name of an organisation or category is
-stored, nor he does not have to care whether customer data is stored in single table or spread
-across multiple tables (customer, customer types, ...). They just ask for "customer.name" or
-"category.code".
+Analysts or report writers do not have to know where name of an organisation or 
+category is stored, nor he does not have to care whether customer data is 
+stored in single table or spread across multiple tables (customer, customer 
+types, ...). They just ask for `customer.name` or `category.code`.
 
-In addition to abstraction over physical model, localization abstraction is included. When working
-in multi-lingual environment, only one version of report/query has to be written, locales can be
-switched as desired. If requesting "contract type name", analyst just writes "constract_type.name"
+In addition to abstraction over physical model, localization abstraction is 
+included. When working in multi-lingual environment, only one version of 
+report/query has to be written, locales can be switched as desired. If 
+requesting "contract type name", analyst just writes `constract_type.name`
 and Cubes framework takes care about appropriate localisation of the value.
 
-Example: Analysts wants to report contract amounts by geography which has two levels: country
-level and region level. In original physical database, the geography information is normalised and
-stored in two separate tables, one for countries and another for regions. Analyst does not have to
-know where the data are stored, he just queries for `geography.country` and/or `geography.region`
+Example: Analysts wants to report contract amounts by geography which has two 
+levels: country level and region level. In original physical database, the 
+geography information is normalised and stored in two separate tables, one for 
+countries and another for regions. Analyst does not have to know where the data 
+are stored, he just queries for `geography.country` and/or `geography.region` 
 and will get the proper data. How it is done is depicted on the following image:
 
 .. figure:: logical-to-physical.png
@@ -42,20 +44,13 @@ and will get the proper data. How it is done is depicted on the following image:
 
     Mapping from logical model to physical data.
 
-The logical model describes dimensions `geography` in which default hierarchy has two levels:
-`contry` and `region`. Each level can have more attributes, such as code, name, population... In
-our example report we are interested only in geographical names, that is: `country.name` and
-`region.name`.
+The logical model describes dimensions `geography` in which default hierarchy 
+has two levels: `country` and `region`. Each level can have more attributes, 
+such as code, name, population... In our example report we are interested only 
+in geographical names, that is: `country.name` and `region.name`.
 
-Cubes framework has to know where those logical (reported) attributes are physically stored. It is
-done in two ways: default mapping and explicit mapping. Default mapping is be discussed in other
-section, however in short: in most cases for structures normalized by dimension, the attributes
-are looked in tables with same name as dimension and column with same name as attribute. The other
-way how attributes are mapped to physical implementation is by explicitly mentioning the physical
-table and column name (in relational database).
-
-With logical model, the Cubes framework "knows" where to find the data, therefore analysts can
-focus on reporting and keep their way of looking on data.
+How the physical attributes are located is described in the :doc:`mapping` 
+chapter.
 
 Logical Model description
 =========================
@@ -214,106 +209,23 @@ for more information about how logical attributes are mapped to the physical sou
 In reports you do not specify locale for each locaized attribute, you specify locale for whole
 report or browsing session. Report queries remain the same for all languages.
 
-.. _PhysicalMapping:
-
-Physical Mapping
-================
-
-In addition to logical model definition, the model description might contain physical mapping. The
-mapping is optional and can be used when backend defaults is not sufficient. Serves mostly for
-better logical to physical mapping customisation.
-
-============== ===================================================
-Key            Description
-============== ===================================================
-``fact``       name of a fact table (or collection or dataset, depending on backend)
-``mappings``   dictionary of mapping of logical attribute to physical attribute
-``joins``      list of join specifications
-============== ===================================================
-
-
-.. _PhysicalAttributeMappings:
-
-Attribute Mappings
-------------------
-
-Mappings is a dictionary of logical attributes as keys and physical attributes (columns, fields)
-as values. The logical attributes are referenced as ``dimensions_name.attribute_name``, for
-example: ``geography.country_name`` or ``category.code``. The physical attributes are
-backend-specific, for example in relational database (SQL) it can be ``table_name.column_name``.
-
-Default mapping is identity mapping - physical attribute is the same as logical attribute. For
-example, if you have dimension `category` and have attribute `code` then Cubes looks in table
-named `category` and column `code`.
-
-Localizable attributes are those attributes that have ``locales`` specified in their definition.
-To map logical attributes which are localizable, use locale suffix for each locale. For example
-attribute `name` in dimension `category` has two locales: Slovak (``sk``) and English (``en``),
-the mapping for such attribute will look like::
-
-    ...
-        "category.name.sk" = "dm_categories.name_sk",
-        "category.name.en" = "dm_categories.name_en",
-    ...
-    
-.. note::
-
-    Current implementation of Cubes framework requires a star or snowflake schema that can be
-    joined into fully denormalized normalized form. Therefore all localized attributes have to be
-    stored in their own columns. You have to denormalize the data before using them in Cubes.
-
-Joins
------
-
-If you are using star or snowflake schema in relational database, Cubes requires information
-on how to join the tables into the star/snowflake. Tables are joined by matching
-single-column keys.
-
-Say we have a fact table named ``fact_contracts`` and dimension table with categories named
-``dm_categories``. To join them we define following join specification:
-
-::
-
-    "joins" = [
-        {
-            "master": "fact_contracts.category_id",
-            "detail": "dm_categories.id"
-         }
-    ]
-
-There might be situiations when you would need to join one detail table more than once. Example of such situation is a dimension with list of organisations and in fact table you have two organisational references, such as `receiver` and `donor`. In this case you specify
-alias for detail table::
-
-    "joins" = [
-        {
-            "master": "fact_contracts.receiver_id",
-            "detail": "dm_organisation.id",
-            "alias": "dm_receiver"
-        }
-        {
-            "master": "fact_contracts.donor_id",
-            "detail": "dm_organisation.id",
-            "alias": "dm_donor"
-        }
-    ]
-
-Note that order of joins matters, if you have snowflake and would like to join deeper detail, then you have to have all required tables joined (and properely aliased, if necessary) already.
-
-In mappings you refer to table aliases, if you joined with an alias.
-
 Model validation
 ================
+
 To validate a model do::
 
     results = model.validate()
     
-This will return a list of tuples (result, message) where result might be 'warning' or 'error'.
-If validation contains errors, the model can not be used without resulting in failure. If there
-are warnings, some functionalities might or might not fail or might not work as expected.
+This will return a list of tuples `(result, message)` where result might be 
+'warning' or 'error'. If validation contains errors, the model can not be used 
+without resulting in failure. If there are warnings, some functionalities might 
+or might not fail or might not work as expected.
 
 You can validate model from command line::
 
     slicer model validate /path/to/model
+    
+See :doc:`slicer` for more information about the tool.
 
 Errors
 ------

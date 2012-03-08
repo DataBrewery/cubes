@@ -15,6 +15,7 @@ Contents:
    introduction
    install
    model
+   mapping
    aggregate
    computing
    localization
