@@ -163,7 +163,7 @@ In our example we have the `item` dimension with three levels of hierarchy:
 
 The levels are defined in the model:
 
-.. code-block:: json
+.. code-block:: javascript
 
     "levels": [
         {
@@ -212,7 +212,7 @@ Preparation
 Again, in short we need:
 
 * data in a database
-* logical model (see :download:`model file<files/model_03.json>) prepared with 
+* logical model (see :download:`model file<files/model_03.json>`) prepared with 
   appropriate mappings
 * denormalized view for aggregated browsing (for current simple SQL browser 
   implementation)
@@ -401,7 +401,7 @@ So now we fix our model by specifying detail attributes for the levels:
 
 The model description is:
 
-.. code-block:: json
+.. code-block:: javascript
 
     "levels": [
             {
@@ -430,7 +430,7 @@ one wants to use some other attribute it can be specified in `key_attribute`.
 
 Because we added two new attributes, we have to add mappings for them:
 
-.. code-block:: json
+.. code-block:: javascript
 
     "mappings": { "item.line_item": "line_item",
                   "item.subcategory": "subcategory",
