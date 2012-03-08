@@ -1,7 +1,12 @@
-from werkzeug.wrappers import Response
-from werkzeug.utils import redirect
-from werkzeug.exceptions import NotFound
-import sqlalchemy
+try:
+    from werkzeug.wrappers import Response
+    from werkzeug.utils import redirect
+    from werkzeug.exceptions import NotFound
+except:
+    from cubes.util import MissingPackage
+    _missing = MissingPackage("werkzeug", "Slicer server")
+    Response = redirect = NotFound = _missing
+
 import logging
 import cubes
 import os.path

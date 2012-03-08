@@ -1,17 +1,16 @@
-from werkzeug.local import Local, LocalManager
-from werkzeug.routing import Map, Rule
+# Soft dependency on Werkzeug
+try:
+    from werkzeug.local import Local, LocalManager
+    from werkzeug.routing import Map, Rule
 
-local = Local()
-local_manager = LocalManager([local])
-application = local('application')
+    local = Local()
+    local_manager = LocalManager([local])
 
-url_map = Map()
-def expose(rule, **kw):
-    def decorate(f):
-        kw['endpoint'] = f.__name__
-        url_map.add(Rule(rule, **kw))
-        return f
-    return decorate
+except:
+    from cubes.util import MissingPackage
+    _missing = MissingPackage("werkzeug", "Slicer server")
+    Local = LocalManager = _missing
+    Map = Rule = _missing
 
-def url_for(endpoint, _external=False, **values):
-    return local.url_adapter.build(endpoint, values, force_external=_external)
+    local = _missing
+    local_manager = _missing

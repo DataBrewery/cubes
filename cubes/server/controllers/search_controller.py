@@ -14,7 +14,9 @@ from .. import common
 try:
     from cubes_search.sphinx import SphinxSearcher
 except:
-    SphinxSearcher = None
+    from cubes.util import MissingPackage
+    SphinxSearcher = MissingPackage("werkzeug", "Sphinx search ", 
+                            source = "https://bitbucket.org/Stiivi/cubes-search")
     
 class SearchController(application_controller.ApplicationController):
     """docstring for SearchController
