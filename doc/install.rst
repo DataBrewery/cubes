@@ -2,60 +2,64 @@
 Installation
 ++++++++++++
 
+There are two options how to install cubes: basic common installation - 
+recommended mostly for users starting with Cubes. Then there is customized 
+installation with requirements explained.
 
-Requirements and Dependencies
-=============================
+Basic Installation
+==================
 
-The cubes has optional requirements (weak dependency):
+The cubes has optional requirements:
 
 * `SQLAlchemy`_ for SQL database aggregation browsing backend
 * `Werkzeug`_ for Slicer WSGI server
 
-It is recommended to install them, but not necessary. If you are first-time 
-user, you are quite likely going to need them::
+.. note::
 
-    easy_install sqlalchemy werkzeug
+    If you never used Python before, you might have to get the `pip installer`_ 
+    first, if you do not have it already.
+    
+.. note::
 
-For PostgreSQL, you should install ``psycopg2`` or some other SQLAlchemy 
-postgres backend::
+    The command-line tool :doc:`Slicer<slicer>` does not require knowledge of 
+    Python. You do not need to know the language if you just want to 
+    :doc:`serve<server>` OLAP data.
 
-    easy_install psycopg2
+For quick satisfaction of requirements install the packages::
+
+    pip install sqlalchemy werkzeug
+
+Then install the Cubes::
+
+    pip install cubes
 
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
 .. _Werkzeug: http://werkzeug.pocoo.org/
+.. _pip installer: http://www.pip-installer.org/
 
-Installation
-============
+Customized Installation
+=======================
 
-To install cubes, you can use ``easy_install`` (from `setuptools`_)::
+The project sources are stored in the `Github repository`_.
 
-    easy_install cubes
+.. _Github repository: https://github.com/Stiivi/cubes
 
-or ``pip``::
-    
-    pip install cubes
-    
-Main project `repository at Github`_.
+Download from Github::
 
-.. _repository at Github: https://github.com/Stiivi/cubes
+    git clone git://github.com/Stiivi/cubes.git
+
+The requirements for SQLAlchemy_ and Werkzeug_ are optional and you do not need
+them if you are going to use another kind of backend.
+
+Install::
+
+    cd cubes
+    pip install -r requirements-optional.txt
+    python setup.py install
 
 .. note::
 
     There was once a `Bitbucket repository`_ copy for mercurial users, however 
     this one is no longer updated.
 
-.. _Bitbucket repository: https://github.com/Stiivi/cubes
-
-From sources
-------------
-
-Download from Github::
-
-    git clone git://github.com/Stiivi/cubes.git
-
-Install::
-
-    cd cubes
-    python setup.py install
-
-.. _setuptools: http://pypi.python.org/pypi/setuptools
+.. _Bitbucket repository: https://bitbucket.org/Stiivi/cubes
