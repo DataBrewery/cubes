@@ -27,11 +27,15 @@ class ApplicationController(object):
             self.json_record_limit = config.get("server","json_record_limit")
         else:
             self.json_record_limit = 1000
+
+        if config.has_option("server","prettyprint"):
+            self.prettyprint = config.getboolean("server","prettyprint")
+        else:
+            self.prettyprint = False
             
         self.params = None
         self.query = None
         self.locale = None
-        self.prettyprint = None
         self.browser = None
         self.model = None
 
@@ -147,12 +151,10 @@ class ApplicationController(object):
 
         ppflag = args.get("prettyprint")
         if ppflag:
-            if ppflag.lower() in ["true", "yes", "1"]:
+            if ppflag.lower() in ["true", "yes", "1", "on"]:
                 self.prettyprint = True
-            else:
+            elif ppflag.lower() in ["false", "no", "0", "off"]:
                 self.prettyprint = False
-        else:
-            self.prettyprint = False
 
         self.locale = args.get("lang")
         self.model = self.master_model
