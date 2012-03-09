@@ -712,8 +712,6 @@ def create_workspace(model, config):
     """Create workspace for `model` with configuration in dictionary `config`. 
     This method is used by the slicer server."""
 
-    print "CONFIG: %s" % (config, )
-
     try:
         dburl = config["url"]
     except KeyError:
