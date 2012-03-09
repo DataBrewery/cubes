@@ -437,6 +437,8 @@ Server configuration is stored in .ini files with sections:
       records.
     * ``modules`` - space separated list of modules to be loaded (only used if 
       run by the ``slicer`` command)
+    * ``prettyprint`` - default value of ``prettyprint`` parameter. Set to 
+      ``true`` for demonstration purposes.
 * ``[model]`` - model and cube configuration
     * ``path`` - path to model .json file
     * ``locales`` - comma separated list of locales the model is provided in. 
