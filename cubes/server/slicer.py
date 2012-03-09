@@ -20,6 +20,7 @@ except:
 import common
 # Local imports
 import controllers
+from utils import local_manager
 
 rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
@@ -74,7 +75,6 @@ class Slicer(object):
         as ``ConfigParser`` object.
         """
         
-        local.application = self
         self.config = config
 
         #
@@ -126,7 +126,7 @@ class Slicer(object):
         if config.has_option("server","backend"):
             backend = config.get("server","backend")
         else:
-            backend = "cubed.backends.sql.browser"
+            backend = "cubes.backends.sql.browser"
             
         self.create_workspace(backend, config)
 
@@ -153,8 +153,8 @@ class Slicer(object):
             self.backend = globals()[path[0]]
             for current in path[1:]:
                 self.backend = self.backend.__dict__[current]
-        except:
-            raise Exception("Unable to get backend %s" % backend_name)
+        except KeyError:
+            raise Exception("Unable to find backend module %s" % backend_name)
 
         self.logger.info("using backend '%s'" % backend_name)
             
@@ -173,7 +173,6 @@ class Slicer(object):
         self.workspace = self.backend.create_workspace(self.model, config_dict)
             
     def __call__(self, environ, start_response):
-        local.application = self
         request = Request(environ)
         urls = rules.bind_to_environ(environ)
         
