@@ -37,6 +37,30 @@ Then install the Cubes::
 .. _Werkzeug: http://werkzeug.pocoo.org/
 .. _pip installer: http://www.pip-installer.org/
 
+Quick Start or Hello World!
+===========================
+
+Download the sources from the `Cubes Github repository`_. Go to the 
+``examples/hello_world`` folder::
+
+    git clone git://github.com/Stiivi/cubes.git
+    cd cubes
+    cd examples/hello_world
+
+Prepare data and run the :doc:`OLAP server<server>`::
+
+    python prepare_data.py
+    slicer serve slicer.ini
+    
+And try to do some queries::
+
+    curl "http://localhost:5000/aggregate"
+    curl "http://localhost:5000/aggregate?drilldown=year"
+    curl "http://localhost:5000/aggregate?drilldown=item"
+    curl "http://localhost:5000/aggregate?drilldown=item&cut=item:e"
+
+.. _Cubes Github repository: https://github.com/Stiivi/cubes
+
 Customized Installation
 =======================
 
@@ -63,3 +87,5 @@ Install::
     this one is no longer updated.
 
 .. _Bitbucket repository: https://bitbucket.org/Stiivi/cubes
+
+
