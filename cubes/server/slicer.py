@@ -1,21 +1,26 @@
-# Werkzeug
-from werkzeug.routing import Map, Rule
-from werkzeug.wrappers import Request
-from werkzeug.wsgi import ClosingIterator
-from werkzeug.exceptions import HTTPException, NotFound
-from werkzeug.wrappers import Response
-import werkzeug.serving
-
 # Package imports
 import json
-import sqlalchemy
 import cubes
 import logging
-import common
 
+# Werkzeug - soft dependency
+try:
+    from werkzeug.routing import Map, Rule
+    from werkzeug.wrappers import Request
+    from werkzeug.wsgi import ClosingIterator
+    from werkzeug.exceptions import HTTPException, NotFound
+    from werkzeug.wrappers import Response
+    import werkzeug.serving
+except:
+    from cubes.util import MissingPackage
+    _missing = MissingPackage("werkzeug", "Slicer server")
+    Map = Rule = Request = ClosingIterator = HTTPException = _missing
+    NotFound = Response = werkzeug = _missing
+
+import common
 # Local imports
-from utils import local, local_manager, url_map
 import controllers
+from utils import local_manager
 
 rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
@@ -70,10 +75,11 @@ class Slicer(object):
         as ``ConfigParser`` object.
         """
         
-        local.application = self
         self.config = config
 
+        #
         # Configure logger
+        #
 
         self.logger = logging.getLogger(cubes.common.logger_name)
         if self.config.has_option("server", "log"):
@@ -93,30 +99,12 @@ class Slicer(object):
             else:
                 self.logger.setLevel(levels[level_str])
 
-        db_defaults = {
-            "schema": None,
-            "view_prefix": None,
-            "view_suffix": None
-        }
-
-        self.dburl = config.get("db", "url")
-
-        self.schema = None
-        if config.has_option("db","schema"):
-            self.schema = config.get("db","schema")
-
-        self.view_prefix = None
-        if config.has_option("db","view_prefix"):
-            self.view_prefix = config.get("db", "view_prefix")
-
-        self.view_suffix = None
-        if config.has_option("db","view_suffix"):
-            self.view_suffix = config.get("db", "view_suffix")
-
-        self.engine = sqlalchemy.create_engine(self.dburl)
+        self.logger.debug("loading model")
+    
+        #
+        # Load model
+        #
         
-        self.logger.info("creating new database engine")
-
         model_path = config.get("model", "path")
         try:
             self.model = cubes.load_model(model_path)
@@ -127,7 +115,6 @@ class Slicer(object):
 
         self.model_localizations = {}
 
-
         if config.has_option("model", "locales"):
             self.locales = config.get("model", "locales").split(",")
             self.logger.info("model locales: %s" % self.locales)
@@ -136,12 +123,56 @@ class Slicer(object):
         else:
             self.locales = []
             
-        self.workspace = cubes.backends.sql.SQLWorkspace(self.model, self.engine, self.schema, 
-                                        name_prefix = self.view_prefix,
-                                        name_suffix = self.view_suffix)
+        if config.has_option("server","backend"):
+            backend = config.get("server","backend")
+        else:
+            backend = "cubes.backends.sql.browser"
+            
+        self.create_workspace(backend, config)
+
+    def create_workspace(self, backend_name, config):
+        """Finds the backend object and creates a workspace.
+
+        The backend should be a module with variables:
         
+        * `config_section` - name of section where backend configuration is 
+          found. This is optional and if does not exist or is ``None`` then
+          ``[backend]`` section is used.
+          
+        The backend should provide a method `create_workspace(model, config)`
+        which returns an initialized workspace object.
+
+        The workspace object should implement `browser_for_cube(cube)`.
+        """
+
+        # FIXME: simplify this process
+
+        path = backend_name.split(".")
+        
+        try:
+            self.backend = globals()[path[0]]
+            for current in path[1:]:
+                self.backend = self.backend.__dict__[current]
+        except KeyError:
+            raise Exception("Unable to find backend module %s" % backend_name)
+
+        self.logger.info("using backend '%s'" % backend_name)
+            
+        try:
+            section = self.backend.config_section
+        except:
+            section = None
+        
+        section = section or "backend"
+        
+        if config.has_section(section):
+            config_dict = dict(config.items(section))
+        else:
+            config_dict = {}
+        
+        self.workspace = self.backend.create_workspace(self.model, config_dict)
+            
     def __call__(self, environ, start_response):
-        local.application = self
         request = Request(environ)
         urls = rules.bind_to_environ(environ)
         

@@ -1,15 +1,44 @@
 Changes in the Cubes
 ++++++++++++++++++++
 
-Current Version
-===============
+Version 0.8
+===========
+
+New Features
+------------
 
 * Started writing StarBrowser - another SQL aggregation browser with different 
   approach (see code/docs)
+
+Slicer Server:
+
+* added configuration option `modules` under `[server]` to load additional 
+  modules
+* added ability to specify backend module
+* backend configuration is in [backend] by default, for SQL it stays in [db]
+* added server config option for default `prettyprint` value (useful for 
+  demontration purposes)
+
+Documentation:
+
 * Changed license to MIT + small addition. Please refer to the LICENSE file.
 * Updated documentation - added missing parts, made reference more readable, 
   moved class and function reference docs from descriptive part to reference 
   (API) part.
+* added backend documentation 
+* Added "Hello World!" example
+
+Changed Features
+----------------
+
+* removed default SQL backend from the server
+* moved worskpace creation into the backend module
+
+Fixes
+-----
+
+* Fixed create_view to handle not materialized properly (thanks to deytao)
+* Slicer tool header now contains #!/usr/bin/env python
 
 Version 0.7.1
 =============

@@ -1,0 +1,6 @@
+language: python
+python:
+    - "2.7"
+install: pip install -r requirements-optional.txt --use-mirrors
+script: python setup.py test
+

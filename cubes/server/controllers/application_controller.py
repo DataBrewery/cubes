@@ -1,7 +1,12 @@
-from werkzeug.wrappers import Response
-from werkzeug.utils import redirect
-from werkzeug.exceptions import NotFound
-import sqlalchemy
+try:
+    from werkzeug.wrappers import Response
+    from werkzeug.utils import redirect
+    from werkzeug.exceptions import NotFound
+except:
+    from cubes.util import MissingPackage
+    _missing = MissingPackage("werkzeug", "Slicer server")
+    Response = redirect = NotFound = _missing
+
 import logging
 import cubes
 import os.path
@@ -13,7 +18,6 @@ class ApplicationController(object):
     def __init__(self, app, config):
 
         self.app = app
-        self.engine = app.engine
         self.master_model = app.model
         self.logger = app.logger
 
@@ -23,11 +27,15 @@ class ApplicationController(object):
             self.json_record_limit = config.get("server","json_record_limit")
         else:
             self.json_record_limit = 1000
+
+        if config.has_option("server","prettyprint"):
+            self.prettyprint = config.getboolean("server","prettyprint")
+        else:
+            self.prettyprint = False
             
         self.params = None
         self.query = None
         self.locale = None
-        self.prettyprint = None
         self.browser = None
         self.model = None
 
@@ -143,12 +151,10 @@ class ApplicationController(object):
 
         ppflag = args.get("prettyprint")
         if ppflag:
-            if ppflag.lower() in ["true", "yes", "1"]:
+            if ppflag.lower() in ["true", "yes", "1", "on"]:
                 self.prettyprint = True
-            else:
+            elif ppflag.lower() in ["false", "no", "0", "off"]:
                 self.prettyprint = False
-        else:
-            self.prettyprint = False
 
         self.locale = args.get("lang")
         self.model = self.master_model
@@ -184,10 +190,3 @@ class ApplicationController(object):
             return json.loads(self.request.data)
         else:
             raise common.RequestError("JSON requested from unknown content-type '%s'" % content_type)
-
-class Workspace(object):
-    """OLAP Workspace for serving browsers."""
-    def __init__(self, arg):
-        super(Workspace, self).__init__()
-        self.arg = arg
-        

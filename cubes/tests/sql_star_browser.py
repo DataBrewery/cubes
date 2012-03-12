@@ -19,30 +19,39 @@ class StarSQLTestCase(unittest.TestCase):
                     "details": ["fact_detail1", "fact_detail2"]
                 }
             },
-            "dimensions" :
-            [
+            "dimensions" : [
                 {
                     "name": "date",
                     "levels": [
                         { "name": "year", "attributes": ["year"] },
-                        { "name": "month", "attributes":  ["month", "month_name", "month_sname"] },
+                        { "name": "month", "attributes": 
+                                    ["month", "month_name", "month_sname"] },
                         { "name": "day", "attributes": ["id", "day"] }
                     ],
                     "hierarchy": ["year", "month", "day"]
                 },
                 { "name": "flag" },
                 { "name": "product", 
-                    "attributes": [
-                        {"name": "category", "locales": ["en", "sk"] },
-                        {"name":"subcategory", "locales": ["en", "sk"] }
+                    "levels": [
+                        { "name": "product", 
+                          "attributes": [ "product",
+                                          {"name": "name"}
+                                        ],
+                        },
+                        {"name": "category",
+                            "attributes": ["category",
+                                          {"name": "category_name", "locales": ["en", "sk"] }
+                                          ]
+                        },
+                        {"name": "subcategory",
+                            "attributes": ["subcategory",
+                                            {"name": "subcategory_name", "locales": ["en", "sk"] }
+                                        ]
+                        }
                     ]
                 }
             ]
         }       
-        self.model = cubes.Model(**model_desc)
-        self.cube = self.model.cube("star")
-        self.browser = StarBrowser(self.cube)
-
         engine = sqlalchemy.create_engine('sqlite://')
         self.connection = engine.connect()
         metadata = sqlalchemy.MetaData()
@@ -83,6 +92,21 @@ class StarSQLTestCase(unittest.TestCase):
         metadata.create_all(engine)
         self.metadata = metadata
 
+        self.model = cubes.Model(**model_desc)
+        self.cube = self.model.cube("star")
+        self.browser = StarBrowser(self.cube)
+        self.cube.fact = 'fact'
+        self.mapper = self.browser.mapper
+
+class StarSQLAttributeMapperTestCase(StarSQLTestCase):
+    def setUp(self):
+        super(StarSQLAttributeMapperTestCase, self).setUp()
+        self.mapper.mappings = { 
+                    "product.name": "product.product_name",
+                    "subcategory.name.en": "subcategory.subcategory_name_en",
+                    "subcategory.name.sk": "subcategory.subcategory_name_sk" 
+                }
+        
     def test_valid_model(self):
         """Model is valid"""
         self.assertEqual(True, self.model.is_valid())
@@ -91,37 +115,96 @@ class StarSQLTestCase(unittest.TestCase):
 
         dim = self.model.dimension("date")
         attr = "month"
-        self.assertEqual("date.month", self.browser.logical_reference(dim, attr))
+        self.assertEqual("date.month", self.mapper.logical(dim, attr))
 
         dim = self.model.dimension("product")
         attr = "category"
-        self.assertEqual("product.category", self.browser.logical_reference(dim, attr))
+        self.assertEqual("product.category", self.mapper.logical(dim, attr))
 
         dim = self.model.dimension("flag")
         attr = "flag"
-        self.assertEqual("flag", self.browser.logical_reference(dim, attr))
+        self.assertEqual("flag", self.mapper.logical(dim, attr))
 
         attr = "anything"
-        self.assertEqual("flag", self.browser.logical_reference(dim, attr))
+        self.assertEqual("flag", self.mapper.logical(dim, attr))
 
-        self.assertEqual("amount", self.browser.logical_reference(None, "amount"))
+        self.assertEqual("amount", self.mapper.logical(None, "amount"))
 
-    def test_simplify_dimension_references(self):
-        self.browser.simplify_dimension_references = False
+    def test_dont_simplify_dimension_references(self):
+        self.mapper.simplify_dimension_references = False
 
         dim = self.model.dimension("flag")
         attr = "flag"
-        self.assertEqual("flag.flag", self.browser.logical_reference(dim, attr))
+        self.assertEqual("flag.flag", self.mapper.logical(dim, attr))
 
         attr = "anything"
-        self.assertEqual("flag.anything", self.browser.logical_reference(dim, attr))
+        self.assertEqual("flag.anything", self.mapper.logical(dim, attr))
 
-    def test_physical_reference(self):
-        mappings = { "" } # FIXME: continue here
+    def test_logical_split(self):
+        split = self.mapper.split_logical
         
-        # dim = self.model.dimension("date")
-        pass
-    
+        self.assertEqual(('foo', 'bar'), split('foo.bar'))
+        self.assertEqual(('foo', 'bar.baz'), split('foo.bar.baz'))
+        self.assertEqual((None, 'foo'), split('foo'))
+        
+    def assertMapping(self, expected, logical_ref, locale = None):
+        """Create string reference by concatentanig table and column name"""
+        (dim, attr) = self.mapper.attributes[logical_ref]
+        ref = self.mapper.physical(dim, attr, locale)
+        sref = ref[0] + "." + ref[1]
+        self.assertEqual(expected, sref)
+
+    def test_physical_refs_dimensions(self):
+        """Testing correct default mappings of dimensions (with and without 
+        explicit default prefix) in physical references."""
+
+        # No dimension prefix
+        dim = self.model.dimension("product")
+        self.assertMapping("date.year", "date.year")
+        self.assertMapping("fact.flag", "flag")
+        self.assertMapping("fact.amount", "amount")
+        # self.assertEqual("fact.flag", sref("flag.flag"))
+
+        # With prefix
+        self.mapper.dimension_table_prefix = "dm_"
+        self.assertMapping("dm_date.year", "date.year")
+        self.assertMapping("dm_date.month_name", "date.month_name")
+        self.assertMapping("fact.flag", "flag")
+        self.assertMapping("fact.amount", "amount")
+        self.mapper.dimension_table_prefix = None
+
+    def test_physical_refs_flat_dims(self):
+        self.cube.fact = None
+        self.assertMapping("star.flag", "flag")
+
+    def test_physical_refs_facts(self):
+        """Testing correct mappings of fact attributes in physical references"""
+
+        fact = self.cube.fact
+        self.cube.fact = None
+        self.assertMapping("star.amount", "amount")
+        # self.assertEqual("star.flag", sref("flag.flag"))
+        self.cube.fact = fact
+        
+    def test_physical_refs_with_mappings_and_locales(self):
+        """Testing correct mappings of mapped attributes and localized 
+        attributes in physical references"""
+
+        # Test defaults
+        self.assertMapping("date.month_name", "date.month_name")
+        self.assertMapping("product.category_name_en", "product.category_name")
+        self.assertMapping("product.category_name_sk", "product.category_name", "sk")
+        self.assertMapping("product.category_name_en", "product.category_name", "de")
+
+        # Test with mapping
+        self.assertMapping("product.name", "product.name")
+        self.assertMapping("product.name", "product.name", "sk")
+        self.assertMapping("product.subcategory_name_en", "product.subcategory_name")
+        self.assertMapping("product.subcategory_name_sk", "product.subcategory_name", "sk")
+        self.assertMapping("product.subcategory_name_en", "product.subcategory_name", "de")
+        
+class StarSQLAggregationTestCase(StarSQLTestCase):
+
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):
         """Aggregation result should: SELECT from fact only"""
@@ -160,5 +243,6 @@ class StarSQLTestCase(unittest.TestCase):
         
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(StarSQLTestCase))
+    suite.addTest(unittest.makeSuite(StarSQLAttributeMapperTestCase))
+    suite.addTest(unittest.makeSuite(StarSQLAggregationTestCase))
     return suite

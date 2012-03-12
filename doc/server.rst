@@ -1,25 +1,30 @@
-OLAP Web Service
-++++++++++++++++
++++++++++++
+OLAP Server
++++++++++++
 
 
-Cubes framework provides easy to install web service WSGI server with API that covers most of the
-Cubes logical model metadata and aggregation browsing functionality.
+Cubes framework provides easy to install web service WSGI server with API that 
+covers most of the Cubes logical model metadata and aggregation browsing 
+functionality.
 
-Server requires the werkzeug_ framework.
+.. note::
 
-.. _werkzeug: http://werkzeug.pocoo.org/
+    Server requires the Werkzeug_ framework.
 
-For more information about how to run the server programatically, please refer to the :mod:`server` module.
+.. _Werkzeug: http://werkzeug.pocoo.org/
 
-API
-===
+For more information about how to run the server programatically, please refer 
+to the :mod:`server` module.
+
+HTTP API
+========
 
 Model
 -----
 
 ``GET /model``
-    Get model metadata as JSON. In addition to standard model attributes a ``locales`` key is added with
-    list of available model locales.
+    Get model metadata as JSON. In addition to standard model attributes a 
+    ``locales`` key is added with list of available model locales.
     
 ``GET /model/dimension/<name>``
     Get dimension metadata as JSON
@@ -33,23 +38,27 @@ Model
 Cube
 ----
 
-Cube API calls have format: ``/cube/<cube_name>/<browser_action>`` where the browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and ``report``.
+Cube API calls have format: ``/cube/<cube_name>/<browser_action>`` where the 
+browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and 
+``report``.
 
 .. _serveraggregate:
 
 ``GET /cube/<cube>/aggregate``
-    Return aggregation result as JSON. The result will contain keys: `summary` and `drilldown`. The
-    summary contains one row and represents aggregation of whole cuboid specified in the cut. The
-    `drilldown` contains rows for each value of drilled-down dimension.
+    Return aggregation result as JSON. The result will contain keys: `summary` 
+    and `drilldown`. The summary contains one row and represents aggregation of 
+    whole cuboid specified in the cut. The `drilldown` contains rows for each 
+    value of drilled-down dimension.
     
     If no arguments are given, then whole cube is aggregated.
     
     :Paramteres:
         * `cut` - specification of cuboid, for example:
           ``cut=date:2004,1|category=2|entity=12345``
-        * `drilldown` - dimension to be drilled down. For example ``drilldown=date`` will give
-          rows for each value of next level of dimension date. You can explicitly specify level to
-          drill down in form: ``dimension:level``, such as: ``drilldown=date:month``
+        * `drilldown` - dimension to be drilled down. For example 
+          ``drilldown=date`` will give rows for each value of next level of 
+          dimension date. You can explicitly specify level to drill down in 
+          form: ``dimension:level``, such as: ``drilldown=date:month``
         * `page` - page number for paginated results
         * `pagesize` - size of a page for paginated results
         * `order` - list of attributes to be ordered by
@@ -299,18 +308,24 @@ Running and Deployment
 Local Server
 ------------
 
-To run your local server, prepare server configuration ``grants_config.json``::
+To run your local server, prepare server configuration ``grants_config.ini``::
 
-    {
-        "model": "grants_model.json",
-        "cube": "grants",
-        "view": "mft_grants",
-        "connection": "postgres://localhost/mydata"
-    }
+    [server]
+    host: localhost
+    port: 5000
+    reload: yes
+    log_level: info
+
+    [db]
+    url: postgres://localhost/mydata"
+
+    [model]
+    path: grants_model.json
+
 
 Run the server using the Slicer tool (see :doc:`/slicer`)::
 
-    slicer serve grants_config.json
+    slicer serve grants_config.ini
 
 Apache mod_wsgi deployment
 --------------------------
@@ -331,7 +346,7 @@ Create server configuration file ``procurements.ini``::
     [db]
     view_prefix: mft_
     schema: datamarts
-    connection: postgres://localhost/transparency
+    url: postgres://localhost/transparency
 
     [translations]
     en: /path/to/model-en.json
@@ -414,22 +429,37 @@ Server configuration is stored in .ini files with sections:
     * ``host`` - host where the server runs, defaults to ``localhost``
     * ``port`` - port on which the server listens, defaults to ``5000``
     * ``log`` - path to a log file
-    * ``log_level`` - level of log details, from least to most: ``error``, ``warn``, ``info``,
-      ``debug``
-    * ``json_record_limit`` - number of rows to limit when generating JSON output with iterable
-      objects, such as facts. Default is 1000. It is recommended to use alternate response format,
-      such as CSV, to get more records.
+    * ``log_level`` - level of log details, from least to most: ``error``, 
+      ``warn``, ``info``, ``debug``
+    * ``json_record_limit`` - number of rows to limit when generating JSON 
+      output with iterable objects, such as facts. Default is 1000. It is 
+      recommended to use alternate response format, such as CSV, to get more 
+      records.
+    * ``modules`` - space separated list of modules to be loaded (only used if 
+      run by the ``slicer`` command)
+    * ``prettyprint`` - default value of ``prettyprint`` parameter. Set to 
+      ``true`` for demonstration purposes.
 * ``[model]`` - model and cube configuration
     * ``path`` - path to model .json file
-    * ``locales`` - comma separated list of locales the model is provided in. Currently this
-      variable is optional and it is used only by experimental sphinx search backend.
-* ``[db]`` - relational database configuration
-    * ``url`` - database URL in form: ``adapter://user:password@host:port/database``
+    * ``locales`` - comma separated list of locales the model is provided in. 
+      Currently this variable is optional and it is used only by experimental 
+      sphinx search backend.
+* ``[translations]`` - model translation files, option keys in this section are 
+  locale names and values are paths to model translation files. See 
+  :doc:`localization` for more information.
+
+
+Backend configuration should be in the ``[backend]`` section if not specified 
+otherwise. See :doc:`/api/backends` for more information. The default SQL 
+backend uses ``[db]`` section:
+
+* ``[db]`` - relational database configuration (default SQL backend)
+    * ``url`` - database URL in form: 
+      ``adapter://user:password@host:port/database``
     * ``schema`` - schema containing denormalized views for relational DB cubes
-    * ``view_prefix``, ``view_suffix`` - prefix and suffix for view or table containing cube facts, name
-      is constructed by concatenating `prefix` + `cube name` + `suffix`
-* ``[translations]`` - model translation files, option keys in this section are locale names and
-  values are paths to model translation files. See :doc:`localization` for more information.
+    * ``view_prefix``, ``view_suffix`` - prefix and suffix for view or table 
+      containing cube facts, name is constructed by concatenating `prefix` + 
+      `cube name` + `suffix`
 
 Example configuration file::
 
@@ -452,4 +482,3 @@ Example configuration file::
 
     [translations]
     sk: ~/models/contracts_model-sk.json
-

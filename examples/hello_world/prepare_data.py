@@ -1,21 +1,9 @@
+# Data preparation for the hello_world example
+
 import sqlalchemy
 import cubes
 import cubes.tutorial.sql as tutorial
 import logging
-import copy
-        
-# In this tutorial you are going to learn how to run and use Slicer OLAP server
-#
-# The file is only for database initialization
-#
-# Run this script:
-#      python tutorial_04.py
-# Run slicer server:
-#      slicer serve tutorial_04.ini
-#
-# Query the server:
-#      curl http://localhost:5000/aggregate
-
 
 # 1. Prepare SQL data in memory
 
@@ -25,9 +13,11 @@ logger.setLevel(logging.WARN)
 FACT_TABLE = "ft_irbd_balance"
 FACT_VIEW = "vft_irbd_balance"
 
-engine = sqlalchemy.create_engine('sqlite:///tutorial.sqlite')
+print "loading data..."
+
+engine = sqlalchemy.create_engine('sqlite:///data.sqlite')
 tutorial.create_table_from_csv(engine, 
-                      "data/IBRD_Balance_Sheet__FY2010-t03.csv", 
+                      "data.csv", 
                       table_name=FACT_TABLE, 
                       fields=[
                             ("category", "string"),
@@ -41,14 +31,18 @@ tutorial.create_table_from_csv(engine,
                         
                         )
 
-model = cubes.load_model("models/model_04.json")
+model = cubes.load_model("model.json")
 
 cube = model.cube("irbd_balance")
 cube.fact = FACT_TABLE
 
-# 4. Create a browser and get a cell representing the whole cube (all data)
+# 2. Create the view (required for the default backend)
+
+print "creating view '%s'..." % FACT_VIEW
 
 connection = engine.connect()
 dn = cubes.backends.sql.SQLDenormalizer(cube, connection)
 
 dn.create_view(FACT_VIEW)
+
+print "done"

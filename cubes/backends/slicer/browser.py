@@ -1,3 +1,5 @@
+# -*- coding=utf -*-
+
 import cubes.browser
 import urllib2
 import json
@@ -7,37 +9,24 @@ import urllib
 class SlicerBrowser(cubes.browser.AggregationBrowser):
     """Aggregation browser for Cubes Slicer OLAP server."""
     
-    def __init__(self, url, cube):
-        """Create a browser.
-        
-        :Attributes:
-            * `cube` - name of a cube
-            * `url` - base url of Cubes Slicer OLAP server
+    def __init__(self, cube, url, locale = None):
+        """Demo backend browser. This backend is serves just as example of a 
+        backend. Uses another Slicer server instance for doing all the work. 
+        You might use it as a template for your own browser.
+
+        Attributes:
+
+        * `cube` – obligatory, but currently unused here
+        * `url` - base url of Cubes Slicer OLAP server
 
         """
         super(SlicerBrowser, self).__init__(cube)
 
-        self.cube_name = cube
-        self.baseurl = url
-
         self.logger = logging.getLogger("brewery.cubes")
-    
-        self.model = None
-        self.cube = None
+
+        self.baseurl = url
+        self.cube = cube
         
-        self._load_model()
-        
-    def _load_model(self):
-        url = self.baseurl + "/model"
-
-        dictionary = self.request(url)
-        try:
-            self.model = cubes.model_from_dict(dictionary)
-        except Exception as e:
-            raise Exception("Unable to create model from response. Reason: %s" % e)
-
-        self.cube = self.model.cube(self.cube_name)
-
     def request(self, url):
         handle = urllib2.urlopen(url)
         try:
@@ -49,11 +38,10 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         
         return reply            
                 
-    def aggregate(self, cell, measures = None, drilldown = None):
-        """See :meth:`cubes.browsers.Cell.aggregate`."""
-        result = cubes.base.AggregationResult()
+    def aggregate(self, cell, measures = None, drilldown = None, **kwargs):
+        result = cubes.AggregationResult()
         
-        cut_string = cubes.base.string_from_cuts(cell.cuts)
+        cut_string = cubes.browser.string_from_cuts(cell.cuts)
         params = [ ("cut", cut_string) ]
         if drilldown:
             for dd in drilldown:
@@ -67,7 +55,6 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         raise NotImplementedError
 
     def fact(self, key):
-        """Fetch single row based on fact key"""
 
         url = self.baseurl + "/fact/" + urllib.quote(str(key))
         return self.request(url)
