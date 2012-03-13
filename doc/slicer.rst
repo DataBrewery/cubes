@@ -27,7 +27,7 @@ Commands are:
 |``model json``         | Create JSON representation of a model (can be used)                  |
 |                       | when model is a directory.                                           |
 +-----------------------+----------------------------------------------------------------------+
-|``extract_locale`      | Get localizable part of the model                                    |
+|``extract_locale``     | Get localizable part of the model                                    |
 +-----------------------+----------------------------------------------------------------------+
 |``translate``          | Translate model with translation file                                |
 +-----------------------+----------------------------------------------------------------------+

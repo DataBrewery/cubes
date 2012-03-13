@@ -77,7 +77,7 @@ physical implementation of data. This physical independence makes it easier to
 focus on data instead on ways of how to get the data in understandable form.
 
 More information about logical model can be found in the chapter :doc:`model`. 
-See also rogramming reference of the :mod:`model` module.
+See also programming reference of the :mod:`model` module.
 
 Browser
 -------
@@ -87,7 +87,7 @@ browser module contains utility classes and functions for the
 browser to work.
 
 More information about browser can be found in the chapter :doc:`aggregate`. 
-See also rogramming reference of the :mod:`browser` module.
+See also programming reference of the :mod:`browser` module.
 
 Backends
 --------
@@ -99,7 +99,7 @@ comes with built-in `ROLAP`_ backend which uses SQL database through
 Framework has modular nature and supports multiple database backends, therefore 
 different ways of cube computation and ways of browsing aggregated data.
 
-See also rogramming reference of the :mod:`backends` module.
+See also programming reference of the :mod:`backends` module.
 
 .. _ROLAP: http://en.wikipedia.org/wiki/ROLAP
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
@@ -107,9 +107,9 @@ See also rogramming reference of the :mod:`backends` module.
 Server
 ------
 
-Cubes comes with built-in WSGI HTTP OLAP server called *Slicer* and provides 
-json API for most of the cubes framework functionality. The server is based on 
-the Werkzeug WSGI framework.
+Cubes comes with built-in WSGI HTTP OLAP server called :doc:`Slicer` and 
+provides json API for most of the cubes framework functionality. The server is 
+based on the Werkzeug WSGI framework.
 
-More information about the Slicer server can be found in the chapter 
-:doc:`server`. See also rogramming reference of the :mod:`server` module.
+More information about the Slicer server requests can be found in the chapter 
+:doc:`server`. See also programming reference of the :mod:`server` module.
