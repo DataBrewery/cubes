@@ -22,7 +22,7 @@ def create_table_from_csv(connectable, file_name, table_name, fields, create_id 
 
     type_map = { "integer": sqlalchemy.Integer,
                  "float":sqlalchemy.Float,
-                 "string":sqlalchemy.String }
+                 "string":sqlalchemy.String(256) }
 
     if create_id:
         col = sqlalchemy.schema.Column('id', sqlalchemy.Integer, primary_key=True)
