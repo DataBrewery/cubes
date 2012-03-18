@@ -21,6 +21,21 @@ try:
 except ImportError:
     import simplejson as json
 
+__all__ = [
+    "load_model",
+    "model_from_path",
+    "attribute_list",
+    "Model",
+    "Cube",
+    "Dimension",
+    "Hierarchy",
+    "Level",
+    "Attribute",
+    "Measure",
+    
+    "ModelError"
+]
+
 DIMENSION = 1
 MEASURE = 2
 DETAIL = 3
