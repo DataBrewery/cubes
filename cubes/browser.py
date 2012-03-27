@@ -7,6 +7,20 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
+__all__ = [
+    "AggregationBrowser",
+    "Cell",
+    "Cut",
+    "PointCut",
+    "RangeCut",
+    "SetCut",
+    "AggregationResult",
+    "cuts_from_string",
+    "string_from_cuts",
+    "string_from_path",
+    "path_from_string"
+]
+
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
 

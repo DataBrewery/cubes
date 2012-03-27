@@ -27,7 +27,9 @@ Commands are:
 |``model json``         | Create JSON representation of a model (can be used)                  |
 |                       | when model is a directory.                                           |
 +-----------------------+----------------------------------------------------------------------+
-|``build``              | Build OLAP cube from source data using model                         |
+|``extract_locale``     | Get localizable part of the model                                    |
++-----------------------+----------------------------------------------------------------------+
+|``translate``          | Translate model with translation file                                |
 +-----------------------+----------------------------------------------------------------------+
 
 serve
@@ -96,6 +98,19 @@ Example output::
     warning: Level 'from' in dimension 'from' has no key attribute specified
     0 errors, 3 warnings
 
+The tool output contains recommendation whether the model can be used:
+
+* `model can be used` - if there are no errors, no warnings and no defaults used,
+  mostly when the model is explicitly described in every detail
+* `model can be used, make sure that defaults reflect reality` - there are no 
+  errors, no warnings, but the model might be not complete and default 
+  assumptions are applied
+* `not recommended to use the model, some issues might emerge` - there are just 
+  warnings, no validation errors. Some queries or any other operations might 
+  produce invalid or unexpected output
+* `model can not be used` - model contain errors and it is unusable
+
+
 model json
 ----------
 
@@ -110,4 +125,7 @@ translation template.
 model translate
 ---------------
 
-Translate model using translation file.
+Translate model using translation file::
+
+    slicer model translate model.json translation.json
+
