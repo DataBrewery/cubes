@@ -92,7 +92,9 @@ class ApplicationController(object):
 
     def server_info(self):
         info = {
-            "server_version": common.VERSION,
+            "version": cubes.__version__,
+            # Backward compatibility key
+            "server_version": cubes.__version__, 
             "api_version": common.API_VERSION
         }
         return info
