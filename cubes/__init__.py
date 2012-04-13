@@ -1,5 +1,7 @@
 """OLAP Cubes"""
 
+__version__ = "0.8.1"
+
 from browser import *
 from model import *
 
@@ -12,7 +14,8 @@ from common import logger_name
 common._configure_logger()
 
 __all__ = [
-    "logger_name"
+    "logger_name",
+    "__version__"
 ]
 
 __all__ += browser.__all__
