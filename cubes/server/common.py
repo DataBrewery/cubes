@@ -15,7 +15,6 @@ import datetime
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
-VERSION = "0.7"
 API_VERSION = "1"
 
 class ServerError(HTTPException):
