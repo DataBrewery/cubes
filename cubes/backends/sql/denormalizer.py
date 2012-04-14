@@ -1,7 +1,7 @@
 import logging
 import sets
 import cubes.model as model
-import base
+from common import DEFAULT_KEY_FIELD
 try:
     import sqlalchemy
     import sqlalchemy.sql.expression as expression
@@ -55,7 +55,7 @@ class SQLDenormalizer(object):
         self.cube_key = self.cube.key
 
         if not self.cube_key:
-            self.cube_key = base.DEFAULT_KEY_FIELD
+            self.cube_key = DEFAULT_KEY_FIELD
 
         self.cube_attributes = [ self.cube_key ]
         for measure in self.cube.measures:
