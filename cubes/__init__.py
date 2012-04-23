@@ -9,14 +9,14 @@ import util
 import backends
 
 import common
-from common import logger_name
+from common import *
 
 common._configure_logger()
 
 __all__ = [
-    "logger_name",
     "__version__"
 ]
 
+__all__ += common.__all__
 __all__ += browser.__all__
 __all__ += model.__all__
