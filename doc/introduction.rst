@@ -12,6 +12,9 @@ end-user understandable and natural way of presenting the multidimensional
 data. One of the main features is the logical model, which serves as 
 abstraction over physical data to provide end-user layer.
 
+It is meant to be used by application builders that want to provide analytical
+functionality.
+
 Features:
 
 * logical view of analysed data - how analysts look at data, how they think of 
