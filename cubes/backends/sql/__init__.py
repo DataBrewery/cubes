@@ -1,4 +1,4 @@
-from builder import *
+from denormalizer import *
 from browser import *
 from star_browser import *
 from common import *
