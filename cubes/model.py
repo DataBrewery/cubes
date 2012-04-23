@@ -25,6 +25,7 @@ __all__ = [
     "load_model",
     "model_from_path",
     "attribute_list",
+    "coalesce_attribute",
     "Model",
     "Cube",
     "Dimension",
@@ -927,19 +928,14 @@ class Dimension(object):
                 results.append( ('error', "Level '%s' in dimension '%s' has no attributes" % (level.name, self.name)) )
                 continue
 
-            if not level._key:
+            if not level.key:
                 attr = level.attributes[0]
                 results.append( ('default', "Level '%s' in dimension '%s' has no key attribute specified, "\
                                             "first attribute will be used: '%s'" 
                                             % (level.name, self.name, attr)) )
 
-            if level.attributes and level._key:
-                found = False
-                for attr in level.attributes:
-                    if attr.name == level._key:
-                        found = True
-                        break
-                if not found:
+            if level.attributes and level.key:
+                if level.key not in level.attributes:
                     results.append( ('error', "Key '%s' in level '%s' in dimension '%s' " \
                                               "is not in attribute list"
                                                 % (level.key, level.name, self.name)) )
@@ -1052,8 +1048,8 @@ class Hierarchy(object):
         return self.levels[0:len(path)+extend]
 
     def next_level(self, level):
-        """Returns next level in hierarchy after `level`. If `level` is last level, returns
-        ``None``"""
+        """Returns next level in hierarchy after `level`. If `level` is last
+        level, returns ``None``"""
 
         if isinstance(level, basestring):
             level_name = level
@@ -1131,35 +1127,54 @@ class Hierarchy(object):
         return locale
 
 class Level(object):
-    """Hierarchy level
+    """Object representing a hierarchy level. Holds all level attributes.
+    
+    This object is immutable, except localization. You set up all attributes
+    in the initialisation process.
     
     Attributes:
-        * name: level name
-        * label: human readable label 
-        * key: key field of the level (customer number for customer level, region code for region level, 
-            year-month for month level). key will be used as a grouping field for aggregations. Key should be unique within level.
-        * label_attribute: name of attribute containing label to be displayed (customer_name for customer level,
-            region_name for region level, month_name for month level)
-        * attributes: list of other additional attributes that are related to the level. The attributes are not being used for aggregations, 
-            they provide additional useful information
+
+    * `name`: level name
+    * `label`: human readable label 
+    * `key`: key field of the level (customer number for customer level, region
+      code for region level, year-month for month level). key will be used as
+      a grouping field for aggregations. Key should be unique within level.
+    * `label_attribute`: name of attribute containing label to be displayed
+      (customer_name for customer level, region_name for region level,
+      month_name for month level)
+    * `attributes`: list of other additional attributes that are related to the
+      level. The attributes are not being used for aggregations, they provide
+      additional useful information
     """
-    def __init__(self, name = None, key = None, attributes = None, null_value = None, 
-                label = None, label_attribute = None, dimension = None):
+    def __init__(self, name=None, key=None, attributes=None, null_value=None, 
+                label=None, label_attribute=None, dimension=None):
         self.name = name
         self.label = label
         self.null_value = null_value
-        self._key = key
+
         self.attributes = attribute_list(attributes)
-        self._label_attribute = label_attribute
             
         self.dimension = dimension
+
+        if key:
+            self.key = coalesce_attribute(key, dimension)
+        else:
+            self.key = coalesce_attribute(self.attributes[0].name, dimension)
+
+        if label_attribute:
+            self.label_attribute = coalesce_attribute(label_attribute, dimension)
+        else:
+            if len(self.attributes) > 1:
+                self.label_attribute = coalesce_attribute(self.attributes[1], dimension)
+            else:
+                self.label_attribute = self.key
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
             return False
-        elif self.name != other.name or self.label != other.label or self._key != other._key:
+        elif self.name != other.name or self.label != other.label or self.key != other.key:
             return False
-        elif self._label_attribute != other._label_attribute:
+        elif self.label_attribute != other.label_attribute:
             return False
         elif self.null_value != other.null_value:
             return False
@@ -1183,7 +1198,7 @@ class Level(object):
     def __repr__(self):
         return self.__str__()
 
-    def to_dict(self, full_attribute_names = False, **options):
+    def to_dict(self, full_attribute_names=False, **options):
         """Convert to dictionary"""
 
         out = IgnoringDictionary()
@@ -1201,33 +1216,16 @@ class Level(object):
 
         array = []
         for attr in self.attributes:
-            array.append(attr.to_dict(dimension = self.dimension, **options))
+            array.append(attr.to_dict(dimension=self.dimension, **options))
         out.setnoempty("attributes", array)
-        out.setnoempty("label_attribute", self._label_attribute)
+        out.setnoempty("label_attribute", self.label_attribute)
 
         return out
 
     @property
     def has_details(self):
         return len(self.attributes) > 1
-
-    @property
-    def key(self):
-        if self._key:
-            return self._key
-        else:
-            return self.attributes[0].name
             
-    @property
-    def label_attribute(self):
-        if self._label_attribute:
-            return self._label_attribute
-        else:
-            if len(self.attributes) > 1:
-                return self.attributes[1]
-            else:
-                return self.key
-
     def localize(self, locale):
         util.localize_common(self,locale)
         
@@ -1255,14 +1253,23 @@ def attribute_list(attributes):
 
     if not attributes:
         return []
-    array = []
-    for attr in attributes:
-        if type(attr) == str or type(attr) == unicode:
-            new = Attribute(name = attr)
-        else:
-            new = Attribute(**attr)
-        array.append(new)
-    return array
+
+    new_list = [coalesce_attribute(attr) for attr in attributes]
+
+    return new_list
+
+def coalesce_attribute(obj, dimension=None):
+    """Makes sure that the `obj` is an ``Attribute`` instance. If `obj` is a
+    string, then new instance is returned. If it is a dictionary, then
+    the dictionary values are used for ``Attribute``instance initialization."""
+
+    if isinstance(obj, basestring):
+        return Attribute(obj,dimension=dimension)
+    elif isinstance(obj, dict):
+        return Attribute(**obj)
+    else:
+        return obj
+    
 
 class Attribute(object):
     """Cube attribute - represents any fact field/column"""
@@ -1270,24 +1277,27 @@ class Attribute(object):
     ASC = 'asc'
     DESC = 'desc'
     
-    def __init__(self, name, label=None, locales=None, order=None, description=None,
-                 **kwargs):
+    def __init__(self, name, label=None, locales=None, order=None,
+                description=None,dimension=None,**kwargs):
         """Create an attribute.
         
-        :Attributes:
-            * `name` - attribute name, used as identifier
-            * `label` - attribute label displayed to a user
-            * `locales` = list of locales that the attribute is localized to
-            * `order` - default order of this attribute. If not specified, then order is
-              unexpected. Possible values are: ``'asc'``/``'ascending'`` or
-              ``'desc'``/``'descending'``. It is recommended and safe to use ``Attribute.ASC`` and
-              ``Attribute.DESC``
-        
+        Attributes:
+
+        * `name` - attribute name, used as identifier
+        * `label` - attribute label displayed to a user
+        * `locales` = list of locales that the attribute is localized to
+        * `order` - default order of this attribute. If not specified,
+          then order is unexpected. Possible values are:
+          ``'asc'``/``'ascending'`` or ``'desc'``/``'descending'``. It is
+          recommended and safe to use ``Attribute.ASC`` and
+          ``Attribute.DESC``
         """
         super(Attribute, self).__init__()
         self.name = name
         self.label = label
         self.description = description
+        
+        self.dimension = dimension
         
         if order:
             self.order = order.lower()
@@ -1330,12 +1340,15 @@ class Attribute(object):
             d["full_name"] = self.full_name(dimension)
         return d
         
-    def full_name(self, dimension, locale=None):
+    def full_name(self, dimension=None, locale=None):
         """Return full name of an attribute as if it was part of `dimension`. Append `locale` if
         it is one of of attribute's locales, otherwise raise an error.
         """
         # Old behaviour: If no locale is specified and attribute is localized, then first locale from
         # list of locales is used.
+
+        # FIXME: Deprecate dimension, use dimension on initialisation and each
+        # attribute should have one assigned.
 
         if locale:
             if locale in self.locales:
@@ -1344,6 +1357,8 @@ class Attribute(object):
                 locale_suffix = "." + locale
         else:
             locale_suffix = ""
+
+        dimension = self.dimension or dimension
 
         return str(dimension) + "." + self.name + locale_suffix
 
