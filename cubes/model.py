@@ -699,7 +699,7 @@ class Dimension(object):
                 for level_name, level_info in levels.items():
                     # FIXME: this is a hack for soon-to-be obsolete level specification
                     info = dict([("name", level_name)] + level_info.items())
-                    level = Level(dimension = self, **info)
+                    level = Level(dimension=self, **info)
                     self._levels[level_name] = level
                     self.level_names.append(level_name)
             else: # a tuple/list expected
@@ -1068,8 +1068,11 @@ class Hierarchy(object):
         
 
     def previous_level(self, level):
-        """Returns previous level in hierarchy after `level`. If `level` is first level, 
-        returns ``Nonte``"""
+        """Returns previous level in hierarchy after `level`. If `level` is
+        first level or ``None``, returns ``None``"""
+        
+        if level is None:
+            return None
         
         if isinstance(level, basestring):
             level_name = level
@@ -1156,7 +1159,7 @@ class Level(object):
         self.label = label
         self.null_value = null_value
 
-        self.attributes = attribute_list(attributes)
+        self.attributes = attribute_list(attributes, dimension)
             
         self.dimension = dimension
 
@@ -1252,13 +1255,13 @@ class Level(object):
         return locale
 
 
-def attribute_list(attributes):
+def attribute_list(attributes, dimension=None):
     """Create a list of attributes from a list of strings or dictionaries."""
 
     if not attributes:
         return []
 
-    new_list = [coalesce_attribute(attr) for attr in attributes]
+    new_list = [coalesce_attribute(attr, dimension) for attr in attributes]
 
     return new_list
 
@@ -1344,6 +1347,35 @@ class Attribute(object):
             d["full_name"] = self.full_name(dimension)
         return d
         
+    def ref(self, locale=None, simplify=False):
+        """Return full attribute reference. Append `locale` if it is one of of
+        attribute's locales, otherwise raise an error. If `simplify` is
+        ``True``, then reference to an attribute of flat dimension without
+        details will be just the dimension name.
+        
+        .. warning::
+        
+            This might change. Might be renamed.
+            
+        """
+        if locale:
+            if locale in self.locales:
+                raise ValueError("Attribute '%s' has no localization %s" % self.name)
+            else:
+                locale_suffix = "." + locale
+        else:
+            locale_suffix = ""
+
+        if self.dimension:
+            if simplify and (self.dimension.is_flat and not self.dimension.has_details):
+                reference = self.dimension.name
+            else:
+                reference = self.dimension.name + '.' + str(self.name)
+        else:
+            reference = str(self.name)
+
+        return reference + locale_suffix
+
     def full_name(self, dimension=None, locale=None):
         """Return full name of an attribute as if it was part of `dimension`. Append `locale` if
         it is one of of attribute's locales, otherwise raise an error.
