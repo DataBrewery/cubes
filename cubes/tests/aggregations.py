@@ -107,6 +107,20 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         self.assertEqual('qwe,asd,100', cubes.browser.string_from_path(["qwe", "asd",100]))
         self.assertEqual("date:1+2,3+qwe,asd,100", str(cut))
 
+    def test_slice_drilldown(self):
+        cut = cubes.browser.PointCut("date", [])
+        original_cell = cubes.Cell(self.cube, [cut])
+
+        cell = original_cell.drilldown("date", 2010)
+        self.assertEqual([2010], cell.cut_for_dimension("date").path)
+
+        cell = cell.drilldown("date", 1)
+        self.assertEqual([2010,1], cell.cut_for_dimension("date").path)
+
+        cell = cell.drilldown("date", 2)
+        self.assertEqual([2010,1,2], cell.cut_for_dimension("date").path)
+        
+
 def suite():
     suite = unittest.TestSuite()
 
