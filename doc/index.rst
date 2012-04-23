@@ -22,6 +22,7 @@ Contents:
    server
    slicer
    api/index
+   develop
    notes
 
 Contact and Getting Help
