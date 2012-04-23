@@ -1049,8 +1049,12 @@ class Hierarchy(object):
 
     def next_level(self, level):
         """Returns next level in hierarchy after `level`. If `level` is last
-        level, returns ``None``"""
+        level, returns ``None``. If `level` is ``None``, then the first level
+        is returned."""
 
+        if not level:
+            return self.levels[0]
+            
         if isinstance(level, basestring):
             level_name = level
         else:
