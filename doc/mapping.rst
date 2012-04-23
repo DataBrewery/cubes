@@ -41,6 +41,10 @@ The single join description consists of reference to the `master` table and a
 table with `details`. Fact table is example of master table, dimension is 
 example of a detail table (in star schema).
 
+.. note::
+
+    Only single column – surrogate keys are supported for joins.
+
 The values for `master` and `detail` keys are references tables with to key 
 columns in the form:
 
