@@ -310,7 +310,10 @@ class Cell(object):
 
     def rollup_dim(self, dimension, level=None):
         """Rolls-up cell - goes one or more levels up through dimension
-        hierarchy.
+        hierarchy. If there is no level to go up (we are at the top level),
+         then the cut is removed.
+         
+         Returns new cell object.
 
         .. note::
 
@@ -336,8 +339,13 @@ class Cell(object):
 
         hier = dimension.default_hierarchy
         rollup_path = hier.rollup(dim_cut.path, level)
-        new_cut = PointCut(dimension, rollup_path)
-        cuts.append(new_cut)
+
+        # If the rollup path is empty, we are at the top level therefore we
+        # are removing the cut for the dimension.
+
+        if rollup_path:
+            new_cut = PointCut(dimension, rollup_path)
+            cuts.append(new_cut)
 
         return Cell(cube=self.cube, cuts=cuts)
 
