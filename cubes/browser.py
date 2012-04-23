@@ -326,10 +326,11 @@ class Cell(object):
         dim_cut = self.cut_for_dimension(dimension)
 
         if not dim_cut:
-            raise ValueError("No cut to roll-up for dimension '%s'" % dim_name)
+            return copy.copy(self)
+            # raise ValueError("No cut to roll-up for dimension '%s'" % dimension.name)
         if type(dim_cut) != PointCut:
             raise NotImplementedError("Only PointCuts are currently supported for "
-                                      "roll-up (rollup dimension: %s)" % dim_name)
+                                      "roll-up (rollup dimension: %s)" % dimension.name)
 
         cuts = [cut for cut in self.cuts if cut is not dim_cut]
 
