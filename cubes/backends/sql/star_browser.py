@@ -1,6 +1,7 @@
 # -*- coding=utf -*-
 import cubes.browser
-    
+from cubes.backends.sql.common import AttributeMapper
+
 # FIXME: required functionality
 # 
 # * number of items in drill-down
