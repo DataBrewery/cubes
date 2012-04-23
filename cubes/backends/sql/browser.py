@@ -1,3 +1,7 @@
+"""SQL Denormalized browser"""
+
+# FIXME: rename this to denormalized so backend name is "sql.denormalized"
+
 import cubes.browser
 import base
 import logging
@@ -731,7 +735,8 @@ def create_workspace(model, config):
 
 class SQLWorkspace(object):
     """Factory for browsers"""
-    def __init__(self, model, engine, schema = None, name_prefix = None, name_suffix = None):
+    def __init__(self, model, engine, schema=None, name_prefix=None, 
+                 name_suffix=None):
         """Create a workspace"""
         super(SQLWorkspace, self).__init__()
         self.model = model

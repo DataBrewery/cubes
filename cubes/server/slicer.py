@@ -145,7 +145,7 @@ class Slicer(object):
         The workspace object should implement `browser_for_cube(cube)`.
         """
 
-        # FIXME: simplify this process
+        # FIXME: use cubes.create_workspace()
 
         path = backend_name.split(".")
         
