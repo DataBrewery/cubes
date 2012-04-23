@@ -233,6 +233,39 @@ class Cell(object):
             cuts.append(cut)
         return Cell(cube=self.cube, cuts=cuts)
 
+    def drilldown(self, dimension, value):
+        """Create another cell by drilling down `dimension` next level on
+        current level's key `value`.
+
+        Example::
+
+            cell = cubes.Cell(cube)
+            cell = cell.drilldown("date", 2010)
+            cell = cell.drilldown("date", 1)
+            
+        is equivalent to:
+        
+            cut = cubes.PointCut("date", [2010, 1])
+            cell = cubes.Cell(cube, [cut])
+
+        Reverse operation is ``cubes.rollup("date")``
+        
+        Works only if the cut for dimension is `PointCut`. Otherwise the
+        behaviour is undefined.
+
+        Returns: new derived cell object.
+        """
+        dimension = self.cube.dimension(dimension)
+        dim_cut = self.cut_for_dimension(dimension)
+
+        old_path = dim_cut.path if dim_cut else []
+        new_cut = PointCut(dimension, old_path + [value])
+        
+        cuts = [cut for cut in self.cuts if cut is not dim_cut]
+        cuts.append(new_cut)
+
+        return Cell(cube=self.cube, cuts=cuts)
+
     # def cut(self, cuts):
     #     """Cretes another cell by cutting with multiple cuts. `cut` can be a :class:`cubes.Cut`
     #     subclass instance or list of such instances."""
@@ -268,10 +301,7 @@ class Cell(object):
 
         cut_dimension = None
         for cut in self.cuts:
-            try:
-                cut_dimension = self.cube.dimension(cut.dimension)
-            except:
-                pass
+            cut_dimension = self.cube.dimension(cut.dimension)
 
             if cut_dimension == dimension:
                 return cut
@@ -345,11 +375,12 @@ class Cell(object):
         cell = Cell(cube=self.cube, cuts=new_cuts)
         return cell
 
-    def _filter_dimension_cuts(self, dimension, exclude = False):
+    def _filter_dimension_cuts(self, dimension, exclude=False):
         dimension = self.cube.dimension(dimension)
         cuts = []
         for cut in self.cuts:
-            if (exclude and cut.dimension != dimension) or (not exclude and cut.dimension == dimension):
+            if (exclude and cut.dimension != dimension) \
+                    or (not exclude and cut.dimension == dimension):
                 cuts.append(cut)
         return cuts
 
@@ -373,9 +404,13 @@ class Cell(object):
     def __ne__(self, other):
         return not self.__eq__(other)
         
-    def __str__(self):
-        """Return string representation of the cell by using standard cuts-to-string conversion"""
+    def to_str(self):
+        """Return string representation of the cell by using standard cuts-to-string conversion."""
         return string_from_cuts(self.cuts)
+
+    def __str__(self):
+        """Return string representation of the cell by using standard cuts-to-string conversion."""
+        return self.to_str()
 
 CUT_STRING_SEPARATOR = '|'
 DIMENSION_STRING_SEPARATOR = ':'
@@ -395,13 +430,6 @@ def cuts_from_string(string):
     """Return list of cuts specified in `string`. You can use this function to parse cuts encoded
     in a URL.
     
-    Grammar::
-    
-        <list> ::= <cut> | <cut> '|' <list>
-        <cut> ::= <dimension> ':' <path>
-        <dimension> ::= <identifier>
-        <path> ::= <value> | <value> ',' <path>
-        
     Examples::
 
         date:2004
@@ -409,13 +437,21 @@ def cuts_from_string(string):
         date:2004,1|class=5
         date:2004,1,1|category:5,10,12|class:5
 
+    Grammar::
+    
+        <list> ::= <cut> | <cut> '|' <list>
+        <cut> ::= <dimension> ':' <path>
+        <dimension> ::= <identifier>
+        <path> ::= <value> | <value> ',' <path>
+        
     The characters '|', ':' and ',' are configured in `CUT_STRING_SEPARATOR`,
     `DIMENSION_STRING_SEPARATOR`, `PATH_STRING_SEPARATOR` respectively.
     """
-    cut_strings = string.split(CUT_STRING_SEPARATOR)
-
-    if not cut_strings:
+    
+    if not string:
         return []
+    
+    cut_strings = string.split(CUT_STRING_SEPARATOR)
 
     cuts = []
     
@@ -609,16 +645,17 @@ class AggregationResult(object):
     def as_dict(self):
         """Depreciated, use to_dict instead. """
         # FIXME: remove this
+        raise DeprecationWarning
         return self.to_dict()
         
     def to_dict(self):
-        """Return dictionary representation of the aggregation result. Can be used for JSON
-        serialisation"""
+        """Return dictionary representation of the aggregation result. Can be
+        used for JSON serialisation."""
         
         d = {}
         
         d["summary"] = self.summary
-        d["drilldown"] = self.drilldown
+        d["drilldown"] = dict(self.drilldown)
         d["remainder"] = self.remainder
         d["total_cell_count"] = self.total_cell_count
         
