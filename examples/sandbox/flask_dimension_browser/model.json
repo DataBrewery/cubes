@@ -2,6 +2,7 @@
     "dimensions": [
         {
          "name":"item",
+         "label": "Line Item",
          "levels": [
                 {
                     "name":"category",
