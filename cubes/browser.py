@@ -308,6 +308,38 @@ class Cell(object):
 
         return None
 
+    def rollup_dim(self, dimension, level=None):
+        """Rolls-up cell - goes one or more levels up through dimension
+        hierarchy.
+
+        .. note::
+
+                Only default hierarchy is currently supported.
+        """
+
+        # FIXME: make this the default roll-up
+        # Reason:
+        #     * simpler to use
+        #     * can be used more nicely in Jinja templates
+
+        dimension = self.cube.dimension(dimension)
+        dim_cut = self.cut_for_dimension(dimension)
+
+        if not dim_cut:
+            raise ValueError("No cut to roll-up for dimension '%s'" % dim_name)
+        if type(dim_cut) != PointCut:
+            raise NotImplementedError("Only PointCuts are currently supported for "
+                                      "roll-up (rollup dimension: %s)" % dim_name)
+
+        cuts = [cut for cut in self.cuts if cut is not dim_cut]
+
+        hier = dimension.default_hierarchy
+        rollup_path = hier.rollup(dim_cut.path, level)
+        new_cut = PointCut(dimension, rollup_path)
+        cuts.append(new_cut)
+
+        return Cell(cube=self.cube, cuts=cuts)
+
     def rollup(self, rollup):
         """Rolls-up cell - goes one or more levels up through dimension hierarchy. It works in
         similar way as drill down in :meth:`AggregationBrowser.aggregate` but in the opposite
@@ -323,6 +355,11 @@ class Cell(object):
             
                 Only default hierarchy is currently supported.
         """
+
+        # FIXME: rename this to something like really_complex_rollup :-)
+        # Reason:
+        #     * see reasons above for rollup_dim()
+        #     * used only by Slicer server
 
         cuts = OrderedDict()
         for cut in self.cuts:
@@ -655,7 +692,7 @@ class AggregationResult(object):
         d = {}
         
         d["summary"] = self.summary
-        d["drilldown"] = dict(self.drilldown)
+        d["drilldown"] = self.drilldown
         d["remainder"] = self.remainder
         d["total_cell_count"] = self.total_cell_count
         
