@@ -57,7 +57,7 @@ class StarBrowser(object):
         self.locale = locale
         self.mapper = AttributeMapper(cube, self.mappings, self.locale)
         self.mapper.dimension_table_prefix = dimension_prefix
-        self.joinfinder = JoinFinder(cube, joins=cube.joins, mapper=self.mapper)
+        self.joinfinder = JoinFinder(cube, joins=cube.joins)
     
     def fact(self, key):
         """Get the fact from cube."""

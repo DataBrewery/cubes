@@ -222,32 +222,51 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         self.assertMapping("dim_product.subcategory_name_en", "product.subcategory_name")
         self.assertMapping("dim_product.subcategory_name_sk", "product.subcategory_name", "sk")
         self.assertMapping("dim_product.subcategory_name_en", "product.subcategory_name", "de")
+                
+class JoinFinderTestCase(StarSQLTestCase):
+    def setUp(self):
+        super(JoinFinderTestCase, self).setUp()
         
-    def test_join_finder(self):
-        joins = [
+        self.joins = [
                 {"master":"fact.date_id", "detail": "date.id"},
                 {"master":["fact", "product_id"], "detail": "product.id"},
-                {"master":"fact.contract_date_id", "detail": "date.id", "alias":"contract_date"}
+                {"master":"fact.contract_date_id", "detail": "date.id", "alias":"contract_date"},
+                {"master":"product.subcategory_id", "detail": "subcategory.id"},
+                {"master":"subcategory.category_id", "detail": "category.id"}
             ]
-            
-        finder = JoinFinder(self.cube, joins, self.mapper)
+        self.finder = JoinFinder(self.cube, self.joins)
         
-        relevant = finder.relevant_joins([[None,"date"]])
+    def test_basic_joins(self):
+        relevant = self.finder.relevant_joins([[None,"date"]])
         self.assertEqual(1, len(relevant))
         self.assertEqual("date", relevant[0].detail.table)
         self.assertEqual(None, relevant[0].alias)
 
-        relevant = finder.relevant_joins([[None,"product","name"]])
+        relevant = self.finder.relevant_joins([[None,"product","name"]])
         self.assertEqual(1, len(relevant))
         self.assertEqual("product", relevant[0].detail.table)
         self.assertEqual(None, relevant[0].alias)
 
-        relevant = finder.relevant_joins([[None,"contract_date"]])
+    def test_alias(self):
+        relevant = self.finder.relevant_joins([[None,"contract_date"]])
         self.assertEqual(1, len(relevant))
         self.assertEqual("date", relevant[0].detail.table)
         self.assertEqual("contract_date", relevant[0].alias)
         
+    def test_snowflake(self):
+        relevant = self.finder.relevant_joins([[None,"subcategory"]])
         
+        self.assertEqual(2, len(relevant))
+        test = sorted([r.detail.table for r in relevant])
+        self.assertEqual(["product","subcategory"], test)
+        self.assertEqual([None, None], [r.alias for r in relevant])
+
+        relevant = self.finder.relevant_joins([[None,"category"]])
+        
+        self.assertEqual(3, len(relevant))
+        test = sorted([r.detail.table for r in relevant])
+        self.assertEqual(["category", "product","subcategory"], test)
+        self.assertEqual([None, None, None], [r.alias for r in relevant])
         
 class StarSQLAggregationTestCase(StarSQLTestCase):
     def setUp(self):
@@ -342,5 +361,6 @@ class StarSQLAggregationTestCase(StarSQLTestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(StarSQLAttributeMapperTestCase))
+    suite.addTest(unittest.makeSuite(JoinFinderTestCase))
     suite.addTest(unittest.makeSuite(StarSQLAggregationTestCase))
     return suite

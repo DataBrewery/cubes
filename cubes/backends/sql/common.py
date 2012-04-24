@@ -282,11 +282,15 @@ class AttributeMapper(object):
 
 class JoinFinder(object):
     """docstring for JoinFinder"""
-    def __init__(self, cube, joins, mapper):
+    def __init__(self, cube, joins):
+        """JoinFinder tries to find relevant joins based on the cube's joins
+        information.
+        
+        In the future it might support automatic join detection.
+        """
+        
         super(JoinFinder, self).__init__()
         self.cube = cube
-        self.mapper = mapper
-        self.fact = cube.fact
         self._collect_joins(joins)
 
     def _collect_joins(self, joins):
@@ -299,28 +303,42 @@ class JoinFinder(object):
             master = coalesce_physical(join["master"])
             detail = coalesce_physical(join["detail"])
             self.joins.append(Join(master, detail, join.get("alias")))
-        print "JOINS: %s" % (self.joins, )
         
     def relevant_joins(self, attributes):
         """Get relevant joins to the attributes - list of joins that 
-        are required to be able to acces specified attributes.
-        
-        .. warning::
-        
-            Works only for star schema, does not work for snowflake yet.
+        are required to be able to acces specified attributes. `attributes`
+        is a list of three element tuples: (`schema`, `table`, `attribute`).
         """
         
         # Attribute: (schema, table, column)
         # Join: ((schema, table, column), (schema, table, column), alias)
 
         tables_to_join = {(ref[0], ref[1]) for ref in attributes}
+        joined_tables = set()
         
         joins = []
         
-        for table in tables_to_join:
+        while tables_to_join:
+            table = tables_to_join.pop()
+            # print "==> JOINING TABLE: %s" % (table, )
+            
             for join in self.joins:
+                # print "--- testing join: %s" % (join, )
+                master = (join.master.schema, join.master.table)
                 detail = (join.detail.schema, join.alias or join.detail.table)
+
                 if table == detail:
+                    # print "--> detail matches"
                     joins.append(join)
-                
+
+                    if master not in joined_tables:
+                        # print "--- adding master to be joined"
+                        tables_to_join.add(master)
+
+                    # print "--+ joined: %s" % (detail, )
+                    joined_tables.add(detail)
+                    break
+        
+        # FIXME: is join order important? if yes, we should sort them here
+        
         return joins
