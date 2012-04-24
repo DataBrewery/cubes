@@ -58,8 +58,6 @@ Google group or write to the author.
 
 Report bugs using github issue tracking: https://github.com/Stiivi/cubes/issues
 
-**Follow @DataBrewery** on Twitter for updates.
-
 Development
 -----------
 
