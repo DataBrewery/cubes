@@ -847,16 +847,18 @@ class Dimension(object):
         else:
             return attribute.full_name(dimension=self)
 
+    def key_attributes(self):
+        """Return all dimension key attributes, regardless of hierarchy. Order
+        is undefined."""
+
+        return [level.key for level in self.levels]
+        
     def all_attributes(self, hierarchy = None):
-        if not hierarchy:
-            hier = self.default_hierarchy
-        elif type(hierarchy) == str:
-            hier = self.hierarchies[hierarchy]
-        else:
-            hier = hierarchy
+        """Return all dimension attributes regardless of hierarchy. Order of
+        levels is undefined, order of attributes within level is preserved."""
 
         attributes = []
-        for level in hier.levels:
+        for level in self.levels:
             attributes.extend(level.attributes)
 
         return attributes
@@ -1113,6 +1115,20 @@ class Hierarchy(object):
         no more levels to be added - no drill down possible."""
         
         return path != None and len(path) == len(self._levels)
+
+    def key_attributes(self):
+        """Return all dimension key attributes as a single list."""
+
+        return [level.key for level in self.levels]
+
+    def all_attributes(self):
+        """Return all dimension attributes as a single list."""
+
+        attributes = []
+        for level in self.levels:
+            attributes.extend(level.attributes)
+
+        return attributes
 
     def to_dict(self, **options):
         """Convert to dictionary"""
