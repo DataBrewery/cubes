@@ -1,12 +1,77 @@
 # -*- coding: utf-8 -*-
 """Shared SQL utilities"""
 
+import collections
+
 __all__ = (
     "AttributeMapper",
+    "PhysicalReference",
+    "JoinFinder",
+    "Join",
+    "coalesce_physical",
     "DEFAULT_KEY_FIELD"
 )
 
 DEFAULT_KEY_FIELD = "id"
+
+# FIXME: list of required fixes to the AttributeMapper:
+#
+# * remove need to use dimension where attribute object is passed (dimension
+#   should now be part of the attribute)
+
+"""Physical reference to a table column. Note that the table might be an
+aliased table name as specified in relevant join."""
+PhysicalReference = collections.namedtuple("PhysicalReference",
+                                    ["schema", "table", "column"])
+
+"""Table join specification. `master` and `detail` are PhysicalReference
+(3-item) tuples"""
+Join = collections.namedtuple("Join",
+                                    ["master", "detail", "alias"])
+
+def coalesce_physical(ref, default_table=None):
+    """Coalesce physical reference `ref` which might be:
+
+    * a string in form ``"table.column"``
+    * a list in form ``(table, column)``
+    * a list in form ``(schema, table, column)``
+    * a dictionary with keys: ``schema``, ``table``, ``column`` where
+      ``column`` is required, the rest are optional
+
+    Returns tuple (`schema`, `table`, `column`), which is a named tuple
+    `PhysicalReference`.
+
+    If no table is specified in reference and `default_table` is not
+    ``None``, then `default_table` will be used.
+    
+    .. note::
+        
+        The `table` element might be a table alias specified in list of joins.
+    
+    """
+
+    if isinstance(ref, basestring):
+        split = ref.split(".")
+
+        if len(split) > 1:
+            dim_name = split[0]
+            attr_name = ".".join(split[1:])
+            return PhysicalReference(None, dim_name, attr_name)
+        else:
+            return PhysicalReference(None, default_table, ref)
+    elif isinstance(ref, dict):
+        return PhysicalReference(ref.get("schema"), 
+                                 ref.get("table") or default_table,
+                                 ref.get("column"))
+    else:
+        if len(ref) == 2:                         
+            return PhysicalReference(None, ref[0], ref[1])
+        elif len(ref) == 3:
+            return PhysicalReference(ref[0], ref[1], ref[2])
+        else:
+            raise Exception("Number of items in table reference should "\
+                            "be 2 (table, column) or 3 (schema, table, column)")
+
 
 class AttributeMapper(object):
     """docstring for AttributeMapper"""
@@ -112,16 +177,6 @@ class AttributeMapper(object):
         else:
             return (None, reference)
 
-    def split_physical(self, reference, default_table = None):
-        """Returns tuple (`table`, `column`) from `reference` string. 
-        Syntax of the string is: ``dimensions.attribute``. Note: this method 
-        works currently the same as :meth:`split_logical`. If no table is 
-        specified in reference and `default_table` is not ``None``, then 
-        `default_table` will be used."""
-
-        ref = self.split_logical_reference(reference)
-        return (ref[0] or default_table, ref[1])
-        
     def physical(self, dimension, attribute, locale = None):
         """Returns physical reference as tuple for `logical_reference`. 
         If there is no dimension in logical reference, then fact table is 
@@ -164,6 +219,8 @@ class AttributeMapper(object):
                     table name is fact table name
         """
         
+        # FIXME: we need schema as well, see Issue #43
+        
         reference = None
 
         # Fix locale: if attribute is not localized, use none, if it is
@@ -192,11 +249,12 @@ class AttributeMapper(object):
             # TODO: should default to non-localized reference if no mapping 
             # was found?
 
-            reference = self.cube.mappings.get(logical)
+            mapping_ref = self.cube.mappings.get(logical)
 
             # Split the reference
             if isinstance(reference, basestring):
-                reference = self.split_physical(reference, self.cube.fact or self.cube.name)
+                split = coalesce_physical(mapping_ref, self.cube.fact or self.cube.name)
+                reference = PhysicalReference(None, split[0], split[1])
 
         # No mappings exist or no mapping was found - we are going to create
         # default physical reference
@@ -218,26 +276,51 @@ class AttributeMapper(object):
             else:
                 table_name = self.cube.fact or self.cube.name
 
-            reference = (table_name, column_name)
+            reference = PhysicalReference(None, table_name, column_name)
 
         return reference
 
+class JoinFinder(object):
+    """docstring for JoinFinder"""
+    def __init__(self, cube, joins, mapper):
+        super(JoinFinder, self).__init__()
+        self.cube = cube
+        self.mapper = mapper
+        self.fact = cube.fact
+        self._collect_joins(joins)
 
-def denormalize_locale(connection, localized, dernomralized, locales):
-    """Create denormalized version of localized table. (not imlpemented, just proposal)
+    def _collect_joins(self, joins):
+        """Create list of all specified joins"""
+        joins = joins or []
 
-    Type 1:
+        self.joins = []
 
-    Localized table: id, locale, field1, field2, ...
+        for join in joins:
+            master = coalesce_physical(join["master"])
+            detail = coalesce_physical(join["detail"])
+            self.joins.append(Join(master, detail, join.get("alias")))
+        print "JOINS: %s" % (self.joins, )
+        
+    def relevant_joins(self, attributes):
+        """Get relevant joins to the attributes - list of joins that 
+        are required to be able to acces specified attributes.
+        
+        .. warning::
+        
+            Does work only for star schema, not work for snowflake yet.
+        """
+        
+        # Attribute: (schema, table, column)
+        # Join: ((schema, table, column), (schema, table, column), alias)
 
-    Denomralized table: id, field1_loc1, field1_loc2, field2_loc1, field2_loc2,...
-
-    Type 2:
-
-    Localized table: id, locale, key, field, content
-
-    Denomralized table: id, field1_loc1, field1_loc2, field2_loc1, field2_loc2,...
-
-    
-    """
-    pass
+        tables_to_join = {(ref[0], ref[1]) for ref in attributes}
+        
+        joins = []
+        
+        for table in tables_to_join:
+            for join in self.joins:
+                detail = (join.detail.schema, join.alias or join.detail.table)
+                if table == detail:
+                    joins.append(join)
+                
+        return joins

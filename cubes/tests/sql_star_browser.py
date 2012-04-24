@@ -7,7 +7,7 @@ import sqlalchemy
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
 
-from cubes.backends.sql import StarBrowser
+from cubes.backends.sql import StarBrowser, JoinFinder, coalesce_physical
 
 class StarSQLTestCase(unittest.TestCase):
     def setUp(self):
@@ -16,7 +16,7 @@ class StarSQLTestCase(unittest.TestCase):
                 "star" : {
                     "measures": ["amount", "discount"],
                     "dimensions" : ["date", "flag", "product"],
-                    "details": ["fact_detail1", "fact_detail2"]
+                    "details": ["fact_detail1", "fact_detail2"],
                 }
             },
             "dimensions" : [
@@ -51,7 +51,8 @@ class StarSQLTestCase(unittest.TestCase):
                     ]
                 }
             ]
-        }       
+        }
+        
         engine = sqlalchemy.create_engine('sqlite://')
         self.connection = engine.connect()
         metadata = sqlalchemy.MetaData()
@@ -94,7 +95,7 @@ class StarSQLTestCase(unittest.TestCase):
 
         self.model = cubes.Model(**model_desc)
         self.cube = self.model.cube("star")
-        self.browser = StarBrowser(self.cube)
+        self.browser = StarBrowser(self.cube,dimension_prefix="dim_")
         self.cube.fact = 'fact'
         self.mapper = self.browser.mapper
 
@@ -148,10 +149,12 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         self.assertEqual((None, 'foo'), split('foo'))
         
     def assertMapping(self, expected, logical_ref, locale = None):
-        """Create string reference by concatentanig table and column name"""
+        """Create string reference by concatentanig table and column name.
+        No schema is expected (is ignored)."""
+        
         (dim, attr) = self.mapper.attributes[logical_ref]
         ref = self.mapper.physical(dim, attr, locale)
-        sref = ref[0] + "." + ref[1]
+        sref = ref[1] + "." + ref[2]
         self.assertEqual(expected, sref)
 
     def test_physical_refs_dimensions(self):
@@ -159,6 +162,7 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         explicit default prefix) in physical references."""
 
         # No dimension prefix
+        self.mapper.dimension_table_prefix = None
         dim = self.model.dimension("product")
         self.assertMapping("date.year", "date.year")
         self.assertMapping("fact.flag", "flag")
@@ -172,6 +176,22 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         self.assertMapping("fact.flag", "flag")
         self.assertMapping("fact.amount", "amount")
         self.mapper.dimension_table_prefix = None
+
+    def test_reference_from_mapping(self):
+        def assertPhysical(expected, actual, default=None):
+            ref = coalesce_physical(actual, default)
+            self.assertEqual(expected, ref)
+            
+        assertPhysical((None, "table", "column"), "table.column")
+        assertPhysical((None, "table", "column.foo"), "table.column.foo")
+        assertPhysical((None, "table", "column"), ["table", "column"])
+        assertPhysical(("schema", "table", "column"), ["schema","table", "column"])
+        assertPhysical((None, "table", "column"), {"column":"column"}, "table")
+        assertPhysical((None, "table", "column"), {"table":"table",
+                                                        "column":"column"})
+        assertPhysical(("schema", "table", "column"), {"schema":"schema",
+                                                        "table":"table",
+                                                        "column":"column"})
 
     def test_physical_refs_flat_dims(self):
         self.cube.fact = None
@@ -191,19 +211,97 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         attributes in physical references"""
 
         # Test defaults
-        self.assertMapping("date.month_name", "date.month_name")
-        self.assertMapping("product.category_name_en", "product.category_name")
-        self.assertMapping("product.category_name_sk", "product.category_name", "sk")
-        self.assertMapping("product.category_name_en", "product.category_name", "de")
+        self.assertMapping("dim_date.month_name", "date.month_name")
+        self.assertMapping("dim_product.category_name_en", "product.category_name")
+        self.assertMapping("dim_product.category_name_sk", "product.category_name", "sk")
+        self.assertMapping("dim_product.category_name_en", "product.category_name", "de")
 
         # Test with mapping
-        self.assertMapping("product.name", "product.name")
-        self.assertMapping("product.name", "product.name", "sk")
-        self.assertMapping("product.subcategory_name_en", "product.subcategory_name")
-        self.assertMapping("product.subcategory_name_sk", "product.subcategory_name", "sk")
-        self.assertMapping("product.subcategory_name_en", "product.subcategory_name", "de")
+        self.assertMapping("dim_product.name", "product.name")
+        self.assertMapping("dim_product.name", "product.name", "sk")
+        self.assertMapping("dim_product.subcategory_name_en", "product.subcategory_name")
+        self.assertMapping("dim_product.subcategory_name_sk", "product.subcategory_name", "sk")
+        self.assertMapping("dim_product.subcategory_name_en", "product.subcategory_name", "de")
+        
+    def test_join_finder(self):
+        joins = [
+                {"master":"fact.date_id", "detail": "date.id"},
+                {"master":["fact", "product_id"], "detail": "product.id"},
+                {"master":"fact.contract_date_id", "detail": "date.id", "alias":"contract_date"}
+            ]
+            
+        finder = JoinFinder(self.cube, joins, self.mapper)
+        
+        relevant = finder.relevant_joins([[None,"date"]])
+        self.assertEqual(1, len(relevant))
+        self.assertEqual("date", relevant[0].detail.table)
+        self.assertEqual(None, relevant[0].alias)
+
+        relevant = finder.relevant_joins([[None,"product","name"]])
+        self.assertEqual(1, len(relevant))
+        self.assertEqual("product", relevant[0].detail.table)
+        self.assertEqual(None, relevant[0].alias)
+
+        relevant = finder.relevant_joins([[None,"contract_date"]])
+        self.assertEqual(1, len(relevant))
+        self.assertEqual("date", relevant[0].detail.table)
+        self.assertEqual("contract_date", relevant[0].alias)
+        
+        
         
 class StarSQLAggregationTestCase(StarSQLTestCase):
+    def setUp(self):
+        super(StarSQLAggregationTestCase, self).setUp()
+        fact = {
+            "id":1,
+            "amount":100,
+            "discount":20,
+            "fact_detail1":"foo",
+            "fact_detail2":"bar",
+            "flag":1,
+            "date_id":20120308,
+            "product_id":1,
+            "category_id":2
+        }
+
+        date = {
+            "id": 20120308,
+            "day": 8,
+            "month": 3,
+            "month_name": "March",
+            "month_sname": "Mar",
+            "year": 2012
+        }
+
+        product = {
+            "id": 1,
+            "category_id": 10,
+            "product_name": "Cool Thing"
+        }
+
+        category = {
+            "id": 10,
+            "category_name": "Things"
+        }
+
+        table = self.table("fact")
+        self.connection.execute(table.insert(fact))
+        table = self.table("dim_date")
+        self.connection.execute(table.insert(date))
+        table = self.table("dim_product")
+        self.connection.execute(table.insert(product))
+        table = self.table("dim_category")
+        self.connection.execute(table.insert(category))
+
+    def table(self, name):
+        return sqlalchemy.Table(name, self.metadata,
+                                autoload=True)
+    
+
+    def test_get_fact(self):
+        """Get single fact"""
+        fact = self.browser.fact(1)
+        self.assertEqual(0, len(fact.keys()))
 
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):
