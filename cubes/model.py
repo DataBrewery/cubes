@@ -478,9 +478,9 @@ class Cube(object):
 
     """
 
-    def __init__(self, name = None, model = None, label= None, measures = None, 
-                 details = None, dimensions = None, mappings = None, joins = None,
-                 fact = None, key = None, description = None, **kwargs):
+    def __init__(self, name=None, model=None, label=None, measures=None, 
+                 details=None, dimensions=None, mappings=None, joins=None,
+                 fact=None, key=None, description=None, **kwargs):
         """Create a new cube
 
         Args:
@@ -696,13 +696,16 @@ class Dimension(object):
         else:
             # FIXME: depreciate levels as dictionary, use only list
             if isinstance(levels, dict):
+
                 for level_name, level_info in levels.items():
                     # FIXME: this is a hack for soon-to-be obsolete level specification
                     info = dict([("name", level_name)] + level_info.items())
                     level = Level(dimension=self, **info)
                     self._levels[level_name] = level
                     self.level_names.append(level_name)
+
             else: # a tuple/list expected
+
                 for level_info in levels:
                     if isinstance(level_info, basestring):
                         level = Level(dimension=self, name=level_info, attributes=[level_info])
@@ -711,7 +714,7 @@ class Dimension(object):
 
                     self._levels[level.name] = level
                     self.level_names.append(level.name)
-        
+
         hierarchies = desc.get("hierarchies")
         
         if hierarchy and hierarchies:
@@ -945,6 +948,8 @@ class Dimension(object):
             for attribute in level.attributes:
                 if not isinstance(attribute, Attribute):
                     results.append( ('error', "Attribute '%s' in dimension '%s' is not instance of Attribute" % (attribute, self.name)) )
+                if attribute.dimension != self:
+                    results.append( ('error', "Dimension (%s) of attribute '%s' does not match with owning dimension %s" % (attribute.dimension, attribute, self.name)) )
                 
         return results
 
@@ -1181,8 +1186,10 @@ class Level(object):
 
         if key:
             self.key = coalesce_attribute(key, dimension)
-        else:
+        elif len(self.attributes) >= 1:
             self.key = coalesce_attribute(self.attributes[0].name, dimension)
+        else:
+            raise Exception("Level attribute list should not be empty")
 
         if label_attribute:
             self.label_attribute = coalesce_attribute(label_attribute, dimension)
@@ -1289,7 +1296,7 @@ def coalesce_attribute(obj, dimension=None):
     if isinstance(obj, basestring):
         return Attribute(obj,dimension=dimension)
     elif isinstance(obj, dict):
-        return Attribute(**obj)
+        return Attribute(dimension=dimension,**obj)
     else:
         return obj
     
