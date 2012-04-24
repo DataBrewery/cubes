@@ -15,6 +15,12 @@ import cubes
 import cubes.server
 import ConfigParser
 import shlex
+from cubes.util import MissingPackage
+
+try:
+    from cubes.backends.sql.utils import ddl_for_model
+except ImportError:
+    ddl_for_model = MissingPackage("sqlalchemy", "Built-in SQL aggregation browser")
 
 def validate_model(args):
     """docstring for validate_model"""
@@ -112,12 +118,25 @@ def translate_model(args):
 def dump_model(model):
     print json.dumps(model.to_dict())
 
-def run_server(args):
+def read_config(cfg):
+    """Read the configuration file."""
     config = ConfigParser.SafeConfigParser()
     try:
         config.read(args.config)
     except Exception as e:
         raise Exception("Unable to load config: %s" % e)
+
+def generate_ddl(args):
+    model = cubes.load_model(args.model)
+    
+    ddl = ddl_for_model(args.url, model, fact_prefix=args.fact_prefix, 
+                        dimension_prefix=args.dimension_prefix)
+
+    print ddl
+
+def run_server(args):
+    """Run Slicer HTTP server."""
+    config = read_config(args.config)
 
     # Load extensions
     
@@ -193,6 +212,21 @@ subparser.set_defaults(func=update_locale)
 parser_serve = subparsers.add_parser('serve', help = "run slicer server")
 parser_serve.add_argument('config', help='server confuguration .ini file')
 parser_serve.set_defaults(func=run_server)
+
+################################################################################
+# Command: ddl
+
+subparser = subparsers.add_parser('ddl', help = "generate DDL of star schema, based on logical model (works only for SQL backend)")
+subparser.add_argument('url', help='SQL database connection URL')
+subparser.add_argument('model', help='model reference - can be a local file path or URL')
+subparser.add_argument('--dimension-prefix', 
+                            dest = 'dimension_prefix',
+                            help='prefix for dimension tables')
+subparser.add_argument('--fact-prefix', 
+                            dest = 'fact_prefix',
+                            default="",
+                            help='prefix for fact tables')
+subparser.set_defaults(func=generate_ddl)
 
 args = parser.parse_args(sys.argv[1:])
 
