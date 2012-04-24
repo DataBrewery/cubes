@@ -307,7 +307,7 @@ class JoinFinder(object):
         
         .. warning::
         
-            Does work only for star schema, not work for snowflake yet.
+            Works only for star schema, does not work for snowflake yet.
         """
         
         # Attribute: (schema, table, column)
