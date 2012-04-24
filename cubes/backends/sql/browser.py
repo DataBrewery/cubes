@@ -1,4 +1,11 @@
-"""SQL Denormalized browser"""
+"""SQL Denormalized browser
+
+Note: This browser will become obsolete once the star browser is implemented.
+For more information about the upcoming browser see:
+
+* star_browser.py
+* in common.py see AttributeMapper and JoinFinder
+"""
 
 # FIXME: rename this to denormalized so backend name is "sql.denormalized"
 

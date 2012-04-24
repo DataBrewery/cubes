@@ -13,10 +13,24 @@ class StarSQLTestCase(unittest.TestCase):
     def setUp(self):
         model_desc = {
             "cubes": {
-                "star" : {
+                "sales" : {
                     "measures": ["amount", "discount"],
                     "dimensions" : ["date", "flag", "product"],
                     "details": ["fact_detail1", "fact_detail2"],
+                    "joins": [
+                        {"master": "sales.date_id", "detail":"dim_date.id"},
+                        {"master": "sales.product_id", "detail":"dim_product.id"},
+                        {"master": "sales.category_id", "detail":"dim_category.id"}
+                    ],
+                    "mappings":{
+                        "product.name": "dim_product.product_name",
+                        "product.category": "dim_product.category_id",
+                        "product.category_name.en": "dim_category.category_name_en",
+                        "product.category_name.sk": "dim_category.category_name_sk",
+                        "product.subcategory": "dim_category.subcategory_id",
+                        "product.subcategory_name.en": "dim_category.subcategory_name_en",
+                        "product.subcategory_name.sk": "dim_category.subcategory_name_sk"
+                    }
                 }
             },
             "dimensions" : [
@@ -34,7 +48,7 @@ class StarSQLTestCase(unittest.TestCase):
                 { "name": "product", 
                     "levels": [
                         { "name": "product", 
-                          "attributes": [ "product",
+                          "attributes": [ "id",
                                           {"name": "name"}
                                         ],
                         },
@@ -58,7 +72,7 @@ class StarSQLTestCase(unittest.TestCase):
         metadata = sqlalchemy.MetaData()
         metadata.bind = engine
         
-        table = Table('fact', metadata,
+        table = Table('sales', metadata,
                         Column('id', Integer, primary_key=True),
                         Column('amount', Float),
                         Column('discount', Float),
@@ -82,21 +96,26 @@ class StarSQLTestCase(unittest.TestCase):
         table = Table('dim_product', metadata,
                         Column('id', Integer, primary_key=True),
                         Column('category_id', Integer),
-                        Column('product_name', String)
+                        Column('product_name', String),
                     )
 
         table = Table('dim_category', metadata,
                         Column('id', Integer, primary_key=True),
-                        Column('category_name', String),
+                        Column('category_name_en', String),
+                        Column('category_name_sk', String),
+                        Column('subcategory_id', Integer),
+                        Column('subcategory_name_en', String),
+                        Column('subcategory_name_sk', String)
                     )
 
         metadata.create_all(engine)
         self.metadata = metadata
 
         self.model = cubes.Model(**model_desc)
-        self.cube = self.model.cube("star")
-        self.browser = StarBrowser(self.cube,dimension_prefix="dim_")
-        self.cube.fact = 'fact'
+        self.cube = self.model.cube("sales")
+        self.browser = StarBrowser(self.cube,connection=self.connection, 
+                                    dimension_prefix="dim_")
+        self.cube.fact = 'sales'
         self.mapper = self.browser.mapper
 
 class StarSQLAttributeMapperTestCase(StarSQLTestCase):
@@ -104,6 +123,7 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         super(StarSQLAttributeMapperTestCase, self).setUp()
         self.mapper.mappings = { 
                     "product.name": "product.product_name",
+                    "product.category": "product.category_id",
                     "subcategory.name.en": "subcategory.subcategory_name_en",
                     "subcategory.name.sk": "subcategory.subcategory_name_sk" 
                 }
@@ -165,19 +185,19 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         self.mapper.dimension_table_prefix = None
         dim = self.model.dimension("product")
         self.assertMapping("date.year", "date.year")
-        self.assertMapping("fact.flag", "flag")
-        self.assertMapping("fact.amount", "amount")
+        self.assertMapping("sales.flag", "flag")
+        self.assertMapping("sales.amount", "amount")
         # self.assertEqual("fact.flag", sref("flag.flag"))
 
         # With prefix
         self.mapper.dimension_table_prefix = "dm_"
         self.assertMapping("dm_date.year", "date.year")
         self.assertMapping("dm_date.month_name", "date.month_name")
-        self.assertMapping("fact.flag", "flag")
-        self.assertMapping("fact.amount", "amount")
+        self.assertMapping("sales.flag", "flag")
+        self.assertMapping("sales.amount", "amount")
         self.mapper.dimension_table_prefix = None
 
-    def test_reference_from_mapping(self):
+    def test_coalesce_physical(self):
         def assertPhysical(expected, actual, default=None):
             ref = coalesce_physical(actual, default)
             self.assertEqual(expected, ref)
@@ -195,15 +215,15 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
 
     def test_physical_refs_flat_dims(self):
         self.cube.fact = None
-        self.assertMapping("star.flag", "flag")
+        self.assertMapping("sales.flag", "flag")
 
     def test_physical_refs_facts(self):
         """Testing correct mappings of fact attributes in physical references"""
 
         fact = self.cube.fact
         self.cube.fact = None
-        self.assertMapping("star.amount", "amount")
-        # self.assertEqual("star.flag", sref("flag.flag"))
+        self.assertMapping("sales.amount", "amount")
+        # self.assertEqual("sales.flag", sref("flag.flag"))
         self.cube.fact = fact
         
     def test_physical_refs_with_mappings_and_locales(self):
@@ -212,16 +232,17 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
 
         # Test defaults
         self.assertMapping("dim_date.month_name", "date.month_name")
-        self.assertMapping("dim_product.category_name_en", "product.category_name")
-        self.assertMapping("dim_product.category_name_sk", "product.category_name", "sk")
-        self.assertMapping("dim_product.category_name_en", "product.category_name", "de")
+        self.assertMapping("dim_category.category_name_en", "product.category_name")
+        self.assertMapping("dim_category.category_name_sk", "product.category_name", "sk")
+        self.assertMapping("dim_category.category_name_en", "product.category_name", "de")
 
         # Test with mapping
-        self.assertMapping("dim_product.name", "product.name")
-        self.assertMapping("dim_product.name", "product.name", "sk")
-        self.assertMapping("dim_product.subcategory_name_en", "product.subcategory_name")
-        self.assertMapping("dim_product.subcategory_name_sk", "product.subcategory_name", "sk")
-        self.assertMapping("dim_product.subcategory_name_en", "product.subcategory_name", "de")
+        self.assertMapping("dim_product.product_name", "product.name")
+        self.assertMapping("dim_product.category_id", "product.category")
+        self.assertMapping("dim_product.product_name", "product.name", "sk")
+        self.assertMapping("dim_category.subcategory_name_en", "product.subcategory_name")
+        self.assertMapping("dim_category.subcategory_name_sk", "product.subcategory_name", "sk")
+        self.assertMapping("dim_category.subcategory_name_en", "product.subcategory_name", "de")
                 
 class JoinFinderTestCase(StarSQLTestCase):
     def setUp(self):
@@ -280,7 +301,7 @@ class StarSQLAggregationTestCase(StarSQLTestCase):
             "flag":1,
             "date_id":20120308,
             "product_id":1,
-            "category_id":2
+            "category_id":10
         }
 
         date = {
@@ -300,27 +321,33 @@ class StarSQLAggregationTestCase(StarSQLTestCase):
 
         category = {
             "id": 10,
-            "category_name": "Things"
+            "category_name_en": "Things",
+            "category_name_sk": "Veci",
+            "subcategory_id": 20,
+            "subcategory_name_en": "Cool Things",
+            "subcategory_name_sk": "Super Veci"
         }
 
-        table = self.table("fact")
-        self.connection.execute(table.insert(fact))
+        table = self.table("sales")
+        self.connection.execute(table.insert(), fact)
         table = self.table("dim_date")
-        self.connection.execute(table.insert(date))
+        self.connection.execute(table.insert(), date)
         table = self.table("dim_product")
-        self.connection.execute(table.insert(product))
+        self.connection.execute(table.insert(), product)
         table = self.table("dim_category")
-        self.connection.execute(table.insert(category))
+        self.connection.execute(table.insert(), category)
 
     def table(self, name):
         return sqlalchemy.Table(name, self.metadata,
                                 autoload=True)
     
-
+    # @unittest.skip("not implemented")
     def test_get_fact(self):
         """Get single fact"""
         fact = self.browser.fact(1)
-        self.assertEqual(0, len(fact.keys()))
+
+        self.assertIsNotNone(fact)
+        self.assertEqual(17, len(fact.keys()))
 
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):

@@ -29,7 +29,7 @@ PhysicalReference = collections.namedtuple("PhysicalReference",
 Join = collections.namedtuple("Join",
                                     ["master", "detail", "alias"])
 
-def coalesce_physical(ref, default_table=None):
+def coalesce_physical(ref, default_table=None, schema=None):
     """Coalesce physical reference `ref` which might be:
 
     * a string in form ``"table.column"``
@@ -56,16 +56,16 @@ def coalesce_physical(ref, default_table=None):
         if len(split) > 1:
             dim_name = split[0]
             attr_name = ".".join(split[1:])
-            return PhysicalReference(None, dim_name, attr_name)
+            return PhysicalReference(schema, dim_name, attr_name)
         else:
-            return PhysicalReference(None, default_table, ref)
+            return PhysicalReference(schema, default_table, ref)
     elif isinstance(ref, dict):
-        return PhysicalReference(ref.get("schema"), 
+        return PhysicalReference(ref.get("schema") or schema, 
                                  ref.get("table") or default_table,
                                  ref.get("column"))
     else:
         if len(ref) == 2:                         
-            return PhysicalReference(None, ref[0], ref[1])
+            return PhysicalReference(schema, ref[0], ref[1])
         elif len(ref) == 3:
             return PhysicalReference(ref[0], ref[1], ref[2])
         else:
@@ -76,7 +76,7 @@ def coalesce_physical(ref, default_table=None):
 class AttributeMapper(object):
     """docstring for AttributeMapper"""
 
-    def __init__(self, cube, mappings = None, locale = None):
+    def __init__(self, cube, mappings=None, locale=None, schema=None):
         """Attribute mapper for a cube - maps logical references to 
         physical references (tables and columns)
         
@@ -90,6 +90,7 @@ class AttributeMapper(object):
           example, with couple of one-column dimensions.
         * `dimension_table_prefix` – default prefix of dimension tables, if 
           default table name is used in physical reference construction
+        * `schema` – default database schema
         
         Mappings
         ++++++++
@@ -115,6 +116,9 @@ class AttributeMapper(object):
         self.mappings = mappings
         self.locale = locale
         
+        self.fact_name = self.cube.fact or self.cube.name
+        self.schema=schema
+        
         self.simplify_dimension_references = True
         self.dimension_table_prefix = None
     
@@ -139,7 +143,7 @@ class AttributeMapper(object):
                 for attr in level.attributes:
                     ref = self.logical(dim, attr)
                     self.attributes[ref] = (dim, attr)
-
+                    
     def logical(self, dimension, attribute):
         """Returns logical reference as string for `attribute` in `dimension`. 
         If `dimension` is ``Null`` then fact table is assumed. The logical 
@@ -237,10 +241,8 @@ class AttributeMapper(object):
             locale = None
 
         # Try to get mapping if exists
-
         if self.cube.mappings:
             logical = self.logical(dimension, attribute)
-
             # Append locale to the logical reference
 
             if locale:
@@ -248,19 +250,14 @@ class AttributeMapper(object):
 
             # TODO: should default to non-localized reference if no mapping 
             # was found?
+            mapped_ref = self.cube.mappings.get(logical)
 
-            mapping_ref = self.cube.mappings.get(logical)
-
-            # Split the reference
-            if isinstance(reference, basestring):
-                split = coalesce_physical(mapping_ref, self.cube.fact or self.cube.name)
-                reference = PhysicalReference(None, split[0], split[1])
+            if mapped_ref:
+                reference = coalesce_physical(mapped_ref, self.fact_name, self.schema)
 
         # No mappings exist or no mapping was found - we are going to create
         # default physical reference
-        
         if not reference:
-
             column_name = str(attribute)
 
             if locale:
@@ -270,19 +267,19 @@ class AttributeMapper(object):
                                    and (dimension.is_flat 
                                         and not dimension.has_details)):
                 table_name = str(dimension)
-
                 if self.dimension_table_prefix:
                     table_name = self.dimension_table_prefix + table_name
+
             else:
                 table_name = self.cube.fact or self.cube.name
 
-            reference = PhysicalReference(None, table_name, column_name)
+            reference = PhysicalReference(self.schema, table_name, column_name)
 
         return reference
 
 class JoinFinder(object):
     """docstring for JoinFinder"""
-    def __init__(self, cube, joins):
+    def __init__(self, cube, joins, fact_name=None):
         """JoinFinder tries to find relevant joins based on the cube's joins
         information.
         
@@ -291,6 +288,7 @@ class JoinFinder(object):
         
         super(JoinFinder, self).__init__()
         self.cube = cube
+        self.fact_name = fact_name
         self._collect_joins(joins)
 
     def _collect_joins(self, joins):
@@ -300,7 +298,7 @@ class JoinFinder(object):
         self.joins = []
 
         for join in joins:
-            master = coalesce_physical(join["master"])
+            master = coalesce_physical(join["master"],self.fact_name)
             detail = coalesce_physical(join["detail"])
             self.joins.append(Join(master, detail, join.get("alias")))
         
