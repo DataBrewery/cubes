@@ -76,7 +76,8 @@ def coalesce_physical(ref, default_table=None, schema=None):
 class AttributeMapper(object):
     """docstring for AttributeMapper"""
 
-    def __init__(self, cube, mappings=None, locale=None, schema=None):
+    def __init__(self, cube, mappings=None, locale=None, schema=None,
+                    fact_name=None, dimension_prefix=None):
         """Attribute mapper for a cube - maps logical references to 
         physical references (tables and columns)
         
@@ -90,7 +91,9 @@ class AttributeMapper(object):
           example, with couple of one-column dimensions.
         * `dimension_table_prefix` – default prefix of dimension tables, if 
           default table name is used in physical reference construction
+        * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
+        * `dimension_prefix` – prefix for dimension tables
         
         Mappings
         ++++++++
@@ -116,11 +119,11 @@ class AttributeMapper(object):
         self.mappings = mappings
         self.locale = locale
         
-        self.fact_name = self.cube.fact or self.cube.name
+        self.fact_name = fact_name or self.cube.fact or self.cube.name
         self.schema=schema
         
         self.simplify_dimension_references = True
-        self.dimension_table_prefix = None
+        self.dimension_table_prefix = dimension_prefix
     
         self.collect_attributes()
 
@@ -133,18 +136,18 @@ class AttributeMapper(object):
         self.attributes = {}
         
         for attr in self.cube.measures:
-            self.attributes[self.logical(None, attr)] = (None, attr)
+            self.attributes[self.logical(attr)] = attr
 
         for attr in self.cube.details:
-            self.attributes[self.logical(None, attr)] = (None, attr)
+            self.attributes[self.logical(attr)] = attr
 
         for dim in self.cube.dimensions:
             for level in dim.levels:
                 for attr in level.attributes:
-                    ref = self.logical(dim, attr)
-                    self.attributes[ref] = (dim, attr)
+                    ref = self.logical(attr)
+                    self.attributes[ref] = attr
                     
-    def logical(self, dimension, attribute):
+    def logical(self, attribute):
         """Returns logical reference as string for `attribute` in `dimension`. 
         If `dimension` is ``Null`` then fact table is assumed. The logical 
         reference might have following forms:
@@ -156,6 +159,8 @@ class AttributeMapper(object):
         If `simplify_dimension_references` is ``True`` then references for flat 
         dimensios without details is ``dimension``
         """
+
+        dimension = attribute.dimension
 
         if dimension:
             if self.simplify_dimension_references and \
@@ -181,10 +186,11 @@ class AttributeMapper(object):
         else:
             return (None, reference)
 
-    def physical(self, dimension, attribute, locale = None):
-        """Returns physical reference as tuple for `logical_reference`. 
-        If there is no dimension in logical reference, then fact table is 
-        assumed. The returned tuple has structure: (table, column).
+    def physical(self, attribute, locale = None):
+        """Returns physical reference as tuple for `attribute`, which should
+        be an instance of :class:`cubes.model.Attribute`. If there is no
+        dimension specified in attribute, then fact table is assumed. The
+        returned tuple has structure: (`schema`, `table`, `column`).
 
         The algorithm to find physicl reference is as follows::
         
@@ -226,6 +232,7 @@ class AttributeMapper(object):
         # FIXME: we need schema as well, see Issue #43
         
         reference = None
+        dimension = attribute.dimension
 
         # Fix locale: if attribute is not localized, use none, if it is
         # localized, then use specified if exists otherwise use default
@@ -242,7 +249,7 @@ class AttributeMapper(object):
 
         # Try to get mapping if exists
         if self.cube.mappings:
-            logical = self.logical(dimension, attribute)
+            logical = self.logical(attribute)
             # Append locale to the logical reference
 
             if locale:
@@ -271,7 +278,7 @@ class AttributeMapper(object):
                     table_name = self.dimension_table_prefix + table_name
 
             else:
-                table_name = self.cube.fact or self.cube.name
+                table_name = self.fact_name
 
             reference = PhysicalReference(self.schema, table_name, column_name)
 

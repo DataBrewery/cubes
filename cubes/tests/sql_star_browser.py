@@ -134,32 +134,29 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         
     def test_logical_reference(self):
 
-        dim = self.model.dimension("date")
-        attr = "month"
-        self.assertEqual("date.month", self.mapper.logical(dim, attr))
+        attr = cubes.Attribute("month",dimension=self.model.dimension("date"))
+        self.assertEqual("date.month", self.mapper.logical(attr))
 
-        dim = self.model.dimension("product")
-        attr = "category"
-        self.assertEqual("product.category", self.mapper.logical(dim, attr))
+        attr = cubes.Attribute("category",dimension=self.model.dimension("product"))
+        self.assertEqual("product.category", self.mapper.logical(attr))
 
-        dim = self.model.dimension("flag")
-        attr = "flag"
-        self.assertEqual("flag", self.mapper.logical(dim, attr))
+        attr = cubes.Attribute("flag",dimension=self.model.dimension("flag"))
+        self.assertEqual("flag", self.mapper.logical(attr))
 
-        attr = "anything"
-        self.assertEqual("flag", self.mapper.logical(dim, attr))
+        attr = cubes.Attribute("measure",dimension=None)
+        self.assertEqual("measure", self.mapper.logical(attr))
 
-        self.assertEqual("amount", self.mapper.logical(None, "amount"))
+    def test_logical_reference_as_string(self):
+        self.assertRaises(AttributeError, self.mapper.logical, "amount")
 
     def test_dont_simplify_dimension_references(self):
         self.mapper.simplify_dimension_references = False
 
-        dim = self.model.dimension("flag")
-        attr = "flag"
-        self.assertEqual("flag.flag", self.mapper.logical(dim, attr))
+        attr = cubes.Attribute("flag",dimension=self.model.dimension("flag"))
+        self.assertEqual("flag.flag", self.mapper.logical(attr))
 
-        attr = "anything"
-        self.assertEqual("flag.anything", self.mapper.logical(dim, attr))
+        attr = cubes.Attribute("measure",dimension=None)
+        self.assertEqual("measure", self.mapper.logical(attr))
 
     def test_logical_split(self):
         split = self.mapper.split_logical
@@ -172,8 +169,8 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         """Create string reference by concatentanig table and column name.
         No schema is expected (is ignored)."""
         
-        (dim, attr) = self.mapper.attributes[logical_ref]
-        ref = self.mapper.physical(dim, attr, locale)
+        attr = self.mapper.attributes[logical_ref]
+        ref = self.mapper.physical(attr, locale)
         sref = ref[1] + "." + ref[2]
         self.assertEqual(expected, sref)
 
