@@ -1,6 +1,6 @@
 from denormalizer import *
 from browser import *
-from star_browser import *
+from star import *
 from common import *
 
 __all__ = [
@@ -9,5 +9,5 @@ __all__ = [
     "SQLWorkspace"
 ]
 
-__all__ += star_browser.__all__
+__all__ += star.__all__
 __all__ += common.__all__

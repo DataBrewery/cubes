@@ -1,4 +1,5 @@
-"""Cubes SQL backend utilities"""
+"""Cubes SQL backend utilities, mostly to be used by the slicer command."""
+
 from sqlalchemy import create_engine, Table, Column, Integer, String, Float, MetaData, ForeignKey
 from StringIO import StringIO
 
@@ -82,6 +83,12 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None):
     metadata.create_all()
     
     return out.getvalue()
+
+def validate_physical_schema(url, model, fact_prefix=None, dimension_prefix=None):
+    """Validate the model and mappings against physical schema - check for 
+    existence of each column."""
+    
+    pass
 
 def denormalize_locale(connection, localized, dernomralized, locales):
     """Create denormalized version of localized table. (not imlpemented, just proposal)
