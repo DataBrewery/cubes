@@ -141,7 +141,7 @@ class Mapper(object):
         This method should be used after each cube or mappings change.
         """
 
-        self.attributes = {}
+        self.attributes = collections.OrderedDict()
         
         for attr in self.cube.measures:
             self.attributes[self.logical(attr)] = attr
@@ -150,11 +150,11 @@ class Mapper(object):
             self.attributes[self.logical(attr)] = attr
 
         for dim in self.cube.dimensions:
-            for level in dim.levels:
-                for attr in level.attributes:
-                    ref = self.logical(attr)
-                    self.attributes[ref] = attr
-                    
+            for attr in dim.all_attributes():
+                if not attr.dimension:
+                    raise Exception("No dimension in attr %s" % attr)
+                self.attributes[self.logical(attr)] = attr
+
     def _collect_joins(self, joins):
         """Collects joins and coalesce physical references. `joins` is
         a dictionary with keys: `master`, `detail` reffering to master and detail
@@ -169,6 +169,11 @@ class Mapper(object):
             master = coalesce_physical(join["master"],self.fact_name)
             detail = coalesce_physical(join["detail"])
             self.joins.append(Join(master, detail, join.get("alias")))
+
+    def all_attributes(self):
+        """Return a list of all attributes of a cube"""
+
+        return self.attributes.values()
 
     def logical(self, attribute):
         """Returns logical reference as string for `attribute` in `dimension`. 
@@ -336,6 +341,18 @@ class Mapper(object):
 
         return tables
         
+    def map_attributes(self, attributes, locale=None):
+        """Convert `attributes` to physical attributes. Returns a list of 
+        physical attributes with respect to `locale`."""
+        
+        physical_attrs = []
+
+        for attr in attributes:
+            ref = self.physical(attr)
+            physical_attrs.append(ref)
+
+        return physical_attrs
+
     def relevant_joins(self, attributes):
         """Get relevant joins to the attributes - list of joins that 
         are required to be able to acces specified attributes. `attributes`
