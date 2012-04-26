@@ -17,11 +17,6 @@ import ConfigParser
 import shlex
 from cubes.util import MissingPackage
 
-try:
-    from cubes.backends.sql.utils import ddl_for_model
-except ImportError:
-    ddl_for_model = MissingPackage("sqlalchemy", "Built-in SQL aggregation browser")
-
 def validate_model(args):
     """docstring for validate_model"""
     print("loading model %s" % args.model)
@@ -130,8 +125,13 @@ def read_config(cfg):
 
 def generate_ddl(args):
     model = cubes.load_model(args.model)
+
+    if args.backend:
+        backend = cubes.common.get_backend(args.backend)
+    else:
+        backend = cubes.backends.sql.browser
     
-    ddl = ddl_for_model(args.url, model, fact_prefix=args.fact_prefix, 
+    ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix, 
                         dimension_prefix=args.dimension_prefix)
 
     print ddl
@@ -228,6 +228,9 @@ subparser.add_argument('--fact-prefix',
                             dest = 'fact_prefix',
                             default="",
                             help='prefix for fact tables')
+subparser.add_argument('--backend', 
+                            dest = 'backend',
+                            help='backend name (currently limited only to SQL backends)')
 subparser.set_defaults(func=generate_ddl)
 
 args = parser.parse_args(sys.argv[1:])

@@ -411,12 +411,36 @@ class FactsIterator(object):
 
         return dict(row.items())
 
-class DenormalizedQuery(object):
-    """docstring for DenormalizedQuery"""
-    def __init__(self, arg):
-        super(DenormalizedQuery, self).__init__()
-        self.arg = arg
-        
+####
+# Backend related functions
+###
+
+def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_type=None):
+    """Create a star schema DDL for a model.
+    
+    Parameters:
+    
+    * `url` - database url – no connection will be created, just used by 
+       SQLAlchemy to determine appropriate engine backend
+    * `cube` - cube to be described
+    * `dimension_prefix` - prefix used for dimension tables
+    * `schema_type` - ``logical``, ``physical``, ``denormalized``
+    
+    As model has no data storage type information, following simple rule is
+    used:
+    
+    * fact ID is an integer
+    * all keys are strings
+    * all attributes are strings
+    * all measures are floats
+    
+    .. warning::
+    
+        Does not respect localized models yet.
+    
+    """
+    raise NotImplementedError
+    
 def create_workspace(model, config):
     """Create workspace for `model` with configuration in dictionary `config`. 
     This method is used by the slicer server."""

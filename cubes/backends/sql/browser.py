@@ -14,6 +14,8 @@ import common
 import logging
 import cubes.model
 import collections
+from StringIO import StringIO
+
 try:
     from collections import OrderedDict
 except ImportError:
@@ -715,6 +717,92 @@ class CubeQuery(object):
 #
 # Slicer server - backend handling
 #
+
+def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_type=None):
+    """Create a star schema DDL for a model.
+    
+    Parameters:
+    
+    * `url` - database url – no connection will be created, just used by 
+       SQLAlchemy to determine appropriate engine backend
+    * `cube` - cube to be described
+    * `dimension_prefix` - prefix used for dimension tables
+    * `schema_type` - ignored in this backend
+    
+    As model has no data storage type information, following simple rule is
+    used:
+    
+    * fact ID is an integer
+    * all keys are strings
+    * all attributes are strings
+    * all measures are floats
+    
+    .. warning::
+    
+        Does not respect localized models yet.
+    
+    """
+    dim_tables = {}
+    dim_keys = {}
+    
+    out = StringIO()
+
+    dimension_prefix = dimension_prefix or ""
+    fact_prefix = fact_prefix or ""
+    def dump(sql, *multiparams, **params):
+        out.write(('%s' %
+            sql.compile(dialect=engine.dialect)).strip()+';\n/\n')
+
+    engine = sqlalchemy.create_engine(url, strategy='mock', executor=dump)
+
+    metadata = sqlalchemy.MetaData(engine)
+
+    # Create dimension tables
+    
+    for dim in model.dimensions:
+        # If the dimension is represented by one field only, then there is
+        # no need to create a separate table.
+        if dim.is_flat and not dim.has_details:
+            continue
+        
+        # Create and store constructed table name and key identifier. They
+        # will be used in fact table creation
+        
+        name = dimension_prefix+dim.name
+        dim_tables[dim.name] = name
+        dim_key = dim.name + "_key"
+        dim_keys[dim.name] = dim_key
+
+        table = sqlalchemy.Table(name, metadata)
+        table.append_column(sqlalchemy.Column(dim_key, sqlalchemy.Integer, primary_key=True))
+        for attr in dim.all_attributes():
+            table.append_column(sqlalchemy.Column(attr.name, sqlalchemy.String))
+        
+    # Create fact tables
+
+    for cube in model.cubes.values():
+
+        table = sqlalchemy.Table(fact_prefix+cube.name, metadata)
+        table.append_column(sqlalchemy.Column(attr.name, sqlalchemy.Integer))
+
+        for dim in cube.dimensions:
+            if dim.is_flat and not dim.has_details:
+                col = sqlalchemy.Column(dim.name, sqlalchemy.String)
+            else:
+                fkey = "%s.%s" % (dim_tables[dim.name], dim_keys[dim.name])
+                col = sqlalchemy.Column(dim_keys[dim.name], sqlalchemy.Integer, sqlalchemy.ForeignKey(fkey), nullable=False)
+            table.append_column(col)
+    
+        for attr in cube.details:
+            table.append_column(sqlalchemy.Column(attr.name, sqlalchemy.String))
+            
+        for attr in cube.measures:
+            table.append_column(sqlalchemy.Column(attr.name, sqlalchemy.Float))
+    
+    metadata.create_all()
+    
+    return out.getvalue()
+
 
 # Backward compatibility - use [db] section in slicer configuration
 config_section = "db"
