@@ -4,9 +4,8 @@
 import collections
 
 __all__ = (
-    "AttributeMapper",
+    "Mapper",
     "PhysicalReference",
-    "JoinFinder",
     "Join",
     "coalesce_physical",
     "DEFAULT_KEY_FIELD"
@@ -73,13 +72,16 @@ def coalesce_physical(ref, default_table=None, schema=None):
                             "be 2 (table, column) or 3 (schema, table, column)")
 
 
-class AttributeMapper(object):
-    """docstring for AttributeMapper"""
+class Mapper(object):
+    """Mapper is core clas for translating logical model to physical
+    database schema.
+    """
 
     def __init__(self, cube, mappings=None, locale=None, schema=None,
-                    fact_name=None, dimension_prefix=None):
-        """Attribute mapper for a cube - maps logical references to 
-        physical references (tables and columns)
+                    fact_name=None, dimension_prefix=None, joins=None):
+        """Creates a mapper for a cube. The mapper maps logical references to
+        physical references (tables and columns), creates required joins,
+        resolves table names.
         
         Attributes:
         
@@ -96,7 +98,7 @@ class AttributeMapper(object):
         * `dimension_prefix` – prefix for dimension tables
         
         Mappings
-        ++++++++
+        --------
         
         Mappings is a dictionary where keys are logical attribute references
         and values are table column references. The keys are mostly in the form:
@@ -108,9 +110,12 @@ class AttributeMapper(object):
         
         The values might be specified as strings in the form ``table.column`` 
         or as two-element arrays: [`table`, `column`].
+
+        .. In the future it might support automatic join detection.
+        
         """
         
-        super(AttributeMapper, self).__init__()
+        super(Mapper, self).__init__()
 
         if cube == None:
             raise Exception("Cube for mapper should not be None.")
@@ -124,10 +129,13 @@ class AttributeMapper(object):
         
         self.simplify_dimension_references = True
         self.dimension_table_prefix = dimension_prefix
+        
+        self.joins = joins
     
-        self.collect_attributes()
+        self._collect_attributes()
+        self._collect_joins(joins)
 
-    def collect_attributes(self):
+    def _collect_attributes(self):
         """Collect all cube attributes and create a dictionary where keys are 
         logical references and values are `cubes.model.Attribute` objects.
         This method should be used after each cube or mappings change.
@@ -147,6 +155,21 @@ class AttributeMapper(object):
                     ref = self.logical(attr)
                     self.attributes[ref] = attr
                     
+    def _collect_joins(self, joins):
+        """Collects joins and coalesce physical references. `joins` is
+        a dictionary with keys: `master`, `detail` reffering to master and detail
+        keys. `alias` is used to give alternative name to a table when two
+        tables are being joined."""
+        
+        joins = joins or []
+
+        self.joins = []
+
+        for join in joins:
+            master = coalesce_physical(join["master"],self.fact_name)
+            detail = coalesce_physical(join["detail"])
+            self.joins.append(Join(master, detail, join.get("alias")))
+
     def logical(self, attribute):
         """Returns logical reference as string for `attribute` in `dimension`. 
         If `dimension` is ``Null`` then fact table is assumed. The logical 
@@ -284,30 +307,34 @@ class AttributeMapper(object):
 
         return reference
 
-class JoinFinder(object):
-    """docstring for JoinFinder"""
-    def __init__(self, cube, joins, fact_name=None):
-        """JoinFinder tries to find relevant joins based on the cube's joins
-        information.
+    def table_map(self):
+        """Return list of references to all tables. Keys are aliased
+        tables: (`schema`, `aliased_table_name`) and values are
+        real tables: (`schema`, `table_name`). Included is the fact table
+        and all tables mentioned in joins.
         
-        In the future it might support automatic join detection.
+        To get list of all physical tables where aliased tablesare included
+        only once::
+        
+            finder = JoinFinder(cube, joins, fact_name)
+            tables = set(finder.table_map().keys())
         """
         
-        super(JoinFinder, self).__init__()
-        self.cube = cube
-        self.fact_name = fact_name
-        self._collect_joins(joins)
+        tables = {
+            (self.schema, self.fact_name): (self.schema, self.fact_name)
+        }
+        
+        for join in self.joins:
+            if not join.detail.table or join.detail.table == self.fact_name:
+                raise ValueError("Detail table name should be present and should not be a fact table.")
 
-    def _collect_joins(self, joins):
-        """Create list of all specified joins"""
-        joins = joins or []
+            ref = (join.master.schema, join.master.table)
+            tables[ref] = ref
 
-        self.joins = []
+            ref = (join.detail.schema, join.alias or join.detail.table)
+            tables[ref] = (join.detail.schema, join.detail.table)
 
-        for join in joins:
-            master = coalesce_physical(join["master"],self.fact_name)
-            detail = coalesce_physical(join["detail"])
-            self.joins.append(Join(master, detail, join.get("alias")))
+        return tables
         
     def relevant_joins(self, attributes):
         """Get relevant joins to the attributes - list of joins that 
