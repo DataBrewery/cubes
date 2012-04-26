@@ -1,3 +1,4 @@
+# -*- coding=utf -*-
 """SQL Denormalized browser
 
 Note: This browser will become obsolete once the star browser is implemented.

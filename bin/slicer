@@ -149,6 +149,28 @@ def run_server(args):
     
     cubes.server.run_server(config)
 
+def run_test(args):
+    """Run test of Slicer HTTP server configuration."""
+    config = read_config(args.config)
+
+    # Load extensions
+
+    if config.has_option("server", "modules"):
+        modules = shlex.split(config.get("server", "modules"))
+        for module in modules:
+            e = __import__(module)
+
+    context = cubes.common.create_slicer_context(config)
+    backend = context["backend"]
+    workspace = backend.create_workspace(context["model"],
+                                         context["backend_config"])
+    results = workspace.validate_model()
+    if results:
+        print("\nvalidation results:\n")
+        for result in results:
+            print("%s: %s" % (result[0], result[1]) )
+    else:
+        print("model test was successful")
 ################################################################################
 # Main code
 
@@ -214,6 +236,13 @@ subparser.set_defaults(func=update_locale)
 parser_serve = subparsers.add_parser('serve', help = "run slicer server")
 parser_serve.add_argument('config', help='server confuguration .ini file')
 parser_serve.set_defaults(func=run_server)
+
+################################################################################
+# Command: serve
+
+subparser = subparsers.add_parser('test', help = "test the configuration and model with backend")
+subparser.add_argument('config', help='server confuguration .ini file')
+subparser.set_defaults(func=run_test)
 
 ################################################################################
 # Command: ddl

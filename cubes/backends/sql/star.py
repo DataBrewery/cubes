@@ -129,8 +129,11 @@ class StarBrowser(object):
         result = self.engine.execute(statement)
 
         return FactsIterator(result)
-    
-    def validate_model(self):
+
+    def aggregate(self, cell, measures = None, drilldown = None, details = False, **options):
+        pass
+
+    def validate(self):
         """Validate physical representation of model. Returns a list of 
         dictionaries with keys: ``type``, ``issue``, ``object``.
 
@@ -148,30 +151,77 @@ class StarBrowser(object):
         * ``duplicity`` - attribute is found more than once
 
         """
-
-        attributes = self.all_attributes()
-        physical_references = self.to_physical(attributes)
+        issues = []
+        
+        # attributes = self.all_attributes()
+        # physical_references = self.to_physical(attributes)
 
         # tables 
 
-        # TODO: implement this
-        raise NotImplementedError
+        # Check joins
 
-        # tables = {}
+        tables = set()
+        aliases = set()
+        alias_map = {}
         # 
-        # for join in joins:
-        #     self.logger.debug("join: %s" % (join, ))
-        # 
-        #     if not join.detail.table or join.detail.table == self.fact_name:
-        #         raise ValueError("Detail table name should be present and should not be a fact table.")
-        # 
-        #     master_table = self.table(join.master.schema, join.master.table)
-        #     detail_table = self.table(join.detail.schema, join.detail.table, join.alias)
-        # 
+        for join in self.mapper.joins:
+            self.logger.debug("join: %s" % (join, ))
+        
+            if not join.master.column:
+                issues.append(("join", "master column not specified", join))
+            if not join.detail.table:
+                issues.append(("join", "detail table not specified", join))
+            elif join.detail.table == self.fact_name:
+                issues.append(("join", "detail table should not be fact table", join))
+        
+            master_table = (join.master.schema, join.master.table)
+            tables.add(master_table)
 
-    def aggregate(self, cell, measures = None, drilldown = None, details = False, **options):
-        pass
+            detail_alias = (join.detail.schema, join.alias or join.detail.table)
 
+            if detail_alias in aliases:
+                issues.append(("join", "duplicate detail table %s" % detail_table, join))
+            else:
+                aliases.add(detail_alias)
+                
+            detail_table = (join.detail.schema, join.detail.table)
+            alias_map[detail_alias] = detail_table
+
+            if detail_table in tables and not join.alias:
+                issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
+            else:
+                tables.add(detail_table)
+        
+        # Check for existence of joined tables:
+        physical_tables = {}
+        
+        for table in tables:
+            try:
+                physical_table = sqlalchemy.Table(table[1], self.metadata, 
+                                        autoload=True, 
+                                        schema=table[0] or self.mapper.schema)
+                physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
+            except sqlalchemy.exc.NoSuchTableError:
+                issues.append(("join", "table %s.%s does not exist" % table, join))
+                
+        # Check attributes
+        
+        attributes = self.mapper.all_attributes()
+        physical = self.mapper.map_attributes(attributes)
+        
+        for attr, ref in zip(attributes, physical):
+            table_ref = (ref.schema, ref.table)
+            table = physical_tables.get(table_ref)
+            if table is None:
+                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
+            else:
+                try:
+                    c = table.c[ref.column]
+                except KeyError:
+                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
+                
+        return issues
+        
 """Set of conditions. `attributes` - list of attributes involved in the conditions,
 `conditions` - SQL conditions, `group_by` - attributes to be grouped by."""
 ConditionSet = collections.namedtuple("ConditionSet",
@@ -485,3 +535,29 @@ class SQLStarWorkspace(object):
                                 fact_prefix=self.fact_prefix,
                                 schema=self.schema)
         return browser
+
+    def validate_model(self):
+        """Validate physical representation of model. Returns a list of 
+        dictionaries with keys: ``type``, ``issue``, ``object``.
+
+        Types might be: ``join`` or ``attribute``.
+
+        The ``join`` issues are:
+
+        * ``no_table`` - there is no table for join
+        * ``duplicity`` - either table or alias is specified more than once
+
+        The ``attribute`` issues are:
+
+        * ``no_table`` - there is no table for attribute
+        * ``no_column`` - there is no column for attribute
+        * ``duplicity`` - attribute is found more than once
+
+        """
+        issues = []
+
+        for cube in self.model.cubes:
+            browser = self.browser_for_cube(cube)
+            issues += browser.validate()
+
+        return issues
