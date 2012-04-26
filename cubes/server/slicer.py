@@ -83,7 +83,7 @@ class Slicer(object):
         # Configure logger
         #
 
-        self.logger = logging.getLogger(cubes.common.logger_name)
+        self.logger = cubes.common.get_logger()
         if self.config.has_option("server", "log"):
             formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
             handler = logging.FileHandler(self.config.get("server", "log"))

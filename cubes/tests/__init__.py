@@ -7,6 +7,12 @@ import combinations
 import default_sql_backend
 import sql_star_browser
 
+from cubes.common import get_logger
+import logging
+
+logger = get_logger()
+logger.setLevel(logging.DEBUG)
+
 def suite():
     suite = unittest.TestSuite()
 

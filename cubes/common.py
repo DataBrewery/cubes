@@ -5,21 +5,37 @@ from model import load_model
 
 __all__ = [
     "logger_name",
+    "get_logger",
+    "create_logger",
     "create_workspace"
 ]
 
-logger_name = "cubes"
 DEFAULT_BACKEND = "cubes.backends.sql.browser"
 
-def _configure_logger():
+logger_name = "cubes"
+logger = None
+
+def get_logger():
+    """Get brewery default logger"""
+    global logger
+    
+    if logger:
+        return logger
+    else:
+        return create_logger()
+        
+def create_logger():
+    """Create a default logger"""
+    global logger
     logger = logging.getLogger(logger_name)
-    # logger.setLevel(logging.INFO)
+
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
-            # datefmt='%a, %d %b %Y %H:%M:%S',
     
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+    
+    return logger
 
 def create_slicer_context(config):
     """

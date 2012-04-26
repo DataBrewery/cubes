@@ -8,10 +8,7 @@ from model import *
 import util
 import backends
 
-import common
 from common import *
-
-common._configure_logger()
 
 __all__ = [
     "__version__"
