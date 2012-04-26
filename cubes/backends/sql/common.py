@@ -2,6 +2,7 @@
 """Shared SQL utilities"""
 
 import collections
+from cubes.common import get_logger
 
 __all__ = (
     "Mapper",
@@ -120,6 +121,8 @@ class Mapper(object):
         if cube == None:
             raise Exception("Cube for mapper should not be None.")
 
+        self.logger = get_logger()
+
         self.cube = cube
         self.mappings = mappings
         self.locale = locale
@@ -166,8 +169,9 @@ class Mapper(object):
         self.joins = []
 
         for join in joins:
-            master = coalesce_physical(join["master"],self.fact_name)
-            detail = coalesce_physical(join["detail"])
+            master = coalesce_physical(join["master"],self.fact_name,schema=self.schema)
+            detail = coalesce_physical(join["detail"],schema=self.schema)
+            self.logger.debug("collecting join %s - %s" % (tuple(master), tuple(detail)))
             self.joins.append(Join(master, detail, join.get("alias")))
 
     def all_attributes(self):
@@ -266,6 +270,8 @@ class Mapper(object):
         # localized, then use specified if exists otherwise use default
         # locale of the attribute (first one specified in the list)
 
+        locale = locale or self.locale
+        
         try:
             if attribute.locales:
                 locale = locale if locale in attribute.locales \
@@ -362,32 +368,39 @@ class Mapper(object):
         # Attribute: (schema, table, column)
         # Join: ((schema, table, column), (schema, table, column), alias)
 
+        self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
+
         tables_to_join = {(ref[0], ref[1]) for ref in attributes}
         joined_tables = set()
+        joined_tables.add( (self.schema, self.fact_name) )
         
         joins = []
+        self.logger.debug("tables to join: %s" % tables_to_join)
+        self.logger.debug("joined tables: %s" % joined_tables)
         
         while tables_to_join:
             table = tables_to_join.pop()
-            # print "==> JOINING TABLE: %s" % (table, )
+            # self.logger.debug("joining table %s" % (table, ))
             
             for join in self.joins:
+                # self.logger.debug("testing join: %s" % (join, ))
                 # print "--- testing join: %s" % (join, )
                 master = (join.master.schema, join.master.table)
                 detail = (join.detail.schema, join.alias or join.detail.table)
 
                 if table == detail:
-                    # print "--> detail matches"
+                    # self.logger.debug("detail matches")
                     joins.append(join)
 
                     if master not in joined_tables:
-                        # print "--- adding master to be joined"
+                        self.logger.debug("adding master %s to be joined" % (master, ))
                         tables_to_join.add(master)
 
-                    # print "--+ joined: %s" % (detail, )
+                    self.logger.debug("joined detail %s" % (detail, ) )
                     joined_tables.add(detail)
                     break
         
         # FIXME: is join order important? if yes, we should sort them here
+        self.logger.debug("%s tables joined" % len(joins))
         
         return joins
