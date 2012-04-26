@@ -67,8 +67,7 @@ class StarBrowser(object):
         if cube == None:
             raise Exception("Cube for browser should not be None.")
 
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger = cubes.common.get_logger()
 
         self.cube = cube
 
@@ -102,8 +101,8 @@ class StarBrowser(object):
         select = self.query.denormalized_statement(whereclause=condition)
         
         self.logger.debug("fact SQL:\n%s" % select)
-        cursor = self.connection.execute(select)
 
+        cursor = self.connection.execute(select)
         row = cursor.fetchone()
 
         if row:
@@ -153,11 +152,6 @@ class StarBrowser(object):
         """
         issues = []
         
-        # attributes = self.all_attributes()
-        # physical_references = self.to_physical(attributes)
-
-        # tables 
-
         # Check joins
 
         tables = set()
@@ -246,7 +240,7 @@ class StarQueryBuilder(object):
         """
         super(StarQueryBuilder, self).__init__()
 
-        self.logger = logging.getLogger(__name__)
+        self.logger = cubes.common.get_logger()
 
         self.cube = cube
         self.mapper = mapper
@@ -298,7 +292,7 @@ class StarQueryBuilder(object):
         expression = self.fact_table
 
         for join in joins:
-            self.logger.debug("join: %s" % (join, ))
+            # self.logger.debug("join detail: %s" % (join.detail, ))
 
             if not join.detail.table or join.detail.table == self.fact_name:
                 raise ValueError("Detail table name should be present and should not be a fact table.")
@@ -435,7 +429,7 @@ class StarQueryBuilder(object):
         ref = self.mapper.physical(attribute)
         table = self.table(ref.schema, ref.table)
         column = table.c[ref.column]
-        column.label(self.mapper.logical(attribute))
+        return column.label(self.mapper.logical(attribute))
         
         return column
         
