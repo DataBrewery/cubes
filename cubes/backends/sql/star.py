@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
 import cubes.browser
-from cubes.backends.sql.common import AttributeMapper, JoinFinder
+from cubes.backends.sql.common import Mapper
 from cubes.backends.sql.common import DEFAULT_KEY_FIELD
 import logging
 import sqlalchemy
@@ -24,6 +24,16 @@ import sqlalchemy.sql as sql
 # * [ ] derived measures (should be in builder)
 
 __all__ = ["StarBrowser"]
+
+# Browsing context:
+#     * engine
+#     * metadata
+#
+#     * locale
+#
+#     * fact name
+#     * dimension table prefix
+#     * schema
 
 class StarBrowser(object):
     """docstring for StarBrowser"""
@@ -66,7 +76,6 @@ class StarBrowser(object):
         self.mappings = cube.mappings
         
         self.locale = locale
-        self.joinfinder = JoinFinder(cube, joins=cube.joins)
         self.tables = {}
         
         if connection is not None:
@@ -82,17 +91,17 @@ class StarBrowser(object):
             self.tables[(self.schema, self.fact_name)] = self.fact_table
             self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
 
-        self.mapper = AttributeMapper(cube, self.mappings, self.locale, 
+        self.mapper = Mapper(cube, self.mappings, self.locale, 
                                             schema=self.schema,
                                             fact_name=self.fact_name,
-                                            dimension_prefix=dimension_prefix)
-
-        self.joinfinder = JoinFinder(cube, joins=cube.joins, 
-                                     fact_name=self.fact_name)
-
+                                            dimension_prefix=dimension_prefix,
+                                            joins=cube.joins)
     
     def all_attributes(self):
         """Collect all cube attributes"""
+        
+        # FIXME: does not respect multiple hierarchies
+        
         attributes = []
         attributes += self.cube.measures
         attributes += self.cube.details
@@ -110,38 +119,31 @@ class StarBrowser(object):
     def to_physical(self, attributes):
         """Convert attributes to physical"""
         physical_attrs = []
+
         for attr in attributes:
             ref = self.mapper.physical(attr)
             physical_attrs.append(ref)
+
             self.logger.debug("physical: %s.%s -> %s" % (attr.dimension, attr, tuple(ref)))
 
-    def fact(self, key_value):
-        """Get the fact from cube."""
+        return physical_attrs
 
-        # 1. get all fact attributes: key, measures, details
+    def denormalized_statement(self, whereclause=None):
+        """Return expression for denormalized view. """
+
+        # 1. get all fact attributes: key, measures, details and their 
+        # physical references (schema, table, column)
         attributes = self.all_attributes()
-        
-        # 2. Get physical references (schema, table, column)
-        physical_references = []
-        attribute_map = {}
-        for attr in attributes:
-            ref = self.mapper.physical(attr)
-            physical_references.append(ref)
-            attribute_map[attr] = ref
-            self.logger.debug("physical: %s.%s -> %s" % (attr.dimension, attr, tuple(ref)))
+        physical_references = self.to_physical(attributes)
 
-        # 3. Collect relevant joins (all are relevant in this case)
-        joins = self.joinfinder.relevant_joins(physical_references)
-        
-        # 4. Construct statement
-        
+        joins = self.mapper.relevant_joins(physical_references)
         join_expression = self.create_join_expression(joins)
         
-        # 5. Collect columns
+        # 4. Collect columns
         columns = []
-        for attr in attributes:
-            ref = attribute_map[attr]
+        for attr, ref in zip(attributes, physical_references):
             table = self.table(ref.schema, ref.table)
+            
             column = table.c[ref.column]
             localized_alias = self.mapper.logical(attr)
             column.label(localized_alias)
@@ -149,15 +151,22 @@ class StarBrowser(object):
             # return expression.label(localized_alias, column)
             columns.append(column)
             
-        key_column = self.fact_table.c[self.fact_key]
-        condition = key_column == key_value
 
         select = sql.expression.select(columns, 
-                                    # whereclause = condition, 
-                                    from_obj = join_expression,
+                                    whereclause=whereclause, 
+                                    from_obj=join_expression,
                                     use_labels=True)
 
-        print "SQL:\n%s" % select
+        return select
+        
+    def fact(self, key_value):
+        """Get a single fact with key `key_value` from cube."""
+
+        key_column = self.fact_table.c[self.fact_key]
+        condition = key_column == key_value
+        select = self.denormalized_statement(whereclause=condition)
+        
+        self.logger.debug("fact SQL:\n%s" % select)
         cursor = self.connection.execute(select)
 
         row = cursor.fetchone()
@@ -169,6 +178,25 @@ class StarBrowser(object):
             record = None
             
         return record
+
+    def facts(self, cell, order=None, page=None, page_size=None):
+        """Return all facts from `cell`, might be ordered and paginated."""
+        
+        # TODO: we might not have all tables available at this point
+        # TODO: add conditions (we need separate query class as we
+        #       need to collect more attributes and therefore tables
+        #       and therefore joins)
+
+        condition = self.conditions_for_cell(cell)
+        statement = self.denormalized_statement(whereclause=condition)
+
+        if page is not None and page_size is not None:
+            statement = statement.offset(page * page_size).limit(page_size)
+
+        self.logger.debug("facts SQL:\n%s" % statement)
+        result = self.engine.execute(statement)
+
+        return FactsIterator(result)
 
     def create_join_expression(self, joins):
         """Create basic SQL SELECT expression on a fact table with `joins`"""
@@ -227,10 +255,77 @@ class StarBrowser(object):
             
         self.tables[table_ref] = table
         return table
-        
+    
+    def validate_model(self):
+        """Validate physical representation of model. Returns a list of 
+        dictionaries with keys: ``type``, ``issue``, ``object``.
+
+        Types might be: ``join`` or ``attribute``.
+
+        The ``join`` issues are:
+
+        * ``no_table`` - there is no table for join
+        * ``duplicity`` - either table or alias is specified more than once
+
+        The ``attribute`` issues are:
+
+        * ``no_table`` - there is no table for attribute
+        * ``no_column`` - there is no column for attribute
+        * ``duplicity`` - attribute is found more than once
+
+        """
+
+        attributes = self.all_attributes()
+        physical_references = self.to_physical(attributes)
+
+        # tables 
+
+        # TODO: implement this
+        raise NotImplementedError
+
+        # tables = {}
+        # 
+        # for join in joins:
+        #     self.logger.debug("join: %s" % (join, ))
+        # 
+        #     if not join.detail.table or join.detail.table == self.fact_name:
+        #         raise ValueError("Detail table name should be present and should not be a fact table.")
+        # 
+        #     master_table = self.table(join.master.schema, join.master.table)
+        #     detail_table = self.table(join.detail.schema, join.detail.table, join.alias)
+        # 
+
     def aggregate(self, cell, measures = None, drilldown = None, details = False, **options):
         pass
 
+class FactsIterator(object):
+    """
+    Iterator that returns SQLAlchemy ResultProxy rows as dictionaries
+    """
+    def __init__(self, result):
+        self.result = result
+        self.batch = None
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self.batch:
+            many = self.result.fetchmany()
+            if not many:
+                raise StopIteration
+            self.batch = deque(many)
+
+        row = self.batch.popleft()
+
+        return dict(row.items())
+
+class DenormalizedQuery(object):
+    """docstring for DenormalizedQuery"""
+    def __init__(self, arg):
+        super(DenormalizedQuery, self).__init__()
+        self.arg = arg
+        
 def create_workspace(model, config):
     """Create workspace for `model` with configuration in dictionary `config`. 
     This method is used by the slicer server."""
