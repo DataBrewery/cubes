@@ -125,6 +125,8 @@ def read_config(cfg):
         config.read(args.config)
     except Exception as e:
         raise Exception("Unable to load config: %s" % e)
+        
+    return config
 
 def generate_ddl(args):
     model = cubes.load_model(args.model)
