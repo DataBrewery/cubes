@@ -113,7 +113,7 @@ class StarSQLTestCase(unittest.TestCase):
 
         self.model = cubes.Model(**model_desc)
         self.cube = self.model.cube("sales")
-        self.browser = StarBrowser(self.cube,connection=self.connection, 
+        self.browser = StarBrowser(self.cube,connectable=self.connection, 
                                     dimension_prefix="dim_")
         self.cube.fact = 'sales'
         self.mapper = self.browser.mapper
