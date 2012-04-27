@@ -7,18 +7,57 @@ Version 0.8.1
 New Features
 ------------
 
-* none so far
+* slicer_context() - new method that holds all relevant information from 
+  configuration. can be reused when creating tools that work in connected
+  database environment
+* added Hierarchy.all_attributes() and .key_attributes()
+* Cell.rollup_dim() - rolls up single dimension to a specified level. this might
+  later replace the Cell.rollup() method
+* Cell.drilldown() - drills down the cell
+* create_workspace() - new top-level method for creating a workspace by name
+  of a backend and a configuration dictionary. Easier to create browsers (from
+  possible browser pool) programmatically. The browser name might be full
+  module name path or relative to the cubes.backends, for example
+  `sql.browser` for default SQL denormalized browser.
+* get_backend() - get backend by name
+
+SQL backend:
+
+* StarBrowser partially implemented. Current features:
+    * fact()
+    * facts() (no ordering yet)
+* StarBrowser supports snowflakes as well
+* ddl_for_model() - get schema DDL as string for model
+* join finder and attribute mapper are now just Mapper - class responsible for
+  finding appropriate joins and doing logical-to-physical mappings
+* coalesce_attribute() - new method for coalescing multiple ways of describing
+  a physical attribute (just attribute or table+schema+attribute)
+  
+Slicer:
+
+* slicer ddl - generate schema DDL from model
+* slicer test - test configuration and model against database and report list 
+  of issues, if any
+
+Examples:
+
+* added simple Flask based web example - dimension aggregation browser
 
 Changes
 -------
 
-* none so far
+* **important**: Now all attribute references in the model (dimension
+  attributes, measures, ...) are required to be instances of Attribute() and
+  the attribute knows it's dimension
+* removed `hierarchy` argument from `Dimension.all_attributes()` and `.key_attributes()`
+* renamed builder to denormalizer
 
 Fixes
 -----
 
-* none so far
-
+* Slicer version should be same version as Cubes: Original intention was to
+  have separate server, therefore it had its own versioning. Now there is no
+  reason for separate version, moreover it can introduce confusion.
 
 Version 0.8
 ===========
