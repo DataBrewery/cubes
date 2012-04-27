@@ -9,15 +9,16 @@ import collections
 
 # Required functionality checklist
 # 
-# * [unfinished] fact
-# * [ ] facts in a cell
+# * [done] fact
+# * [partial] facts in a cell
+# *     [done] pagination
+# *     [ ] ordering
+# * [ ] aggregation
 # * [ ] number of items in drill-down
 # * [ ] dimension values
 # * [ ] drill-down sorting
 # * [ ] drill-down pagination
 # * [ ] drill-down limits (such as top-10)
-# * [ ] facts sorting
-# * [ ] facts pagination
 # * [ ] dimension values sorting
 # * [ ] dimension values pagination
 # * [ ] remainder
@@ -39,7 +40,7 @@ __all__ = ["StarBrowser"]
 class StarBrowser(object):
     """docstring for StarBrowser"""
     
-    def __init__(self, cube, connection=None, locale=None, dimension_prefix=None,
+    def __init__(self, cube, connectable=None, locale=None, dimension_prefix=None,
                 fact_prefix=None, schema=None):
         """StarBrowser is a SQL-based AggregationBrowser implementation that 
         can aggregate star and snowflake schemas without need of having 
@@ -48,6 +49,7 @@ class StarBrowser(object):
         Attributes:
         
         * `cube` - browsed cube
+        * `connectable` - SQLAlchemy connectable object (engine or connection)
         * `dimension_prefix` - prefix for dimension tables
         * `fact_prefix` - prefix for fact tables (`prefix`+`cube.name`)
         * `schema` - default database schema name
@@ -70,24 +72,34 @@ class StarBrowser(object):
         self.logger = cubes.common.get_logger()
 
         self.cube = cube
-
         self.locale = locale
         
-        if connection is not None:
-            self.connection = connection
-            self.metadata = sqlalchemy.MetaData(bind=self.connection)
+        if connectable is not None:
+            self.connectable = connectable
+            self.metadata = sqlalchemy.MetaData(bind=self.connectable)
 
+            # Construct the fact table name:
+            # If not specified explicitly, then it is:
+            #       fact_prefix + name of the cube
+        
             fact_prefix = fact_prefix or ""
             self.fact_name = cube.fact or fact_prefix + cube.name
 
             # Register the fact table immediately
             self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
 
+        # Mapper is responsible for finding corresponding physical columns to
+        # dimension attributes and fact measures. It also provides information
+        # about relevant joins to be able to retrieve certain attributes.
+        
         self.mapper = Mapper(cube, cube.mappings, self.locale, 
                                             schema=schema,
                                             fact_name=self.fact_name,
                                             dimension_prefix=dimension_prefix,
                                             joins=cube.joins)
+
+        # StarQueryBuilder is creating SQL statements (using SQLAlchemy). It
+        # also caches information about tables retrieved from metadata.
 
         self.query = StarQueryBuilder(self.cube, self.mapper, 
                                       metadata=self.metadata)
@@ -102,12 +114,15 @@ class StarBrowser(object):
         
         self.logger.debug("fact SQL:\n%s" % select)
 
-        cursor = self.connection.execute(select)
+        cursor = self.connectable.execute(select)
         row = cursor.fetchone()
-
+        self.logger.debug("keys: %s" % row.keys())
+        
+        labels = [c.name for c in select.columns]
+        
         if row:
             # Convert SQLAlchemy object into a dictionary
-            record = dict(row.items())
+            record = dict(zip(labels, row))
         else:
             record = None
             
@@ -119,15 +134,18 @@ class StarBrowser(object):
         # TODO: add ordering (ORDER BY)
 
         result = self.query.conditions_for_cell(cell)
+
         statement = self.query.denormalized_statement(whereclause=result.condition)
 
         if page is not None and page_size is not None:
             statement = statement.offset(page * page_size).limit(page_size)
 
         self.logger.debug("facts SQL:\n%s" % statement)
-        result = self.engine.execute(statement)
+        result = self.connectable.execute(statement)
 
-        return FactsIterator(result)
+        labels = [c.name for c in statement.columns]
+
+        return FactsIterator(result, labels)
 
     def aggregate(self, cell, measures = None, drilldown = None, details = False, **options):
         pass
@@ -216,11 +234,10 @@ class StarBrowser(object):
                 
         return issues
         
-"""Set of conditions. `attributes` - list of attributes involved in the conditions,
+"""A Condition representation. `attributes` - list of attributes involved in the conditions,
 `conditions` - SQL conditions, `group_by` - attributes to be grouped by."""
-ConditionSet = collections.namedtuple("ConditionSet",
-                                    ["attributes", "conditions", "group_by"])
-
+Condition = collections.namedtuple("Condition",
+                                    ["attributes", "condition", "group_by"])
 
 class StarQueryBuilder(object):
     """StarQuery"""
@@ -236,7 +253,19 @@ class StarQueryBuilder(object):
         * `tables` – a dictionary where keys are table references (schema,
           table) or (shchema, alias) to real tables - `sqlalchemy.Table`
           instances
+          
+        .. note::
         
+            To get results as a dictionary, you should ``zip()`` the returned
+            rows after statement execution with:
+            
+                labels = [column.name for column in statement.columns]
+                ...
+                record = dict(zip(labels, row))
+            
+            This is little overhead for a workaround for SQLAlchemy behaviour
+            in SQLite database. SQLite engine does not respect dots in column
+            names which results in "duplicate column name" error.
         """
         super(StarQueryBuilder, self).__init__()
 
@@ -258,9 +287,9 @@ class StarQueryBuilder(object):
                 }
 
     def denormalized_statement(self, whereclause=None):
-        """Return a SELECT statement for denormalized view. `whereclause` is
-        same as SQLAlchemy `whereclause` for
-        `sqlalchemy.sql.expression.select()`"""
+        """Return a statement (see class description for more information) for
+        denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
+        for `sqlalchemy.sql.expression.select()`"""
 
         attributes = self.mapper.all_attributes()
 
@@ -337,18 +366,22 @@ class StarQueryBuilder(object):
 
             if isinstance(cut, cubes.browser.PointCut):
                 path = cut.path
-                condition = self.condition_for_point(dim, path)
+                wrapped_cond = self.condition_for_point(dim, path)
+
+                condition = wrapped_cond.condition
+                attributes |= wrapped_cond.attributes
+                group_by += wrapped_cond.group_by
 
             elif isinstance(cut, cubes.browser.SetCut):
                 conditions = []
 
                 for path in cut.paths:
-                    cond = self.condition_for_point(dim, path)
-                    conditions.append(cond.condition)
-                    attributes |= cond.attributes
-                    group_by += cond.group_by
+                    wrapped_cond = self.condition_for_point(dim, path)
+                    conditions.append(wrapped_cond.condition)
+                    attributes |= wrapped_cond.attributes
+                    group_by += wrapped_cond.group_by
 
-                condition = expression.or_(*conditions)
+                condition = sql.expression.or_(*conditions)
 
             elif isinstance(cut, cubes.browser.RangeCut):
                 raise NotImplementedError("Condition for range cuts is not yet implemented")
@@ -358,12 +391,12 @@ class StarQueryBuilder(object):
 
             conditions.append(condition)
         
-        condition = expression.and_(*conditions)
+        condition = sql.expression.and_(*conditions)
 
-        return ConditionSet(attributes, condition, group_by)
+        return Condition(attributes, condition, group_by)
 
     def condition_for_point(self, dim, path):
-        """Returns a `ConditionSet` tuple (`attributes`, `conditions`,
+        """Returns a `Condition` tuple (`attributes`, `conditions`,
         `group_by`) dimension `dim` point at `path`. It is a compound
         condition - one equality condition for each path element in form:
         ``level[i].key = path[i]``"""
@@ -394,9 +427,9 @@ class StarQueryBuilder(object):
                 group_by.append(column)
                 attributes.add(attr)
 
-        condition = expression.and_(*conditions)
+        condition = sql.expression.and_(*conditions)
         
-        return ConditionSet(attributes,condition,group_by)
+        return Condition(attributes,condition,group_by)
         
         
     def table(self, schema, table_name, alias=None):
@@ -428,18 +461,20 @@ class StarQueryBuilder(object):
 
         ref = self.mapper.physical(attribute)
         table = self.table(ref.schema, ref.table)
+
         column = table.c[ref.column]
-        return column.label(self.mapper.logical(attribute))
-        
+        column = column.label(self.mapper.logical(attribute))
+
         return column
         
 class FactsIterator(object):
     """
     Iterator that returns SQLAlchemy ResultProxy rows as dictionaries
     """
-    def __init__(self, result):
+    def __init__(self, result, labels):
         self.result = result
         self.batch = None
+        self.labels = labels
 
     def __iter__(self):
         return self
@@ -449,11 +484,11 @@ class FactsIterator(object):
             many = self.result.fetchmany()
             if not many:
                 raise StopIteration
-            self.batch = deque(many)
+            self.batch = collections.deque(many)
 
         row = self.batch.popleft()
 
-        return dict(row.items())
+        return dict(zip(self.labels, row))
 
 ####
 # Backend related functions
@@ -524,7 +559,7 @@ class SQLStarWorkspace(object):
 
         # TODO(Stiivi): make sure that we are leaking connections here
         cube = self.model.cube(cube)
-        browser = StarBrowser(cube, self.engine.connect(), locale=locale,
+        browser = StarBrowser(cube, self.engine, locale=locale,
                                 dimension_prefix=self.dimension_prefix,
                                 fact_prefix=self.fact_prefix,
                                 schema=self.schema)
