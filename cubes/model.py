@@ -215,8 +215,9 @@ class Model(object):
         # TODO: allow dimension objects
     	if dimensions:
             if isinstance(dimensions, dict):
-                logger.warn("model initialization: dimensions as dictionary "
-                            "is depreciated, use list instead")
+                # logger.warn("model initialization: dimensions as dictionary "
+                #             "is depreciated, use list instead")
+
                 for dim_name, dim_desc in dimensions.items():
                     desc = dict([("name", dim_name)] + dim_desc.items())
                     dim = Dimension(**desc)
@@ -232,8 +233,8 @@ class Model(object):
 
     	if cubes:
             if isinstance(cubes, dict):
-                logger.warn("model initialization: cubes as dictionary is "
-                            " depreciated, use list instead")
+                # logger.warn("model initialization: cubes as dictionary is "
+                #             "depreciated, use list instead")
                             
                 for cube_name, cube_desc in cubes.items():
                     desc = dict([("name", cube_name)] + cube_desc.items())
@@ -712,8 +713,8 @@ class Dimension(object):
             self._levels["default"] = level
         else:
             if isinstance(levels, dict):
-                logger.warn("dimension initialization: levels as dictionary "
-                            "is depreciated, use list instead")
+                # logger.warn("dimension initialization: levels as dictionary "
+                #             "is depreciated, use list instead")
                             
                 for level_name, level_info in levels.items():
                     # FIXME: this is a hack for soon-to-be obsolete level specification
