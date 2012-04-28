@@ -1269,7 +1269,7 @@ class Level(object):
         for attr in self.attributes:
             array.append(attr.to_dict(dimension=self.dimension, **options))
         out.setnoempty("attributes", array)
-        out.setnoempty("label_attribute", self.label_attribute)
+        out.setnoempty("label_attribute", str(self.label_attribute))
 
         return out
 
