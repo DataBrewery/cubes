@@ -111,13 +111,13 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def values(self, cell, dimension, depth = None, paths = None, **options):
+    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
         levels are returned.
         
         .. note::
             
-            Currently only default hierarchy is used. 
+            Some backends might support only default hierarchy. 
         """
         raise NotImplementedError
         
