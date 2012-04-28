@@ -15,7 +15,6 @@ import cubes
 import cubes.server
 import ConfigParser
 import shlex
-from cubes.util import MissingPackage
 
 def validate_model(args):
     """docstring for validate_model"""

@@ -1,6 +1,7 @@
 """Utility functions for computing combinations of dimensions and hierarchy levels"""
 
 import itertools
+import sys
 from .model import load_model
 
 __all__ = [
@@ -13,6 +14,8 @@ __all__ = [
     "localize_attributes",
     "get_localizable_attributes"
 ]
+
+DEFAULT_BACKEND = "cubes.backends.sql.browser"
 
 def node_level_points(node):
     """Get all level points within given node. Node is described as tuple: (object, levels)
