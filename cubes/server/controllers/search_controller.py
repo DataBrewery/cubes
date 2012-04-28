@@ -14,7 +14,7 @@ from .. import common
 try:
     from cubes_search.sphinx import SphinxSearcher
 except:
-    from cubes.util import MissingPackage
+    from cubes.common import MissingPackage
     SphinxSearcher = MissingPackage("werkzeug", "Sphinx search ", 
                             source = "https://bitbucket.org/Stiivi/cubes-search")
     

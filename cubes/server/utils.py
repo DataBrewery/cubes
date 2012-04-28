@@ -7,7 +7,7 @@ try:
     local_manager = LocalManager([local])
 
 except:
-    from cubes.util import MissingPackage
+    from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Local = LocalManager = _missing
     Map = Rule = _missing

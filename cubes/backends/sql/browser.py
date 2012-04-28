@@ -29,8 +29,8 @@ try:
     import sqlalchemy
     import sqlalchemy.sql.expression as expression
     import sqlalchemy.sql.functions as functions
-except:
-    from cubes.util import MissingPackage
+except ImportError:
+    from cubes.common import MissingPackage
     _missing = MissingPackage("sqlalchemy", "Built-in SQL aggregation browser")
     sqlalchemy = expression = functions = _missing
 

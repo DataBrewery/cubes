@@ -3,9 +3,14 @@ import cubes.browser
 from cubes.backends.sql.common import Mapper
 from cubes.backends.sql.common import DEFAULT_KEY_FIELD
 import logging
-import sqlalchemy
-import sqlalchemy.sql as sql
 import collections
+
+try:
+    import sqlalchemy
+    import sqlalchemy.sql as sql
+except ImportError:
+    from cubes.common import MissingPackage
+    sqlalchemy = MissingPackage("sqlalchemy", "Built-in SQL aggregation browser")
 
 # Required functionality checklist
 # 

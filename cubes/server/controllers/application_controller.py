@@ -3,7 +3,7 @@ try:
     from werkzeug.utils import redirect
     from werkzeug.exceptions import NotFound
 except:
-    from cubes.util import MissingPackage
+    from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Response = redirect = NotFound = _missing
 

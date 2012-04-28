@@ -12,12 +12,12 @@ try:
     from werkzeug.wrappers import Response
     import werkzeug.serving
 except:
-    from cubes.util import MissingPackage
+    from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Map = Rule = Request = ClosingIterator = HTTPException = _missing
     NotFound = Response = werkzeug = _missing
 
-from cubes.common import create_slicer_context
+from cubes.util import create_slicer_context
 
 import common
 # Local imports
