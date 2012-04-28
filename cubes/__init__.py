@@ -2,13 +2,12 @@
 
 __version__ = "0.8.1"
 
+from common import *
 from browser import *
 from model import *
+from util import *
 
-import util
 import backends
-
-from common import *
 
 __all__ = [
     "__version__"
@@ -17,3 +16,4 @@ __all__ = [
 __all__ += common.__all__
 __all__ += browser.__all__
 __all__ += model.__all__
+__all__ += util.__all__
