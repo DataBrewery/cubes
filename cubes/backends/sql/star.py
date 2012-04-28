@@ -138,14 +138,53 @@ class StarBrowser(object):
         
         # TODO: add ordering (ORDER BY)
 
-        result = self.query.conditions_for_cell(cell)
+        cond = self.query.conditions_for_cell(cell)
 
-        statement = self.query.denormalized_statement(whereclause=result.condition)
+        statement = self.query.denormalized_statement(whereclause=cond.condition)
 
         if page is not None and page_size is not None:
             statement = statement.offset(page * page_size).limit(page_size)
 
         self.logger.debug("facts SQL:\n%s" % statement)
+        result = self.connectable.execute(statement)
+
+        labels = [c.name for c in statement.columns]
+
+        return FactsIterator(result, labels)
+
+    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, **options):
+        """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
+        levels are returned.
+        """
+        
+        if not hierarchy:
+            hierarchy = dimension.default_hierarchy
+        else:
+            hierarchy = dimension.hierarchy(hierarchy)
+            
+        levels = hierarchy.levels
+
+        if depth == 0:
+            raise ValueError("Depth for dimension values should not be 0")
+        elif depth is not None:
+            levels = levels[0:depth]
+
+        # TODO: add ordering (ORDER BY)
+        # TODO: this might unnecessarily add fact table as well, there might
+        #       be cases where we do not want that
+        
+        attributes = []
+        for level in levels:
+            attributes.extend(level.attributes)
+        
+        cond = self.query.conditions_for_cell(cell)
+        statement = self.query.denormalized_statement(whereclause=cond.condition,
+                                                        attributes=attributes)
+
+        if page is not None and page_size is not None:
+            statement = statement.offset(page * page_size).limit(page_size)
+
+        self.logger.debug("dimension values SQL:\n%s" % statement)
         result = self.connectable.execute(statement)
 
         labels = [c.name for c in statement.columns]
@@ -291,12 +330,15 @@ class StarQueryBuilder(object):
                     (self.schema, self.fact_name): self.fact_table
                 }
 
-    def denormalized_statement(self, whereclause=None):
+    def denormalized_statement(self, whereclause=None, attributes=None):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
-        for `sqlalchemy.sql.expression.select()`"""
+        for `sqlalchemy.sql.expression.select()`. `attributes` is list of
+        logical references to attributes to be selected. If it is ``None`` then
+        all attributes are used."""
 
-        attributes = self.mapper.all_attributes()
+        if attributes is None:
+            attributes = self.mapper.all_attributes()
 
         join_expression = self.join_expression_for_attributes(attributes)
 

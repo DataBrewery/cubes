@@ -802,15 +802,27 @@ class Dimension(object):
         return self._levels.keys()
 
     def level(self, obj):
-        """Get level by name."""
-        if type(obj) == str or type(obj) == unicode:
+        """Get level by name or as Level object. This method is used for 
+        coalescing value"""
+        if isinstance(obj, basestring):
             if obj not in self._levels:
                 raise KeyError("No level %s in dimension %s" % (obj, self.name))
             return self._levels[obj]
-        elif type(obj) == Level:
+        elif isinstance(obj, Level):
             return obj
         else:
             raise ValueError("Unknown level object %s (should be a string or Level)" % obj)
+
+    def hierarchy(self, obj):
+        """Get hierarchy object either by name or as Hierarchy."""
+        if isinstance(obj, basestring):
+            if obj not in self.hierarchies:
+                raise KeyError("No level %s in dimension %s" % (obj, self.name))
+            return self.hierarchies[obj]
+        elif isinstance(obj, Hierarchy):
+            return obj
+        else:
+            raise ValueError("Unknown hierarchy object %s (should be a string or Hierarchy instance)" % obj)
 
     @property
     def default_hierarchy(self):
