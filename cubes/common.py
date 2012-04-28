@@ -9,8 +9,6 @@ __all__ = [
     "MissingPackage"
 ]
 
-DEFAULT_BACKEND = "cubes.backends.sql.browser"
-
 logger_name = "cubes"
 logger = None
 
