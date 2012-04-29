@@ -46,7 +46,7 @@ class StarBrowser(object):
     """docstring for StarBrowser"""
     
     def __init__(self, cube, connectable=None, locale=None, dimension_prefix=None,
-                fact_prefix=None, schema=None):
+                fact_prefix=None, schema=None, metadata=None):
         """StarBrowser is a SQL-based AggregationBrowser implementation that 
         can aggregate star and snowflake schemas without need of having 
         explicit view or physical denormalized table.
@@ -81,7 +81,10 @@ class StarBrowser(object):
         
         if connectable is not None:
             self.connectable = connectable
-            self.metadata = sqlalchemy.MetaData(bind=self.connectable)
+            if not metadata:
+                self.metadata = sqlalchemy.MetaData(bind=self.connectable)
+            else:
+                self.metadata = metadata
 
             # Construct the fact table name:
             # If not specified explicitly, then it is:
@@ -141,9 +144,7 @@ class StarBrowser(object):
         cond = self.query.conditions_for_cell(cell)
 
         statement = self.query.denormalized_statement(whereclause=cond.condition)
-
-        if page is not None and page_size is not None:
-            statement = statement.offset(page * page_size).limit(page_size)
+        statement = paginated_statement(statement, page, page_size)
 
         self.logger.debug("facts SQL:\n%s" % statement)
         result = self.connectable.execute(statement)
@@ -172,7 +173,8 @@ class StarBrowser(object):
 
         # TODO: add ordering (ORDER BY)
         # TODO: this might unnecessarily add fact table as well, there might
-        #       be cases where we do not want that
+        #       be cases where we do not want that (hm, might be? really? note
+        #       the cell)
         
         attributes = []
         for level in levels:
@@ -181,9 +183,7 @@ class StarBrowser(object):
         cond = self.query.conditions_for_cell(cell)
         statement = self.query.denormalized_statement(whereclause=cond.condition,
                                                         attributes=attributes)
-
-        if page is not None and page_size is not None:
-            statement = statement.offset(page * page_size).limit(page_size)
+        statement = paginated_statement(statement, page, page_size)
 
         group_by = [self.query.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
@@ -520,7 +520,18 @@ class StarQueryBuilder(object):
         column = column.label(self.mapper.logical(attribute))
 
         return column
+
+
+def paginate_statement(statement, page, page_size):
+    """Returns paginated statement if page is provided, otherwise returns
+    the same statement."""
+    
+    if page is not None and page_size is not None:
+        return statement.offset(page * page_size).limit(page_size)
+    else:
+        return statement
         
+
 class FactsIterator(object):
     """
     Iterator that returns SQLAlchemy ResultProxy rows as dictionaries
@@ -616,7 +627,8 @@ class SQLStarWorkspace(object):
         browser = StarBrowser(cube, self.engine, locale=locale,
                                 dimension_prefix=self.dimension_prefix,
                                 fact_prefix=self.fact_prefix,
-                                schema=self.schema)
+                                schema=self.schema,
+                                metadata=self.metadata)
         return browser
 
     def validate_model(self):
