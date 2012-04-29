@@ -42,11 +42,11 @@ __all__ = ["StarBrowser"]
 #     * dimension table prefix
 #     * schema
 
-class StarBrowser(object):
+class StarBrowser(cubes.browser.AggregationBrowser):
     """docstring for StarBrowser"""
     
     def __init__(self, cube, connectable=None, locale=None, dimension_prefix=None,
-                fact_prefix=None, schema=None, metadata=None):
+                fact_prefix=None, schema=None, metadata=None, debug=False):
         """StarBrowser is a SQL-based AggregationBrowser implementation that 
         can aggregate star and snowflake schemas without need of having 
         explicit view or physical denormalized table.
@@ -59,6 +59,8 @@ class StarBrowser(object):
         * `fact_prefix` - prefix for fact tables (`prefix`+`cube.name`)
         * `schema` - default database schema name
         * `locale` - locale used for browsing
+        * `metadata` - SQLAlchemy MetaData object
+        * `debug` - output SQL to the logger at INFO level
 
         .. warning:
             
@@ -69,7 +71,7 @@ class StarBrowser(object):
         * only one locale can be used for browsing at a time
         * locale is implemented as denormalized: one column for each language
         """
-        super(StarBrowser, self).__init__()
+        super(StarBrowser, self).__init__(cube)
 
         if cube == None:
             raise Exception("Cube for browser should not be None.")
@@ -78,13 +80,11 @@ class StarBrowser(object):
 
         self.cube = cube
         self.locale = locale
+        self.debug = debug
         
         if connectable is not None:
             self.connectable = connectable
-            if not metadata:
-                self.metadata = sqlalchemy.MetaData(bind=self.connectable)
-            else:
-                self.metadata = metadata
+            self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
 
             # Construct the fact table name:
             # If not specified explicitly, then it is:
@@ -117,14 +117,13 @@ class StarBrowser(object):
 
         key_column = self.query.fact_table.c[self.fact_key]
         condition = key_column == key_value
-
         select = self.query.denormalized_statement(whereclause=condition)
         
-        self.logger.debug("fact SQL:\n%s" % select)
+        if self.debug:
+            self.logger.info("fact SQL:\n%s" % select)
 
         cursor = self.connectable.execute(select)
         row = cursor.fetchone()
-        self.logger.debug("keys: %s" % row.keys())
         
         labels = [c.name for c in select.columns]
         
@@ -133,7 +132,9 @@ class StarBrowser(object):
             record = dict(zip(labels, row))
         else:
             record = None
-            
+        
+        cursor.close()
+        
         return record
 
     def facts(self, cell, order=None, page=None, page_size=None):
@@ -141,12 +142,14 @@ class StarBrowser(object):
         
         # TODO: add ordering (ORDER BY)
 
-        cond = self.query.conditions_for_cell(cell)
+        cond = self.query.condition_for_cell(cell)
 
         statement = self.query.denormalized_statement(whereclause=cond.condition)
         statement = paginated_statement(statement, page, page_size)
 
-        self.logger.debug("facts SQL:\n%s" % statement)
+        if self.debug:
+            self.logger.info("facts SQL:\n%s" % statement)
+
         result = self.connectable.execute(statement)
 
         labels = [c.name for c in statement.columns]
@@ -180,7 +183,7 @@ class StarBrowser(object):
         for level in levels:
             attributes.extend(level.attributes)
         
-        cond = self.query.conditions_for_cell(cell)
+        cond = self.query.condition_for_cell(cell)
         statement = self.query.denormalized_statement(whereclause=cond.condition,
                                                         attributes=attributes)
         statement = paginated_statement(statement, page, page_size)
@@ -188,15 +191,62 @@ class StarBrowser(object):
         group_by = [self.query.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
 
-        self.logger.debug("dimension values SQL:\n%s" % statement)
+        if self.debug:
+            self.logger.info("dimension values SQL:\n%s" % statement)
+
         result = self.connectable.execute(statement)
 
         labels = [c.name for c in statement.columns]
 
         return FactsIterator(result, labels)
 
-    def aggregate(self, cell, measures = None, drilldown = None, details = False, **options):
-        pass
+    def aggregate(self, cell, measures=None, drilldown=None, attributes=None, 
+                  page=None, page_size=None, **options):
+        """Return aggregated result"""
+
+        # TODO: add ordering (ORDER BY)
+        if options.get("order_by"):
+            self.logger.warn("ordering in aggregations is not yet implemented")
+        
+        # TODO: add drill-down
+        if drilldown:
+            self.logger.warn("drilldown in aggregations is not yet implemented")
+
+        # TODO: add documentation
+        
+        # Coalesce measures - make sure that they are Attribute objects, not
+        # strings. Strings are converted to corresponding Cube measure
+        # attributes
+        if measures:
+            measures = [self.cube.measure(measure) for measure in measures]
+        
+        result = cubes.browser.AggregationResult()
+
+        statement = self.query.aggregation_statement(cell=cell,
+                                                     measures=measures,
+                                                     attributes=attributes)
+
+        summary_statement = paginated_statement(statement, page, page_size)
+
+
+        if self.debug:
+            self.logger.info("aggregation SQL:\n%s" % summary_statement)
+
+        cursor = self.connectable.execute(summary_statement)
+        row = cursor.fetchone()
+
+        if row:
+            # Convert SQLAlchemy object into a dictionary
+            labels = [c.name for c in summary_statement.columns]
+            record = dict(zip(labels, row))
+        else:
+            record = None
+
+        cursor.close()
+
+        result.summary = record
+
+        return result
 
     def validate(self):
         """Validate physical representation of model. Returns a list of 
@@ -287,9 +337,16 @@ class StarBrowser(object):
 Condition = collections.namedtuple("Condition",
                                     ["attributes", "condition", "group_by"])
 
+aggregation_functions = {
+    "sum": sql.functions.sum,
+    "min": sql.functions.min,
+    "max": sql.functions.max,
+    "count": sql.functions.count
+}
+
 class StarQueryBuilder(object):
     """StarQuery"""
-    def __init__(self, cube, mapper, metadata):
+    def __init__(self, cube, mapper, metadata, **options):
         """Object representing queries to the star. `mapper` is used for
         mapping logical to physical attributes and performing joins.
         `metadata` is a `sqlalchemy.MetaData` instance for getting physical
@@ -323,7 +380,7 @@ class StarQueryBuilder(object):
         self.mapper = mapper
         self.schema = mapper.schema
         self.metadata = metadata
-
+        
         # Prepare physical fact table - fetch from metadata
         #
         self.fact_name = mapper.fact_name
@@ -333,6 +390,74 @@ class StarQueryBuilder(object):
         self.tables = {
                     (self.schema, self.fact_name): self.fact_table
                 }
+
+    def aggregation_statement(self, cell, measures=None, 
+                              attributes=None):
+        """Return a statement for summarized aggregation. `whereclause` is
+        same as SQLAlchemy `whereclause` for
+        `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
+        references to attributes to be selected. If it is ``None`` then all
+        attributes are used."""
+        
+        # TODO: do not ignore attributes
+
+        cell_cond = self.condition_for_cell(cell)
+        
+        # TODO: add measures as well
+        join_expression = self.join_expression_for_attributes(cell_cond.attributes)
+
+        selection = []
+
+        if measures is None:
+            measures = self.cube.measures
+            
+
+        # Collect "columns" for measure aggregations
+        for measure in measures:
+            selection.extend(self.aggregations_for_measure(measure))
+            
+        # Added total record count
+        # TODO: make this label configurable (should we?)
+        # TODO: make presence of this configurable (shoud we?)
+        rcount_label = "record_count"
+
+        selection.append(sql.functions.count().label(rcount_label))
+
+        select = sql.expression.select(selection, 
+                                    whereclause=cell_cond.condition, 
+                                    from_obj=join_expression,
+                                    use_labels=True)
+
+        return select
+    
+    def aggregations_for_measure(self, measure):
+        """Returns list of aggregation functions (sqlalchemy) on measure columns. 
+        The result columns are labeled as `measure` + ``_`` = `aggregation`,
+        for example: ``amount_sum`` or ``discount_min``.
+        
+        `measure` has to be `Attribute` instance.
+        
+        If measure has no explicit aggregations associated, then ``sum`` is
+        assumed.
+        """
+
+        if not measure.aggregations:
+            aggregations = ["sum"]
+        else:
+            aggregations = [agg.lower() for agg in measure.aggregations]
+
+        result = []
+        for agg_name in aggregations:
+            if not agg_name in aggregation_functions:
+                raise Exception("Unknown aggregation type %s for measure %s" % \
+                                    (agg_name, measure))
+                                    
+            func = aggregation_functions[agg_name]
+            label = "%s_%s" % (str(measure), agg_name)
+            aggregation = func(self.column(measure)).label(label)
+            result.append(aggregation)
+
+        return result
 
     def denormalized_statement(self, whereclause=None, attributes=None):
         """Return a statement (see class description for more information) for
@@ -354,6 +479,7 @@ class StarQueryBuilder(object):
                                     use_labels=True)
 
         return select
+
     
     def join_expression_for_attributes(self, attributes):
         """Returns a join expression for `attributes`"""
@@ -367,7 +493,7 @@ class StarQueryBuilder(object):
         returned from mapper (most probably by `Mapper.relevant_joins()`)
         """
         
-        self.logger.info("create basic expression with %d joins" % len(joins))
+        self.logger.debug("create basic expression with %d joins" % len(joins))
 
         expression = self.fact_table
 
@@ -398,11 +524,11 @@ class StarQueryBuilder(object):
                                                     onclause=onclause)
         return expression
 
-    def conditions_for_cell(self, cell):
-        """Constructs conditions for all cuts in the `cell`. Returns a
-        dictionary with keys:
+    def condition_for_cell(self, cell):
+        """Constructs conditions for all cuts in the `cell`. Returns a named
+        tuple with keys:
         
-        * ``conditions`` - SQL conditions
+        * ``condition`` - SQL conditions
         * ``attributes`` - attributes that are involved in the conditions.
           This should be used for join construction.
         * ``group_by`` - attributes used for GROUP BY expression
@@ -522,7 +648,7 @@ class StarQueryBuilder(object):
         return column
 
 
-def paginate_statement(statement, page, page_size):
+def paginated_statement(statement, page, page_size):
     """Returns paginated statement if page is provided, otherwise returns
     the same statement."""
     

@@ -14,7 +14,10 @@ class StarSQLTestCase(unittest.TestCase):
         model_desc = {
             "cubes": {
                 "sales" : {
-                    "measures": ["amount", "discount"],
+                    "measures": [ 
+                            {"name":"amount", "aggregations":["sum", "min"]}, 
+                            "discount"
+                            ],
                     "dimensions" : ["date", "flag", "product"],
                     "details": ["fact_detail1", "fact_detail2"],
                     "joins": [
@@ -115,6 +118,7 @@ class StarSQLTestCase(unittest.TestCase):
         self.cube = self.model.cube("sales")
         self.browser = StarBrowser(self.cube,connectable=self.connection, 
                                     dimension_prefix="dim_")
+        self.browser.debug = True
         self.cube.fact = 'sales'
         self.mapper = self.browser.mapper
 
@@ -377,6 +381,31 @@ class StarSQLAggregationTestCase(StarSQLTestCase):
         values = list(self.browser.values(None,"product",3))
         self.assertIsNotNone(values)
         self.assertEqual(10, len(values))
+        
+    def test_aggregation_for_measures(self):
+        query = self.browser.query
+
+        aggs = query.aggregations_for_measure(self.cube.measure("amount"))
+        self.assertEqual(2, len(aggs))
+
+        aggs = query.aggregations_for_measure(self.cube.measure("discount"))
+        self.assertEqual(1, len(aggs))
+
+    def test_aggregate(self):
+        result = self.browser.aggregate(self.browser.full_cube())
+        keys = sorted(result.summary.keys())
+        self.assertEqual(4, len(keys))
+        self.assertEqual(["amount_min", "amount_sum", "discount_sum", "record_count"], keys)
+
+        result = self.browser.aggregate(self.browser.full_cube(), measures=["amount"])
+        keys = sorted(result.summary.keys())
+        self.assertEqual(3, len(keys))
+        self.assertEqual(["amount_min", "amount_sum", "record_count"], keys)
+
+        result = self.browser.aggregate(self.browser.full_cube(), measures=["discount"])
+        keys = sorted(result.summary.keys())
+        self.assertEqual(2, len(keys))
+        self.assertEqual(["discount_sum", "record_count"], keys)
         
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):
