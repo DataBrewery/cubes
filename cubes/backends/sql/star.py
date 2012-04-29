@@ -19,16 +19,16 @@ except ImportError:
 # *     [done] pagination
 # *     [ ] ordering
 # * [ ] aggregation
-# * [ ] number of items in drill-down
-# * [ ] dimension values
-# * [ ] drill-down sorting
-# * [ ] drill-down pagination
-# * [ ] drill-down limits (such as top-10)
-# * [ ] dimension values sorting
-# * [ ] dimension values pagination
-# * [ ] remainder
+# *     [ ] drill-down sorting
+# *     [ ] drill-down pagination
+# *     [ ] drill-down limits (such as top-10)
+# *     [ ] remainder
 # * [ ] ratio - aggregate sum(current)/sum(total) 
 # * [ ] derived measures (should be in builder)
+# * [ ] number of items in drill-down
+# * [partial] dimension values
+# *     [done] pagination
+# *     [ ] ordering
 
 __all__ = ["StarBrowser"]
 
@@ -152,11 +152,12 @@ class StarBrowser(object):
 
         return FactsIterator(result, labels)
 
-    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, **options):
+    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, 
+                page=None, page_size=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
         levels are returned.
         """
-        
+        dimension = self.cube.dimension(dimension)
         if not hierarchy:
             hierarchy = dimension.default_hierarchy
         else:
@@ -183,6 +184,9 @@ class StarBrowser(object):
 
         if page is not None and page_size is not None:
             statement = statement.offset(page * page_size).limit(page_size)
+
+        group_by = [self.query.column(attr) for attr in attributes]
+        statement = statement.group_by(*group_by)
 
         self.logger.debug("dimension values SQL:\n%s" % statement)
         result = self.connectable.execute(statement)
@@ -403,6 +407,9 @@ class StarQueryBuilder(object):
           This should be used for join construction.
         * ``group_by`` - attributes used for GROUP BY expression
         """
+        
+        if not cell:
+            return Condition([], None, [])
         
         attributes = set()
         conditions = []

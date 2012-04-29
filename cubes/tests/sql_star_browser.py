@@ -47,11 +47,6 @@ class StarSQLTestCase(unittest.TestCase):
                 { "name": "flag" },
                 { "name": "product", 
                     "levels": [
-                        { "name": "product", 
-                          "attributes": [ "id",
-                                          {"name": "name"}
-                                        ],
-                        },
                         {"name": "category",
                             "attributes": ["category",
                                           {"name": "category_name", "locales": ["en", "sk"] }
@@ -61,6 +56,11 @@ class StarSQLTestCase(unittest.TestCase):
                             "attributes": ["subcategory",
                                             {"name": "subcategory_name", "locales": ["en", "sk"] }
                                         ]
+                        },
+                        { "name": "product", 
+                          "attributes": [ "id",
+                                          {"name": "name"}
+                                        ],
                         }
                     ]
                 }
@@ -324,6 +324,7 @@ class StarSQLAggregationTestCase(StarSQLTestCase):
 
         category = {
             "id": 10,
+            "category_id": 10,
             "category_name_en": "Things",
             "category_name_sk": "Veci",
             "subcategory_id": 20,
@@ -331,27 +332,52 @@ class StarSQLAggregationTestCase(StarSQLTestCase):
             "subcategory_name_sk": "Super Veci"
         }
 
-        table = self.table("sales")
-        self.connection.execute(table.insert(), fact)
+        ftable = self.table("sales")
+        self.connection.execute(ftable.insert(), fact)
         table = self.table("dim_date")
         self.connection.execute(table.insert(), date)
-        table = self.table("dim_product")
-        self.connection.execute(table.insert(), product)
+        ptable = self.table("dim_product")
+        self.connection.execute(ptable.insert(), product)
         table = self.table("dim_category")
         self.connection.execute(table.insert(), category)
+
+        for i in range(1, 10):
+            record = dict(product)
+            record["id"] = product["id"] + i
+            record["product_name"] = product["product_name"] + str(i)
+            self.connection.execute(ptable.insert(), record)
+
+        for j in range(1, 10):
+            for i in range(1, 10):
+                record = dict(fact)
+                record["id"] = fact["id"] + i + j *10
+                record["product_id"] = fact["product_id"] + i
+                self.connection.execute(ftable.insert(), record)
 
     def table(self, name):
         return sqlalchemy.Table(name, self.metadata,
                                 autoload=True)
     
-    # @unittest.skip("not implemented")
     def test_get_fact(self):
         """Get single fact"""
         fact = self.browser.fact(1)
-
         self.assertIsNotNone(fact)
         self.assertEqual(17, len(fact.keys()))
 
+    def test_get_values(self):
+        """Get dimension values"""
+        values = list(self.browser.values(None,"product",1))
+        self.assertIsNotNone(values)
+        self.assertEqual(1, len(values))
+
+        values = list(self.browser.values(None,"product",2))
+        self.assertIsNotNone(values)
+        self.assertEqual(1, len(values))
+
+        values = list(self.browser.values(None,"product",3))
+        self.assertIsNotNone(values)
+        self.assertEqual(10, len(values))
+        
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):
         """Aggregation result should: SELECT from fact only"""
