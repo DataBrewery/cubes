@@ -31,8 +31,6 @@ __all__ = [
     "Hierarchy",
     "Level",
     "Attribute",
-    "Measure",
-    
     "ModelError"
 ]
 
@@ -569,10 +567,31 @@ class Cube(object):
             else:
                 raise ModelError("cube '%s' has no dimension '%s'" %
                                     (self.name, obj))
-        elif issubclass(obj.__class__, Dimension):
+        elif isinstance(obj, Dimension):
              return obj
         else:
             raise ModelError("Invalid dimension or dimension reference '%s' for cube '%s'" %
+                                    (obj, self.name))
+
+    def measure(self, obj):
+        """Get measure object. If `obj` is a string, then measure with given
+        name is returned, otherwise measure object is returned if it belongs
+        to the cube. Returned object is of `Attribute` type"""
+
+        if isinstance(obj, basestring):
+            lookup = [m for m in self.measures if m.name == obj]
+            if lookup:
+                if len(lookup) == 1:
+                    return lookup[0]
+                else:
+                    raise ModelError("multiple measures with the same name '%s' found" % obj)
+            else:
+                raise ModelError("cube '%s' has no measure '%s'" %
+                                    (self.name, obj))
+        elif isinstance(obj, Attribute):
+             return obj
+        else:
+            raise ModelError("Invalid measure or measure reference '%s' for cube '%s'" %
                                     (obj, self.name))
             
     def to_dict(self, expand_dimensions = False, with_mappings = True, **options):
@@ -1343,7 +1362,7 @@ class Attribute(object):
     DESC = 'desc'
     
     def __init__(self, name, label=None, locales=None, order=None,
-                description=None,dimension=None,**kwargs):
+                description=None,dimension=None,aggregations=None, **kwargs):
         """Create an attribute.
         
         Attributes:
@@ -1356,20 +1375,25 @@ class Attribute(object):
           ``'asc'``/``'ascending'`` or ``'desc'``/``'descending'``. It is
           recommended and safe to use ``Attribute.ASC`` and
           ``Attribute.DESC``
+        * `aggregations` - list of default aggregations to be performed on
+          this attribute if it is a measure
         """
         super(Attribute, self).__init__()
         self.name = name
         self.label = label
         self.description = description
-        
         self.dimension = dimension
+        self.aggregations = aggregations
         
         if order:
             self.order = order.lower()
-            if self.order == 'ascending':
+            if self.order.startswith("asc"):
                 self.order = Attribute.ASC
-            if self.order == 'descending':
+            elif self.order.startswith("desc"):
                 self.order = Attribute.DESC
+            else:
+                raise ValueError("Unknown ordering '%s' for attributes '%s'" % \
+                                    (order, self.full_name) )
         else:
             self.order = None
 
@@ -1401,6 +1425,8 @@ class Attribute(object):
             d["order"] = self.order
         if self.description is not None:
             d["description"] = self.description
+        if self.aggregations is not None:
+            d["aggregations"] = self.aggregations
         if dimension:
             d["full_name"] = self.full_name(dimension)
         return d
@@ -1461,18 +1487,6 @@ class Attribute(object):
         locale.update(get_localizable_attributes(self))
 
         return locale
-
-class Measure(Attribute):
-    """Class representing a cube measure."""
-    def __init__(self, name, dimension, label=None, locales=None, order=None, 
-                 aggregations=None, **kwargs):
-        """Creates a cube measure object. In addition to Attribute object it contains list of
-        meaningful aggregations that can be performed on this attribute."""
-
-        super(Measure, self).__init__(name, label=label, locales=locales, 
-                                      order=order, dimension=dimension, **kwargs)
-        self.aggregations = aggregations
-
 
 def localize_common(obj, trans):
     """Localize common attributes: label and description"""
