@@ -18,14 +18,15 @@ except ImportError:
 # * [partial] facts in a cell
 # *     [done] pagination
 # *     [ ] ordering
-# * [ ] aggregation
-# *     [ ] drill-down sorting
-# *     [ ] drill-down pagination
+# * [partial] aggregation
+# *     [done] drill-down
+# *     [done] drill-down pagination
+# *     [done] number of total items in drill-down
+# *     [ ] drill-down ordering
 # *     [ ] drill-down limits (such as top-10)
 # *     [ ] remainder
 # * [ ] ratio - aggregate sum(current)/sum(total) 
 # * [ ] derived measures (should be in builder)
-# * [ ] number of items in drill-down
 # * [partial] dimension values
 # *     [done] pagination
 # *     [ ] ordering
@@ -159,7 +160,10 @@ class StarBrowser(cubes.browser.AggregationBrowser):
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, 
                 page=None, page_size=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
-        is ``None``, all levels are returned. """
+        is ``None``, all levels are returned.
+        
+        Number of database queries: 1.
+        """
         dimension = self.cube.dimension(dimension)
         if not hierarchy:
             hierarchy = dimension.default_hierarchy
@@ -198,9 +202,32 @@ class StarBrowser(cubes.browser.AggregationBrowser):
 
         return ResultIterator(result, labels)
 
+    def details(self, cell):
+        """Returns details for the `cell`. Returned object is a list with one
+        element for each cell cut.
+        
+        * `PointCut` - all attributes for each level in the path
+        * `SetCut` - list of `PointCut` results, one per path in the set
+        * `RangeCut` - `PointCut`-like results for lower range (from) and
+          upper range (to)
+        """
+
+        # TODO: should it be cell or cut based?
+        # TODO: is the name right?
+        # TODO: dictionary or class representation?
+
+        raise NotImplementedError
+
     def aggregate(self, cell, measures=None, drilldown=None, attributes=None, 
                   page=None, page_size=None, **options):
-        """Return aggregated result"""
+        """Return aggregated result.
+        
+        Number of database queries:
+        
+        * without drill-down: 1 (summary)
+        * with drill-down: 3 (summary, drilldown, total drill-down record
+          count)
+        """
 
         # TODO: add ordering (ORDER BY)
         if options.get("order_by"):
