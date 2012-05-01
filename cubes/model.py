@@ -833,7 +833,7 @@ class Dimension(object):
             raise ValueError("Unknown level object %s (should be a string or Level)" % obj)
 
     def hierarchy(self, obj):
-        """Get hierarchy object either by name or as Hierarchy."""
+        """Get hierarchy object either by name or as `Hierarchy`."""
         if isinstance(obj, basestring):
             if obj not in self.hierarchies:
                 raise KeyError("No level %s in dimension %s" % (obj, self.name))
@@ -1085,6 +1085,18 @@ class Hierarchy(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __str__(self):
+        return self.name
+
+    def __len__(self):
+        return len(self.levels)
+
+    def __getitem__(self, item):
+        return self.levels[item]
+        
+    def __contains__(self, item):
+        return item in self.levels
+
     def levels_for_path(self, path, drilldown = False):
         """Returns levels for given path. If path is longer than hierarchy levels, exception is raised"""
         if not path:
@@ -1136,6 +1148,11 @@ class Hierarchy(object):
             return None
         else:
             return self.levels[index - 1]
+
+    def level_index(self, level):
+        """Get order index of level. Can be used for ordering and comparing
+        levels within hierarchy."""
+        return self._levels.keys().index(str(level))
 
     def rollup(self, path, level = None):
         """Rolls-up the path to the `level`. If `level` is None then path is rolled-up only

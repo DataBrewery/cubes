@@ -429,7 +429,7 @@ class Cell(object):
         
         levels = {}
         
-        for cut in cuts:
+        for cut in self.cuts:
             level = cut.level_depth()
             dim = self.cube.dimension(cut.dimension)
             dim_name = str(dim)
@@ -437,8 +437,7 @@ class Cell(object):
             levels[dim_name] = max(level, levels.get(dim_name))
 
         return levels
-                
-
+    
     def _filter_dimension_cuts(self, dimension, exclude=False):
         dimension = self.cube.dimension(dimension)
         cuts = []
