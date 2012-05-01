@@ -421,6 +421,24 @@ class Cell(object):
         cell = Cell(cube=self.cube, cuts=new_cuts)
         return cell
 
+    def level_depths(self):
+        """Returns a dictionary of dimension names as keys and level depths
+        (index of deepest level)."""
+        
+        # TODO: should accept hierarchies
+        
+        levels = {}
+        
+        for cut in cuts:
+            level = cut.level_depth()
+            dim = self.cube.dimension(cut.dimension)
+            dim_name = str(dim)
+
+            levels[dim_name] = max(level, levels.get(dim_name))
+
+        return levels
+                
+
     def _filter_dimension_cuts(self, dimension, exclude=False):
         dimension = self.cube.dimension(dimension)
         cuts = []
@@ -537,6 +555,12 @@ def path_from_string(string):
 class Cut(object):
     def __init__(self, dimension):
         self.dimension = dimension
+
+    def to_dict(self):
+        """Returns dictionary representation fo the receiver. The keys are:
+        `dimension`."""
+        d = {"dimension": self.dimension.name}
+        return d
         
 class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a dimension"""
@@ -544,6 +568,18 @@ class PointCut(Cut):
     def __init__(self, dimension, path):
         super(PointCut, self).__init__(dimension)
         self.path = path
+
+    def to_dict(self):
+        """Returns dictionary representation of the receiver. The keys are:
+        `dimension`, `type`=``point`` and `path`."""
+        d = super(PointCut, self).to_dict()
+        d["type"] = "point"
+        d["path"] = self.path
+        return d
+        
+    def level_depth(self):
+        """Returns index of deepest level."""
+        return len(self.path)
 
     def __str__(self):
         """Return string representation of point cut, you can use it in URLs"""
@@ -576,7 +612,7 @@ class PointCut(Cut):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-class RangeCut(object):
+class RangeCut(Cut):
     """Object describing way of slicing a cube (cell) between two points of a dimension that
     has ordered points. For dimensions with unordered points behaviour is unknown."""
 
@@ -585,6 +621,20 @@ class RangeCut(object):
         self.from_path = from_path
         self.to_path = to_path
 
+    def to_dict(self):
+        """Returns dictionary representation of the receiver. The keys are:
+        `dimension`, `type`=``range``, `from` and `to` paths."""
+        d = super(RangeCut, self).to_dict()
+        d["type"] = "range"
+        d["from"] = self.from_path
+        d["to"] = self.to_path
+        return d
+
+    def level_depth(self):
+        """Returns index of deepest level which is equivalent to the longest
+        path."""
+        return max(len(self.from_path), len(self.to_path))
+    
     def __str__(self):
         """Return string representation of point cut, you can use it in URLs"""
         if self.from_path:
@@ -634,6 +684,19 @@ class SetCut(Cut):
     def __init__(self, dimension, paths):
         super(SetCut, self).__init__(dimension)
         self.paths = paths
+
+    def to_dict(self):
+        """Returns dictionary representation of the receiver. The keys are:
+        `dimension`, `type`=``range`` and `set` as a list of paths."""
+        d = super(SetCut, self).to_dict()
+        d["type"] = "set"
+        d["paths"] = paths
+        return d
+
+    def level_depth(self):
+        """Returns index of deepest level which is equivalent to the longest
+        path."""
+        return max([len(path) for path in self.paths])
 
     def __str__(self):
         """Return string representation of set cut, you can use it in URLs"""
