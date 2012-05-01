@@ -77,6 +77,9 @@ class Mapper(object):
     """Mapper is core clas for translating logical model to physical
     database schema.
     """
+    # WARNING: do not put any SQL/engine/connection related stuff into this
+    # class yet. It might be moved to the cubes as one of top-level modules
+    # and subclassed here.
 
     def __init__(self, cube, mappings=None, locale=None, schema=None,
                     fact_name=None, dimension_prefix=None, joins=None):

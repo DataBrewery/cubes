@@ -154,13 +154,12 @@ class StarBrowser(cubes.browser.AggregationBrowser):
 
         labels = [c.name for c in statement.columns]
 
-        return FactsIterator(result, labels)
+        return ResultIterator(result, labels)
 
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, 
                 page=None, page_size=None, **options):
-        """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
-        levels are returned.
-        """
+        """Return values for `dimension` with level depth `depth`. If `depth`
+        is ``None``, all levels are returned. """
         dimension = self.cube.dimension(dimension)
         if not hierarchy:
             hierarchy = dimension.default_hierarchy
@@ -195,10 +194,9 @@ class StarBrowser(cubes.browser.AggregationBrowser):
             self.logger.info("dimension values SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
-
         labels = [c.name for c in statement.columns]
 
-        return FactsIterator(result, labels)
+        return ResultIterator(result, labels)
 
     def aggregate(self, cell, measures=None, drilldown=None, attributes=None, 
                   page=None, page_size=None, **options):
@@ -208,10 +206,6 @@ class StarBrowser(cubes.browser.AggregationBrowser):
         if options.get("order_by"):
             self.logger.warn("ordering in aggregations is not yet implemented")
         
-        # TODO: add drill-down
-        if drilldown:
-            self.logger.warn("drilldown in aggregations is not yet implemented")
-
         # TODO: add documentation
         
         # Coalesce measures - make sure that they are Attribute objects, not
@@ -222,12 +216,9 @@ class StarBrowser(cubes.browser.AggregationBrowser):
         
         result = cubes.browser.AggregationResult()
 
-        statement = self.query.aggregation_statement(cell=cell,
+        summary_statement = self.query.aggregation_statement(cell=cell,
                                                      measures=measures,
                                                      attributes=attributes)
-
-        summary_statement = paginated_statement(statement, page, page_size)
-
 
         if self.debug:
             self.logger.info("aggregation SQL:\n%s" % summary_statement)
@@ -243,8 +234,33 @@ class StarBrowser(cubes.browser.AggregationBrowser):
             record = None
 
         cursor.close()
-
         result.summary = record
+
+        ##
+        # Drill-down
+        ##
+
+        if drilldown:
+            statement = self.query.aggregation_statement(cell=cell,
+                                                         measures=measures,
+                                                         attributes=attributes,
+                                                         drilldown=drilldown)
+            
+            if self.debug:
+                self.logger.info("aggregation drilldown SQL:\n%s" % statement)
+
+            statement = paginated_statement(statement, page, page_size)
+            dd_result = self.connectable.execute(statement)
+            labels = [c.name for c in statement.columns]
+
+            result.drilldown = ResultIterator(dd_result, labels)
+
+            # TODO: introduce option to disable this
+
+            count_statement = statement.alias().count()
+            row_count = self.connectable.execute(count_statement).fetchone()
+            total_cell_count = row_count[0]
+            result.total_cell_count = total_cell_count
 
         return result
 
@@ -392,7 +408,7 @@ class StarQueryBuilder(object):
                 }
 
     def aggregation_statement(self, cell, measures=None, 
-                              attributes=None):
+                              attributes=None, drilldown=None):
         """Return a statement for summarized aggregation. `whereclause` is
         same as SQLAlchemy `whereclause` for
         `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
@@ -400,9 +416,15 @@ class StarQueryBuilder(object):
         attributes are used."""
         
         # TODO: do not ignore attributes
-
         cell_cond = self.condition_for_cell(cell)
-        
+        attributes = cell_cond.attributes
+
+        if drilldown:
+            drilldown = coalesce_drilldown(cell, drilldown)
+            for levels in drilldown.values():
+                for level in levels:
+                    attributes |= set(level.attributes)
+                
         # TODO: add measures as well
         join_expression = self.join_expression_for_attributes(cell_cond.attributes)
 
@@ -410,7 +432,6 @@ class StarQueryBuilder(object):
 
         if measures is None:
             measures = self.cube.measures
-            
 
         # Collect "columns" for measure aggregations
         for measure in measures:
@@ -423,10 +444,21 @@ class StarQueryBuilder(object):
 
         selection.append(sql.functions.count().label(rcount_label))
 
+        group_by = None
+        
+        if drilldown:
+            group_by = []
+            for dim, levels in drilldown.items():
+                for level in levels:
+                    columns = [self.column(attr) for attr in level.attributes]
+                    group_by.extend(columns)
+                    selection.extend(columns)
+
         select = sql.expression.select(selection, 
                                     whereclause=cell_cond.condition, 
                                     from_obj=join_expression,
-                                    use_labels=True)
+                                    use_labels=True,
+                                    group_by=group_by)
 
         return select
     
@@ -647,7 +679,65 @@ class StarQueryBuilder(object):
 
         return column
 
+def coalesce_drilldown(cell, drilldown):
+    """Returns a dictionary where keys are dimensions and values are list of
+    levels to be drilled down. `drilldown` should be a list of dimensions (or
+    dimension names) or a dictionary where keys are dimension names and values
+    are level names to drill up to.
+    
+    For the list of dimensions or if the level is not specified, then up to
+    the next level in the cell is considered.
+    """
 
+    # TODO: consider hierarchies (currently ignored, default is used)
+
+    result = {}
+
+    depths = cell.level_depths()
+
+    if type(drilldown) == list or type(drilldown) == tuple:
+
+        for dim in drilldown:
+            dim = cell.cube.dimension(dim)
+            depth = depths.get(str(dim)) or 0
+            result[dim.name] = drilldown_levels(dim, depth+1)
+
+    elif isinstance(drilldown, dict):
+
+        for dim, level in drilldown.items():
+            dim = cell.cube.dimension(dim)
+
+            if level:
+                hier = dim.default_hierarchy
+                index = hier.level_index(level)
+                result[dim.name] = hier[:index+1]
+            else:
+                depth = depths.get(str(dim)) or 0
+                result[dim.name] = drilldown_levels(dim, depth+1)
+            
+    elif drilldown is not None:
+        raise TypeError("Drilldown is of unknown type: %s" % type(drilldown))
+        
+    return result
+
+def drilldown_levels(dimension, depth, hierarchy=None):
+    """Get drilldown levels up to level at `depth`. If depth is ``None``
+    returns first level only. `dimension` has to be `Dimension` instance. """
+
+    if hierarchy:
+        hier = dimension.hierarchy(hierarchy)
+    else:
+        hier = dimension.default_hierarchy
+
+    depth = depth or 0
+    
+    if depth > len(hier):
+        raise ValueError("Hierarchy %s in dimension %s has only %d levels, "
+                         "can not drill to %d" % \
+                         (hier,dimension,len(hier),depth+1))
+
+    return hier[:depth]                     
+    
 def paginated_statement(statement, page, page_size):
     """Returns paginated statement if page is provided, otherwise returns
     the same statement."""
@@ -658,7 +748,7 @@ def paginated_statement(statement, page, page_size):
         return statement
         
 
-class FactsIterator(object):
+class ResultIterator(object):
     """
     Iterator that returns SQLAlchemy ResultProxy rows as dictionaries
     """
