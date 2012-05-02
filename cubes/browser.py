@@ -289,16 +289,18 @@ class AggregationBrowser(object):
 
         """
 
+        dimension = self.cube.dimension(cut.dimension)
+
         if isinstance(cut, PointCut):
-            details = self._path_details(cut.dimension, cut.path)
+            details = self._path_details(dimension, cut.path)
 
         elif isinstance(cut, SetCut):
-            details = [self._path_details(cut.dimension, path) for path in cut.paths]
+            details = [self._path_details(dimension, path) for path in cut.paths]
 
         elif isinstance(cut, RangeCut):
             details = {
-                "from": self._path_details(cut.dimension, cut.from_path),
-                "to": self._path_details(cut.dimension, cut.to_path)
+                "from": self._path_details(dimension, cut.from_path),
+                "to": self._path_details(dimension, cut.to_path)
             }
 
         else:
@@ -306,16 +308,44 @@ class AggregationBrowser(object):
 
         return details
 
-    def _path_details(self, dimension, path):
-        """Returns list of details for a path"""
+    def _path_details(self, dimension, path, hierarchy=None):
+        """Returns a list of details for a path. Each element of the list
+        corresponds to one level of the path and is represented by a
+        dictionary. The keys are dimension level attributes. Returns ``None``
+        when there is no such path for the dimension.
+
+        Two redundant keys are added: ``_label`` and ``_key`` representing
+        level key and level label (based on `Level.label_attribute_key`).
+        
+        .. note::
+        
+            The behaviour should be configurable: we either return all the
+            keys or just a label and a key.
+        """
+
+        hierarchy = dimension.hierarchy(hierarchy)
 
         cut = PointCut(dimension, path)
         cell = Cell(self.cube, cuts=[cut])
-        details = list(self.values(cell, dimension, len(path)))
-        if details:
-            return details[0]
-        else:
-            return None     
+        dim_values = list(self.values(cell, dimension, len(path)))
+
+        if len(dim_values) > 1:
+            raise Exception("There are more than one detail rows for dimension %s path %s" % \
+                                (str(dimension), path) )
+
+        if not dim_values:
+            return None
+
+        details = dim_values[0]
+        
+        result = []
+        for level in hierarchy.levels_for_path(path):
+            item = {a.full_name():details.get(a.full_name()) for a in level.attributes}
+            item["_key"] = details.get(level.key.full_name())
+            item["_label"] = details.get(level.label_attribute.full_name())
+            result.append(item)
+        
+        return result
                
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
@@ -417,7 +447,7 @@ class Cell(object):
 
         return None
 
-    def rollup_dim(self, dimension, level=None):
+    def rollup_dim(self, dimension, level=None, hierarchy=None):
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. If there is no level to go up (we are at the top level),
          then the cut is removed.
@@ -446,7 +476,7 @@ class Cell(object):
 
         cuts = [cut for cut in self.cuts if cut is not dim_cut]
 
-        hier = dimension.default_hierarchy
+        hier = dimension.hierarchy(hierarchy)
         rollup_path = hier.rollup(dim_cut.path, level)
 
         # If the rollup path is empty, we are at the top level therefore we
