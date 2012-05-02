@@ -64,22 +64,26 @@ class AggregationBrowser(object):
 
         :Attributes:
 
-            * `drilldown` - dimensions and levels through which to drill-down, default `None`
-            * `measures` - list of measures to be aggregated. By default all measures are
-              aggregated.
+        * `drilldown` - dimensions and levels through which to drill-down,
+          default `None`
+        * `measures` - list of measures to be aggregated. By default all
+          measures are aggregated.
             
-        Drill down can be specified in two ways: as a list of dimensions or as a dictionary. If it
-        is specified as list of dimensions, then cell is going to be drilled down on the next
-        level of specified dimension. Say you have a cell for year 2010 and you want to drill
-        down by months, then you specify ``drilldown = ["date"]``.
+        Drill down can be specified in two ways: as a list of dimensions or as
+        a dictionary. If it is specified as list of dimensions, then cell is
+        going to be drilled down on the next level of specified dimension. Say
+        you have a cell for year 2010 and you want to drill down by months,
+        then you specify ``drilldown = ["date"]``.
         
-        If `drilldown` is a dictionary, then key is dimension or dimension name and value is last
-        level to be drilled-down by. If the cell is at `year` level and drill down is: ``{
-        "date": "day" }`` then both `month` and `day` levels are added.
+        If `drilldown` is a dictionary, then key is dimension or dimension
+        name and value is last level to be drilled-down by. If the cell is at
+        `year` level and drill down is: ``{ "date": "day" }`` then both
+        `month` and `day` levels are added.
         
-        If there are no more levels to be drilled down, an exception is raised. Say your model has
-        three levels of the `date` dimension: `year`, `month`, `day` and you try to drill down by
-        `date` then ``ValueError`` will be raised.
+        If there are no more levels to be drilled down, an exception is
+        raised. Say your model has three levels of the `date` dimension:
+        `year`, `month`, `day` and you try to drill down by `date` then
+        ``ValueError`` will be raised.
         
         Retruns a :class:AggregationResult object.
         """
@@ -111,9 +115,10 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, **options):
-        """Return values for `dimension` with level depth `depth`. If `depth` is ``None``, all
-        levels are returned.
+    def values(self, cell, dimension, depth=None, paths=None, 
+               hierarchy=None, **options):
+        """Return values for `dimension` with level depth `depth`. If `depth`
+        is ``None``, all levels are returned.
         
         .. note::
             
@@ -122,32 +127,50 @@ class AggregationBrowser(object):
         raise NotImplementedError
         
     def report(self, cell, report):
-        """Creates multiple outputs specified in the `report`.
+        """Bundle multiple requests from `report` into a single one.
         
-        `report` is a dictionary with multiple aggregation browser queries. Keys are custom names
-        of queries which requestor can later use to retrieve respective query result. Values are
-        dictionaries specifying single query arguments. Each query should contain at least
-        one required value ``query`` which contains name of the query function: ``aggregate``,
-        ``facts``, ``fact`` or ``values``. Rest of values are function specific, please refer to
-        the respective function documentation for more information.
+        Keys of `report` are custom names of queries which caller can later
+        use to retrieve respective query result. Values are dictionaries
+        specifying arguments of the particular query. Each query should
+        contain at least one required value ``query`` which contains name of
+        the query function: ``aggregate``, ``facts``, ``fact``, ``values`` and
+        cell ``details``. Rest of values are function specific, please refer
+        to the respective function documentation for more information.
+                
+        Example::
         
-        Result is a dictionary where keys wil lbe the query names specified in report
-        specification and values will be result values from each query call.
+            report = {
+                "product_summary" = { "query": "aggregate", 
+                                      "drilldown": "product" }
+                "year_list" = { "query": "values", 
+                                "dimension": "date",
+                                "depth": 1 }
+            }
+        
+        Result is a dictionary where keys wil lbe the query names specified in
+        report specification and values will be result values from each query
+        call.::
+        
+            result = browser.report(cell, report)
+            product_summary = result["product_summary"]
+            year_list = result["year_list"]
 
-        This method provides convenient way to perform multiple common queries at once, for example
-        you might want to have always on a page: total transaction count, total transaction amount,
-        drill-down by year and drill-down by transaction type.
+        This method provides convenient way to perform multiple common queries
+        at once, for example you might want to have always on a page: total
+        transaction count, total transaction amount, drill-down by year and
+        drill-down by transaction type.
 
         *Roll-up*
         
-        Report queries might contain ``rollup`` specification which will result in "rolling-up"
-        one or more dimensions to desired level. This functionality is provided for cases when you
-        would like to report at higher level of aggregation than the cell you provided is in.
-        It works in similar way as drill down in :meth:`AggregationBrowser.aggregate` but in
-        the opposite direction (it is like ``cd ..`` in a UNIX shell).
+        Report queries might contain ``rollup`` specification which will
+        result in "rolling-up" one or more dimensions to desired level. This
+        functionality is provided for cases when you would like to report at
+        higher level of aggregation than the cell you provided is in. It works
+        in similar way as drill down in :meth:`AggregationBrowser.aggregate`
+        but in the opposite direction (it is like ``cd ..`` in a UNIX shell).
         
-        Example: You are reporting for year 2010, but you want to have a bar chart with all years.
-        You specify rollup::
+        Example: You are reporting for year 2010, but you want to have a bar
+        chart with all years. You specify rollup::
 
             ...
             "rollup": "date",
@@ -157,14 +180,24 @@ class AggregationBrowser(object):
         
             * a string - single dimension to be rolled up one level
             * an array - list of dimension names to be rolled-up one level
-            * a dictionary where keys are dimension names and values are levels to be rolled up-to
+            * a dictionary where keys are dimension names and values are
+              levels to be rolled up-to
         
         *Future*
         
-        In the future there might be optimisations added to this method, therefore it will become
-        faster than subsequent separate requests. Also when used with Slicer OLAP service server
-        number of HTTP call overhead is reduced.
+        In the future there might be optimisations added to this method,
+        therefore it will become faster than subsequent separate requests.
+        Also when used with Slicer OLAP service server number of HTTP call
+        overhead is reduced.
         """
+        
+        # TODO: add this: cell_details=True, cell_details_key="_details"
+        #
+        # If `cell_details` is ``True`` then a key with name specified in
+        # `cell_details_key` is added with cell details (see
+        # `AggregationBrowser.cell_details() for more information). Default key
+        # name is ``_cell``.
+        
         
         report_result = {}
         
@@ -188,26 +221,102 @@ class AggregationBrowser(object):
 
             if query == "aggregate":
                 result = self.aggregate(query_cell, **args)
+
             elif query == "facts":
                 result = self.facts(query_cell, **args)
+
             elif query == "fact":
                 # Be more tolerant: by default we want "key", but "id" might be common
                 key = args.get("key")
                 if not key:
                     key = args.get("id")
                 result = self.fact(key)
+
             elif query == "values":
                 result = self.values(query_cell, **args)
-            elif query == "drilldown":
-                raise NotImplementedError("Drill-down queries are not yet implemented")
+
+            elif query == "details":
+                result = self.cell_details(query_cell, **args)
+
             else:
                 raise KeyError("Unknown report query '%s' for '%s'" % (query, result_name))
 
             report_result[result_name] = result
             
         return report_result
+
+    def cell_details(self, cell, dimension=None):
+        """Returns details for the `cell`. Returned object is a list with one
+        element for each cell cut. If `dimension` is specified, then details
+        only for cuts that use the dimension are returned.
+
+        Default implemenatation calls `AggregationBrowser.cut_details()` for
+        each cut. Backends might customize this method to make it more
+        efficient.
         
+        .. warning:
         
+            Return value of this method is not yet decided. Might be changed
+            so that each element is a dictionary derived from cut (see
+            `Cut.to_dict()` method of all Cut subclasses) and the details will
+            be under the ``details`` key. Will depend on usability of current
+            one.
+        """
+
+        # TODO: is the name right?
+        # TODO: dictionary or class representation?
+        # TODO: how we can add the cell as well?
+
+        if dimension:
+            cuts = [cut for cut in cell.cuts if str(cut.dimension)==str(dimension)]
+        else:
+            cuts = cell.cuts
+
+        details = [self.cut_details(cut) for cut in cuts]
+
+        return details
+
+    def cut_details(self, cut):
+        """Returns details for a `cut` which should be a `Cut` instance.
+
+        * `PointCut` - all attributes for each level in the path
+        * `SetCut` - list of `PointCut` results, one per path in the set
+        * `RangeCut` - `PointCut`-like results for lower range (from) and
+          upper range (to)
+
+        Default implemenatation uses `AggregationBrowser.values()` for each
+        path. Backends might customize this method to make it more efficient.
+
+        """
+
+        if isinstance(cut, PointCut):
+            details = self._path_details(cut.dimension, cut.path)
+
+        elif isinstance(cut, SetCut):
+            details = [self._path_details(cut.dimension, path) for path in cut.paths]
+
+        elif isinstance(cut, RangeCut):
+            details = {
+                "from": self._path_details(cut.dimension, cut.from_path),
+                "to": self._path_details(cut.dimension, cut.to_path)
+            }
+
+        else:
+            raise Exception("Unknown cut type %s" % cut)
+
+        return details
+
+    def _path_details(self, dimension, path):
+        """Returns list of details for a path"""
+
+        cut = PointCut(dimension, path)
+        cell = Cell(self.cube, cuts=[cut])
+        details = list(self.values(cell, dimension, len(path)))
+        if details:
+            return details[0]
+        else:
+            return None     
+               
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
     def __init__(self, cube=None, cuts=[]):
