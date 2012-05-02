@@ -166,10 +166,7 @@ class StarBrowser(AggregationBrowser):
         Number of database queries: 1.
         """
         dimension = self.cube.dimension(dimension)
-        if not hierarchy:
-            hierarchy = dimension.default_hierarchy
-        else:
-            hierarchy = dimension.hierarchy(hierarchy)
+        hierarchy = dimension.hierarchy(hierarchy)
             
         levels = hierarchy.levels
 
@@ -619,7 +616,7 @@ class StarQueryBuilder(object):
 
         return Condition(attributes, condition, group_by)
 
-    def condition_for_point(self, dim, path):
+    def condition_for_point(self, dim, path, hierarchy=None):
         """Returns a `Condition` tuple (`attributes`, `conditions`,
         `group_by`) dimension `dim` point at `path`. It is a compound
         condition - one equality condition for each path element in form:
@@ -631,7 +628,7 @@ class StarQueryBuilder(object):
         conditions = []
         group_by = []
 
-        levels = dim.default_hierarchy.levels_for_path(path)
+        levels = dim.hierarchy(hierarchy).levels_for_path(path)
 
         if len(path) > len(levels):
             raise Exception("Path has more items (%d: %s) than there are levels (%d) "
@@ -736,11 +733,7 @@ def drilldown_levels(dimension, depth, hierarchy=None):
     """Get drilldown levels up to level at `depth`. If depth is ``None``
     returns first level only. `dimension` has to be `Dimension` instance. """
 
-    if hierarchy:
-        hier = dimension.hierarchy(hierarchy)
-    else:
-        hier = dimension.default_hierarchy
-
+    hier = dimension.hierarchy(hierarchy)
     depth = depth or 0
     
     if depth > len(hier):
