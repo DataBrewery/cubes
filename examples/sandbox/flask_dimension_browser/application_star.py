@@ -24,7 +24,7 @@ def report(dim_name=None):
     browser = get_browser()
 
     if not dim_name:
-        return render_template('report.html', dimensions=model.dimensions)
+        return render_template('report_star.html', dimensions=model.dimensions)
 
     # First we need to get the hierarchy to know the order of levels. Cubes
     # supports multiple hierarchies internally.
@@ -54,10 +54,13 @@ def report(dim_name=None):
     #
     result = browser.aggregate(cell, drilldown=[dim_name])
 
+    # If we have no path, then there is no cut for the dimension, # therefore
+    # there is no corresponding detail.
     if path:
-        breadcrumbs = list(browser.values(cell, dimension, len(path)))[0]
+        breadcrumbs = browser.cell_details(cell, dimension)[0]
     else:
         breadcrumbs = {}
+
     # Find what level we are on and what is going to be the drill-down level
     # in the hierarchy
     
@@ -85,14 +88,14 @@ def report(dim_name=None):
 
     # Finally, we render it
 
-    return render_template('star_report.html', 
-                            dimension=dimension,
+    return render_template('report_star.html', 
                             dimensions=model.dimensions, 
-                            result=result, 
+                            dimension=dimension,
                             levels=levels, 
                             next_level=next_level, 
                             label_attribute=label_attribute, 
                             level_key=key,
+                            result=result, 
                             cell=cell, is_last=is_last,
                             breadcrumbs=breadcrumbs)
 

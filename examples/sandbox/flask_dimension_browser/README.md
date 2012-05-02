@@ -43,6 +43,9 @@ This directory contains following files:
     * templates/report.html - HTML template that shows the simple table report
                         (see comments in the file)
     * static/         - just static files, such as Twitter Bootstrap css so it can be pretty
+
+Examples for the new StarBrowser are with suffix `*_star` (compare the report
+templates with diff).
     
 Credits
 -------
