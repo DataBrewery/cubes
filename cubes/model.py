@@ -832,8 +832,15 @@ class Dimension(object):
         else:
             raise ValueError("Unknown level object %s (should be a string or Level)" % obj)
 
-    def hierarchy(self, obj):
-        """Get hierarchy object either by name or as `Hierarchy`."""
+    def hierarchy(self, obj=None):
+        """Get hierarchy object either by name or as `Hierarchy`. If `obj` is
+        ``None`` then default hierarchy is returned."""
+        
+        # TODO: this should replace default_hierarchy constructed property
+        #       see Issue #46
+        
+        if obj is None:
+            return self.default_hierarchy
         if isinstance(obj, basestring):
             if obj not in self.hierarchies:
                 raise KeyError("No level %s in dimension %s" % (obj, self.name))
@@ -847,6 +854,10 @@ class Dimension(object):
     def default_hierarchy(self):
         """Get default hierarchy specified by ``default_hierarchy_name``, if the variable is not set then
         get a hierarchy with name *default*"""
+        
+        # TODO: depreciate this in favor of hierarchy() (without arguments or
+        #       with None). See Issue #46
+        
         if self.default_hierarchy_name:
             hierarchy_name = self.default_hierarchy_name
         else:
