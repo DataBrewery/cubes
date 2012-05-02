@@ -24,6 +24,8 @@ import common
 import controllers
 from utils import local_manager
 
+# TODO: this deserves Flask!
+
 rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
     Rule('/version', 
@@ -52,10 +54,12 @@ rules = Map([
                         endpoint = (controllers.CubesController, 'values')),
     Rule('/cube/<string:cube>/report', methods = ['POST'],
                         endpoint = (controllers.CubesController, 'report')),
+    Rule('/cube/<string:cube>/details',
+                        endpoint = (controllers.CubesController, 'details')),
     Rule('/cube/<string:cube>/search',
                         endpoint = (controllers.SearchController, 'search')),
 
-    # FIXME: Remove this sooner or later:
+    # Use default cube (specified in config as: [model] cube = ... )
     Rule('/aggregate', 
                         endpoint = (controllers.CubesController, 'aggregate')),
     Rule('/facts', 
@@ -66,6 +70,8 @@ rules = Map([
                         endpoint = (controllers.CubesController, 'values')),
     Rule('/report', methods = ['POST'],
                         endpoint = (controllers.CubesController, 'report')),
+    Rule('/details', 
+                        endpoint = (controllers.CubesController, 'details')),
     Rule('/search',
                         endpoint = (controllers.SearchController, 'search'))
 ])

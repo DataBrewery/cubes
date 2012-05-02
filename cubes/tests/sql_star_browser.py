@@ -294,11 +294,11 @@ class StarValidationTestCase(StarSQLTestCase):
     @unittest.skip("not implemented")
     def test_validate(self):
         result = self.browser.validate_model()
-        self.assertEqual(0, len(result), 'message')
+        self.assertEqual(0, len(result))
         
-class StarSQLAggregationTestCase(StarSQLTestCase):
+class StarSQLBrowserTestCase(StarSQLTestCase):
     def setUp(self):
-        super(StarSQLAggregationTestCase, self).setUp()
+        super(StarSQLBrowserTestCase, self).setUp()
         fact = {
             "id":1,
             "amount":100,
@@ -382,6 +382,42 @@ class StarSQLAggregationTestCase(StarSQLTestCase):
         self.assertIsNotNone(values)
         self.assertEqual(10, len(values))
         
+    def test_cut_details(self):
+        cut = cubes.PointCut("date", [2012])
+        details = self.browser.cut_details(cut)
+        self.assertEqual({"date.year":2012}, details)
+
+        cut = cubes.PointCut("date", [2013])
+        details = self.browser.cut_details(cut)
+        self.assertEqual(None, details)
+
+        cut = cubes.PointCut("date", [2012,3])
+        details = self.browser.cut_details(cut)
+        self.assertEqual({"date.year":2012, "date.month_name":"March",
+                          "date.month_sname":"Mar",
+                          "date.month":3}, details)
+
+    def test_cell_details(self):
+        cell = cubes.Cell( self.cube, [cubes.PointCut("date", [2012])] )
+        details = self.browser.cell_details(cell)
+        self.assertEqual(1, len(details))
+        self.assertEqual([{"date.year":2012}], details)
+
+        cell = cubes.Cell( self.cube, [cubes.PointCut("product", [10])] )
+        details = self.browser.cell_details(cell)
+        self.assertEqual(1, len(details))
+        self.assertEqual([{"product.category":10, 
+                           "product.category_name":"Things"}], details)
+
+        cell = cubes.Cell( self.cube, [cubes.PointCut("date", [2012]),
+                            cubes.PointCut("product", [10])] )
+        facts = list(self.browser.values(cell, "product",1))
+        details = self.browser.cell_details(cell)
+        self.assertEqual(2, len(details))
+        self.assertEqual([{"date.year":2012},
+                          {"product.category":10,
+                           "product.category_name": "Things"}], details)
+        
     def test_aggregation_for_measures(self):
         query = self.browser.query
 
@@ -447,7 +483,7 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(StarSQLAttributeMapperTestCase))
     suite.addTest(unittest.makeSuite(JoinsTestCase))
-    suite.addTest(unittest.makeSuite(StarSQLAggregationTestCase))
+    suite.addTest(unittest.makeSuite(StarSQLBrowserTestCase))
     suite.addTest(unittest.makeSuite(StarValidationTestCase))
 
     return suite

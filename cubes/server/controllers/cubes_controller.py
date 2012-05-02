@@ -152,7 +152,6 @@ class CubesController(application_controller.ApplicationController):
                                         page_size = self.page_size,
                                         order = self.order)
 
-        # return Response(result.as_json())
         return self.json_response(result)
 
     def facts(self):
@@ -234,3 +233,10 @@ class CubesController(application_controller.ApplicationController):
         
         return self.json_response(result)
     
+    def details(self):
+        self.prepare_cell()
+
+        result = self.browser.cell_details(self.cell)
+
+        return self.json_response(result)
+

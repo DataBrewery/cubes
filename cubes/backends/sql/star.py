@@ -1,5 +1,6 @@
 # -*- coding=utf -*-
-import cubes.browser
+from cubes.browser import *
+from cubes.common import get_logger
 from cubes.backends.sql.common import Mapper
 from cubes.backends.sql.common import DEFAULT_KEY_FIELD
 import logging
@@ -43,7 +44,7 @@ __all__ = ["StarBrowser"]
 #     * dimension table prefix
 #     * schema
 
-class StarBrowser(cubes.browser.AggregationBrowser):
+class StarBrowser(AggregationBrowser):
     """docstring for StarBrowser"""
     
     def __init__(self, cube, connectable=None, locale=None, dimension_prefix=None,
@@ -77,7 +78,7 @@ class StarBrowser(cubes.browser.AggregationBrowser):
         if cube == None:
             raise Exception("Cube for browser should not be None.")
 
-        self.logger = cubes.common.get_logger()
+        self.logger = get_logger()
 
         self.cube = cube
         self.locale = locale
@@ -201,23 +202,7 @@ class StarBrowser(cubes.browser.AggregationBrowser):
         labels = [c.name for c in statement.columns]
 
         return ResultIterator(result, labels)
-
-    def details(self, cell):
-        """Returns details for the `cell`. Returned object is a list with one
-        element for each cell cut.
         
-        * `PointCut` - all attributes for each level in the path
-        * `SetCut` - list of `PointCut` results, one per path in the set
-        * `RangeCut` - `PointCut`-like results for lower range (from) and
-          upper range (to)
-        """
-
-        # TODO: should it be cell or cut based?
-        # TODO: is the name right?
-        # TODO: dictionary or class representation?
-
-        raise NotImplementedError
-
     def aggregate(self, cell, measures=None, drilldown=None, attributes=None, 
                   page=None, page_size=None, **options):
         """Return aggregated result.
@@ -241,7 +226,7 @@ class StarBrowser(cubes.browser.AggregationBrowser):
         if measures:
             measures = [self.cube.measure(measure) for measure in measures]
         
-        result = cubes.browser.AggregationResult()
+        result = AggregationResult()
 
         summary_statement = self.query.aggregation_statement(cell=cell,
                                                      measures=measures,
@@ -417,7 +402,7 @@ class StarQueryBuilder(object):
         """
         super(StarQueryBuilder, self).__init__()
 
-        self.logger = cubes.common.get_logger()
+        self.logger = get_logger()
 
         self.cube = cube
         self.mapper = mapper
@@ -603,7 +588,7 @@ class StarQueryBuilder(object):
         for cut in cell.cuts:
             dim = self.cube.dimension(cut.dimension)
 
-            if isinstance(cut, cubes.browser.PointCut):
+            if isinstance(cut, PointCut):
                 path = cut.path
                 wrapped_cond = self.condition_for_point(dim, path)
 
@@ -611,7 +596,7 @@ class StarQueryBuilder(object):
                 attributes |= wrapped_cond.attributes
                 group_by += wrapped_cond.group_by
 
-            elif isinstance(cut, cubes.browser.SetCut):
+            elif isinstance(cut, SetCut):
                 conditions = []
 
                 for path in cut.paths:
@@ -622,7 +607,7 @@ class StarQueryBuilder(object):
 
                 condition = sql.expression.or_(*conditions)
 
-            elif isinstance(cut, cubes.browser.RangeCut):
+            elif isinstance(cut, RangeCut):
                 raise NotImplementedError("Condition for range cuts is not yet implemented")
 
             else:
