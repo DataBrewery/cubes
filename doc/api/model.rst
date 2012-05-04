@@ -15,16 +15,25 @@
 
    
 Loading a model
----------------
+===============
 
 .. autofunction:: cubes.model.load_model
 
 Model components
-----------------
+================
+
+Model
+-----
 
 .. autoclass:: cubes.model.Model
 
+Cube
+----
+
 .. autoclass:: cubes.model.Cube
+
+Dimension, Hierarchy, Level
+---------------------------
 
 .. autoclass:: cubes.model.Dimension
 
@@ -42,4 +51,3 @@ Helper function to coalesce list of attributes, which can be provided as strings
 
    Exception raised when there is an error with model and its structure, mostly 
    during model construction.
-

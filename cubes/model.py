@@ -690,22 +690,25 @@ class Dimension(object):
     Cube dimension.
 
     Attributes:
-    	* name: dimension name
-    	* label: dimension name that will be displayed (human readable)
-    	* levels: list of dimension levels (see: :class:`brewery.cubes.Level`)
-    	* hierarchies: list of dimension hierarchies
-    	* default_hierarchy_name: name of a hierarchy that will be used when no hierarchy is explicitly specified
+
+	* `name`: dimension name
+	* `label`: dimension name that will be displayed (human readable)
+	* `levels`: list of dimension levels (see: :class:`brewery.cubes.Level`)
+	* `hierarchies`: list of dimension hierarchies
+	* `default_hierarchy_name`: name of a hierarchy that will be used when no
+      hierarchy is explicitly specified
 
     **Defaults**
 
-    * If no levels are specified during initialization, then dimension name is considered flat, with
-      single attribute.
-    * If no hierarchy is specified and levels are specified, then default hierarchy will be created
-      from order of levels
-    * If no levels are specified, then one level is created, with name `default` and dimension will
-      be considered flat
+    * If no levels are specified during initialization, then dimension name is
+      considered flat, with single attribute.
+    * If no hierarchy is specified and levels are specified, then default
+      hierarchy will be created from order of levels
+    * If no levels are specified, then one level is created, with name
+      `default` and dimension will be considered flat
 
-    String representation of a dimension ``str(dimension)`` is equal to dimension name.
+    String representation of a dimension ``str(dimension)`` is equal to
+    dimension name.
 
     Class is not meant to be mutable.
     """
@@ -812,12 +815,14 @@ class Dimension(object):
 
     @property
     def levels(self):
-        """Get list of all dimension levels. Order is undefined."""
+        """Get list of all dimension levels. Order is not guaranteed, use a hierarchy
+        to have known order."""
         return self._levels.values()
 
     @property
     def level_names(self):
-        """Get list of dimension names."""
+        """Get list of level names. Order is not guaranteed, use a hierarchy
+        to have known order."""
         return self._levels.keys()
 
     def level(self, obj):
@@ -853,7 +858,13 @@ class Dimension(object):
     @property
     def default_hierarchy(self):
         """Get default hierarchy specified by ``default_hierarchy_name``, if the variable is not set then
-        get a hierarchy with name *default*"""
+        get a hierarchy with name *default*
+        
+        .. warning::
+        
+            Depreciated. Use `Dimension.hierarchy()` instead.
+            
+        """
 
         # TODO: depreciate this in favor of hierarchy() (without arguments or
         #       with None). See Issue #46
@@ -872,7 +883,9 @@ class Dimension(object):
                 if not self.hierarchies:
                     if len(self.levels) == 1:
                         if not self._flat_hierarchy:
-                            self._flat_hierarchy = self.flat_hierarchy(self.levels[0])
+                            self._flat_hierarchy = Hierarchy(name=level.name,
+                                                             dimension=self,
+                                                             levels=[levels[0]])
 
                         return self._flat_hierarchy
                     elif len(self.levels) > 1:
@@ -888,15 +901,6 @@ class Dimension(object):
 
         return hierarchy
 
-    def flat_hierarchy(self, level):
-        """Return the only one hierarchy for the only one level"""
-        # if len(levels) > 0:
-        #     raise AttributeError("Could not create default flat hierarchy in dimension '%s' if there "
-        #                          "are more than one level" % self.name)
-        hier = Hierarchy(name = level.name, dimension = self)
-        hier.levels = [level.name]
-        return hier
-
     @property
     def is_flat(self):
         """Return true if dimension has only one level"""
@@ -911,14 +915,15 @@ class Dimension(object):
             return attribute.full_name(dimension=self)
 
     def key_attributes(self):
-        """Return all dimension key attributes, regardless of hierarchy. Order
-        is undefined."""
+        """Return all dimension key attributes, regardless of hierarchy. Order is not guaranteed, use a hierarchy
+        to have known order."""
 
         return [level.key for level in self._levels.values()]
 
     def all_attributes(self, hierarchy = None):
-        """Return all dimension attributes regardless of hierarchy. Order of
-        levels is undefined, order of attributes within level is preserved."""
+        """Return all dimension attributes regardless of hierarchy. Order is
+        not guaranteed, use a hierarchy to have known order. Order of
+        attributes within level is preserved."""
 
         attributes = []
         for level in self.levels:
@@ -1054,12 +1059,18 @@ class Dimension(object):
         return locale
 
 class Hierarchy(object):
-    """Dimension hierarchy
+    """Dimension hierarchy - specifies order of dimension levels.
 
     Attributes:
-        * name: hierarchy name
-        * label: human readable name
-        * levels: ordered list of levels from dimension
+
+    * `name`: hierarchy name
+    * `label`: human readable name
+    * `levels`: ordered list of levels from dimension
+
+    Some collection operations might be used, such as ``level in hierarchy``
+    or ``hierarchy[index]``. String value ``str(hierarchy)`` gives the
+    hierarchy name.
+
     """
     def __init__(self, name=None, levels=None, label=None, dimension=None):
         self.name = name
@@ -1109,7 +1120,9 @@ class Hierarchy(object):
         return item in self.levels
 
     def levels_for_path(self, path, drilldown = False):
-        """Returns levels for given path. If path is longer than hierarchy levels, exception is raised"""
+        """Returns levels for given path. If path is longer than hierarchy
+        levels, exception is raised"""
+
         if not path:
             if drilldown:
                 return self.levels[0:1]
@@ -1334,6 +1347,9 @@ class Level(object):
 
     @property
     def has_details(self):
+        """Is ``True`` when level has more than one attribute, for all levels
+        with only one attribute it is ``False``."""
+        
         return len(self.attributes) > 1
             
     def localize(self, locale):
@@ -1359,7 +1375,8 @@ class Level(object):
 
 
 def attribute_list(attributes, dimension=None, attribute_class=None):
-    """Create a list of attributes from a list of strings or dictionaries."""
+    """Create a list of attributes from a list of strings or dictionaries.
+    see :func:`cubes.coalesce_attribute` for more information."""
 
     if not attributes:
         return []
@@ -1384,27 +1401,29 @@ def coalesce_attribute(obj, dimension=None, attribute_class=None):
     
 
 class Attribute(object):
-    """Cube attribute - represents any fact field/column"""
     
     ASC = 'asc'
     DESC = 'desc'
     
     def __init__(self, name, label=None, locales=None, order=None,
                 description=None,dimension=None,aggregations=None, **kwargs):
-        """Create an attribute.
+        """Cube attribute - represents any fact field/column
         
         Attributes:
 
         * `name` - attribute name, used as identifier
         * `label` - attribute label displayed to a user
         * `locales` = list of locales that the attribute is localized to
-        * `order` - default order of this attribute. If not specified,
-          then order is unexpected. Possible values are:
-          ``'asc'``/``'ascending'`` or ``'desc'``/``'descending'``. It is
-          recommended and safe to use ``Attribute.ASC`` and
+        * `order` - default order of this attribute. If not specified, then
+          order is unexpected. Possible values are: ``'asc'`` or ``'desc'``.
+          It is recommended and safe to use ``Attribute.ASC`` and
           ``Attribute.DESC``
         * `aggregations` - list of default aggregations to be performed on
-          this attribute if it is a measure
+          this attribute if it is a measure. It is backend-specific, but most
+          common might be: ``'sum'``, ``'min'``, ``'max'``, ...
+          
+        String representation of the `Attribute` returns its `name` (without
+        dimension prefix).
         """
         super(Attribute, self).__init__()
         self.name = name

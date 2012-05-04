@@ -64,10 +64,6 @@ class StarBrowser(AggregationBrowser):
         * `metadata` - SQLAlchemy MetaData object
         * `debug` - output SQL to the logger at INFO level
 
-        .. warning:
-
-            Not fully implemented yet.
-
         **Limitations:**
 
         * only one locale can be used for browsing at a time
