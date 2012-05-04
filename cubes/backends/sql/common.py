@@ -43,11 +43,11 @@ def coalesce_physical(ref, default_table=None, schema=None):
 
     If no table is specified in reference and `default_table` is not
     ``None``, then `default_table` will be used.
-    
+
     .. note::
-        
+
         The `table` element might be a table alias specified in list of joins.
-    
+
     """
 
     if isinstance(ref, basestring):
@@ -60,11 +60,11 @@ def coalesce_physical(ref, default_table=None, schema=None):
         else:
             return PhysicalReference(schema, default_table, ref)
     elif isinstance(ref, dict):
-        return PhysicalReference(ref.get("schema") or schema, 
+        return PhysicalReference(ref.get("schema") or schema,
                                  ref.get("table") or default_table,
                                  ref.get("column"))
     else:
-        if len(ref) == 2:                         
+        if len(ref) == 2:
             return PhysicalReference(schema, ref[0], ref[1])
         elif len(ref) == 3:
             return PhysicalReference(ref[0], ref[1], ref[2])
@@ -86,9 +86,9 @@ class Mapper(object):
         """Creates a mapper for a cube. The mapper maps logical references to
         physical references (tables and columns), creates required joins,
         resolves table names.
-        
+
         Attributes:
-        
+
         * `cube` - mapped cube
         * `mappings` – dictionary containing mappings
         * `simplify_dimension_references` – references for flat dimensions 
@@ -100,25 +100,25 @@ class Mapper(object):
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
         * `dimension_prefix` – prefix for dimension tables
-        
+
         Mappings
         --------
-        
+
         Mappings is a dictionary where keys are logical attribute references
         and values are table column references. The keys are mostly in the form:
-        
+
         * ``attribute`` for measures and fact details
         * ``attribute.locale`` for localized fact details
         * ``dimension.attribute`` for dimension attributes
         * ``dimension.attribute.locale`` for localized dimension attributes
-        
+
         The values might be specified as strings in the form ``table.column`` 
         or as two-element arrays: [`table`, `column`].
 
         .. In the future it might support automatic join detection.
-        
+
         """
-        
+
         super(Mapper, self).__init__()
 
         if cube == None:
@@ -129,26 +129,26 @@ class Mapper(object):
         self.cube = cube
         self.mappings = mappings
         self.locale = locale
-        
+
         self.fact_name = fact_name or self.cube.fact or self.cube.name
         self.schema=schema
-        
+
         self.simplify_dimension_references = True
         self.dimension_table_prefix = dimension_prefix
-        
+
         self.joins = joins
-    
+
         self._collect_attributes()
         self._collect_joins(joins)
 
     def _collect_attributes(self):
-        """Collect all cube attributes and create a dictionary where keys are 
+        """Collect all cube attributes and create a dictionary where keys are
         logical references and values are `cubes.model.Attribute` objects.
         This method should be used after each cube or mappings change.
         """
 
         self.attributes = collections.OrderedDict()
-        
+
         for attr in self.cube.measures:
             self.attributes[self.logical(attr)] = attr
 
@@ -162,11 +162,11 @@ class Mapper(object):
                 self.attributes[self.logical(attr)] = attr
 
     def _collect_joins(self, joins):
-        """Collects joins and coalesce physical references. `joins` is
-        a dictionary with keys: `master`, `detail` reffering to master and detail
-        keys. `alias` is used to give alternative name to a table when two
-        tables are being joined."""
-        
+        """Collects joins and coalesce physical references. `joins` is a
+        dictionary with keys: `master`, `detail` reffering to master and
+        detail keys. `alias` is used to give alternative name to a table when
+        two tables are being joined."""
+
         joins = joins or []
 
         self.joins = []
@@ -182,17 +182,23 @@ class Mapper(object):
 
         return self.attributes.values()
 
+    def attribute(self, name):
+        """Returns an attribute with logical reference `name`. """
+        # TODO: If attribute is not found, returns `None` (yes or no?)
+
+        return self.attributes[name]
+
     def logical(self, attribute):
-        """Returns logical reference as string for `attribute` in `dimension`. 
-        If `dimension` is ``Null`` then fact table is assumed. The logical 
+        """Returns logical reference as string for `attribute` in `dimension`.
+        If `dimension` is ``Null`` then fact table is assumed. The logical
         reference might have following forms:
 
 
         * ``dimension.attribute`` - dimension attribute
         * ``attribute`` - fact measure or detail
-        
-        If `simplify_dimension_references` is ``True`` then references for flat 
-        dimensios without details is ``dimension``
+
+        If `simplify_dimension_references` is ``True`` then references for
+        flat dimensios without details is ``dimension``
         """
 
         dimension = attribute.dimension
