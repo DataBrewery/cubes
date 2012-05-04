@@ -1,8 +1,8 @@
 Changes in the Cubes
 ++++++++++++++++++++
 
-Version 0.8.1
-=============
+Version 0.9
+===========
 
 New Features
 ------------
@@ -21,23 +21,34 @@ New Features
   `sql.browser` for default SQL denormalized browser.
 * get_backend() - get backend by name
 
+* AggregationBrowser.cell_details(): New method returning values of attributes
+  representing the cell. Preliminary implementation, return value might
+  change.
+* AggregationBrowser.cut_details(): New method returning values of attributes
+  representing a single cut. Preliminary implementation, return value might
+  change.
+
 SQL backend:
 
-* StarBrowser partially implemented. Current features:
-    * fact()
-    * facts() (no ordering yet)
-* StarBrowser supports snowflakes as well
+* new StarBrowser implemented
+* StarBrowser supports snowflakes as well, does not require denormalization
+  (no write permission is required)
 * ddl_for_model() - get schema DDL as string for model
 * join finder and attribute mapper are now just Mapper - class responsible for
   finding appropriate joins and doing logical-to-physical mappings
 * coalesce_attribute() - new method for coalescing multiple ways of describing
   a physical attribute (just attribute or table+schema+attribute)
+* dimension argument was removed from all methods working with attributes
+  (the dimension is now required attribute property)
   
 Slicer:
 
 * slicer ddl - generate schema DDL from model
 * slicer test - test configuration and model against database and report list 
   of issues, if any
+  
+* server responds to /details which is a result of
+  AggregationBrowser.cell_details()
 
 Examples:
 
@@ -51,6 +62,14 @@ Changes
   the attribute knows it's dimension
 * removed `hierarchy` argument from `Dimension.all_attributes()` and `.key_attributes()`
 * renamed builder to denormalizer
+* in Model: dimension and cube dictionary specification during model
+  initialization is depreciated, list should be used (with explicitly
+  mentioned attribute "name")
+* Dimension.default_hierarchy is now depreciated in favor of
+  Dimension.hierarchy() which now accepts no arguments or argument None -
+  returning default hierarchy in those two cases
+* metadata are now reused for each browser within one workspace - speed
+  improvement.
 
 Fixes
 -----
@@ -58,6 +77,7 @@ Fixes
 * Slicer version should be same version as Cubes: Original intention was to
   have separate server, therefore it had its own versioning. Now there is no
   reason for separate version, moreover it can introduce confusion.
+* Proper use of database schema in the Mapper
 
 Version 0.8
 ===========
