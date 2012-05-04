@@ -160,7 +160,7 @@ class StarBrowser(AggregationBrowser):
         return ResultIterator(result, labels)
 
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, 
-                page=None, page_size=None, **options):
+                page=None, page_size=None, order=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
