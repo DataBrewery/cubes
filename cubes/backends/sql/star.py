@@ -18,19 +18,19 @@ except ImportError:
 # * [done] fact
 # * [partial] facts in a cell
 # *     [done] pagination
-# *     [ ] ordering
+# *     [done] ordering
 # * [partial] aggregation
 # *     [done] drill-down
 # *     [done] drill-down pagination
 # *     [done] number of total items in drill-down
-# *     [ ] drill-down ordering
+# *     [done] drill-down ordering
 # *     [ ] drill-down limits (such as top-10)
 # *     [ ] remainder
 # * [ ] ratio - aggregate sum(current)/sum(total) 
-# * [ ] derived measures (should be in builder)
+# * [ ] derived measures
 # * [partial] dimension values
 # *     [done] pagination
-# *     [ ] ordering
+# *     [done] ordering
 
 __all__ = ["StarBrowser"]
 
@@ -46,7 +46,7 @@ __all__ = ["StarBrowser"]
 
 class StarBrowser(AggregationBrowser):
     """docstring for StarBrowser"""
-    
+
     def __init__(self, cube, connectable=None, locale=None, dimension_prefix=None,
                 fact_prefix=None, schema=None, metadata=None, debug=False):
         """StarBrowser is a SQL-based AggregationBrowser implementation that 
@@ -54,7 +54,7 @@ class StarBrowser(AggregationBrowser):
         explicit view or physical denormalized table.
 
         Attributes:
-        
+
         * `cube` - browsed cube
         * `connectable` - SQLAlchemy connectable object (engine or connection)
         * `dimension_prefix` - prefix for dimension tables
@@ -65,11 +65,11 @@ class StarBrowser(AggregationBrowser):
         * `debug` - output SQL to the logger at INFO level
 
         .. warning:
-            
+
             Not fully implemented yet.
 
         **Limitations:**
-        
+
         * only one locale can be used for browsing at a time
         * locale is implemented as denormalized: one column for each language
         """
@@ -83,7 +83,7 @@ class StarBrowser(AggregationBrowser):
         self.cube = cube
         self.locale = locale
         self.debug = debug
-        
+
         if connectable is not None:
             self.connectable = connectable
             self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
@@ -91,7 +91,7 @@ class StarBrowser(AggregationBrowser):
             # Construct the fact table name:
             # If not specified explicitly, then it is:
             #       fact_prefix + name of the cube
-        
+
             fact_prefix = fact_prefix or ""
             self.fact_name = cube.fact or fact_prefix + cube.name
 
@@ -101,8 +101,8 @@ class StarBrowser(AggregationBrowser):
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
-        
-        self.mapper = Mapper(cube, cube.mappings, self.locale, 
+
+        self.mapper = Mapper(cube, cube.mappings, self.locale,
                                             schema=schema,
                                             fact_name=self.fact_name,
                                             dimension_prefix=dimension_prefix,
@@ -111,43 +111,44 @@ class StarBrowser(AggregationBrowser):
         # StarQueryBuilder is creating SQL statements (using SQLAlchemy). It
         # also caches information about tables retrieved from metadata.
 
-        self.query = StarQueryBuilder(self.cube, self.mapper, 
+        self.query = StarQueryBuilder(self.cube, self.mapper,
                                       metadata=self.metadata)
-    
+
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube."""
 
         key_column = self.query.fact_table.c[self.fact_key]
         condition = key_column == key_value
         select = self.query.denormalized_statement(whereclause=condition)
-        
+
         if self.debug:
             self.logger.info("fact SQL:\n%s" % select)
 
         cursor = self.connectable.execute(select)
         row = cursor.fetchone()
-        
+
         labels = [c.name for c in select.columns]
-        
+
         if row:
             # Convert SQLAlchemy object into a dictionary
             record = dict(zip(labels, row))
         else:
             record = None
-        
+
         cursor.close()
-        
+
         return record
 
     def facts(self, cell, order=None, page=None, page_size=None):
         """Return all facts from `cell`, might be ordered and paginated."""
-        
+
         # TODO: add ordering (ORDER BY)
 
         cond = self.query.condition_for_cell(cell)
 
         statement = self.query.denormalized_statement(whereclause=cond.condition)
         statement = paginated_statement(statement, page, page_size)
+        statement = ordered_statement(statement, order, mapper=self.mapper, query=self.query)
 
         if self.debug:
             self.logger.info("facts SQL:\n%s" % statement)
@@ -162,12 +163,12 @@ class StarBrowser(AggregationBrowser):
                 page=None, page_size=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
-        
+
         Number of database queries: 1.
         """
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
-            
+
         levels = hierarchy.levels
 
         if depth == 0:
@@ -179,15 +180,16 @@ class StarBrowser(AggregationBrowser):
         # TODO: this might unnecessarily add fact table as well, there might
         #       be cases where we do not want that (hm, might be? really? note
         #       the cell)
-        
+
         attributes = []
         for level in levels:
             attributes.extend(level.attributes)
-        
+
         cond = self.query.condition_for_cell(cell)
         statement = self.query.denormalized_statement(whereclause=cond.condition,
                                                         attributes=attributes)
         statement = paginated_statement(statement, page, page_size)
+        statement = ordered_statement(statement, order, mapper=self.mapper, query=self.query)
 
         group_by = [self.query.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
@@ -199,13 +201,13 @@ class StarBrowser(AggregationBrowser):
         labels = [c.name for c in statement.columns]
 
         return ResultIterator(result, labels)
-        
+
     def aggregate(self, cell, measures=None, drilldown=None, attributes=None, 
-                  page=None, page_size=None, **options):
+                  page=None, page_size=None, order=None, **options):
         """Return aggregated result.
-        
+
         Number of database queries:
-        
+
         * without drill-down: 1 (summary)
         * with drill-down: 3 (summary, drilldown, total drill-down record
           count)
@@ -214,15 +216,15 @@ class StarBrowser(AggregationBrowser):
         # TODO: add ordering (ORDER BY)
         if options.get("order_by"):
             self.logger.warn("ordering in aggregations is not yet implemented")
-        
+
         # TODO: add documentation
-        
+
         # Coalesce measures - make sure that they are Attribute objects, not
         # strings. Strings are converted to corresponding Cube measure
         # attributes
         if measures:
             measures = [self.cube.measure(measure) for measure in measures]
-        
+
         result = AggregationResult()
 
         summary_statement = self.query.aggregation_statement(cell=cell,
@@ -254,11 +256,13 @@ class StarBrowser(AggregationBrowser):
                                                          measures=measures,
                                                          attributes=attributes,
                                                          drilldown=drilldown)
-            
+
             if self.debug:
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
 
             statement = paginated_statement(statement, page, page_size)
+            statement = ordered_statement(statement, order, mapper=self.mapper, query=self.query)
+
             dd_result = self.connectable.execute(statement)
             labels = [c.name for c in statement.columns]
 
@@ -274,7 +278,7 @@ class StarBrowser(AggregationBrowser):
         return result
 
     def validate(self):
-        """Validate physical representation of model. Returns a list of 
+        """Validate physical representation of model. Returns a list of
         dictionaries with keys: ``type``, ``issue``, ``object``.
 
         Types might be: ``join`` or ``attribute``.
@@ -292,7 +296,7 @@ class StarBrowser(AggregationBrowser):
 
         """
         issues = []
-        
+
         # Check joins
 
         tables = set()
@@ -301,14 +305,14 @@ class StarBrowser(AggregationBrowser):
         # 
         for join in self.mapper.joins:
             self.logger.debug("join: %s" % (join, ))
-        
+
             if not join.master.column:
                 issues.append(("join", "master column not specified", join))
             if not join.detail.table:
                 issues.append(("join", "detail table not specified", join))
             elif join.detail.table == self.fact_name:
                 issues.append(("join", "detail table should not be fact table", join))
-        
+
             master_table = (join.master.schema, join.master.table)
             tables.add(master_table)
 
@@ -318,7 +322,7 @@ class StarBrowser(AggregationBrowser):
                 issues.append(("join", "duplicate detail table %s" % detail_table, join))
             else:
                 aliases.add(detail_alias)
-                
+
             detail_table = (join.detail.schema, join.detail.table)
             alias_map[detail_alias] = detail_table
 
@@ -326,24 +330,24 @@ class StarBrowser(AggregationBrowser):
                 issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
             else:
                 tables.add(detail_table)
-        
+
         # Check for existence of joined tables:
         physical_tables = {}
-        
+
         for table in tables:
             try:
-                physical_table = sqlalchemy.Table(table[1], self.metadata, 
-                                        autoload=True, 
+                physical_table = sqlalchemy.Table(table[1], self.metadata,
+                                        autoload=True,
                                         schema=table[0] or self.mapper.schema)
                 physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
             except sqlalchemy.exc.NoSuchTableError:
                 issues.append(("join", "table %s.%s does not exist" % table, join))
-                
+
         # Check attributes
-        
+
         attributes = self.mapper.all_attributes()
         physical = self.mapper.map_attributes(attributes)
-        
+
         for attr, ref in zip(attributes, physical):
             table_ref = (ref.schema, ref.table)
             table = physical_tables.get(table_ref)
@@ -354,9 +358,9 @@ class StarBrowser(AggregationBrowser):
                     c = table.c[ref.column]
                 except KeyError:
                     issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
-                
+
         return issues
-        
+
 """A Condition representation. `attributes` - list of attributes involved in the conditions,
 `conditions` - SQL conditions, `group_by` - attributes to be grouped by."""
 Condition = collections.namedtuple("Condition",
@@ -369,6 +373,8 @@ aggregation_functions = {
     "count": sql.functions.count
 }
 
+# TODO: Rename StarQueryBuilder to QueryContext
+
 class StarQueryBuilder(object):
     """StarQuery"""
     def __init__(self, cube, mapper, metadata, **options):
@@ -376,23 +382,23 @@ class StarQueryBuilder(object):
         mapping logical to physical attributes and performing joins.
         `metadata` is a `sqlalchemy.MetaData` instance for getting physical
         table representations.
-        
+
         Object attributes:
-        
+
         * `fact_table` – the physical fact table - `sqlalchemy.Table` instance
         * `tables` – a dictionary where keys are table references (schema,
           table) or (shchema, alias) to real tables - `sqlalchemy.Table`
           instances
-          
+
         .. note::
-        
+
             To get results as a dictionary, you should ``zip()`` the returned
             rows after statement execution with:
-            
+
                 labels = [column.name for column in statement.columns]
                 ...
                 record = dict(zip(labels, row))
-            
+
             This is little overhead for a workaround for SQLAlchemy behaviour
             in SQLite database. SQLite engine does not respect dots in column
             names which results in "duplicate column name" error.
@@ -405,25 +411,25 @@ class StarQueryBuilder(object):
         self.mapper = mapper
         self.schema = mapper.schema
         self.metadata = metadata
-        
+
         # Prepare physical fact table - fetch from metadata
         #
         self.fact_name = mapper.fact_name
-        self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata, 
+        self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
                                            autoload=True, schema=self.schema)
 
         self.tables = {
                     (self.schema, self.fact_name): self.fact_table
                 }
 
-    def aggregation_statement(self, cell, measures=None, 
+    def aggregation_statement(self, cell, measures=None,
                               attributes=None, drilldown=None):
         """Return a statement for summarized aggregation. `whereclause` is
         same as SQLAlchemy `whereclause` for
         `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
         references to attributes to be selected. If it is ``None`` then all
         attributes are used."""
-        
+
         # TODO: do not ignore attributes
         cell_cond = self.condition_for_cell(cell)
         attributes = cell_cond.attributes
@@ -433,7 +439,7 @@ class StarQueryBuilder(object):
             for levels in drilldown.values():
                 for level in levels:
                     attributes |= set(level.attributes)
-                
+
         # TODO: add measures as well
         join_expression = self.join_expression_for_attributes(cell_cond.attributes)
 
@@ -445,7 +451,7 @@ class StarQueryBuilder(object):
         # Collect "columns" for measure aggregations
         for measure in measures:
             selection.extend(self.aggregations_for_measure(measure))
-            
+
         # Added total record count
         # TODO: make this label configurable (should we?)
         # TODO: make presence of this configurable (shoud we?)
@@ -454,7 +460,7 @@ class StarQueryBuilder(object):
         selection.append(sql.functions.count().label(rcount_label))
 
         group_by = None
-        
+
         if drilldown:
             group_by = []
             for dim, levels in drilldown.items():
@@ -463,21 +469,21 @@ class StarQueryBuilder(object):
                     group_by.extend(columns)
                     selection.extend(columns)
 
-        select = sql.expression.select(selection, 
-                                    whereclause=cell_cond.condition, 
+        select = sql.expression.select(selection,
+                                    whereclause=cell_cond.condition,
                                     from_obj=join_expression,
                                     use_labels=True,
                                     group_by=group_by)
 
         return select
-    
+
     def aggregations_for_measure(self, measure):
         """Returns list of aggregation functions (sqlalchemy) on measure columns. 
         The result columns are labeled as `measure` + ``_`` = `aggregation`,
         for example: ``amount_sum`` or ``discount_min``.
-        
+
         `measure` has to be `Attribute` instance.
-        
+
         If measure has no explicit aggregations associated, then ``sum`` is
         assumed.
         """
@@ -492,7 +498,7 @@ class StarQueryBuilder(object):
             if not agg_name in aggregation_functions:
                 raise Exception("Unknown aggregation type %s for measure %s" % \
                                     (agg_name, measure))
-                                    
+
             func = aggregation_functions[agg_name]
             label = "%s_%s" % (str(measure), agg_name)
             aggregation = func(self.column(measure)).label(label)
@@ -514,14 +520,14 @@ class StarQueryBuilder(object):
 
         columns = [self.column(attr) for attr in attributes]
 
-        select = sql.expression.select(columns, 
-                                    whereclause=whereclause, 
+        select = sql.expression.select(columns,
+                                    whereclause=whereclause,
                                     from_obj=join_expression,
                                     use_labels=True)
 
         return select
 
-    
+
     def join_expression_for_attributes(self, attributes):
         """Returns a join expression for `attributes`"""
         physical_references = self.mapper.map_attributes(attributes)
@@ -533,7 +539,7 @@ class StarQueryBuilder(object):
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
         """
-        
+
         self.logger.debug("create basic expression with %d joins" % len(joins))
 
         expression = self.fact_table
@@ -568,16 +574,16 @@ class StarQueryBuilder(object):
     def condition_for_cell(self, cell):
         """Constructs conditions for all cuts in the `cell`. Returns a named
         tuple with keys:
-        
+
         * ``condition`` - SQL conditions
         * ``attributes`` - attributes that are involved in the conditions.
           This should be used for join construction.
         * ``group_by`` - attributes used for GROUP BY expression
         """
-        
+
         if not cell:
             return Condition([], None, [])
-        
+
         attributes = set()
         conditions = []
         group_by = []
@@ -611,7 +617,7 @@ class StarQueryBuilder(object):
                 raise Exception("Only point and set cuts are supported in SQL browser at the moment")
 
             conditions.append(condition)
-        
+
         condition = sql.expression.and_(*conditions)
 
         return Condition(attributes, condition, group_by)
@@ -649,10 +655,9 @@ class StarQueryBuilder(object):
                 attributes.add(attr)
 
         condition = sql.expression.and_(*conditions)
-        
+
         return Condition(attributes,condition,group_by)
-        
-        
+
     def table(self, schema, table_name, alias=None):
         """Return a SQLAlchemy Table instance. If table was already accessed,
         then existing table is returned. Otherwise new instance is created.
@@ -667,7 +672,7 @@ class StarQueryBuilder(object):
         if table_ref in self.tables:
             return self.tables[table_ref]
 
-        table = sqlalchemy.Table(table_name, self.metadata, 
+        table = sqlalchemy.Table(table_name, self.metadata,
                                  autoload=True, schema=schema)
 
         self.logger.debug("registering table '%s' as '%s'" % (table_name, aliased_name))
@@ -693,7 +698,7 @@ def coalesce_drilldown(cell, drilldown):
     levels to be drilled down. `drilldown` should be a list of dimensions (or
     dimension names) or a dictionary where keys are dimension names and values
     are level names to drill up to.
-    
+
     For the list of dimensions or if the level is not specified, then up to
     the next level in the cell is considered.
     """
@@ -723,11 +728,12 @@ def coalesce_drilldown(cell, drilldown):
             else:
                 depth = depths.get(str(dim)) or 0
                 result[dim.name] = drilldown_levels(dim, depth+1)
-            
+
     elif drilldown is not None:
         raise TypeError("Drilldown is of unknown type: %s" % type(drilldown))
-        
+
     return result
+
 
 def drilldown_levels(dimension, depth, hierarchy=None):
     """Get drilldown levels up to level at `depth`. If depth is ``None``
@@ -735,23 +741,96 @@ def drilldown_levels(dimension, depth, hierarchy=None):
 
     hier = dimension.hierarchy(hierarchy)
     depth = depth or 0
-    
+
     if depth > len(hier):
         raise ValueError("Hierarchy %s in dimension %s has only %d levels, "
                          "can not drill to %d" % \
                          (hier,dimension,len(hier),depth+1))
 
-    return hier[:depth]                     
-    
+    return hier[:depth]
+
 def paginated_statement(statement, page, page_size):
     """Returns paginated statement if page is provided, otherwise returns
     the same statement."""
-    
+
     if page is not None and page_size is not None:
         return statement.offset(page * page_size).limit(page_size)
     else:
         return statement
-        
+
+def ordered_statement(statement, order, mapper, query):
+    """Returns a SQL statement which is ordered according to the `order`. If
+    the statement contains attributes that have natural order specified, then
+    the natural order is used, if not overriden in the `order`."""
+
+    # Each attribute mentioned in the order should be present in the selection
+    # or as some column from joined table. Here we get the list of already
+    # selected columns and derived aggregates
+
+    selection = dict(statement.columns)
+
+    # Make sure that the `order` is a list of of tuples (`attribute`,
+    # `order`). If element of the `order` list is a string, then it is
+    # converted to (`string`, ``None``).
+
+    order = order or []
+    order_by = collections.OrderedDict()
+
+    for item in order:
+        if isinstance(item, basestring):
+            try:
+                attribute = mapper.attribute(item)
+                column = query.column(attribute)
+            except KeyError:
+                column = selection[item]
+
+            order_by[item] = column
+        else:
+            # item is a two-element tuple where first element is attribute
+            # name and second element is ordering
+            try:
+                attribute = mapper.attribute(item[0])
+                column = query.column(attribute)
+            except KeyError:
+                column = selection[item[0]]
+            order_by[item] = order_column(column, item[1])
+
+    # Collect natural order for selected columns
+
+    # TODO: should we add natural order for columns that are not selected
+    #       but somewhat involved in the process (GROUP BY)?
+
+    for (name, column) in selection.items():
+        try:
+            # Backward mapping: get Attribute instance by name. The column
+            # name used here is already labelled to the logical name
+            attribute = mapper.attribute(name)
+        except KeyError:
+            # Since we are already selecting the column, then it should exist
+            # this exception is raised when we are trying to get Attribute
+            # object for an aggregate - we can safely ignore this.
+
+            # TODO: add natural ordering for measures (may be nice)
+            attribute = None
+
+        if attribute and attribute.order and name not in ordering:
+            order_by[name] = order_column(column, attribute.order)
+
+    return statement.order_by(*order_by.values())
+
+
+def order_column(column, order):
+    """Orders a `column` according to `order` specified as string."""
+
+    if not order:
+        return column
+    elif order.lower().startswith("asc"):
+        return column.asc()
+    elif order.lower().startswith("desc"):
+        return column.desc()
+    else:
+        raise Exception("Unknown order %s for column %s") % (order, column)
+
 
 class ResultIterator(object):
     """
@@ -782,30 +861,30 @@ class ResultIterator(object):
 
 def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_type=None):
     """Create a star schema DDL for a model.
-    
+
     Parameters:
-    
-    * `url` - database url – no connection will be created, just used by 
+
+    * `url` - database url – no connection will be created, just used by
        SQLAlchemy to determine appropriate engine backend
     * `cube` - cube to be described
     * `dimension_prefix` - prefix used for dimension tables
     * `schema_type` - ``logical``, ``physical``, ``denormalized``
-    
+
     As model has no data storage type information, following simple rule is
     used:
-    
+
     * fact ID is an integer
     * all keys are strings
     * all attributes are strings
     * all measures are floats
-    
+
     .. warning::
-    
+
         Does not respect localized models yet.
-    
+
     """
     raise NotImplementedError
-    
+
 def create_workspace(model, config):
     """Create workspace for `model` with configuration in dictionary `config`. 
     This method is used by the slicer server."""
@@ -821,7 +900,7 @@ def create_workspace(model, config):
 
     engine = sqlalchemy.create_engine(dburl)
 
-    workspace = SQLStarWorkspace(model, engine, schema, 
+    workspace = SQLStarWorkspace(model, engine, schema,
                                     dimension_prefix = dimension_prefix,
                                     fact_prefix = fact_prefix)
 
@@ -829,7 +908,7 @@ def create_workspace(model, config):
 
 class SQLStarWorkspace(object):
     """Factory for browsers"""
-    def __init__(self, model, engine, schema=None, dimension_prefix=None, 
+    def __init__(self, model, engine, schema=None, dimension_prefix=None,
                  fact_prefix=None):
         """Create a workspace"""
         super(SQLStarWorkspace, self).__init__()
