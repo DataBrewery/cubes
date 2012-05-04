@@ -30,7 +30,7 @@ def report(dim_name=None):
     # supports multiple hierarchies internally.
     
     dimension = model.dimension(dim_name)
-    hierarchy = dimension.default_hierarchy
+    hierarchy = dimension.hierarchy()
 
     # Parse the`cut` request parameter and convert it to a list of 
     # actual cube cuts. Think of this as of multi-dimensional path, even that 
