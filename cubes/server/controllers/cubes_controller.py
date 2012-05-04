@@ -39,7 +39,7 @@ class CSVGenerator(object):
                     row.append(None)
 
             yield self._row_string(row)
-    
+
     def _row_string(self, row):
         self.writer.writerow(row)
         # Fetch UTF-8 output from the queue ...
@@ -51,7 +51,7 @@ class CSVGenerator(object):
         self.queue.truncate(0)
 
         return data
-    
+
 class UnicodeCSVWriter:
     """
     A CSV writer which will write rows to CSV file "f",
@@ -76,7 +76,7 @@ class UnicodeCSVWriter:
                 new_row.append(unicode(value))
             else:
                 new_row.append(None)
-                
+
         self.writer.writerow(new_row)
         # Fetch UTF-8 output from the queue ...
         data = self.queue.getvalue()
@@ -95,12 +95,12 @@ class UnicodeCSVWriter:
 class CubesController(application_controller.ApplicationController):
     def initialize(self):
         """Initializes the controller:
-        
+
         * tries to get cube name
         * if no cube name is specified, then tries to get default cube: either explicityly specified
           in configuration under ``[model]`` option ``cube`` or first cube in model cube list
         * assigns a browser for the controller
-        
+
         """
 
         # FIXME: keep or remove default cube?
@@ -117,10 +117,10 @@ class CubesController(application_controller.ApplicationController):
                 self.logger.debug("using first cube from model")
                 self.cube = self.model.cubes.values()[0]
                 cube_name = self.cube.name
-            
+
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
         self.browser = self.app.workspace.browser_for_cube(self.cube, self.locale)
-        
+
     def prepare_cell(self):
         cut_string = self.args.get("cut")
 
@@ -132,7 +132,7 @@ class CubesController(application_controller.ApplicationController):
             cuts = []
 
         self.cell = cubes.Cell(self.cube, cuts)
-        
+
     def aggregate(self):
         self.prepare_cell()
 
@@ -146,9 +146,9 @@ class CubesController(application_controller.ApplicationController):
             for drill_dim in drilldown:
                 split = drill_dim.split(":")
                 dic_drilldown[split[0]] = split[1] if len(split) >= 2 else None
-        
-        result = self.browser.aggregate(self.cell, drilldown = dic_drilldown, 
-                                        page = self.page, 
+
+        result = self.browser.aggregate(self.cell, drilldown = dic_drilldown,
+                                        page = self.page,
                                         page_size = self.page_size,
                                         order = self.order)
 
@@ -170,16 +170,16 @@ class CubesController(application_controller.ApplicationController):
             fields = None
 
         result = self.browser.facts(self.cell, order = self.order,
-                                    page = self.page, 
+                                    page = self.page,
                                     page_size = self.page_size)
 
         if format == "json":
             return self.json_response(result)
         elif format == "csv":
             if not fields:
-                fields = result.field_names()
+                fields = result.labels
             generator = CSVGenerator(result, fields)
-            return Response(generator.csvrows(), 
+            return Response(generator.csvrows(),
                             mimetype='text/csv')
         else:
             raise common.RequestError("unknown response format '%s'" % format)
@@ -206,11 +206,11 @@ class CubesController(application_controller.ApplicationController):
                 return common.RequestError("depth should be an integer")
         else:
             depth = None
-        
+
         try:
             dimension = self.cube.dimension(dim_name)
         except:
-            return common.NotFoundError(dim_name, "dimension", 
+            return common.NotFoundError(dim_name, "dimension",
                                         message = "Dimension '%s' was not found" % dim_name)
 
         values = self.browser.values(self.cell, dimension, depth = depth, page = self.page, page_size = self.page_size)
@@ -220,19 +220,19 @@ class CubesController(application_controller.ApplicationController):
             "depth": depth,
             "data": values
         }
-        
+
         return self.json_response(result)
-    
+
     def report(self):
         """Create multi-query report response."""
         self.prepare_cell()
-        
+
         report_request = self.json_request()
-        
+
         result = self.browser.report(self.cell, report_request)
-        
+
         return self.json_response(result)
-    
+
     def details(self):
         self.prepare_cell()
 
