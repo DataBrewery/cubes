@@ -1,7 +1,7 @@
 from denormalizer import *
 from browser import *
 from star import *
-from common import *
+from mapper import *
 
 __all__ = [
     "SQLDenormalizer",
@@ -10,4 +10,4 @@ __all__ = [
 ]
 
 __all__ += star.__all__
-__all__ += common.__all__
+__all__ += mapper.__all__
