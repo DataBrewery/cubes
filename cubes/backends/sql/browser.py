@@ -5,13 +5,13 @@ Note: This browser will become obsolete once the star browser is implemented.
 For more information about the upcoming browser see:
 
 * star_browser.py
-* in common.py see AttributeMapper and JoinFinder
+* in mapper.py see AttributeMapper and JoinFinder
 """
 
 # FIXME: rename this to denormalized so backend name is "sql.denormalized"
 
 import cubes.browser
-import common
+import mapper
 import logging
 import cubes.model
 import collections
@@ -112,7 +112,7 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
         
         self.fact_key = cube.key
         if not self.fact_key:
-            self.fact_key = common.DEFAULT_KEY_FIELD
+            self.fact_key = mapper.DEFAULT_KEY_FIELD
 
         if connection is not None:
             # FIXME: This reflection is somehow slow (is there another way how to do it?)
@@ -296,7 +296,7 @@ class CubeQuery(object):
         self.cube = cell.cube
         self.cube_key = self.cube.key
         if not self.cube_key:
-            self.cube_key = common.DEFAULT_KEY_FIELD
+            self.cube_key = mapper.DEFAULT_KEY_FIELD
 
         self.key_column = self.view.c[self.cube_key]
 
