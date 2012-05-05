@@ -82,7 +82,8 @@ class Mapper(object):
     # and subclassed here.
 
     def __init__(self, cube, mappings=None, locale=None, schema=None,
-                    fact_name=None, dimension_prefix=None, joins=None):
+                    fact_name=None, dimension_prefix=None, joins=None,
+                    **options):
         """Creates a mapper for a cube. The mapper maps logical references to
         physical references (tables and columns), creates required joins,
         resolves table names.
@@ -95,7 +96,7 @@ class Mapper(object):
           (with one level and no details) will be just dimension names, no 
           attribute name. Might be useful when using single-table schema, for 
           example, with couple of one-column dimensions.
-        * `dimension_table_prefix` – default prefix of dimension tables, if 
+        * `dimension_prefix` – default prefix of dimension tables, if 
           default table name is used in physical reference construction
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
@@ -130,11 +131,12 @@ class Mapper(object):
         self.mappings = mappings
         self.locale = locale
 
-        self.fact_name = fact_name or self.cube.fact or self.cube.name
+        fact_prefix = fact_prefix or ""
+        self.fact_name = fact_name or self.cube.fact or fact_prefix+self.cube.name
         self.schema=schema
 
-        self.simplify_dimension_references = True
-        self.dimension_table_prefix = dimension_prefix
+        self.simplify_dimension_references = options.get("simplify_dimension_references")
+        self.dimension_prefix = dimension_prefix
 
         self.joins = joins
 
@@ -317,8 +319,8 @@ class Mapper(object):
                                    and (dimension.is_flat 
                                         and not dimension.has_details)):
                 table_name = str(dimension)
-                if self.dimension_table_prefix:
-                    table_name = self.dimension_table_prefix + table_name
+                if self.dimension_prefix:
+                    table_name = self.dimension_prefix + table_name
 
             else:
                 table_name = self.fact_name

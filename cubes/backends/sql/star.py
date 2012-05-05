@@ -47,8 +47,8 @@ __all__ = ["StarBrowser"]
 class StarBrowser(AggregationBrowser):
     """docstring for StarBrowser"""
 
-    def __init__(self, cube, connectable=None, locale=None, dimension_prefix=None,
-                fact_prefix=None, schema=None, metadata=None, debug=False):
+    def __init__(self, cube, connectable=None, locale=None, metadata=None, 
+                 debug=False, **options):
         """StarBrowser is a SQL-based AggregationBrowser implementation that 
         can aggregate star and snowflake schemas without need of having 
         explicit view or physical denormalized table.
@@ -57,12 +57,11 @@ class StarBrowser(AggregationBrowser):
 
         * `cube` - browsed cube
         * `connectable` - SQLAlchemy connectable object (engine or connection)
-        * `dimension_prefix` - prefix for dimension tables
-        * `fact_prefix` - prefix for fact tables (`prefix`+`cube.name`)
-        * `schema` - default database schema name
         * `locale` - locale used for browsing
         * `metadata` - SQLAlchemy MetaData object
         * `debug` - output SQL to the logger at INFO level
+        * `options` - passed to the mapper and context (see their respective
+          documentation)
 
         **Limitations:**
 
@@ -88,8 +87,7 @@ class StarBrowser(AggregationBrowser):
             # If not specified explicitly, then it is:
             #       fact_prefix + name of the cube
 
-            fact_prefix = fact_prefix or ""
-            self.fact_name = cube.fact or fact_prefix + cube.name
+            fact_prefix = options.get("fact_prefix") or ""
 
             # Register the fact table immediately
             self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
@@ -99,23 +97,20 @@ class StarBrowser(AggregationBrowser):
         # about relevant joins to be able to retrieve certain attributes.
 
         self.mapper = Mapper(cube, cube.mappings, self.locale,
-                                            schema=schema,
-                                            fact_name=self.fact_name,
-                                            dimension_prefix=dimension_prefix,
-                                            joins=cube.joins)
+                             joins=cube.joins, **options)
 
-        # StarQueryBuilder is creating SQL statements (using SQLAlchemy). It
+        # QueryContext is creating SQL statements (using SQLAlchemy). It
         # also caches information about tables retrieved from metadata.
 
-        self.query = StarQueryBuilder(self.cube, self.mapper,
+        self.context = QueryContext(self.cube, self.mapper,
                                       metadata=self.metadata)
 
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube."""
 
-        key_column = self.query.fact_table.c[self.fact_key]
+        key_column = self.context.fact_table.c[self.fact_key]
         condition = key_column == key_value
-        select = self.query.denormalized_statement(whereclause=condition)
+        select = self.context.denormalized_statement(whereclause=condition)
 
         if self.debug:
             self.logger.info("fact SQL:\n%s" % select)
@@ -140,11 +135,11 @@ class StarBrowser(AggregationBrowser):
 
         # TODO: add ordering (ORDER BY)
 
-        cond = self.query.condition_for_cell(cell)
+        cond = self.context.condition_for_cell(cell)
 
-        statement = self.query.denormalized_statement(whereclause=cond.condition)
+        statement = self.context.denormalized_statement(whereclause=cond.condition)
         statement = paginated_statement(statement, page, page_size)
-        statement = ordered_statement(statement, order, mapper=self.mapper, query=self.query)
+        statement = ordered_statement(statement, order, context=self.context)
 
         if self.debug:
             self.logger.info("facts SQL:\n%s" % statement)
@@ -181,13 +176,13 @@ class StarBrowser(AggregationBrowser):
         for level in levels:
             attributes.extend(level.attributes)
 
-        cond = self.query.condition_for_cell(cell)
-        statement = self.query.denormalized_statement(whereclause=cond.condition,
+        cond = self.context.condition_for_cell(cell)
+        statement = self.context.denormalized_statement(whereclause=cond.condition,
                                                         attributes=attributes)
         statement = paginated_statement(statement, page, page_size)
-        statement = ordered_statement(statement, order, mapper=self.mapper, query=self.query)
+        statement = ordered_statement(statement, order, context=self.context)
 
-        group_by = [self.query.column(attr) for attr in attributes]
+        group_by = [self.context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
 
         if self.debug:
@@ -223,7 +218,7 @@ class StarBrowser(AggregationBrowser):
 
         result = AggregationResult()
 
-        summary_statement = self.query.aggregation_statement(cell=cell,
+        summary_statement = self.context.aggregation_statement(cell=cell,
                                                      measures=measures,
                                                      attributes=attributes)
 
@@ -248,7 +243,7 @@ class StarBrowser(AggregationBrowser):
         ##
 
         if drilldown:
-            statement = self.query.aggregation_statement(cell=cell,
+            statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures,
                                                          attributes=attributes,
                                                          drilldown=drilldown)
@@ -257,7 +252,7 @@ class StarBrowser(AggregationBrowser):
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
 
             statement = paginated_statement(statement, page, page_size)
-            statement = ordered_statement(statement, order, mapper=self.mapper, query=self.query)
+            statement = ordered_statement(statement, order, context=self.context)
 
             dd_result = self.connectable.execute(statement)
             labels = [c.name for c in statement.columns]
@@ -306,7 +301,7 @@ class StarBrowser(AggregationBrowser):
                 issues.append(("join", "master column not specified", join))
             if not join.detail.table:
                 issues.append(("join", "detail table not specified", join))
-            elif join.detail.table == self.fact_name:
+            elif join.detail.table == self.mapper.fact_name:
                 issues.append(("join", "detail table should not be fact table", join))
 
             master_table = (join.master.schema, join.master.table)
@@ -369,12 +364,11 @@ aggregation_functions = {
     "count": sql.functions.count
 }
 
-# TODO: Rename StarQueryBuilder to QueryContext
+class QueryContext(object):
 
-class StarQueryBuilder(object):
-    """StarQuery"""
     def __init__(self, cube, mapper, metadata, **options):
-        """Object representing queries to the star. `mapper` is used for
+        """Object providing context for constructing queries. Puts together
+        the mapper and physical structure. `mapper` - which is used for
         mapping logical to physical attributes and performing joins.
         `metadata` is a `sqlalchemy.MetaData` instance for getting physical
         table representations.
@@ -399,7 +393,7 @@ class StarQueryBuilder(object):
             in SQLite database. SQLite engine does not respect dots in column
             names which results in "duplicate column name" error.
         """
-        super(StarQueryBuilder, self).__init__()
+        super(QueryContext, self).__init__()
 
         self.logger = get_logger()
 
@@ -754,7 +748,7 @@ def paginated_statement(statement, page, page_size):
     else:
         return statement
 
-def ordered_statement(statement, order, mapper, query):
+def ordered_statement(statement, order, context):
     """Returns a SQL statement which is ordered according to the `order`. If
     the statement contains attributes that have natural order specified, then
     the natural order is used, if not overriden in the `order`."""
@@ -775,8 +769,8 @@ def ordered_statement(statement, order, mapper, query):
     for item in order:
         if isinstance(item, basestring):
             try:
-                attribute = mapper.attribute(item)
-                column = query.column(attribute)
+                attribute = context.mapper.attribute(item)
+                column = context.column(attribute)
             except KeyError:
                 column = selection[item]
 
@@ -785,8 +779,8 @@ def ordered_statement(statement, order, mapper, query):
             # item is a two-element tuple where first element is attribute
             # name and second element is ordering
             try:
-                attribute = mapper.attribute(item[0])
-                column = query.column(attribute)
+                attribute = context.mapper.attribute(item[0])
+                column = context.column(attribute)
             except KeyError:
                 column = selection[item[0]]
             order_by[item] = order_column(column, item[1])
@@ -890,41 +884,38 @@ def create_workspace(model, config):
     except KeyError:
         raise Exception("No URL specified in configuration")
 
-    schema = config.get("schema")
-    dimension_prefix = config.get("dimension_prefix")
-    fact_prefix = config.get("fact_prefix")
+    # schema = config.get("schema")
+    # dimension_prefix = config.get("dimension_prefix")
+    # fact_prefix = config.get("fact_prefix")
 
     engine = sqlalchemy.create_engine(dburl)
 
-    workspace = SQLStarWorkspace(model, engine, schema,
-                                    dimension_prefix = dimension_prefix,
-                                    fact_prefix = fact_prefix)
+    workspace = SQLStarWorkspace(model, engine, **config)
 
     return workspace
 
 class SQLStarWorkspace(object):
     """Factory for browsers"""
-    def __init__(self, model, engine, schema=None, dimension_prefix=None,
-                 fact_prefix=None):
-        """Create a workspace"""
+    def __init__(self, model, engine, **options):
+        """Create a workspace. For description of options see the StarBrowser
+        class.
+        """
+
         super(SQLStarWorkspace, self).__init__()
         self.model = model
         self.engine = engine
-        self.metadata = sqlalchemy.MetaData(bind = self.engine)
-        self.dimension_prefix = dimension_prefix
-        self.fact_prefix = fact_prefix
-        self.schema = schema
-
+        self.schema = options.get("schema")
+        self.metadata = sqlalchemy.MetaData(bind=self.engine,schema=self.schema)
+        self.options = options
+        
     def browser_for_cube(self, cube, locale=None):
         """Creates, configures and returns a browser for a cube"""
 
         # TODO(Stiivi): make sure that we are leaking connections here
         cube = self.model.cube(cube)
         browser = StarBrowser(cube, self.engine, locale=locale,
-                                dimension_prefix=self.dimension_prefix,
-                                fact_prefix=self.fact_prefix,
-                                schema=self.schema,
-                                metadata=self.metadata)
+                              metadata=self.metadata,
+                              **self.options)
         return browser
 
     def validate_model(self):
