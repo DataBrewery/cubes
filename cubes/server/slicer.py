@@ -12,15 +12,19 @@ try:
     from werkzeug.wrappers import Response
     import werkzeug.serving
 except:
-    from cubes.util import MissingPackage
+    from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Map = Rule = Request = ClosingIterator = HTTPException = _missing
     NotFound = Response = werkzeug = _missing
+
+from cubes.util import create_slicer_context
 
 import common
 # Local imports
 import controllers
 from utils import local_manager
+
+# TODO: this deserves Flask!
 
 rules = Map([
     Rule('/', endpoint = (controllers.ApplicationController, 'index')),
@@ -50,10 +54,12 @@ rules = Map([
                         endpoint = (controllers.CubesController, 'values')),
     Rule('/cube/<string:cube>/report', methods = ['POST'],
                         endpoint = (controllers.CubesController, 'report')),
+    Rule('/cube/<string:cube>/details',
+                        endpoint = (controllers.CubesController, 'details')),
     Rule('/cube/<string:cube>/search',
                         endpoint = (controllers.SearchController, 'search')),
 
-    # FIXME: Remove this sooner or later:
+    # Use default cube (specified in config as: [model] cube = ... )
     Rule('/aggregate', 
                         endpoint = (controllers.CubesController, 'aggregate')),
     Rule('/facts', 
@@ -64,6 +70,8 @@ rules = Map([
                         endpoint = (controllers.CubesController, 'values')),
     Rule('/report', methods = ['POST'],
                         endpoint = (controllers.CubesController, 'report')),
+    Rule('/details', 
+                        endpoint = (controllers.CubesController, 'details')),
     Rule('/search',
                         endpoint = (controllers.SearchController, 'search'))
 ])
@@ -81,7 +89,7 @@ class Slicer(object):
         # Configure logger
         #
 
-        self.logger = logging.getLogger(cubes.common.logger_name)
+        self.logger = cubes.common.get_logger()
         if self.config.has_option("server", "log"):
             formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
             handler = logging.FileHandler(self.config.get("server", "log"))
@@ -101,76 +109,27 @@ class Slicer(object):
 
         self.logger.debug("loading model")
     
-        #
-        # Load model
-        #
+        context = create_slicer_context(config)
+        self.model = context["model"]
+        self.locales = context["locales"]
+        self.backend = context["backend"]
         
-        model_path = config.get("model", "path")
-        try:
-            self.model = cubes.load_model(model_path)
-        except:
-            if not model_path:
-                model_path = 'unknown path'
-            raise common.ServerError("Unable to load model from %s" % model_path)
-
         self.model_localizations = {}
 
-        if config.has_option("model", "locales"):
-            self.locales = config.get("model", "locales").split(",")
-            self.logger.info("model locales: %s" % self.locales)
-        elif self.model.locale:
-            self.locales = [self.model.locale]
-        else:
-            self.locales = []
+        if self.locales is None:
+            if self.model.locale:
+                self.locales = [self.model.locale]
+            else:
+                self.locales = []
             
-        if config.has_option("server","backend"):
-            backend = config.get("server","backend")
-        else:
-            backend = "cubes.backends.sql.browser"
+        ##
+        # Create workspace
+        ##
+                    
+        self.logger.info("using backend '%s'" % context["backend_name"])
             
-        self.create_workspace(backend, config)
-
-    def create_workspace(self, backend_name, config):
-        """Finds the backend object and creates a workspace.
-
-        The backend should be a module with variables:
-        
-        * `config_section` - name of section where backend configuration is 
-          found. This is optional and if does not exist or is ``None`` then
-          ``[backend]`` section is used.
-          
-        The backend should provide a method `create_workspace(model, config)`
-        which returns an initialized workspace object.
-
-        The workspace object should implement `browser_for_cube(cube)`.
-        """
-
-        # FIXME: simplify this process
-
-        path = backend_name.split(".")
-        
-        try:
-            self.backend = globals()[path[0]]
-            for current in path[1:]:
-                self.backend = self.backend.__dict__[current]
-        except KeyError:
-            raise Exception("Unable to find backend module %s" % backend_name)
-
-        self.logger.info("using backend '%s'" % backend_name)
-            
-        try:
-            section = self.backend.config_section
-        except:
-            section = None
-        
-        section = section or "backend"
-        
-        if config.has_section(section):
-            config_dict = dict(config.items(section))
-        else:
-            config_dict = {}
-        
-        self.workspace = self.backend.create_workspace(self.model, config_dict)
+        self.workspace = self.backend.create_workspace(self.model,
+                                                       context["backend_config"])
             
     def __call__(self, environ, start_response):
         request = Request(environ)

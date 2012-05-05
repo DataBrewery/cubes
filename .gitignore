@@ -1,9 +1,24 @@
-*.pyc
+*.py[cod]
+
+# Packages
+*.egg
+*.egg-info
 dist
 build
+eggs
+parts
+sdist
+develop-eggs
+tmp
+
+# Installer logs
+pip-log.txt
+
+# Other
 *.iml
 .idea
-*.egg-info
 *.swp
 doc/_build/
-sandbox
+
+# Local sandbox/playground
+/sandbox

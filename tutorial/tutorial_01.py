@@ -77,7 +77,3 @@ result = browser.aggregate(cell, drilldown=["year"])
 print "%-20s%10s%10s" % ("Year", "Count", "Total")
 for record in result.drilldown:
     print "%-20s%10d%10d" % (record["year"], record["record_count"], record["amount_sum"])
-
-import json
-
-print json.dumps(model.to_dict())

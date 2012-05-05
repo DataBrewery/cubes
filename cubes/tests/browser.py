@@ -4,13 +4,19 @@ import cubes
 import json
 import re
 
-from common import DATA_PATH
+from cubes.browser import PointCut, RangeCut, SetCut, Cell
 
-class AggregationsBasicsTestCase(unittest.TestCase):
+from common import DATA_PATH
+        
+class BrowserTestCase(unittest.TestCase):
     def setUp(self):
         self.model_path = os.path.join(DATA_PATH, 'model.json')
         self.model = cubes.model_from_path(self.model_path)
         self.cube = self.model.cubes["contracts"]
+
+class AggregationsBasicsTestCase(BrowserTestCase):
+    def setUp(self):
+        super(AggregationsBasicsTestCase, self).setUp()
         self.browser = cubes.AggregationBrowser(self.cube)
     
     def test_basics(self):
@@ -107,9 +113,36 @@ class AggregationsBasicsTestCase(unittest.TestCase):
         self.assertEqual('qwe,asd,100', cubes.browser.string_from_path(["qwe", "asd",100]))
         self.assertEqual("date:1+2,3+qwe,asd,100", str(cut))
 
+    def test_slice_drilldown(self):
+        cut = cubes.browser.PointCut("date", [])
+        original_cell = cubes.Cell(self.cube, [cut])
+
+        cell = original_cell.drilldown("date", 2010)
+        self.assertEqual([2010], cell.cut_for_dimension("date").path)
+
+        cell = cell.drilldown("date", 1)
+        self.assertEqual([2010,1], cell.cut_for_dimension("date").path)
+
+        cell = cell.drilldown("date", 2)
+        self.assertEqual([2010,1,2], cell.cut_for_dimension("date").path)
+
+class CellsAndCutsTestCase(BrowserTestCase):
+    def setUp(self):
+        super(CellsAndCutsTestCase, self).setUp()
+    
+    def test_cut_depth(self):
+        dim = self.cube.dimension("date")
+        self.assertEqual(1, PointCut(dim, [1]).level_depth())
+        self.assertEqual(3, PointCut(dim, [1,1,1]).level_depth())
+        self.assertEqual(1, RangeCut(dim, [1],[1]).level_depth())
+        self.assertEqual(3, RangeCut(dim, [1,1,1],[1]).level_depth())
+        self.assertEqual(1, SetCut(dim, [[1],[1]]).level_depth())
+        self.assertEqual(3, SetCut(dim, [[1],[1],[1,1,1]]).level_depth())
+
 def suite():
     suite = unittest.TestSuite()
 
     suite.addTest(unittest.makeSuite(AggregationsBasicsTestCase))
+    suite.addTest(unittest.makeSuite(CellsAndCutsTestCase))
 
     return suite

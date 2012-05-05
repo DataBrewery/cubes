@@ -5,26 +5,47 @@
 .. module:: backends
    :synopsis: backends for browsing aggregates of various data sources
 
-SQL - Default
-=============
+SQL - Star
+==========
 
-The standard SQL backend provides full-featured aggregation browser of 
-denormalized data source. The helper class ``SQLDenormalizer`` creates view or 
-a table from a star or snowflake schema. The created view is then passed to the 
-borwser for slicing and dicing.
+Mapper
+------
+
+.. autoclass:: cubes.backends.sql.common.Mapper
+
+Browser
+-------
+
+.. autoclass:: cubes.backends.sql.star.StarBrowser
+
+.. warning::
+
+    The following `StarQueryBuilder` might be changed to SQLContext and might
+    encapsulate reference to mapper. Browser will reference only the context.
+
+.. autoclass:: cubes.backends.sql.star.StarQueryBuilder
+
+
+Helper functions
+----------------
+
+.. autofunction:: cubes.backends.sql.star.coalesce_drilldown
+.. autofunction:: cubes.backends.sql.star.drilldown_levels
+.. autofunction:: cubes.backends.sql.star.paginated_statement
+.. autofunction:: cubes.backends.sql.star.ordered_statement
+.. autofunction:: cubes.backends.sql.star.order_column
+
+SQL - Denomralized (old)
+========================
+
+The original SQL backend provides full-featured aggregation browser of
+denormalized data source. The helper class ``SQLDenormalizer`` creates view or
+a table from a star or snowflake schema. The created view is then passed to
+the borwser for slicing and dicing.
 
 
 .. autoclass:: cubes.backends.sql.SQLDenormalizer
 .. autoclass:: cubes.backends.sql.SQLBrowser
-
-SQL - Star
-==========
-
-.. warning::
-
-	Implementation of this backend is not yet finished.
-
-.. autoclass:: cubes.backends.sql.StarBrowser
 
 Slicer
 ======
@@ -38,8 +59,8 @@ Implementing Custom Backend
 
 Custom backend is just a subclass of :class:`cubes.AggregationBrowser` class.
 
-Slicer
-------
+Slicer and Server Integration
+-----------------------------
 
 If the backend is intended to be used by the Slicer server, then backend should 
 be placed in its own module. The module should contain a method 

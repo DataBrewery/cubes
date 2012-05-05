@@ -112,7 +112,7 @@ class ModelTestCase(unittest.TestCase):
         self.assertEqual("geography", dim.name)
         self.assertEqual(2, len(dim.levels))
         self.assertEqual(level_names, [level.name for level in dim.levels])
-        self.assertEqual(level_names, [level.key for level in dim.levels])
+        self.assertEqual(level_names, [str(level.key) for level in dim.levels])
 
         # Hierarchical dimension with details
         levels = [ { "name": "country", "attributes": ["code", "name"]},
@@ -124,7 +124,7 @@ class ModelTestCase(unittest.TestCase):
         self.assertEqual("geography", dim.name)
         self.assertEqual(2, len(dim.levels))
         self.assertEqual(level_names, [level.name for level in dim.levels])
-        self.assertEqual(["code", "code"], [level.key for level in dim.levels])
+        self.assertEqual(["code", "code"], [str(level.key) for level in dim.levels])
         
 
         
@@ -166,9 +166,9 @@ class ModelValidatorTestCase(unittest.TestCase):
         self.date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers }
 
     def test_comparisons(self):
-        lvl1 = cubes.Level('lvl1', {"key": "year", "attributes": ["foo", "bar"]})
-        lvl2 = cubes.Level('lvl1', {"key": "year", "attributes": ["foo", "bar"]})
-        lvl3 = cubes.Level('lvl1', {"key": "year", "attributes": ["bar", "foo"]})
+        lvl1 = cubes.Level('lvl1', key="year", attributes=["foo", "bar"])
+        lvl2 = cubes.Level('lvl1', key="year", attributes=["foo", "bar"])
+        lvl3 = cubes.Level('lvl1', key="year", attributes=["bar", "foo"])
 
         self.assertEqual(lvl1, lvl2)
         self.assertNotEqual(lvl2, lvl3)

@@ -3,7 +3,7 @@ try:
     from werkzeug.utils import redirect
     from werkzeug.exceptions import NotFound
 except:
-    from cubes.util import MissingPackage
+    from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Response = redirect = NotFound = _missing
 
@@ -92,7 +92,9 @@ class ApplicationController(object):
 
     def server_info(self):
         info = {
-            "server_version": common.VERSION,
+            "version": cubes.__version__,
+            # Backward compatibility key
+            "server_version": cubes.__version__, 
             "api_version": common.API_VERSION
         }
         return info

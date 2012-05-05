@@ -112,12 +112,32 @@ def translate_model(args):
 def dump_model(model):
     print json.dumps(model.to_dict())
 
-def run_server(args):
+def read_config(cfg):
+    """Read the configuration file."""
     config = ConfigParser.SafeConfigParser()
     try:
         config.read(args.config)
     except Exception as e:
         raise Exception("Unable to load config: %s" % e)
+        
+    return config
+
+def generate_ddl(args):
+    model = cubes.load_model(args.model)
+
+    if args.backend:
+        backend = cubes.util.get_backend(args.backend)
+    else:
+        backend = cubes.backends.sql.browser
+    
+    ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix, 
+                        dimension_prefix=args.dimension_prefix)
+
+    print ddl
+
+def run_server(args):
+    """Run Slicer HTTP server."""
+    config = read_config(args.config)
 
     # Load extensions
     
@@ -128,6 +148,28 @@ def run_server(args):
     
     cubes.server.run_server(config)
 
+def run_test(args):
+    """Run test of Slicer HTTP server configuration."""
+    config = read_config(args.config)
+
+    # Load extensions
+
+    if config.has_option("server", "modules"):
+        modules = shlex.split(config.get("server", "modules"))
+        for module in modules:
+            e = __import__(module)
+
+    context = cubes.util.create_slicer_context(config)
+    backend = context["backend"]
+    workspace = backend.create_workspace(context["model"],
+                                         context["backend_config"])
+    results = workspace.validate_model()
+    if results:
+        print("\nvalidation results:\n")
+        for result in results:
+            print("%s: %s" % (result[0], result[1]) )
+    else:
+        print("model test was successful")
 ################################################################################
 # Main code
 
@@ -193,6 +235,31 @@ subparser.set_defaults(func=update_locale)
 parser_serve = subparsers.add_parser('serve', help = "run slicer server")
 parser_serve.add_argument('config', help='server confuguration .ini file')
 parser_serve.set_defaults(func=run_server)
+
+################################################################################
+# Command: serve
+
+subparser = subparsers.add_parser('test', help = "test the configuration and model with backend")
+subparser.add_argument('config', help='server confuguration .ini file')
+subparser.set_defaults(func=run_test)
+
+################################################################################
+# Command: ddl
+
+subparser = subparsers.add_parser('ddl', help = "generate DDL of star schema, based on logical model (works only for SQL backend)")
+subparser.add_argument('url', help='SQL database connection URL')
+subparser.add_argument('model', help='model reference - can be a local file path or URL')
+subparser.add_argument('--dimension-prefix', 
+                            dest = 'dimension_prefix',
+                            help='prefix for dimension tables')
+subparser.add_argument('--fact-prefix', 
+                            dest = 'fact_prefix',
+                            default="",
+                            help='prefix for fact tables')
+subparser.add_argument('--backend', 
+                            dest = 'backend',
+                            help='backend name (currently limited only to SQL backends)')
+subparser.set_defaults(func=generate_ddl)
 
 args = parser.parse_args(sys.argv[1:])
 

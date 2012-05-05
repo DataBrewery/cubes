@@ -1,10 +1,13 @@
-from builder import *
+from denormalizer import *
 from browser import *
-from star_browser import *
+from star import *
+from common import *
 
 __all__ = [
     "SQLDenormalizer",
     "SQLBrowser",
-    "SQLWorkspace",
-    "StarBrowser"
+    "SQLWorkspace"
 ]
+
+__all__ += star.__all__
+__all__ += common.__all__

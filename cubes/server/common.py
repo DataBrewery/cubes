@@ -15,7 +15,6 @@ import datetime
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
-VERSION = "0.7"
 API_VERSION = "1"
 
 class ServerError(HTTPException):
@@ -84,8 +83,8 @@ class SlicerJSONEncoder(json.JSONEncoder):
             return float(o)
         if type(o) == datetime.date or type(o) == datetime.datetime:
             return o.isoformat()
-        if hasattr(o, "as_dict") and callable(getattr(o, "as_dict")):
-            return o.as_dict()
+        if hasattr(o, "to_dict") and callable(getattr(o, "to_dict")):
+            return o.to_dict()
         else:
             array = None
             try:
