@@ -497,7 +497,7 @@ class Cube(object):
 
     def __init__(self, name=None, model=None, label=None, measures=None,
                  details=None, dimensions=None, mappings=None, joins=None,
-                 fact=None, key=None, view=None, description=None, **kwargs):
+                 fact=None, key=None, description=None, options=None, **kwargs):
         """Create a new cube
 
         Args:
@@ -519,7 +519,7 @@ class Cube(object):
         self.fact = fact
         self.joins = joins
         self.key = key
-        self.view = view
+        self.options = options
 
         # This is stored to get dimensions, if dimensions are not defined in-place
         self.model = model
