@@ -850,18 +850,17 @@ class SQLWorkspace(object):
         browser = SQLBrowser(cube, view = view, locale = locale)
         return browser
         
-    def _view_for_cube(self, cube, view_name = None):
+    def _view_for_cube(self, cube, view_name=None):
         if cube.name in self.views:
             view = self.views[cube.name]
         else:
+            if cube.options:
+                view_name = cube.options.get("denormalized_view") or view_name
+                
             if not view_name:
-                if self.name_prefix:
-                    view_name = self.name_prefix
-                else:
-                    view_name = ""
-                view_name += cube.name
-                if self.name_suffix:
-                    view_name += self.name_suffix
+                prefix = self.name_prefix or ""
+                suffix = self.name_suffix or ""
+                view_name = "%s%s%s" % (prefix, cube.name, suffix)
 
             view = sqlalchemy.Table(view_name, self.metadata, autoload = True, schema = self.schema)
             self.views[cube.name] = view            
