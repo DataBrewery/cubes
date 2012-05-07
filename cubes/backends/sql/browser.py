@@ -846,7 +846,7 @@ class SQLWorkspace(object):
     def browser_for_cube(self, cube, locale = None):
         """Creates, configures and returns a browser for a cube"""
         cube = self.model.cube(cube)
-        view = self._view_for_cube(cube, cube.view)
+        view = self._view_for_cube(cube)
         browser = SQLBrowser(cube, view = view, locale = locale)
         return browser
         
