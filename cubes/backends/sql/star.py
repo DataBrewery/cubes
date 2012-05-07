@@ -491,7 +491,8 @@ class QueryContext(object):
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
         logical references to attributes to be selected. If it is ``None`` then
-        all attributes are used."""
+        all attributes are used.
+        """
 
         if attributes is None:
             attributes = self.mapper.all_attributes()
@@ -900,6 +901,9 @@ class SQLStarWorkspace(object):
         """
 
         super(SQLStarWorkspace, self).__init__()
+
+        self.logger = get_logger()
+
         self.model = model
         self.engine = engine
         self.schema = options.get("schema")
@@ -916,15 +920,44 @@ class SQLStarWorkspace(object):
                               **self.options)
         return browser
 
-    def create_denormalized_view(self, cube, view_name, materialize=False, replace=False, 
-                                 create_index=False):
-        """Creates a denormalized view for a table"""
+    def create_denormalized_view(self, cube, view_name, materialize=False, 
+                                 replace=False, create_index=False, 
+                                 keys_only=False):
+        """Creates a denormalized view named `view_name` of a `cube`. Options:
+        
+        * `materialize` - whether the view is materialized (a table) or
+          regular view
+        * `replace` - if `True` then existing table/view will be replaced,
+          otherwise an exception is raised when trying to create view/table
+          with already existing name
+        * `create_index` - if `True` then index is created for each key
+          attribute. Can be used only on materialized view, otherwise raises
+          an exception
+        * `keys_only` - if ``True`` then only key attributes are used in the
+          view, all other detail attributes are ignored
+        .. note::
+            
+            `replace` does not work correctly yet. You can only replace view
+            with a new view or a table with new table. You can not replace
+            a table with a view and vice-versa. Still under discussion
+            with SQLAlchemy guys.
+        
+        """
 
         cube = self.model.cube(cube)
 
         mapper = Mapper(cube, cube.mappings, **self.options)
         context = QueryContext(cube, mapper, metadata=self.metadata)
-        statement = context.denormalized_statement()
+
+        key_attributes = []
+        for dim in cube.dimensions:
+            key_attributes += dim.key_attributes()
+
+        if keys_only:
+            statement = context.denormalized_statement(attributes=key_attributes)
+        else:
+            statement = context.denormalized_statement()
+            
 
         table = sqlalchemy.Table(view_name, self.metadata,
                                  autoload=False, schema=self.schema)
@@ -945,9 +978,27 @@ class SQLStarWorkspace(object):
             create_stat = "CREATE OR REPLACE VIEW"
 
         statement = "%s %s AS %s" % (create_stat, full_name, str(statement))
-        # self.logger.info("creating table %s" % full_view_name)
+        self.logger.info("creating denormalized view %s (materialized: %s)" \
+                                            % (full_name, materialize))
         # print("SQL statement:\n%s" % statement)
         self.engine.execute(statement)
+
+        if create_index:
+            if not materialize:
+                raise Exception("Index can be created only on materialized view")
+                
+            # self.metadata.reflect(schema = schema, only = [view_name] )
+            table = sqlalchemy.Table(view_name, self.metadata,
+                                     autoload=True, schema=self.schema)
+            self.engine.reflecttable(table)
+
+            for attribute in key_attributes:
+                label = attribute.full_name()
+                self.logger.info("creating index for %s" % label)
+                column = table.c[label]
+                name = "idx_%s_%s" % (view_name, label)
+                index = sqlalchemy.schema.Index(name, column)
+                index.create(self.engine)
 
         return statement
 
