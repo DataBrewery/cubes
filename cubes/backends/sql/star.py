@@ -934,14 +934,7 @@ class SQLStarWorkspace(object):
           attribute. Can be used only on materialized view, otherwise raises
           an exception
         * `keys_only` - if ``True`` then only key attributes are used in the
-          view, all other detail attributes are ignored
-        .. note::
-            
-            `replace` does not work correctly yet. You can only replace view
-            with a new view or a table with new table. You can not replace
-            a table with a view and vice-versa. Still under discussion
-            with SQLAlchemy guys.
-        
+          view, all other detail attributes are ignored            
         """
 
         cube = self.model.cube(cube)
@@ -962,15 +955,24 @@ class SQLStarWorkspace(object):
         table = sqlalchemy.Table(view_name, self.metadata,
                                  autoload=False, schema=self.schema)
 
-        if materialize and table.exists():
-            if replace:
-                table.drop(checkfirst=False)
-            else:
+        full_name = "%s.%s" % (self.schema, view_name) if self.schema else view_name
+
+        if table.exists():
+            if not replace:
                 raise Exception("Table %s (schema: %s) already exists. "
                                 "Use replace=True to force creation" % \
                                 (view_name, self.schema))
 
-        full_name = "%s.%s" % (self.schema, view_name) if self.schema else view_name
+            inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.engine)
+            view_names = inspector.get_view_names(schema=self.schema)
+
+            if view_name in view_names:
+                # Table reflects a view
+                drop_statement = "DROP VIEW %s" % full_name
+                self.engine.execute(drop_statement)
+            else:
+                # Table reflects a table
+                table.drop(checkfirst=False)
 
         if materialize:
             create_stat = "CREATE TABLE"
