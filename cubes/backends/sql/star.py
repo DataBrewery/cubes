@@ -1,8 +1,8 @@
 # -*- coding=utf -*-
 from cubes.browser import *
 from cubes.common import get_logger
-from cubes.backends.sql.common import Mapper
-from cubes.backends.sql.common import DEFAULT_KEY_FIELD
+from cubes.backends.sql.mapper import Mapper
+from cubes.backends.sql.mapper import DEFAULT_KEY_FIELD
 import logging
 import collections
 
@@ -83,15 +83,6 @@ class StarBrowser(AggregationBrowser):
             self.connectable = connectable
             self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
 
-            # Construct the fact table name:
-            # If not specified explicitly, then it is:
-            #       fact_prefix + name of the cube
-
-            fact_prefix = options.get("fact_prefix") or ""
-
-            # Register the fact table immediately
-            self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
-
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
@@ -108,9 +99,7 @@ class StarBrowser(AggregationBrowser):
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube."""
 
-        key_column = self.context.fact_table.c[self.fact_key]
-        condition = key_column == key_value
-        select = self.context.denormalized_statement(whereclause=condition)
+        select = self.context.fact_statement(key_value)
 
         if self.debug:
             self.logger.info("fact SQL:\n%s" % select)
@@ -404,6 +393,7 @@ class QueryContext(object):
 
         # Prepare physical fact table - fetch from metadata
         #
+        self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
         self.fact_name = mapper.fact_name
         self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
                                            autoload=True, schema=self.schema)
@@ -509,6 +499,8 @@ class QueryContext(object):
         join_expression = self.join_expression_for_attributes(attributes)
 
         columns = [self.column(attr) for attr in attributes]
+        key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
+        columns.insert(0, key_column)
 
         select = sql.expression.select(columns,
                                     whereclause=whereclause,
@@ -516,7 +508,14 @@ class QueryContext(object):
                                     use_labels=True)
 
         return select
+        
+    def fact_statement(self, key_value):
+        """Return a statement for selecting a single fact based on `key_value`"""
 
+        key_column = self.fact_table.c[self.fact_key]
+        condition = key_column == key_value
+        return self.denormalized_statement(whereclause=condition)
+        
 
     def join_expression_for_attributes(self, attributes):
         """Returns a join expression for `attributes`"""
@@ -794,7 +793,7 @@ def ordered_statement(statement, order, context):
         try:
             # Backward mapping: get Attribute instance by name. The column
             # name used here is already labelled to the logical name
-            attribute = mapper.attribute(name)
+            attribute = context.mapper.attribute(name)
         except KeyError:
             # Since we are already selecting the column, then it should exist
             # this exception is raised when we are trying to get Attribute
@@ -848,7 +847,6 @@ class ResultIterator(object):
 ####
 # Backend related functions
 ###
-
 def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_type=None):
     """Create a star schema DDL for a model.
 
@@ -917,6 +915,41 @@ class SQLStarWorkspace(object):
                               metadata=self.metadata,
                               **self.options)
         return browser
+
+    def create_denormalized_view(self, cube, view_name, materialize=False, replace=False, 
+                                 create_index=False):
+        """Creates a denormalized view for a table"""
+
+        cube = self.model.cube(cube)
+
+        mapper = Mapper(cube, cube.mappings, **self.options)
+        context = QueryContext(cube, mapper, metadata=self.metadata)
+        statement = context.denormalized_statement()
+
+        table = sqlalchemy.Table(view_name, self.metadata,
+                                 autoload=False, schema=self.schema)
+
+        if materialize and table.exists():
+            if replace:
+                table.drop(checkfirst=False)
+            else:
+                raise Exception("Table %s (schema: %s) already exists. "
+                                "Use replace=True to force creation" % \
+                                (view_name, self.schema))
+
+        full_name = "%s.%s" % (self.schema, view_name) if self.schema else view_name
+
+        if materialize:
+            create_stat = "CREATE TABLE"
+        else:
+            create_stat = "CREATE OR REPLACE VIEW"
+
+        statement = "%s %s AS %s" % (create_stat, full_name, str(statement))
+        # self.logger.info("creating table %s" % full_view_name)
+        # print("SQL statement:\n%s" % statement)
+        self.engine.execute(statement)
+
+        return statement
 
     def validate_model(self):
         """Validate physical representation of model. Returns a list of 

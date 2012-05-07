@@ -1005,7 +1005,7 @@ class Dimension(object):
                                             % (level.name, self.name, attr)) )
 
             if level.attributes and level.key:
-                if level.key not in level.attributes:
+                if str(level.key) not in [str(a) for a in level.attributes]:
                     results.append( ('error', "Key '%s' in level '%s' in dimension '%s' " \
                                               "is not in attribute list"
                                                 % (level.key, level.name, self.name)) )
