@@ -1,7 +1,7 @@
 import logging
 import sets
 import cubes.model as model
-from common import DEFAULT_KEY_FIELD
+from mapper import DEFAULT_KEY_FIELD
 try:
     import sqlalchemy
     import sqlalchemy.sql.expression as expression

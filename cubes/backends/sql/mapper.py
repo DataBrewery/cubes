@@ -131,17 +131,19 @@ class Mapper(object):
         self.mappings = mappings
         self.locale = locale
 
-        fact_prefix = fact_prefix or ""
+        fact_prefix = options.get("fact_prefix") or ""
         self.fact_name = fact_name or self.cube.fact or fact_prefix+self.cube.name
         self.schema=schema
 
-        self.simplify_dimension_references = options.get("simplify_dimension_references")
+        if "simplify_dimension_references" in options:
+            self.simplify_dimension_references = options["simplify_dimension_references"]
+        else:
+            self.simplify_dimension_references = True
+
         self.dimension_prefix = dimension_prefix
 
-        self.joins = joins
-
         self._collect_attributes()
-        self._collect_joins(joins)
+        self._collect_joins(joins or cube.joins)
 
     def _collect_attributes(self):
         """Collect all cube attributes and create a dictionary where keys are
@@ -381,13 +383,15 @@ class Mapper(object):
 
         self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
 
+        if not self.joins:
+            self.logger.debug("no joins to be searched for")
+
         tables_to_join = {(ref[0], ref[1]) for ref in attributes}
         joined_tables = set()
         joined_tables.add( (self.schema, self.fact_name) )
         
         joins = []
         self.logger.debug("tables to join: %s" % tables_to_join)
-        self.logger.debug("joined tables: %s" % joined_tables)
         
         while tables_to_join:
             table = tables_to_join.pop()
@@ -412,6 +416,7 @@ class Mapper(object):
                     break
         
         # FIXME: is join order important? if yes, we should sort them here
-        self.logger.debug("%s tables joined" % len(joins))
+        self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
+        self.logger.debug("joined tables: %s" % joins)
         
         return joins
