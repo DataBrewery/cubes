@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 from cubes.browser import *
 from cubes.common import get_logger
-from cubes.backends.sql.mapper import Mapper
+from cubes.backends.sql.mapper import SnowflakeMapper, DenormalizedMapper
 from cubes.backends.sql.mapper import DEFAULT_KEY_FIELD
 import logging
 import collections
@@ -76,7 +76,7 @@ class StarBrowser(AggregationBrowser):
         self.logger = get_logger()
 
         self.cube = cube
-        self.locale = locale
+        self.locale = locale or cube.model.locale
         self.debug = debug
 
         if connectable is not None:
@@ -87,8 +87,14 @@ class StarBrowser(AggregationBrowser):
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
 
-        self.mapper = Mapper(cube, cube.mappings, self.locale,
-                             joins=cube.joins, **options)
+        if options.get("use_denormalization"):
+            self.logger.debug("using denormalized mapper for cube %s (locale %s)" % (cube, locale))
+            mapper_class = DenormalizedMapper
+        else:
+            self.logger.debug("using snowflake mapper for cube %s (locale %s)" % (cube, locale))
+            mapper_class = SnowflakeMapper
+            
+        self.mapper = mapper_class(cube, locale=self.locale, **options)
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
         # also caches information about tables retrieved from metadata.
@@ -486,20 +492,23 @@ class QueryContext(object):
 
         return result
 
-    def denormalized_statement(self, whereclause=None, attributes=None):
+    def denormalized_statement(self, whereclause=None, attributes=None,
+                                expand_locales=False):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
         logical references to attributes to be selected. If it is ``None`` then
         all attributes are used.
+        
+        Set `expand_locales` to ``True`` to expand all localized attributes.
         """
 
         if attributes is None:
             attributes = self.mapper.all_attributes()
 
-        join_expression = self.join_expression_for_attributes(attributes)
+        join_expression = self.join_expression_for_attributes(attributes, expand_locales=expand_locales)
 
-        columns = [self.column(attr) for attr in attributes]
+        columns = self.columns(attributes, expand_locales=expand_locales)
         key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
         columns.insert(0, key_column)
 
@@ -518,9 +527,10 @@ class QueryContext(object):
         return self.denormalized_statement(whereclause=condition)
         
 
-    def join_expression_for_attributes(self, attributes):
+    def join_expression_for_attributes(self, attributes, expand_locales=False):
         """Returns a join expression for `attributes`"""
-        physical_references = self.mapper.map_attributes(attributes)
+        physical_references = self.mapper.map_attributes(attributes, expand_locales=expand_locales)
+
         joins = self.mapper.relevant_joins(physical_references)
         return self.join_expression(joins)
 
@@ -672,16 +682,35 @@ class QueryContext(object):
         self.tables[table_ref] = table
         return table
 
-    def column(self, attribute):
-        """Return a column object for attribute"""
+    def column(self, attribute, locale=None):
+        """Return a column object for attribute. `locale` is explicit locale
+        to be used. If not specified, then the current browsing/mapping locale
+        is used for localizable attributes."""
 
-        ref = self.mapper.physical(attribute)
+        ref = self.mapper.physical(attribute, locale)
         table = self.table(ref.schema, ref.table)
 
         column = table.c[ref.column]
-        column = column.label(self.mapper.logical(attribute))
+        column = column.label(self.mapper.logical(attribute, locale))
 
         return column
+        
+    def columns(self, attributes, expand_locales=False):
+        """Returns list of columns.If `expand_locales` is True, then one
+        column per attribute locale is added."""
+
+        if expand_locales:
+            columns = []
+            for attr in attributes:
+                if attr.locales:
+                    columns += [self.column(attr, locale) for locale in attr.locales]
+                else: # if not attr.locales
+                    columns.append(self.column(attr))
+        else:
+            columns = [self.column(attr) for attr in attributes]
+            
+        return columns
+            
 
 def coalesce_drilldown(cell, drilldown):
     """Returns a dictionary where keys are dimensions and values are list of
@@ -911,9 +940,21 @@ class SQLStarWorkspace(object):
         self.options = options
         
     def browser_for_cube(self, cube, locale=None):
-        """Creates, configures and returns a browser for a cube"""
+        """Creates, configures and returns a browser for a cube.
+        
+        .. note::
+            
+            Use `workspace.browser()` instead.
+        """
 
         # TODO(Stiivi): make sure that we are leaking connections here
+        self.logger.info("workspace.create_browser() is depreciated, use "
+                         ".browser() instead")
+
+        return self.browser(cube, locale)
+
+    def browser(self, cube, locale=None):
+        """Returns a browser for a cube."""
         cube = self.model.cube(cube)
         browser = StarBrowser(cube, self.engine, locale=locale,
                               metadata=self.metadata,
@@ -939,7 +980,7 @@ class SQLStarWorkspace(object):
 
         cube = self.model.cube(cube)
 
-        mapper = Mapper(cube, cube.mappings, **self.options)
+        mapper = SnowflakeMapper(cube, cube.mappings, **self.options)
         context = QueryContext(cube, mapper, metadata=self.metadata)
 
         key_attributes = []
@@ -947,10 +988,9 @@ class SQLStarWorkspace(object):
             key_attributes += dim.key_attributes()
 
         if keys_only:
-            statement = context.denormalized_statement(attributes=key_attributes)
+            statement = context.denormalized_statement(attributes=key_attributes, expand_locales=True)
         else:
-            statement = context.denormalized_statement()
-            
+            statement = context.denormalized_statement(expand_locales=True)
 
         table = sqlalchemy.Table(view_name, self.metadata,
                                  autoload=False, schema=self.schema)

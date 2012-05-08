@@ -245,7 +245,22 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         self.assertMapping("dim_category.subcategory_name_en", "product.subcategory_name")
         self.assertMapping("dim_category.subcategory_name_sk", "product.subcategory_name", "sk")
         self.assertMapping("dim_category.subcategory_name_en", "product.subcategory_name", "de")
-                
+
+class QueryContextTestCase(StarSQLTestCase):
+    def setUp(self):
+        super(QueryContextTestCase, self).setUp()
+        
+    def test_denormalize(self):
+        statement = self.browser.context.denormalized_statement()
+        cols = [column.name for column in statement.columns]
+        self.assertEqual(18, len(cols))
+
+    def test_denormalize_locales(self):
+        """Denormalized view should have all locales expanded"""
+        statement = self.browser.context.denormalized_statement(expand_locales=True)
+        cols = [column.name for column in statement.columns]
+        self.assertEqual(20, len(cols))
+        
 class JoinsTestCase(StarSQLTestCase):
     def setUp(self):
         super(JoinsTestCase, self).setUp()
@@ -493,5 +508,6 @@ def suite():
     suite.addTest(unittest.makeSuite(JoinsTestCase))
     suite.addTest(unittest.makeSuite(StarSQLBrowserTestCase))
     suite.addTest(unittest.makeSuite(StarValidationTestCase))
+    suite.addTest(unittest.makeSuite(QueryContextTestCase))
 
     return suite
