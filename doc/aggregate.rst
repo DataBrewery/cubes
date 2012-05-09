@@ -7,7 +7,7 @@ is done.
 
 .. note::
 
-    See the :mod:`browser` module documentation for reference.
+    See the :mod:`backend` documentation for reference.
 
 ROLAP with SQL backend
 ======================
@@ -19,7 +19,8 @@ Following examples will show:
 * how to aggregate whole cube
 * how to drill-down and aggregate through a dimension
 
-The example data used are `IBRD Balance Sheet`_  taken from `The World Bank`_.
+The example data used are `IBRD Balance Sheet`_ taken from `The World Bank`_.
+Backend used for the examples is ``sql.browser``.
 
 .. _IBRD Balance Sheet: https://raw.github.com/Stiivi/cubes/master/tutorial/data/IBRD_Balance_Sheet__FY2010.csv
 .. _The World Bank: https://finances.worldbank.org/Accounting-and-Control/IBRD-Balance-Sheet-FY2010/e8yz-96c6)
@@ -247,7 +248,7 @@ dimensions will have one hierarchy, thought.
 
 .. code-block:: python
 
-    hierarchy = dimension.default_hierarchy
+    hierarchy = dimension.hierarchy()
 
 *Base path* is path to the most detailed element, to the leaf of a tree, to the 
 fact. Can we go deeper in the hierarchy?

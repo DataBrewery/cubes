@@ -110,7 +110,7 @@ See also programming reference of the :mod:`backends` module.
 Server
 ------
 
-Cubes comes with built-in WSGI HTTP OLAP server called :doc:`Slicer` and 
+Cubes comes with built-in WSGI HTTP OLAP server called :doc:`slicer` and 
 provides json API for most of the cubes framework functionality. The server is 
 based on the Werkzeug WSGI framework.
 

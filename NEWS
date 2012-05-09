@@ -4,6 +4,17 @@ Changes in the Cubes
 Version 0.9
 ===========
 
+TODO
+----
+
+What needs to be done for 0.9 release:
+
+* rename SQLStarBrowser to StarBrowser
+* state in documentation that designated way of creating worskpace and getting
+  a browser is through: create_workspace() and ws.browser()
+* create a backend template
+* add documentation about modelling -> aggregation
+
 New Features
 ------------
 
@@ -30,9 +41,12 @@ New Features
 
 SQL backend:
 
-* new StarBrowser implemented
-* StarBrowser supports snowflakes as well, does not require denormalization
-  (no write permission is required)
+* new StarBrowser implemented:
+    * StarBrowser supports snowflakes or denormalization (optional)
+    * for snowflake browsing no write permission is required (does not have to
+      be denormalized)
+* new DenormalizedMapper for mapping logical model to denormalized view
+* new SnowflakeMapper for mapping logical model to a snowflake schema
 * ddl_for_model() - get schema DDL as string for model
 * join finder and attribute mapper are now just Mapper - class responsible for
   finding appropriate joins and doing logical-to-physical mappings
@@ -40,6 +54,8 @@ SQL backend:
   a physical attribute (just attribute or table+schema+attribute)
 * dimension argument was removed from all methods working with attributes
   (the dimension is now required attribute property)
+* added create_denormalized_view() with options: materialize, create_index,
+  keys_only
   
 Slicer:
 

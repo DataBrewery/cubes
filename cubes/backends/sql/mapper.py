@@ -85,39 +85,18 @@ class Mapper(object):
 
     def __init__(self, cube, locale=None, schema=None, fact_name=None,
                  **options):
-        """Creates a mapper for a cube. The mapper maps logical references to
-        physical references (tables and columns), creates required joins,
-        resolves table names.
+        """Abstract class for mappers which maps logical references to
+        physical references (tables and columns).
 
         Attributes:
 
         * `cube` - mapped cube
-        * `mappings` – dictionary containing mappings
         * `simplify_dimension_references` – references for flat dimensions 
           (with one level and no details) will be just dimension names, no 
           attribute name. Might be useful when using single-table schema, for 
           example, with couple of one-column dimensions.
-        * `dimension_prefix` – default prefix of dimension tables, if 
-          default table name is used in physical reference construction
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
-        * `dimension_prefix` – prefix for dimension tables
-
-        Mappings
-        --------
-
-        Mappings is a dictionary where keys are logical attribute references
-        and values are table column references. The keys are mostly in the form:
-
-        * ``attribute`` for measures and fact details
-        * ``attribute.locale`` for localized fact details
-        * ``dimension.attribute`` for dimension attributes
-        * ``dimension.attribute.locale`` for localized dimension attributes
-
-        The values might be specified as strings in the form ``table.column`` 
-        or as two-element arrays: [`table`, `column`].
-
-        .. In the future it might support automatic join detection.
 
         """
 
@@ -179,12 +158,11 @@ class Mapper(object):
         If `dimension` is ``Null`` then fact table is assumed. The logical
         reference might have following forms:
 
-
         * ``dimension.attribute`` - dimension attribute
         * ``attribute`` - fact measure or detail
 
         If `simplify_dimension_references` is ``True`` then references for
-        flat dimensios without details is ``dimension`.
+        flat dimensios without details is `dimension`.
         
         If `locale` is specified, then locale is added to the reference. This
         is used by backends and other mappers, it has no real use in end-user
@@ -272,9 +250,9 @@ class SnowflakeMapper(Mapper):
                     fact_name=None, dimension_prefix=None, joins=None,
                     **options):
 
-        """Creates a mapper for a cube. The mapper maps logical references to
-        physical references (tables and columns), creates required joins,
-        resolves table names.
+        """A snowflake schema mapper for a cube. The mapper creates required
+        joins, resolves table names and maps logical references to tables and
+        respective columns.
 
         Attributes:
 
@@ -290,19 +268,18 @@ class SnowflakeMapper(Mapper):
         * `schema` – default database schema
         * `dimension_prefix` – prefix for dimension tables
 
-        Mappings
-        --------
-
-        Mappings is a dictionary where keys are logical attribute references
-        and values are table column references. The keys are mostly in the form:
+        `mappings` is a dictionary where keys are logical attribute references
+        and values are table column references. The keys are mostly in the
+        form:
 
         * ``attribute`` for measures and fact details
         * ``attribute.locale`` for localized fact details
         * ``dimension.attribute`` for dimension attributes
         * ``dimension.attribute.locale`` for localized dimension attributes
 
-        The values might be specified as strings in the form ``table.column`` 
-        or as two-element arrays: [`table`, `column`].
+        The values might be specified as strings in the form ``table.column``
+        (covering most of the cases) or as a dictionary with keys ``schema``,
+        ``table`` and ``column`` for more customized references.
 
         .. In the future it might support automatic join detection.
 
@@ -538,7 +515,6 @@ class DenormalizedMapper(Mapper):
         # FIXME: this hides original fact name, we do not want that
         
         self.fact_name = options.get("denormalized_view") or dview_prefix + self.cube.name
-
         self.denormalized_view_schema = denormalized_view_schema or self.schema
 
     def physical(self, attribute, locale=None):
@@ -563,16 +539,9 @@ class DenormalizedMapper(Mapper):
         return reference
 
     def relevant_joins(self, attributes):
-        """Get relevant joins to the attributes - list of joins that 
-        are required to be able to acces specified attributes. `attributes`
-        is a list of three element tuples: (`schema`, `table`, `attribute`).
+        """Returns an empty list. No joins are necessary for denormalized
+        view.
         """
-
-        # Attribute: (schema, table, column)
-        # Join: ((schema, table, column), (schema, table, column), alias)
-
-        # joined_tables = set()
-        # joined_tables = set( (self.schema, self.fact_name) )
 
         self.logger.debug("getting relevant joins: not needed for denormalized table")
 
