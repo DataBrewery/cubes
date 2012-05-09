@@ -35,7 +35,7 @@ Report bugs in `github issues`_ tracking
 
 .. _github issues: https://github.com/Stiivi/cubes/issues
 .. _Google group: http://groups.google.com/group/cubes-discuss
-.. _write to me: stefan.urbanek@gmail.com
+.. _write to the author: stefan.urbanek@gmail.com
 
 There is an IRC channel ``#databrewery`` on server ``irc.freenode.net``.
 

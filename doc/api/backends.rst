@@ -8,22 +8,24 @@
 SQL - Star
 ==========
 
+Workspace
+---------
+
+.. autofunction:: cubes.backends.sql.star.create_workspace
+.. autoclass:: cubes.backends.sql.star.SQLStarWorkspace
+
 Mapper
 ------
 
-.. autoclass:: cubes.backends.sql.common.Mapper
+.. autoclass:: cubes.backends.sql.mapper.Mapper
+.. autoclass:: cubes.backends.sql.mapper.SnowflakeMapper
+.. autoclass:: cubes.backends.sql.mapper.DenormalizedMapper
 
 Browser
 -------
 
 .. autoclass:: cubes.backends.sql.star.StarBrowser
-
-.. warning::
-
-    The following `StarQueryBuilder` might be changed to SQLContext and might
-    encapsulate reference to mapper. Browser will reference only the context.
-
-.. autoclass:: cubes.backends.sql.star.StarQueryBuilder
+.. autoclass:: cubes.backends.sql.star.QueryContext
 
 
 Helper functions

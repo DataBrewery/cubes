@@ -450,9 +450,9 @@ class Cell(object):
     def rollup_dim(self, dimension, level=None, hierarchy=None):
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. If there is no level to go up (we are at the top level),
-         then the cut is removed.
-         
-         Returns new cell object.
+        then the cut is removed.
+
+        Returns new cell object.
 
         .. note::
 

@@ -905,16 +905,36 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
 
 def create_workspace(model, config):
     """Create workspace for `model` with configuration in dictionary `config`. 
-    This method is used by the slicer server."""
+    This method is used by the slicer server.
+    
+    The options are:
+    
+    Required:
+    
+    * `url` - database URL in form of:
+      ``backend://user:password@host:port/database``
+
+    Optional:
+    
+    * `schema` - default schema, where all tables are located (if not
+      explicitly stated otherwise)
+    * `dimension_prefix` - used by snowflake mapper to find dimension tables
+      when no explicit mapping is specified
+    * `fact_prefix` - used by the snowflake mapper to find fact table for a
+      cube, when no explicit fact table name is specified
+    * `use_denormalization` - browser will use dernormalized view instead of
+      snowflake
+    * `denormalized_view_prefix` - if denormalization is used, then this
+      prefix is added for cube name to find corresponding cube view
+    * `denormalized_view_schema` - schema wehere denormalized views are
+      located (if not specified, then default schema is used)
+    
+    """
 
     try:
         dburl = config["url"]
     except KeyError:
         raise Exception("No URL specified in configuration")
-
-    # schema = config.get("schema")
-    # dimension_prefix = config.get("dimension_prefix")
-    # fact_prefix = config.get("fact_prefix")
 
     engine = sqlalchemy.create_engine(dburl)
 
@@ -925,9 +945,8 @@ def create_workspace(model, config):
 class SQLStarWorkspace(object):
     """Factory for browsers"""
     def __init__(self, model, engine, **options):
-        """Create a workspace. For description of options see the StarBrowser
-        class.
-        """
+        """Create a workspace. For description of options see
+        `create_workspace()` """
 
         super(SQLStarWorkspace, self).__init__()
 
