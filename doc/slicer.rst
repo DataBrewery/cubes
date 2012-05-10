@@ -31,6 +31,10 @@ Commands are:
 +-----------------------+----------------------------------------------------------------------+
 |``translate``          | Translate model with translation file                                |
 +-----------------------+----------------------------------------------------------------------+
+|``test``               | Test the model against backend database *(experimental)*             |
++-----------------------+----------------------------------------------------------------------+
+|``ddl``                | Generate DDL for SQL backend *(experimental)*                        |
++-----------------------+----------------------------------------------------------------------+
 
 serve
 -----
@@ -75,8 +79,15 @@ Usage::
     slicer model validate model.json
     slicer model validate http://somesite.com/model.json
 
-For more information see Model Validation in :doc:`cubes`
 
+Optional arguments::
+
+      -d, --defaults        show defaults
+      -w, --no-warnings     disable warnings
+      -t TRANSLATION, --translation TRANSLATION
+                            model translation file
+                            
+For more information see Model Validation in :doc:`cubes`
 
 Example output::
 
@@ -128,4 +139,30 @@ model translate
 Translate model using translation file::
 
     slicer model translate model.json translation.json
+ddl
+---
 
+.. note::
+
+    This is experimental command.
+    
+Generates DDL schema of a model for SQL backend
+
+Usage::
+
+    slicer ddl [-h] [--dimension-prefix DIMENSION_PREFIX]
+              [--fact-prefix FACT_PREFIX] [--backend BACKEND]
+              url model
+
+positional arguments::
+
+    url                   SQL database connection URL
+    model                 model reference - can be a local file path or URL
+
+optional arguments::
+
+    --dimension-prefix DIMENSION_PREFIX
+                        prefix for dimension tables
+    --fact-prefix FACT_PREFIX
+                        prefix for fact tables
+    --backend BACKEND     backend name (currently limited only to SQL backends)
