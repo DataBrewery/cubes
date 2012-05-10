@@ -347,8 +347,9 @@ class Model(object):
         return out
 
     def validate(self):
-        """Validate the model, check for model consistency. Validation result is array of tuples in form:
-        (validation_result, message) where validation_result can be 'warning' or 'error'.
+        """Validate the model, check for model consistency. Validation result
+        is array of tuples in form: (validation_result, message) where
+        validation_result can be 'warning' or 'error'.
 
         Returs: array of tuples
         """
@@ -641,13 +642,30 @@ class Cube(object):
         # Check whether all attributes, measures and keys are Attribute objects
         # This is internal consistency chceck
 
+        measures = set()
+
         for measure in self.measures:
             if not isinstance(measure, Attribute):
                 results.append( ('error', "Measure '%s' in cube '%s' is not instance of Attribute" % (measure, self.name)) )
+            if str(measure) in measures:
+                results.append( ('error', "Duplicate measure '%s' in cube '%s'"\
+                                            % (measure, self.name)) )
+            else:
+                measures.add(str(measure))
 
+        details = set()
         for detail in self.details:
             if not isinstance(detail, Attribute):
-                results.append( ('error', "Detail '%s' in cube '%s' is not instance of Attribute" % (measure, self.name)) )
+                results.append( ('error', "Detail '%s' in cube '%s' is not instance of Attribute" % (detail, self.name)) )
+            if str(detail) in details:
+                results.append( ('error', "Duplicate detail '%s' in cube '%s'"\
+                                            % (detail, self.name)) )
+            elif str(detail) in measures:
+                results.append( ('error', "Duplicate detail '%s' in cube '%s'"
+                                          " - specified also as measure" \
+                                            % (detail, self.name)) )
+            else:
+                details.add(str(detail))
 
         # 2. check whether dimension attributes are unique
 
@@ -849,7 +867,7 @@ class Dimension(object):
             return self.default_hierarchy
         if isinstance(obj, basestring):
             if obj not in self.hierarchies:
-                raise KeyError("No level %s in dimension %s" % (obj, self.name))
+                raise KeyError("No hierarchy %s in dimension %s" % (obj, self.name))
             return self.hierarchies[obj]
         elif isinstance(obj, Hierarchy):
             return obj
@@ -965,35 +983,38 @@ class Dimension(object):
         """Validate dimension. See Model.validate() for more information. """
         results = []
 
-        skip_hierarchy_check = False
         if not self.levels:
-            skip_hierarchy_check = True
-            results.append( ('error', "No attributes or levels in dimension '%s'" % (self.name)) )
+            results.append( ('error', "No levels in dimension '%s'" \
+                                        % (self.name)) )
+            return results
 
-        if not skip_hierarchy_check:
-            if not self.hierarchies:
-                base = "No hierarchies in dimension '%s'" % (self.name)
-                if self.is_flat:
-                    level = self.levels[0]
-                    results.append( ('default', base + ", flat level '%s' will be used" % (level.name)) )
-                elif len(self.levels) > 1:
-                    results.append( ('error', base + ", more than one levels exist (%d)" % len(self.levels)) )
-                else:
-                    results.append( ('error', base) )
+        if not self.hierarchies:
+            msg = "No hierarchies in dimension '%s'" % (self.name)
+            if self.is_flat:
+                level = self.levels[0]
+                results.append( ('default', msg + ", flat level '%s' will be used" % (level.name)) )
+            elif len(self.levels) > 1:
+                results.append( ('error', msg + ", more than one levels exist (%d)" % len(self.levels)) )
             else:
-                if not self.default_hierarchy_name:
-                    if len(self.hierarchies) > 1 and not "default" in self.hierarchies:
-                        results.append( ('error', "No defaut hierarchy specified, there is "\
-                                                  "more than one hierarchy in dimension '%s'" % self.name) )
-                    else:
-                        def_name = self.default_hierarchy.name
-                        results.append( ('default', "No default hierarchy name specified in dimension '%s', using "
-                                                    "'%s'"% (self.name, def_name)) )
+                results.append( ('error', msg) )
+        else: # if self.hierarchies
+            if not self.default_hierarchy_name:
+                if len(self.hierarchies) > 1 and not "default" in self.hierarchies:
+                    results.append( ('error', "No defaut hierarchy specified, there is "\
+                                              "more than one hierarchy in dimension '%s'" % self.name) )
+                else:
+                    def_name = self.hierarchy().name
+                    results.append( ('default', "No default hierarchy name specified in dimension '%s', using "
+                                                "'%s'"% (self.name, def_name)) )
 
         if self.default_hierarchy_name and not self.hierarchies.get(self.default_hierarchy_name):
-            results.append( ('warning', "Default hierarchy '%s' does not exist in dimension '%s'" % 
+            results.append( ('error', "Default hierarchy '%s' does not exist in dimension '%s'" % 
                             (self.default_hierarchy_name, self.name)) )
 
+        
+        attributes = set()
+        first_occurence = {}
+        
         for level_name, level in self._levels.items():
             if not level.attributes:
                 results.append( ('error', "Level '%s' in dimension '%s' has no attributes" % (level.name, self.name)) )
@@ -1007,15 +1028,36 @@ class Dimension(object):
 
             if level.attributes and level.key:
                 if str(level.key) not in [str(a) for a in level.attributes]:
-                    results.append( ('error', "Key '%s' in level '%s' in dimension '%s' " \
-                                              "is not in attribute list"
-                                                % (level.key, level.name, self.name)) )
+                    results.append( ('error', 
+                                     "Key '%s' in level '%s' in dimension "
+                                     "'%s' is not in level's attribute list" \
+                                     % (level.key, level.name, self.name)) )
 
             for attribute in level.attributes:
+                attr_name = attribute.full_name()
+                if attr_name in attributes:
+                    first = first_occurence[attr_name]
+                    results.append( ('error', 
+                                     "Duplicate attribute '%s' in dimension "
+                                     "'%s' level '%s' (also defined in level "
+                                     "'%s')" % (attribute, self.name, 
+                                              level_name, first)) )
+                else:
+                    attributes.add(attr_name)
+                    first_occurence[attr_name] = level_name
+                
                 if not isinstance(attribute, Attribute):
-                    results.append( ('error', "Attribute '%s' in dimension '%s' is not instance of Attribute" % (attribute, self.name)) )
+                    results.append( ('error', 
+                                     "Attribute '%s' in dimension '%s' is "
+                                     "not instance of Attribute" \
+                                     % (attribute, self.name)) )
+                                     
                 if attribute.dimension != self:
-                    results.append( ('error', "Dimension (%s) of attribute '%s' does not match with owning dimension %s" % (attribute.dimension, attribute, self.name)) )
+                    results.append( ('error',
+                                     "Dimension (%s) of attribute '%s' does "
+                                     "not match with owning dimension %s" \
+                                     % (attribute.dimension, attribute, 
+                                     self.name)) )
 
         return results
 
