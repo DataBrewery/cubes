@@ -1,4 +1,5 @@
-"""Utility functions for computing combinations of dimensions and hierarchy levels"""
+"""Utility functions for computing combinations of dimensions and hierarchy
+levels"""
 
 import itertools
 import sys
@@ -18,8 +19,8 @@ __all__ = [
 DEFAULT_BACKEND = "cubes.backends.sql.browser"
 
 def node_level_points(node):
-    """Get all level points within given node. Node is described as tuple: (object, levels)
-    where levels is a list or a tuple"""
+    """Get all level points within given node. Node is described as tuple:
+    (object, levels) where levels is a list or a tuple"""
     
     levels = []
     points = []
@@ -30,8 +31,9 @@ def node_level_points(node):
     return points
 
 def combine_node_levels(nodes):
-    """Get all possible combinations between each level from each node. It is a cartesian
-    product of first node levels and all combinations of the rest of the levels"""
+    """Get all possible combinations between each level from each node. It is
+    a cartesian product of first node levels and all combinations of the rest
+    of the levels"""
 
     if not nodes:
         raise Exception("List of nodes is empty")
@@ -68,8 +70,8 @@ def combine_node_levels(nodes):
         return list(combos)
 
 def combine_nodes(all_nodes, required_nodes = []):
-    """Create all combinations of nodes, if required_nodes are specified, make them present in each
-    combination."""
+    """Create all combinations of nodes, if required_nodes are specified, make
+    them present in each combination."""
     
     other_nodes = []
 
@@ -99,18 +101,19 @@ def combine_nodes(all_nodes, required_nodes = []):
     
 # FIXME: move this to Cube as Cube.all_cuboids(requred = [])
 def all_cuboids(dimensions, required = []):
-    """Create cuboids for all possible combinations of dimensions for each levels in hierarchical
-    order.
+    """Create cuboids for all possible combinations of dimensions for each
+    levels in hierarchical order.
     
-    Returns list of dimension selectors. Each dimension selector is a list of tuples where first element
-    is a dimension and second element is list of levels. Order of selectors and also dimensions within
-    selector is undefined.
+    Returns list of dimension selectors. Each dimension selector is a list of
+    tuples where first element is a dimension and second element is list of
+    levels. Order of selectors and also dimensions within selector is
+    undefined.
 
     *Example 1*:
 
-    If there are no hierarchies (dimensions are flat), then this method returns all combinations of all
-    dimensions. If there are dimensions A, B, C with single level a, b, c, respectivelly, the output
-    will be:
+    If there are no hierarchies (dimensions are flat), then this method
+    returns all combinations of all dimensions. If there are dimensions A, B,
+    C with single level a, b, c, respectivelly, the output will be:
     
     Output::
     
@@ -124,9 +127,9 @@ def all_cuboids(dimensions, required = []):
 
     *Example 2*:
     
-    Take dimensions from example 1 and add requirement for dimension A (might be date usually). then
-    the youtput will contain dimension A in each returned tuple. Tuples without dimension A will
-    be ommited.
+    Take dimensions from example 1 and add requirement for dimension A (might
+    be date usually). then the youtput will contain dimension A in each
+    returned tuple. Tuples without dimension A will be ommited.
 
     Output::
     
@@ -137,8 +140,8 @@ def all_cuboids(dimensions, required = []):
 
     *Example 3*:
     
-    If there are multiple hierarchies, then all levels are combined. Say we have D with d1, d2, B with 
-    b1, b2, and C with c. D (as date) is required:
+    If there are multiple hierarchies, then all levels are combined. Say we
+    have D with d1, d2, B with b1, b2, and C with c. D (as date) is required:
     
     Output::
     
@@ -183,8 +186,9 @@ def all_cuboids(dimensions, required = []):
     return result
 
 def expand_dictionary(record, separator = '.'):
-    """Return expanded dictionary: treat keys are paths separated by `separator`, create
-    sub-dictionaries as necessary"""
+    """Return expanded dictionary: treat keys are paths separated by
+    `separator`, create sub-dictionaries as necessary"""
+
     result = {}
     for key, value in record.items():
         current = result
@@ -198,15 +202,17 @@ def expand_dictionary(record, separator = '.'):
 
 def localize_common(obj, trans):
     """Localize common attributes: label and description"""
+
     if "label" in trans:
         obj.label = trans["label"]
     if "description" in trans:
         obj.description = trans["description"]
 
 def localize_attributes(attribs, translations):
-    """Localize list of attributes. `translations` should be a dictionary with keys as
-    attribute names, values are dictionaries with localizable attribute metadata, such as
-    ``label`` or ``description``."""
+    """Localize list of attributes. `translations` should be a dictionary with
+    keys as attribute names, values are dictionaries with localizable
+    attribute metadata, such as ``label`` or ``description``."""
+
     for (name, atrans) in translations.items():
         attrib = attribs[name]
         localize_common(attrib, atrans)
@@ -309,8 +315,8 @@ def create_slicer_context(config):
 
 def get_backend(backend_name):
     """Finds the backend with name `backend_name`. First try to find backend
-    relative to the cubes.backends.* then search full path.
-    """
+    relative to the cubes.backends.* then search full path. """
+
     backend = sys.modules.get("cubes.backends."+backend_name)
 
     if not backend:
@@ -326,9 +332,9 @@ def get_backend(backend_name):
     return backend
 
 def create_workspace(backend_name, model, **config):
-    """Finds the backend with name `backend_name` and creates a workspace instance.
-    The workspace is responsible for database connections and for creation of
-    aggregation browser. You can get a browser with method
+    """Finds the backend with name `backend_name` and creates a workspace
+    instance. The workspace is responsible for database connections and for
+    creation of aggregation browser. You can get a browser with method
     ``browser_for_cube()``. The browser returned might be either created or
     reused, it depends on the backend.
 
@@ -336,9 +342,9 @@ def create_workspace(backend_name, model, **config):
 
     The backend should be a module with variables:
 
-    * `config_section` - name of section where backend configuration is 
-      found. This is optional and if does not exist or is ``None`` then
-      ``[backend]`` section is used.
+    * `config_section` - name of section where backend configuration is found.
+      This is optional and if does not exist or is ``None`` then ``[backend]``
+      section is used.
 
     The backend should provide a method `create_workspace(model, config)`
     which returns an initialized workspace object.

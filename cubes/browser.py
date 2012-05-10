@@ -41,15 +41,17 @@ class AggregationBrowser(object):
         return Cell(self.cube)
 
     def dimension_object(self, dimension):
-        """Helper function to return proper dimension object as a subclass of Dimension.
+        """Helper function to return proper dimension object as a subclass of
+        Dimension.
 
         .. Warning::
 
             Depreciated. Use :meth:`cubes.Cube.dimension`
 
-        :Arguments:
-            * `dimension` - a dimension object or a string, if it is a string, then dimension
-              object is retrieved from cube
+        Arguments:
+
+        * `dimension` - a dimension object or a string, if it is a string,
+          then dimension object is retrieved from cube
         """
 
         if type(dimension) == str:
@@ -354,9 +356,10 @@ class Cell(object):
         self.cuts = cuts
 
     def slice(self, dimension, path):
-        """Create another cell by slicing receiving cell through `dimension` at `path`.
-        Receiving object is not modified. If cut with dimension exists it is replaced with new one.
-        If path is empty list or is none, then cut for given dimension is removed.
+        """Create another cell by slicing receiving cell through `dimension`
+        at `path`. Receiving object is not modified. If cut with dimension
+        exists it is replaced with new one. If path is empty list or is none,
+        then cut for given dimension is removed.
 
         Example::
 
@@ -413,10 +416,11 @@ class Cell(object):
             
 
     def multi_slice(self, cuts):
-        """Create another cell by slicing through multiple slices. `cuts` can be list or a dictionry.
-        If it is a list, it should be a list of two item tuples where first item is a dimension, second
-        item is a dimension cut path. If `cuts` is a dictionary, then keys are dimensions, values are
-        cut paths.
+        """Create another cell by slicing through multiple slices. `cuts` can
+        be list or a dictionry. If it is a list, it should be a list of two
+        item tuples where first item is a dimension, second item is a
+        dimension cut path. If `cuts` is a dictionary, then keys are
+        dimensions, values are cut paths.
 
         See :meth:`Cell.slice` for more information about slicing."""
 
@@ -489,15 +493,17 @@ class Cell(object):
         return Cell(cube=self.cube, cuts=cuts)
 
     def rollup(self, rollup):
-        """Rolls-up cell - goes one or more levels up through dimension hierarchy. It works in
-        similar way as drill down in :meth:`AggregationBrowser.aggregate` but in the opposite
-        direction (it is like ``cd ..`` in a UNIX shell).
+        """Rolls-up cell - goes one or more levels up through dimension
+        hierarchy. It works in similar way as drill down in
+        :meth:`AggregationBrowser.aggregate` but in the opposite direction (it
+        is like ``cd ..`` in a UNIX shell).
         
         Roll-up can be:
         
             * a string - single dimension to be rolled up one level
             * an array - list of dimension names to be rolled-up one level
-            * a dictionary where keys are dimension names and values are levels to be rolled up-to
+            * a dictionary where keys are dimension names and values are
+              levels to be rolled up-to
 
         .. note::
             
@@ -607,11 +613,13 @@ class Cell(object):
         return not self.__eq__(other)
         
     def to_str(self):
-        """Return string representation of the cell by using standard cuts-to-string conversion."""
+        """Return string representation of the cell by using standard
+        cuts-to-string conversion."""
         return string_from_cuts(self.cuts)
 
     def __str__(self):
-        """Return string representation of the cell by using standard cuts-to-string conversion."""
+        """Return string representation of the cell by using standard
+        cuts-to-string conversion."""
         return self.to_str()
 
 CUT_STRING_SEPARATOR = '|'
@@ -629,8 +637,8 @@ set ?2 : date:[2004;2010;2033,04]
 """
 
 def cuts_from_string(string):
-    """Return list of cuts specified in `string`. You can use this function to parse cuts encoded
-    in a URL.
+    """Return list of cuts specified in `string`. You can use this function to
+    parse cuts encoded in a URL.
     
     Examples::
 
@@ -701,7 +709,8 @@ class Cut(object):
         return d
         
 class PointCut(Cut):
-    """Object describing way of slicing a cube (cell) through point in a dimension"""
+    """Object describing way of slicing a cube (cell) through point in a
+    dimension"""
 
     def __init__(self, dimension, path):
         super(PointCut, self).__init__(dimension)
@@ -720,7 +729,8 @@ class PointCut(Cut):
         return len(self.path)
 
     def __str__(self):
-        """Return string representation of point cut, you can use it in URLs"""
+        """Return string representation of point cut, you can use it in
+        URLs"""
         path_str = string_from_path(self.path)
         
         if type(self.dimension) == str or type(self.dimension) == unicode:
@@ -751,8 +761,9 @@ class PointCut(Cut):
         return not self.__eq__(other)
 
 class RangeCut(Cut):
-    """Object describing way of slicing a cube (cell) between two points of a dimension that
-    has ordered points. For dimensions with unordered points behaviour is unknown."""
+    """Object describing way of slicing a cube (cell) between two points of a
+    dimension that has ordered points. For dimensions with unordered points
+    behaviour is unknown."""
 
     def __init__(self, dimension, from_path, to_path):
         super(RangeCut, self).__init__(dimension)
@@ -774,7 +785,8 @@ class RangeCut(Cut):
         return max(len(self.from_path), len(self.to_path))
     
     def __str__(self):
-        """Return string representation of point cut, you can use it in URLs"""
+        """Return string representation of point cut, you can use it in
+        URLs"""
         if self.from_path:
             from_path_str = string_from_path(self.from_path)
         else:
@@ -816,8 +828,9 @@ class RangeCut(Cut):
         return not self.__eq__(other)
         
 class SetCut(Cut):
-    """Object describing way of slicing a cube (cell) between two points of a dimension that
-    has ordered points. For dimensions with unordered points behaviour is unknown."""
+    """Object describing way of slicing a cube (cell) between two points of a
+    dimension that has ordered points. For dimensions with unordered points
+    behaviour is unknown."""
 
     def __init__(self, dimension, paths):
         super(SetCut, self).__init__(dimension)
@@ -874,17 +887,19 @@ class SetCut(Cut):
 class AggregationResult(object):
     """Result of aggregation or drill down.
     
-    :Attributes:
-        * summary - dictionary of summary row fields
-        * drilldown - list of drilled-down cells
-        * remainder - summary of remaining cells (not yet implemented)
-        * total_cell_count - number of total cells in drill-down (after limit, before pagination)
+    Attributes:
+
+    * `summary` - dictionary of summary row fields
+    * `drilldown` - list of drilled-down cells
+    * `remainder` - summary of remaining cells (not yet implemented)
+    * `total_cell_count` - number of total cells in drill-down (after limit,
+      before pagination)
     
     """
     def __init__(self):
         super(AggregationResult, self).__init__()
         self.summary = {}
-        self.drilldown = {}
+        self.drilldown = []
         self.remainder = {}
         self.total_cell_count = None
     
