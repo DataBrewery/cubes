@@ -75,13 +75,6 @@ The `create_workspace()` can be compared to `create_engine()` in a database
 abstraction framework and the `browser_for_cube()` can be compared to 
 `engine.connect()` to get a connection from a pool.
 
-The configuration for `create_workspace()` comes from slicer ``.ini`` 
-configuration file in section ``[backend]`` and is provided as ``dict`` object.
-
-.. note::
-
-    You can override the section in the Slicer configuration file by providing 
-    ``config_section`` variable in your backend module. This is however not 
-    recommended. Currently it is used only by default SQL backend to maintain 
-    backward compatibility with older versions of cubes where the configuration 
-    for database backend was under ``[db]``.
+The configuration for `create_workspace()` comes from slicer ``.ini``
+configuration file in section ``[workspace]`` and is provided as ``dict``
+object.

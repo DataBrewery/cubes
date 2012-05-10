@@ -129,7 +129,7 @@ class Slicer(object):
         self.logger.info("using backend '%s'" % context["backend_name"])
             
         self.workspace = self.backend.create_workspace(self.model,
-                                                       context["backend_config"])
+                                                       **context["workspace_options"])
             
     def __call__(self, environ, start_response):
         request = Request(environ)

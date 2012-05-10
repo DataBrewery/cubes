@@ -4,6 +4,8 @@ levels"""
 import itertools
 import sys
 from .model import load_model
+from .common import get_logger
+import ConfigParser
 
 __all__ = [
     "create_workspace",
@@ -252,6 +254,8 @@ def create_slicer_context(config):
     * `backend_config` - backend configuration dictionary
     """
 
+    logger = get_logger()
+
     context = {}
 
     model_path = config.get("model", "path")
@@ -287,28 +291,39 @@ def create_slicer_context(config):
     backend = get_backend(backend_name)
 
     if hasattr(backend, 'config_section'):
+        logger.warn("backend %s: config_section in backend is depreciated. All backend "
+                    "options are now in [workspace] section" % backend_name)
         section = backend.config_section
     else:
         section = None
 
-    section = section or "backend"
+    if section and section != "workspace":
+        logger.warn("config section [backend] or [db] is depreciated. All backend "
+                    "options are now in [workspace] section")
 
     context["backend_name"] = backend_name
     context["backend"] = backend
 
-    try:
-        section = backend.config_section
-    except:
-        section = None
+    section = section or "workspace"
 
-    section = section or "backend"
-
-    if config.has_section(section):
-        config_dict = dict(config.items(section))
+    if section:
+        try:
+            config_dict = dict(config.items(section))
+        except ConfigParser.NoSectionError:
+            logger.warn("no backend options in config section [%s], trying [backend]" % section)
+            try:
+                config_dict = dict(config.items("backend"))
+            except ConfigParser.NoSectionError:
+                logger.warn("no backend options in config section [backend], trying [db]")
+                try:
+                    config_dict = dict(config.items("db"))
+                except ConfigParser.NoSectionError:
+                    logger.warn("No section [workspace] found, using empty options" % section)
+                    config_dict = {}
     else:
         config_dict = {}
 
-    context["backend_config"] = config_dict
+    context["workspace_options"] = config_dict
 
     return context
 
@@ -331,27 +346,21 @@ def get_backend(backend_name):
 
     return backend
 
-def create_workspace(backend_name, model, **config):
+def create_workspace(backend_name, model, **options):
     """Finds the backend with name `backend_name` and creates a workspace
     instance. The workspace is responsible for database connections and for
     creation of aggregation browser. You can get a browser with method
-    ``browser_for_cube()``. The browser returned might be either created or
-    reused, it depends on the backend.
+    ``browser()``. The browser returned might be either created or reused, it
+    depends on the backend.
 
     *Implementing Backend*
 
-    The backend should be a module with variables:
-
-    * `config_section` - name of section where backend configuration is found.
-      This is optional and if does not exist or is ``None`` then ``[backend]``
-      section is used.
-
-    The backend should provide a method `create_workspace(model, config)`
+    The backend should provide a method `create_workspace(model, **options)`
     which returns an initialized workspace object.
 
-    The workspace object should implement `browser_for_cube(cube)`.
+    The workspace object should implement `browser(cube)`.
     """
 
     backend = get_backend(backend_name)
 
-    return backend.create_workspace(model, config)
+    return backend.create_workspace(model, **options)
