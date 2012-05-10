@@ -1,30 +1,20 @@
 import sqlalchemy
 import cubes
-#
+
 # 1. Prepare SQL data in memory
-#
-
-engine = sqlalchemy.create_engine('sqlite:///data.sqlite')
-
-#
-# 2. Create a model
-#
-
 model = cubes.load_model("model.json")
+workspace = cubes.create_workspace("sql.browser", model,
+                                   url='sqlite:///data.sqlite',
+                                   view_prefix='vft_')
+
+# 2. Create a model
 cube = model.cube("irbd_balance")
 
-#
 # 3. Create a browser and get a cell representing the whole cube (all data)
-#
-
-browser = cubes.backends.sql.SQLBrowser(cube, engine.connect(), 
-                                        view_name = "vft_irbd_balance")
+browser = workspace.browser(cube)
 cell = browser.full_cube()
 
-#
 # 4. Play with aggregates
-#
-
 result = browser.aggregate(cell)
 
 print "Total\n" \
