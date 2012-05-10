@@ -22,7 +22,7 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
     
-from cubes.common import logger_name
+from cubes.common import logger_name, get_logger
 from collections import deque
 
 try:
@@ -805,49 +805,54 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
     return out.getvalue()
 
 
-# Backward compatibility - use [db] section in slicer configuration
-config_section = "db"
-
-def create_workspace(model, config):
+def create_workspace(model, **options):
     """Create workspace for `model` with configuration in dictionary `config`. 
     This method is used by the slicer server."""
 
     try:
-        dburl = config["url"]
+        dburl = options["url"]
     except KeyError:
         raise Exception("No URL specified in configuration")
 
-    schema = config.get("schema")
-    view_prefix = config.get("view_prefix")
-    view_suffix = config.get("view_suffix")
+    schema = options.get("schema")
+    view_prefix = options.get("view_prefix")
+    view_suffix = options.get("view_suffix")
 
     engine = sqlalchemy.create_engine(dburl)
 
     workspace = SQLWorkspace(model, engine, schema, 
-                                    name_prefix = view_prefix,
-                                    name_suffix = view_suffix)
+                                    view_prefix = view_prefix,
+                                    view_suffix = view_suffix)
 
     return workspace
 
 class SQLWorkspace(object):
     """Factory for browsers"""
-    def __init__(self, model, engine, schema=None, name_prefix=None, 
-                 name_suffix=None):
+    def __init__(self, model, engine, schema=None, view_prefix=None, 
+                 view_suffix=None):
         """Create a workspace"""
         super(SQLWorkspace, self).__init__()
         self.model = model
         self.engine = engine
-        self.metadata = sqlalchemy.MetaData(bind = self.engine)
-        self.name_prefix = name_prefix
-        self.name_suffix = name_suffix
+        self.metadata = sqlalchemy.MetaData(bind=self.engine)
+        self.view_prefix = view_prefix
+        self.view_suffix = view_suffix
         self.views = {}
         self.schema = schema
+
+        self.logger = cubes.get_logger()
         
-    def browser_for_cube(self, cube, locale = None):
+    def browser_for_cube(self, cube, locale=None):
         """Creates, configures and returns a browser for a cube"""
+        self.logger.info("workspace.create_browser() is depreciated, use "
+                         ".browser() instead")
+
+        return self.browser(cube, locale)
+
+    def browser(self, cube, locale=None):
         cube = self.model.cube(cube)
         view = self._view_for_cube(cube)
-        browser = SQLBrowser(cube, view = view, locale = locale)
+        browser = SQLBrowser(cube, view=view, locale=locale)
         return browser
         
     def _view_for_cube(self, cube, view_name=None):
@@ -858,8 +863,8 @@ class SQLWorkspace(object):
                 view_name = cube.options.get("denormalized_view") or view_name
                 
             if not view_name:
-                prefix = self.name_prefix or ""
-                suffix = self.name_suffix or ""
+                prefix = self.view_prefix or ""
+                suffix = self.view_suffix or ""
                 view_name = "%s%s%s" % (prefix, cube.name, suffix)
 
             view = sqlalchemy.Table(view_name, self.metadata, autoload = True, schema = self.schema)

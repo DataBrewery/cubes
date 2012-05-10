@@ -45,7 +45,7 @@ Example server configuration file ``slicer.ini``::
     reload: yes
     log_level: info
 
-    [db]
+    [workspace]
     url: sqlite:///tutorial.sqlite
     view_prefix: vft_
 

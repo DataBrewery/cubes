@@ -903,9 +903,9 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
     """
     raise NotImplementedError
 
-def create_workspace(model, config):
-    """Create workspace for `model` with configuration in dictionary `config`. 
-    This method is used by the slicer server.
+def create_workspace(model, **options):
+    """Create workspace for `model` with configuration in dictionary
+    `options`. This method is used by the slicer server.
     
     The options are:
     
@@ -932,13 +932,13 @@ def create_workspace(model, config):
     """
 
     try:
-        dburl = config["url"]
+        dburl = options["url"]
     except KeyError:
-        raise Exception("No URL specified in configuration")
+        raise Exception("No URL specified in options")
 
     engine = sqlalchemy.create_engine(dburl)
 
-    workspace = SQLStarWorkspace(model, engine, **config)
+    workspace = SQLStarWorkspace(model, engine, **options)
 
     return workspace
 

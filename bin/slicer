@@ -162,7 +162,7 @@ def run_test(args):
     context = cubes.util.create_slicer_context(config)
     backend = context["backend"]
     workspace = backend.create_workspace(context["model"],
-                                         context["backend_config"])
+                                         **context["workspace_options"])
     results = workspace.validate_model()
     if results:
         print("\nvalidation results:\n")

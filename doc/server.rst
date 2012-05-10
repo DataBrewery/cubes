@@ -316,7 +316,7 @@ To run your local server, prepare server configuration ``grants_config.ini``::
     reload: yes
     log_level: info
 
-    [db]
+    [workspace]
     url: postgres://localhost/mydata"
 
     [model]
@@ -343,7 +343,7 @@ Create server configuration file ``procurements.ini``::
     [model]
     path: /path/to/model.json
 
-    [db]
+    [workspace]
     view_prefix: mft_
     schema: datamarts
     url: postgres://localhost/transparency
@@ -449,17 +449,22 @@ Server configuration is stored in .ini files with sections:
   :doc:`localization` for more information.
 
 
-Backend configuration should be in the ``[backend]`` section if not specified 
-otherwise. See :doc:`/api/backends` for more information. The default SQL 
-backend uses ``[db]`` section:
+Backend workspace configuration should be in the ``[workspace]``. See
+:doc:`/api/backends` for more information.
 
-* ``[db]`` - relational database configuration (default SQL backend)
+* ``[workspace]`` - relational database configuration (default SQL backend)
     * ``url`` - database URL in form: 
       ``adapter://user:password@host:port/database``
     * ``schema`` - schema containing denormalized views for relational DB cubes
     * ``view_prefix``, ``view_suffix`` - prefix and suffix for view or table 
       containing cube facts, name is constructed by concatenating `prefix` + 
       `cube name` + `suffix`
+
+.. note::
+
+    For backward compatibility, sections ``[backend]`` and ``[db]`` are also
+    supported, but you should change them to ``[workspace]`` as soon as
+    possible
 
 Example configuration file::
 
@@ -470,7 +475,7 @@ Example configuration file::
     log: /var/log/cubes.log
     log_level: info
 
-    [db]
+    [workspace]
     url: postgresql://localhost/data
     view: contracts
     schema: cubes
