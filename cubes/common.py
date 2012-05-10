@@ -35,15 +35,16 @@ def create_logger():
     return logger
 
 class IgnoringDictionary(dict):
-    """Simple dictionary extension that will ignore any keys of which values are empty (None/False)"""
+    """Simple dictionary extension that will ignore any keys of which values
+    are empty (None/False)"""
     def setnoempty(self, key, value):
         """Set value in a dictionary if value is not null"""
         if value:
             self[key] = value
 
 class MissingPackage(object):
-    """Bogus class to handle missing optional packages - packages that are not necessarily required
-    for Cubes, but are needed for certain features."""
+    """Bogus class to handle missing optional packages - packages that are not
+    necessarily required for Cubes, but are needed for certain features."""
 
     def __init__(self, package, feature = None, source = None, comment = None):
         self.package = package
