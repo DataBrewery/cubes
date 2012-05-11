@@ -1,4 +1,3 @@
-import sqlalchemy
 import cubes
 
 # 1. Prepare SQL data in memory
