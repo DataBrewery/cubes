@@ -204,7 +204,7 @@ class Model(object):
         if dimensions:
             if isinstance(dimensions, dict):
                 # logger.warn("model initialization: dimensions as dictionary "
-                #             "is depreciated, use list instead")
+                #             "is depreciated, use array instead")
 
                 for dim_name, dim_desc in dimensions.items():
                     desc = dict([("name", dim_name)] + dim_desc.items())
@@ -222,7 +222,7 @@ class Model(object):
         if cubes:
             if isinstance(cubes, dict):
                 # logger.warn("model initialization: cubes as dictionary is "
-                #             "depreciated, use list instead")
+                #             "depreciated, use array instead")
 
                 for cube_name, cube_desc in cubes.items():
                     desc = dict([("name", cube_name)] + cube_desc.items())

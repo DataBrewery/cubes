@@ -4,16 +4,21 @@ Changes in the Cubes
 Version 0.9
 ===========
 
-TODO
-----
+Important Changes
+-----------------
 
-What needs to be done for 0.9 release:
+Summary if most important changes that might affect your code:
 
-* rename SQLStarBrowser to StarBrowser
-* state in documentation that designated way of creating worskpace and getting
-  a browser is through: create_workspace() and ws.browser()
-* create a backend template
-* add documentation about modelling -> aggregation
+**Slicer**: Change all your slicer.ini configuration files to have [workspace]
+section instead of old [db] or [backend]. Depreciation warning is issued, will
+work if not changed.
+
+**Model**: Change `dimensions` in `model` to be an array instead of a
+dictionary. Same with `cubes`. Old style: `"dimensions" = { "date" = ... }`
+new style: `"dimensions" = [ { "name": "date", ... } ]`. Will work if not
+changed, just be prepared.
+
+**Python**: Use Dimension.hierarchy() instead of Dimension.default_hierarchy.
 
 New Features
 ------------
@@ -38,6 +43,9 @@ New Features
 * AggregationBrowser.cut_details(): New method returning values of attributes
   representing a single cut. Preliminary implementation, return value might
   change.
+  
+* Dimension.validate() now checks whether there are duplicate attributes
+* Cube.validate() now checks whether there are duplicate measures or details
 
 SQL backend:
 
@@ -63,6 +71,10 @@ Slicer:
 * slicer test - test configuration and model against database and report list 
   of issues, if any
   
+* Backend options are now in [workspace], removed configurability of custom
+  backend section. Warning are issued when old section names [db] and
+  [backend] are used
+ 
 * server responds to /details which is a result of
   AggregationBrowser.cell_details()
 
@@ -73,14 +85,14 @@ Examples:
 Changes
 -------
 
+* in Model: dimension and cube dictionary specification during model
+  initialization is depreciated, list should be used (with explicitly
+  mentioned attribute "name") -- **important**
 * **important**: Now all attribute references in the model (dimension
   attributes, measures, ...) are required to be instances of Attribute() and
   the attribute knows it's dimension
 * removed `hierarchy` argument from `Dimension.all_attributes()` and `.key_attributes()`
 * renamed builder to denormalizer
-* in Model: dimension and cube dictionary specification during model
-  initialization is depreciated, list should be used (with explicitly
-  mentioned attribute "name")
 * Dimension.default_hierarchy is now depreciated in favor of
   Dimension.hierarchy() which now accepts no arguments or argument None -
   returning default hierarchy in those two cases

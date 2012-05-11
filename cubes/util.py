@@ -310,15 +310,15 @@ def create_slicer_context(config):
         try:
             config_dict = dict(config.items(section))
         except ConfigParser.NoSectionError:
-            logger.warn("no backend options in config section [%s], trying [backend]" % section)
             try:
                 config_dict = dict(config.items("backend"))
+                logger.warn("slicer config [backend] section is depreciated, rename to [workspace]")
             except ConfigParser.NoSectionError:
-                logger.warn("no backend options in config section [backend], trying [db]")
                 try:
                     config_dict = dict(config.items("db"))
+                    logger.warn("slicer config [db] section is depreciated, rename to [workspace]")
                 except ConfigParser.NoSectionError:
-                    logger.warn("No section [workspace] found, using empty options" % section)
+                    logger.warn("slicer config no section [workspace] found, using empty options")
                     config_dict = {}
     else:
         config_dict = {}
