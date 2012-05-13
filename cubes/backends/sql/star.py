@@ -93,7 +93,7 @@ class StarBrowser(AggregationBrowser):
         else:
             self.logger.debug("using snowflake mapper for cube %s (locale %s)" % (cube, locale))
             mapper_class = SnowflakeMapper
-            
+
         self.mapper = mapper_class(cube, locale=self.locale, **options)
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
@@ -909,10 +909,11 @@ def create_workspace(model, **options):
     
     The options are:
     
-    Required:
+    Required (one of the two, `engine` takes precedence):
     
     * `url` - database URL in form of:
       ``backend://user:password@host:port/database``
+    * `engine` - SQLAlchemy engine - either this or URL should be provided
 
     Optional:
     
@@ -930,13 +931,18 @@ def create_workspace(model, **options):
       located (if not specified, then default schema is used)
     
     """
+    engine = options.get("engine")
 
-    try:
-        dburl = options["url"]
-    except KeyError:
-        raise Exception("No URL specified in options")
+    if engine:
+        del options["engine"]
+    else:
+        try:
+            db_url = options["url"]
+        except KeyError:
+            raise Exception("No URL or engine specified in options, "
+                            "provide at least one")
+        engine = sqlalchemy.create_engine(db_url)
 
-    engine = sqlalchemy.create_engine(dburl)
 
     workspace = SQLStarWorkspace(model, engine, **options)
 
