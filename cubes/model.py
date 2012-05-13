@@ -995,10 +995,10 @@ class Dimension(object):
                 if len(self.hierarchies) > 1 and not "default" in self.hierarchies:
                     results.append( ('error', "No defaut hierarchy specified, there is "\
                                               "more than one hierarchy in dimension '%s'" % self.name) )
-                else:
-                    def_name = self.hierarchy().name
-                    results.append( ('default', "No default hierarchy name specified in dimension '%s', using "
-                                                "'%s'"% (self.name, def_name)) )
+                # else:
+                #     def_name = self.hierarchy().name
+                #     results.append( ('default', "No default hierarchy name specified in dimension '%s', using "
+                #                                 "'%s'"% (self.name, def_name)) )
 
         if self.default_hierarchy_name and not self.hierarchies.get(self.default_hierarchy_name):
             results.append( ('error', "Default hierarchy '%s' does not exist in dimension '%s'" % 
