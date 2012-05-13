@@ -225,7 +225,7 @@ class ModelValidatorTestCase(unittest.TestCase):
 
         self.assertValidation(results, "No levels in dimension", "Dimension is invalid without levels")
         self.assertValidation(results, "No hierarchies in dimension", "Dimension is invalid without hierarchies")
-        self.assertValidationError(results, "No default hierarchy name")
+        # self.assertValidationError(results, "No default hierarchy name")
         
         dim.default_hierarchy_name = 'foo'
         results = dim.validate()
