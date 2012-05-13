@@ -132,6 +132,77 @@ Possible output would be::
         1: 20.0 10
         ...
 
-    
+Creating model programmatically
+===============================
+
+We need a :doc:`logical model</model>` - instance of :class:`cubes.model.Model`:
+
+.. code-block:: python
+
+    model = cubes.Model()
+
+Add :class:`dimensions<cubes.model.Dimension>` to the model. Reason for having 
+dimensions in a model is, that they might be shared by multiple cubes.
+
+
+.. code-block:: python
+
+    model.add_dimension(cubes.Dimension("category"))
+    model.add_dimension(cubes.Dimension("line_item"))
+    model.add_dimension(cubes.Dimension("year"))
+
+Define a :class:`cube<cubes.Cube>` and specify already defined dimensions:
+
+.. code-block:: python
+
+    cube = cubes.Cube(name="irbd_balance", 
+                      model=model,
+                      dimensions=["category", "line_item", "year"],
+                      measures=["amount"]
+                      )
+
+Create a :class:`browser<cubes.AggregationBrowser>` instance (in this example 
+it is :class:`SQL backend<cubes.backends.sql.SQLBrowser>` implementation) and
+get a :class:`cell<cubes.Cell>` representing the whole cube (all data):
+
+
+.. code-block:: python
+
+    browser = cubes.backends.sql.SQLBrowser(cube, engine.connect(),
+                                            view_name = "irbd_balance")
+
+    cell = browser.full_cube()
+
+Compute the aggregate. Measure fields of :class:`aggregation result<cubes.AggregationResult>` have aggregation suffix, currenlty only ``_sum``. Also a total record count within the cell is included as ``record_count``.
+
+.. code-block:: python
+
+    result = browser.aggregate(cell)
+
+    print "Record count: %d" % result.summary["record_count"]
+    print "Total amount: %d" % result.summary["amount_sum"]
+
+Now try some drill-down by `category` dimension:
+
+.. code-block:: python
+
+    result = browser.aggregate(cell, drilldown=["category"])
+
+    print "%-20s%10s%10s" % ("Category", "Count", "Total")
+
+    for record in result.drilldown:
+        print "%-20s%10d%10d" % (record["category"], record["record_count"], 
+                                            record["amount_sum"])
+
+Drill-dow by year:
+
+.. code-block:: python
+
+    result = browser.aggregate(cell, drilldown=["year"])
+    print "%-20s%10s%10s" % ("Year", "Count", "Total")
+    for record in result.drilldown:
+        print "%-20s%10d%10d" % (record["year"], record["record_count"],
+                                            record["amount_sum"])
+
 
 
