@@ -340,12 +340,20 @@ class AggregationBrowser(object):
 
         details = dim_values[0]
         
-        result = []
-        for level in hierarchy.levels_for_path(path):
-            item = {a.full_name():details.get(a.full_name()) for a in level.attributes}
-            item["_key"] = details.get(level.key.full_name())
-            item["_label"] = details.get(level.label_attribute.full_name())
-            result.append(item)
+        if (dimension.is_flat and not dimension.has_details):
+            name = dimension.all_attributes()[0].name
+            value = details.get(name)
+            item = { name: value }
+            item["_key"] = value
+            item["_label"] = value
+            result = [item]
+        else:
+            result = []
+            for level in hierarchy.levels_for_path(path):
+                item = {a.full_name():details.get(a.full_name()) for a in level.attributes}
+                item["_key"] = details.get(level.key.full_name())
+                item["_label"] = details.get(level.label_attribute.full_name())
+                result.append(item)
         
         return result
                
