@@ -863,7 +863,7 @@ class SetCut(Cut):
         set_string = SET_CUT_SEPARATOR.join(path_strings)
         string = dim_name + DIMENSION_STRING_SEPARATOR + set_string
 
-        return string        
+        return string
 
     def __repr__(self):
         if type(self.dimension) == str:
@@ -886,7 +886,7 @@ class SetCut(Cut):
 
 class AggregationResult(object):
     """Result of aggregation or drill down.
-    
+
     Attributes:
 
     * `summary` - dictionary of summary row fields
@@ -894,7 +894,7 @@ class AggregationResult(object):
     * `remainder` - summary of remaining cells (not yet implemented)
     * `total_cell_count` - number of total cells in drill-down (after limit,
       before pagination)
-    
+
     """
     def __init__(self):
         super(AggregationResult, self).__init__()
@@ -902,31 +902,24 @@ class AggregationResult(object):
         self.drilldown = []
         self.remainder = {}
         self.total_cell_count = None
-    
 
-    def as_dict(self):
-        """Depreciated, use to_dict instead. """
-        # FIXME: remove this
-        raise DeprecationWarning
-        return self.to_dict()
-        
     def to_dict(self):
         """Return dictionary representation of the aggregation result. Can be
         used for JSON serialisation."""
-        
+
         d = {}
-        
+
         d["summary"] = self.summary
         d["drilldown"] = self.drilldown
         d["remainder"] = self.remainder
         d["total_cell_count"] = self.total_cell_count
-        
+
         return d
 
     def as_json(self):
-        # FIXME: Eiter depreciate this or move it into backend. Also provide option for iterable
-        # result
-        
+        # FIXME: Eiter depreciate this or move it into backend. Also provide
+        # option for iterable result
+
         def default(o):
             if type(o) == decimal.Decimal:
                 return float(o)
@@ -937,3 +930,4 @@ class AggregationResult(object):
         json_string = encoder.encode(self.as_dict())
 
         return json_string
+

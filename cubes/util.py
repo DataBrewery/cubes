@@ -318,7 +318,7 @@ def create_slicer_context(config):
                     config_dict = dict(config.items("db"))
                     logger.warn("slicer config [db] section is depreciated, rename to [workspace]")
                 except ConfigParser.NoSectionError:
-                    logger.warn("slicer config no section [workspace] found, using empty options")
+                    logger.warn("no section [workspace] found in slicer config, using empty options")
                     config_dict = {}
     else:
         config_dict = {}
