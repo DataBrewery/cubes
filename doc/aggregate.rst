@@ -1,9 +1,9 @@
-Aggregations and Aggregation Browsing
+Aggregation Browsing and Aggregations
 +++++++++++++++++++++++++++++++++++++
 
-The main purpose of the Cubes framework is aggregation and browsing through the 
-aggregates. In this chapter we are going to demonstrate how basic aggregation 
-is done.
+The main purpose of the Cubes framework is aggregation and browsing through
+the aggregates. In this chapter we are going to demonstrate how basic
+aggregation is done.
 
 .. note::
 
@@ -14,7 +14,7 @@ ROLAP with SQL backend
 
 Following examples will show:
 
-* how to build a model programatically
+* how to build a model programmatically
 * how to create a model with flat dimensions
 * how to aggregate whole cube
 * how to drill-down and aggregate through a dimension
@@ -30,101 +30,188 @@ Create a tutorial directory and download :download:`this example file
 
 Start with imports:
 
-.. code-block:: python
+>>> from sqlalchemy import create_engine
+>>> from cubes.tutorial.sql import create_table_from_csv
 
-    import cubes
-    import cubes.tutorial.sql as tutorial
-    import sqlalchemy
+.. note::
 
-Cubes comes with tutorial helper methods in ``cubes.tutorial``. It is advised 
-not to use them in production, they are provided just to simplify learner's 
-life.
+    Cubes comes with tutorial helper methods in ``cubes.tutorial``. It is
+    advised not to use them in production, they are provided just to simplify
+    learner's life.
 
 Prepare the data using the tutorial helpers. This will create a table and
 populate it with contents of the CSV file:
 
+>>> engine = create_engine('sqlite:///data.sqlite')
+... create_table_from_csv(engine,
+...                       "data.csv",
+...                       table_name="irbd_balance",
+...                       fields=[
+...                             ("category", "string"),
+...                             ("category_label", "string"),
+...                             ("subcategory", "string"),
+...                             ("subcategory_label", "string"),
+...                             ("line_item", "string"),
+...                             ("year", "integer"),
+...                             ("amount", "integer")],
+...                       create_id=True
+...                   )
+
+Download the :download:`example model<files/model.json>` and save it.
+Load the model:
+
+>>> import cubes
+>>> model = cubes.load_model("model.json")
+
+Check whether the model is valid with ``model.is_valid()`` - should return
+``True``.
+
+>>> model.is_valid()
+True
+
+Create a workspace and get a :class:`browser<cubes.AggregationBrowser>`
+instance (in this example it is :class:`SQL
+backend<cubes.backends.star.SQLStarBrowser>`):
+
+>>> workspace = cubes.create_workspace("sql.star", model, engine=engine)
+
+Get a cube and browser for the cube:
+
+>>> cube = model.cube("irbd_balance")
+>>> browser = workspace.browser(cube)
+
+:class:`cell<cubes.Cell>` defines context of interest - part of the cube we
+are looking at. We start with whole cube:
+
+>>> cell = browser.full_cube()
+
+Compute the aggregate. Measure fields of :class:`aggregation
+result<cubes.AggregationResult>` have aggregation suffix. Also a total record
+count within the cell is included as ``record_count``.
+
+>>> result = browser.aggregate(cell)
+>>> result.summary["record_count"]
+62
+>>> result.summary["amount_sum"]
+1116860
+
+Now try some drill-down by `year` dimension:
+
+>>> result = browser.aggregate(cell, drilldown=["year"])
+>>> for record in result.drilldown:
+...     print record
+{u'record_count': 31, u'amount_sum': 550840, u'year': 2009}
+{u'record_count': 31, u'amount_sum': 566020, u'year': 2010}
+
+Drill-dow by item category:
+
+>>> result = browser.aggregate(cell, drilldown=["item"])
+>>> for record in result.drilldown:
+...     print record
+{u'item.category': u'a', u'item.category_label': u'Assets', u'record_count': 32, u'amount_sum': 558430}
+{u'item.category': u'e', u'item.category_label': u'Equity', u'record_count': 8, u'amount_sum': 77592}
+{u'item.category': u'l', u'item.category_label': u'Liabilities', u'record_count': 22, u'amount_sum': 480838}
+
+Aggregations and Aggregation Result
+-----------------------------------
+
+Aggregate types depend on the backend, however there is at least one that
+should be supported by all backends: `sum`. The SQL StarBrowser supports also
+`min`, and `max`.
+
+Relevant aggregations for a measure can be specified in the model description:
+
+.. code-block:: javascript
+
+    "measures": [
+        {
+            "name": "amount",
+            "aggregations": ["sum", "min", "max"]
+        }
+    ]
+
+The resulting aggregated attribute name will be constructed from the measure
+name and aggregation suffix, for example the mentioned *amount* will have
+three aggregates in the result: `amount_sum`, `amount_min` and `amount_max` in
+the case described above.
+
+Result of aggregation is a structure containing: `summary` - summary for the
+aggregated cell, `drilldown` - drill down cells, if was desired, and
+`total_cell_count` - total cells in the drill down, regardless of pagination. 
+
+Cell Details
+============
+
+When we are browsing a cube, the cell provides current browsing context. For
+aggregations and selections to happen, only keys and some other internal
+attributes are necessary. Those can not be presented to the user though. For
+example we have geography path (`country`, `region`) as ``['sk', 'ba']``,
+however we want to display to the user `Slovakia` for the country and
+`Bratislava` for the region. We need to fetch those values from the data
+store.  Cell details is basically a human readable description of the current
+cell.
+
+For applications where it is possible to store state between aggregation
+calls, we can use values from previous aggregations or value listings. Problem
+is with web applications - sometimes it is not desirable or possible to store
+whole browsing context with all details. This is exact the situation where
+fetching cell details explicitly might come handy.
+
+.. note::
+
+    The Original browser added cut information in the summary, which was ok
+    when only point cuts were used. In other situations the result was
+    undefined and mostly erroneous.
+
+The cell details are now provided separately by method
+:func:`cubes.AggregationBrowser.cell_details()` which has Slicer HTTP
+equivalent ``/details`` or ``{"query":"detail", ...}`` in ``/report`` request
+(see the :doc:`server documentation<server>` for more information).
+
+For point cuts, the detail is a list of dictionaries for each level. For
+example our previously mentioned path ``['sk', 'ba']`` would have details
+described as:
+
+.. code-block:: javascript
+
+    [
+        {
+            "geography.country_code": "sk",
+            "geography.country_name": "Slovakia",
+            "geography.something_more": "..."
+            "_key": "sk",
+            "_label": "Slovakia"
+        },
+        {
+            "geography.region_code": "ba",
+            "geography.region_name": "Bratislava",
+            "geography.something_even_more": "...",
+            "_key": "ba",
+            "_label": "Bratislava"
+        }
+    ]
+    
+You might have noticed the two redundant keys: `_key` and `_label` - those
+contain values of a level key attribute and level label attribute
+respectively. It is there to simplify the use of the details in presentation
+layer, such as templates. Take for example doing only one-dimensional
+browsing and compare presentation of "breadcrumbs":
+
 .. code-block:: python
 
-    engine = sqlalchemy.create_engine('sqlite:///:memory:')
-    tutorial.create_table_from_csv(engine, 
-                          "IBRD_Balance_Sheet__FY2010.csv", 
-                          table_name="irbd_balance", 
-                          fields=[
-                                ("category", "string"), 
-                                ("line_item", "string"),
-                                ("year", "integer"), 
-                                ("amount", "integer")],
-                          create_id=True    
-                            )
+    labels = [detail["_label"] for detail in cut_details]
 
-We need a :doc:`logical model</model>` - instance of :class:`cubes.model.Model`:
+Which is equivalent to:
 
 .. code-block:: python
 
-    model = cubes.Model()
+    levels = dimension.hierarchy.levels()
+    labels = []
+    for i, detail in enumerate(cut_details):
+        labels.append(detail[level[i].label_attribute.full_name()])
 
-Add :class:`dimensions<cubes.model.Dimension>` to the model. Reason for having 
-dimensions in a model is, that they might be shared by multiple cubes.
-
-
-.. code-block:: python
-
-    model.add_dimension(cubes.Dimension("category"))
-    model.add_dimension(cubes.Dimension("line_item"))
-    model.add_dimension(cubes.Dimension("year"))
-
-Define a :class:`cube<cubes.Cube>` and specify already defined dimensions:
-
-.. code-block:: python
-
-    cube = cubes.Cube(name="irbd_balance", 
-                      model=model,
-                      dimensions=["category", "line_item", "year"],
-                      measures=["amount"]
-                      )
-
-Create a :class:`browser<cubes.AggregationBrowser>` instance (in this example 
-it is :class:`SQL backend<cubes.backends.sql.SQLBrowser>` implementation) and
-get a :class:`cell<cubes.Cell>` representing the whole cube (all data):
-
-
-.. code-block:: python
-
-    browser = cubes.backends.sql.SQLBrowser(cube, engine.connect(),
-                                            view_name = "irbd_balance")
-
-    cell = browser.full_cube()
-
-Compute the aggregate. Measure fields of :class:`aggregation result<cubes.AggregationResult>` have aggregation suffix, currenlty only ``_sum``. Also a total record count within the cell is included as ``record_count``.
-
-.. code-block:: python
-
-    result = browser.aggregate(cell)
-
-    print "Record count: %d" % result.summary["record_count"]
-    print "Total amount: %d" % result.summary["amount_sum"]
-
-Now try some drill-down by `category` dimension:
-
-.. code-block:: python
-
-    result = browser.aggregate(cell, drilldown=["category"])
-
-    print "%-20s%10s%10s" % ("Category", "Count", "Total")
-
-    for record in result.drilldown:
-        print "%-20s%10d%10d" % (record["category"], record["record_count"], 
-                                            record["amount_sum"])
-
-Drill-dow by year:
-
-.. code-block:: python
-
-    result = browser.aggregate(cell, drilldown=["year"])
-    print "%-20s%10s%10s" % ("Year", "Count", "Total")
-    for record in result.drilldown:
-        print "%-20s%10d%10d" % (record["year"], record["record_count"],
-                                            record["amount_sum"])
+Note that this might change a bit: either full detail will be returned or just
+key and label, depending on an option argument (not yet decided).
 
 Hierarchies, levels and drilling-down
 =====================================
@@ -189,18 +276,18 @@ The levels are defined in the model:
     FIXME: the following paragraph is referencing some "previous one", that is
     something from second tutorial blog post.
 
-You can see a slight difference between this model description and the previous 
-one: we didn't just specify level names and didn't let cubes to fill-in the 
-defaults. Here we used explicit description of each level. `name` is level 
-identifier, `label` is human-readable label of the level that can be used in 
-end-user applications and `attributes` is list of attributes that belong to the 
-level. The first attribute, if not specified otherwise, is the key attribute of 
-the level.
+You can see a slight difference between this model description and the
+previous one: we didn't just specify level names and didn't let cubes to
+fill-in the defaults. Here we used explicit description of each level. `name`
+is level identifier, `label` is human-readable label of the level that can be
+used in end-user applications and `attributes` is list of attributes that
+belong to the level. The first attribute, if not specified otherwise, is the
+key attribute of the level.
 
-Other level description attributes are `key` and `label_attribute``. The `key` 
-specifies attribute name which contains key for the level. Key is an id number, 
-code or anything that uniquely identifies the dimension level. 
-`label_attribute` is name of an attribute that contains human-readable value 
+Other level description attributes are `key` and `label_attribute``. The `key`
+specifies attribute name which contains key for the level. Key is an id
+number, code or anything that uniquely identifies the dimension level.
+`label_attribute` is name of an attribute that contains human-readable value
 that can be displayed in user-interface elements such as tables or charts.
 
 Preparation
@@ -213,10 +300,9 @@ Preparation
 Again, in short we need:
 
 * data in a database
-* logical model (see :download:`model file<files/model_03.json>`) prepared with 
-  appropriate mappings
-* denormalized view for aggregated browsing (for current simple SQL browser 
-  implementation)
+* logical model (see :download:`model file<files/model_03.json>`) prepared
+  with appropriate mappings
+* denormalized view for aggregated browsing (optional)
 
 Drill-down
 ----------
@@ -250,16 +336,16 @@ dimensions will have one hierarchy, thought.
 
     hierarchy = dimension.hierarchy()
 
-*Base path* is path to the most detailed element, to the leaf of a tree, to the 
-fact. Can we go deeper in the hierarchy?
+*Base path* is path to the most detailed element, to the leaf of a tree, to
+the fact. Can we go deeper in the hierarchy?
 
 .. code-block:: python
 
     if hierarchy.path_is_base(path):
         return
 
-Get the next level in the hierarchy. `levels_for_path` returns list of levels 
-according to provided path. When `drilldown` is set to `True` then one more 
+Get the next level in the hierarchy. `levels_for_path` returns list of levels
+according to provided path. When `drilldown` is set to `True` then one more
 level is returned.
 
 .. code-block:: python
@@ -379,17 +465,18 @@ you will get similar tree, but only for year 2010 (obviously).
 Level Labels and Details
 ------------------------
 
-Codes and ids are good for machines and programmers, they are short, might 
-follow some scheme, easy to handle in scripts. Report users have no much use of 
-them, as they look cryptic and have no meaning for the first sight.
+Codes and ids are good for machines and programmers, they are short, might
+follow some scheme, easy to handle in scripts. Report users have no much use
+of them, as they look cryptic and have no meaning for the first sight.
 
-Our source data contains two columns for category and for subcategory: column 
-with code and column with label for user interfaces. Both columns belong to the 
-same dimension and to the same level. The key column is used by the analytical 
-system to refer to the dimension point and the label is just decoration.
+Our source data contains two columns for category and for subcategory: column
+with code and column with label for user interfaces. Both columns belong to
+the same dimension and to the same level. The key column is used by the
+analytical system to refer to the dimension point and the label is just
+decoration.
 
-Levels can have any number of detail attributes. The detail attributes have no 
-analytical meaning and are just ignored during aggregations. If you want to do 
+Levels can have any number of detail attributes. The detail attributes have no
+analytical meaning and are just ignored during aggregations. If you want to do
 analysis based on an attribute, make it a separate dimension instead.
 
 So now we fix our model by specifying detail attributes for the levels:
@@ -425,9 +512,10 @@ The model description is:
         ]
     }
 
-Note the `label_attribute` keys. They specify which attribute contains label to 
-be displayed. Key attribute is by-default the first attribute in the list. If 
-one wants to use some other attribute it can be specified in `key_attribute`.
+Note the `label_attribute` keys. They specify which attribute contains label
+to be displayed. Key attribute is by-default the first attribute in the list.
+If one wants to use some other attribute it can be specified in
+`key_attribute`.
 
 Because we added two new attributes, we have to add mappings for them:
 
@@ -477,7 +565,8 @@ Summary
 
 * hierarchies can have multiple levels
 * a hierarchy level is identifier by a key attribute
-* a hierarchy level can have multiple detail attributes and there is one 
-  special detail attribute: label attribute used for display in user interfaces
+* a hierarchy level can have multiple detail attributes and there is one
+  special detail attribute: label attribute used for display in user
+  interfaces
 
     
