@@ -1,13 +1,36 @@
 Changes in the Cubes
 ====================
 
+Development Version
+===================
+
+New Features
+------------
+
+* cut_from_string(): added parsing of range and set cuts from string;
+  introduced requirement for key format: Keys should now have format
+  "alphanumeric character or underscore" if they are going to be converted to
+  strings (for example when using slicer HTTP server)
+
+Changes
+-------
+
+* none so far
+
+Fixes
+-----
+
+* Better handling of missing optional packages, also fixes #57 (now works
+  without slqalchemy and without werkzeug as expected)
+
+
 Version 0.9
 ===========
 
 Important Changes
 -----------------
 
-Summary if most important changes that might affect your code:
+Summary of most important changes that might affect your code:
 
 **Slicer**: Change all your slicer.ini configuration files to have [workspace]
 section instead of old [db] or [backend]. Depreciation warning is issued, will
