@@ -15,6 +15,7 @@ import cubes
 import cubes.server
 import ConfigParser
 import shlex
+from cubes.common import MissingPackageError
 
 def validate_model(args):
     """docstring for validate_model"""
@@ -263,4 +264,8 @@ subparser.set_defaults(func=generate_ddl)
 
 args = parser.parse_args(sys.argv[1:])
 
-args.func(args)
+try:
+    args.func(args)
+except MissingPackageError as e:
+    sys.stderr.write("ERROR: %s\n" % e)
+    
