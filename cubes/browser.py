@@ -2,6 +2,8 @@ import logging
 import json
 import decimal
 import copy
+import re
+
 try:
     from collections import OrderedDict
 except ImportError:
@@ -18,7 +20,8 @@ __all__ = [
     "cuts_from_string",
     "string_from_cuts",
     "string_from_path",
-    "path_from_string"
+    "path_from_string",
+    "cut_from_string"
 ]
 
 class AggregationBrowser(object):
@@ -655,6 +658,20 @@ def cuts_from_string(string):
         date:2004,1|class=5
         date:2004,1,1|category:5,10,12|class:5
 
+    Ranges are in form ``from-to`` with possibility of open range::
+
+        date:2004-2010
+        date:2004,5-2010,3
+        date:2004,5-2010
+        date:2004,5-
+        date:-2010
+    
+    Sets are in form ``path1+path2+path3`` (none of the paths should be
+    empty)::
+    
+        date:2004+2010
+        date:2004+2005,1+2010,10
+
     Grammar::
     
         <list> ::= <cut> | <cut> '|' <list>
@@ -669,21 +686,45 @@ def cuts_from_string(string):
     if not string:
         return []
     
-    cut_strings = string.split(CUT_STRING_SEPARATOR)
-
     cuts = []
-    
-    for cut_string in cut_strings:
-        (dimension_name, path_string) = cut_string.split(DIMENSION_STRING_SEPARATOR)
-        
-        path = path_string.split(PATH_STRING_SEPARATOR)
-        if not path:
-            path = []
-        cut = PointCut(dimension_name, path)
-        cuts.append(cut)
+
+    dim_cuts = string.split(CUT_STRING_SEPARATOR)
+    for dim_cut in dim_cuts:
+        (dimension, cut_string) = dim_cut.split(DIMENSION_STRING_SEPARATOR)
+        cuts.append(cut_from_string(dimension, cut_string))
         
     return cuts
 
+re_element = re.compile(r"^[\w,]*$")
+re_point = re.compile(r"^[\w,]*$")
+re_set = re.compile(r"^([\w,]+)(\+([\w,]+))+$")
+re_range = re.compile(r"^([\w,]*)-([\w,]*)$")
+
+def cut_from_string(dimension, string):
+    """Returns a cut from `string` with dimension `dimension. The string
+    should match one of the following patterns:
+    
+    * point cut: ``2010,2,4``
+    * range cut: ``2010-2012``, ``2010,1-2012,3,5``, ``2010,1-`` (open range)
+    * set cut: ``2010+2012``, ``2010,1+2012,3,5+2012,10``
+    
+    If the `string` does not match any of the patterns, then exception is
+    raised.
+    """
+
+    if re_point.match(string):
+        return PointCut(dimension, path_from_string(string))
+    elif re_set.match(string):
+        paths = map(path_from_string, string.split(SET_CUT_SEPARATOR))
+        return SetCut(dimension, paths)
+    elif re_range.match(string):
+        (from_path, to_path) = map(path_from_string, string.split(RANGE_CUT_SEPARATOR))
+        return RangeCut(dimension, from_path, to_path)
+    else:
+        raise Exception("Unknown cut format (check that keys "
+                        "consist only of of alphanumeric characters and "
+                        "underscore)")
+        
 def string_from_cuts(cuts):
     """Returns a string represeting cuts. String can be used in URLs"""
     strings = [str(cut) for cut in cuts]
@@ -691,10 +732,18 @@ def string_from_cuts(cuts):
     return string
 
 def string_from_path(path):
-    """Returns a string representing dimension path."""
+    """Returns a string representing dimension path. If path is None or empty,
+    then returns empty string."""
+
+    if not path:
+        return ""
     
     # FIXME: do some escaping or something like URL encoding
     path = [unicode(s) if s is not None else "" for s in path]
+    
+    if not all(map(re_element.match, path)):
+        raise Exception("Can not convert path to string: keys contain invalid characters (should be alpha-numeric or underscore)")
+        
     string = PATH_STRING_SEPARATOR.join(path)
     return string
     
@@ -799,6 +848,7 @@ class RangeCut(Cut):
             from_path_str = string_from_path(self.from_path)
         else:
             from_path_str = string_from_path([])
+
         if self.to_path:
             to_path_str = string_from_path(self.to_path)
         else:
@@ -809,7 +859,7 @@ class RangeCut(Cut):
         else:
             dim_name = self.dimension.name
 
-        range_stsr = from_path_str + RANGE_CUT_SEPARATOR + to_path_str
+        range_str = from_path_str + RANGE_CUT_SEPARATOR + to_path_str
         string = dim_name + DIMENSION_STRING_SEPARATOR + range_str
 
         return string        

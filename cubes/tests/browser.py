@@ -107,11 +107,51 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         self.assertEqual([1,2,3,4], hier.rollup(path,"category"))
         self.assertRaises(ValueError, hier.rollup, path,"detail")
         
-    def test_set_cut_string(self):
-        cut = cubes.browser.SetCut("date", [[1], [2,3], ["qwe", "asd",100]])
+    def test_cut_string(self):
+        cut = cubes.browser.PointCut("foo", ["10"])
+        self.assertEqual("foo:10", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("foo", "10"))
+
+        cut = cubes.browser.PointCut("foo", ["123_abc_", "10", "_"])
+        self.assertEqual("foo:123_abc_,10,_", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("foo", "123_abc_,10,_"))
+
+        cut = cubes.browser.PointCut("foo", ["123_ abc_"])
+        self.assertRaises(Exception, cut.__str__)
+
+        cut = cubes.browser.PointCut("foo", ["a-b"])
+        self.assertRaises(Exception, cut.__str__)
+
+        cut = cubes.browser.PointCut("foo", ["a+b"])
+        self.assertRaises(Exception, cut.__str__)
         
+    def test_set_cut_string(self):
         self.assertEqual('qwe,asd,100', cubes.browser.string_from_path(["qwe", "asd",100]))
-        self.assertEqual("date:1+2,3+qwe,asd,100", str(cut))
+
+        cut = cubes.browser.SetCut("foo", [["1"], ["2","3"], ["qwe", "asd", "100"]])
+        self.assertEqual("foo:1+2,3+qwe,asd,100", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("foo", "1+2,3+qwe,asd,100"))
+
+        cut = cubes.browser.SetCut("foo", ["a+b"])
+        self.assertRaises(Exception, cut.__str__)
+
+        cut = cubes.browser.SetCut("foo", ["a-b"])
+        self.assertRaises(Exception, cut.__str__)
+
+    def test_range_cut_string(self):
+        cut = cubes.browser.RangeCut("date", ["2010"], ["2011"])
+        self.assertEqual("date:2010-2011", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("date", "2010-2011"))
+
+        cut = cubes.browser.RangeCut("date", ["2010","11","12"], ["2011","2","3"])
+        self.assertEqual("date:2010,11,12-2011,2,3", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("date", "2010,11,12-2011,2,3"))
+
+        cut = cubes.browser.RangeCut(None, ["a+b"], ["1"])
+        self.assertRaises(Exception, cut.__str__)
+
+        cut = cubes.browser.RangeCut("foo", ["a-b"], ["1"])
+        self.assertRaises(Exception, cut.__str__)
 
     def test_slice_drilldown(self):
         cut = cubes.browser.PointCut("date", [])
