@@ -9,9 +9,20 @@ import collections
 try:
     import sqlalchemy
     import sqlalchemy.sql as sql
+
+    aggregation_functions = {
+        "sum": sql.functions.sum,
+        "min": sql.functions.min,
+        "max": sql.functions.max,
+        "count": sql.functions.count
+    }
+
 except ImportError:
     from cubes.common import MissingPackage
-    sqlalchemy = MissingPackage("sqlalchemy", "Built-in SQL aggregation browser")
+    sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
+    aggregation_functions = {}
+    
+__all__ = ["StarBrowser"]
 
 # Required functionality checklist
 # 
@@ -31,8 +42,6 @@ except ImportError:
 # * [partial] dimension values
 # *     [done] pagination
 # *     [done] ordering
-
-__all__ = ["StarBrowser"]
 
 # Browsing context:
 #     * engine
@@ -351,13 +360,6 @@ class StarBrowser(AggregationBrowser):
 `conditions` - SQL conditions, `group_by` - attributes to be grouped by."""
 Condition = collections.namedtuple("Condition",
                                     ["attributes", "condition", "group_by"])
-
-aggregation_functions = {
-    "sum": sql.functions.sum,
-    "min": sql.functions.min,
-    "max": sql.functions.max,
-    "count": sql.functions.count
-}
 
 class QueryContext(object):
 

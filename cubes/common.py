@@ -42,6 +42,10 @@ class IgnoringDictionary(dict):
         if value:
             self[key] = value
 
+class MissingPackageError(Exception):
+    """Exception raised when encountered a missing package."""
+    pass
+    
 class MissingPackage(object):
     """Bogus class to handle missing optional packages - packages that are not
     necessarily required for Cubes, but are needed for certain features."""
@@ -74,5 +78,6 @@ class MissingPackage(object):
         else:
             comment = ""
 
-        raise Exception("Optional package '%s' is not installed. Please install the package%s%s%s" % 
-                            (self.package, source, use, comment))
+        raise MissingPackageError("Optional package '%s' is not installed. "
+                                  "Please install the package%s%s%s" % 
+                                      (self.package, source, use, comment))
