@@ -551,6 +551,10 @@ class Cube(object):
         given name is returned, otherwise dimension object is returned if it
         belongs to the cube."""
 
+        if not obj:
+            raise ModelError("Dimension should not be none (cube '%s')" % \
+                                self.name)
+            
         if isinstance(obj, basestring):
             if obj in self._dimensions:
                 return self._dimensions[obj]

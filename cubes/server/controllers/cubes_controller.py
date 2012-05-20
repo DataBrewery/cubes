@@ -201,15 +201,15 @@ class CubesController(application_controller.ApplicationController):
         if depth_string:
             try:
                 depth = int(self.args.get("depth"))
-            except:
-                return common.RequestError("depth should be an integer")
+            except ValueError:
+                raise common.RequestError("depth should be an integer")
         else:
             depth = None
 
         try:
             dimension = self.cube.dimension(dim_name)
-        except:
-            return common.NotFoundError(dim_name, "dimension",
+        except KeyError:
+            raise common.NotFoundError(dim_name, "dimension",
                                         message = "Dimension '%s' was not found" % dim_name)
 
         values = self.browser.values(self.cell, dimension, depth = depth, page = self.page, page_size = self.page_size)
@@ -228,7 +228,26 @@ class CubesController(application_controller.ApplicationController):
 
         report_request = self.json_request()
 
-        result = self.browser.report(self.cell, report_request)
+        try:
+            queries = report_request["queries"]
+        except KeyError:
+            help = "Wrap all your report queries under a 'queries' key. The " \
+                    "old documentation was mentioning this requirement, however it " \
+                    "was not correctly implemented and wrong example was provided."
+            raise common.RequestError("Report request does not contain 'queries' key",
+                                        help=help)
+        
+        cell_cuts = report_request.get("cell")
+
+        if cell_cuts:
+            # Override URL cut with the one in report
+            cuts = [cubes.cut_from_dict(cut) for cut in cell_cuts]
+            cell = cubes.Cell(self.browser.cube, cuts)
+            self.logger.info("using cell from report specification (URL parameters are ignored)")
+        else:
+            cell = self.cell
+
+        result = self.browser.report(cell, queries)
 
         return self.json_response(result)
 

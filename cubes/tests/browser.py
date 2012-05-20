@@ -107,6 +107,28 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         self.assertEqual([1,2,3,4], hier.rollup(path,"category"))
         self.assertRaises(ValueError, hier.rollup, path,"detail")
         
+    def test_cut_from_dict(self):
+        # d = {"type":"point", "path":[2010]}
+        # self.assertRaises(Exception, cubes.cut_from_dict, d)
+        
+        d = {"type":"point", "path":[2010], "dimension":"date"}
+        cut = cubes.cut_from_dict(d)
+        tcut = cubes.PointCut("date", [2010])
+        self.assertEqual(tcut, cut)
+        self.assertEqual(d, tcut.to_dict())
+
+        d = {"type":"range", "from":[2010], "to":[2012, 10], "dimension":"date"}
+        cut = cubes.cut_from_dict(d)
+        tcut = cubes.RangeCut("date", [2010], [2012, 10])
+        self.assertEqual(tcut, cut)
+        self.assertEqual(d, tcut.to_dict())
+
+        d = {"type":"set", "paths":[[2010], [2012, 10]], "dimension":"date"}
+        cut = cubes.cut_from_dict(d)
+        tcut = cubes.SetCut("date", [[2010], [2012, 10]])
+        self.assertEqual(tcut, cut)
+        self.assertEqual(d, tcut.to_dict())
+        
     def test_cut_string(self):
         cut = cubes.browser.PointCut("foo", ["10"])
         self.assertEqual("foo:10", str(cut))

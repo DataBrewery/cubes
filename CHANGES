@@ -11,22 +11,33 @@ New Features
   introduced requirement for key format: Keys should now have format
   "alphanumeric character or underscore" if they are going to be converted to
   strings (for example when using slicer HTTP server)
-
+* cut_from_dict(): create a cut (of appropriate class) from a dictionary
+  description
 
 *StarBrowser:*
 
 * implemented RangeCut conditions
 
+*Slicer Server:*
+
+* `/report` JSON now accepts `cell` with full cell description as dictionary,
+  overrides URL parameters
+
 Changes
 -------
 
-* none so far
+* all `/report` JSON requests should now have queries wrapped in the key
+  `queries`. This was originally intended way of use, but was not correctly
+  implemented. A descriptive error message is returned from the server if the
+  key `queries` is not present. Despite being rather a bug-fix, it is listed
+  here as it requires your attention for possible change of your code.
 
 Fixes
 -----
 
 * Better handling of missing optional packages, also fixes #57 (now works
   without slqalchemy and without werkzeug as expected)
+* see change above about `/report` and `queries`
 
 
 Version 0.9
