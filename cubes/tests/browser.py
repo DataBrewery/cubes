@@ -125,8 +125,17 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         cut = cubes.browser.PointCut("foo", ["a+b"])
         self.assertRaises(Exception, cut.__str__)
         
-    def test_set_cut_string(self):
+    def test_string_from_path(self):
         self.assertEqual('qwe,asd,100', cubes.browser.string_from_path(["qwe", "asd",100]))
+        self.assertEqual('', cubes.browser.string_from_path([]))
+        self.assertEqual('', cubes.browser.string_from_path(None))
+
+    def test_path_from_string(self):
+        self.assertEqual(["qwe", "asd","100"], cubes.browser.path_from_string('qwe,asd,100'))
+        self.assertEqual([], cubes.browser.path_from_string(''))
+        self.assertEqual([], cubes.browser.path_from_string(None))
+        
+    def test_set_cut_string(self):
 
         cut = cubes.browser.SetCut("foo", [["1"], ["2","3"], ["qwe", "asd", "100"]])
         self.assertEqual("foo:1+2,3+qwe,asd,100", str(cut))
@@ -142,6 +151,18 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         cut = cubes.browser.RangeCut("date", ["2010"], ["2011"])
         self.assertEqual("date:2010-2011", str(cut))
         self.assertEqual(cut, cubes.cut_from_string("date", "2010-2011"))
+
+        cut = cubes.browser.RangeCut("date", ["2010"], None)
+        self.assertEqual("date:2010-", str(cut))
+        cut = cubes.cut_from_string("date", "2010-")
+        if cut.to_path:
+            self.fail('there should be no to path, is: %s' % (cut.to_path, ))
+
+        cut = cubes.browser.RangeCut("date", None, ["2010"])
+        self.assertEqual("date:-2010", str(cut))
+        cut = cubes.cut_from_string("date", "-2010")
+        if cut.from_path:
+            self.fail('there should be no from path is: %s' % (cut.from_path, ))
 
         cut = cubes.browser.RangeCut("date", ["2010","11","12"], ["2011","2","3"])
         self.assertEqual("date:2010,11,12-2011,2,3", str(cut))
