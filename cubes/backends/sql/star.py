@@ -683,6 +683,7 @@ class QueryContext(object):
 
         if first is None:
             return self.boundary_condition(dim, hierarchy, path, bound, first=True)
+
         if not path:
             return Condition(set(), None)
 

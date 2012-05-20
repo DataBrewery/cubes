@@ -726,14 +726,18 @@ def cut_from_string(dimension, string):
                         "underscore)")
         
 def string_from_cuts(cuts):
-    """Returns a string represeting cuts. String can be used in URLs"""
+    """Returns a string represeting `cuts`. String can be used in URLs"""
     strings = [str(cut) for cut in cuts]
     string = CUT_STRING_SEPARATOR.join(strings)
     return string
 
 def string_from_path(path):
-    """Returns a string representing dimension path. If path is None or empty,
-    then returns empty string."""
+    """Returns a string representing dimension `path`. If `path` is ``None``
+    or empty, then returns empty string. The ptah elements are comma ``,``
+    spearated.
+    
+    Raises `ValueError` when path elements contain characters that are not
+    allowed in path element (alphanumeric and underscore ``_``)."""
 
     if not path:
         return ""
@@ -742,17 +746,26 @@ def string_from_path(path):
     path = [unicode(s) if s is not None else "" for s in path]
     
     if not all(map(re_element.match, path)):
-        raise Exception("Can not convert path to string: keys contain invalid characters (should be alpha-numeric or underscore)")
+        raise ValueError("Can not convert path to string: "
+                         "keys contain invalid characters "
+                         "(should be alpha-numeric or underscore)")
         
     string = PATH_STRING_SEPARATOR.join(path)
     return string
     
 def path_from_string(string):
-    """Returns a dimension path from string"""
+    """Returns a dimension point path from `string`. The path elements are
+    separated by comma ``,`` character.
     
-    # FIXME: do some un-escaping when escaping in string_from_path is implemented
+    Returns an empty list when string is empty or ``None``.
+    """
+    
+    if not string:
+        return []
+        
     path = string.split(PATH_STRING_SEPARATOR)
     path = [v if v != "" else None for v in path]
+
     return path
 
 class Cut(object):
