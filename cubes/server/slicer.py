@@ -161,6 +161,8 @@ class Slicer(object):
         try:
             response = action()
             response.headers.add("Access-Control-Allow-Origin", "*")
+        except cubes.ModelError as e:
+            raise common.RequestError(str(e))
         finally:
             controller.finalize()
 
@@ -188,5 +190,5 @@ def run_server(config):
         use_reloader = False
 
     application = Slicer(config)
-    werkzeug.serving.run_simple(host, port, application, use_reloader = use_reloader)
+    werkzeug.serving.run_simple(host, port, application, use_reloader=use_reloader)
 

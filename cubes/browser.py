@@ -21,7 +21,8 @@ __all__ = [
     "string_from_cuts",
     "string_from_path",
     "path_from_string",
-    "cut_from_string"
+    "cut_from_string",
+    "cut_from_dict"
 ]
 
 class AggregationBrowser(object):
@@ -131,10 +132,10 @@ class AggregationBrowser(object):
         """
         raise NotImplementedError
         
-    def report(self, cell, report):
-        """Bundle multiple requests from `report` into a single one.
+    def report(self, cell, queries):
+        """Bundle multiple requests from `queries` into a single one.
         
-        Keys of `report` are custom names of queries which caller can later
+        Keys of `queries` are custom names of queries which caller can later
         use to retrieve respective query result. Values are dictionaries
         specifying arguments of the particular query. Each query should
         contain at least one required value ``query`` which contains name of
@@ -144,7 +145,7 @@ class AggregationBrowser(object):
                 
         Example::
         
-            report = {
+            queries = {
                 "product_summary" = { "query": "aggregate", 
                                       "drilldown": "product" }
                 "year_list" = { "query": "values", 
@@ -156,7 +157,7 @@ class AggregationBrowser(object):
         report specification and values will be result values from each query
         call.::
         
-            result = browser.report(cell, report)
+            result = browser.report(cell, queries)
             product_summary = result["product_summary"]
             year_list = result["year_list"]
 
@@ -206,45 +207,47 @@ class AggregationBrowser(object):
         
         report_result = {}
         
-        for result_name, report_query in report.items():
-            query = report_query.get("query")
-            if not query:
+        for result_name, query in queries.items():
+            query_type = query.get("query")
+            if not query_type:
                 raise KeyError("No report query for '%s'" % result_name)
-                
-            args = dict(report_query)
+            
+            # FIXME: add: cell = query.get("cell")
+            
+            args = dict(query)
             del args["query"]
             
             # Note: we do not just convert name into function from symbol for possible future
             # more fine-tuning of queries as strings
 
             # Handle rollup
-            rollup = report_query.get("rollup")
+            rollup = query.get("rollup")
             if rollup:
                 query_cell = cell.rollup(rollup)
             else:
                 query_cell = cell
 
-            if query == "aggregate":
+            if query_type == "aggregate":
                 result = self.aggregate(query_cell, **args)
 
-            elif query == "facts":
+            elif query_type == "facts":
                 result = self.facts(query_cell, **args)
 
-            elif query == "fact":
+            elif query_type == "fact":
                 # Be more tolerant: by default we want "key", but "id" might be common
                 key = args.get("key")
                 if not key:
                     key = args.get("id")
                 result = self.fact(key)
 
-            elif query == "values":
+            elif query_type == "values":
                 result = self.values(query_cell, **args)
 
-            elif query == "details":
+            elif query_type == "details":
                 result = self.cell_details(query_cell, **args)
 
             else:
-                raise KeyError("Unknown report query '%s' for '%s'" % (query, result_name))
+                raise KeyError("Unknown report query '%s' for '%s'" % (query_type, result_name))
 
             report_result[result_name] = result
             
@@ -711,7 +714,6 @@ def cut_from_string(dimension, string):
     If the `string` does not match any of the patterns, then exception is
     raised.
     """
-
     if re_point.match(string):
         return PointCut(dimension, path_from_string(string))
     elif re_set.match(string):
@@ -724,7 +726,28 @@ def cut_from_string(dimension, string):
         raise Exception("Unknown cut format (check that keys "
                         "consist only of of alphanumeric characters and "
                         "underscore)")
+                        
+def cut_from_dict(desc, cube=None):
+    """Returns a cut from `desc` dictionary. If `cube` is specified, then the
+    dimension is looked up in the cube and set as `Dimension` instances, if
+    specified as strings."""
+
+    cut_type = desc["type"].lower()
+
+    dim = desc.get("dimension")
+
+    if dim and cube:
+        dim = cube.dimension(dim)
         
+    if cut_type == "point":
+        return PointCut(dim, desc.get("path"))
+    elif cut_type == "set":
+        return SetCut(dim, desc.get("paths"))
+    elif cut_type == "range":
+        return RangeCut(dim, desc.get("from"), desc.get("to"))
+    else:
+        raise ValueError("Unknown cut type %s" % cut_type)
+    
 def string_from_cuts(cuts):
     """Returns a string represeting `cuts`. String can be used in URLs"""
     strings = [str(cut) for cut in cuts]
@@ -775,7 +798,7 @@ class Cut(object):
     def to_dict(self):
         """Returns dictionary representation fo the receiver. The keys are:
         `dimension`."""
-        d = {"dimension": self.dimension.name}
+        d = { "dimension": str(self.dimension) }
         return d
         
 class PointCut(Cut):
@@ -917,7 +940,7 @@ class SetCut(Cut):
         `dimension`, `type`=``range`` and `set` as a list of paths."""
         d = super(SetCut, self).to_dict()
         d["type"] = "set"
-        d["paths"] = paths
+        d["paths"] = self.paths
         return d
 
     def level_depth(self):
