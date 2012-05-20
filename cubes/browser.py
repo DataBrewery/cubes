@@ -839,7 +839,12 @@ class RangeCut(Cut):
     def level_depth(self):
         """Returns index of deepest level which is equivalent to the longest
         path."""
-        return max(len(self.from_path), len(self.to_path))
+        if self.from_path and not self.to_path:
+            return len(self.from_path)
+        elif not self.from_path and self.to_path:
+            return len(self.to_path)
+        else:
+            return max(len(self.from_path), len(self.to_path))
     
     def __str__(self):
         """Return string representation of point cut, you can use it in

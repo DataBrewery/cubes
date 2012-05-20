@@ -12,6 +12,11 @@ New Features
   "alphanumeric character or underscore" if they are going to be converted to
   strings (for example when using slicer HTTP server)
 
+
+*StarBrowser:*
+
+* implemented RangeCut conditions
+
 Changes
 -------
 
