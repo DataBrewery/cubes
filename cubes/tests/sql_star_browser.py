@@ -7,7 +7,8 @@ import sqlalchemy
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
 
-from cubes.backends.sql import StarBrowser, coalesce_physical
+from cubes.backends.sql import coalesce_physical
+from cubes.backends.sql.star import *
 
 class StarSQLTestCase(unittest.TestCase):
     def setUp(self):
@@ -260,6 +261,67 @@ class QueryContextTestCase(StarSQLTestCase):
         statement = self.browser.context.denormalized_statement(expand_locales=True)
         cols = [column.name for column in statement.columns]
         self.assertEqual(20, len(cols))
+        
+    def test_coalesce_drilldown(self):
+        cell = cubes.Cell(self.cube)
+        dim = self.cube.dimension("date")
+
+        drilldown = {"date": "year"}
+        expected = {"date": [dim.level("year")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        drilldown = ["date"]
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        drilldown = {"date": "day"}
+        expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        # Try "next level"
+
+        cut = cubes.PointCut("date", [2010])
+        cell = cubes.Cell(self.cube, [cut])
+
+        drilldown = {"date": "year"}
+        expected = {"date": [dim.level("year")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        drilldown = ["date"]
+        expected = {"date": [dim.level("year"), dim.level("month")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        # Try with range cell
+
+        cut = cubes.RangeCut("date", [2009], [2010])
+        cell = cubes.Cell(self.cube, [cut])
+
+        drilldown = ["date"]
+        expected = {"date": [dim.level("year"), dim.level("month")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        drilldown = {"date":"year"}
+        expected = {"date": [dim.level("year")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        cut = cubes.RangeCut("date", [2009], [2010, 1])
+        cell = cubes.Cell(self.cube, [cut])
+
+        drilldown = ["date"]
+        expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        # Try "last level"
+
+        cut = cubes.PointCut("date", [2010, 1,2])
+        cell = cubes.Cell(self.cube, [cut])
+
+        drilldown = {"date": "day"}
+        expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
+        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+
+        drilldown = ["date"]
+        expected = {"date": [dim.level("year"), dim.level("month")]}
+        self.assertRaises(ValueError, coalesce_drilldown, cell, drilldown)
         
 class JoinsTestCase(StarSQLTestCase):
     def setUp(self):

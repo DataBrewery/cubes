@@ -22,7 +22,10 @@ except ImportError:
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
     aggregation_functions = {}
     
-__all__ = ["StarBrowser"]
+__all__ = [
+    "StarBrowser",
+    "coalesce_drilldown"
+]
 
 # Required functionality checklist
 # 
@@ -357,9 +360,9 @@ class StarBrowser(AggregationBrowser):
         return issues
 
 """A Condition representation. `attributes` - list of attributes involved in the conditions,
-`conditions` - SQL conditions, `group_by` - attributes to be grouped by."""
+`conditions` - SQL conditions"""
 Condition = collections.namedtuple("Condition",
-                                    ["attributes", "condition", "group_by"])
+                                    ["attributes", "condition"])
 
 class QueryContext(object):
 
@@ -584,11 +587,10 @@ class QueryContext(object):
         """
 
         if not cell:
-            return Condition([], None, [])
+            return Condition([], None)
 
         attributes = set()
         conditions = []
-        group_by = []
 
         for cut in cell.cuts:
             dim = self.cube.dimension(cut.dimension)
@@ -599,7 +601,6 @@ class QueryContext(object):
 
                 condition = wrapped_cond.condition
                 attributes |= wrapped_cond.attributes
-                group_by += wrapped_cond.group_by
 
             elif isinstance(cut, SetCut):
                 conditions = []
@@ -608,21 +609,23 @@ class QueryContext(object):
                     wrapped_cond = self.condition_for_point(dim, path)
                     conditions.append(wrapped_cond.condition)
                     attributes |= wrapped_cond.attributes
-                    group_by += wrapped_cond.group_by
 
                 condition = sql.expression.or_(*conditions)
 
             elif isinstance(cut, RangeCut):
-                raise NotImplementedError("Condition for range cuts is not yet implemented")
+                # FIXME: use hierarchy
+                range_cond = self.range_condition(cut.dimension, None, cut.from_path, cut.to_path)
+                condition = range_cond.condition
+                attributes |= range_cond.attributes
 
             else:
-                raise Exception("Only point and set cuts are supported in SQL browser at the moment")
+                raise Exception("Unknown cut type %s" % type(cut))
 
             conditions.append(condition)
 
         condition = sql.expression.and_(*conditions)
 
-        return Condition(attributes, condition, group_by)
+        return Condition(attributes, condition)
 
     def condition_for_point(self, dim, path, hierarchy=None):
         """Returns a `Condition` tuple (`attributes`, `conditions`,
@@ -630,11 +633,8 @@ class QueryContext(object):
         condition - one equality condition for each path element in form:
         ``level[i].key = path[i]``"""
 
-        # TODO: add support for possible multiple hierarchies
-
         attributes = set()
         conditions = []
-        group_by = []
 
         levels = dim.hierarchy(hierarchy).levels_for_path(path)
 
@@ -642,7 +642,6 @@ class QueryContext(object):
             raise Exception("Path has more items (%d: %s) than there are levels (%d) "
                             "in dimension %s" % (len(path), path, len(levels), dim.name))
 
-        level = None
         for level, value in zip(levels, path):
 
             # Prepare condition: dimension.level_key = path_value
@@ -652,13 +651,82 @@ class QueryContext(object):
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
             for attr in level.attributes:
-                column = self.column(attr)
-                group_by.append(column)
                 attributes.add(attr)
 
         condition = sql.expression.and_(*conditions)
 
-        return Condition(attributes,condition,group_by)
+        return Condition(attributes,condition)
+
+    def range_condition(self, dim, hierarchy, from_path, to_path):
+        """Return a condition for range (`from_path`, `to_path`). Return
+        value is a `Condition` tuple."""
+        
+        dim = self.cube.dimension(dim)
+        
+        lower = self.boundary_condition(dim, hierarchy, from_path, 0)
+        upper = self.boundary_condition(dim, hierarchy, to_path, 1)
+
+        if from_path and not to_path:
+            return lower
+        elif not from_path and to_path:
+            return upper
+        else:
+            attributes = lower.attributes | upper.attributes
+            condition = sql.expression.and_(lower.condition, upper.condition)
+            return Condition(attributes, condition)
+
+    def boundary_condition(self, dim, hierarchy, path, bound, first=None):
+        """Return a `Condition` tuple for a boundary condition. If `bound` is
+        1 then path is considered to be upper bound (operators < and <= are
+        used), otherwise path is considered as lower bound (operators > and >=
+        are used )"""
+
+        if first is None:
+            return self.boundary_condition(dim, hierarchy, path, bound, first=True)
+        if not path:
+            return Condition(set(), None)
+
+        last = self.boundary_condition(dim, hierarchy, path[:-1], bound, first=False)
+
+        levels = dim.hierarchy(hierarchy).levels_for_path(path)
+
+        if len(path) > len(levels):
+            raise Exception("Path has more items (%d: %s) than there are levels (%d) "
+                            "in dimension %s" % (len(path), path, len(levels), dim.name))
+
+        attributes = set()
+        conditions = []
+
+        for level, value in zip(levels[:-1], path[:-1]):
+            column = self.column(level.key)
+            conditions.append(column == value)
+
+            for attr in level.attributes:
+                attributes.add(attr)
+        
+        # Select required operator according to bound
+        # 0 - lower bound
+        # 1 - upper bound
+        if bound == 1:
+            # 1 - upper bound (that is <= and < operator)
+            operator = sql.operators.le if first else sql.operators.lt
+        else:
+            # else - lower bound (that is >= and > operator)
+            operator = sql.operators.ge if first else sql.operators.gt
+
+        column = self.column(levels[-1].key)
+        conditions.append( operator(column, path[-1]) )
+
+        for attr in levels[-1].attributes:
+            attributes.add(attr)
+
+        condition = sql.expression.and_(*conditions)
+        attributes |= last.attributes 
+
+        if last.condition:
+            condition = sql.expression.or_(condition, last.condition) 
+
+        return Condition(attributes, condition)
 
     def table(self, schema, table_name, alias=None):
         """Return a SQLAlchemy Table instance. If table was already accessed,
@@ -725,33 +793,23 @@ def coalesce_drilldown(cell, drilldown):
     """
 
     # TODO: consider hierarchies (currently ignored, default is used)
-
     result = {}
-
     depths = cell.level_depths()
 
-    if type(drilldown) == list or type(drilldown) == tuple:
+    # If the drilldown is a list, convert it into a dictionary
+    if not isinstance(drilldown, dict):
+        drilldown = {dim:None for dim in drilldown}
 
-        for dim in drilldown:
-            dim = cell.cube.dimension(dim)
-            depth = depths.get(str(dim)) or 0
+    for dim, level in drilldown.items():
+        dim = cell.cube.dimension(dim)
+
+        if level:
+            hier = dim.default_hierarchy
+            index = hier.level_index(level)
+            result[dim.name] = hier[:index+1]
+        else:
+            depth = depths.get(str(dim), 0)
             result[dim.name] = drilldown_levels(dim, depth+1)
-
-    elif isinstance(drilldown, dict):
-
-        for dim, level in drilldown.items():
-            dim = cell.cube.dimension(dim)
-
-            if level:
-                hier = dim.default_hierarchy
-                index = hier.level_index(level)
-                result[dim.name] = hier[:index+1]
-            else:
-                depth = depths.get(str(dim)) or 0
-                result[dim.name] = drilldown_levels(dim, depth+1)
-
-    elif drilldown is not None:
-        raise TypeError("Drilldown is of unknown type: %s" % type(drilldown))
 
     return result
 
@@ -766,7 +824,7 @@ def drilldown_levels(dimension, depth, hierarchy=None):
     if depth > len(hier):
         raise ValueError("Hierarchy %s in dimension %s has only %d levels, "
                          "can not drill to %d" % \
-                         (hier,dimension,len(hier),depth+1))
+                         (hier,dimension,len(hier),depth))
 
     return hier[:depth]
 

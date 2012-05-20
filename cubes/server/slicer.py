@@ -6,10 +6,9 @@ import logging
 # Werkzeug - soft dependency
 try:
     from werkzeug.routing import Map, Rule
-    from werkzeug.wrappers import Request
+    from werkzeug.wrappers import Request, Response
     from werkzeug.wsgi import ClosingIterator
     from werkzeug.exceptions import HTTPException, NotFound
-    from werkzeug.wrappers import Response
     import werkzeug.serving
 except:
     from cubes.common import MissingPackage
@@ -78,18 +77,37 @@ rules = Map([
 
 class Slicer(object):
 
-    def __init__(self, config = None):
+    def __init__(self, config=None):
         """Create a WSGI server for providing OLAP web service. You might provide ``config``
         as ``ConfigParser`` object.
         """
         
         self.config = config
+        self.initialize_logger()
 
-        #
+        self.context = create_slicer_context(config)
+
+        self.model = self.context["model"]
+        self.locales = self.context["locales"]
+        self.backend = self.context["backend"]
+        
+        self.model_localizations = {}
+
+        if self.locales is None:
+            if self.model.locale:
+                self.locales = [self.model.locale]
+            else:
+                self.locales = []
+
+        ## Create workspace
+        self.logger.info("using backend '%s'" % self.context["backend_name"])
+        self.workspace = self.backend.create_workspace(self.model,
+                                                       **self.context["workspace_options"])
+        
+    def initialize_logger(self):
         # Configure logger
-        #
-
         self.logger = cubes.common.get_logger()
+        
         if self.config.has_option("server", "log"):
             formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
             handler = logging.FileHandler(self.config.get("server", "log"))
@@ -108,30 +126,8 @@ class Slicer(object):
                 self.logger.setLevel(levels[level_str])
 
         self.logger.debug("loading model")
-    
-        context = create_slicer_context(config)
-        self.model = context["model"]
-        self.locales = context["locales"]
-        self.backend = context["backend"]
-        
-        self.model_localizations = {}
-
-        if self.locales is None:
-            if self.model.locale:
-                self.locales = [self.model.locale]
-            else:
-                self.locales = []
-            
-        ##
-        # Create workspace
-        ##
-                    
-        self.logger.info("using backend '%s'" % context["backend_name"])
-            
-        self.workspace = self.backend.create_workspace(self.model,
-                                                       **context["workspace_options"])
-            
-    def __call__(self, environ, start_response):
+                
+    def wsgi_app(self, environ, start_response):
         request = Request(environ)
         urls = rules.bind_to_environ(environ)
         
@@ -148,6 +144,9 @@ class Slicer(object):
         return ClosingIterator(response(environ, start_response),
                                [local_manager.cleanup])
         
+    def __call__(self, environ, start_response):
+        return self.wsgi_app(environ, start_response)
+
     def dispatch(self, controller, action_name, request, params):
 
         controller.request = request

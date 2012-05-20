@@ -137,7 +137,6 @@ class CubesController(application_controller.ApplicationController):
         self.prepare_cell()
 
         drilldown = self.args.getlist("drilldown")
-
         dic_drilldown = {}
 
         # Allow dimension:level specification for drilldown
