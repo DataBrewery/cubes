@@ -54,7 +54,7 @@ browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and
     
     :Paramteres:
         * `cut` - specification of cell, for example:
-          ``cut=date:2004,1|category=2|entity=12345``
+          ``cut=date:2004,1|category:2|entity:12345``
         * `drilldown` - dimension to be drilled down. For example 
           ``drilldown=date`` will give rows for each value of next level of 
           dimension date. You can explicitly specify level to drill down in 
@@ -190,7 +190,7 @@ Examples::
 
     date:2004
     date:2004,1
-    date:2004,1|class=5
+    date:2004,1|class:5
     date:2004,1,1|category:5,10,12|class:5
 
 To specify a range where keys are sortable::

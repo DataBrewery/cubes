@@ -163,6 +163,8 @@ class Slicer(object):
             response.headers.add("Access-Control-Allow-Origin", "*")
         except cubes.ModelError as e:
             raise common.RequestError(str(e))
+        except cubes.BrowserError as e:
+            raise common.RequestError(str(e))
         finally:
             controller.finalize()
 
