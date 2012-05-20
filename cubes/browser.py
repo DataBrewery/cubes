@@ -22,8 +22,21 @@ __all__ = [
     "string_from_path",
     "path_from_string",
     "cut_from_string",
-    "cut_from_dict"
+    "cut_from_dict",
+    "BrowserError"
 ]
+
+class BrowserError(Exception):
+    """AggregationBrowser related exception."""
+    pass
+        
+class BrowserArgumentError(BrowserError):
+    """Raised when one of browser query arguments is invalid. Contains
+    key `argument` with argument name and `value` with invalid argument value."""
+    def __init__(self, message, argument=None, value=None):
+        super(BrowserArgumentError, self).__init__(message)
+        self.argument = argument
+        self.value=value
 
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
@@ -210,7 +223,7 @@ class AggregationBrowser(object):
         for result_name, query in queries.items():
             query_type = query.get("query")
             if not query_type:
-                raise KeyError("No report query for '%s'" % result_name)
+                raise BrowserArgumentError("No report query for '%s'" % result_name)
             
             # FIXME: add: cell = query.get("cell")
             
@@ -247,7 +260,7 @@ class AggregationBrowser(object):
                 result = self.cell_details(query_cell, **args)
 
             else:
-                raise KeyError("Unknown report query '%s' for '%s'" % (query_type, result_name))
+                raise BrowserArgumentError("Unknown report query '%s' for '%s'" % (query_type, result_name))
 
             report_result[result_name] = result
             
