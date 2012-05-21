@@ -39,7 +39,8 @@ except:
     from cubes.common import MissingPackage
     SphinxSearcher = None
     # SphinxSearcher = MissingPackage("cubes_search", "Sphinx search ", 
-    #                         source = "https://bitbucket.org/Stiivi/cubes-search")
+    #                         source = "https://github.com/Stiivi/cubes")
+    # Get cubes sphinx search backend from: https://github.com/Stiivi/cubes
 
 class ApplicationController(object):
     def __init__(self, app, config):
