@@ -33,23 +33,23 @@ rules = Map([
                         endpoint = (controllers.ApplicationController, 'locales')),
     Rule('/model', 
                         endpoint = (controllers.ModelController, 'show')),
-    Rule('/model/dimension/<string:name>',
+    Rule('/model/dimension/<string:dim_name>',
                         endpoint = (controllers.ModelController, 'dimension')),
     Rule('/model/cube',
                         endpoint = (controllers.ModelController, 'get_default_cube')),
-    Rule('/model/cube/<string:name>',
+    Rule('/model/cube/<string:cube_name>',
                         endpoint = (controllers.ModelController, 'get_cube')),
-    Rule('/model/dimension/<string:name>/levels', 
+    Rule('/model/dimension/<string:dim_name>/levels', 
                         endpoint = (controllers.ModelController, 'dimension_levels')),
-    Rule('/model/dimension/<string:name>/level_names', 
+    Rule('/model/dimension/<string:dim_name>/level_names', 
                         endpoint = (controllers.ModelController, 'dimension_level_names')),
     Rule('/cube/<string:cube>/aggregate', 
                         endpoint = (controllers.CubesController, 'aggregate')),
     Rule('/cube/<string:cube>/facts', 
                         endpoint = (controllers.CubesController, 'facts')),
-    Rule('/cube/<string:cube>/fact/<string:id>', 
+    Rule('/cube/<string:cube>/fact/<string:fact_id>', 
                         endpoint = (controllers.CubesController, 'fact')),
-    Rule('/cube/<string:cube>/dimension/<string:dimension>', 
+    Rule('/cube/<string:cube>/dimension/<string:dimension_name>', 
                         endpoint = (controllers.CubesController, 'values')),
     Rule('/cube/<string:cube>/report', methods = ['POST'],
                         endpoint = (controllers.CubesController, 'report')),
@@ -60,19 +60,26 @@ rules = Map([
 
     # Use default cube (specified in config as: [model] cube = ... )
     Rule('/aggregate', 
-                        endpoint = (controllers.CubesController, 'aggregate')),
+                        endpoint = (controllers.CubesController, 'aggregate'),
+                        defaults={"cube":None}),
     Rule('/facts', 
-                        endpoint = (controllers.CubesController, 'facts')),
-    Rule('/fact/<string:id>', 
-                        endpoint = (controllers.CubesController, 'fact')),
-    Rule('/dimension/<string:dimension>', 
-                        endpoint = (controllers.CubesController, 'values')),
+                        endpoint = (controllers.CubesController, 'facts'),
+                        defaults={"cube":None}),
+    Rule('/fact/<string:fact_id>', 
+                        endpoint = (controllers.CubesController, 'fact'),
+                        defaults={"cube":None}),
+    Rule('/dimension/<string:dimension_name>', 
+                        endpoint=(controllers.CubesController, 'values'),
+                        defaults={"cube":None}),
     Rule('/report', methods = ['POST'],
-                        endpoint = (controllers.CubesController, 'report')),
+                        endpoint = (controllers.CubesController, 'report'),
+                        defaults={"cube":None}),
     Rule('/details', 
-                        endpoint = (controllers.CubesController, 'details')),
+                        endpoint = (controllers.CubesController, 'details'),
+                        defaults={"cube":None}),
     Rule('/search',
-                        endpoint = (controllers.SearchController, 'search'))
+                        endpoint = (controllers.SearchController, 'search'),
+                        defaults={"cube":None})
 ])
 
 class Slicer(object):
@@ -151,7 +158,6 @@ class Slicer(object):
 
         controller.request = request
         controller.args = request.args
-        controller.params = params
 
         action = getattr(controller, action_name)
 
@@ -159,7 +165,7 @@ class Slicer(object):
 
         response = None
         try:
-            response = action()
+            response = action(**params)
             response.headers.add("Access-Control-Allow-Origin", "*")
         except cubes.CubesError as e:
             raise common.RequestError(str(e))
