@@ -1,24 +1,10 @@
-try:
-    from werkzeug import __version__ as werkzeug_version
-    from slicer import Slicer, run_server
-except ImportError:
-    from cubes.common import MissingPackage
-    _missing = MissingPackage("werkzeug", "Slicer server")
-    Slicer = run_server = _missing
-
-__all__ = (
-    "Slicer",
-    "run_server",
-    "API_VERSION"
-)
-
 import logging
-import cubes
 import os.path
 import json
 import cStringIO
 import csv
 import codecs
+import cubes
 
 from .common import API_VERSION, TEMPLATE_PATH
 from .common import RequestError, ServerError, NotFoundError
@@ -42,6 +28,13 @@ except:
     #                         source = "https://github.com/Stiivi/cubes")
     # Get cubes sphinx search backend from: https://github.com/Stiivi/cubes
 
+__all__ = (
+    "ApplicationController",
+    "ModelController",
+    "CubesController",
+    "SearchController"
+)
+
 class ApplicationController(object):
     def __init__(self, app, config):
 
@@ -61,7 +54,6 @@ class ApplicationController(object):
         else:
             self.prettyprint = False
             
-        self.params = None
         self.query = None
         self.locale = None
         self.browser = None
@@ -235,9 +227,7 @@ class ModelController(ApplicationController):
         d["locales"] = self.app.locales;
         return self.json_response(d)
 
-    def dimension(self):
-        dim_name = self.params["name"]
-
+    def dimension(self, dim_name):
         dim = self.model.dimension(dim_name)
         return self.json_response(dim.to_dict())
 
@@ -252,14 +242,11 @@ class ModelController(ApplicationController):
     def get_default_cube(self):
         return self.json_response(self._cube_dict(self.cube))
 
-    def get_cube(self):
-        cube_name = self.params["name"]
-
+    def get_cube(self, cube_name):
         cube = self.model.cube(cube_name)
         return self.json_response(self._cube_dict(cube))
 
-    def dimension_levels(self):
-        dim_name = self.params["name"]
+    def dimension_levels(self, dim_name):
         dim = self.model.dimension(dim_name)
         levels = [l.to_dict() for l in dim.default_hierarchy.levels]
 
@@ -267,8 +254,7 @@ class ModelController(ApplicationController):
 
         return Response(string)
 
-    def dimension_level_names(self):
-        dim_name = self.params["name"]
+    def dimension_level_names(self, dim_name):
         dim = self.model.dimension(dim_name)
 
         return self.json_response(dim.default_hierarchy.level_names)
@@ -355,7 +341,7 @@ class UnicodeCSVWriter:
             self.writerow(row)
 
 class CubesController(ApplicationController):
-    def initialize(self):
+    def create_browser(self, cube_name):
         """Initializes the controller:
 
         * tries to get cube name
@@ -366,8 +352,6 @@ class CubesController(ApplicationController):
         """
 
         # FIXME: keep or remove default cube?
-        cube_name = self.params.get("cube")
-
         if cube_name:
             self.cube = self.model.cube(cube_name)
         else:
@@ -395,7 +379,8 @@ class CubesController(ApplicationController):
 
         self.cell = cubes.Cell(self.cube, cuts)
 
-    def aggregate(self):
+    def aggregate(self, cube):
+        self.create_browser()
         self.prepare_cell()
 
         drilldown = self.args.getlist("drilldown")
@@ -415,7 +400,8 @@ class CubesController(ApplicationController):
 
         return self.json_response(result)
 
-    def facts(self):
+    def facts(self, cube):
+        self.create_browser(cube)
         self.prepare_cell()
 
         format = self.args.get("format")
@@ -445,9 +431,8 @@ class CubesController(ApplicationController):
         else:
             raise RequestError("unknown response format '%s'" % format)
 
-    def fact(self):
-        fact_id = self.params["id"]
-
+    def fact(self, cube, fact_id):
+        self.create_browser(cube)
         fact = self.browser.fact(fact_id)
 
         if fact:
@@ -455,10 +440,10 @@ class CubesController(ApplicationController):
         else:
             return self.error("No fact with id=%s" % fact_id, status = 404)
 
-    def values(self):
+    def values(self, cube, dimension_name):
+        self.create_browser(cube)
         self.prepare_cell()
 
-        dim_name = self.params["dimension"]
         depth_string = self.args.get("depth")
         if depth_string:
             try:
@@ -469,7 +454,7 @@ class CubesController(ApplicationController):
             depth = None
 
         try:
-            dimension = self.cube.dimension(dim_name)
+            dimension = self.cube.dimension(dimension_name)
         except KeyError:
             raise NotFoundError(dim_name, "dimension",
                                         message = "Dimension '%s' was not found" % dim_name)
@@ -484,8 +469,9 @@ class CubesController(ApplicationController):
 
         return self.json_response(result)
 
-    def report(self):
+    def report(self, cube):
         """Create multi-query report response."""
+        self.create_browser(cube)
         self.prepare_cell()
 
         report_request = self.json_request()
@@ -513,7 +499,8 @@ class CubesController(ApplicationController):
 
         return self.json_response(result)
 
-    def details(self):
+    def details(self, cube):
+        self.create_browser(cube)
         self.prepare_cell()
 
         result = self.browser.cell_details(self.cell)
@@ -533,9 +520,8 @@ class SearchController(ApplicationController):
 
     """        
 
-    def initialize(self):
+    def create_browser(self, cube_name):
         # FIXME: remove this (?)
-        cube_name = self.params.get("cube")
         if not cube_name:
             cube_name = self.config.get("model", "cube")
 
@@ -552,7 +538,9 @@ class SearchController(ApplicationController):
         else:
             self.sphinx_port = None
 
-    def search(self):
+    def search(self, cube):
+        self.create_browser(cube)
+        
         if not SphinxSearcher:
             raise ServerError("Search extension cubes_search is not installed")
 
