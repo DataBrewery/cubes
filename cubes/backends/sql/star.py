@@ -5,6 +5,7 @@ from cubes.backends.sql.mapper import SnowflakeMapper, DenormalizedMapper
 from cubes.backends.sql.mapper import DEFAULT_KEY_FIELD
 import logging
 import collections
+from cubes.errors import *
 
 try:
     import sqlalchemy
@@ -21,7 +22,7 @@ except ImportError:
     from cubes.common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
     aggregation_functions = {}
-    
+
 __all__ = [
     "StarBrowser",
     "coalesce_drilldown"
@@ -83,7 +84,7 @@ class StarBrowser(AggregationBrowser):
         super(StarBrowser, self).__init__(cube)
 
         if cube == None:
-            raise Exception("Cube for browser should not be None.")
+            raise ArgumentError("Cube for browser should not be None.")
 
         self.logger = get_logger()
 
@@ -170,7 +171,7 @@ class StarBrowser(AggregationBrowser):
         levels = hierarchy.levels
 
         if depth == 0:
-            raise ValueError("Depth for dimension values should not be 0")
+            raise ArgumentError("Depth for dimension values should not be 0")
         elif depth is not None:
             levels = levels[0:depth]
 
@@ -488,7 +489,7 @@ class QueryContext(object):
         result = []
         for agg_name in aggregations:
             if not agg_name in aggregation_functions:
-                raise Exception("Unknown aggregation type %s for measure %s" % \
+                raise ArgumentError("Unknown aggregation type %s for measure %s" % \
                                     (agg_name, measure))
 
             func = aggregation_functions[agg_name]
@@ -556,7 +557,7 @@ class QueryContext(object):
             # self.logger.debug("join detail: %s" % (join.detail, ))
 
             if not join.detail.table or join.detail.table == self.fact_name:
-                raise ValueError("Detail table name should be present and should not be a fact table.")
+                raise MappingError("Detail table name should be present and should not be a fact table.")
 
             master_table = self.table(join.master.schema, join.master.table)
             detail_table = self.table(join.detail.schema, join.detail.table, join.alias)
@@ -564,12 +565,12 @@ class QueryContext(object):
             try:
                 master_column = master_table.c[join.master.column]
             except:
-                raise Exception('Unable to find master key (schema %s) "%s"."%s" ' \
+                raise MappingError('Unable to find master key (schema %s) "%s"."%s" ' \
                                     % join.master)
             try:
                 detail_column = detail_table.c[join.detail.column]
             except:
-                raise Exception('Unable to find detail key (schema %s) "%s"."%s" ' \
+                raise MappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
                                     % join.detail)
 
             onclause = master_column == detail_column
@@ -622,7 +623,7 @@ class QueryContext(object):
                 attributes |= range_cond.attributes
 
             else:
-                raise Exception("Unknown cut type %s" % type(cut))
+                raise ArgumentError("Unknown cut type %s" % type(cut))
 
             conditions.append(condition)
 
@@ -641,8 +642,8 @@ class QueryContext(object):
         levels = dim.hierarchy(hierarchy).levels_for_path(path)
 
         if len(path) > len(levels):
-            raise Exception("Path has more items (%d: %s) than there are levels (%d) "
-                            "in dimension %s" % (len(path), path, len(levels), dim.name))
+            raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
+                                "in dimension %s" % (len(path), path, len(levels), dim.name))
 
         for level, value in zip(levels, path):
 
@@ -694,8 +695,8 @@ class QueryContext(object):
         levels = dim.hierarchy(hierarchy).levels_for_path(path)
 
         if len(path) > len(levels):
-            raise Exception("Path has more items (%d: %s) than there are levels (%d) "
-                            "in dimension %s" % (len(path), path, len(levels), dim.name))
+            raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
+                                "in dimension %s" % (len(path), path, len(levels), dim.name))
 
         attributes = set()
         conditions = []
@@ -825,7 +826,7 @@ def drilldown_levels(dimension, depth, hierarchy=None):
     depth = depth or 0
 
     if depth > len(hier):
-        raise ValueError("Hierarchy %s in dimension %s has only %d levels, "
+        raise ArgumentError("Hierarchy %s in dimension %s has only %d levels, "
                          "can not drill to %d" % \
                          (hier,dimension,len(hier),depth))
 
@@ -911,7 +912,7 @@ def order_column(column, order):
     elif order.lower().startswith("desc"):
         return column.desc()
     else:
-        raise Exception("Unknown order %s for column %s") % (order, column)
+        raise ArgumentError("Unknown order %s for column %s") % (order, column)
 
 
 class ResultIterator(object):
@@ -1002,8 +1003,8 @@ def create_workspace(model, **options):
         try:
             db_url = options["url"]
         except KeyError:
-            raise Exception("No URL or engine specified in options, "
-                            "provide at least one")
+            raise ArgumentError("No URL or engine specified in options, "
+                                "provide at least one")
         engine = sqlalchemy.create_engine(db_url)
 
 
@@ -1087,9 +1088,9 @@ class SQLStarWorkspace(object):
 
         if table.exists():
             if not replace:
-                raise Exception("Table %s (schema: %s) already exists. "
-                                "Use replace=True to force creation" % \
-                                (view_name, self.schema))
+                raise MappingError("Table %s (schema: %s) already exists. "
+                                   "Use replace=True to force creation" % \
+                                   (view_name, self.schema))
 
             inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.engine)
             view_names = inspector.get_view_names(schema=self.schema)
@@ -1115,7 +1116,7 @@ class SQLStarWorkspace(object):
 
         if create_index:
             if not materialize:
-                raise Exception("Index can be created only on materialized view")
+                raise MappingError("Index can be created only on materialized view")
                 
             # self.metadata.reflect(schema = schema, only = [view_name] )
             table = sqlalchemy.Table(view_name, self.metadata,

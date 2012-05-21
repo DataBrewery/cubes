@@ -6,6 +6,7 @@ from common import *
 from browser import *
 from model import *
 from util import *
+from errors import *
 
 import backends
 

@@ -14,6 +14,7 @@ except ImportError:
     from ordereddict import OrderedDict
 
 from cubes.common import IgnoringDictionary, get_logger
+from cubes.errors import *
 
 try:
     import json
@@ -30,17 +31,12 @@ __all__ = [
     "Dimension",
     "Hierarchy",
     "Level",
-    "Attribute",
-    "ModelError"
+    "Attribute"
 ]
 
 DIMENSION = 1
 MEASURE = 2
 DETAIL = 3
-
-class ModelError(Exception):
-    """Model related exception."""
-    pass
 
 def load_model(resource, translations = None):
     """Load logical model from object reference. `resource` can be an URL,
@@ -50,6 +46,9 @@ def load_model(resource, translations = None):
 
     * JSON file with a dictionary describing model
     * URL with a JSON dictionary
+    
+    Raises `ModelError` when model description file does not contain a
+    dictionary.
     """
 
     handle = None
@@ -68,7 +67,7 @@ def load_model(resource, translations = None):
             handle.close()
 
     if type(model_desc) != dict:
-        raise TypeError("Model description file should contain a dictionary")
+        raise ModelError("Model description file should contain a dictionary")
 
     model = Model(**model_desc)
 
@@ -111,14 +110,10 @@ def model_from_path(path):
     cubes_to_load = []
 
     if not "dimensions" in model_desc:
-        model_desc["dimensions"] = {}
-    elif type(model_desc["dimensions"]) != dict:
-        raise ModelError("dimensions object in model file be a dictionary")
+        model_desc["dimensions"] = []
 
     if not "cubes" in model_desc:
-        model_desc["cubes"] = {}
-    elif type(model_desc["cubes"]) != dict:
-        raise ModelError("cubes object in model file should be a dictionary")
+        model_desc["cubes"] = []
 
     for dirname, dirnames, filenames in os.walk(path):
         for filename in filenames:
@@ -249,9 +244,13 @@ class Model(object):
         with same name as one of existing model's dimensions, but has
         different structure, an exception is raised. Dimensions in cube should
         be the same as in model.
+        
+        Raises `ModelInconsistencyError` when trying to assing a cube that is
+        already assigned to a different model or if trying to add a dimension
+        with existing name but different specification.
         """
         if cube.model and cube.model != self:
-            raise ModelError("Trying to assign a cube with different model (%s) to model %s" %
+            raise ModelInconsistencyError("Trying to assign a cube with different model (%s) to model %s" %
                 (cube.model.name, self.name))
 
         # Collect dimensions from cube
@@ -263,7 +262,7 @@ class Model(object):
                 if dimension.name not in my_dimension_names:
                     self.add_dimension(dimension)
                 else:
-                    raise ModelError("Dimension %s of cube %s has different specification as model's dimension"
+                    raise ModelInconsistencyError("Dimension %s of cube %s has different specification as model's dimension"
                                             % (dimension.name, cube.name) )
 
         cube.model = self
@@ -295,17 +294,19 @@ class Model(object):
     def dimensions(self):
         return self._dimensions.values()
 
-    def dimension(self, obj):
-        """Get dimension by name or by object"""
-        if isinstance(obj, basestring):
-            if obj in self._dimensions:
-                return self._dimensions[obj]
+    def dimension(self, dim):
+        """Get dimension by name or by object. Raises `NoSuchDimensionError`
+        when there is no dimension `dim`."""
+
+        if isinstance(dim, basestring):
+            if dim in self._dimensions:
+                return self._dimensions[dim]
             else:
-                raise ModelError("Unknown dimension with name '%s' in model '%s'" % (obj, self.name))
-        elif obj.name in self._dimensions:
-            return obj
+                raise NoSuchDimensionError("Unknown dimension with name '%s' in model '%s'" % (obj, self.name))
+        elif dim.name in self._dimensions:
+            return dim
         else:
-            raise ModelError("Unknown dimension '%s' in model '%s'" % (obj, self.name))
+            raise NoSuchDimensionError("Unknown dimension '%s' in model '%s'" % (obj, self.name))
 
     def to_dict(self, **options):
         """Return dictionary representation of the model. All object
@@ -527,11 +528,13 @@ class Cube(object):
                     self.add_dimension(dimension)
 
     def add_dimension(self, dimension):
-        """Add dimension to cube. Replace dimension with same name"""
+        """Add dimension to cube. Replace dimension with same name. Raises
+        `ModelInconsistencyError` when dimension with same name already exists
+        in the receiver. """
 
         # FIXME: Do not allow to add dimension if one already exists
         if dimension.name in self._dimensions:
-            raise ModelError("Dimension with name %s already exits in cube %s" % (dimension.name, self.name))
+            raise ModelInconsistencyError("Dimension with name %s already exits in cube %s" % (dimension.name, self.name))
 
         self._dimensions[dimension.name] = dimension
 
@@ -549,28 +552,36 @@ class Cube(object):
     def dimension(self, obj):
         """Get dimension object. If `obj` is a string, then dimension with
         given name is returned, otherwise dimension object is returned if it
-        belongs to the cube."""
+        belongs to the cube.
+        
+        Raises `NoSuchDimensionError` when there is no such dimension.
+        """
 
         if not obj:
-            raise ModelError("Dimension should not be none (cube '%s')" % \
+            raise NoSuchDimensionError("Requested dimension should not be none (cube '%s')" % \
                                 self.name)
             
         if isinstance(obj, basestring):
             if obj in self._dimensions:
                 return self._dimensions[obj]
             else:
-                raise ModelError("cube '%s' has no dimension '%s'" %
+                raise NoSuchDimensionError("cube '%s' has no dimension '%s'" %
                                     (self.name, obj))
         elif isinstance(obj, Dimension):
              return obj
         else:
-            raise ModelError("Invalid dimension or dimension reference '%s' for cube '%s'" %
+            raise NoSuchDimensionError("Invalid dimension or dimension reference '%s' for cube '%s'" %
                                     (obj, self.name))
 
     def measure(self, obj):
         """Get measure object. If `obj` is a string, then measure with given
         name is returned, otherwise measure object is returned if it belongs
-        to the cube. Returned object is of `Attribute` type"""
+        to the cube. Returned object is of `Attribute` type.
+        
+        Raises `NoSuchAttributeError` when there is no such measure or when
+        there are multiple measures with the same name (which also means that
+        the model is not valid).
+        """
 
         if isinstance(obj, basestring):
             lookup = [m for m in self.measures if m.name == obj]
@@ -578,14 +589,14 @@ class Cube(object):
                 if len(lookup) == 1:
                     return lookup[0]
                 else:
-                    raise ModelError("multiple measures with the same name '%s' found" % obj)
+                    raise ModelInconsistencyError("multiple measures with the same name '%s' found" % obj)
             else:
-                raise ModelError("cube '%s' has no measure '%s'" %
+                raise NoSuchAttributeError("cube '%s' has no measure '%s'" %
                                     (self.name, obj))
         elif isinstance(obj, Attribute):
              return obj
         else:
-            raise ModelError("Invalid measure or measure reference '%s' for cube '%s'" %
+            raise NoSuchAttributeError("Invalid measure or measure reference '%s' for cube '%s'" %
                                     (obj, self.name))
 
     def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
@@ -729,6 +740,9 @@ class Dimension(object):
         dimension name.
 
         Class is not meant to be mutable.
+        
+        Raises `ModelInconsistencyError` when both `hierarchy` and
+        `hierarchies` is specified.
         """
         self.name = name
 
@@ -770,7 +784,7 @@ class Dimension(object):
         hierarchies = desc.get("hierarchies")
 
         if hierarchy and hierarchies:
-            raise ModelError("Both 'hierarchy' and 'hierarchies' specified. "
+            raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies' specified. "
                              "Use only one")
 
         if hierarchy:
@@ -1130,7 +1144,7 @@ class Hierarchy(object):
         for level in levels:
             if isinstance(level, basestring):
                 if not self.dimension:
-                    raise ModelError("Unable to set hierarchy level '%s' by name, no dimension specified"
+                    raise ModelInconsistencyError("Unable to set hierarchy level '%s' by name, no dimension specified"
                                         % level)
                 level = self.dimension.level(level)
             self._levels[level.name] = level
@@ -1161,7 +1175,7 @@ class Hierarchy(object):
 
     def levels_for_path(self, path, drilldown = False):
         """Returns levels for given path. If path is longer than hierarchy
-        levels, exception is raised"""
+        levels, `cubes.ArgumentError` exception is raised"""
 
         if not path:
             if drilldown:
@@ -1172,7 +1186,7 @@ class Hierarchy(object):
         extend = 1 if drilldown else 0
         
         if len(path) + extend > len(self.levels):
-            raise AttributeError("Path %s is longer than hierarchy levels %s" % (path, self.level_names))
+            raise ArgumentError("Path %s is longer than hierarchy levels %s" % (path, self._levels.keys()))
 
         return self.levels[0:len(path)+extend]
 
@@ -1220,17 +1234,19 @@ class Hierarchy(object):
 
     def rollup(self, path, level = None):
         """Rolls-up the path to the `level`. If `level` is None then path is
-        rolled-up only one level. If `level` is deeper than last level of
-        `path` the exception is raised. If `level` is the same as `path`
-        level, nothing happens."""
+        rolled-up only one level.
+        
+        If `level` is deeper than last level of `path` the
+        `cubes.ArgumentError` exception is raised. If `level` is the same as
+        `path` level, nothing happens."""
         
         if level:
             level = self.dimension.level(level)
         
             last = self._levels.keys().index(level.name) + 1
             if last > len(path):
-                raise ValueError("Can not roll-up: level '%s' in dimension '%s' is deeper than "
-                                 "deepest element of path %s", level.name, self.dimension.name, path)
+                raise ArgumentError("Can not roll-up: level '%s' in dimension '%s' is deeper than "
+                                    "deepest element of path %s", level.name, self.dimension.name, path)
         else:
             if len(path) > 0:
                 last = len(path) - 1
@@ -1467,6 +1483,9 @@ class Attribute(object):
           
         String representation of the `Attribute` returns its `name` (without
         dimension prefix).
+        
+        `cubes.ArgumentError` is raised when unknown ordering type is
+        specified.
         """
         super(Attribute, self).__init__()
         self.name = name
@@ -1482,7 +1501,7 @@ class Attribute(object):
             elif self.order.startswith("desc"):
                 self.order = Attribute.DESC
             else:
-                raise ValueError("Unknown ordering '%s' for attributes '%s'" % \
+                raise ArgumentError("Unknown ordering '%s' for attributes '%s'" % \
                                     (order, self.full_name) )
         else:
             self.order = None
@@ -1523,9 +1542,9 @@ class Attribute(object):
         
     def ref(self, locale=None, simplify=False):
         """Return full attribute reference. Append `locale` if it is one of of
-        attribute's locales, otherwise raise an error. If `simplify` is
-        ``True``, then reference to an attribute of flat dimension without
-        details will be just the dimension name.
+        attribute's locales, otherwise raise `cubes.ArgumentError`. If
+        `simplify` is ``True``, then reference to an attribute of flat
+        dimension without details will be just the dimension name.
         
         .. warning::
         
@@ -1534,7 +1553,7 @@ class Attribute(object):
         """
         if locale:
             if locale in self.locales:
-                raise ValueError("Attribute '%s' has no localization %s" % self.name)
+                raise ArgumentError("Attribute '%s' has no localization %s" % self.name)
             else:
                 locale_suffix = "." + locale
         else:
@@ -1553,7 +1572,7 @@ class Attribute(object):
     def full_name(self, dimension=None, locale=None):
         """Return full name of an attribute as if it was part of `dimension`.
         Append `locale` if it is one of of attribute's locales, otherwise
-        raise an error. """
+        raise `cubes.ArgumentError`. """
         # Old behaviour: If no locale is specified and attribute is localized, then first locale from
         # list of locales is used.
 
@@ -1562,7 +1581,7 @@ class Attribute(object):
 
         if locale:
             if locale in self.locales:
-                raise ValueError("Attribute '%s' has no localization %s" % self.name)
+                raise ArgumentError("Attribute '%s' has no localization %s" % self.name)
             else:
                 locale_suffix = "." + locale
         else:
