@@ -185,7 +185,8 @@ class StarBrowser(AggregationBrowser):
 
         cond = self.context.condition_for_cell(cell)
         statement = self.context.denormalized_statement(whereclause=cond.condition,
-                                                        attributes=attributes)
+                                                        attributes=attributes,
+                                                        include_fact_key=False)
         statement = paginated_statement(statement, page, page_size)
         statement = ordered_statement(statement, order, context=self.context)
 
@@ -498,7 +499,7 @@ class QueryContext(object):
         return result
 
     def denormalized_statement(self, whereclause=None, attributes=None,
-                                expand_locales=False):
+                                expand_locales=False, include_fact_key=True):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
@@ -514,8 +515,10 @@ class QueryContext(object):
         join_expression = self.join_expression_for_attributes(attributes, expand_locales=expand_locales)
 
         columns = self.columns(attributes, expand_locales=expand_locales)
-        key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
-        columns.insert(0, key_column)
+
+        if include_fact_key:
+            key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
+            columns.insert(0, key_column)
 
         select = sql.expression.select(columns,
                                     whereclause=whereclause,
