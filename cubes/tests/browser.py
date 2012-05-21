@@ -82,7 +82,7 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         names = [level.name for level in levels]
         self.assertEqual(names, ['division', 'group', 'class', 'category'])
         
-        self.assertRaises(AttributeError, hier.levels_for_path, [1,2,3,4,5,6,7,8])
+        self.assertRaises(ArgumentError, hier.levels_for_path, [1,2,3,4,5,6,7,8])
         
     def test_hierarchy_drilldown_levels(self):
         dim =self.cube.dimension("cpv")
