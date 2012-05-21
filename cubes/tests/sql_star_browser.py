@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 
 from cubes.backends.sql import coalesce_physical
 from cubes.backends.sql.star import *
+from cubes.errors import *
 
 class StarSQLTestCase(unittest.TestCase):
     def setUp(self):
@@ -321,7 +322,7 @@ class QueryContextTestCase(StarSQLTestCase):
 
         drilldown = ["date"]
         expected = {"date": [dim.level("year"), dim.level("month")]}
-        self.assertRaises(ValueError, coalesce_drilldown, cell, drilldown)
+        self.assertRaises(ArgumentError, coalesce_drilldown, cell, drilldown)
         
 class JoinsTestCase(StarSQLTestCase):
     def setUp(self):

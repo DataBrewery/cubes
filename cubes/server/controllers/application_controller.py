@@ -189,6 +189,10 @@ class ApplicationController(object):
     def json_request(self):
         content_type = self.request.headers.get('content-type')
         if content_type == 'application/json':
-            return json.loads(self.request.data)
+            try:
+                result = json.loads(self.request.data)
+            except Exception as e:
+                raise common.RequestError("Problem loading request JSON data", reason=str(e))
+            return result
         else:
             raise common.RequestError("JSON requested from unknown content-type '%s'" % content_type)

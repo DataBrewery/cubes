@@ -5,6 +5,7 @@ import json
 import re
 
 from cubes.browser import PointCut, RangeCut, SetCut, Cell
+from cubes.errors import *
 
 from common import DATA_PATH
         
@@ -62,7 +63,7 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         cut = cell.cut_for_dimension("date")
         self.assertEqual(cut.dimension, self.cube.dimension("date"))
 
-        self.assertRaises(cubes.ModelError, cell.cut_for_dimension, "someunknown")
+        self.assertRaises(cubes.NoSuchDimensionError, cell.cut_for_dimension, "someunknown")
         
         cut = cell.cut_for_dimension("cpv")
         self.assertEqual(cut, None)
@@ -105,7 +106,7 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         self.assertEqual([1,2], hier.rollup(path,"group"))
         self.assertEqual([1,2,3], hier.rollup(path,"class"))
         self.assertEqual([1,2,3,4], hier.rollup(path,"category"))
-        self.assertRaises(ValueError, hier.rollup, path,"detail")
+        self.assertRaises(ArgumentError, hier.rollup, path,"detail")
         
     def test_cut_from_dict(self):
         # d = {"type":"point", "path":[2010]}

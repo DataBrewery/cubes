@@ -9,6 +9,8 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
+from cubes.errors import *
+
 __all__ = [
     "AggregationBrowser",
     "Cell",
@@ -23,20 +25,7 @@ __all__ = [
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",
-    "BrowserError"
 ]
-
-class BrowserError(Exception):
-    """AggregationBrowser related exception."""
-    pass
-        
-class BrowserArgumentError(BrowserError):
-    """Raised when one of browser query arguments is invalid. Contains
-    key `argument` with argument name and `value` with invalid argument value."""
-    def __init__(self, message, argument=None, value=None):
-        super(BrowserArgumentError, self).__init__(message)
-        self.argument = argument
-        self.value=value
 
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
@@ -50,7 +39,7 @@ class AggregationBrowser(object):
         super(AggregationBrowser, self).__init__()
 
         if not cube:
-            raise AttributeError("No cube given for aggregation browser")
+            raise ArgumentError("No cube given for aggregation browser")
 
         self.cube = cube
 
@@ -179,6 +168,9 @@ class AggregationBrowser(object):
         transaction count, total transaction amount, drill-down by year and
         drill-down by transaction type.
 
+        Raises `cubes.ArgumentError` when there are no queries specified
+        or if a query is of unknown type.
+
         *Roll-up*
         
         Report queries might contain ``rollup`` specification which will
@@ -223,7 +215,7 @@ class AggregationBrowser(object):
         for result_name, query in queries.items():
             query_type = query.get("query")
             if not query_type:
-                raise BrowserArgumentError("No report query for '%s'" % result_name)
+                raise ArgumentError("No report query for '%s'" % result_name)
             
             # FIXME: add: cell = query.get("cell")
             
@@ -260,7 +252,7 @@ class AggregationBrowser(object):
                 result = self.cell_details(query_cell, **args)
 
             else:
-                raise BrowserArgumentError("Unknown report query '%s' for '%s'" % (query_type, result_name))
+                raise ArgumentError("Unknown report query '%s' for '%s'" % (query_type, result_name))
 
             report_result[result_name] = result
             
@@ -460,7 +452,7 @@ class Cell(object):
             for dim, path in cuts:
                 cell = cell.slice(dim, path)
         else:
-            raise TypeError("Cuts for multi_slice sohuld be a list or a dictionary, is '%s'" \
+            raise ArgumentError("Cuts for multi_slice sohuld be a list or a dictionary, is '%s'" \
                                 % cuts.__class__)
 
         return cell
@@ -575,7 +567,7 @@ class Cell(object):
             for (dim_name, level_name) in rollup.items():
                 cut = cuts[dim_name]
                 if not cut:
-                    raise ValueError("No cut to roll-up for dimension '%s'" % dim_name)
+                    raise ArgumentError("No cut to roll-up for dimension '%s'" % dim_name)
                 if type(cut) != PointCut:
                     raise NotImplementedError("Only PointCuts are currently supported for "
                                               "roll-up (rollup dimension: %s)" % dim_name)
@@ -588,7 +580,7 @@ class Cell(object):
                 cut = PointCut(cut.dimension, rollup_path)
                 new_cuts.append(cut)
         else:
-            raise TypeError("Rollup is of unknown type: %s" % self.drilldown.__class__)
+            raise ArgumentError("Rollup is of unknown type: %s" % self.drilldown.__class__)
         
         cell = Cell(cube=self.cube, cuts=new_cuts)
         return cell
@@ -759,7 +751,7 @@ def cut_from_dict(desc, cube=None):
     elif cut_type == "range":
         return RangeCut(dim, desc.get("from"), desc.get("to"))
     else:
-        raise ValueError("Unknown cut type %s" % cut_type)
+        raise ArgumentError("Unknown cut type %s" % cut_type)
     
 def string_from_cuts(cuts):
     """Returns a string represeting `cuts`. String can be used in URLs"""
@@ -782,9 +774,9 @@ def string_from_path(path):
     path = [unicode(s) if s is not None else "" for s in path]
     
     if not all(map(re_element.match, path)):
-        raise ValueError("Can not convert path to string: "
-                         "keys contain invalid characters "
-                         "(should be alpha-numeric or underscore)")
+        raise ArgumentError("Can not convert path to string: "
+                            "keys contain invalid characters "
+                            "(should be alpha-numeric or underscore)")
         
     string = PATH_STRING_SEPARATOR.join(path)
     return string
