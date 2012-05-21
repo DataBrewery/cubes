@@ -606,14 +606,14 @@ class QueryContext(object):
                 attributes |= wrapped_cond.attributes
 
             elif isinstance(cut, SetCut):
-                conditions = []
+                set_conds = []
 
                 for path in cut.paths:
                     wrapped_cond = self.condition_for_point(dim, path)
-                    conditions.append(wrapped_cond.condition)
+                    set_conds.append(wrapped_cond.condition)
                     attributes |= wrapped_cond.attributes
 
-                condition = sql.expression.or_(*conditions)
+                condition = sql.expression.or_(*set_conds)
 
             elif isinstance(cut, RangeCut):
                 # FIXME: use hierarchy
@@ -627,7 +627,6 @@ class QueryContext(object):
             conditions.append(condition)
 
         condition = sql.expression.and_(*conditions)
-
         return Condition(attributes, condition)
 
     def condition_for_point(self, dim, path, hierarchy=None):
