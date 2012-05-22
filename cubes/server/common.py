@@ -17,6 +17,19 @@ TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
 API_VERSION = "1"
 
+def str_to_bool(string):
+    """Convert a `string` to bool value. Returns ``True`` if `string` is
+    one of ``["true", "yes", "1", "on"]``, returns ``False`` if `string` is
+    one of  ``["false", "no", "0", "off"]``, otherwise returns ``None``."""
+
+    if string is not None:
+        if string.lower() in ["true", "yes", "1", "on"]:
+            return True
+        elif string.lower() in["false", "no", "0", "off"]:
+            return False
+
+    return None
+
 class ServerError(HTTPException):
     code = 500
     error_type = "default"
@@ -55,14 +68,16 @@ class NotFoundError(ServerError):
     error_type = "not_found"
     def __init__(self, obj, objtype=None, message=None):
         super(NotFoundError, self).__init__(message)
-        self.details = {
-            "object": obj,
-        }
+        self.details = { "object": obj }
+
+        if objtype:
+            self.details["object_type"] = objtype
+            
         if not message:
             self.message = "Object '%s' of type '%s' was not found" % (obj, objtype)
-        if type:
-            self.details["object_type"] = objtype
-
+        else:
+            self.message = message
+            
 class AggregationError(ServerError):
     code = 400
 

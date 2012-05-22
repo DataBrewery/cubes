@@ -46,7 +46,7 @@ def load_model(resource, translations = None):
 
     * JSON file with a dictionary describing model
     * URL with a JSON dictionary
-    
+
     Raises `ModelError` when model description file does not contain a
     dictionary.
     """
