@@ -1,4 +1,4 @@
-import logging
+# import logging
 import os.path
 import json
 import cStringIO
@@ -6,7 +6,7 @@ import csv
 import codecs
 import cubes
 
-from .common import API_VERSION, TEMPLATE_PATH
+from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
 from .common import RequestError, ServerError, NotFoundError
 from .common import SlicerJSONEncoder
 
@@ -36,13 +36,15 @@ __all__ = (
 )
 
 class ApplicationController(object):
-    def __init__(self, app, config):
+    def __init__(self, args, app, config):
 
         self.app = app
-        self.master_model = app.model
+        self.args = args
+        self.config = config
         self.logger = app.logger
 
-        self.config = config
+        self.locale = self.args.get("lang")
+        self.model = self.app.localized_model(self.locale)
 
         if config.has_option("server","json_record_limit"):
             self.json_record_limit = config.get("server","json_record_limit")
@@ -52,42 +54,44 @@ class ApplicationController(object):
         if config.has_option("server","prettyprint"):
             self.prettyprint = config.getboolean("server","prettyprint")
         else:
-            self.prettyprint = False
-            
-        self.query = None
-        self.locale = None
-        self.browser = None
-        self.model = None
+            self.prettyprint = None
 
-    def _localize_model(self):
-        """Tries to translate the model. Looks for language in configuration file under 
-        ``[translations]``, if no translation is provided, then model remains untouched."""
+        # Override server settings
+        if "prettyprint" in self.args:
+            self.prettyprint = str_to_bool(self.args.get("prettyprint"))
 
-        # FIXME: Rewrite this to make it thread safer
-
-        self.logger.debug("localization to '%s' (current: '%s') requested (has: %s)" % (self.locale, self.model.locale, self.app.model_localizations.keys()))
-
-        if self.locale in self.app.model_localizations:
-            self.logger.debug("localization '%s' found" % self.locale)
-            self.model = self.app.model_localizations[self.locale]
-
-        elif self.locale == self.master_model.locale:
-            self.app.model_localizations[self.locale] = self.master_model
-            self.model = self.master_model
-
-        elif self.config.has_option("translations", self.locale):
-            path = self.config.get("translations", self.locale)
-            self.logger.debug("translating model to '%s' translation path: %s" % (self.locale, path))
-            with open(path) as handle:
-                trans = json.load(handle)
-            model = self.master_model.localize(trans)
-                
-            self.app.model_localizations[self.locale] = model
-            self.model = model
-
-        else:
-            raise RequestError("No translation for language '%s'" % self.locale)
+        # Read common parameters
         
+        self.page = None
+        if "page" in self.args:
+            try:
+                self.page = int(self.args.get("page"))
+            except ValueError:
+                raise RequestError("'page' should be a number")
+
+        self.page_size = None
+        if "pagesize" in self.args:
+            try:
+                self.page_size = int(self.args.get("pagesize"))
+            except ValueError:
+                raise RequestError("'pagesize' should be a number")
+
+        # Collect orderings:
+        # order is specified as order=<field>[:<direction>]
+        # examples:
+        #
+        #     order=date.year     # order by year, unspecified direction
+        #     order=date.year:asc # order by year ascending
+        #
+
+        self.order = []
+        for order in self.args.getlist("order"):
+            split = order.split(":")
+            if len(split) == 1:
+                self.order.append( (order, None) )
+            else:
+                self.order.append( (split[0], split[1]) )
+
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
         template = handle.read()
@@ -97,9 +101,7 @@ class ApplicationController(object):
         context.update(self.server_info())
 
         context["model"] = self.model.name
-        array = []
-        for cube in self.model.cubes.values():
-            array.append(cube.name)
+        array = [cube.name for cube in self.model.cubes.values()]
             
         if array:
             context["cubes"] = ", ".join(array)
@@ -137,74 +139,6 @@ class ApplicationController(object):
         reply = encoder.iterencode(obj)
 
         return Response(reply, mimetype='application/json')
-    
-    @property
-    def args(self):
-        return self._args
-        
-    @args.setter
-    def args(self, args):
-        self._args = args
-
-        if "page" in args:
-            self.page = int(args.get("page"))
-        else:
-            self.page = None
-        if "pagesize" in args:
-            self.page_size = int(args.get("pagesize"))
-        else:
-            self.page_size = None
-
-        # Collect orderings:
-        # order is specified as order=<field>[:<direction>]
-        # examples:
-        #
-        #     order=date.year     # order by year, unspecified direction
-        #     order=date.year:asc # order by year ascending
-        #
-
-        self.order = []
-        for order in args.getlist("order"):
-            split = order.split(":")
-            if len(split) == 1:
-                self.order.append( (order, None) )
-            else:
-                self.order.append( (split[0], split[1]) )
-
-        ppflag = args.get("prettyprint")
-        if ppflag:
-            if ppflag.lower() in ["true", "yes", "1", "on"]:
-                self.prettyprint = True
-            elif ppflag.lower() in ["false", "no", "0", "off"]:
-                self.prettyprint = False
-
-        self.locale = args.get("lang")
-        self.model = self.master_model
-        
-        if self.locale:
-            self._localize_model()
-                
-    def finalize(self):
-        pass
-    
-    def initialize(self):
-        pass
-    
-    def error(self, message = None, exception = None, status = None):
-        if not message:
-            message = "An unknown error occured"
-            
-        error = {}
-        error["message"] = message
-        if exception:
-            error["reason"] = str(exception)
-
-        string = json.dumps({"error": error},indent = 4)
-        
-        if not status:
-            status = 500
-        
-        return Response(string, mimetype='application/json', status = status)
 
     def json_request(self):
         content_type = self.request.headers.get('content-type')
@@ -365,22 +299,22 @@ class CubesController(ApplicationController):
                 cube_name = self.cube.name
 
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
-        self.browser = self.app.workspace.browser_for_cube(self.cube, self.locale)
+        self.browser = self.app.workspace.browser(self.cube, self.locale)
 
     def prepare_cell(self):
         cut_string = self.args.get("cut")
 
         if cut_string:
-            self.logger.debug("preparing cell for cut string: '%s'" % cut_string)
+            self.logger.debug("preparing cell from string: '%s'" % cut_string)
             cuts = cubes.cuts_from_string(cut_string)
         else:
-            self.logger.debug("preparing cell for whole cube")
+            self.logger.debug("preparing cell as whole cube")
             cuts = []
 
         self.cell = cubes.Cell(self.cube, cuts)
 
     def aggregate(self, cube):
-        self.create_browser()
+        self.create_browser(cube)
         self.prepare_cell()
 
         drilldown = self.args.getlist("drilldown")
@@ -405,10 +339,7 @@ class CubesController(ApplicationController):
         self.prepare_cell()
 
         format = self.args.get("format")
-        if format:
-            format = format.lower()
-        else:
-            format = "json"
+        format = format.lower() if format else "json"
 
         fields_str = self.args.get("fields")
         if fields_str:
@@ -438,7 +369,7 @@ class CubesController(ApplicationController):
         if fact:
             return self.json_response(fact)
         else:
-            return self.error("No fact with id=%s" % fact_id, status = 404)
+            raise NotFoundError(fact_id, "fact", message="No fact with id '%s'" % fact_id)
 
     def values(self, cube, dimension_name):
         self.create_browser(cube)
@@ -526,7 +457,7 @@ class SearchController(ApplicationController):
             cube_name = self.config.get("model", "cube")
 
         self.cube = self.model.cube(cube_name)
-        self.browser = self.app.workspace.browser_for_cube(self.cube, locale = self.locale)
+        self.browser = self.app.workspace.browser(self.cube, locale = self.locale)
 
         if self.config.has_option("sphinx", "host"):
             self.sphinx_host = self.config.get("sphinx","host")
@@ -548,14 +479,14 @@ class SearchController(ApplicationController):
 
         dimension = self.args.get("dimension")
         if not dimension:
-            return self.error("No dimension provided")
+            return RequestError("No dimension provided for search")
 
         query = self.args.get("q")
         if not query:
             query = self.args.get("query")
 
         if not query:
-            return self.error("No query provided")
+            return RequestError("No search query provided")
 
         zipped = self.args.get("_zip")
 
