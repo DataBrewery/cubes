@@ -135,12 +135,13 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         self.logger = logging.getLogger(logger_name)
 
-    def aggregate(self, cell, measures=None, drilldown=None, order=None, **options):
+    def aggregate(self, cell=None, measures=None, drilldown=None, order=None, **options):
         """See :meth:`cubes.browsers.cell.aggregate`."""
 
         result = cubes.browser.AggregationResult()
         
         # Create query
+        cell = cell or cubes.browser.Cell(self.cube)
         query = CubeQuery(cell, self.view, locale=self.locale)
         query.drilldown = drilldown
         query.order = order
@@ -194,10 +195,11 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
 
         return result
 
-    def facts(self, cell, order = None, **options):
+    def facts(self, cell=None, order = None, **options):
         """Retruns iterable objects with facts"""
         # Create query
 
+        cell = cell or cubes.browser.Cell(self.cube)
         query = CubeQuery(cell, self.view, locale = self.locale, **options)
         query.order = order
         query.prepare()
@@ -216,7 +218,8 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
     def fact(self, key):
         """Fetch single row based on fact key"""
 
-        query = CubeQuery(self.full_cube(), self.view, locale = self.locale)
+        cell = cubes.browser.Cell(self.cube)
+        query = CubeQuery(cell, self.view, locale = self.locale)
 
         statement = query.fact_statement(key)
 
@@ -235,10 +238,11 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
     def values(self, cell, dimension, depth = None, order = None, **options):
         """Get values for dimension at given path within cell"""
 
-        dimension = self.cube.dimension(dimension)
+        cell = cell or cubes.browser.Cell(self.cube)
         query = CubeQuery(cell, self.view, locale = self.locale, **options)
         query.order = order
 
+        dimension = self.cube.dimension(dimension)
         statement = query.values_statement(dimension, depth)
 
         page = options.get("page")

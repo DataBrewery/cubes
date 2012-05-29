@@ -65,7 +65,7 @@ class AggregationBrowser(object):
         else:
             return dimension
 
-    def aggregate(self, cell, measures = None, drilldown = None, **options):
+    def aggregate(self, cell=None, measures=None, drilldown=None, **options):
         """Return aggregate of a cell.
 
         Subclasses of aggregation browser should implement this method.
@@ -114,7 +114,7 @@ class AggregationBrowser(object):
     #         for dim in rows:
     #             dim = self.cube.dimension(dim)
 
-    def facts(self, cell, **options):
+    def facts(self, cell=None, **options):
         """Return an iterable object with of all facts within cell"""
         
         raise NotImplementedError
@@ -258,7 +258,7 @@ class AggregationBrowser(object):
             
         return report_result
 
-    def cell_details(self, cell, dimension=None):
+    def cell_details(self, cell=None, dimension=None):
         """Returns details for the `cell`. Returned object is a list with one
         element for each cell cut. If `dimension` is specified, then details
         only for cuts that use the dimension are returned.
@@ -279,6 +279,8 @@ class AggregationBrowser(object):
         # TODO: is the name right?
         # TODO: dictionary or class representation?
         # TODO: how we can add the cell as well?
+        if not cell:
+            return []
 
         if dimension:
             cuts = [cut for cut in cell.cuts if str(cut.dimension)==str(dimension)]
