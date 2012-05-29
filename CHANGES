@@ -1,8 +1,10 @@
 Changes in the Cubes
 ====================
 
-Development Version
-===================
+0.9.1
+=====
+
+**Summary**: Range cuts, denormalize with slicer tool, cells in `/report` query
 
 New Features
 ------------
