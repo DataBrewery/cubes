@@ -13,6 +13,10 @@ New Features
   strings (for example when using slicer HTTP server)
 * cut_from_dict(): create a cut (of appropriate class) from a dictionary
   description
+* Dimension.attribute(name): get attribute instance from name
+* added exceptions: CubesError, ModelInconsistencyError, NoSuchDimensionError,
+  NoSuchAttributeError, ArgumentError, MappingError, WorkspaceError and
+  BrowserError
 
 *StarBrowser:*
 
@@ -23,6 +27,11 @@ New Features
 * `/report` JSON now accepts `cell` with full cell description as dictionary,
   overrides URL parameters
 
+*Slicer tool:*
+
+* `denormalize` option for (bulk) denormalization of cubes (see the the slicer
+  documentation for more information)
+
 Changes
 -------
 
@@ -31,6 +40,7 @@ Changes
   implemented. A descriptive error message is returned from the server if the
   key `queries` is not present. Despite being rather a bug-fix, it is listed
   here as it requires your attention for possible change of your code.
+* warn when no backend is specified during slicer context creation
 
 Fixes
 -----
@@ -38,6 +48,8 @@ Fixes
 * Better handling of missing optional packages, also fixes #57 (now works
   without slqalchemy and without werkzeug as expected)
 * see change above about `/report` and `queries`
+* push more errors as JSON responses to the requestor, instead of just failing
+  with an exception
 
 
 Version 0.9

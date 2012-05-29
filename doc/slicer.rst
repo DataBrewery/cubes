@@ -79,7 +79,6 @@ Usage::
     slicer model validate model.json
     slicer model validate http://somesite.com/model.json
 
-
 Optional arguments::
 
       -d, --defaults        show defaults
@@ -166,3 +165,87 @@ optional arguments::
     --fact-prefix FACT_PREFIX
                         prefix for fact tables
     --backend BACKEND     backend name (currently limited only to SQL backends)
+
+denormalize
+-----------
+
+Usage::
+
+    slicer denormalize [-h] [-p PREFIX] [-f] [-m] [-i] [-s SCHEMA]
+                       [-c CUBE] config
+
+positional arguments::
+
+    config                slicer confuguration .ini file
+
+optional arguments::
+
+    -h, --help            show this help message and exit
+    -p PREFIX, --prefix PREFIX
+                          prefix for denormalized views (overrides config value)
+    -f, --force           replace existing views
+    -m, --materialize     create materialized view (table)
+    -i, --index           create index for key attributes
+    -s SCHEMA, --schema SCHEMA
+                          target view schema (overrides config value)
+    -c CUBE, --cube CUBE  cube(s) to be denormalized, if not specified then all
+                        in the model
+
+Examples
+~~~~~~~~
+
+If you plan to use denormalized views, you have to specify it in the
+configuration in the ``[workspace]`` section::
+
+    [workspace]
+    denormalized_view_prefix = mft_
+    denormalized_view_schema = denorm_views
+
+    # This switch is used by the browser:
+    use_denormalization = yes
+
+The denormalization will create tables like ``denorm_views.mft_contracts`` for
+a cube named ``contracts``. The browser will use the view if option
+``use_denormalization`` is set to a true value.
+
+Denormalize all cubes in the model::
+
+    slicer denormalize slicer.ini
+    
+Denormalize only one cube::
+
+    slicer denormalize -c contracts slicer.ini
+    
+Create materialized denormalized view with indexes::
+
+    slicer denormalize --materialize --index slicer.ini
+
+Replace existing denormalized view of a cube::
+
+    slicer denormalize --force -c contracts slicer.ini
+
+Schema
+~~~~~~
+
+Schema where denormalized view is created is schema specified in the
+configuration file. Schema is shared with fact tables and views. If you want
+to have views in separate schema, specify ``denormalized_view_schema`` option
+in the configuration.
+
+If for any specific reason you would like to denormalize into a completely
+different schema than specified in the configuration, you can specify it with
+the ``--schema`` option.
+
+View name
+~~~~~~~~~
+
+By default, a view name is the same as corresponding cube name. If there is
+``denormalized_view_prefix`` option in the configuration, then the prefix is
+prepended to the cube name. Or it is possible to override the option with
+command line argument ``--prefix``.
+
+.. note::
+
+    The tool will not allow to create view if it's name is the same as fact
+    table name and is in the same schema. It is not even possible to
+    ``--force`` it. A view prefix or different schema has to be specified.
