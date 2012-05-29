@@ -18,7 +18,7 @@ __all__ = [
     "get_localizable_attributes"
 ]
 
-DEFAULT_BACKEND = "cubes.backends.sql.browser"
+DEFAULT_BACKEND = "sql.browser"
 
 def node_level_points(node):
     """Get all level points within given node. Node is described as tuple:
@@ -286,6 +286,7 @@ def create_slicer_context(config):
     if config.has_option("server","backend"):
         backend_name = config.get("server","backend")
     else:
+        logger.warn("no backend specified, using '%s'" % DEFAULT_BACKEND)
         backend_name = DEFAULT_BACKEND
 
     backend = get_backend(backend_name)
