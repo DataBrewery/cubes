@@ -502,9 +502,8 @@ class DenormalizedMapper(Mapper):
         * `denormalized_view_prefix` – default prefix used for constructing
            view name from cube name
         * `fact_name` – fact name, if not specified then `cube.name` is used
-        * `schema` – database schema for the original fact table
-        * `denormalized_view_schema` – schema where the denormalized view is
-          stored
+        * `schema` – schema where the denormalized view is stored
+        * `fact_schema` – database schema for the original fact table
         """
 
         super(DenormalizedMapper, self).__init__(cube, locale=locale, 
@@ -515,7 +514,8 @@ class DenormalizedMapper(Mapper):
         # FIXME: this hides original fact name, we do not want that
         
         self.fact_name = options.get("denormalized_view") or dview_prefix + self.cube.name
-        self.denormalized_view_schema = denormalized_view_schema or self.schema
+        self.fact_schema = self.schema
+        self.schema = self.schema or denormalized_view_schema
 
     def physical(self, attribute, locale=None):
         """Returns same name as localized logical reference.
@@ -532,7 +532,7 @@ class DenormalizedMapper(Mapper):
             locale = None
             
         column_name = self.logical(attribute, locale)
-        reference = PhysicalReference(self.denormalized_view_schema,
+        reference = PhysicalReference(self.schema,
                                       self.fact_name,
                                       column_name)
 
