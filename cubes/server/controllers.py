@@ -388,9 +388,10 @@ class CubesController(ApplicationController):
             dimension = self.cube.dimension(dimension_name)
         except KeyError:
             raise NotFoundError(dim_name, "dimension",
-                                        message = "Dimension '%s' was not found" % dim_name)
+                                message="Dimension '%s' was not found" % dim_name)
 
-        values = self.browser.values(self.cell, dimension, depth = depth, page = self.page, page_size = self.page_size)
+        values = self.browser.values(self.cell, dimension, depth=depth, 
+                                     page=self.page, page_size=self.page_size)
 
         result = {
             "dimension": dimension.name,
