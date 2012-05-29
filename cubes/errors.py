@@ -25,6 +25,9 @@ class MappingError(CubesError):
     """Raised when there are issues by mapping from logical model to physical
     database schema. """
 
+class WorkspaceError(CubesError):
+    """Backend Workspace related exception."""
+    
 class BrowserError(CubesError):
     """AggregationBrowser related exception."""
     pass

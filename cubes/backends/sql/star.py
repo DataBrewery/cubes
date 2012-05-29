@@ -101,13 +101,14 @@ class StarBrowser(AggregationBrowser):
         # about relevant joins to be able to retrieve certain attributes.
 
         if options.get("use_denormalization"):
-            self.logger.debug("using denormalized mapper for cube %s (locale %s)" % (cube, locale))
             mapper_class = DenormalizedMapper
         else:
-            self.logger.debug("using snowflake mapper for cube %s (locale %s)" % (cube, locale))
             mapper_class = SnowflakeMapper
 
+        self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
+                            (str(mapper_class.__name__), cube.name, locale))
         self.mapper = mapper_class(cube, locale=self.locale, **options)
+        self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
         # also caches information about tables retrieved from metadata.
@@ -987,13 +988,16 @@ def create_workspace(model, **options):
       when no explicit mapping is specified
     * `fact_prefix` - used by the snowflake mapper to find fact table for a
       cube, when no explicit fact table name is specified
+
+     Options for denormalized views:
+     
     * `use_denormalization` - browser will use dernormalized view instead of
       snowflake
     * `denormalized_view_prefix` - if denormalization is used, then this
       prefix is added for cube name to find corresponding cube view
     * `denormalized_view_schema` - schema wehere denormalized views are
-      located (if not specified, then default schema is used)
-    
+      located (use this if the views are in different schema than fact tables,
+      otherwise default schema is going to be used)
     """
     engine = options.get("engine")
 
@@ -1050,10 +1054,16 @@ class SQLStarWorkspace(object):
                               **self.options)
         return browser
 
-    def create_denormalized_view(self, cube, view_name, materialize=False, 
+    def create_denormalized_view(self, cube, view_name=None, materialize=False, 
                                  replace=False, create_index=False, 
-                                 keys_only=False):
-        """Creates a denormalized view named `view_name` of a `cube`. Options:
+                                 keys_only=False, schema=None):
+        """Creates a denormalized view named `view_name` of a `cube`. If
+        `view_name` is ``None`` then view name is constructed by pre-pending
+        value of `denormalized_view_prefix` from workspace options to the cube
+        name. If no prefix is specified in the options, then view name will be
+        equal to the cube name.
+        
+        Options:
         
         * `materialize` - whether the view is materialized (a table) or
           regular view
@@ -1064,7 +1074,11 @@ class SQLStarWorkspace(object):
           attribute. Can be used only on materialized view, otherwise raises
           an exception
         * `keys_only` - if ``True`` then only key attributes are used in the
-          view, all other detail attributes are ignored            
+          view, all other detail attributes are ignored   
+        * `schema` - target schema of the denormalized view, if not specified,
+          then `denormalized_view_schema` from options is used if specified,
+          otherwise default workspace schema is used (same schema as fact
+          table schema).
         """
 
         cube = self.model.cube(cube)
@@ -1081,19 +1095,23 @@ class SQLStarWorkspace(object):
         else:
             statement = context.denormalized_statement(expand_locales=True)
 
+        schema = schema or self.options.get("denormalized_view_schema") or self.schema
         table = sqlalchemy.Table(view_name, self.metadata,
-                                 autoload=False, schema=self.schema)
-
-        full_name = "%s.%s" % (self.schema, view_name) if self.schema else view_name
+                                 autoload=False, schema=schema)
+        
+        preparer = self.engine.dialect.preparer(self.engine.dialect)
+        full_name = preparer.format_table(table)
+        
+        if mapper.fact_name == view_name and schema == mapper.schema:
+            raise WorkspaceError("target denormalized view is the same as source fact table")
 
         if table.exists():
             if not replace:
-                raise MappingError("Table %s (schema: %s) already exists. "
-                                   "Use replace=True to force creation" % \
-                                   (view_name, self.schema))
+                raise WorkspaceError("Table %s (schema: %s) already exists." % \
+                                   (view_name, schema))
 
             inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.engine)
-            view_names = inspector.get_view_names(schema=self.schema)
+            view_names = inspector.get_view_names(schema=schema)
 
             if view_name in view_names:
                 # Table reflects a view
@@ -1116,11 +1134,11 @@ class SQLStarWorkspace(object):
 
         if create_index:
             if not materialize:
-                raise MappingError("Index can be created only on materialized view")
+                raise WorkspaceError("Index can be created only on a materialized view")
                 
             # self.metadata.reflect(schema = schema, only = [view_name] )
             table = sqlalchemy.Table(view_name, self.metadata,
-                                     autoload=True, schema=self.schema)
+                                     autoload=True, schema=schema)
             self.engine.reflecttable(table)
 
             for attribute in key_attributes:
