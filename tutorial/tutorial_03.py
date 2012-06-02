@@ -71,7 +71,7 @@ def drill_down(cell, dimension, path = []):
     # Get dimension's default hierarchy. Cubes supports multiple hierarchies, for example for
     # date you might have year-month-day or year-quarter-month-day. Most dimensions will
     # have one hierarchy, thought.
-    hierarchy = dimension.default_hierarchy
+    hierarchy = dimension.hierarchy()
 
     # Can we go deeper in the hierarchy? Base path is path to the most detailed element,
     # to the leaf of a tree, to the fact.

@@ -1187,22 +1187,24 @@ class Hierarchy(object):
     def __contains__(self, item):
         return item in self.levels
 
-    def levels_for_path(self, path, drilldown = False):
+    def levels_for_path(self, path, drilldown=False):
         """Returns levels for given path. If path is longer than hierarchy
         levels, `cubes.ArgumentError` exception is raised"""
 
-        if not path:
-            if drilldown:
-                return self.levels[0:1]
-            else:
-                return []
+        depth = 0 if not path else len(path)
+        return self.levels_for_depth(depth, drilldown)
 
+    def levels_for_depth(self, depth, drilldown=False):
+        """Returns levels for given `depth`. If `path` is longer than
+        hierarchy levels, `cubes.ArgumentError` exception is raised"""
+
+        depth = depth or 0
         extend = 1 if drilldown else 0
         
-        if len(path) + extend > len(self.levels):
-            raise ArgumentError("Path %s is longer than hierarchy levels %s" % (path, self._levels.keys()))
+        if depth + extend > len(self.levels):
+            raise ArgumentError("Depth %d is longer than hierarchy levels %s (drilldown: %s)" % (depth, self._levels.keys(), drilldown))
 
-        return self.levels[0:len(path)+extend]
+        return self.levels[0:depth+extend]
 
     def next_level(self, level):
         """Returns next level in hierarchy after `level`. If `level` is last
@@ -1583,7 +1585,7 @@ class Attribute(object):
 
         return reference + locale_suffix
 
-    def full_name(self, dimension=None, locale=None):
+    def full_name(self, dimension=None, locale=None, simplify=True):
         """Return full name of an attribute as if it was part of `dimension`.
         Append `locale` if it is one of of attribute's locales, otherwise
         raise `cubes.ArgumentError`. """
@@ -1603,7 +1605,10 @@ class Attribute(object):
 
         dimension = self.dimension or dimension
 
-        return str(dimension) + "." + self.name + locale_suffix
+        if simplify and (dimension.is_flat and not dimension.has_details):
+            return str(dimension) + locale_suffix
+        else:
+            return str(dimension) + "." + self.name + locale_suffix
 
     def localizable_dictionary(self):
         locale = {}

@@ -3,6 +3,7 @@ import json
 import decimal
 import copy
 import re
+from collections import namedtuple
 
 try:
     from collections import OrderedDict
@@ -10,6 +11,7 @@ except ImportError:
     from ordereddict import OrderedDict
 
 from cubes.errors import *
+from .model import Dimension
 
 __all__ = [
     "AggregationBrowser",
@@ -25,6 +27,8 @@ __all__ = [
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",
+    "DrilldownRow",
+    "drilldown_rows"
 ]
 
 class AggregationBrowser(object):
@@ -376,8 +380,42 @@ class Cell(object):
         self.cube = cube
         self.cuts = cuts
 
-    def slice(self, dimension, path):
-        """Create another cell by slicing receiving cell through `dimension`
+    def slice(self, cut, dummy=None):
+        """Returns new cell by slicing receiving cell with `cut`. Cut with
+        same dimension as `cut` will be replaced, if there is no cut with the
+        same dimension, then the `cut` will be appended.
+        """
+        
+        # Fix for wrong early design decision:
+        if isinstance(cut, Dimension) or isinstance(cut, basestring):
+            raise CubesError("slice() should now be called with a cut (since v0.9.2). To get "
+                             "original behaviour of one-dimension point cut, "
+                             "use point_slice(dim, path) instead or better: "
+                             "use cell.slice(PointCut(dim,path))")
+
+        cuts = self.cuts[:]
+        index = self._find_dimension_cut(cut.dimension)
+        if index is not None:
+            cuts[index] = cut
+        else:
+            cuts.append(cut)
+
+        return Cell(cube=self.cube, cuts=cuts)
+
+    def _find_dimension_cut(self, dimension):
+        """Returns index of first occurence of cut for `dimension`. Returns
+        ``None`` if no cut with `dimension` is found."""
+        names = [str(cut.dimension) for cut in self.cuts]
+
+        try:
+            index = names.index(str(dimension))
+            return index
+        except ValueError:
+            return None
+        
+    def point_slice(self, dimension, path):
+        """
+        Create another cell by slicing receiving cell through `dimension`
         at `path`. Receiving object is not modified. If cut with dimension
         exists it is replaced with new one. If path is empty list or is none,
         then cut for given dimension is removed.
@@ -385,10 +423,17 @@ class Cell(object):
         Example::
 
             full_cube = Cell(cube)
-            contracts_2010 = full_cube.slice("date", [2010])
+            contracts_2010 = full_cube.point_slice("date", [2010])
 
         Returns: new derived cell object.
+        
+        .. warning::
+        
+            Depreiated. Use :meth:`cell.slice` instead with argument
+            `PointCut(dimension, path)`
+        
         """
+        
         dimension = self.cube.dimension(dimension)
         cuts = self._filter_dimension_cuts(dimension, exclude=True)
         if path:
@@ -437,25 +482,15 @@ class Cell(object):
             
 
     def multi_slice(self, cuts):
-        """Create another cell by slicing through multiple slices. `cuts` can
-        be list or a dictionry. If it is a list, it should be a list of two
-        item tuples where first item is a dimension, second item is a
-        dimension cut path. If `cuts` is a dictionary, then keys are
-        dimensions, values are cut paths.
+        """Create another cell by slicing through multiple slices. `cuts` is a
+        list of `Cut` object instances. See also :meth:`Cell.slice`."""
 
-        See :meth:`Cell.slice` for more information about slicing."""
+        if isinstance(cuts, dict):
+            raise CubesError("dict type is not supported any more, use list of Cut instances")
 
         cell = self
-
-        if type(cuts) == dict:
-            for dim, path in cuts.items():
-                cell = cell.slice(dim, path)
-        elif type(cuts) == list or type(cuts) == tuple:
-            for dim, path in cuts:
-                cell = cell.slice(dim, path)
-        else:
-            raise ArgumentError("Cuts for multi_slice sohuld be a list or a dictionary, is '%s'" \
-                                % cuts.__class__)
+        for cut in cuts:
+            cell = cell.slice(cut)
 
         return cell
 
@@ -603,6 +638,17 @@ class Cell(object):
             levels[dim_name] = max(level, levels.get(dim_name))
 
         return levels
+    
+    def is_base(self, dimension):
+        """Returns ``True`` when cell is base cell (lowest detail level) for
+        `dimension`"""
+        
+        cut = self.cut_for_dimension(dimension)
+        path = cut.path if cut else None
+
+        return dimension.hierarchy().path_is_base(path)
+        
+    # def level(self, ):
     
     def _filter_dimension_cuts(self, dimension, exclude=False):
         dimension = self.cube.dimension(dimension)
@@ -1037,3 +1083,40 @@ class AggregationResult(object):
 
         return json_string
 
+DrilldownRow = namedtuple("DrilldownRow", ["key", "label", "path", "record"])
+
+def drilldown_rows(cell, result, dimension):
+    """Iterates the `result` drill-down and yields a named tuple with attributes:
+    (key, label, path, row) in regard to `dimension`. Example use::
+    
+        for row in drilldown_rows(cell, result, dimension):
+            print "%s: %s" % (row.label, row.record["record_count"])
+            
+    Raises `TypeError` when cut for `dimension` is not `PointCut`.
+    """
+
+    cut = cell.cut_for_dimension(dimension)
+
+    if cut and not isinstance(cut, PointCut):
+        raise TypeError("PointCut expected for drill down iterator dimension '%s' cut (was %s)" % (dimension, type(cut)))
+
+    if cut:
+        path = cut.path
+    else:
+        path = []
+
+    hierarchy = dimension.hierarchy()
+    levels = hierarchy.levels_for_path(path, drilldown=True)
+
+    current_level = levels[-1]
+    level_key = current_level.key.full_name()
+    level_label = current_level.label_attribute.full_name()
+
+    for record in result.drilldown:
+        drill_path = path[:] + [record[level_key]]
+
+        row = DrilldownRow(record[level_key],
+                           record[level_label],
+                           drill_path,
+                           record)
+        yield row
