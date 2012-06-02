@@ -29,39 +29,38 @@ class AggregationsBasicsTestCase(BrowserTestCase):
         self.assertEqual(self.cube, full_cube.cube)
         self.assertEqual(0, len(full_cube.cuts))
         
-        cell = full_cube.slice("date", [2010])
+        cell = full_cube.slice(cubes.PointCut("date", [2010]))
         self.assertEqual(1, len(cell.cuts))
         
-        cell = cell.slice("supplier", [1234])
-        cell = cell.slice("cpv", [50, 20])
+        cell = cell.slice(cubes.PointCut("supplier", [1234]))
+        cell = cell.slice(cubes.PointCut("cpv", [50, 20]))
         self.assertEqual(3, len(cell.cuts))
         self.assertEqual(self.cube, cell.cube)
 
         # Adding existing slice should result in changing the slice properties
-        cell = cell.slice("date", [2011])
+        cell = cell.slice(cubes.PointCut("date", [2011]))
         self.assertEqual(3, len(cell.cuts))
 
     def test_multi_slice(self):
         full_cube = self.browser.full_cube()
 
-        cuts_list = (("date", [2010]), ("cpv", [50, 20]), ("supplier", [1234]))
-        cuts_dict = {"date": [2010], "cpv": [50, 20], "supplier": [1234]}
+        cuts_list = (
+                cubes.PointCut("date", [2010]), 
+                cubes.PointCut("cpv", [50, 20]), 
+                cubes.PointCut("supplier", [1234]))
 
         cell_list = full_cube.multi_slice(cuts_list)
         self.assertEqual(3, len(cell_list.cuts))
 
-        cell_dict = full_cube.multi_slice(cuts_dict)
-        self.assertEqual(3, len(cell_dict.cuts))
-
-        self.assertEqual(cell_list, cell_dict)
+        self.assertRaises(CubesError, full_cube.multi_slice, {})
 
     def test_get_cell_dimension_cut(self):
         full_cube = self.browser.full_cube()
-        cell = full_cube.slice("date", [2010])
-        cell = cell.slice("supplier", [1234])
+        cell = full_cube.slice(cubes.PointCut("date", [2010]))
+        cell = cell.slice(cubes.PointCut("supplier", [1234]))
 
         cut = cell.cut_for_dimension("date")
-        self.assertEqual(cut.dimension, self.cube.dimension("date"))
+        self.assertEqual(str(cut.dimension), "date")
 
         self.assertRaises(cubes.NoSuchDimensionError, cell.cut_for_dimension, "someunknown")
         
