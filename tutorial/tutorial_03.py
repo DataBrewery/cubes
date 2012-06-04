@@ -55,7 +55,7 @@ dn = cubes.backends.sql.SQLDenormalizer(cube, connection)
 dn.create_view(FACT_VIEW)
 
 def drill_down(cell, dimension, path = []):
-    """Drill-down and aggregate recursively through als levels of `dimension`.
+    """Drill-down and aggregate recursively through all levels of `dimension`.
     
     This function is like recursively traversing directories on a file system and aggregating the
     file sizes, for example.
@@ -113,7 +113,7 @@ def drill_down(cell, dimension, path = []):
         drill_path = path[:] + [record[level_key]]
 
         # Get a new cell slice for current path
-        drill_down_cell = cell.slice(dimension, drill_path)
+        drill_down_cell = cell.slice(cubes.PointCut(dimension, drill_path))
 
         # And do recursive drill-down
         drill_down(drill_down_cell, dimension, drill_path)
@@ -128,6 +128,5 @@ print "Drill down through all item levels:"
 drill_down(cell, cube.dimension("item"))
 
 print "Drill down through all item for year 2010:"
-cell = cell.slice("year", [2010])
+cell = cell.slice(cubes.PointCut("year", [2010]))
 drill_down(cell, cube.dimension("item"))
-
