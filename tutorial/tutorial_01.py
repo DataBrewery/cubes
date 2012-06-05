@@ -12,45 +12,46 @@ import cubes.tutorial.sql as tutorial
 # Source: https://raw.github.com/Stiivi/cubes/master/tutorial/data/IBRD_Balance_Sheet__FY2010.csv
 # 
 # Create a tutorial directory and download the file:
-        
+
 
 # 1. Prepare SQL data in memory
 
 engine = sqlalchemy.create_engine('sqlite:///:memory:')
-tutorial.create_table_from_csv(engine, 
-                      "data/IBRD_Balance_Sheet__FY2010.csv", 
-                      table_name="irbd_balance", 
+tutorial.create_table_from_csv(engine,
+                      "data/IBRD_Balance_Sheet__FY2010.csv",
+                      table_name="irbd_balance",
                       fields=[
-                            ("category", "string"), 
+                            ("category", "string"),
                             ("line_item", "string"),
-                            ("year", "integer"), 
+                            ("year", "integer"),
                             ("amount", "integer")],
-                      create_id=True    
-                        
-                        )
+                      create_id=True
+                )
 
-# 2. Create a model
+# 2. Create a model from a dictionary
 
-model = cubes.Model()
+model_description = {
+    "dimensions": [
+        { "name": "category"},
+        { "name": "line_item"},
+        { "name": "year"}
+    ],
+    "cubes": [
+        {
+            "name": "irbd_balance",
+            "dimensions": ["category", "line_item", "year"],
+            "measures": ["amount"]
+        }
+    ]
+}
 
-# 3. Add dimensions to the model. Reason for having dimensions in a model is, that they
-#    might be shared by multiple cubes.
-
-model.add_dimension(cubes.Dimension("category"))
-model.add_dimension(cubes.Dimension("line_item"))
-model.add_dimension(cubes.Dimension("year"))
-
-# 3. Define a cube and specify already defined dimensions
-
-cube = cubes.Cube(name="irbd_balance", 
-                  model=model,
-                  dimensions=["category", "line_item", "year"],
-                  measures=["amount"]
-                  )
+model = cubes.create_model(model_description)
+cube = model.cube("irbd_balance")
 
 # 4. Create a browser and get a cell representing the whole cube (all data)
 
-browser = cubes.backends.sql.SQLBrowser(cube, engine.connect(), view_name = "irbd_balance")
+workspace = cubes.create_workspace("sql.star", model, engine=engine)
+browser = workspace.browser(cube)
 
 cell = browser.full_cube()
 

@@ -19,8 +19,6 @@ FACT_COUNT = 100
 class SQLTestCase(unittest.TestCase):
 	
     def setUp(self):
-        self.model = cubes.Model('test')
-        
         date_desc = { "name": "date", 
                       "levels": { 
                                     "year": { 
@@ -58,14 +56,19 @@ class SQLTestCase(unittest.TestCase):
                                 } 
                         }
                     }
-
-        self.cube = cubes.Cube("testcube")
-        self.model.add_cube(self.cube)
-
+                    
+        cube = {
+            "name": "testcube",
+        }
+        
         self.date_dim = cubes.Dimension(**date_desc)
-        self.cube.add_dimension(self.date_dim)
         self.class_dim = cubes.Dimension(**class_desc)
-        self.cube.add_dimension(self.class_dim)
+        dims = [self.date_dim, self.class_dim]
+
+        self.model = cubes.Model('test', dimensions=dims)
+        self.cube = cubes.Cube("testcube", dimensions=dims)
+
+        self.model.add_cube(self.cube)
         
         self.cube.measures = [cubes.Attribute("amount")]
         self.cube.mappings = {
@@ -129,7 +132,7 @@ class SQLBrowserTestCase(SQLTestCase):
         self.full_cube = self.browser.full_cube()
 
     def test_fact_query(self):
-        
+
         query = CubeQuery(self.full_cube, self.view)
         query.prepare()
         stmt = query.fact_statement(1)
@@ -314,7 +317,7 @@ class SQLDenormalizerTestCase(unittest.TestCase):
         a_file.close()
 
         self.dimension_names = [name for name in self.dimensions.keys()]
-        
+
         self.create_dimension_tables()
         self.create_fact()
 
@@ -322,7 +325,7 @@ class SQLDenormalizerTestCase(unittest.TestCase):
         model_path = os.path.join(DATA_PATH, 'fixtures_model.json')
         self.model = cubes.load_model(model_path)
         self.cube = self.model.cube("test")
-        
+
     def create_dimension_tables(self):
         for dim, desc in self.dimensions.items():
             self.create_dimension(dim, desc, self.dimension_data[dim])

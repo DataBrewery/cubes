@@ -14,8 +14,9 @@ from cubes.errors import *
 class StarSQLTestCase(unittest.TestCase):
     def setUp(self):
         model_desc = {
-            "cubes": {
-                "sales" : {
+            "cubes": [
+                {
+                    "name": "sales",
                     "measures": [ 
                             {"name":"amount", "aggregations":["sum", "min"]}, 
                             "discount"
@@ -37,7 +38,7 @@ class StarSQLTestCase(unittest.TestCase):
                         "product.subcategory_name.sk": "dim_category.subcategory_name_sk"
                     }
                 }
-            },
+            ],
             "dimensions" : [
                 {
                     "name": "date",
@@ -116,7 +117,7 @@ class StarSQLTestCase(unittest.TestCase):
         metadata.create_all(engine)
         self.metadata = metadata
 
-        self.model = cubes.Model(**model_desc)
+        self.model = cubes.create_model(model_desc)
         self.cube = self.model.cube("sales")
         self.browser = StarBrowser(self.cube,connectable=self.connection, 
                                     dimension_prefix="dim_")

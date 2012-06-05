@@ -31,7 +31,8 @@ print "Total amount: %8d" % result.summary["amount_sum"]
 #
 # 5. Drill-down through a dimension
 #
-# 
+#
+ 
 print "\n" \
       "Drill Down by Category (top-level Item hierarchy)\n" \
       "================================================="

@@ -23,8 +23,7 @@ import copy
 logger = logging.getLogger("cubes")
 logger.setLevel(logging.WARN)
 
-FACT_TABLE = "ft_irbd_balance"
-FACT_VIEW = "vft_irbd_balance"
+FACT_TABLE = "irbd_balance"
 
 engine = sqlalchemy.create_engine('sqlite:///:memory:')
 tutorial.create_table_from_csv(engine, 
@@ -37,28 +36,19 @@ tutorial.create_table_from_csv(engine,
                             ("year", "integer"), 
                             ("amount", "integer")],
                       create_id=True    
-                        
-                        )
+                    )
+
+# 2. Load model and get cube of our interest
 
 model = cubes.load_model("models/model_02.json")
-
 cube = model.cube("irbd_balance")
-cube.fact = FACT_TABLE
 
-# 4. Create a browser and get a cell representing the whole cube (all data)
+# 3. Create a browser
 
-# We have to prepare the logical structures used by the browser. Currenlty provided is simple data
-# denormalizer: creates one wide view with logical column names (optionally with localization). Following
-# code initializes the denomralizer and creates a view for the cube:
+workspace = cubes.create_workspace("sql.star", model, engine=engine)
+browser = workspace.browser(cube)
 
-connection = engine.connect()
-dn = cubes.backends.sql.SQLDenormalizer(cube, connection)
-
-dn.create_view(FACT_VIEW)
-
-# And from this point on, we can continue as usual:
-
-browser = cubes.backends.sql.SQLBrowser(cube, connection, view_name = FACT_VIEW)
+# 4. get a cell representing the whole cube (all data)
 
 cell = browser.full_cube()
 result = browser.aggregate(cell)

@@ -13,7 +13,7 @@ class BrowserTestCase(unittest.TestCase):
     def setUp(self):
         self.model_path = os.path.join(DATA_PATH, 'model.json')
         self.model = cubes.model_from_path(self.model_path)
-        self.cube = self.model.cubes["contracts"]
+        self.cube = self.model.cube("contracts")
 
 class AggregationsBasicsTestCase(BrowserTestCase):
     def setUp(self):

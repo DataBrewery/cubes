@@ -1,7 +1,8 @@
 {
     "name": "fixtures",
-    "cubes": {
-        "test": {
+    "cubes": [
+        {
+            "name": "test",
             "dimensions": [
                 "from", 
                 "color",
@@ -49,9 +50,9 @@
                 }
             ]
         }
-    },
-    "dimensions": {
-        "from": {
+    ],
+    "dimensions": [
+        { "name":"from",
             "levels": {
                 "entity": {
                     "key": "id",
@@ -59,7 +60,7 @@
                 }
             }
         },
-        "to": {
+        {   "name": "to",
             "levels": {
                 "entity": {
                     "key": "id",
@@ -67,7 +68,7 @@
                 }
             }
         },
-        "color": {
+        {   "name": "color",
             "levels": {
                 "color": {
                     "key": "color_code",
@@ -80,7 +81,7 @@
             },
             "hierarchy": ["color", "tone"]
         },
-        "temp": {
+        { "name": "temp",
             "levels": {
                 "temp": {
                     "key": "name",
@@ -88,7 +89,7 @@
                 }
             }
         },
-        "size": {
+        { "name": "size",
             "levels": {
                 "size": {
                     "key": "code",
@@ -96,6 +97,6 @@
                 }
             }
         }
-    }
+    ]
     
 }

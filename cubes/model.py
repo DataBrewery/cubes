@@ -24,6 +24,7 @@ except ImportError:
 __all__ = [
     "load_model",
     "model_from_path",
+    "create_model",
     "attribute_list",
     "coalesce_attribute",
     "Model",
@@ -69,7 +70,7 @@ def load_model(resource, translations = None):
     if type(model_desc) != dict:
         raise ModelError("Model description file should contain a dictionary")
 
-    model = Model(**model_desc)
+    model = create_model(model_desc)
 
     if translations:
         for lang, path in translations.items():
@@ -79,6 +80,103 @@ def load_model(resource, translations = None):
             model._add_translation(lang, trans)
 
     return model
+
+def create_model(model, cubes=None, dimensions=None):
+    """Create a model from a model description dictionary in `model`. This is
+    designated way of creating the model from a dictionary.
+
+    `cubes` or `dimensions` are list of their respective dictionary
+    definitions. If definition of a cube in `cubes` or dimension in
+    `dimensions` already exists in the `model`, then `ModelError` is raised.
+
+    .. note::
+
+        Current implementation is the same as passing `description` to the
+        `Model` class initialization. In the future all default constructions
+        will be moved here and the initialization methods will require logical
+        model class instances.
+    """
+
+    model_desc = dict(model)
+    # print "creating model from %s" % model_desc["dimensions"]
+    if "dimensions" in model_desc:
+        all_dimensions = _fix_dict_list(model["dimensions"],
+                warning="'dimensions' in model description should be a list not a dictionary")
+        del model_desc["dimensions"]
+    else:
+        all_dimensions = []
+
+    if all_dimensions and dimensions:
+        all_dimensions = all_dimensions[:] + dimensions
+    elif not all_dimensions:
+        all_dimensions = dimensions if dimensions else []
+
+    model_dimensions = OrderedDict()
+    for desc in all_dimensions:
+        dimension = _create_dimension(desc)
+        if dimension.name in model_dimensions:
+            raise ModelError("Duplicate dimension '%s'" % dimension.name)
+
+        model_dimensions[dimension.name] = dimension
+
+    if "cubes" in model_desc:
+        all_cubes = _fix_dict_list(model["cubes"],
+                warning="'cubes' in model description should be a list not a dictionary")
+        del model_desc["cubes"]
+    else:
+        all_cubes = []
+
+    if all_cubes and cubes:
+        all_cubes = all_cubes[:] + cubes
+    elif not all_cubes:
+        all_cubes = cubes if cubes else []
+
+    model_cubes = OrderedDict()
+    for desc in all_cubes:
+        cube = _create_cube(desc, model_dimensions)
+        if cube.name in model_cubes:
+            raise ModelError("Duplicate cube '%s'" % cube.name)
+        model_cubes[cube.name] = cube
+
+    return Model(dimensions=model_dimensions.values(),
+            cubes=model_cubes.values(), **model_desc)
+
+def _fix_dict_list(obj, key_name="name", warning=None):
+    """Returns a list of dictionaries instead of dictionary of dictionaries"""
+    if isinstance(obj, dict):
+        logger = get_logger()
+        if warning:
+            logger.warn(warning)
+
+        array = []
+        for key, value in obj.items():
+            value = dict(value)
+            value[key_name] = key
+            array.append(value)
+        return array
+    else:
+        return obj
+
+def _create_dimension(desc):
+    """Creates a `Dimension` instance from dictionary description `desc`"""
+    return Dimension(**desc)
+
+def _create_cube(desc, dimensions):
+    """Creates a `Cube` instance from dictionary description `desc` with
+    dimension dictionary in `dimensions`"""
+
+    if "dimensions" in desc:
+        try:
+            cube_dims = [dimensions[name] for name in desc["dimensions"]]
+        except KeyError as e:
+            raise NoSuchDimensionError("No such dimension '%s'" % str(e))
+
+        desc = dict(desc)
+        del desc["dimensions"]
+    else:
+        cube_dims = None
+
+    return Cube(dimensions=cube_dims, **desc)
 
 def model_from_path(path):
     """Load logical model from a file or a directory specified by `path`.
@@ -90,7 +188,7 @@ def model_from_path(path):
         a_file = open(path)
         model_desc = json.load(a_file)
         a_file.close()
-        return Model(**model_desc)
+        return create_model(model_desc)
 
     info_path = os.path.join(path, 'model.json')
 
@@ -134,7 +232,7 @@ def model_from_path(path):
                     raise ModelError("Cube file '%s' has no name key" % obj_path)
                 model_desc["cubes"][desc["name"]] = desc
 
-    return model_from_dict(model_desc)
+    return create_model(model_desc)
 
 def _model_desc_from_json_file(object_path):
     """Get a dictionary from reading model json file at `object_path`.
@@ -149,6 +247,14 @@ def _model_desc_from_json_file(object_path):
         a_file.close()
 
     return desc
+
+def _assert_instance(obj, class_, label):
+    """Raises ModelInconsistencyError when `obj` is not instance of `cls`"""
+    if not isinstance(obj, class_):
+        raise ModelInconsistencyError("%s should be sublcass of %s, "
+                                      "provided: %s" % (label, 
+                                                        class_.__name__,
+                                                        type(obj).__name__))
 
 class Model(object):
     def __init__(self, name=None, label=None, description=None,
@@ -191,15 +297,22 @@ class Model(object):
         self.description = description
         self.locale = locale
 
-        self._dimensions = {}
+        self._dimensions = OrderedDict()
 
         logger = get_logger()
 
         # TODO: allow dimension objects
+
         if dimensions:
+            if not all([isinstance(dim, Dimension) for dim in dimensions]):
+                logger.warn("dimensions in model initialization should be "
+                            "a list of Dimension instances. "
+                            "use create_model(dict) if you want to create model "
+                            "from a dictionary (instead of depreciated Model(**dict))")
+
             if isinstance(dimensions, dict):
-                # logger.warn("model initialization: dimensions as dictionary "
-                #             "is depreciated, use array instead")
+                logger.warn("model initialization: dimensions as dictionary "
+                            "is depreciated, use array instead")
 
                 for dim_name, dim_desc in dimensions.items():
                     desc = dict([("name", dim_name)] + dim_desc.items())
@@ -215,6 +328,12 @@ class Model(object):
         self.cubes = OrderedDict()
 
         if cubes:
+            if not all([isinstance(c, Cube) for c in cubes]):
+                logger.warn("cubes in model initialization should be "
+                            "a list of Cube instances. "
+                            "use create_model(dict) if you want to create model "
+                            "from a dictionary (instead of depreciated Model(**dict))")
+
             if isinstance(cubes, dict):
                 # logger.warn("model initialization: cubes as dictionary is "
                 #             "depreciated, use array instead")
@@ -244,11 +363,14 @@ class Model(object):
         with same name as one of existing model's dimensions, but has
         different structure, an exception is raised. Dimensions in cube should
         be the same as in model.
-        
+
         Raises `ModelInconsistencyError` when trying to assing a cube that is
         already assigned to a different model or if trying to add a dimension
         with existing name but different specification.
         """
+        
+        _assert_instance(cube, Cube, "cube")
+
         if cube.model and cube.model != self:
             raise ModelInconsistencyError("Trying to assign a cube with different model (%s) to model %s" %
                 (cube.model.name, self.name))
@@ -276,19 +398,25 @@ class Model(object):
 
     def cube(self, cube):
         """Get a cube with name `name` or coalesce object to a cube."""
-        if isinstance(cube, basestring):
-            return self.cubes[cube]
-        else:
-            return self.cubes[cube.name]
+        try:
+            if isinstance(cube, basestring):
+                cube = self.cubes[cube]
+        except KeyError as e:
+            raise ModelError("No such cube '%s'" % str(e))
+        return cube
 
     def add_dimension(self, dimension):
         """Add dimension to model. Replace dimension with same name"""
+        _assert_instance(dimension, Dimension, "dimension")
+
+        if dimension.name in self._dimensions:
+            raise ModelInconsistencyError("Dimension '%s' already exists in model '%s'" % (dimension.name, self.name))
+
         self._dimensions[dimension.name] = dimension
 
     def remove_dimension(self, dimension):
         """Remove a dimension from receiver"""
         del self._dimensions[dimension.name]
-        # FIXME: check whether the dimension is not used in cubes
 
     @property
     def dimensions(self):
@@ -324,16 +452,10 @@ class Model(object):
         out.setnoempty("label", self.label)
         out.setnoempty("description", self.description)
 
-        dims = {}
-        for dim in self._dimensions.values():
-            dims[dim.name] = dim.to_dict(**options)
-
+        dims = [dim.to_dict(**options) for dim in self._dimensions.values()]
         out.setnoempty("dimensions", dims)
 
-        cubes = {}
-        for cube in self.cubes.values():
-            cubes[cube.name] = cube.to_dict(**options)
-
+        cubes = [cube.to_dict(**options) for cube in self.cubes.values()]
         out.setnoempty("cubes", cubes)
 
         return out
@@ -459,8 +581,7 @@ class Cube(object):
         * `label`: human readable cube label
         * `measures`: list of measure attributes
         * `details`: list of detail attributes
-        * `dimensions`: list of dimensions or dimension names. They should
-          be present in the `model`.
+        * `dimensions`: list of dimensions (should be `Dimension` instances)
         * `description` - human readable description of the cube
         * `key`: fact key field (if not specified, then backend default key
           will be used, mostly ``id`` for SLQ or ``_id`` for document based
@@ -477,7 +598,8 @@ class Cube(object):
           to the backend documentation to see what options are used (for
           example SQL browser might look here for ``denormalized_view`` in
           case of denormalized browsing)
-            
+        """
+        """ FIXME: Removed documentation:
         In file based model representation, the cube descriptions are stored
         in json files with prefix ``cube_`` like ``cube_contracts``, or as a
         dictionary for key ``cubes`` in the model description dictionary.
@@ -508,18 +630,28 @@ class Cube(object):
         self.key = key
         self.options = options
 
-        # This is stored to get dimensions, if dimensions are not defined in-place
         self.model = model
 
         self._dimensions = OrderedDict()
 
+        # FIXME: remove depreciated code
+        # This is the new way - expected all Dimension instances
+        if dimensions:
+            if all([isinstance(dim, Dimension) for dim in dimensions]):
+                self._dimensions.update( [(dim.name, dim) for dim in dimensions] )
+                dimensions = None
+        
         if dimensions:
             for obj in dimensions:
                 if isinstance(obj, basestring):
+                    # logger.warn("passing dimension list as names is "
+                    #             "depreciated. use create_model() instead for "
+                    #             "implicit model creation or pass Dictionary "
+                    #             "instance list")
                     dimension = self.model.dimension(obj)
                     self.add_dimension(dimension)
                 elif isinstance(obj, Dimension):
-                    self.add_dimension(dimension)
+                    self.add_dimension(obj)
                 else:
                     logger.warn("creating dimensions during cube initialization"
                                 " is depreciated: dimensions should be present in model")
@@ -532,6 +664,10 @@ class Cube(object):
         `ModelInconsistencyError` when dimension with same name already exists
         in the receiver. """
 
+        # logger = get_logger()
+        # logger.warn("Dimension instance is immutable. add_dimension is "
+        #             "depreciated. use create_model instead")
+
         # FIXME: Do not allow to add dimension if one already exists
         if dimension.name in self._dimensions:
             raise ModelInconsistencyError("Dimension with name %s already exits in cube %s" % (dimension.name, self.name))
@@ -541,6 +677,10 @@ class Cube(object):
     def remove_dimension(self, dimension):
         """Remove a dimension from receiver. `dimension` can be either
         dimension name or dimension object."""
+
+        # logger = get_logger()
+        # logger.warn("Dimension instance is immutable. remove_dimension is"
+        #             "depreciated. use create_model instead")
 
         dim = self.dimension(dimension)
         del self._dimensions[dim.name]
@@ -553,7 +693,7 @@ class Cube(object):
         """Get dimension object. If `obj` is a string, then dimension with
         given name is returned, otherwise dimension object is returned if it
         belongs to the cube.
-        
+
         Raises `NoSuchDimensionError` when there is no such dimension.
         """
 
@@ -623,6 +763,9 @@ class Cube(object):
         out.setnoempty("details", array)
 
         if expand_dimensions:
+            # FIXME: remove this option
+            logger = get_logger()
+            logger.warn("expand_dimensions is depreciated, cube should have only dimension references")
             dims = [dim.to_dict(**options) for dim in self.dimensions]
         else:
             dims = [dim.name for dim in self.dimensions]
@@ -824,12 +967,13 @@ class Dimension(object):
 
     def _set_hierarchies(self, hierarchies):
         """Sets hierarchies during initialization."""
-        for hier_name, hier_info in hierarchies.items():
-            hdesc = {"name":hier_name}
-            hdesc.update(hier_info)
-
-            hier = Hierarchy(dimension=self, **hdesc)
-            self.hierarchies[hier_name] = hier
+        hierarchies = _fix_dict_list(hierarchies)
+        # FIXME: issue warning next time:
+        # warning="'hierarchies' in model description should be a list not a dictionary")
+        
+        for desc in hierarchies:
+            hier = Hierarchy(dimension=self, **desc)
+            self.hierarchies[hier.name] = hier
         
     def __eq__(self, other):
         if other is None or type(other) != type(self):
