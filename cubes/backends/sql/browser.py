@@ -34,6 +34,11 @@ except ImportError:
     _missing = MissingPackage("sqlalchemy", "Built-in SQL aggregation browser")
     sqlalchemy = expression = functions = _missing
 
+__all__ = [
+    "SQLBrowser",
+    "CubeQuery"
+]
+
 # FIXME: required functionality TODO
 # 
 # * [DONE] number of items in drill-down

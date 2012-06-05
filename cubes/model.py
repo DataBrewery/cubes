@@ -89,6 +89,17 @@ def create_model(model, cubes=None, dimensions=None):
     definitions. If definition of a cube in `cubes` or dimension in
     `dimensions` already exists in the `model`, then `ModelError` is raised.
 
+    The `model` dictionary contains main model description. The structure
+    is::
+
+        {
+        	"name": "public_procurements",
+        	"label": "Procurements",
+        	"description": "Procurement Contracts of an Organisation"
+        	"cubes": [...]
+        	"dimensions": [...]
+        }
+
     .. note::
 
         Current implementation is the same as passing `description` to the
@@ -262,29 +273,14 @@ class Model(object):
         """
         Logical Model represents analysts point of view on data.
 
-        The `model` dictionary contains main model description. The structure
-        is::
-
-            {
-            	"name": "public_procurements",
-            	"label": "Procurements",
-            	"description": "Procurement Contracts of an Organisation"
-            	"cubes": {...}
-            	"dimensions": {...}
-            }
-
         Attributes:
 
         * `name` - model name
         * `label` - human readable name - can be used in an application
         * `description` - longer human-readable description of the model
-        * `cubes` -  dictionary of cube descriptions (see below)
-        * `dimensions` - dictionary of dimension descriptions (see below)
+        * `cubes` -  list of `Cube` instances
+        * `dimensions` - list of `Dimension` instances
         * `locale` - locale code of the model
-
-        When initializing the ``Model`` object, `cubes` and `dimensions` might
-        be dictionaries with descriptions. See `Cube` and `Dimension` for more
-        information.
         """
 
         self.name = name
@@ -358,11 +354,6 @@ class Model(object):
         """Adds cube to the model and also assigns the model to the cube. If
         cube has a model assigned and it is not this model, then error is
         raised.
-
-        Cube's dimensions are collected to the model. If cube has a dimension
-        with same name as one of existing model's dimensions, but has
-        different structure, an exception is raised. Dimensions in cube should
-        be the same as in model.
 
         Raises `ModelInconsistencyError` when trying to assing a cube that is
         already assigned to a different model or if trying to add a dimension

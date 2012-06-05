@@ -11,6 +11,10 @@ except:
 
 import collections
     
+__all__ = [
+    "SQLDenormalizer"
+]    
+
 Attribute = collections.namedtuple("Attribute", "attribute, alias, dimension, locales")
 
 class SQLDenormalizer(object):

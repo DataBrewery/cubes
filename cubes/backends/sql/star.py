@@ -25,7 +25,8 @@ except ImportError:
 
 __all__ = [
     "StarBrowser",
-    "coalesce_drilldown"
+    "coalesce_drilldown",
+    "create_workspace"
 ]
 
 # Required functionality checklist
@@ -203,7 +204,7 @@ class StarBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
-    def aggregate(self, cell, measures=None, drilldown=None, attributes=None, 
+    def aggregate(self, cell=None, measures=None, drilldown=None, attributes=None, 
                   page=None, page_size=None, order=None, **options):
         """Return aggregated result.
 
@@ -213,6 +214,9 @@ class StarBrowser(AggregationBrowser):
         * with drill-down: 3 (summary, drilldown, total drill-down record
           count)
         """
+
+        if not cell:
+            cell = Cell(self.cube)
 
         # TODO: add ordering (ORDER BY)
         if options.get("order_by"):

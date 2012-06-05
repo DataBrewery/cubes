@@ -13,26 +13,26 @@ class CombinationsTestCase(unittest.TestCase):
         self.noded = ('d', ('m'))
 
     def test_levels(self):
-        combos = cubes.util.combine_nodes([self.nodea])
+        combos = cubes.common.combine_nodes([self.nodea])
         self.assertEqual(len(combos), 3)
 
-        combos = cubes.util.combine_nodes([self.nodeb])
+        combos = cubes.common.combine_nodes([self.nodeb])
         self.assertEqual(len(combos), 2)
 
-        combos = cubes.util.combine_nodes([self.noded])
+        combos = cubes.common.combine_nodes([self.noded])
         self.assertEqual(len(combos), 1)
 
     def test_combos(self):
-        combos = cubes.util.combine_nodes([self.nodea, self.nodeb])
+        combos = cubes.common.combine_nodes([self.nodea, self.nodeb])
         self.assertEqual(len(combos), 11)
 
-        combos = cubes.util.combine_nodes([self.nodea, self.nodeb, self.nodec])
+        combos = cubes.common.combine_nodes([self.nodea, self.nodeb, self.nodec])
         self.assertEqual(len(combos), 35)
 	
     def test_required_one(self):
         nodes = [self.nodea, self.nodeb, self.nodec]
         required = [self.nodea]
-        combos = cubes.util.combine_nodes(nodes, required)
+        combos = cubes.common.combine_nodes(nodes, required)
         self.assertEqual(len(combos), 27)
         for combo in combos:
             flag = False
@@ -45,7 +45,7 @@ class CombinationsTestCase(unittest.TestCase):
     def test_required_more(self):
         nodes = [self.nodea, self.nodeb, self.nodec, self.noded]
         required = [self.nodea, self.nodeb]
-        combos = cubes.util.combine_nodes(nodes, required)
+        combos = cubes.common.combine_nodes(nodes, required)
         self.assertEqual(len(combos), 36)
         for combo in combos:
             flag = False
@@ -63,7 +63,7 @@ class CuboidsTestCase(unittest.TestCase):
 
     def test_combine_dimensions(self):
         dims = self.cube.dimensions
-        results = cubes.util.all_cuboids(dims)
+        results = cubes.common.all_cuboids(dims)
         # for r in results:
         #     print "=== COMBO:"
         #     for c in r:
@@ -72,14 +72,14 @@ class CuboidsTestCase(unittest.TestCase):
         self.assertEqual(len(results), 863)
 
         dim = self.cube.dimension("date")
-        results = cubes.util.all_cuboids(dims, [dim])
+        results = cubes.common.all_cuboids(dims, [dim])
         self.assertEqual(len(results), 648)
 
     def test_should_not_accept_unknown_dimension(self):
         foo_desc = { "name": "foo", "levels": {"level": {"key": "boo"}}}
         foo_dim = cubes.Dimension('foo', foo_desc)
 
-        self.assertRaises(AttributeError, cubes.util.all_cuboids,
+        self.assertRaises(AttributeError, cubes.common.all_cuboids,
                                           self.cube.dimensions, [foo_dim])
 
 def suite():
