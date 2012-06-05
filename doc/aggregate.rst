@@ -205,10 +205,10 @@ Which is equivalent to:
 
 .. code-block:: python
 
-    levels = dimension.hierarchy.levels()
+    levels = dimension.hierarchy().levels()
     labels = []
     for i, detail in enumerate(cut_details):
-        labels.append(detail[level[i].label_attribute.full_name()])
+        labels.append(detail[level[i].label_attribute.ref()])
 
 Note that this might change a bit: either full detail will be returned or just
 key and label, depending on an option argument (not yet decided).
