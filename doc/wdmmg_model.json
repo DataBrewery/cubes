@@ -2,8 +2,9 @@
     "name": "wdmmg",
     "label": "Where Does My Money Go",
     
-    "cubes": {
-        "wdmmg" : {
+    "cubes": [
+        {
+            "name": "wdmmg",
             "dimensions": ["from", "cofog", "date", "region", "pog"],
             "measures" : ["amount"],
             "attributes" : ["name"],
@@ -20,10 +21,11 @@
                 "cofog.cofog3": "cofog3"
             }
         }
-    },
+    ],
     
-    "dimensions" : {
-        "from": {
+    "dimensions" : [
+        {
+            "name": "from",
             "label" : "Paid by",
             "levels" : {
                 "from": {
@@ -32,37 +34,48 @@
                 }
             }
         },
-        "cofog": {
+        {
+            "name":"cofog",
             "label" : "Classification Of Function Of Government",
-            "levels" : {
-                "cofog1": {
+            "levels" : [
+                {
+                    "name":"cofog1",
                     "label": "COFOG Level 1",
                     "attributes": ["cofog1_key", "cofog1"]
                 },
-                "cofog2": {
+                {
+                    "name": "cofog2",
                     "label": "COFOG Level 2",
                     "attributes": ["cofog2_key", "cofog2"]
                 },
-                "cofog3": {
+                {
+                    "name": "cofog3",
                     "label": "COFOG Level 3",
                     "attributes": ["cofog3_key", "cofog3"]
                 }
-            },
-            "hierarchies": {
-                "default" : {"levels": ["cofog1", "cofog2", "cofog3"]}
-            }
+            ],
+            "hierarchy": ["cofog1", "cofog2", "cofog3"]
         },
-        "date": {
+        {
+            "name": "date",
             "label" : "Date",
-            "levels" : { "year" : {"label" : "Year", "attributes": ["year"]} }
+            "levels" : [ 
+                { "name": "year", "label" : "Year", "attributes": ["year"]} 
+            ]
         },
-        "pog": {
+        {
+            "name": "pog",
             "label" : "Programme object group",
-            "levels" : { "pog" : {"label" : "Programme object group", "attributes": ["pog"]} }
+            "levels" : [ 
+                {"name": "pog", "label" : "Programme object group", "attributes": ["pog"]} 
+            ]
         },
-        "region": {
+        {
+            "name": "region",
             "label" : "Region",
-            "levels" : { "region" : {"label" : "Region", "attributes": ["region"]} }
+            "levels" : [ 
+                { "name": "region", "label" : "Region", "attributes": ["region"]} 
+            ]
         }
-    }
+    ]
 }

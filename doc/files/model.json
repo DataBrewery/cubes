@@ -22,8 +22,9 @@
         },
         {"name":"year"}
     ],
-    "cubes": {
-        "irbd_balance": {
+    "cubes": [
+        {
+            "name": "irbd_balance",
             "dimensions": ["item", "year"],
             "measures": ["amount"],
             "mappings": {
@@ -34,5 +35,5 @@
                           "item.category_label": "category_label"
                          }
         }
-    }
+    ]
 }
