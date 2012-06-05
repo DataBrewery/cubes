@@ -1,4 +1,4 @@
-import cubes.util
+import cubes.common
 import cubes.browser
 import base
 
@@ -83,7 +83,7 @@ class MongoSimpleCubeBuilder(object):
         
         #. Compute all dimension combinations (for all levels if there are any hierarchies). Each
            combination is called `selector` and is represented by a list of tuples: (dimension, levels).
-           For more information see: :meth:`cubes.util.compute_dimension_cell_selectors`.
+           For more information see: :meth:`cubes.common.compute_dimension_cell_selectors`.
 
         #. Compute aggregations for each point within dimension selector. Use MongoDB group function
            (alternative to map-reduce).
@@ -98,7 +98,7 @@ class MongoSimpleCubeBuilder(object):
 
         self.cube_collection.remove({self.aggregate_flag_field: True})
 
-        selectors = cubes.util.compute_dimension_cell_selectors(self.cube.dimensions,
+        selectors = cubes.common.compute_dimension_cell_selectors(self.cube.dimensions,
                                                            self.required_dimensions)
 
         self.log.info("got %d dimension level selectors ", len(selectors))
@@ -211,7 +211,7 @@ class MongoSimpleCubeBuilder(object):
                                             finalize = finalize_function)
 
         for record in cursor:
-            # use: cubes.utils.expand_dictionary(record)
+            # use: cubes.commons.expand_dictionary(record)
             cell = {}
             for dimsel in selector:
                 dimension, levels = dimsel

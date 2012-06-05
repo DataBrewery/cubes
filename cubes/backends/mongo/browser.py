@@ -1,5 +1,5 @@
 from cubes.browser import *
-import cubes.util
+import cubes.common
 import base
 
 class MongoSimpleCubeBrowser(AggregationBrowser):
@@ -72,7 +72,7 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
                 dim_conditions[mapped[0]] = value
                 
         # Expand dictionary: convert key1.key2 = value into 'key1 : { key2 : value}'
-        dim_conditions = cubes.util.expand_dictionary(dim_conditions)
+        dim_conditions = cubes.common.expand_dictionary(dim_conditions)
         condition.update(dim_conditions)
         
         ###################################################
