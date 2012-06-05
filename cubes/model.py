@@ -1101,15 +1101,6 @@ class Dimension(object):
         """Is true if dimension has only one level"""
         return len(self.levels) == 1
 
-    def attribute_reference(self, attribute, locale=None):
-        """Return an Attribute object if it is a string, otherwise just return
-        the object."""
-        if isinstance(attribute, basestring):
-            attr = Attribute(attribute,locale=locale)
-            return attr.full_name(dimension=self)
-        else:
-            return attribute.full_name(dimension=self)
-
     def key_attributes(self):
         """Return all dimension key attributes, regardless of hierarchy. Order
         is not guaranteed, use a hierarchy to have known order."""
@@ -1196,14 +1187,14 @@ class Dimension(object):
                                             % (level.name, self.name, attr)) )
 
             if level.attributes and level.key:
-                if str(level.key) not in [str(a) for a in level.attributes]:
+                if level.key.name not in [a.name for a in level.attributes]:
                     results.append( ('error', 
                                      "Key '%s' in level '%s' in dimension "
                                      "'%s' is not in level's attribute list" \
                                      % (level.key, level.name, self.name)) )
 
             for attribute in level.attributes:
-                attr_name = attribute.full_name()
+                attr_name = attribute.ref()
                 if attr_name in attributes:
                     first = first_occurence[attr_name]
                     results.append( ('error', 
@@ -1550,17 +1541,17 @@ class Level(object):
 
         dimname = self.dimension.name
 
-        key_name = str(self.key)
         if full_attribute_names:
-            out.setnoempty("key", dimname + "." + key_name)
+            out.setnoempty("key", self.key.ref())
+            out.setnoempty("label_attribute", self.label_attribute.ref())
         else:
-            out.setnoempty("key", key_name)
+            out.setnoempty("key", self.key.name)
+            out.setnoempty("label_attribute", self.label_attribute.name)
 
         array = []
         for attr in self.attributes:
-            array.append(attr.to_dict(dimension=self.dimension, **options))
+            array.append(attr.to_dict(**options))
         out.setnoempty("attributes", array)
-        out.setnoempty("label_attribute", str(self.label_attribute))
 
         return out
 
@@ -1662,7 +1653,7 @@ class Attribute(object):
                 self.order = Attribute.DESC
             else:
                 raise ArgumentError("Unknown ordering '%s' for attributes '%s'" % \
-                                    (order, self.full_name) )
+                                    (order, self.ref()) )
         else:
             self.order = None
 
@@ -1684,8 +1675,13 @@ class Attribute(object):
     def __ne__(self,other):
         return not self.__eq__(other)
         
-    def to_dict(self, dimension = None, **options):
-        d = {"name": self.name}
+    def to_dict(self, **options):
+        # FIXME: Depreciated key "full_name" in favour of "ref"
+        d = {
+                "name": self.name,
+                "full_name": self.ref(),
+                "ref": self.ref()
+            }
         if self.label is not None:
             d["label"] = self.label
         if self.locales:
@@ -1696,11 +1692,9 @@ class Attribute(object):
             d["description"] = self.description
         if self.aggregations is not None:
             d["aggregations"] = self.aggregations
-        if dimension:
-            d["full_name"] = self.full_name(dimension)
         return d
         
-    def ref(self, locale=None, simplify=False):
+    def ref(self, simplify=True, locale=None):
         """Return full attribute reference. Append `locale` if it is one of of
         attribute's locales, otherwise raise `cubes.ArgumentError`. If
         `simplify` is ``True``, then reference to an attribute of flat
@@ -1708,12 +1702,12 @@ class Attribute(object):
         
         .. warning::
         
-            This might change. Might be renamed.
+            This method might be renamed.
             
         """
-        if locale:
-            if locale in self.locales:
-                raise ArgumentError("Attribute '%s' has no localization %s" % self.name)
+        if locale and self.locales:
+            if locale not in self.locales:
+                raise ArgumentError("Attribute '%s' has no localization %s (has: %s)" % (self.name, locale, self.locales))
             else:
                 locale_suffix = "." + locale
         else:
@@ -1732,7 +1726,13 @@ class Attribute(object):
     def full_name(self, dimension=None, locale=None, simplify=True):
         """Return full name of an attribute as if it was part of `dimension`.
         Append `locale` if it is one of of attribute's locales, otherwise
-        raise `cubes.ArgumentError`. """
+        raise `cubes.ArgumentError`. 
+        
+        .. warning: 
+        
+            Depreciated. Use `Attribute.ref()` instead.
+        
+        """
         # Old behaviour: If no locale is specified and attribute is localized, then first locale from
         # list of locales is used.
 
