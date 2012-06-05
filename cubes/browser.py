@@ -27,8 +27,7 @@ __all__ = [
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",
-    "DrilldownRow",
-    "drilldown_rows"
+    "DrilldownRow"
 ]
 
 class AggregationBrowser(object):
@@ -80,27 +79,27 @@ class AggregationBrowser(object):
           default `None`
         * `measures` - list of measures to be aggregated. By default all
           measures are aggregated.
-            
+
         Drill down can be specified in two ways: as a list of dimensions or as
         a dictionary. If it is specified as list of dimensions, then cell is
         going to be drilled down on the next level of specified dimension. Say
         you have a cell for year 2010 and you want to drill down by months,
         then you specify ``drilldown = ["date"]``.
-        
+
         If `drilldown` is a dictionary, then key is dimension or dimension
         name and value is last level to be drilled-down by. If the cell is at
         `year` level and drill down is: ``{ "date": "day" }`` then both
         `month` and `day` levels are added.
-        
+
         If there are no more levels to be drilled down, an exception is
         raised. Say your model has three levels of the `date` dimension:
         `year`, `month`, `day` and you try to drill down by `date` then
         ``ValueError`` will be raised.
-        
+
         Retruns a :class:AggregationResult object.
         """
         raise NotImplementedError
-        
+
     # def crosstab(self, cell, measures, drilldown, rows = None, columns = None, **options):
     #     """Aggregate facts and return cross-table. Calls `aggregate()` to get results then
     #     transforms the `AggregationResult` into a cross-tab.
@@ -1036,6 +1035,8 @@ class SetCut(Cut):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+DrilldownRow = namedtuple("DrilldownRow", ["key", "label", "path", "record"])
+
 class AggregationResult(object):
     """Result of aggregation or drill down.
 
@@ -1054,6 +1055,7 @@ class AggregationResult(object):
         self.drilldown = []
         self.remainder = {}
         self.total_cell_count = None
+        self.cell = None
 
     def to_dict(self):
         """Return dictionary representation of the aggregation result. Can be
@@ -1065,6 +1067,9 @@ class AggregationResult(object):
         d["drilldown"] = self.drilldown
         d["remainder"] = self.remainder
         d["total_cell_count"] = self.total_cell_count
+
+        if cell:
+            d["cell"] = [cut.to_dict() for cut in cell.cuts]
 
         return d
 
@@ -1082,41 +1087,39 @@ class AggregationResult(object):
         json_string = encoder.encode(self.as_dict())
 
         return json_string
+        
+    def drilldown_rows(self, dimension):
+        """Returns iterator of drill-down rows which yields a named tuple with
+        attributes: (key, label, path, row) in regard to `dimension`. Example
+        use::
 
-DrilldownRow = namedtuple("DrilldownRow", ["key", "label", "path", "record"])
+            for row in result.drilldown_rows(dimension):
+                print "%s: %s" % (row.label, row.record["record_count"])
 
-def drilldown_rows(cell, result, dimension):
-    """Iterates the `result` drill-down and yields a named tuple with attributes:
-    (key, label, path, row) in regard to `dimension`. Example use::
-    
-        for row in drilldown_rows(cell, result, dimension):
-            print "%s: %s" % (row.label, row.record["record_count"])
-            
-    Raises `TypeError` when cut for `dimension` is not `PointCut`.
-    """
+        `dimension` has to be :class:`cubes.Dimension` object. Raises
+        `TypeError` when cut for `dimension` is not `PointCut`.
+        """
 
-    cut = cell.cut_for_dimension(dimension)
+        cut = self.cell.cut_for_dimension(dimension)
 
-    if cut and not isinstance(cut, PointCut):
-        raise TypeError("PointCut expected for drill down iterator dimension '%s' cut (was %s)" % (dimension, type(cut)))
+        if cut and not isinstance(cut, PointCut):
+            raise TypeError("PointCut expected for drill down iterator dimension '%s' cut (was %s)" % (dimension, type(cut)))
 
-    if cut:
-        path = cut.path
-    else:
-        path = []
+        path = cut.path if cut else []
 
-    hierarchy = dimension.hierarchy()
-    levels = hierarchy.levels_for_path(path, drilldown=True)
+        # FIXME: use hierarchy from cut (when implemented)
+        hierarchy = dimension.hierarchy()
+        levels = hierarchy.levels_for_path(path, drilldown=True)
 
-    current_level = levels[-1]
-    level_key = current_level.key.full_name()
-    level_label = current_level.label_attribute.full_name()
+        current_level = levels[-1]
+        level_key = current_level.key.full_name()
+        level_label = current_level.label_attribute.full_name()
 
-    for record in result.drilldown:
-        drill_path = path[:] + [record[level_key]]
+        for record in self.drilldown:
+            drill_path = path[:] + [record[level_key]]
 
-        row = DrilldownRow(record[level_key],
-                           record[level_label],
-                           drill_path,
-                           record)
-        yield row
+            row = DrilldownRow(record[level_key],
+                               record[level_label],
+                               drill_path,
+                               record)
+            yield row
