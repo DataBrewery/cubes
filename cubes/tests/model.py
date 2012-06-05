@@ -14,7 +14,7 @@ class ModelTestCase(unittest.TestCase):
         self.model_dict = json.load(handle)
 
     def test_dimension_from_file(self):
-        info = self.model_dict["dimensions"]["date"]
+        info = self._find(self.model_dict["dimensions"], "name", "date")
         dim = cubes.Dimension(**info)
 
         self.assertEqual(3, len(dim.levels))
@@ -34,8 +34,11 @@ class ModelTestCase(unittest.TestCase):
         self.assertTrue(issubclass(hlevels[0].__class__, cubes.Level), "Level should be subclass of Level")
         self.assertEqual(dim.level("year"), hlevels[0], "Level should be equal")
 
+    def _find(self, array, key, value):
+        return [d for d in array if d[key]==value][0]
+        
     def test_cube_from_file(self):
-        info = self.model_dict["cubes"]["contracts"]
+        info = self._find(self.model_dict["cubes"], "name", "contracts")
         self.skipTest("Cubes test is not yet implemented")
 
     def test_model_from_path(self):
@@ -56,9 +59,9 @@ class ModelTestCase(unittest.TestCase):
 
     def assertModelValid(self, model):
         results = model.validate()
-        print "model validation results:"
-        for result in results:
-            print "  %s: %s" % result
+        # print "model validation results:"
+        # for result in results:
+        #     print "  %s: %s" % result
 
         error_count = 0
         for result in results:
@@ -135,7 +138,7 @@ class ModelFromDictionaryTestCase(unittest.TestCase):
 
     def test_model_from_dictionary(self):
         model_dict = self.model.to_dict()
-        new_model = cubes.model.Model(**model_dict)
+        new_model = cubes.create_model(model_dict)
         new_model_dict = new_model.to_dict()
         
         # Break-down comparison to see where the difference is
@@ -145,12 +148,15 @@ class ModelFromDictionaryTestCase(unittest.TestCase):
             old_value = model_dict[key]
             new_value = new_model_dict[key]
 
-            self.assertEqual(type(old_value), type(new_value), "model part '%s' type should be the same" % key)
+            # self.assertEqual(type(old_value), type(new_value), "model part '%s' type should be the same" % key)
+            self.assertEqual(type(old_value), type(new_value))
             if type(old_value) == dict:
                 self.assertDictEqual(old_value, new_value, "model part '%s' should be the same" % key)
                 pass
+            elif type(old_value) == list:
+                self.assertListEqual(old_value, new_value)
             else:
-                self.assertEqual(old_value, new_value, "model part '%s' should be the same" % key)
+                self.assertEqual(old_value, new_value, "model part '%s' should be the same (type: %s)" % (key, type(old_value)))
 
         self.assertDictEqual(model_dict, new_model_dict, 'model dictionaries should be the same')
     
