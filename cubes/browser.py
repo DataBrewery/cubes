@@ -366,9 +366,9 @@ class AggregationBrowser(object):
         else:
             result = []
             for level in hierarchy.levels_for_path(path):
-                item = {a.full_name():details.get(a.full_name()) for a in level.attributes}
-                item["_key"] = details.get(level.key.full_name())
-                item["_label"] = details.get(level.label_attribute.full_name())
+                item = {a.ref():details.get(a.ref()) for a in level.attributes}
+                item["_key"] = details.get(level.key.ref())
+                item["_label"] = details.get(level.label_attribute.ref())
                 result.append(item)
         
         return result
@@ -1068,8 +1068,8 @@ class AggregationResult(object):
         d["remainder"] = self.remainder
         d["total_cell_count"] = self.total_cell_count
 
-        if cell:
-            d["cell"] = [cut.to_dict() for cut in cell.cuts]
+        if self.cell:
+            d["cell"] = [cut.to_dict() for cut in self.cell.cuts]
 
         return d
 
@@ -1113,7 +1113,7 @@ class AggregationResult(object):
 
         current_level = levels[-1]
         level_key = current_level.key.full_name()
-        level_label = current_level.label_attribute.full_name()
+        level_label = current_level.label_attribute.ref()
 
         for record in self.drilldown:
             drill_path = path[:] + [record[level_key]]

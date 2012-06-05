@@ -1143,7 +1143,7 @@ class SQLStarWorkspace(object):
             self.engine.reflecttable(table)
 
             for attribute in key_attributes:
-                label = attribute.full_name()
+                label = attribute.ref()
                 self.logger.info("creating index for %s" % label)
                 column = table.c[label]
                 name = "idx_%s_%s" % (view_name, label)

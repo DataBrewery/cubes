@@ -177,7 +177,7 @@ class SQLDenormalizer(object):
                 for level in hier.levels:
                     for attribute in level.attributes:
                         # FIXME: add localization
-                        alias = attribute.full_name(dim)
+                        alias = attribute.ref()
                         obj = Attribute(attribute, alias, dim, attribute.locales)
                         self.attributes.append(obj)
 

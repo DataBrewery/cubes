@@ -172,17 +172,13 @@ class Mapper(object):
         dimension = attribute.dimension
 
         if dimension:
-            if self.simplify_dimension_references and \
-                               (dimension.is_flat and not dimension.has_details):
-                reference = dimension.name
-            else:
-                reference = dimension.name + '.' + str(attribute)
+            simplify = self.simplify_dimension_references and \
+                               (dimension.is_flat and not dimension.has_details)
         else:
-            reference = str(attribute)
-        
-        if locale:
-            reference += "." + locale
+            simplify = False
             
+        reference = attribute.ref(simplify, locale)
+        
         return reference
 
     def split_logical(self, reference):
@@ -363,22 +359,15 @@ class SnowflakeMapper(Mapper):
 
         locale = locale or self.locale
 
-        try:
-            if attribute.locales:
-                locale = locale if locale in attribute.locales \
-                                    else attribute.locales[0]
-            else:
-                locale = None
-        except:
+        if attribute.locales:
+            locale = locale if locale in attribute.locales \
+                                else attribute.locales[0]
+        else:
             locale = None
 
         # Try to get mapping if exists
         if self.cube.mappings:
-            logical = self.logical(attribute)
-            # Append locale to the logical reference
-
-            if locale:
-                logical += "." + locale
+            logical = self.logical(attribute, locale)
 
             # TODO: should default to non-localized reference if no mapping 
             # was found?
@@ -390,7 +379,7 @@ class SnowflakeMapper(Mapper):
         # No mappings exist or no mapping was found - we are going to create
         # default physical reference
         if not reference:
-            column_name = str(attribute)
+            column_name = attribute.name
 
             if locale:
                 column_name += "_" + locale
