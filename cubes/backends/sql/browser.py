@@ -138,10 +138,11 @@ class SQLBrowser(cubes.browser.AggregationBrowser):
     def aggregate(self, cell=None, measures=None, drilldown=None, order=None, **options):
         """See :meth:`cubes.browsers.cell.aggregate`."""
 
-        result = cubes.browser.AggregationResult()
-        
-        # Create query
         cell = cell or cubes.browser.Cell(self.cube)
+        result = cubes.browser.AggregationResult()
+        result.cell = cell
+
+        # Create query
         query = CubeQuery(cell, self.view, locale=self.locale)
         query.drilldown = drilldown
         query.order = order

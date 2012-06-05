@@ -227,6 +227,7 @@ class StarBrowser(AggregationBrowser):
             measures = [self.cube.measure(measure) for measure in measures]
 
         result = AggregationResult()
+        result.cell = cell
 
         summary_statement = self.context.aggregation_statement(cell=cell,
                                                      measures=measures,
