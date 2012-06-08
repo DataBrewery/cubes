@@ -27,7 +27,9 @@ __all__ = [
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",
-    "DrilldownRow"
+    "DrilldownRow",
+    "CrossTable",
+    "cross_table"
 ]
 
 class AggregationBrowser(object):
@@ -99,23 +101,6 @@ class AggregationBrowser(object):
         Retruns a :class:AggregationResult object.
         """
         raise NotImplementedError
-
-    # def crosstab(self, cell, measures, drilldown, rows = None, columns = None, **options):
-    #     """Aggregate facts and return cross-table. Calls `aggregate()` to get results then
-    #     transforms the `AggregationResult` into a cross-tab.
-    # 
-    #     :Parameters:
-    #         * cell - cell to be aggregated
-    #         * rows - list of dimensions to be put on rows
-    #         * columns - list of dimensions to be put on columns
-    #     """
-    #     raise NotImplementedError("cross tab is under development, body of this function should be considered as development notes")
-    #     
-    #     drilldown = []
-    # 
-    #     if rows:
-    #         for dim in rows:
-    #             dim = self.cube.dimension(dim)
 
     def facts(self, cell=None, **options):
         """Return an iterable object with of all facts within cell"""
@@ -1088,16 +1073,27 @@ class AggregationResult(object):
 
         return json_string
         
-    def drilldown_rows(self, dimension):
+    def drilldown_rows(self, dimension, depth=None):
         """Returns iterator of drill-down rows which yields a named tuple with
-        attributes: (key, label, path, row) in regard to `dimension`. Example
-        use::
+        named attributes: (key, label, path, record). `depth` is last level of
+        interest. If not specified (set to ``None``) then deepest level for
+        `dimension` is used.
+
+        * `key`: value of key dimension attribute at level of interest
+        * `label`: value of label dimension attribute at level of interest
+        * `path`: full path for the drilled-down cell
+        * `record`: all drill-down attributes of the cell
+
+        Example use::
 
             for row in result.drilldown_rows(dimension):
                 print "%s: %s" % (row.label, row.record["record_count"])
 
+
         `dimension` has to be :class:`cubes.Dimension` object. Raises
         `TypeError` when cut for `dimension` is not `PointCut`.
+        
+        
         """
 
         cut = self.cell.cut_for_dimension(dimension)
@@ -1109,9 +1105,13 @@ class AggregationResult(object):
 
         # FIXME: use hierarchy from cut (when implemented)
         hierarchy = dimension.hierarchy()
-        levels = hierarchy.levels_for_path(path, drilldown=True)
 
-        current_level = levels[-1]
+        if depth:
+            current_level = hierarchy[depth-1]
+        else:
+            levels = hierarchy.levels_for_path(path, drilldown=True)
+            current_level = levels[-1]
+            
         level_key = current_level.key.full_name()
         level_label = current_level.label_attribute.ref()
 
@@ -1123,3 +1123,46 @@ class AggregationResult(object):
                                drill_path,
                                record)
             yield row
+
+CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
+
+def cross_table(result, onrows, oncolumns, measures=None):
+    """Creates a cross table from aggregation `result` drill down. `onrows`
+    contains list of attribute names to be placed at rows and `oncolumn`
+    contains list of attribute names to be placet at columns. `measures` is a
+    list of measures to be put into cells. If measures are not specified, then
+    ``record_count`` is used.
+
+    Returns a named tuble with attributes:
+
+    * `columns` - labels of columns. The tuples correspond to values of
+      attributes in `oncolumns`.
+    * `rows` - labels of rows as list of tuples. The tuples correspond to
+      values of attributes in `onrows`.
+    * `data` - list of measure data per row. Each row is a list of measure
+      tuples.
+    """
+
+    matrix = {}
+    row_hdrs = []
+    column_hdrs = []
+
+    measures = measures or ["record_count"]
+
+    for record in result.drilldown:
+        hrow = tuple(record[f] for f in onrows)
+        hcol = tuple(record[f] for f in oncolumns)
+
+        if not hrow in row_hdrs:
+            row_hdrs.append(hrow)
+        if not hcol in column_hdrs:
+            column_hdrs.append(hcol)
+
+        matrix[(hrow, hcol)] = tuple(record[m] for m in measures)
+
+    data = []
+    for hrow in row_hdrs:
+        row = [matrix[(hrow, hcol)] for column in column_hdrs]
+        data.append(row)
+
+    return CrossTable(column_hdrs, row_hdrs, data)
