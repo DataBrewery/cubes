@@ -1162,7 +1162,7 @@ def cross_table(result, onrows, oncolumns, measures=None):
 
     data = []
     for hrow in row_hdrs:
-        row = [matrix[(hrow, hcol)] for column in column_hdrs]
+        row = [matrix[(hrow, hcol)] for hcol in column_hdrs]
         data.append(row)
 
     return CrossTable(column_hdrs, row_hdrs, data)
