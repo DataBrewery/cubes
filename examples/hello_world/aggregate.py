@@ -2,7 +2,7 @@ import cubes
 
 # 1. Prepare SQL data in memory
 model = cubes.load_model("model.json")
-workspace = cubes.create_workspace("sql.star", model,
+workspace = cubes.create_workspace("sql", model,
                                    url='sqlite:///data.sqlite')
 
 # 2. Create a model
