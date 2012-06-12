@@ -431,12 +431,26 @@ class CubesController(ApplicationController):
 
         return self.json_response(result)
 
+    def cell_details(self, cube):
+        print self.request
+        self.create_browser(cube)
+        self.prepare_cell()
+
+        details = self.browser.cell_details(self.cell)
+        cell_dict = self.cell.to_dict()
+        
+        for cut, detail in zip(cell_dict["cuts"], details):
+            cut["details"] = detail
+
+        return self.json_response(cell_dict)
+
     def details(self, cube):
+        self.logger.warn("/details is depreciated, use /cell")
         self.create_browser(cube)
         self.prepare_cell()
 
         result = self.browser.cell_details(self.cell)
-
+        
         return self.json_response(result)
 
 

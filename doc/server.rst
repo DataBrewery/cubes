@@ -52,28 +52,68 @@ browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and
     
     If no arguments are given, then whole cube is aggregated.
     
-    :Paramteres:
-        * `cut` - specification of cell, for example:
-          ``cut=date:2004,1|category:2|entity:12345``
-        * `drilldown` - dimension to be drilled down. For example 
-          ``drilldown=date`` will give rows for each value of next level of 
-          dimension date. You can explicitly specify level to drill down in 
-          form: ``dimension:level``, such as: ``drilldown=date:month``
-        * `page` - page number for paginated results
-        * `pagesize` - size of a page for paginated results
-        * `order` - list of attributes to be ordered by
-        * `limit` - limit number of results in form
-          `limit`[,`measure`[,`order_direction`]]:
-          ``limit=5:received_amount_sum:asc``
+    **Parameters:**
 
-    Reply:
+    * `cut` - specification of cell, for example:
+      ``cut=date:2004,1|category:2|entity:12345``
+    * `drilldown` - dimension to be drilled down. For example 
+      ``drilldown=date`` will give rows for each value of next level of 
+      dimension date. You can explicitly specify level to drill down in 
+      form: ``dimension:level``, such as: ``drilldown=date:month``
+    * `page` - page number for paginated results
+    * `pagesize` - size of a page for paginated results
+    * `order` - list of attributes to be ordered by
+    * `limit` - limit number of results in form
+      `limit`[,`measure`[,`order_direction`]]:
+      ``limit=5:received_amount_sum:asc``
+
+    **Reply:**
     
-        * ``summary`` - dictionary of fields/values for summary aggregation
-        * ``drilldown`` - list of drilled-down cells
-        * ``remainder`` - summary of remaining cells (not in drilldown), if
-          limit is specified. **Not implemented yet**
-        * ``total_cell_count`` - number of total cells in drilldown (after
-          `limir`, before pagination)
+    A dictionary with keys:
+    
+    * ``summary`` - dictionary of fields/values for summary aggregation
+    * ``drilldown`` - list of drilled-down cells
+    * ``total_cell_count`` - number of total cells in drilldown (after
+      `limir`, before pagination)
+    * ``cell`` - dictionary representation of the query cell
+    * ``remainder`` - summary of remaining cells (not in drilldown), if limit
+      is specified. **Not implemented yet**
+
+    Example:
+    
+    .. code-block:: javascript
+    
+        {
+            "summary": {
+                "record_count": 32, 
+                "amount_sum": 558430
+            }
+            "drilldown": [
+                {
+                    "record_count": 16, 
+                    "amount_sum": 275420, 
+                    "year": 2009
+                }, 
+                {
+                    "record_count": 16, 
+                    "amount_sum": 283010, 
+                    "year": 2010
+                }
+            ], 
+            "total_cell_count": 2, 
+            "remainder": {}, 
+            "cell": [
+                {
+                    "path": [
+                        "a"
+                    ], 
+                    "type": "point", 
+                    "dimension": "item", 
+                    "level_depth": 1
+                }
+            ], 
+        }
+    
 
     If pagination is used, then ``drilldown`` will not contain more than
     ``pagesize`` cells.
@@ -84,15 +124,16 @@ browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and
     
 
 ``GET /cube/<cube>/facts``
-    Return all facts (details) within a cell.
+    Return all facts within a cell.
 
-    :Parameters:
-        * `cut` - see ``/aggregate``
-        * `page`, `pagesize` - paginate results
-        * `order` - order results
-        * `format` - result format: ``json`` (default; see note below), ``csv``
-        * `fields` - comma separated list of fact fields, by default all
-          fields are returned
+    **Parameters:**
+
+    * `cut` - see ``/aggregate``
+    * `page`, `pagesize` - paginate results
+    * `order` - order results
+    * `format` - result format: ``json`` (default; see note below), ``csv``
+    * `fields` - comma separated list of fact fields, by default all
+      fields are returned
     
     .. note::
 
@@ -107,12 +148,80 @@ browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and
 ``GET /cube/<cube>/dimension/<dimension>``
     Get values for attributes of a `dimension`.
     
-    :Parameters:
-        * `depth` - specify depth (number of levels) to retrieve. If not
-          specified, then all levels are returned
-        * `cut` - see ``/aggregate``
-        * `page`, `pagesize` - paginate results
-        * `order` - order results
+    **Parameters:**
+
+    * `cut` - see ``/aggregate``
+    * `depth` - specify depth (number of levels) to retrieve. If not
+      specified, then all levels are returned
+    * `page`, `pagesize` - paginate results
+    * `order` - order results
+
+``GET /cube/<cube>/cell``
+    Get details for a cell.
+
+    **Parameters:**
+
+    * `cut` - see ``/aggregate``
+
+    **Response:** a dictionary representation of a ``cell`` (see
+    :meth:`cubes.Cell.as_dict`) with keys ``cube`` and ``cuts``. `cube` is
+    cube name and ``cuts`` is a list of dictionary representations of cuts.
+    
+    Each cut is represented as:
+    
+    .. code-block:: javascript
+
+        {
+            // Cut type is one of: "point", "range" or "set"
+            "type": cut_type,
+
+            "dimension": cut_dimension_name,
+            "level_depth": maximal_depth_of_the_cut,
+
+            // Cut type specific keys.
+
+            // Point cut:
+            "path": [ ... ],
+            "details": [ ... ]
+            
+            // Range cut:
+            "from": [ ... ],
+            "to": [ ... ],
+            "details": { "from": [...], "to": [...] }
+            
+            // Set cut:
+            "paths": [ [...], [...], ... ],
+            "details": [ [...], [...], ... ]
+        }
+        
+    Each element of the ``details`` path contains dimension attributes for the
+    corresponding level. In addition in contains two more keys: ``_key`` and
+    ``_label`` which (redundantly) contain values of key attribute and label
+    attribute respectively.
+
+    Example for ``/cell?cut=item:a`` in the ``hello_world`` example:
+    
+    .. code-block:: javascript
+    
+        {
+            "cube": "irbd_balance", 
+            "cuts": [
+                {
+                    "type": "point", 
+                    "dimension": "item", 
+                    "level_depth": 1
+                    "path": ["a"], 
+                    "details": [
+                        {
+                            "item.category": "a", 
+                            "item.category_label": "Assets", 
+                            "_key": "a", 
+                            "_label": "Assets"
+                        }
+                    ], 
+                }
+            ]
+        }
         
 ``POST /cube/<cube>/report``
     Process multiple request within one API call. The ``POST`` data should be
@@ -233,16 +342,18 @@ Reports
 
 Report queries are done either by specifying a report name in the request URL
 or using HTTP ``POST`` request where posted data are JSON with report
-specification. If report name is specified in ``GET`` request instead, then
-server should have a repository of named report specifications.
+specification.
+
+.. If report name is specified in ``GET`` request instead, then
+.. server should have a repository of named report specifications.
 
 Keys:
 
     * `queries` - dictionary of named queries
 
 Query specification should contain at least one key: `query` - which is query
-type: ``aggregate``, ``details`` (list of facts), ``values`` for dimension
-values, ``facts`` or ``fact`` for multiple or single fact respectively. The
+type: ``aggregate``, ``cell_details``, ``values`` (for dimension
+values), ``facts`` or ``fact`` (for multiple or single fact respectively). The
 rest of keys are query dependent. For more information see AggregationBrowser
 documentation.
 
@@ -403,6 +514,9 @@ four very simple steps:
 
 Create server configuration file ``procurements.ini``::
 
+    [server]
+    backend: sql.browser
+
     [model]
     path: /path/to/model.json
 
@@ -490,8 +604,7 @@ Configuration
 Server configuration is stored in .ini files with sections:
 
 * ``[server]`` - server related configuration, such as host, port
-    * ``host`` - host where the server runs, defaults to ``localhost``
-    * ``port`` - port on which the server listens, defaults to ``5000``
+    * ``backend`` - backend name, use ``sql`` for relational database backend
     * ``log`` - path to a log file
     * ``log_level`` - level of log details, from least to most: ``error``, 
       ``warn``, ``info``, ``debug``
@@ -503,6 +616,8 @@ Server configuration is stored in .ini files with sections:
       run by the ``slicer`` command)
     * ``prettyprint`` - default value of ``prettyprint`` parameter. Set to 
       ``true`` for demonstration purposes.
+    * ``host`` - host where the server runs, defaults to ``localhost``
+    * ``port`` - port on which the server listens, defaults to ``5000``
 * ``[model]`` - model and cube configuration
     * ``path`` - path to model .json file
     * ``locales`` - comma separated list of locales the model is provided in. 
@@ -516,20 +631,25 @@ Server configuration is stored in .ini files with sections:
 Backend workspace configuration should be in the ``[workspace]``. See
 :doc:`/api/backends` for more information.
 
-* ``[workspace]`` - relational database configuration (default SQL backend)
-    * ``url`` - database URL in form: 
-      ``adapter://user:password@host:port/database``
-    * ``schema`` - schema containing denormalized views for relational DB
-      cubes
-    * ``view_prefix``, ``view_suffix`` - prefix and suffix for view or table 
-      containing cube facts, name is constructed by concatenating `prefix` + 
-      `cube name` + `suffix`
+Workspace with SQL backend (``backend=sql`` in ``[server]``) options:
 
-.. note::
+* ``url`` *(required)* – database URL in form: 
+  ``adapter://user:password@host:port/database``
+* ``schema`` *(optional)* – schema containing denormalized views for relational DB
+  cubes
+* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find dimension
+  tables when no explicit mapping is specified
+* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact table
+  for a cube, when no explicit fact table name is specified
+* ``use_denormalization`` *(optional)* – browser will use dernormalized view
+  instead of snowflake
+* ``denormalized_view_prefix`` *(optional, advanced)* – if denormalization is
+  used, then this prefix is added for cube name to find corresponding cube
+  view
+* ``denormalized_view_schema`` *(optional, advanced)* – schema wehere
+  denormalized views are located (use this if the views are in different
+  schema than fact tables, otherwise default schema is going to be used)
 
-    For backward compatibility, sections ``[backend]`` and ``[db]`` are also
-    supported, but you should change them to ``[workspace]`` as soon as
-    possible
 
 Example configuration file::
 
@@ -539,10 +659,10 @@ Example configuration file::
     reload: yes
     log: /var/log/cubes.log
     log_level: info
+    backend: sql
 
     [workspace]
     url: postgresql://localhost/data
-    view: contracts
     schema: cubes
 
     [model]
@@ -552,3 +672,9 @@ Example configuration file::
 
     [translations]
     sk: ~/models/contracts_model-sk.json
+
+.. note::
+
+    For backward compatibility, sections ``[backend]`` and ``[db]`` are also
+    supported, but you should change them to ``[workspace]`` as soon as
+    possible
