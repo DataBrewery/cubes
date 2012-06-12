@@ -40,6 +40,9 @@ class AggregationBrowser(object):
 
     """
 
+    features = []
+    """List of browser features as strings."""
+
     def __init__(self, cube):
         super(AggregationBrowser, self).__init__()
 
