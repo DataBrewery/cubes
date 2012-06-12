@@ -24,7 +24,7 @@ DEFAULT_KEY_FIELD = "id"
 """Physical reference to a table column. Note that the table might be an
 aliased table name as specified in relevant join."""
 PhysicalReference = collections.namedtuple("PhysicalReference",
-                                    ["schema", "table", "column"])
+                                    ["schema", "table", "column", "extract"])
 
 """Table join specification. `master` and `detail` are PhysicalReference
 (3-item) tuples"""
@@ -40,8 +40,8 @@ def coalesce_physical(ref, default_table=None, schema=None):
     * a dictionary with keys: ``schema``, ``table``, ``column`` where
       ``column`` is required, the rest are optional
 
-    Returns tuple (`schema`, `table`, `column`), which is a named tuple
-    `PhysicalReference`.
+    Returns tuple (`schema`, `table`, `column`, `extract`), which is a named
+    tuple `PhysicalReference`.
 
     If no table is specified in reference and `default_table` is not
     ``None``, then `default_table` will be used.
@@ -58,18 +58,19 @@ def coalesce_physical(ref, default_table=None, schema=None):
         if len(split) > 1:
             dim_name = split[0]
             attr_name = ".".join(split[1:])
-            return PhysicalReference(schema, dim_name, attr_name)
+            return PhysicalReference(schema, dim_name, attr_name, None)
         else:
-            return PhysicalReference(schema, default_table, ref)
+            return PhysicalReference(schema, default_table, ref, None)
     elif isinstance(ref, dict):
-        return PhysicalReference(ref.get("schema") or schema,
-                                 ref.get("table") or default_table,
-                                 ref.get("column"))
+        return PhysicalReference(ref.get("schema", schema),
+                                 ref.get("table", default_table),
+                                 ref.get("column"),
+                                 ref.get("extract"))
     else:
         if len(ref) == 2:
-            return PhysicalReference(schema, ref[0], ref[1])
+            return PhysicalReference(schema, ref[0], ref[1], None)
         elif len(ref) == 3:
-            return PhysicalReference(ref[0], ref[1], ref[2])
+            return PhysicalReference(ref[0], ref[1], ref[2], None)
         else:
             raise Exception("Number of items in table reference should "\
                             "be 2 (table, column) or 3 (schema, table, column)")
@@ -394,7 +395,7 @@ class SnowflakeMapper(Mapper):
             else:
                 table_name = self.fact_name
 
-            reference = PhysicalReference(self.schema, table_name, column_name)
+            reference = PhysicalReference(self.schema, table_name, column_name, None)
 
         return reference
 

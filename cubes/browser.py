@@ -11,7 +11,7 @@ except ImportError:
     from ordereddict import OrderedDict
 
 from cubes.errors import *
-from .model import Dimension
+from .model import Dimension, Cube
 
 __all__ = [
     "AggregationBrowser",
@@ -364,6 +364,9 @@ class AggregationBrowser(object):
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
     def __init__(self, cube=None, cuts=[]):
+        if not isinstance(cube, Cube):
+            raise ArgumentError("Cell cube should be sublcass of Cube, "
+                                          "provided: %s" % type(cube).__name__)
         self.cube = cube
         self.cuts = cuts
 

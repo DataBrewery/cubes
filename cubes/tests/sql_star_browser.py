@@ -207,16 +207,20 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
             ref = coalesce_physical(actual, default)
             self.assertEqual(expected, ref)
             
-        assertPhysical((None, "table", "column"), "table.column")
-        assertPhysical((None, "table", "column.foo"), "table.column.foo")
-        assertPhysical((None, "table", "column"), ["table", "column"])
-        assertPhysical(("schema", "table", "column"), ["schema","table", "column"])
-        assertPhysical((None, "table", "column"), {"column":"column"}, "table")
-        assertPhysical((None, "table", "column"), {"table":"table",
+        assertPhysical((None, "table", "column", None), "table.column")
+        assertPhysical((None, "table", "column.foo", None), "table.column.foo")
+        assertPhysical((None, "table", "column", None), ["table", "column"])
+        assertPhysical(("schema", "table", "column", None), ["schema","table", "column"])
+        assertPhysical((None, "table", "column", None), {"column":"column"}, "table")
+        assertPhysical((None, "table", "column", None), {"table":"table",
                                                         "column":"column"})
-        assertPhysical(("schema", "table", "column"), {"schema":"schema",
+        assertPhysical(("schema", "table", "column", None), {"schema":"schema",
                                                         "table":"table",
                                                         "column":"column"})
+        assertPhysical(("schema", "table", "column", "day"), {"schema":"schema",
+                                                        "table":"table",
+                                                        "column":"column",
+                                                        "extract":"day"})
 
     def test_physical_refs_flat_dims(self):
         self.cube.fact = None
