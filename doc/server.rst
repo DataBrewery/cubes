@@ -13,8 +13,8 @@ functionality.
 
 .. _Werkzeug: http://werkzeug.pocoo.org/
 
-For more information about how to run the server programatically, please refer 
-to the :mod:`server` module.
+For more information about how to run the server programmatically, please
+refer to the :mod:`server` module.
 
 HTTP API
 ========
@@ -29,9 +29,6 @@ Model
 ``GET /model/dimension/<name>``
     Get dimension metadata as JSON
 
-``GET /model/dimension/<name>/levels``
-    Get list level metadata from default hierarchy of requested dimension.
-
 ``GET /locales``
     Get list of model locales
 
@@ -41,6 +38,10 @@ Cube
 Cube API calls have format: ``/cube/<cube_name>/<browser_action>`` where the 
 browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and 
 ``report``.
+
+If the model contains only one cube or default cube name is specified in the
+configuration, then the ``/cube/<cube>`` part might be omitted and you can
+write only requests like ``/aggregate``.
 
 .. _serveraggregate:
 
@@ -65,7 +66,8 @@ browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and
     * `order` - list of attributes to be ordered by
     * `limit` - limit number of results in form
       `limit`[,`measure`[,`order_direction`]]:
-      ``limit=5:received_amount_sum:asc``
+      ``limit=5:received_amount_sum:asc`` (this might not be implemented in 
+      all backends)
 
     **Reply:**
     
@@ -76,8 +78,8 @@ browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and
     * ``total_cell_count`` - number of total cells in drilldown (after
       `limir`, before pagination)
     * ``cell`` - dictionary representation of the query cell
-    * ``remainder`` - summary of remaining cells (not in drilldown), if limit
-      is specified. **Not implemented yet**
+    * ``remainder`` - summary of remaining cells (not in drilldown), if `limit`
+      is specified (this might not be implemented in all backends)
 
     Example:
     
@@ -155,6 +157,32 @@ browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and
       specified, then all levels are returned
     * `page`, `pagesize` - paginate results
     * `order` - order results
+    
+    **Response:** dictionary with keys ``dimension`` – dimension name,
+    ``depth`` – level depth and ``data`` – list of records.
+    
+    Example for ``/dimension/item?depth=1``:
+    
+    .. code-block:: javascript
+    
+        {
+            "dimension": "item"
+            "depth": 1, 
+            "data": [
+                {
+                    "item.category": "a", 
+                    "item.category_label": "Assets"
+                }, 
+                {
+                    "item.category": "e", 
+                    "item.category_label": "Equity"
+                }, 
+                {
+                    "item.category": "l", 
+                    "item.category_label": "Liabilities"
+                }
+            ], 
+        }
 
 ``GET /cube/<cube>/cell``
     Get details for a cell.

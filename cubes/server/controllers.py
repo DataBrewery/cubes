@@ -181,14 +181,19 @@ class ModelController(ApplicationController):
         return self.json_response(self._cube_dict(cube))
 
     def dimension_levels(self, dim_name):
+        # FIXME: remove this method
+        self.logger.warn("/dimension/.../levels is depreciated")
+
         dim = self.model.dimension(dim_name)
-        levels = [l.to_dict() for l in dim.default_hierarchy.levels]
+        levels = [l.to_dict() for l in dim.hierarchy().levels]
 
         string = json.dumps(levels)
 
         return Response(string)
 
     def dimension_level_names(self, dim_name):
+        # FIXME: remove this method
+        self.logger.warn("/dimension/.../level_names is depreciated")
         dim = self.model.dimension(dim_name)
 
         return self.json_response(dim.default_hierarchy.level_names)
