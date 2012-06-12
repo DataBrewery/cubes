@@ -769,8 +769,12 @@ class QueryContext(object):
 
         ref = self.mapper.physical(attribute, locale)
         table = self.table(ref.schema, ref.table)
-
         column = table.c[ref.column]
+
+        # Extract part of the date
+        if ref.extract:
+            column = sql.expression.extract(ref.extract, column)
+
         column = column.label(self.mapper.logical(attribute, locale))
 
         return column
