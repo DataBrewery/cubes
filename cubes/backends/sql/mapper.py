@@ -153,7 +153,7 @@ class Mapper(object):
 
         return self.attributes[name]
 
-    def logical(self, attribute, locale=False):
+    def logical(self, attribute, locale=None):
         """Returns logical reference as string for `attribute` in `dimension`.
         If `dimension` is ``Null`` then fact table is assumed. The logical
         reference might have following forms:
