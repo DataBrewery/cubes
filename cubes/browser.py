@@ -364,6 +364,15 @@ class Cell(object):
         self.cube = cube
         self.cuts = cuts
 
+    def to_dict(self):
+        """Returns a dictionary representation of the cell"""
+        result = {
+            "cube": str(self.cube.name),
+            "cuts": [cut.to_dict() for cut in self.cuts]
+        }
+        
+        return result;
+
     def slice(self, cut, dummy=None):
         """Returns new cell by slicing receiving cell with `cut`. Cut with
         same dimension as `cut` will be replaced, if there is no cut with the
@@ -835,8 +844,16 @@ class Cut(object):
     def to_dict(self):
         """Returns dictionary representation fo the receiver. The keys are:
         `dimension`."""
-        d = { "dimension": str(self.dimension) }
+        d = { 
+            "dimension": str(self.dimension),
+            "level_depth": self.level_depth()
+        }
         return d
+    
+    def level_depth(self):
+        """Returns deepest level number. Subclasses should implement this
+        method"""
+        raise NotImplementedError
         
 class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a
