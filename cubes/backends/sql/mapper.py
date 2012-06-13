@@ -524,7 +524,8 @@ class DenormalizedMapper(Mapper):
         column_name = self.logical(attribute, locale)
         reference = PhysicalReference(self.schema,
                                       self.fact_name,
-                                      column_name)
+                                      column_name,
+                                      None)
 
         return reference
 
