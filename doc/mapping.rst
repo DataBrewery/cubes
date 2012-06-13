@@ -71,8 +71,6 @@ If it is in different schema or any part of the reference contains a dot:
             }
     }
 
-Disadvantage of the explicit way is it's verbosity and the fact that developer
-has to write more metadata, obviously.
 
 Both, explicit and implicit mappings have ability to specify default database
 schema (if you are using Oracle, PostgreSQL or any other DB which supports
@@ -135,7 +133,30 @@ that your dimension will be more detailed.
     the mapping is done.
 
 
-.. _PhysicalAttributeMappings:
+Date Data Type
+--------------
+
+Date datatype column can be turned into a date dimension by extracting date
+parts in the mapping. To do so, for each date attribute specify a ``column``
+name and part to be extracted with value for ``extract`` key.
+
+.. code-block:: javascript
+    
+    "mappings": {
+      "date.year": {"column":"date", "extract":"year"},
+      "date.month": {"column":"date", "extract":"month"},
+      "date.day": {"column":"date", "extract":"day"}
+    }
+
+According to SQLAlchemy, you can extract in most of the databases: ``month``,
+``day``, ``year``, ``second``, ``hour``, ``doy`` (day of the year),
+``minute``, ``quarter``, ``dow`` (day of the week), ``week``, ``epoch``,
+``milliseconds``, ``microseconds``, ``timezone_hour``, ``timezone_minute``.
+Please refer to your database engine documentation for more information.
+
+.. note::
+
+    It is still recommended to have a date dimension table.
 
 Localization
 ------------
