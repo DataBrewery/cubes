@@ -269,7 +269,7 @@ def _assert_instance(obj, class_, label):
 
 class Model(object):
     def __init__(self, name=None, label=None, description=None,
-                 cubes=None, dimensions=None, locale=None, **kwargs):
+                 cubes=None, dimensions=None, locale=None, info=None, **kwargs):
         """
         Logical Model represents analysts point of view on data.
 
@@ -281,6 +281,7 @@ class Model(object):
         * `cubes` -  list of `Cube` instances
         * `dimensions` - list of `Dimension` instances
         * `locale` - locale code of the model
+        * `info` - custom information dictionary
         """
 
         self.name = name
@@ -292,6 +293,7 @@ class Model(object):
 
         self.description = description
         self.locale = locale
+        self.info = info
 
         self._dimensions = OrderedDict()
 
@@ -442,6 +444,7 @@ class Model(object):
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("description", self.description)
+        out.setnoempty("info", self.info)
 
         dims = [dim.to_dict(**options) for dim in self._dimensions.values()]
         out.setnoempty("dimensions", dims)
@@ -562,7 +565,8 @@ class Cube(object):
 
     def __init__(self, name=None, model=None, label=None, measures=None,
                  details=None, dimensions=None, mappings=None, joins=None,
-                 fact=None, key=None, description=None, options=None, **kwargs):
+                 fact=None, key=None, description=None, options=None, 
+                 info=None, **kwargs):
         """Create a new OLAP Cube
 
         Attributes:
@@ -577,6 +581,8 @@ class Cube(object):
         * `key`: fact key field (if not specified, then backend default key
           will be used, mostly ``id`` for SLQ or ``_id`` for document based
           databases)
+        * `info` - custom information dictionary, might be used to store
+          application/front-end specific information
 
         Attributes used by backends:
 
@@ -622,6 +628,7 @@ class Cube(object):
         self.options = options
 
         self.model = model
+        self.info = info
 
         self._dimensions = OrderedDict()
 
@@ -742,6 +749,7 @@ class Cube(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
+        out.setnoempty("info", self.info)
 
         array = []
         for attr in self.measures:
@@ -848,8 +856,8 @@ class Dimension(object):
 
     """
 
-    def __init__(self, name=None, label=None, levels=None,
-                 attributes=None, hierarchy=None, description=None, **desc):
+    def __init__(self, name=None, label=None, levels=None, attributes=None,
+                 hierarchy=None, description=None, info=None, **desc):
         """Create a new dimension
 
         Attributes:
@@ -860,6 +868,8 @@ class Dimension(object):
     	* `hierarchies`: list of dimension hierarchies
     	* `default_hierarchy_name`: name of a hierarchy that will be used when
           no hierarchy is explicitly specified
+        * `info` - custom information dictionary, might be used to store
+          application/front-end specific information (icon, color, ...)
 
         **Defaults**
 
@@ -882,6 +892,7 @@ class Dimension(object):
 
         self.label = label
         self.description = description
+        self.info = info
 
         logger = get_logger()
 
@@ -1111,6 +1122,7 @@ class Dimension(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
+        out.setnoempty("info", self.info)
         out.setnoempty("default_hierarchy_name", self.default_hierarchy_name)
 
         levels_dict = {}
@@ -1260,16 +1272,20 @@ class Hierarchy(object):
     * `name`: hierarchy name
     * `label`: human readable name
     * `levels`: ordered list of levels from dimension
+    * `info` - custom information dictionary, might be used to store
+      application/front-end specific information
 
     Some collection operations might be used, such as ``level in hierarchy``
     or ``hierarchy[index]``. String value ``str(hierarchy)`` gives the
     hierarchy name.
 
     """
-    def __init__(self, name=None, levels=None, label=None, dimension=None):
+    def __init__(self, name=None, levels=None, label=None, dimension=None,
+                 info=None):
         self.name = name
         self.label = label
         self.dimension = dimension
+        self.info = info
         self._levels = OrderedDict()
         self._set_levels(levels)
 
@@ -1434,6 +1450,7 @@ class Hierarchy(object):
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("levels", self._levels.keys())
+        out.setnoempty("info", self.info)
 
         return out
         
@@ -1466,10 +1483,12 @@ class Level(object):
     * `attributes`: list of other additional attributes that are related to
       the level. The attributes are not being used for aggregations, they
       provide additional useful information
+    * `info` - custom information dictionary, might be used to store
+      application/front-end specific information
     """
 
     def __init__(self, name=None, key=None, attributes=None, null_value=None, 
-                label=None, label_attribute=None, dimension=None):
+                label=None, label_attribute=None, dimension=None, info=None):
         self.name = name
         self.label = label
         self.null_value = null_value
@@ -1477,6 +1496,7 @@ class Level(object):
         self.attributes = attribute_list(attributes, dimension)
             
         self.dimension = dimension
+        self.info = info
 
         if key:
             self.key = coalesce_attribute(key, dimension)
@@ -1529,6 +1549,7 @@ class Level(object):
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
         out.setnoempty("missing_key_value", self.null_value)
+        out.setnoempty("info", self.info)
 
         dimname = self.dimension.name
 
@@ -1607,7 +1628,8 @@ class Attribute(object):
     DESC = 'desc'
     
     def __init__(self, name, label=None, locales=None, order=None,
-                description=None,dimension=None,aggregations=None, **kwargs):
+                description=None,dimension=None, aggregations=None,
+                info=None, **kwargs):
         """Cube attribute - represents any fact field/column
         
         Attributes:
@@ -1622,6 +1644,8 @@ class Attribute(object):
         * `aggregations` - list of default aggregations to be performed on
           this attribute if it is a measure. It is backend-specific, but most
           common might be: ``'sum'``, ``'min'``, ``'max'``, ...
+        * `info` - custom information dictionary, might be used to store
+          application/front-end specific information
           
         String representation of the `Attribute` returns its `name` (without
         dimension prefix).
@@ -1635,6 +1659,7 @@ class Attribute(object):
         self.description = description
         self.dimension = dimension
         self.aggregations = aggregations
+        self.info = info
         
         if order:
             self.order = order.lower()
@@ -1683,6 +1708,9 @@ class Attribute(object):
             d["description"] = self.description
         if self.aggregations is not None:
             d["aggregations"] = self.aggregations
+        if self.info is not None:
+            d["info"] = self.info
+        
         return d
         
     def ref(self, simplify=True, locale=None):
