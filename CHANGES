@@ -1,6 +1,52 @@
 Changes in the Cubes
 ====================
 
+0.10
+====
+
+Quick Summary
+-------------
+
+*Incompatibilities:*  use `create_model()` instead of `Model(**dict)`, if you were using just `load_model()`, you are fine.
+
+New Features
+------------
+
+* To address issue #8 create_model(dict) was added as replacement for
+  Model(**dict). Model() from now on will expect correctly constructed model
+  objects. `create_model()` will be able to handle various simplifications and
+  defaults during the construction process.
+* added `info` attribute to all model objects. It can be used to store custom,
+  application or front-end specific information
+* preliminary implementation of `cross_table()` (might be changed)
+* `AggregationResult.drilldown_rows()` - new method that iterates through
+  drill-down rows and returns a tuple with key, label, path, and rest of the
+  fields.
+
+*Slicer Server:*
+
+* `/cell` – return cell details (replaces `/details`)
+
+Changes
+-------
+* creation of a model from dictionary through Model(dict) is depreciated, use
+  create_model(dict) instead. All initialization code will be moved there.
+  Depreciation warnings were added. Old functionality retained for the time
+  being. (**important**)
+* Replaced Attribute.full_name() with Attribute.ref()
+* Removed Dimension.attribute_reference() as same can be achieved with
+  dim(attr).ref()
+
+Planned Changes:
+
+* str(Attribute) will return ref() instead of attribute name as it is more
+  useful
+  
+Fixes
+-----
+
+* order of dimensions is now preserved in the Model
+
 0.9.1
 =====
 
@@ -9,7 +55,6 @@ Changes in the Cubes
 New Features
 ------------
 
-* added create_model(dict) as replacement for Model(**dict)
 * cut_from_string(): added parsing of range and set cuts from string;
   introduced requirement for key format: Keys should now have format
   "alphanumeric character or underscore" if they are going to be converted to
@@ -44,18 +89,6 @@ Changes
   key `queries` is not present. Despite being rather a bug-fix, it is listed
   here as it requires your attention for possible change of your code.
 * warn when no backend is specified during slicer context creation
-* creation of a model from dictionary through Model(dict) is depreciated, use
-  create_model(dict) instead. All initialization code will be moved there.
-  Depreciation warnings were added. Old functionality retained for the time
-  being. (**important**)
-* Replaced Attribute.full_name() with Attribute.ref()
-* Removed Dimension.attribute_reference() as same can be achieved with
-  dim(attr).ref()
-  
-Planned Changes:
-
-* str(Attribute) will return ref() instead of attribute name as it is more
-  useful
 
 Fixes
 -----
@@ -65,7 +98,6 @@ Fixes
 * see change above about `/report` and `queries`
 * push more errors as JSON responses to the requestor, instead of just failing
   with an exception
-* order of dimensions is now preserved in the Model
 
 
 Version 0.9
