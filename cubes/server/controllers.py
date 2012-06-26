@@ -149,7 +149,8 @@ class ApplicationController(object):
                 raise RequestError("Problem loading request JSON data", reason=str(e))
             return result
         else:
-            raise RequestError("JSON requested from unknown content-type '%s'" % content_type)
+            raise RequestError("JSON requested should have content type "
+                               "application/json, is '%s'" % content_type)
 
 
 class ModelController(ApplicationController):
