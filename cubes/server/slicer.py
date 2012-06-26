@@ -16,7 +16,7 @@ except:
     Map = Rule = Request = ClosingIterator = HTTPException = _missing
     NotFound = Response = werkzeug = _missing
 
-from cubes.util import create_slicer_context
+from cubes.workspace import create_slicer_context
 
 import common
 # Local imports
