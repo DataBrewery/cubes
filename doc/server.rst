@@ -78,8 +78,6 @@ write only requests like ``/aggregate``.
     * ``total_cell_count`` - number of total cells in drilldown (after
       `limir`, before pagination)
     * ``cell`` - dictionary representation of the query cell
-    * ``remainder`` - summary of remaining cells (not in drilldown), if `limit`
-      is specified (this might not be implemented in all backends)
 
     Example:
     
@@ -103,7 +101,6 @@ write only requests like ``/aggregate``.
                 }
             ], 
             "total_cell_count": 2, 
-            "remainder": {}, 
             "cell": [
                 {
                     "path": [
@@ -251,10 +248,10 @@ write only requests like ``/aggregate``.
             ]
         }
         
-``POST /cube/<cube>/report``
-    Process multiple request within one API call. The ``POST`` data should be
-    a JSON containig report specification where keys are names of queries and
-    values are dictionaries describing the queries.
+``GET /cube/<cube>/report``
+    Process multiple request within one API call. The data should be a JSON
+    containing report specification where keys are names of queries and values
+    are dictionaries describing the queries.
     
     ``report`` expects ``Content-type`` header to be set to ``application/json``.
     
@@ -314,7 +311,8 @@ write only requests like ``/aggregate``.
 
 Parameters that can be used in any request:
 
-    * `prettyprint` - if set to ``true`` formatting spaces are added to json output
+    * `prettyprint` - if set to ``true``, space indentation is added to the
+      JSON output
 
 Cuts in URLs
 ------------
@@ -436,7 +434,6 @@ Reply:
                     "date.year": "2010"
                 }
             ], 
-            "remainder": {}, 
             "summary": {
                 "record_count": 33038, 
                 "requested_amount_sum": 2412768171.31, 
@@ -446,7 +443,6 @@ Reply:
         "summary": {
             "total_cell_count": null, 
             "drilldown": {}, 
-            "remainder": {}, 
             "summary": {
                 "date.year": "2004", 
                 "requested_amount_sum": 2394804837.56, 
@@ -617,9 +613,7 @@ Reply::
 
     {
         "drilldown": {}, 
-        "remainder": {}, 
         "summary": {
-            "date.year": "2004", 
             "received_amount_sum": 399136450.0, 
             "requested_amount_sum": 2394804837.56, 
             "record_count": 4390
