@@ -75,7 +75,7 @@ backend<cubes.backends.star.SQLStarBrowser>`):
 
 >>> workspace = cubes.create_workspace("sql.star", model, engine=engine)
 
-Get a cube and browser for the cube:
+Get a cube and :class:`browser<cubes.AggregationBrowser>` for the cube:
 
 >>> cube = model.cube("irbd_balance")
 >>> browser = workspace.browser(cube)
@@ -165,7 +165,7 @@ fetching cell details explicitly might come handy.
 
 The cell details are now provided separately by method
 :func:`cubes.AggregationBrowser.cell_details()` which has Slicer HTTP
-equivalent ``/details`` or ``{"query":"detail", ...}`` in ``/report`` request
+equivalent ``/cell`` or ``{"query":"detail", ...}`` in ``/report`` request
 (see the :doc:`server documentation<server>` for more information).
 
 For point cuts, the detail is a list of dictionaries for each level. For
