@@ -169,7 +169,9 @@ def _fix_dict_list(obj, key_name="name", warning=None):
         return obj
 
 def _create_dimension(desc):
-    """Creates a `Dimension` instance from dictionary description `desc`"""
+    """Creates a `Dimension` instance from dictionary description `desc`."""
+
+    # FIXME: code from Dimension.__init__() should be moved here
     return Dimension(**desc)
 
 def _create_cube(desc, dimensions):
@@ -490,7 +492,7 @@ class Model(object):
 
         return results
 
-    def is_valid(self, strict = False):
+    def is_valid(self, strict=False):
         """Check whether model is valid. Model is considered valid if there
         are no validation errors. If you want to be sure that there are no
         warnings as well, set *strict* to ``True``. If `strict` is ``False``
@@ -1539,6 +1541,7 @@ class Level(object):
 
     def __str__(self):
         return "<level: {name: '%s', key: %s, attributes: %s}>" % (self.name, self.key, self.attributes)
+
     def __repr__(self):
         return self.__str__()
 
@@ -1680,6 +1683,9 @@ class Attribute(object):
         
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return str(self.to_dict())
         
     def __eq__(self, other):
         if type(other) != Attribute:

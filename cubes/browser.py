@@ -67,6 +67,7 @@ class AggregationBrowser(object):
         * `dimension` - a dimension object or a string, if it is a string,
           then dimension object is retrieved from cube
         """
+        # FIXME: depreciate, use cube.dimension(...) directly
 
         if type(dimension) == str:
             return self.cube.dimension(dimension)
@@ -98,8 +99,8 @@ class AggregationBrowser(object):
 
         If there are no more levels to be drilled down, an exception is
         raised. Say your model has three levels of the `date` dimension:
-        `year`, `month`, `day` and you try to drill down by `date` then
-        ``ValueError`` will be raised.
+        `year`, `month`, `day` and you try to drill down by `date` at the next
+        level then ``ValueError`` will be raised.
 
         Retruns a :class:AggregationResult object.
         """
@@ -133,8 +134,9 @@ class AggregationBrowser(object):
         specifying arguments of the particular query. Each query should
         contain at least one required value ``query`` which contains name of
         the query function: ``aggregate``, ``facts``, ``fact``, ``values`` and
-        cell ``details``. Rest of values are function specific, please refer
-        to the respective function documentation for more information.
+        cell ``cell`` (for cell details). Rest of values are function
+        specific, please refer to the respective function documentation for
+        more information.
                 
         Example::
         
@@ -238,9 +240,19 @@ class AggregationBrowser(object):
 
             elif query_type == "values":
                 result = self.values(query_cell, **args)
-
+            
             elif query_type == "details":
+                # FIXME: depreciate this raw form
                 result = self.cell_details(query_cell, **args)
+
+            elif query_type == "cell":
+                details = self.cell_details(query_cell, **args)
+                cell_dict = query_cell.to_dict()
+
+                for cut, detail in zip(cell_dict["cuts"], details):
+                    cut["details"] = detail
+
+                result = cell_dict
 
             else:
                 raise ArgumentError("Unknown report query '%s' for '%s'" % (query_type, result_name))
@@ -1147,14 +1159,41 @@ class AggregationResult(object):
                                record)
             yield row
 
+    def cross_table(self, onrows, oncolumns, measures=None):
+        """
+        Creates a cross table from result's drilldown. `onrows`
+        contains list of attribute names to be placed at rows and `oncolumns`
+        contains list of attribute names to be placet at columns. `measures` is a
+        list of measures to be put into cells. If measures are not specified, then
+        only ``record_count`` is used.
+
+        Returns a named tuble with attributes:
+
+        * `columns` - labels of columns. The tuples correspond to values of
+          attributes in `oncolumns`.
+        * `rows` - labels of rows as list of tuples. The tuples correspond to
+          values of attributes in `onrows`.
+        * `data` - list of measure data per row. Each row is a list of measure
+          tuples.
+
+        .. warning::
+
+            Experimental implementation. Interface might change - either
+            arguments or result object.
+
+        """
+
+        return cross_table(self.drilldown, onrows, oncolumns, measures)
+
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 
-def cross_table(result, onrows, oncolumns, measures=None):
-    """Creates a cross table from aggregation `result` drill down. `onrows`
-    contains list of attribute names to be placed at rows and `oncolumn`
-    contains list of attribute names to be placet at columns. `measures` is a
-    list of measures to be put into cells. If measures are not specified, then
-    ``record_count`` is used.
+def cross_table(drilldown, onrows, oncolumns, measures=None):
+    """
+    Creates a cross table from a drilldown (might be any list of records).
+    `onrows` contains list of attribute names to be placed at rows and
+    `oncolumns` contains list of attribute names to be placet at columns.
+    `measures` is a list of measures to be put into cells. If measures are not
+    specified, then only ``record_count`` is used.
 
     Returns a named tuble with attributes:
 
@@ -1164,6 +1203,12 @@ def cross_table(result, onrows, oncolumns, measures=None):
       values of attributes in `onrows`.
     * `data` - list of measure data per row. Each row is a list of measure
       tuples.
+
+    .. warning::
+
+        Experimental implementation. Interface might change - either
+        arguments or result object.
+
     """
 
     matrix = {}
@@ -1172,7 +1217,7 @@ def cross_table(result, onrows, oncolumns, measures=None):
 
     measures = measures or ["record_count"]
 
-    for record in result.drilldown:
+    for record in drilldown:
         hrow = tuple(record[f] for f in onrows)
         hcol = tuple(record[f] for f in oncolumns)
 

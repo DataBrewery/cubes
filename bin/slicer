@@ -128,7 +128,7 @@ def generate_ddl(args):
     model = cubes.load_model(args.model)
 
     if args.backend:
-        backend = cubes.util.get_backend(args.backend)
+        backend = cubes.workspace.get_backend(args.backend)
     else:
         backend = cubes.backends.sql.browser
     
@@ -161,7 +161,7 @@ def run_test(args):
         for module in modules:
             e = __import__(module)
 
-    context = cubes.util.create_slicer_context(config)
+    context = cubes.workspace.create_slicer_context(config)
     backend = context["backend"]
     workspace = backend.create_workspace(context["model"],
                                          **context["workspace_options"])
@@ -176,7 +176,7 @@ def run_test(args):
 def denormalize(args):
     cube_list = args.cube
     config = read_config(args.config)
-    context = cubes.util.create_slicer_context(config)
+    context = cubes.workspace.create_slicer_context(config)
     model = context["model"]
     
     backend = context["backend"]
