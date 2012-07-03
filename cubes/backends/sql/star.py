@@ -572,12 +572,12 @@ class QueryContext(object):
                 master_column = master_table.c[join.master.column]
             except:
                 raise MappingError('Unable to find master key (schema %s) "%s"."%s" ' \
-                                    % join.master)
+                                    % join.master[0:3])
             try:
                 detail_column = detail_table.c[join.detail.column]
             except:
                 raise MappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
-                                    % join.detail)
+                                    % join.detail[0:3])
 
             onclause = master_column == detail_column
 

@@ -1,5 +1,36 @@
 import sqlalchemy
 import csv
+import csv, codecs, cStringIO
+
+class UTF8Recoder:
+    """
+    Iterator that reads an encoded stream and reencodes the input to UTF-8
+    """
+    def __init__(self, f, encoding):
+        self.reader = codecs.getreader(encoding)(f)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return self.reader.next().encode("utf-8")
+
+class UnicodeReader:
+    """
+    A CSV reader which will iterate over lines in the CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        f = UTF8Recoder(f, encoding)
+        self.reader = csv.reader(f, dialect=dialect, **kwds)
+
+    def next(self):
+        row = self.reader.next()
+        return [unicode(s, "utf-8") for s in row]
+
+    def __iter__(self):
+        return self
 
 def create_table_from_csv(connectable, file_name, table_name, fields, create_id = False, schema = None):
     """Create a table with name `table_name` from a CSV file `file_name` with columns corresponding
@@ -21,8 +52,11 @@ def create_table_from_csv(connectable, file_name, table_name, fields, create_id 
         table.drop(checkfirst=False)
 
     type_map = { "integer": sqlalchemy.Integer,
-                 "float":sqlalchemy.Float,
-                 "string":sqlalchemy.String(256) }
+                 "float":sqlalchemy.Numeric,
+                 "string":sqlalchemy.String(256),
+                 "text":sqlalchemy.Text,
+                 "date":sqlalchemy.Text,
+                 "boolean": sqlalchemy.Integer }
 
     if create_id:
         col = sqlalchemy.schema.Column('id', sqlalchemy.Integer, primary_key=True)
@@ -36,7 +70,7 @@ def create_table_from_csv(connectable, file_name, table_name, fields, create_id 
 
     table.create()
 
-    reader = csv.reader(open(file_name))
+    reader = UnicodeReader(open(file_name))
     
     # Skip header
     reader.next()
