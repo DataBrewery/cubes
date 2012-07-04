@@ -21,7 +21,13 @@ class ArgumentError(CubesError):
     """Raised when an invalid or conflicting function argument is supplied.
     """
 
-class MappingError(CubesError):
+class BackendError(CubesError):
+    """Raised by a backend. Should be handled separately, for example: should
+    not be passed to the client from the server due to possible internal
+    schema exposure.
+    """
+
+class MappingError(BackendError):
     """Raised when there are issues by mapping from logical model to physical
     database schema. """
 
