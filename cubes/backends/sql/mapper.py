@@ -3,6 +3,7 @@
 
 import collections
 from cubes.common import get_logger
+from cubes.errors import *
 
 __all__ = (
     "Mapper",
@@ -72,8 +73,8 @@ def coalesce_physical(ref, default_table=None, schema=None):
         elif len(ref) == 3:
             return PhysicalReference(ref[0], ref[1], ref[2], None)
         else:
-            raise Exception("Number of items in table reference should "\
-                            "be 2 (table, column) or 3 (schema, table, column)")
+            raise BackendError("Number of items in table reference should "\
+                               "be 2 (table, column) or 3 (schema, table, column)")
 
 
 class Mapper(object):
@@ -418,7 +419,7 @@ class SnowflakeMapper(Mapper):
 
         for join in self.joins:
             if not join.detail.table or join.detail.table == self.fact_name:
-                raise ValueError("Detail table name should be present and should not be a fact table.")
+                raise BackendError("Detail table name should be present and should not be a fact table.")
 
             ref = (join.master.schema, join.master.table)
             tables[ref] = ref
