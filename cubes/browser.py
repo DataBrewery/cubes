@@ -366,7 +366,9 @@ class AggregationBrowser(object):
         else:
             result = []
             for level in hierarchy.levels_for_path(path):
-                item = {a.ref():details.get(a.ref()) for a in level.attributes}
+                for a in level.attributes:
+                    item[a.ref()] = details.get(a.ref())
+                #item = { a.ref() : details.get(a.ref()) for a in level.attributes }
                 item["_key"] = details.get(level.key.ref())
                 item["_label"] = details.get(level.label_attribute.ref())
                 result.append(item)

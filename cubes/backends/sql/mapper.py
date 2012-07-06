@@ -2,6 +2,11 @@
 """Shared SQL utilities"""
 
 import collections
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 from cubes.common import get_logger
 from cubes.errors import *
 
@@ -129,7 +134,7 @@ class Mapper(object):
         This method should be used after each cube or mappings change.
         """
 
-        self.attributes = collections.OrderedDict()
+        self.attributes = OrderedDict()
 
         for attr in self.cube.measures:
             self.attributes[self.logical(attr)] = attr
@@ -443,7 +448,7 @@ class SnowflakeMapper(Mapper):
         if not self.joins:
             self.logger.debug("no joins to be searched for")
 
-        tables_to_join = {(ref[0], ref[1]) for ref in attributes}
+        tables_to_join = [ (ref[0], ref[1]) for ref in attributes]
         joined_tables = set()
         joined_tables.add( (self.schema, self.fact_name) )
 
