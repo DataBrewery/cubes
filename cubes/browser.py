@@ -650,14 +650,23 @@ class Cell(object):
 
         return levels
     
-    def is_base(self, dimension):
-        """Returns ``True`` when cell is base cell (lowest detail level) for
-        `dimension`"""
-        
-        cut = self.cut_for_dimension(dimension)
-        path = cut.path if cut else None
+    def is_base(self, dimension, hierarchy=None):
+        """Returns ``True`` when cell is base cell for `dimension`. Cell
+        is base if there is a point cut with path referring to the
+        most detailed level of the dimension `hierarchy`."""
 
-        return dimension.hierarchy().path_is_base(path)
+        
+        hierarchy = dimension.hierarchy(hierarchy)
+        
+        dim_cut = None
+        for cut in self.cuts:
+            if isinstance(cut, PointCut) and cut.dimension == dimension:
+                dim_cut = cut
+                break
+        
+        depth = dim_cut.level_depth() if dim_cut else None
+
+        return depth == len(hierarchy)
         
     # def level(self, ):
     
@@ -1230,7 +1239,7 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
 
     data = []
     for hrow in row_hdrs:
-        row = [matrix[(hrow, hcol)] for hcol in column_hdrs]
+        row = [matrix.get((hrow, hcol)) for hcol in column_hdrs]
         data.append(row)
 
     return CrossTable(column_hdrs, row_hdrs, data)
