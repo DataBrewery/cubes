@@ -1632,7 +1632,7 @@ class Attribute(object):
     
     def __init__(self, name, label=None, locales=None, order=None,
                 description=None,dimension=None, aggregations=None,
-                info=None, **kwargs):
+                info=None, format=None, **kwargs):
         """Cube attribute - represents any fact field/column
         
         Attributes:
@@ -1649,6 +1649,8 @@ class Attribute(object):
           common might be: ``'sum'``, ``'min'``, ``'max'``, ...
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
+        * `format` - application-specific display format information, useful
+          for formatting numeric values of measure attributes
           
         String representation of the `Attribute` returns its `name` (without
         dimension prefix).
@@ -1663,6 +1665,7 @@ class Attribute(object):
         self.dimension = dimension
         self.aggregations = aggregations
         self.info = info
+        self.format = format
         
         if order:
             self.order = order.lower()
@@ -1716,6 +1719,8 @@ class Attribute(object):
             d["aggregations"] = self.aggregations
         if self.info is not None:
             d["info"] = self.info
+        if self.format is not None:
+            d["format"] = self.format
         
         return d
         
