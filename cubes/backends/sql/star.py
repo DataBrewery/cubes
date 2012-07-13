@@ -1071,9 +1071,9 @@ class SQLStarWorkspace(object):
         value of `denormalized_view_prefix` from workspace options to the cube
         name. If no prefix is specified in the options, then view name will be
         equal to the cube name.
-        
+
         Options:
-        
+
         * `materialize` - whether the view is materialized (a table) or
           regular view
         * `replace` - if `True` then existing table/view will be replaced,
@@ -1083,7 +1083,7 @@ class SQLStarWorkspace(object):
           attribute. Can be used only on materialized view, otherwise raises
           an exception
         * `keys_only` - if ``True`` then only key attributes are used in the
-          view, all other detail attributes are ignored   
+          view, all other detail attributes are ignored
         * `schema` - target schema of the denormalized view, if not specified,
           then `denormalized_view_schema` from options is used if specified,
           otherwise default workspace schema is used (same schema as fact
@@ -1105,18 +1105,22 @@ class SQLStarWorkspace(object):
             statement = context.denormalized_statement(expand_locales=True)
 
         schema = schema or self.options.get("denormalized_view_schema") or self.schema
+
+        dview_prefix = self.options.get("denormalized_view_prefix","")
+        view_name = view_name or dview_prefix + cube.name
+
         table = sqlalchemy.Table(view_name, self.metadata,
                                  autoload=False, schema=schema)
-        
+
         preparer = self.engine.dialect.preparer(self.engine.dialect)
         full_name = preparer.format_table(table)
-        
+
         if mapper.fact_name == view_name and schema == mapper.schema:
             raise WorkspaceError("target denormalized view is the same as source fact table")
 
         if table.exists():
             if not replace:
-                raise WorkspaceError("Table %s (schema: %s) already exists." % \
+                raise WorkspaceError("View or table %s (schema: %s) already exists." % \
                                    (view_name, schema))
 
             inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.engine)

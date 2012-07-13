@@ -3,7 +3,7 @@
 """Slicer tool
 
     For more information run: slicer --help
-    
+
     Author: Stefan Urbanek <stefan.urbanek@gmail.com>
     Date: 2011-01
 """
@@ -35,13 +35,13 @@ def validate_model(args):
         handle.close
         model.localize(translation)
     print("model locale: %s" % model.locale)
-            
+
 
     print("-------------------------")
     print("cubes: %d" % len(model.cubes))
     for cube_name, cube in model.cubes.items():
         print("    %s" % cube_name)
-        
+
     print("dimensions: %d" % len(model.dimensions))
     for dim in model.dimensions:
         print("    %s" % dim.name)
@@ -172,13 +172,13 @@ def run_test(args):
             print("%s: %s" % (result[0], result[1]) )
     else:
         print("model test was successful")
-        
+
 def denormalize(args):
     cube_list = args.cube
     config = read_config(args.config)
     context = cubes.workspace.create_slicer_context(config)
     model = context["model"]
-    
+
     backend = context["backend"]
     workspace = backend.create_workspace(context["model"],
                                          **context["workspace_options"])
@@ -193,7 +193,7 @@ def denormalize(args):
         cube = model.cube(cube_name)
 
         view_name = view_prefix + cube_name if view_prefix else cube_name
-            
+
         print("denormalizing cube '%s' into '%s'" % (cube_name, view_name))
 
         workspace.create_denormalized_view(cube, view_name,
@@ -202,7 +202,7 @@ def denormalize(args):
                                             create_index=args.index, 
                                             keys_only=False,
                                             schema=view_schema)
-        
+
 ################################################################################
 # Main code
 
