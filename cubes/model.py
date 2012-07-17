@@ -20,7 +20,6 @@ try:
     import json
 except ImportError:
     import simplejson as json
-
 __all__ = [
     "load_model",
     "model_from_path",
@@ -265,7 +264,7 @@ def _assert_instance(obj, class_, label):
     """Raises ModelInconsistencyError when `obj` is not instance of `cls`"""
     if not isinstance(obj, class_):
         raise ModelInconsistencyError("%s should be sublcass of %s, "
-                                      "provided: %s" % (label, 
+                                      "provided: %s" % (label,
                                                         class_.__name__,
                                                         type(obj).__name__))
 
@@ -363,7 +362,7 @@ class Model(object):
         already assigned to a different model or if trying to add a dimension
         with existing name but different specification.
         """
-        
+
         _assert_instance(cube, Cube, "cube")
 
         if cube.model and cube.model != self:
@@ -567,7 +566,7 @@ class Cube(object):
 
     def __init__(self, name=None, model=None, label=None, measures=None,
                  details=None, dimensions=None, mappings=None, joins=None,
-                 fact=None, key=None, description=None, options=None, 
+                 fact=None, key=None, description=None, options=None,
                  info=None, **kwargs):
         """Create a new OLAP Cube
 
@@ -640,7 +639,7 @@ class Cube(object):
             if all([isinstance(dim, Dimension) for dim in dimensions]):
                 self._dimensions.update( [(dim.name, dim) for dim in dimensions] )
                 dimensions = None
-        
+
         if dimensions:
             for obj in dimensions:
                 if isinstance(obj, basestring):
@@ -700,7 +699,7 @@ class Cube(object):
         if not obj:
             raise NoSuchDimensionError("Requested dimension should not be none (cube '%s')" % \
                                 self.name)
-            
+
         if isinstance(obj, basestring):
             if obj in self._dimensions:
                 return self._dimensions[obj]
@@ -717,7 +716,7 @@ class Cube(object):
         """Get measure object. If `obj` is a string, then measure with given
         name is returned, otherwise measure object is returned if it belongs
         to the cube. Returned object is of `Attribute` type.
-        
+
         Raises `NoSuchAttributeError` when there is no such measure or when
         there are multiple measures with the same name (which also means that
         the model is not valid).
@@ -886,7 +885,7 @@ class Dimension(object):
         dimension name.
 
         Class is not meant to be mutable.
-        
+
         Raises `ModelInconsistencyError` when both `hierarchy` and
         `hierarchies` is specified.
         """
@@ -974,11 +973,11 @@ class Dimension(object):
         hierarchies = _fix_dict_list(hierarchies)
         # FIXME: issue warning next time:
         # warning="'hierarchies' in model description should be a list not a dictionary")
-        
+
         for desc in hierarchies:
             hier = Hierarchy(dimension=self, **desc)
             self.hierarchies[hier.name] = hier
-        
+
     def __eq__(self, other):
         if other is None or type(other) != type(self):
             return False
@@ -1056,11 +1055,11 @@ class Dimension(object):
     def default_hierarchy(self):
         """Get default hierarchy specified by ``default_hierarchy_name``, if
         the variable is not set then get a hierarchy with name *default*
-        
+
         .. warning::
-        
+
             Depreciated. Use `Dimension.hierarchy()` instead.
-            
+
         """
         return self._default_hierarchy()
 
@@ -1173,13 +1172,13 @@ class Dimension(object):
                 #                                 "'%s'"% (self.name, def_name)) )
 
         if self.default_hierarchy_name and not self.hierarchies.get(self.default_hierarchy_name):
-            results.append( ('error', "Default hierarchy '%s' does not exist in dimension '%s'" % 
+            results.append( ('error', "Default hierarchy '%s' does not exist in dimension '%s'" %
                             (self.default_hierarchy_name, self.name)) )
 
-        
+
         attributes = set()
         first_occurence = {}
-        
+
         for level_name, level in self._levels.items():
             if not level.attributes:
                 results.append( ('error', "Level '%s' in dimension '%s' has no attributes" % (level.name, self.name)) )
@@ -1188,12 +1187,12 @@ class Dimension(object):
             if not level.key:
                 attr = level.attributes[0]
                 results.append( ('default', "Level '%s' in dimension '%s' has no key attribute specified, "\
-                                            "first attribute will be used: '%s'" 
+                                            "first attribute will be used: '%s'"
                                             % (level.name, self.name, attr)) )
 
             if level.attributes and level.key:
                 if level.key.name not in [a.name for a in level.attributes]:
-                    results.append( ('error', 
+                    results.append( ('error',
                                      "Key '%s' in level '%s' in dimension "
                                      "'%s' is not in level's attribute list" \
                                      % (level.key, level.name, self.name)) )
@@ -1202,26 +1201,26 @@ class Dimension(object):
                 attr_name = attribute.ref()
                 if attr_name in attributes:
                     first = first_occurence[attr_name]
-                    results.append( ('error', 
+                    results.append( ('error',
                                      "Duplicate attribute '%s' in dimension "
                                      "'%s' level '%s' (also defined in level "
-                                     "'%s')" % (attribute, self.name, 
+                                     "'%s')" % (attribute, self.name,
                                               level_name, first)) )
                 else:
                     attributes.add(attr_name)
                     first_occurence[attr_name] = level_name
-                
+
                 if not isinstance(attribute, Attribute):
-                    results.append( ('error', 
+                    results.append( ('error',
                                      "Attribute '%s' in dimension '%s' is "
                                      "not instance of Attribute" \
                                      % (attribute, self.name)) )
-                                     
+
                 if attribute.dimension != self:
                     results.append( ('error',
                                      "Dimension (%s) of attribute '%s' does "
                                      "not match with owning dimension %s" \
-                                     % (attribute.dimension, attribute, 
+                                     % (attribute.dimension, attribute,
                                      self.name)) )
 
         return results
@@ -1272,8 +1271,9 @@ class Hierarchy(object):
     Attributes:
 
     * `name`: hierarchy name
+    * `dimension`: dimension the hierarchy belongs to
     * `label`: human readable name
-    * `levels`: ordered list of levels from dimension
+    * `levels`: ordered list of levels or level names from `dimension`
     * `info` - custom information dictionary, might be used to store
       application/front-end specific information
 
@@ -1282,30 +1282,36 @@ class Hierarchy(object):
     hierarchy name.
 
     """
-    def __init__(self, name=None, levels=None, label=None, dimension=None,
-                 info=None):
+    def __init__(self, name, levels, dimension, label=None, info=None):
         self.name = name
         self.label = label
-        self.dimension = dimension
         self.info = info
+
+        if not dimension:
+            raise ModelInconsistencyError("No dimension specified for "
+                                          "hierarchy %s" % self.name)
+        self.dimension = dimension
+
         self._levels = OrderedDict()
         self._set_levels(levels)
+
+    def _set_levels(self, levels):
+        self._levels = OrderedDict()
+
+        if not levels:
+            raise ModelInconsistencyError("Hierarchy level list should not be "
+                                          "empty (in %s)" % self.name)
+
+
+        # FIXME: check whether level exists in the dimension
+        for level in levels:
+            if isinstance(level, basestring):
+                level = self.dimension.level(level)
+            self._levels[level.name] = level
 
     @property
     def levels(self):
         return self._levels.values()
-
-    def _set_levels(self, levels):
-        self._levels = OrderedDict()
-        levels = levels or []
-
-        for level in levels:
-            if isinstance(level, basestring):
-                if not self.dimension:
-                    raise ModelInconsistencyError("Unable to set hierarchy level '%s' by name, no dimension specified"
-                                        % level)
-                level = self.dimension.level(level)
-            self._levels[level.name] = level
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
@@ -1327,9 +1333,11 @@ class Hierarchy(object):
 
     def __getitem__(self, item):
         return self.levels[item]
-        
+
     def __contains__(self, item):
-        return item in self.levels
+        if item in self.levels:
+            return True
+        return item in [level.name for level in self.levels]
 
     def levels_for_path(self, path, drilldown=False):
         """Returns levels for given path. If path is longer than hierarchy
@@ -1344,7 +1352,7 @@ class Hierarchy(object):
 
         depth = depth or 0
         extend = 1 if drilldown else 0
-        
+
         if depth + extend > len(self.levels):
             raise ArgumentError("Depth %d is longer than hierarchy levels %s (drilldown: %s)" % (depth, self._levels.keys(), drilldown))
 
@@ -1357,7 +1365,7 @@ class Hierarchy(object):
 
         if not level:
             return self.levels[0]
-            
+
         if isinstance(level, basestring):
             level_name = level
         else:
@@ -1372,10 +1380,10 @@ class Hierarchy(object):
     def previous_level(self, level):
         """Returns previous level in hierarchy after `level`. If `level` is
         first level or ``None``, returns ``None``"""
-        
+
         if level is None:
             return None
-        
+
         if isinstance(level, basestring):
             level_name = level
         else:
@@ -1390,29 +1398,31 @@ class Hierarchy(object):
     def level_index(self, level):
         """Get order index of level. Can be used for ordering and comparing
         levels within hierarchy."""
-        return self._levels.keys().index(str(level))
+        try:
+            return self._levels.keys().index(str(level))
+        except ValueError:
+            raise ArgumentError("Level %s is not part of hierarchy %s"
+                                    % (str(level), self.name))
 
-    def rollup(self, path, level = None):
-        """Rolls-up the path to the `level`. If `level` is None then path is
+    def rollup(self, path, level=None):
+        """Rolls-up the path to the `level`. If `level` is ``None`` then path is
         rolled-up only one level.
-        
-        If `level` is deeper than last level of `path` the
-        `cubes.ArgumentError` exception is raised. If `level` is the same as
-        `path` level, nothing happens."""
-        
+
+        If `level` is deeper than last level of `path` the `cubes.ArgumentError`
+        exception is raised. If `level` is the same as `path` level, nothing
+        happens."""
+
         if level:
-            level = self.dimension.level(level)
-        
-            last = self._levels.keys().index(level.name) + 1
+            last = self.level_index(level) + 1
             if last > len(path):
                 raise ArgumentError("Can not roll-up: level '%s' in dimension '%s' is deeper than "
-                                    "deepest element of path %s", level.name, self.dimension.name, path)
+                                    "deepest element of path %s", str(level), self.dimension.name, path)
         else:
             if len(path) > 0:
                 last = len(path) - 1
             else:
                 last = None
-                
+
         if last is None:
             return []
         else:
@@ -1422,7 +1432,7 @@ class Hierarchy(object):
         """Returns True if path is base path for the hierarchy. Base path is a
         path where there are no more levels to be added - no drill down
         possible."""
-        
+
         return path != None and len(path) == len(self._levels)
 
     def key_attributes(self):
@@ -1441,11 +1451,11 @@ class Hierarchy(object):
 
     def to_dict(self, **options):
         """Convert to dictionary. Keys:
-        
+
         * `name`: hierarchy name
         * `label`: human readable label (localizable)
         * `levels`: level names
-        
+
         """
 
         out = IgnoringDictionary()
@@ -1455,7 +1465,7 @@ class Hierarchy(object):
         out.setnoempty("info", self.info)
 
         return out
-        
+
     def localize(self, locale):
         localize_common(self,locale)
 
@@ -1467,48 +1477,51 @@ class Hierarchy(object):
 
 class Level(object):
     """Object representing a hierarchy level. Holds all level attributes.
-    
-    This object is immutable, except localization. You set up all attributes
-    in the initialisation process.
-    
+
+    This object is immutable, except localization. You have to set up all
+    attributes in the initialisation process.
+
     Attributes:
 
     * `name`: level name
-    * `label`: human readable label 
-    * `key`: key field of the level (customer number for customer level,
-      region code for region level, year-month for month level). key will be
-      used as a grouping field for aggregations. Key should be unique within
-      level.
+    * `dimension`: dimnesion the level is associated with
+    * `attributes`: list of all level attributes. Raises `ModelError` when
+      `attribute list is empty.
+    * `key`: name of level key attribute (for example: ``customer_number`` for
+      customer level, ``region_code`` for region level, ``month`` for month level).
+      key will be used as a grouping field for aggregations. Key should be
+      unique within level. If not specified, then the first attribute is used as
+      key.
     * `label_attribute`: name of attribute containing label to be displayed
-      (customer_name for customer level, region_name for region level,
-      month_name for month level)
-    * `attributes`: list of other additional attributes that are related to
-      the level. The attributes are not being used for aggregations, they
-      provide additional useful information
-    * `info` - custom information dictionary, might be used to store
+      (for example: ``customer_name`` for customer level, ``region_name`` for region level,
+      ``month_name`` for month level)
+    * `label`: human readable label of the level
+    * `info`: custom information dictionary, might be used to store
       application/front-end specific information
     """
 
-    def __init__(self, name=None, key=None, attributes=None, null_value=None, 
-                label=None, label_attribute=None, dimension=None, info=None):
-        self.name = name
-        self.label = label
-        self.null_value = null_value
+    def __init__(self, name, attributes, dimension = None, key=None,
+                 label_attribute=None, label=None, info=None):
 
-        self.attributes = attribute_list(attributes, dimension)
-            
+        self.name = name
         self.dimension = dimension
+        self.label = label
         self.info = info
 
+        if not attributes:
+            raise ModelError("Attribute list should not be empty")
+
+        self.attributes = attribute_list(attributes, dimension)
+
         if key:
-            self.key = coalesce_attribute(key, dimension)
+            self.key = self.attribute(key)
         elif len(self.attributes) >= 1:
-            self.key = coalesce_attribute(self.attributes[0].name, dimension)
+            self.key = self.attributes[0]
         else:
-            raise Exception("Level attribute list should not be empty")
+            raise ModelInconsistencyError("Attribute list should not be empty")
 
         if label_attribute:
-            self.label_attribute = coalesce_attribute(label_attribute, dimension)
+            self.label_attribute = self.attribute(label_attribute)
         else:
             if len(self.attributes) > 1:
                 self.label_attribute = coalesce_attribute(self.attributes[1], dimension)
@@ -1522,14 +1535,12 @@ class Level(object):
             return False
         elif self.label_attribute != other.label_attribute:
             return False
-        elif self.null_value != other.null_value:
-            return False
         # elif self.dimension != other.dimension:
         #     return False
 
         if self.attributes != other.attributes:
             return False
-            
+
         # for attr in other.attributes:
         #     if attr not in self.attributes:
         #         return False
@@ -1540,10 +1551,10 @@ class Level(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "<level: {name: '%s', key: %s, attributes: %s}>" % (self.name, self.key, self.attributes)
+        return self.name
 
     def __repr__(self):
-        return self.__str__()
+        return "<level: {name: '%s', key: %s, attributes: %s}>" % (self.name, self.key, self.attributes)
 
     def to_dict(self, full_attribute_names=False, **options):
         """Convert to dictionary"""
@@ -1551,7 +1562,6 @@ class Level(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("label", self.label)
-        out.setnoempty("missing_key_value", self.null_value)
         out.setnoempty("info", self.info)
 
         dimname = self.dimension.name
@@ -1570,16 +1580,26 @@ class Level(object):
 
         return out
 
+    def attribute(self, name):
+        """Get attribute by `name`"""
+
+        attrs = [attr for attr in self.attributes if attr.name == name]
+
+        if attrs:
+            return attrs[0]
+        else:
+            return None
+
     @property
     def has_details(self):
         """Is ``True`` when level has more than one attribute, for all levels
         with only one attribute it is ``False``."""
-        
+
         return len(self.attributes) > 1
-            
+
     def localize(self, locale):
         localize_common(self,locale)
-        
+
         attr_locales = locale.get("attributes")
         if attr_locales:
             for attrib in self.attributes:
@@ -1595,7 +1615,7 @@ class Level(object):
 
         for attribute in self.attributes:
             adict[attribute.name] = attribute.localizable_dictionary()
-            
+
         return locale
 
 
@@ -1623,18 +1643,18 @@ def coalesce_attribute(obj, dimension=None, attribute_class=None):
         return attribute_class(dimension=dimension,**obj)
     else:
         return obj
-    
+
 
 class Attribute(object):
-    
+
     ASC = 'asc'
     DESC = 'desc'
-    
+
     def __init__(self, name, label=None, locales=None, order=None,
                 description=None,dimension=None, aggregations=None,
                 info=None, format=None, **kwargs):
         """Cube attribute - represents any fact field/column
-        
+
         Attributes:
 
         * `name` - attribute name, used as identifier
@@ -1651,10 +1671,10 @@ class Attribute(object):
           application/front-end specific information
         * `format` - application-specific display format information, useful
           for formatting numeric values of measure attributes
-          
+
         String representation of the `Attribute` returns its `name` (without
         dimension prefix).
-        
+
         `cubes.ArgumentError` is raised when unknown ordering type is
         specified.
         """
@@ -1666,7 +1686,7 @@ class Attribute(object):
         self.aggregations = aggregations
         self.info = info
         self.format = format
-        
+
         if order:
             self.order = order.lower()
             if self.order.startswith("asc"):
@@ -1683,23 +1703,23 @@ class Attribute(object):
             self.locales = []
         else:
             self.locales = locales
-        
+
     def __str__(self):
         return self.name
 
     def __repr__(self):
         return str(self.to_dict())
-        
+
     def __eq__(self, other):
         if type(other) != Attribute:
             return False
 
         return self.name == other.name and self.label == other.label \
                     and self.locales == other.locales
-        
+
     def __ne__(self,other):
         return not self.__eq__(other)
-        
+
     def to_dict(self, **options):
         # FIXME: Depreciated key "full_name" in favour of "ref"
         d = {
@@ -1721,23 +1741,29 @@ class Attribute(object):
             d["info"] = self.info
         if self.format is not None:
             d["format"] = self.format
-        
+
         return d
-        
+
     def ref(self, simplify=True, locale=None):
         """Return full attribute reference. Append `locale` if it is one of of
         attribute's locales, otherwise raise `cubes.ArgumentError`. If
         `simplify` is ``True``, then reference to an attribute of flat
         dimension without details will be just the dimension name.
-        
+
         .. warning::
-        
+
             This method might be renamed.
-            
+
         """
-        if locale and self.locales:
-            if locale not in self.locales:
-                raise ArgumentError("Attribute '%s' has no localization %s (has: %s)" % (self.name, locale, self.locales))
+        if locale:
+            if not self.locales:
+                raise ArgumentError("Attribute '%s' is not loalizable "
+                                    "(localization %s requested)" 
+                                        % (self.name, locale))
+            elif locale not in self.locales:
+                raise ArgumentError("Attribute '%s' has no localization %s "
+                                    "(has: %s)"
+                                        % (self.name, locale, self.locales))
             else:
                 locale_suffix = "." + locale
         else:
@@ -1756,12 +1782,12 @@ class Attribute(object):
     def full_name(self, dimension=None, locale=None, simplify=True):
         """Return full name of an attribute as if it was part of `dimension`.
         Append `locale` if it is one of of attribute's locales, otherwise
-        raise `cubes.ArgumentError`. 
-        
-        .. warning: 
-        
+        raise `cubes.ArgumentError`.
+
+        .. warning:
+
             Depreciated. Use `Attribute.ref()` instead.
-        
+
         """
         # Old behaviour: If no locale is specified and attribute is localized, then first locale from
         # list of locales is used.
