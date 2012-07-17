@@ -1,7 +1,6 @@
 import unittest
 import os
 import cubes
-import cubes.tests
 import json
 import re
 import logging
@@ -12,7 +11,7 @@ from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignK
 from sqlalchemy import create_engine
 import sqlalchemy
 
-from common import DATA_PATH
+from ...common import DATA_PATH
 
 FACT_COUNT = 100
 

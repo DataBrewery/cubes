@@ -21,7 +21,7 @@ setup(
     },
 
     scripts = ['bin/slicer'],
-    
+
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
@@ -32,8 +32,8 @@ setup(
         'Topic :: Scientific/Engineering',
         'Topic :: Utilities'
     ],
-    
-    test_suite = "cubes.tests.suite",
+
+    test_suite = "tests",
 
     # metadata for upload to PyPI
     author = "Stefan Urbanek",

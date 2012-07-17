@@ -8,30 +8,30 @@ from cubes.browser import PointCut, RangeCut, SetCut, Cell
 from cubes.errors import *
 
 from common import DATA_PATH
-        
+
 class BrowserTestCase(unittest.TestCase):
     def setUp(self):
         self.model_path = os.path.join(DATA_PATH, 'model.json')
         self.model = cubes.model_from_path(self.model_path)
         self.cube = self.model.cube("contracts")
 
-class AggregationsBasicsTestCase(BrowserTestCase):
+class AggregationBrowserTestCase(BrowserTestCase):
     def setUp(self):
-        super(AggregationsBasicsTestCase, self).setUp()
+        super(AggregationBrowserTestCase, self).setUp()
         self.browser = cubes.AggregationBrowser(self.cube)
-    
+
     def test_basics(self):
         dim = self.browser.dimension_object("date")
         self.assertEqual(cubes.Dimension, dim.__class__)
-        
+
     def test_cutting(self):
         full_cube = self.browser.full_cube()
         self.assertEqual(self.cube, full_cube.cube)
         self.assertEqual(0, len(full_cube.cuts))
-        
+
         cell = full_cube.slice(cubes.PointCut("date", [2010]))
         self.assertEqual(1, len(cell.cuts))
-        
+
         cell = cell.slice(cubes.PointCut("supplier", [1234]))
         cell = cell.slice(cubes.PointCut("cpv", [50, 20]))
         self.assertEqual(3, len(cell.cuts))
@@ -222,10 +222,10 @@ class CellsAndCutsTestCase(BrowserTestCase):
         self.assertEqual(1, SetCut(dim, [[1],[1]]).level_depth())
         self.assertEqual(3, SetCut(dim, [[1],[1],[1,1,1]]).level_depth())
 
-def suite():
+def test_suite():
     suite = unittest.TestSuite()
 
-    suite.addTest(unittest.makeSuite(AggregationsBasicsTestCase))
+    suite.addTest(unittest.makeSuite(AggregationBrowserTestCase))
     suite.addTest(unittest.makeSuite(CellsAndCutsTestCase))
 
     return suite

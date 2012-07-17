@@ -82,7 +82,7 @@ class CuboidsTestCase(unittest.TestCase):
         self.assertRaises(AttributeError, cubes.common.all_cuboids,
                                           self.cube.dimensions, [foo_dim])
 
-def suite():
+def test_suite():
     suite = unittest.TestSuite()
 
     suite.addTest(unittest.makeSuite(CombinationsTestCase))
