@@ -60,8 +60,8 @@ class SQLTestCase(unittest.TestCase):
             "name": "testcube",
         }
         
-        self.date_dim = cubes.Dimension(**date_desc)
-        self.class_dim = cubes.Dimension(**class_desc)
+        self.date_dim = cubes.create_dimension(date_desc)
+        self.class_dim = cubes.create_dimension(class_desc)
         dims = [self.date_dim, self.class_dim]
 
         self.model = cubes.Model('test', dimensions=dims)
@@ -296,6 +296,7 @@ class SQLBrowserTestCase(SQLTestCase):
     def execute(self, stmt):
         self.connection.execute(stmt)
         
+
 class SQLDenormalizerTestCase(unittest.TestCase):
     def setUp(self):
 
@@ -425,6 +426,7 @@ class SQLDenormalizerTestCase(unittest.TestCase):
         result = browser.aggregate(cell)
         self.assertEqual(FACT_COUNT, result.summary["record_count"])
     
+
 class SQLQueryTestCase(unittest.TestCase):
     def setUp(self):
         engine = create_engine('sqlite://')
@@ -450,10 +452,11 @@ class SQLQueryTestCase(unittest.TestCase):
         self.cube = cubes.Cube("test")
         self.model.add_cube(self.cube)
 
-        dimension = cubes.Dimension("color", levels=["color", "tone"])
+        desc = {"name": "color", "levels":["color", "tone"]}
+        dimension = cubes.create_dimension(desc)
         self.cube.add_dimension(dimension)
 
-        dimension = cubes.Dimension("size")
+        dimension = cubes.create_dimension("size")
         self.cube.add_dimension(dimension)
 
     def test_query_column(self):
