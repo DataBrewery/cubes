@@ -253,6 +253,7 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         self.assertMapping("dim_category.subcategory_name_sk", "product.subcategory_name", "sk")
         self.assertMapping("dim_category.subcategory_name_en", "product.subcategory_name", "de")
 
+
 class QueryContextTestCase(StarSQLTestCase):
     def setUp(self):
         super(QueryContextTestCase, self).setUp()
@@ -329,6 +330,7 @@ class QueryContextTestCase(StarSQLTestCase):
         expected = {"date": [dim.level("year"), dim.level("month")]}
         self.assertRaises(ArgumentError, coalesce_drilldown, cell, drilldown)
         
+
 class JoinsTestCase(StarSQLTestCase):
     def setUp(self):
         super(JoinsTestCase, self).setUp()
@@ -373,6 +375,7 @@ class JoinsTestCase(StarSQLTestCase):
         test = sorted([r.detail.table for r in relevant])
         self.assertEqual(["category", "product","subcategory"], test)
         self.assertEqual([None, None, None], [r.alias for r in relevant])
+
 
 class StarValidationTestCase(StarSQLTestCase):
     @unittest.skip("not implemented")
