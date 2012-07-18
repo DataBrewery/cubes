@@ -33,72 +33,68 @@
       }
    ],
    "dimensions" : [
-        {"name":"cpv",
-         "levels" : {
-            "detail" : {
-               "name" : "detail",
-               "label" : "predmet",
-               "attributes" : [ "cpv_code", "cpv_code_desc" ],
-               "key" : "cpv_code"
-            },
-            "group" : {
-               "name" : "group",
-               "label" : "skupina",
-               "attributes" : ["cpv_group" ],
-               "key" : "cpv_group"
-            },
-            "division" : {
-               "name" : "division",
-               "label" : "oddiel",
-               "attributes" : [ "cpv_division" ],
-               "key" : "cpv_division"
-            },
-            "class" : {
-               "label_attribute" : "cpv_class_desc",
-               "name" : "class",
-               "label" : "trieda",
-               "attributes" : [ "cpv_class", "cpv_class_desc"],
-               "key" : "cpv_class"
-            },
-            "category" : {
-               "name" : "category",
-               "label" : "kategória",
-               "attributes" : [ "cpv_category", "cpv_category_desc" ],
-               "key" : "cpv_category"
-            }
-         },
-         "name" : "cpv",
-         "label" : "Predmet obstarávania",
-         "hierarchies" : {
-            "default" : {
-               "levels" : [
-                  "division",
-                  "group",
-                  "class",
-                  "category",
-                  "detail"
-               ],
-               "name" : "default"
-            }
-         }
+     {
+         "name":"cpv",
+          "levels" : [
+             {"name":"detail",
+                "name" : "detail",
+                "label" : "predmet",
+                "attributes" : [ "cpv_code", "cpv_code_desc" ],
+                "key" : "cpv_code"
+             },
+             {"name":"group",
+                "name" : "group",
+                "label" : "skupina",
+                "attributes" : ["cpv_group" ],
+                "key" : "cpv_group"
+             },
+             {"name":"division",
+                "name" : "division",
+                "label" : "oddiel",
+                "attributes" : [ "cpv_division" ],
+                "key" : "cpv_division"
+             },
+             {"name":"class",
+                "label_attribute" : "cpv_class_desc",
+                "name" : "class",
+                "label" : "trieda",
+                "attributes" : [ "cpv_class", "cpv_class_desc"],
+                "key" : "cpv_class"
+             },
+             {"name":"category",
+                "name" : "category",
+                "label" : "kategória",
+                "attributes" : [ "cpv_category", "cpv_category_desc" ],
+                "key" : "cpv_category"
+             }
+          ],
+          "name" : "cpv",
+          "label" : "Predmet obstarávania",
+          "hierarchy": [
+                   "division",
+                   "group",
+                   "class",
+                   "category",
+                   "detail"
+                ]
       },
       {"name": "procurer",
-         "levels" : {
-            "organisation" : {
+         "levels" : [
+            {"name":"organisation",
                "label_attribute" : "name",
                "name" : "organisation",
                "label" : "Organizácia",
                "attributes" : ["ico", "name", "address"],
                "key" : "ico"
             },
-            "sector" : {
+            {"name":"sector",
                "label_attribute" : "account_sector",
                "name" : "sector",
                "label" : "Sektor",
                "attributes" : ["account_sector_code", "account_sector"],
                "key" : "account_sector_code"
             }
-         },
+         ],
          "name" : "procurer",
          "label" : "Obstarávateľ",
          "hierarchies" : [
@@ -109,21 +105,21 @@
          ]
       },
       { "name":"geography",
-         "levels" : {
-            "region" : {
+         "levels" : [
+            {"name":"region",
                "name" : "region",
                "label" : "Kraj",
                "attributes" : ["region_code", "region"],
                "key" : "region_code"
             },
-            "county" : {
+            {"name":"county",
                "name" : "county",
                "label" : "Okres",
                "attributes" : ["county_code", "county"],
                "key" : "county_code"
             }
-         },
-         "name" : "geography",
+         ],
+         "name":"geography",
          "label" : "Región",
          "hierarchies" : [
             {
@@ -133,27 +129,27 @@
          ]
       },
       {"name":"date",
-         "levels" : {
-            "month" : {
+         "levels" : [
+            {"name":"month",
                "label_attribute" : "month_name",
                "name" : "month",
                "label" : "Mesiac",
                "attributes" : ["month", "month_name", "month_sname"],
                "key" : "month"
             },
-            "day" : {
+            {"name":"day",
                "name" : "day",
                "label" : "Deň",
                "attributes" : ["day", "weekday_name", "weekday_number"],
                "key" : "day"
             },
-            "year" : {
+            {"name":"year",
                "name" : "year",
                "label" : "Rok",
                "attributes" : ["year"],
                "key" : "year"
             }
-         },
+         ],
          "name" : "date",
          "label" : "Dátum",
          "hierarchies" : [
@@ -162,8 +158,8 @@
          ]
       },
       {"name": "supplier",
-         "levels" : {
-            "supplier" : {
+         "levels" : [
+            {"name":"supplier",
                "label_attribute" : "name",
                "name" : "supplier",
                "label" : "Dodávateľ",
@@ -171,20 +167,20 @@
                                 "date_end", "legal_form", "ownership"],
                "key" : "ico"
             }
-         },
+         ],
          "name" : "supplier",
          "label" : "Dodávateľ"
       },
       { "name": "process_type",
-         "levels" : {
-            "process_type" : {
+         "levels" : [
+            {"name":"process_type",
                "name" : "process_type",
                "label" : "Druh postupu",
                "attributes" : [ "process_type_code", "process_type_desc", 
                                 "process_type_sdesc"],
                "key" : "process_type_code"
             }
-         },
+         ],
          "name" : "process_type",
          "label" : "Druh postupu"
       }

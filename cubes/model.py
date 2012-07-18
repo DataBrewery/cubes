@@ -230,7 +230,8 @@ def create_dimension(obj):
 
         levels = [Level(name=name, attributes=attributes)]
     else:
-        levels = _fix_dict_list(levels, warning="Levels in a dimension should be a list, not a dictionary")
+        levels = _fix_dict_list(levels, warning="Levels in a dimension (%s) "
+                                    "should be a list, not a dictionary" % name)
 
     levels = [create_level(level) for level in levels]
 
@@ -251,8 +252,8 @@ def create_dimension(obj):
         hierarchies =  [hierarchy]
     else:
         hierarchies = _fix_dict_list(obj.get("hierarchies"),
-                                     warning="Hierarchies in a dimension should"
-                                             "be a list, not a dictionary")
+                                     warning="Hierarchies in a dimension (%s) should"
+                                             "be a list, not a dictionary" % name)
         if hierarchies:
             hierarchies = [Hierarchy(**h) for h in hierarchies]
 
@@ -874,15 +875,11 @@ class Cube(object):
         out.setnoempty("label", self.label)
         out.setnoempty("info", self.info)
 
-        array = []
-        for attr in self.measures:
-            array.append(attr.to_dict())
-        out.setnoempty("measures", array)
+        measures = [m.to_dict() for m in self.measures]
+        out.setnoempty("measures", measures)
 
-        array = []
-        for attr in self.details:
-            array.append(attr.to_dict())
-        out.setnoempty("details", array)
+        details = [a.to_dict() for a in self.details]
+        out.setnoempty("details", details)
 
         if expand_dimensions:
             # FIXME: remove this option
@@ -1196,15 +1193,8 @@ class Dimension(object):
         out.setnoempty("info", self.info)
         out.setnoempty("default_hierarchy_name", self.default_hierarchy_name)
 
-        levels_dict = {}
-        for level in self.levels:
-            levels_dict[level.name] = level.to_dict(**options)
-        out["levels"] = levels_dict
-
-        hier_dict = {}
-        for hier in self.hierarchies.values():
-            hier_dict[hier.name] = hier.to_dict(**options)
-        out["hierarchies"] = hier_dict
+        out["levels"] = [level.to_dict() for level in self.levels]
+        out["hierarchies"] = [hier.to_dict() for hier in self.hierarchies.values()]
 
         # Use only for reading, during initialization these keys are ignored, as they are derived
         # They are provided here for convenience.
