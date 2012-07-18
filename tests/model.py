@@ -456,11 +456,11 @@ class OldModelValidatorTestCase(unittest.TestCase):
 
     def setUp(self):
         self.model = cubes.Model('test')
-        self.date_levels = { "year": { "key": "year" }, "month": { "key": "month" } }
-        self.date_levels2 = { "year": { "key": "year" }, "month": { "key": "month" }, "day": {"key":"day"} }
-        self.date_hiers = { "ym": { "levels": ["year", "month"] } }
-        self.date_hiers2 = { "ym": { "levels": ["year", "month"] }, 
-                             "ymd": { "levels": ["year", "month", "day"] } }
+        self.date_levels = [ {"name":"year", "key": "year" }, {"name":"month", "key": "month" } ]
+        self.date_levels2 = [ { "name":"year", "key": "year" }, {"name":"month", "key": "month" }, {"name":"day", "key":"day"} ]
+        self.date_hiers = [ { "name":"ym", "levels": ["year", "month"] } ]
+        self.date_hiers2 = [ {"name":"ym", "levels": ["year", "month"] }, 
+                             {"name":"ymd", "levels": ["year", "month", "day"] } ]
         self.date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers }
 
     def test_dimension_validation(self):

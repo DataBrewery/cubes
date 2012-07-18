@@ -1,38 +1,45 @@
 {
-    "name": "cpv",
-    "label": "Predmet obstarávania",
-    "description": "Predmet obstarávania podľa kódu spoločného slovníka obstarávania (Common Procurement Vocabulary)",
-    "levels": {
-        "division": {
-            "label": "oddiel",
-            "key": "cpv_division",
-            "attributes": ["cpv_division"]
+    "name":"cpv",
+     "levels" : [
+        {"name":"detail",
+           "name" : "detail",
+           "label" : "predmet",
+           "attributes" : [ "cpv_code", "cpv_code_desc" ],
+           "key" : "cpv_code"
         },
-        "group": {
-            "label": "skupina",
-            "key": "cpv_group",
-            "attributes": ["cpv_group"]
+        {"name":"group",
+           "name" : "group",
+           "label" : "skupina",
+           "attributes" : ["cpv_group" ],
+           "key" : "cpv_group"
         },
-        "class": {
-            "label": "trieda",
-            "key": "cpv_class",
-            "label_attribute": "cpv_class_desc",
-            "attributes": ["cpv_class", "cpv_class_desc"]
+        {"name":"division",
+           "name" : "division",
+           "label" : "oddiel",
+           "attributes" : [ "cpv_division" ],
+           "key" : "cpv_division"
         },
-        "category": {
-            "label": "kategória",
-            "key": "cpv_category",
-            "attributes": ["cpv_category", "cpv_category_desc"]
+        {"name":"class",
+           "label_attribute" : "cpv_class_desc",
+           "name" : "class",
+           "label" : "trieda",
+           "attributes" : [ "cpv_class", "cpv_class_desc"],
+           "key" : "cpv_class"
         },
-        "detail": {
-            "label": "predmet",
-            "key": "cpv_code",
-            "attributes": ["cpv_code", "cpv_code_desc"]
+        {"name":"category",
+           "name" : "category",
+           "label" : "kategória",
+           "attributes" : [ "cpv_category", "cpv_category_desc" ],
+           "key" : "cpv_category"
         }
-    },
-    "hierarchies": {
-        "default": {
-            "levels": ["division", "group", "class", "category", "detail"]
-        }
-    }
+     ],
+     "name" : "cpv",
+     "label" : "Predmet obstarávania",
+     "hierarchy": [
+              "division",
+              "group",
+              "class",
+              "category",
+              "detail"
+           ]
 }
