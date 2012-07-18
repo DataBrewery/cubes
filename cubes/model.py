@@ -25,6 +25,7 @@ __all__ = [
     "load_model",
     "model_from_path",
     "create_model",
+    "create_cube",
     "create_dimension",
     "create_level",
     "attribute_list",
@@ -146,7 +147,7 @@ def create_model(model, cubes=None, dimensions=None):
 
     model_cubes = OrderedDict()
     for desc in all_cubes:
-        cube = _create_cube(desc, model_dimensions)
+        cube = create_cube(desc, model_dimensions)
         if cube.name in model_cubes:
             raise ModelError("Duplicate cube '%s'" % cube.name)
         model_cubes[cube.name] = cube
@@ -296,9 +297,23 @@ def create_level(obj):
 
         return Level(**obj)
 
-def _create_cube(desc, dimensions):
+def create_cube(desc, dimensions):
     """Creates a `Cube` instance from dictionary description `desc` with
-    dimension dictionary in `dimensions`"""
+    dimension dictionary in `dimensions`
+
+    In file based model representation, the cube descriptions are stored
+    in json files with prefix ``cube_`` like ``cube_contracts``, or as a
+    dictionary for key ``cubes`` in the model description dictionary.
+
+    JSON example::
+
+        {
+            "name": "contracts",
+            "measures": ["amount"],
+            "dimensions": [ "date", "contractor", "type"]
+            "details": ["contract_name"],
+        }
+    """
 
     if "dimensions" in desc:
         try:
@@ -392,87 +407,37 @@ def _assert_instance(obj, class_, label):
                                                         type(obj).__name__))
 
 class Model(object):
-    def __init__(self, name=None, label=None, description=None,
-                 cubes=None, dimensions=None, locale=None, info=None, **kwargs):
+    def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
+                 label=None, description=None, info=None, **kwargs):
         """
         Logical Model represents analysts point of view on data.
 
         Attributes:
 
         * `name` - model name
-        * `label` - human readable name - can be used in an application
-        * `description` - longer human-readable description of the model
         * `cubes` -  list of `Cube` instances
         * `dimensions` - list of `Dimension` instances
         * `locale` - locale code of the model
+        * `label` - human readable name - can be used in an application
+        * `description` - longer human-readable description of the model
         * `info` - custom information dictionary
         """
 
         self.name = name
-
-        if label:
-            self.label = label
-        else:
-            self.label = name
-
+        self.label = label
         self.description = description
         self.locale = locale
         self.info = info
 
         self._dimensions = OrderedDict()
-
-        logger = get_logger()
-
-        # TODO: allow dimension objects
-
         if dimensions:
-            if not all([isinstance(dim, Dimension) for dim in dimensions]):
-                logger.warn("dimensions in model initialization should be "
-                            "a list of Dimension instances. "
-                            "use create_model(dict) if you want to create model "
-                            "from a dictionary (instead of depreciated Model(**dict))")
-
-            if isinstance(dimensions, dict):
-                logger.warn("model initialization: dimensions as dictionary "
-                            "is depreciated, use array instead")
-
-                for dim_name, dim_desc in dimensions.items():
-                    desc = dict([("name", dim_name)] + dim_desc.items())
-                    dim = Dimension(**desc)
-                    self.add_dimension(dim)
-            else:
-                for obj in dimensions:
-                    if isinstance(obj, Dimension):
-                        self.add_dimension(obj)
-                    else:
-                        self.add_dimension(Dimension(**obj))
+            for dim in dimensions:
+                self.add_dimension(dim)
 
         self.cubes = OrderedDict()
-
         if cubes:
-            if not all([isinstance(c, Cube) for c in cubes]):
-                logger.warn("cubes in model initialization should be "
-                            "a list of Cube instances. "
-                            "use create_model(dict) if you want to create model "
-                            "from a dictionary (instead of depreciated Model(**dict))")
-
-            if isinstance(cubes, dict):
-                # logger.warn("model initialization: cubes as dictionary is "
-                #             "depreciated, use array instead")
-
-                for cube_name, cube_desc in cubes.items():
-                    desc = dict([("name", cube_name)] + cube_desc.items())
-                    cube = Cube(model=self, **desc)
-                    self.add_cube(cube)
-            else:
-                for obj in cubes:
-                    if isinstance(obj, Cube):
-                        if obj.model and obj.model != self:
-                            raise Exception("adding cube from different model")
-                        obj.model = self
-                        self.add_cube(obj)
-                    else:
-                        self.add_cube(Cube(model=self,**obj))
+            for cube in cubes:
+                self.add_cube(cube)
 
         self.translations = {}
 
@@ -547,11 +512,13 @@ class Model(object):
             if dim in self._dimensions:
                 return self._dimensions[dim]
             else:
-                raise NoSuchDimensionError("Unknown dimension with name '%s' in model '%s'" % (obj, self.name))
+                raise NoSuchDimensionError("Unknown dimension with name '%s' "
+                                           "in model '%s'" % (dim, self.name))
         elif dim.name in self._dimensions:
             return dim
         else:
-            raise NoSuchDimensionError("Unknown dimension '%s' in model '%s'" % (obj, self.name))
+            raise NoSuchDimensionError("Unknown dimension '%s' in "
+                                       "model '%s'" % (dim, self.name))
 
     def to_dict(self, **options):
         """Return dictionary representation of the model. All object
@@ -577,6 +544,20 @@ class Model(object):
         out.setnoempty("cubes", cubes)
 
         return out
+
+    def __eq__(self, other):
+        if other is None or type(other) != type(self):
+            return False
+        if self.name != other.name or self.label != other.label \
+            or self.description != other.description:
+            return False
+        elif self.dimensions != other.dimensions:
+            return False
+        elif self.cubes != other.cubes:
+            return False
+        elif self.info != other.info:
+            return False
+        return True
 
     def validate(self):
         """Validate the model, check for model consistency. Validation result
@@ -683,24 +664,20 @@ class Model(object):
 
 
 class Cube(object):
-    """
-    OLAP Cube
-    """
-
-    def __init__(self, name=None, model=None, label=None, measures=None,
-                 details=None, dimensions=None, mappings=None, joins=None,
+    def __init__(self, name, dimensions=None, measures=None, model=None,
+                 label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, options=None,
                  info=None, **kwargs):
-        """Create a new OLAP Cube
+        """Create a new Cube model.
 
         Attributes:
 
-        * `name`: dimension name
+        * `name`: cube name
+        * `measures`: list of measure attributes
+        * `dimensions`: list of dimensions (should be `Dimension` instances)
         * `model`: model the cube belongs to
         * `label`: human readable cube label
-        * `measures`: list of measure attributes
         * `details`: list of detail attributes
-        * `dimensions`: list of dimensions (should be `Dimension` instances)
         * `description` - human readable description of the cube
         * `key`: fact key field (if not specified, then backend default key
           will be used, mostly ``id`` for SLQ or ``_id`` for document based
@@ -720,20 +697,7 @@ class Cube(object):
           example SQL browser might look here for ``denormalized_view`` in
           case of denormalized browsing)
         """
-        """ FIXME: Removed documentation:
-        In file based model representation, the cube descriptions are stored
-        in json files with prefix ``cube_`` like ``cube_contracts``, or as a
-        dictionary for key ``cubes`` in the model description dictionary.
 
-        JSON example::
-
-            {
-                "name": "contracts",
-                "measures": ["amount"],
-                "dimensions": [ "date", "contractor", "type"]
-                "details": ["contract_name"],
-            }
-        """
         self.name = name
 
         self.label = label
@@ -760,25 +724,15 @@ class Cube(object):
         # This is the new way - expected all Dimension instances
         if dimensions:
             if all([isinstance(dim, Dimension) for dim in dimensions]):
-                self._dimensions.update( [(dim.name, dim) for dim in dimensions] )
-                dimensions = None
+                for dim in dimensions:
+                    self.add_dimension(dim)
+            else:
+                logger.warn("dimensions for cube initialization should be "
+                            "a list of Dimension instances. Use create_cube() "
+                            "for more flexibility")
 
-        if dimensions:
-            for obj in dimensions:
-                if isinstance(obj, basestring):
-                    # logger.warn("passing dimension list as names is "
-                    #             "depreciated. use create_model() instead for "
-                    #             "implicit model creation or pass Dictionary "
-                    #             "instance list")
+                for obj in dimensions:
                     dimension = self.model.dimension(obj)
-                    self.add_dimension(dimension)
-                elif isinstance(obj, Dimension):
-                    self.add_dimension(obj)
-                else:
-                    logger.warn("creating dimensions during cube initialization"
-                                " is depreciated: dimensions should be present in model")
-                    desc = dict([("name", obj["name"])] + obj.items())
-                    dimension = Dimension(**desc)
                     self.add_dimension(dimension)
 
     def add_dimension(self, dimension):
@@ -900,6 +854,28 @@ class Cube(object):
         out.setnoempty("key", self.key)
 
         return out
+
+    def __eq__(self, other):
+        if other is None or type(other) != type(self):
+            return False
+        if self.name != other.name or self.label != other.label \
+            or self.description != other.description:
+            return False
+        elif self.dimensions != other.dimensions:
+            return False
+        elif self.measures != other.measures:
+            return False
+        elif self.details != other.details:
+            return False
+        elif self.mappings != other.mappings:
+            return False
+        elif self.joins != other.joins:
+            return False
+        elif self.options != other.options:
+            return False
+        elif self.info != other.info:
+            return False
+        return True
 
     def validate(self):
         """Validate cube. See Model.validate() for more information. """
