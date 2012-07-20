@@ -12,6 +12,7 @@ except ImportError:
 
 from cubes.errors import *
 from .model import Dimension, Cube
+from .common import get_logger
 
 __all__ = [
     "AggregationBrowser",
@@ -1072,7 +1073,7 @@ class AggregationResult(object):
     Attributes:
 
     * `summary` - dictionary of summary row fields
-    * `drilldown` - list of drilled-down cells
+    * `cells` - list of cells that were drilled-down
     * `remainder` - summary of remaining cells (not yet implemented)
     * `total_cell_count` - number of total cells in drill-down (after limit,
       before pagination)
@@ -1081,10 +1082,22 @@ class AggregationResult(object):
     def __init__(self):
         super(AggregationResult, self).__init__()
         self.summary = {}
-        self.drilldown = []
+        self.cells = []
         self.remainder = {}
         self.total_cell_count = None
         self.cell = None
+
+    @property
+    def drilldown(self):
+        logger = get_logger()
+        logger.warn("AggregationResult.drilldown is depreciated, use '.cells' instead")
+        return cells
+
+    @drilldown.setter
+    def drilldown(self, val):
+        logger = get_logger()
+        logger.warn("AggregationResult.drilldown is depreciated, use '.cells' instead")
+        self.cells = val
 
     def to_dict(self):
         """Return dictionary representation of the aggregation result. Can be
@@ -1093,12 +1106,15 @@ class AggregationResult(object):
         d = {}
 
         d["summary"] = self.summary
-        d["drilldown"] = self.drilldown
+        d["drilldown"] = self.cells
         d["remainder"] = self.remainder
+        d["cells"] = self.cells
         d["total_cell_count"] = self.total_cell_count
 
         if self.cell:
             d["cell"] = [cut.to_dict() for cut in self.cell.cuts]
+        else:
+            d["cell"] = None
 
         return d
 
@@ -1117,8 +1133,8 @@ class AggregationResult(object):
 
         return json_string
         
-    def drilldown_rows(self, dimension, depth=None):
-        """Returns iterator of drill-down rows which yields a named tuple with
+    def table_rows(self, dimension, depth=None):
+        """Returns iterator of drilled-down rows which yields a named tuple with
         named attributes: (key, label, path, record). `depth` is last level of
         interest. If not specified (set to ``None``) then deepest level for
         `dimension` is used.
