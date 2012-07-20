@@ -293,6 +293,8 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual([2010,1], self.hierarchy.rollup(path))
         self.assertEqual([2010,1], self.hierarchy.rollup(path, "month"))
         self.assertEqual([2010], self.hierarchy.rollup(path, "year"))
+        self.assertRaises(ArgumentError, self.hierarchy.rollup, [2010],"month")
+        self.assertRaises(ArgumentError, self.hierarchy.rollup, [2010],"unknown")
 
     def test_base_path(self):
         """Test base paths"""
