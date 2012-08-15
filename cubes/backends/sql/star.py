@@ -8,6 +8,11 @@ import collections
 from cubes.errors import *
 
 try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
+try:
     import sqlalchemy
     import sqlalchemy.sql as sql
 
@@ -812,7 +817,7 @@ def coalesce_drilldown(cell, drilldown):
 
     # If the drilldown is a list, convert it into a dictionary
     if not isinstance(drilldown, dict):
-        drilldown = {dim:None for dim in drilldown}
+        drilldown = dict((dim,None) for dim in drilldown)
 
     for dim, level in drilldown.items():
         dim = cell.cube.dimension(dim)
@@ -867,7 +872,7 @@ def ordered_statement(statement, order, context):
     # converted to (`string`, ``None``).
 
     order = order or []
-    order_by = collections.OrderedDict()
+    order_by = OrderedDict()
 
     for item in order:
         if isinstance(item, basestring):
