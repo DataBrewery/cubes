@@ -1085,7 +1085,7 @@ class AggregationResult(object):
     def drilldown(self):
         logger = get_logger()
         logger.warn("AggregationResult.drilldown is depreciated, use '.cells' instead")
-        return cells
+        return self.cells
 
     @drilldown.setter
     def drilldown(self, val):
@@ -1155,6 +1155,7 @@ class AggregationResult(object):
         path = cut.path if cut else []
 
         # FIXME: use hierarchy from cut (when implemented)
+        dimension = self.cell.cube.dimension(dimension)
         hierarchy = dimension.hierarchy()
 
         if depth:
