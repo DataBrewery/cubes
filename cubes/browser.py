@@ -485,12 +485,6 @@ class Cell(object):
         cuts.append(new_cut)
 
         return Cell(cube=self.cube, cuts=cuts)
-
-    # def cut(self, cuts):
-    #     """Cretes another cell by cutting with multiple cuts. `cut` can be a :class:`cubes.Cut`
-    #     subclass instance or list of such instances."""
-    #     
-    # raise NotImplementedError()
             
 
     def multi_slice(self, cuts):
@@ -1146,14 +1140,11 @@ class AggregationResult(object):
 
         Example use::
 
-            for row in result.drilldown_rows(dimension):
+            for row in result.table_rows(dimension):
                 print "%s: %s" % (row.label, row.record["record_count"])
 
-
         `dimension` has to be :class:`cubes.Dimension` object. Raises
-        `TypeError` when cut for `dimension` is not `PointCut`.
-        
-        
+        `TypeError` when cut for `dimension` is not `PointCut`.        
         """
 
         cut = self.cell.cut_for_dimension(dimension)
@@ -1199,7 +1190,7 @@ class AggregationResult(object):
         * `rows` - labels of rows as list of tuples. The tuples correspond to
           values of attributes in `onrows`.
         * `data` - list of measure data per row. Each row is a list of measure
-          tuples.
+          tuples as specified in `measures`.
 
         .. warning::
 

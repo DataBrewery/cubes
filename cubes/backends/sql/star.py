@@ -818,7 +818,7 @@ def coalesce_drilldown(cell, drilldown):
         dim = cell.cube.dimension(dim)
 
         if level:
-            hier = dim.default_hierarchy
+            hier = dim.hierarchy()
             index = hier.level_index(level)
             result[dim.name] = hier[:index+1]
         else:
