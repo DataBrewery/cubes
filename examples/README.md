@@ -3,7 +3,9 @@ Cubes Examples
 
 * `hello_world` - basic example of browsing in python and running the slicer
   server
- 
+* `flask_dimension_browser` - simple Flask (web microframework) application for
+  browsing a dimension hierarchy
+
 Sandbox
 -------
 
