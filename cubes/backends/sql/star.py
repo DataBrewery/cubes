@@ -513,7 +513,7 @@ class QueryContext(object):
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
         logical references to attributes to be selected. If it is ``None`` then
         all attributes are used.
-        
+
         Set `expand_locales` to ``True`` to expand all localized attributes.
         """
 
@@ -779,7 +779,7 @@ class QueryContext(object):
         column = column.label(self.mapper.logical(attribute, locale))
 
         return column
-        
+
     def columns(self, attributes, expand_locales=False):
         """Returns list of columns.If `expand_locales` is True, then one
         column per attribute locale is added."""
@@ -793,9 +793,9 @@ class QueryContext(object):
                     columns.append(self.column(attr))
         else:
             columns = [self.column(attr) for attr in attributes]
-            
+
         return columns
-            
+
 
 def coalesce_drilldown(cell, drilldown):
     """Returns a dictionary where keys are dimensions and values are list of
@@ -981,17 +981,17 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
 def create_workspace(model, **options):
     """Create workspace for `model` with configuration in dictionary
     `options`. This method is used by the slicer server.
-    
+
     The options are:
-    
+
     Required (one of the two, `engine` takes precedence):
-    
+
     * `url` - database URL in form of:
       ``backend://user:password@host:port/database``
     * `engine` - SQLAlchemy engine - either this or URL should be provided
 
     Optional:
-    
+
     * `schema` - default schema, where all tables are located (if not
       explicitly stated otherwise)
     * `dimension_prefix` - used by snowflake mapper to find dimension tables
@@ -1000,7 +1000,7 @@ def create_workspace(model, **options):
       cube, when no explicit fact table name is specified
 
      Options for denormalized views:
-     
+
     * `use_denormalization` - browser will use dernormalized view instead of
       snowflake
     * `denormalized_view_prefix` - if denormalization is used, then this
@@ -1041,12 +1041,12 @@ class SQLStarWorkspace(object):
         self.schema = options.get("schema")
         self.metadata = sqlalchemy.MetaData(bind=self.engine,schema=self.schema)
         self.options = options
-        
+
     def browser_for_cube(self, cube, locale=None):
         """Creates, configures and returns a browser for a cube.
-        
+
         .. note::
-            
+
             Use `workspace.browser()` instead.
         """
 
