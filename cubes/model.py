@@ -127,7 +127,7 @@ def create_model(model, cubes=None, dimensions=None):
 
     model_dimensions = OrderedDict()
     for desc in all_dimensions:
-        dimension = create_dimension(desc)
+        dimension = create_dimension(desc, model_dimensions)
         if dimension.name in model_dimensions:
             raise ModelError("Duplicate dimension '%s'" % dimension.name)
 
@@ -171,7 +171,7 @@ def _fix_dict_list(obj, key_name="name", warning=None):
     else:
         return obj
 
-def create_dimension(obj):
+def create_dimension(obj, dimensions=None):
     """Creates a `Dimension` instance from `obj` which can be a `Dimension`
     instance or a string or a dictionary. If it is a string, then it
     represents dimension name, the only level name and the only attribute.
@@ -189,6 +189,9 @@ def create_dimension(obj):
     * `description`: human readable dimension description
     * `info` - custom information dictionary, might be used to store
       application/front-end specific information (icon, color, ...)
+    * `template` – name of a dimension to be used as template. The dimension
+      is taken from `dimensions` argument which should be a dictionary
+      of already created dimensions.
 
     **Defaults**
 
@@ -216,12 +219,36 @@ def create_dimension(obj):
 
     name = obj.get("name")
 
+    if "template" in obj:
+        try:
+            template = dimensions[obj["template"]]
+        except KeyError:
+            raise NoSuchDimensionError("Could not find template dimension %s" % obj["template"])
+        levels = template.levels
+        hierarchies = template.hierarchies.values()
+        default_hierarchy_name = template.default_hierarchy_name
+        label = template.label
+        description = template.description
+        info = template.info
+    else:
+        levels = None
+        hierarchies = None
+        default_hierarchy_name = None
+        label = None
+        description = None
+        info = None
+
     # Levels
     # ------
 
-    levels = obj.get("levels")
+    levels_desc = obj.get("levels")
 
-    if not levels:
+    if levels_desc:
+        levels = _fix_dict_list(levels_desc, warning="Levels in a dimension (%s) "
+                                    "should be a list, not a dictionary" % name)
+
+        levels = [create_level(level) for level in levels_desc]
+    elif not levels:
         attributes = obj.get("attributes")
 
         # Default: if no attributes, then there is single flat attribute whith same name
@@ -230,11 +257,7 @@ def create_dimension(obj):
             attributes = attribute_list([name])
 
         levels = [Level(name=name, attributes=attributes)]
-    else:
-        levels = _fix_dict_list(levels, warning="Levels in a dimension (%s) "
-                                    "should be a list, not a dictionary" % name)
 
-    levels = [create_level(level) for level in levels]
 
     # Hierarchies
     # -----------
@@ -250,7 +273,7 @@ def create_dimension(obj):
         if not isinstance(hierarchy, Hierarchy):
             hierarchy = Hierarchy("default", levels=hierarchy)
 
-        hierarchies =  [hierarchy]
+        hierarchies = [hierarchy]
     else:
         hierarchies = _fix_dict_list(obj.get("hierarchies"),
                                      warning="Hierarchies in a dimension (%s) should"
@@ -258,13 +281,19 @@ def create_dimension(obj):
         if hierarchies:
             hierarchies = [Hierarchy(**h) for h in hierarchies]
 
+    default_hierarchy_name = obj.get("default_hierarchy_name") or default_hierarchy_name
+    label = obj.get("label") or label
+    description = obj.get("description") or description
+    info = obj.get("info") or info
+
+    # Merge with template:
     return Dimension(name=name,
                      levels=levels,
                      hierarchies=hierarchies,
-                     default_hierarchy_name=obj.get("default_hierarchy_name"),
-                     label=obj.get("label"),
-                     description=obj.get("description"),
-                     info=obj.get("info")
+                     default_hierarchy_name=default_hierarchy_name,
+                     label=label,
+                     description=description,
+                     info=info
                      )
 
 def create_level(obj):
