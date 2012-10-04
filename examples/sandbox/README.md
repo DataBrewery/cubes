@@ -16,5 +16,4 @@ to this directory.
 Examples
 --------
 
-* `flask_dimension_browser` - simple Flask (web microframework) application
-  for browsing a dimension hierarchy
+Note: Former flask example was moved to root examples, as it was good enough.
