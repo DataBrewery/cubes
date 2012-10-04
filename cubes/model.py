@@ -435,6 +435,31 @@ def _assert_instance(obj, class_, label):
                                                         class_.__name__,
                                                         type(obj).__name__))
 
+def simple_model(cube_name, dimensions, measures):
+    """Create a simple model with only one cube with name `cube_name`and flat
+    dimensions. `dimensions` is a list of dimension names as strings and
+    `measures` is a list of measure names, also as strings. This is
+    convenience method mostly for quick model creation for denormalized views
+    or tables with data from a single CSV file.
+
+    Example:
+
+    .. code-block:: python
+
+        model = simple_model("contracts",
+                             dimensions=["year", "supplier", "subject"],
+                             measures=["amount"])
+        cube = model.cube("contracts")
+        browser = workspace.create_browser(cube)
+    """
+    dim_instances = []
+    for dim_name in dimensions:
+        dim_instances.append(create_dimension(dim_name))
+
+    cube = cubes.Cube(cube_name, dim_instances, measures)
+
+    return Model(cubes=[cube])
+
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
                  label=None, description=None, info=None, **kwargs):
