@@ -52,12 +52,6 @@
         Create a link to upper levels. The link construction is similar as
         above for the root, just `level` is passed to state concrete
         level to be rolled up to.
-        
-        level.label    - human readable level name, might be localized
-        result         - aggregation result
-        result.summary - current aggregated cell without drill-down
-        level.label_attribute - name of attribute of our current dimension 
-                         level location
         -->
         
         <a href="?cut={{cell.rollup_dim(dimension,level).to_str()}}">
@@ -77,17 +71,19 @@
     <tr><th>{{next_level.label or next_level.name}}</th><th>Count</th><th>Amount</th></tr>
     </thead>
     <tbody>
-    {% for row in result.drilldown %}
+    {% for row in result.table_rows(dimension) %}
     <tr>
         <td>
         {% if is_last %}
-            {{row[label_attribute]}}
+            {{row.label}}
         {% else %}
-            <a href="?cut={{cell.drilldown(dimension, row[level_key]).to_str()}}">{{row[label_attribute]}}</a>
+        <a href="?cut={{cell.drilldown(dimension, row.key)}}">
+            {{row.label}}
+        </a>
         {% endif %}
         </td>
-        <td>{{row.record_count}}</td>
-        <td>{{row.amount_sum}}</td>
+        <td>{{row.record.record_count}}</td>
+        <td>{{row.record.amount_sum}}</td>
     </tr>
     {% endfor %}
     <tr><th>Total</th>
