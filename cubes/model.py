@@ -35,7 +35,8 @@ __all__ = [
     "Dimension",
     "Hierarchy",
     "Level",
-    "Attribute"
+    "Attribute",
+    "simple_model"
 ]
 
 DIMENSION = 1
@@ -456,7 +457,7 @@ def simple_model(cube_name, dimensions, measures):
     for dim_name in dimensions:
         dim_instances.append(create_dimension(dim_name))
 
-    cube = cubes.Cube(cube_name, dim_instances, measures)
+    cube = Cube(cube_name, dim_instances, measures)
 
     return Model(cubes=[cube])
 
