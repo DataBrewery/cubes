@@ -1,0 +1,33 @@
+{
+	"cubes": [
+		{
+			"name": "transactions",
+			"dimensions": ["date", "product", "flag"],
+			"measures": ["amount", "discount"]
+		}
+	],
+	"dimensions": [
+		{ 
+			"name": "date",
+			"levels": [
+				{"name":"year"},
+				{"name":"month", "attributes":["month", "month_name"]},
+				{"name":"day"}
+			],
+			"hierarchies": [
+				{ "name": "ymd", "levels": ["year", "month", "day"] },
+				{ "name": "ymd", "levels": ["year", "month"] }
+			]
+		},
+		{
+			"name": "product",
+			"levels": [
+			    {"name":"category", "attributes":["key", "name"]},
+			    {"name":"subcategory", "attributes":["key", "name"]},
+			    {"name":"product", "attributes":["key", "name", "description"]}
+			]
+		},
+		{ "name": "flag"}
+
+	]
+}
