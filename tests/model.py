@@ -465,7 +465,7 @@ class ModelTestCase(unittest.TestCase):
         self.assertEqual(3, len(model.dimensions))
         self.assertEqual(0, len(model.cubes))
 
-        desc = { 
+        desc = {
                     "dimensions": ["date", "product", "flag"],
                     "cubes": [
                         {
