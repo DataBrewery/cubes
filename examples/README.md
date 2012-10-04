@@ -6,6 +6,10 @@ Cubes Examples
 * `flask_dimension_browser` - simple Flask (web microframework) application for
   browsing a dimension hierarchy
 
+Other examples (with larger datasets and more complex models) can be found in:
+
+    https://github.com/stiivi/cubes-examples
+
 Sandbox
 -------
 
