@@ -7,7 +7,15 @@ Changes in the Cubes
 Quick Summary
 -------------
 
-*Incompatibilities:*  use `create_model()` instead of `Model(**dict)`, if you were using just `load_model()`, you are fine.
+* Dimension defition can have a "template". For example:
+
+  {
+      "name": "contract_date",
+      "template": "date"
+  }
+* added table_rows() and cross_table()
+* Incompatibilities:*  use `create_model()` instead of `Model(**dict)`, if you
+  were using just `load_model()`, you are fine.
 
 New Features
 ------------
@@ -18,10 +26,15 @@ New Features
   defaults during the construction process.
 * added `info` attribute to all model objects. It can be used to store custom,
   application or front-end specific information
-* preliminary implementation of `cross_table()` (might be changed)
-* `AggregationResult.drilldown_rows()` - new method that iterates through
+* preliminary implementation of `cross_table()` (interface might be changed)
+* `AggregationResult.table_rows()` - new method that iterates through
   drill-down rows and returns a tuple with key, label, path, and rest of the
   fields.
+* dimension in model description can specify another template dimension – all
+  properties from the template will be inherited in the new dimension. All
+  dimension properties specified in the new dimension completely override the
+  template specification
+* added point_cut_for_dimension
 
 *Slicer Server:*
 
@@ -36,6 +49,7 @@ Changes
 * Replaced Attribute.full_name() with Attribute.ref()
 * Removed Dimension.attribute_reference() as same can be achieved with
   dim(attr).ref()
+* AggregationResult.drilldown renamed to AggregationResults.cells
 
 Planned Changes:
 
