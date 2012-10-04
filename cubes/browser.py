@@ -109,7 +109,7 @@ class AggregationBrowser(object):
 
     def facts(self, cell=None, **options):
         """Return an iterable object with of all facts within cell"""
-        
+
         raise NotImplementedError
 
     def fact(self, key):
@@ -120,16 +120,16 @@ class AggregationBrowser(object):
                hierarchy=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
-        
+
         .. note::
-            
+
             Some backends might support only default hierarchy. 
         """
         raise NotImplementedError
-        
+
     def report(self, cell, queries):
         """Bundle multiple requests from `queries` into a single one.
-        
+
         Keys of `queries` are custom names of queries which caller can later
         use to retrieve respective query result. Values are dictionaries
         specifying arguments of the particular query. Each query should
@@ -138,21 +138,21 @@ class AggregationBrowser(object):
         cell ``cell`` (for cell details). Rest of values are function
         specific, please refer to the respective function documentation for
         more information.
-                
+
         Example::
-        
+
             queries = {
-                "product_summary" = { "query": "aggregate", 
+                "product_summary" = { "query": "aggregate",
                                       "drilldown": "product" }
-                "year_list" = { "query": "values", 
+                "year_list" = { "query": "values",
                                 "dimension": "date",
                                 "depth": 1 }
             }
-        
+
         Result is a dictionary where keys wil lbe the query names specified in
         report specification and values will be result values from each query
         call.::
-        
+
             result = browser.report(cell, queries)
             product_summary = result["product_summary"]
             year_list = result["year_list"]
@@ -166,56 +166,56 @@ class AggregationBrowser(object):
         or if a query is of unknown type.
 
         *Roll-up*
-        
+
         Report queries might contain ``rollup`` specification which will
         result in "rolling-up" one or more dimensions to desired level. This
         functionality is provided for cases when you would like to report at
         higher level of aggregation than the cell you provided is in. It works
         in similar way as drill down in :meth:`AggregationBrowser.aggregate`
         but in the opposite direction (it is like ``cd ..`` in a UNIX shell).
-        
+
         Example: You are reporting for year 2010, but you want to have a bar
         chart with all years. You specify rollup::
 
             ...
             "rollup": "date",
             ...
-        
+
         Roll-up can be:
-        
+
             * a string - single dimension to be rolled up one level
             * an array - list of dimension names to be rolled-up one level
             * a dictionary where keys are dimension names and values are
               levels to be rolled up-to
-        
+
         *Future*
-        
+
         In the future there might be optimisations added to this method,
         therefore it will become faster than subsequent separate requests.
         Also when used with Slicer OLAP service server number of HTTP call
         overhead is reduced.
         """
-        
+
         # TODO: add this: cell_details=True, cell_details_key="_details"
         #
         # If `cell_details` is ``True`` then a key with name specified in
         # `cell_details_key` is added with cell details (see
         # `AggregationBrowser.cell_details() for more information). Default key
         # name is ``_cell``.
-        
-        
+
+
         report_result = {}
-        
+
         for result_name, query in queries.items():
             query_type = query.get("query")
             if not query_type:
                 raise ArgumentError("No report query for '%s'" % result_name)
-            
+
             # FIXME: add: cell = query.get("cell")
-            
+
             args = dict(query)
             del args["query"]
-            
+
             # Note: we do not just convert name into function from symbol for possible future
             # more fine-tuning of queries as strings
 
@@ -241,7 +241,7 @@ class AggregationBrowser(object):
 
             elif query_type == "values":
                 result = self.values(query_cell, **args)
-            
+
             elif query_type == "details":
                 # FIXME: depreciate this raw form
                 result = self.cell_details(query_cell, **args)
@@ -259,7 +259,7 @@ class AggregationBrowser(object):
                 raise ArgumentError("Unknown report query '%s' for '%s'" % (query_type, result_name))
 
             report_result[result_name] = result
-            
+
         return report_result
 
     def cell_details(self, cell=None, dimension=None):
@@ -270,9 +270,9 @@ class AggregationBrowser(object):
         Default implemenatation calls `AggregationBrowser.cut_details()` for
         each cut. Backends might customize this method to make it more
         efficient.
-        
+
         .. warning:
-        
+
             Return value of this method is not yet decided. Might be changed
             so that each element is a dictionary derived from cut (see
             `Cut.to_dict()` method of all Cut subclasses) and the details will
@@ -335,9 +335,9 @@ class AggregationBrowser(object):
 
         Two redundant keys are added: ``_label`` and ``_key`` representing
         level key and level label (based on `Level.label_attribute_key`).
-        
+
         .. note::
-        
+
             The behaviour should be configurable: we either return all the
             keys or just a label and a key.
         """
@@ -356,7 +356,7 @@ class AggregationBrowser(object):
             return None
 
         details = dim_values[0]
-        
+
         if (dimension.is_flat and not dimension.has_details):
             name = dimension.all_attributes()[0].name
             value = details.get(name)
@@ -371,9 +371,9 @@ class AggregationBrowser(object):
                 item["_key"] = details.get(level.key.ref())
                 item["_label"] = details.get(level.label_attribute.ref())
                 result.append(item)
-        
+
         return result
-               
+
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
     def __init__(self, cube=None, cuts=[]):
@@ -389,7 +389,7 @@ class Cell(object):
             "cube": str(self.cube.name),
             "cuts": [cut.to_dict() for cut in self.cuts]
         }
-        
+
         return result;
 
     def slice(self, cut, dummy=None):
@@ -397,7 +397,7 @@ class Cell(object):
         same dimension as `cut` will be replaced, if there is no cut with the
         same dimension, then the `cut` will be appended.
         """
-        
+
         # Fix for wrong early design decision:
         if isinstance(cut, Dimension) or isinstance(cut, basestring):
             raise CubesError("slice() should now be called with a cut (since v0.9.2). To get "
@@ -424,7 +424,7 @@ class Cell(object):
             return index
         except ValueError:
             return None
-        
+
     def point_slice(self, dimension, path):
         """
         Create another cell by slicing receiving cell through `dimension`
@@ -438,14 +438,14 @@ class Cell(object):
             contracts_2010 = full_cube.point_slice("date", [2010])
 
         Returns: new derived cell object.
-        
+
         .. warning::
-        
+
             Depreiated. Use :meth:`cell.slice` instead with argument
             `PointCut(dimension, path)`
-        
+
         """
-        
+
         dimension = self.cube.dimension(dimension)
         cuts = self._filter_dimension_cuts(dimension, exclude=True)
         if path:
@@ -462,14 +462,14 @@ class Cell(object):
             cell = cubes.Cell(cube)
             cell = cell.drilldown("date", 2010)
             cell = cell.drilldown("date", 1)
-            
+
         is equivalent to:
-        
+
             cut = cubes.PointCut("date", [2010, 1])
             cell = cubes.Cell(cube, [cut])
 
         Reverse operation is ``cubes.rollup("date")``
-        
+
         Works only if the cut for dimension is `PointCut`. Otherwise the
         behaviour is undefined.
 
@@ -480,12 +480,12 @@ class Cell(object):
 
         old_path = dim_cut.path if dim_cut else []
         new_cut = PointCut(dimension, old_path + [value])
-        
+
         cuts = [cut for cut in self.cuts if cut is not dim_cut]
         cuts.append(new_cut)
 
         return Cell(cube=self.cube, cuts=cuts)
-            
+
 
     def multi_slice(self, cuts):
         """Create another cell by slicing through multiple slices. `cuts` is a
@@ -513,6 +513,20 @@ class Cell(object):
 
         return None
 
+    def point_cut_for_dimension(self, dimension):
+        """Return first point cut for given `dimension`"""
+
+        dimension = self.cube.dimension(dimension)
+
+        cutdim = None
+        for cut in self.cuts:
+            cutdim = self.cube.dimension(cut.dimension)
+
+            if isinstance(cutdim, PointCut) and cutdim == dimension:
+                return cut
+
+        return None
+
     def rollup_dim(self, dimension, level=None, hierarchy=None):
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. If there is no level to go up (we are at the top level),
@@ -531,14 +545,15 @@ class Cell(object):
         #     * can be used more nicely in Jinja templates
 
         dimension = self.cube.dimension(dimension)
-        dim_cut = self.cut_for_dimension(dimension)
+        dim_cut = self.point_cut_for_dimension(dimension)
 
         if not dim_cut:
             return copy.copy(self)
             # raise ValueError("No cut to roll-up for dimension '%s'" % dimension.name)
-        if type(dim_cut) != PointCut:
-            raise NotImplementedError("Only PointCuts are currently supported for "
-                                      "roll-up (rollup dimension: %s)" % dimension.name)
+
+        # if type(dim_cut) != PointCut:
+        #    raise NotImplementedError("Only PointCuts are currently supported for "
+        #                              "roll-up (rollup dimension: %s)" % dimension.name)
 
         cuts = [cut for cut in self.cuts if cut is not dim_cut]
 
@@ -559,16 +574,16 @@ class Cell(object):
         hierarchy. It works in similar way as drill down in
         :meth:`AggregationBrowser.aggregate` but in the opposite direction (it
         is like ``cd ..`` in a UNIX shell).
-        
+
         Roll-up can be:
-        
+
             * a string - single dimension to be rolled up one level
             * an array - list of dimension names to be rolled-up one level
             * a dictionary where keys are dimension names and values are
               levels to be rolled up-to
 
         .. note::
-            
+
                 Only default hierarchy is currently supported.
         """
 
@@ -600,12 +615,12 @@ class Cell(object):
 
                 dim = self.cube.dimension(cut.dimension)
                 hier = dim.default_hierarchy
-                
+
                 rollup_path = hier.rollup(cut.path)
-                
+
                 cut = PointCut(cut.dimension, rollup_path)
                 new_cuts.append(cut)
-                
+
         elif isinstance(self.drilldown, dict):
             for (dim_name, level_name) in rollup.items():
                 cut = cuts[dim_name]
@@ -617,25 +632,25 @@ class Cell(object):
 
                 dim = selfcube.dimension(cut.dimension)
                 hier = dim.default_hierarchy
-                
+
                 rollup_path = hier.rollup(cut.path, level_name)
-                
+
                 cut = PointCut(cut.dimension, rollup_path)
                 new_cuts.append(cut)
         else:
             raise ArgumentError("Rollup is of unknown type: %s" % self.drilldown.__class__)
-        
+
         cell = Cell(cube=self.cube, cuts=new_cuts)
         return cell
 
     def level_depths(self):
         """Returns a dictionary of dimension names as keys and level depths
         (index of deepest level)."""
-        
+
         # TODO: should accept hierarchies
-        
+
         levels = {}
-        
+
         for cut in self.cuts:
             level = cut.level_depth()
             dim = self.cube.dimension(cut.dimension)
@@ -644,27 +659,27 @@ class Cell(object):
             levels[dim_name] = max(level, levels.get(dim_name))
 
         return levels
-    
+
     def is_base(self, dimension, hierarchy=None):
         """Returns ``True`` when cell is base cell for `dimension`. Cell
         is base if there is a point cut with path referring to the
         most detailed level of the dimension `hierarchy`."""
 
-        
+
         hierarchy = dimension.hierarchy(hierarchy)
-        
+
         dim_cut = None
         for cut in self.cuts:
             if isinstance(cut, PointCut) and cut.dimension == dimension:
                 dim_cut = cut
                 break
-        
+
         depth = dim_cut.level_depth() if dim_cut else None
 
         return depth == len(hierarchy)
-        
+
     # def level(self, ):
-    
+
     def _filter_dimension_cuts(self, dimension, exclude=False):
         dimension = self.cube.dimension(dimension)
         cuts = []
@@ -693,7 +708,7 @@ class Cell(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-        
+
     def to_str(self):
         """Return string representation of the cell by using standard
         cuts-to-string conversion."""
@@ -815,7 +830,7 @@ def cut_from_dict(desc, cube=None):
         return RangeCut(dim, desc.get("from"), desc.get("to"))
     else:
         raise ArgumentError("Unknown cut type %s" % cut_type)
-    
+
 def string_from_cuts(cuts):
     """Returns a string represeting `cuts`. String can be used in URLs"""
     strings = [str(cut) for cut in cuts]
@@ -826,7 +841,7 @@ def string_from_path(path):
     """Returns a string representing dimension `path`. If `path` is ``None``
     or empty, then returns empty string. The ptah elements are comma ``,``
     spearated.
-    
+
     Raises `ValueError` when path elements contain characters that are not
     allowed in path element (alphanumeric and underscore ``_``)."""
 
@@ -840,20 +855,20 @@ def string_from_path(path):
         raise ArgumentError("Can not convert path to string: "
                             "keys contain invalid characters "
                             "(should be alpha-numeric or underscore)")
-        
+
     string = PATH_STRING_SEPARATOR.join(path)
     return string
-    
+
 def path_from_string(string):
     """Returns a dimension point path from `string`. The path elements are
     separated by comma ``,`` character.
-    
+
     Returns an empty list when string is empty or ``None``.
     """
-    
+
     if not string:
         return []
-        
+
     path = string.split(PATH_STRING_SEPARATOR)
     path = [v if v != "" else None for v in path]
 
@@ -866,17 +881,17 @@ class Cut(object):
     def to_dict(self):
         """Returns dictionary representation fo the receiver. The keys are:
         `dimension`."""
-        d = { 
+        d = {
             "dimension": str(self.dimension),
             "level_depth": self.level_depth()
         }
         return d
-    
+
     def level_depth(self):
         """Returns deepest level number. Subclasses should implement this
         method"""
         raise NotImplementedError
-        
+
 class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a
     dimension"""
@@ -892,7 +907,7 @@ class PointCut(Cut):
         d["type"] = "point"
         d["path"] = self.path
         return d
-        
+
     def level_depth(self):
         """Returns index of deepest level."""
         return len(self.path)
@@ -901,15 +916,15 @@ class PointCut(Cut):
         """Return string representation of point cut, you can use it in
         URLs"""
         path_str = string_from_path(self.path)
-        
+
         if type(self.dimension) == str or type(self.dimension) == unicode:
             dim_name = self.dimension
         else:
             dim_name = self.dimension.name
-            
+
         string = dim_name + DIMENSION_STRING_SEPARATOR + path_str
-        
-        return string        
+
+        return string
 
     def __repr__(self):
         if isinstance(self.dimension, basestring):
@@ -957,7 +972,7 @@ class RangeCut(Cut):
             return len(self.to_path)
         else:
             return max(len(self.from_path), len(self.to_path))
-    
+
     def __str__(self):
         """Return string representation of point cut, you can use it in
         URLs"""
@@ -1126,7 +1141,7 @@ class AggregationResult(object):
         json_string = encoder.encode(self.as_dict())
 
         return json_string
-        
+
     def table_rows(self, dimension, depth=None):
         """Returns iterator of drilled-down rows which yields a named tuple with
         named attributes: (key, label, path, record). `depth` is last level of
@@ -1144,7 +1159,7 @@ class AggregationResult(object):
                 print "%s: %s" % (row.label, row.record["record_count"])
 
         `dimension` has to be :class:`cubes.Dimension` object. Raises
-        `TypeError` when cut for `dimension` is not `PointCut`.        
+        `TypeError` when cut for `dimension` is not `PointCut`.
         """
 
         cut = self.cell.cut_for_dimension(dimension)
@@ -1163,7 +1178,7 @@ class AggregationResult(object):
         else:
             levels = hierarchy.levels_for_path(path, drilldown=True)
             current_level = levels[-1]
-            
+
         level_key = current_level.key.full_name()
         level_label = current_level.label_attribute.ref()
 
