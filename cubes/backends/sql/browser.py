@@ -522,7 +522,7 @@ class CubeQuery(object):
 
         There are two sources of ordering information:
 
-        1. explicitly mentionaed by calling browser methods
+        1. explicitly mentioned by calling browser methods
         2. implicitly specified in the model attributes (natural order)
         
         The final ordering is:
