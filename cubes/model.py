@@ -1460,6 +1460,11 @@ class Hierarchy(object):
             raise ArgumentError("Level %s is not part of hierarchy %s"
                                     % (str(level), self.name))
 
+    def is_last(self, level):
+        """Returns `True` if `level` is last level of the hierarchy."""
+
+        return level == self.levels[-1]
+
     def rollup(self, path, level=None):
         """Rolls-up the path to the `level`. If `level` is ``None`` then path is
         rolled-up only one level.
