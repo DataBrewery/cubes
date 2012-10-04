@@ -45,7 +45,7 @@
     {% for level in levels %} 
         <li>
         {% if loop.last %}
-            {{level.label}}: {{breadcrumbs[loop.index0]["_label"]}}
+            {{level.label}}: {{details[loop.index0]._label}}
         {% else %}
         
         <!-- 
@@ -55,7 +55,7 @@
         -->
         
         <a href="?cut={{cell.rollup_dim(dimension,level).to_str()}}">
-            {{level.label}}: {{breadcrumbs[loop.index0]["_label"]}} 
+            {{level.label}}: {{details[loop.index0]._label}} 
         </a> 
         <span class="divider">::</span>
         {% endif %}
