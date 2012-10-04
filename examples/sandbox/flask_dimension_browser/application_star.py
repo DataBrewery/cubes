@@ -104,7 +104,7 @@ def initialize_model():
     global model
 
     model = cubes.load_model(MODEL_PATH)
-    workspace = cubes.create_workspace("sql.star", model, url=DB_URL,
+    workspace = cubes.create_workspace("sql", model, url=DB_URL,
                                                      fact_prefix="ft_")
 
 def get_browser():

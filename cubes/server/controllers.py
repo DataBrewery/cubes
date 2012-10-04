@@ -61,7 +61,7 @@ class ApplicationController(object):
             self.prettyprint = str_to_bool(self.args.get("prettyprint"))
 
         # Read common parameters
-        
+
         self.page = None
         if "page" in self.args:
             try:
@@ -96,20 +96,20 @@ class ApplicationController(object):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
         template = handle.read()
         handle.close()
-        
+
         context = {}
         context.update(self.server_info())
 
         context["model"] = self.model.name
         array = [cube.name for cube in self.model.cubes.values()]
-            
+
         if array:
             context["cubes"] = ", ".join(array)
         else:
             context["cubes"] = "<none>"
-        
+
         doc = template.format(**context)
-        
+
         return Response(doc, mimetype = 'text/html')
 
     def server_info(self):
@@ -120,7 +120,7 @@ class ApplicationController(object):
             "api_version": API_VERSION
         }
         return info
-        
+
     def version(self):
         return self.json_response(self.server_info())
 
@@ -133,7 +133,7 @@ class ApplicationController(object):
             indent = 4
         else:
             indent = None
-        
+
         encoder = SlicerJSONEncoder(indent = indent)
         encoder.iterator_limit = self.json_record_limit
         reply = encoder.iterencode(obj)

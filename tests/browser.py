@@ -77,7 +77,7 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(["qwe", "asd","100"], cubes.browser.path_from_string('qwe,asd,100'))
         self.assertEqual([], cubes.browser.path_from_string(''))
         self.assertEqual([], cubes.browser.path_from_string(None))
-        
+
     def test_set_cut_string(self):
 
         cut = cubes.browser.SetCut("foo", [["1"], ["2","3"], ["qwe", "asd", "100"]])
@@ -167,10 +167,10 @@ class AggregationBrowserTestCase(BrowserTestCase):
         self.assertEqual(str(cut.dimension), "date")
 
         self.assertRaises(cubes.NoSuchDimensionError, cell.cut_for_dimension, "someunknown")
-        
+
         cut = cell.cut_for_dimension("cpv")
         self.assertEqual(cut, None)
-        
+
     def test_hierarchy_path(self):
         dim =self.cube.dimension("cpv")
         hier = dim.default_hierarchy
@@ -184,9 +184,9 @@ class AggregationBrowserTestCase(BrowserTestCase):
         self.assertEqual(len(levels), 4)
         names = [level.name for level in levels]
         self.assertEqual(names, ['division', 'group', 'class', 'category'])
-        
+
         self.assertRaises(ArgumentError, hier.levels_for_path, [1,2,3,4,5,6,7,8])
-        
+
     def test_hierarchy_drilldown_levels(self):
         dim =self.cube.dimension("cpv")
         hier = dim.default_hierarchy

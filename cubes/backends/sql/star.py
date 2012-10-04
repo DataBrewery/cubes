@@ -108,6 +108,7 @@ class StarBrowser(AggregationBrowser):
 
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
                             (str(mapper_class.__name__), cube.name, locale))
+
         self.mapper = mapper_class(cube, locale=self.locale, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 

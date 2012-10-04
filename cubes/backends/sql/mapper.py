@@ -282,9 +282,10 @@ class SnowflakeMapper(Mapper):
         .. In the future it might support automatic join detection.
 
         """
-        
-        super(SnowflakeMapper, self).__init__(cube, locale=locale, 
-                                        schema=schema, fact_name=fact_name)
+
+        super(SnowflakeMapper, self).__init__(cube, locale=locale,
+                                        schema=schema, fact_name=fact_name,
+                                        **options)
 
         self.mappings = mappings or cube.mappings
         self.dimension_prefix = dimension_prefix
