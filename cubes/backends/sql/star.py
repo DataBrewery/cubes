@@ -272,7 +272,7 @@ class StarBrowser(AggregationBrowser):
             dd_result = self.connectable.execute(statement)
             labels = [c.name for c in statement.columns]
 
-            result.drilldown = ResultIterator(dd_result, labels)
+            result.cells = ResultIterator(dd_result, labels)
 
             # TODO: introduce option to disable this
 
