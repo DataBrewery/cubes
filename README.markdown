@@ -31,6 +31,13 @@ Documentation
 
 Documentation can be found at: http://packages.python.org/cubes
 
+See `examples` directory for simple examples and use-cases. Also see:
+
+    https://github.com/stiivi/cubes-examples
+    
+for more complex examples.
+    
+
 Source
 ------
 
