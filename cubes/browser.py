@@ -521,8 +521,7 @@ class Cell(object):
         cutdim = None
         for cut in self.cuts:
             cutdim = self.cube.dimension(cut.dimension)
-
-            if isinstance(cutdim, PointCut) and cutdim == dimension:
+            if isinstance(cut, PointCut) and cutdim == dimension:
                 return cut
 
         return None
@@ -550,10 +549,6 @@ class Cell(object):
         if not dim_cut:
             return copy.copy(self)
             # raise ValueError("No cut to roll-up for dimension '%s'" % dimension.name)
-
-        # if type(dim_cut) != PointCut:
-        #    raise NotImplementedError("Only PointCuts are currently supported for "
-        #                              "roll-up (rollup dimension: %s)" % dimension.name)
 
         cuts = [cut for cut in self.cuts if cut is not dim_cut]
 
@@ -994,7 +989,7 @@ class RangeCut(Cut):
         range_str = from_path_str + RANGE_CUT_SEPARATOR + to_path_str
         string = dim_name + DIMENSION_STRING_SEPARATOR + range_str
 
-        return string        
+        return string
 
     def __repr__(self):
         if type(self.dimension) == str:
@@ -1016,7 +1011,7 @@ class RangeCut(Cut):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-        
+
 class SetCut(Cut):
     """Object describing way of slicing a cube (cell) between two points of a
     dimension that has ordered points. For dimensions with unordered points
