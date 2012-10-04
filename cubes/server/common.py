@@ -51,7 +51,7 @@ class ServerError(HTTPException):
 
         if self.details:
             error.update(self.details)
-        
+
         string = json.dumps({"error": error}, indent=4)
         return string
 
@@ -72,12 +72,12 @@ class NotFoundError(ServerError):
 
         if objtype:
             self.details["object_type"] = objtype
-            
+
         if not message:
             self.message = "Object '%s' of type '%s' was not found" % (obj, objtype)
         else:
             self.message = message
-            
+
 class AggregationError(ServerError):
     code = 400
 
@@ -108,10 +108,9 @@ class SlicerJSONEncoder(json.JSONEncoder):
                 iterator = iter(o)
                 count = self.iterator_limit
                 array = []
-                for obj in iterator:
+                for i, obj in enumerate(iterator):
                     array.append(obj)
-                    count -= 1
-                    if count <= 0:
+                    if i >= count:
                         break
             except TypeError as e:
                 # not iterable

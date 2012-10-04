@@ -751,34 +751,34 @@ def cuts_from_string(string):
         date:2004,5-2010
         date:2004,5-
         date:-2010
-    
+
     Sets are in form ``path1+path2+path3`` (none of the paths should be
     empty)::
-    
+
         date:2004+2010
         date:2004+2005,1+2010,10
 
     Grammar::
-    
+
         <list> ::= <cut> | <cut> '|' <list>
         <cut> ::= <dimension> ':' <path>
         <dimension> ::= <identifier>
         <path> ::= <value> | <value> ',' <path>
-        
+
     The characters '|', ':' and ',' are configured in `CUT_STRING_SEPARATOR`,
     `DIMENSION_STRING_SEPARATOR`, `PATH_STRING_SEPARATOR` respectively.
     """
-    
+
     if not string:
         return []
-    
+
     cuts = []
 
     dim_cuts = string.split(CUT_STRING_SEPARATOR)
     for dim_cut in dim_cuts:
         (dimension, cut_string) = dim_cut.split(DIMENSION_STRING_SEPARATOR)
         cuts.append(cut_from_string(dimension, cut_string))
-        
+
     return cuts
 
 re_element = re.compile(r"^[\w,]*$")
@@ -847,10 +847,10 @@ def string_from_path(path):
 
     if not path:
         return ""
-    
+
     # FIXME: do some escaping or something like URL encoding
     path = [unicode(s) if s is not None else "" for s in path]
-    
+
     if not all(map(re_element.match, path)):
         raise ArgumentError("Can not convert path to string: "
                             "keys contain invalid characters "
@@ -1115,7 +1115,6 @@ class AggregationResult(object):
         d = {}
 
         d["summary"] = self.summary
-        d["drilldown"] = self.cells
         d["remainder"] = self.remainder
         d["cells"] = self.cells
         d["total_cell_count"] = self.total_cell_count
@@ -1182,7 +1181,7 @@ class AggregationResult(object):
         level_key = current_level.key.full_name()
         level_label = current_level.label_attribute.ref()
 
-        for record in self.drilldown:
+        for record in self.cells:
             drill_path = path[:] + [record[level_key]]
 
             row = DrilldownRow(record[level_key],
