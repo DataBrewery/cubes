@@ -401,6 +401,19 @@ class DimensionTestCase(unittest.TestCase):
         self.assertEqual(self.dimension.levels, dim.levels)
         self.assertEqual(self.dimension, dim)
 
+    def test_template(self):
+        dims = {"date":self.dimension}
+        desc = {"template":"date", "name":"date"}
+        dim = cubes.create_dimension(desc, dims)
+        self.assertEqual(self.dimension, dim)
+        hier = dim.hierarchy()
+        self.assertEqual(4, len(hier.levels))
+
+        desc["hierarchy"] = ["year", "month"]
+        dim = cubes.create_dimension(desc, dims)
+        self.assertEqual(1, len(dim.hierarchies))
+        hier = dim.hierarchy()
+        self.assertEqual(2, len(hier.levels))
 
 class CubeTestCase(unittest.TestCase):
     def setUp(self):
@@ -541,7 +554,7 @@ class OldModelValidatorTestCase(unittest.TestCase):
         self.assertValidation(results, "No levels in dimension", "Dimension is invalid without levels")
         self.assertValidation(results, "No hierarchies in dimension", "Dimension is invalid without hierarchies")
         # self.assertValidationError(results, "No default hierarchy name")
-        
+
         dim.default_hierarchy_name = 'foo'
         results = dim.validate()
         self.assertValidationError(results, "Default hierarchy .* does not")
@@ -575,14 +588,14 @@ class OldModelValidatorTestCase(unittest.TestCase):
                 message = "Validation %s expected (match: '%s')" % (expected_type, expected)
             else:
                 message = "Validation fail expected (match: '%s')" % expected
-            
+
         for result in results:
             # print "VALIDATE: %s IN %s:%s" % (expected, result[0], result[1])
             if re.match(expected, result[1]):
                 if not expected_type or (expected_type and expected_type == result[0]):
                     return
         self.fail(message)
-        		
+
 def test_suite():
     suite = unittest.TestSuite()
 
