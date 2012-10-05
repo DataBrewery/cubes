@@ -81,11 +81,3 @@ Install::
     pip install -r requirements-optional.txt
     python setup.py install
 
-.. note::
-
-    There was once a `Bitbucket repository`_ copy for mercurial users, however 
-    this one is no longer updated.
-
-.. _Bitbucket repository: https://bitbucket.org/Stiivi/cubes
-
-
