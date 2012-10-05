@@ -7,7 +7,7 @@ if sys.version_info < (2,7):
 
 setup(
     name = "cubes",
-    version = '0.9.1',
+    version = '0.10',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
