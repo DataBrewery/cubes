@@ -14,7 +14,9 @@ Quick Summary
       "template": "date"
   }
 * added table_rows() and cross_table()
-* Incompatibilities:*  use `create_model()` instead of `Model(**dict)`, if you
+* added simple_model(cube_name, dimension_names, measures)
+
+*Incompatibilities:*  use `create_model()` instead of `Model(**dict)`, if you
   were using just `load_model()`, you are fine.
 
 New Features
@@ -35,6 +37,11 @@ New Features
   dimension properties specified in the new dimension completely override the
   template specification
 * added point_cut_for_dimension
+* added simple_model(cube_name, dimensions, measures) – creates a single-cube
+  model with flat dimensions from a list of dimension names and measures from
+  a list of measure names. For example:
+
+    `model = simple_model("contracts", ["year","contractor", "type"], ["amount"])`
 
 *Slicer Server:*
 

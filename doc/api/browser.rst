@@ -50,12 +50,12 @@ String conversions
 
 In applications where slicing and dicing can be specified in form of a string, such as arguments of HTTP requests of an web application, there are couple helper methods that do the string-to-object conversion:
 
-.. autofunction:: cubes.browser.cuts_from_string
+.. autofunction:: cubes.cuts_from_string
 
-.. autofunction:: cubes.browser.string_from_cuts
+.. autofunction:: cubes.string_from_cuts
 
-.. autofunction:: cubes.browser.string_from_path
+.. autofunction:: cubes.string_from_path
 
-.. autofunction:: cubes.browser.path_from_string
+.. autofunction:: cubes.path_from_string
 
 
