@@ -1,6 +1,25 @@
 Changes in the Cubes
 ====================
 
+0.10.1
+
+New Features
+------------
+
+* added `create_server(config_path)` to simplify wsgi script
+* added `dimension_schema` option to star browser – use this when you have
+  all dimensions grouped in a separate schema than fact table 
+
+Changes
+-------
+
+* (none so far)
+
+Fixes
+-----
+
+* (none so far)
+
 0.10
 ====
 
