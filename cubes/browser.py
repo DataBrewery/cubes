@@ -1090,6 +1090,7 @@ class AggregationResult(object):
         self.remainder = {}
         self.total_cell_count = None
         self.cell = None
+        self.measures = None
 
     @property
     def drilldown(self):
