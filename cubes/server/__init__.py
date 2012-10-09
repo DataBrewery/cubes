@@ -2,7 +2,7 @@ from common import API_VERSION
 
 try:
     from werkzeug import __version__ as werkzeug_version
-    from slicer import Slicer, run_server
+    from slicer import Slicer, run_server, create_server
 
 except ImportError:
     from cubes.common import MissingPackage
@@ -12,5 +12,6 @@ except ImportError:
 __all__ = (
     "Slicer",
     "run_server",
+    "create_server",
     "API_VERSION"
 )

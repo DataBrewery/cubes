@@ -2,6 +2,7 @@
 import json
 import cubes
 import logging
+import ConfigParser
 
 # Werkzeug - soft dependency
 try:
@@ -204,11 +205,23 @@ class Slicer(object):
         else:
             raise common.RequestError("No translation for language '%s'" % locale)
 
+def create_server(config_file):
+    """Returns a WSGI server application. `config_file` is a path to an `.ini`
+    file with slicer server configuration."""
+
+    try:
+        config = ConfigParser.SafeConfigParser()
+        config.read(config_file)
+    except Exception as e:
+        raise Exception("Unable to load configuration: %s" % e)
+
+    return Slicer(config)
+
 def run_server(config):
     """Run OLAP server with configuration specified in `config`"""
     if config.has_option("server", "host"):
         host = config.get("server", "host")
-    else: 
+    else:
         host = "localhost"
 
     if config.has_option("server", "port"):
