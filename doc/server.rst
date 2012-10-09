@@ -561,21 +561,16 @@ Create a WSGI script ``/var/www/wsgi/olap/procurements.wsgi``:
 
 .. code-block:: python
 
-    import sys
     import os.path
-    import ConfigParser
+    import cubes
 
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    CONFIG_PATH = os.path.join(CURRENT_DIR, "procurements.ini")
 
-    try:
-        config = ConfigParser.SafeConfigParser()
-        config.read(CONFIG_PATH)
-    except Exception as e:
-        raise Exception("Unable to load configuration: %s" % e)
+    # Set the configuration file name (and possibly whole path) here
+    CONFIG_PATH = os.path.join(CURRENT_DIR, "slicer.ini")
 
-    import cubes.server
-    application = cubes.server.Slicer(config)
+    application = cubes.server.create_server(config)
+
 
 Apache site configuration (for example in ``/etc/apache2/sites-enabled/``)::
 
