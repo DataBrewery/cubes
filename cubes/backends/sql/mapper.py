@@ -246,7 +246,7 @@ class SnowflakeMapper(Mapper):
 
     def __init__(self, cube, mappings=None, locale=None, schema=None,
                     fact_name=None, dimension_prefix=None, joins=None,
-                    **options):
+                    dimension_schema=None, **options):
 
         """A snowflake schema mapper for a cube. The mapper creates required
         joins, resolves table names and maps logical references to tables and
@@ -265,7 +265,8 @@ class SnowflakeMapper(Mapper):
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
         * `dimension_prefix` – prefix for dimension tables
-
+        * `dimension_schema` – schema whre dimension tables are stored (if
+          different than fact table schema)
         `mappings` is a dictionary where keys are logical attribute references
         and values are table column references. The keys are mostly in the
         form:
@@ -289,6 +290,7 @@ class SnowflakeMapper(Mapper):
 
         self.mappings = mappings or cube.mappings
         self.dimension_prefix = dimension_prefix
+        self.dimension_schema = dimension_schema
 
         self._collect_joins(joins or cube.joins)
 
@@ -388,7 +390,7 @@ class SnowflakeMapper(Mapper):
                 column_name += "_" + locale
 
             if dimension and not (self.simplify_dimension_references \
-                                   and (dimension.is_flat 
+                                   and (dimension.is_flat
                                         and not dimension.has_details)):
                 table_name = str(dimension)
                 if self.dimension_prefix:
@@ -397,7 +399,8 @@ class SnowflakeMapper(Mapper):
             else:
                 table_name = self.fact_name
 
-            reference = PhysicalReference(self.schema, table_name, column_name, None)
+            schema = self.dimension_schema or self.schema
+            reference = PhysicalReference(schema, table_name, column_name, None)
 
         return reference
 

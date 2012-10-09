@@ -219,10 +219,6 @@ class StarBrowser(AggregationBrowser):
         if not cell:
             cell = Cell(self.cube)
 
-        # TODO: add ordering (ORDER BY)
-        if options.get("order_by"):
-            self.logger.warn("ordering in aggregations is not yet implemented")
-
         # TODO: add documentation
 
         # Coalesce measures - make sure that they are Attribute objects, not
@@ -534,14 +530,14 @@ class QueryContext(object):
                                     use_labels=True)
 
         return select
-        
+
     def fact_statement(self, key_value):
         """Return a statement for selecting a single fact based on `key_value`"""
 
         key_column = self.fact_table.c[self.fact_key]
         condition = key_column == key_value
         return self.denormalized_statement(whereclause=condition)
-        
+
 
     def join_expression_for_attributes(self, attributes, expand_locales=False):
         """Returns a join expression for `attributes`"""
@@ -994,12 +990,14 @@ def create_workspace(model, **options):
 
     * `schema` - default schema, where all tables are located (if not
       explicitly stated otherwise)
-    * `dimension_prefix` - used by snowflake mapper to find dimension tables
-      when no explicit mapping is specified
     * `fact_prefix` - used by the snowflake mapper to find fact table for a
       cube, when no explicit fact table name is specified
+    * `dimension_prefix` - used by snowflake mapper to find dimension tables
+      when no explicit mapping is specified
+    * `dimension_schema` – schema where dimension tables are stored, if
+      different than common schema.
 
-     Options for denormalized views:
+    Options for denormalized views:
 
     * `use_denormalization` - browser will use dernormalized view instead of
       snowflake

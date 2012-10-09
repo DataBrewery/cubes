@@ -4,6 +4,7 @@ levels"""
 import itertools
 import logging
 import sys
+import re
 
 __all__ = [
     "logger_name",
@@ -13,7 +14,9 @@ __all__ = [
     "MissingPackage",
     "localize_common",
     "localize_attributes",
-    "get_localizable_attributes"
+    "get_localizable_attributes",
+    "decamelize",
+    "to_identifier"
 ]
 
 logger_name = "cubes"
@@ -306,3 +309,11 @@ def get_localizable_attributes(obj):
     except:
         pass
     return locale
+
+def decamelize(name):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1 \2', s1)
+
+def to_identifier(name):
+    return re.sub(r' ', r'_', name).lower()
+
