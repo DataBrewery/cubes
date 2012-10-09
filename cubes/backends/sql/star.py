@@ -666,9 +666,9 @@ class QueryContext(object):
     def range_condition(self, dim, hierarchy, from_path, to_path):
         """Return a condition for range (`from_path`, `to_path`). Return
         value is a `Condition` tuple."""
-        
+
         dim = self.cube.dimension(dim)
-        
+
         lower = self.boundary_condition(dim, hierarchy, from_path, 0)
         upper = self.boundary_condition(dim, hierarchy, to_path, 1)
 
@@ -710,7 +710,7 @@ class QueryContext(object):
 
             for attr in level.attributes:
                 attributes.add(attr)
-        
+
         # Select required operator according to bound
         # 0 - lower bound
         # 1 - upper bound
@@ -728,10 +728,10 @@ class QueryContext(object):
             attributes.add(attr)
 
         condition = sql.expression.and_(*conditions)
-        attributes |= last.attributes 
+        attributes |= last.attributes
 
         if last.condition:
-            condition = sql.expression.or_(condition, last.condition) 
+            condition = sql.expression.or_(condition, last.condition)
 
         return Condition(attributes, condition)
 
@@ -903,7 +903,7 @@ def ordered_statement(statement, order, context):
             # TODO: add natural ordering for measures (may be nice)
             attribute = None
 
-        if attribute and attribute.order and name not in ordering:
+        if attribute and attribute.order and name not in order_by.keys():
             order_by[name] = order_column(column, attribute.order)
 
     return statement.order_by(*order_by.values())
@@ -1147,7 +1147,7 @@ class SQLStarWorkspace(object):
         if create_index:
             if not materialize:
                 raise WorkspaceError("Index can be created only on a materialized view")
-                
+
             # self.metadata.reflect(schema = schema, only = [view_name] )
             table = sqlalchemy.Table(view_name, self.metadata,
                                      autoload=True, schema=schema)
@@ -1164,7 +1164,7 @@ class SQLStarWorkspace(object):
         return statement
 
     def validate_model(self):
-        """Validate physical representation of model. Returns a list of 
+        """Validate physical representation of model. Returns a list of
         dictionaries with keys: ``type``, ``issue``, ``object``.
 
         Types might be: ``join`` or ``attribute``.
