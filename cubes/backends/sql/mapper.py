@@ -17,11 +17,6 @@ __all__ = (
 
 DEFAULT_KEY_FIELD = "id"
 
-# FIXME: list of required fixes to the AttributeMapper:
-#
-# * remove need to use dimension where attribute object is passed (dimension
-#   should now be part of the attribute)
-
 """Physical reference to a table column. Note that the table might be an
 aliased table name as specified in relevant join."""
 PhysicalReference = collections.namedtuple("PhysicalReference",
@@ -93,9 +88,9 @@ class Mapper(object):
         Attributes:
 
         * `cube` - mapped cube
-        * `simplify_dimension_references` – references for flat dimensions 
-          (with one level and no details) will be just dimension names, no 
-          attribute name. Might be useful when using single-table schema, for 
+        * `simplify_dimension_references` – references for flat dimensions
+          (with one level and no details) will be just dimension names, no
+          attribute name. Might be useful when using single-table schema, for
           example, with couple of one-column dimensions.
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
@@ -165,7 +160,7 @@ class Mapper(object):
 
         If `simplify_dimension_references` is ``True`` then references for
         flat dimensios without details is `dimension`.
-        
+
         If `locale` is specified, then locale is added to the reference. This
         is used by backends and other mappers, it has no real use in end-user
         browsing.
@@ -178,15 +173,15 @@ class Mapper(object):
                                (dimension.is_flat and not dimension.has_details)
         else:
             simplify = False
-            
+
         reference = attribute.ref(simplify, locale)
-        
+
         return reference
 
     def split_logical(self, reference):
         """Returns tuple (`dimension`, `attribute`) from `logical_reference` string. Syntax
         of the string is: ``dimensions.attribute``."""
-        
+
         split = reference.split(".")
 
         if len(split) > 1:
@@ -204,14 +199,14 @@ class Mapper(object):
 
         This method should be implemented by `Mapper` subclasses.
         """
-        
+
         raise NotImplementedError
-                
+
     def map_attributes(self, attributes, expand_locales=False):
         """Convert `attributes` to physical attributes. If `expand_locales` is
         ``True`` then physical reference for every attribute locale is
         returned."""
-        
+
         if expand_locales:
             physical_attrs = []
 
@@ -223,17 +218,17 @@ class Mapper(object):
                 physical_attrs += refs
         else:
             physical_attrs = [self.physical(attr) for attr in attributes]
-            
+
         return physical_attrs
 
     def relevant_joins(self, attributes):
-        """Get relevant joins to the attributes - list of joins that 
+        """Get relevant joins to the attributes - list of joins that
         are required to be able to acces specified attributes. `attributes`
         is a list of three element tuples: (`schema`, `table`, `attribute`).
 
         Subclasses sohuld implement this method.
         """
-        
+
         raise NotImplementedError
 
 class SnowflakeMapper(Mapper):
@@ -256,11 +251,11 @@ class SnowflakeMapper(Mapper):
 
         * `cube` - mapped cube
         * `mappings` – dictionary containing mappings
-        * `simplify_dimension_references` – references for flat dimensions 
-          (with one level and no details) will be just dimension names, no 
-          attribute name. Might be useful when using single-table schema, for 
+        * `simplify_dimension_references` – references for flat dimensions
+          (with one level and no details) will be just dimension names, no
+          attribute name. Might be useful when using single-table schema, for
           example, with couple of one-column dimensions.
-        * `dimension_prefix` – default prefix of dimension tables, if 
+        * `dimension_prefix` – default prefix of dimension tables, if
           default table name is used in physical reference construction
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
@@ -434,7 +429,7 @@ class SnowflakeMapper(Mapper):
         return tables
 
     def relevant_joins(self, attributes):
-        """Get relevant joins to the attributes - list of joins that 
+        """Get relevant joins to the attributes - list of joins that
         are required to be able to acces specified attributes. `attributes`
         is a list of three element tuples: (`schema`, `table`, `attribute`).
         """
@@ -501,13 +496,13 @@ class DenormalizedMapper(Mapper):
         * `fact_schema` – database schema for the original fact table
         """
 
-        super(DenormalizedMapper, self).__init__(cube, locale=locale, 
+        super(DenormalizedMapper, self).__init__(cube, locale=locale,
                                         schema=schema, fact_name=fact_name)
 
         dview_prefix = denormalized_view_prefix or ""
-        
+
         # FIXME: this hides original fact name, we do not want that
-        
+
         self.fact_name = options.get("denormalized_view") or dview_prefix + self.cube.name
         self.fact_schema = self.schema
         self.schema = self.schema or denormalized_view_schema
@@ -525,7 +520,7 @@ class DenormalizedMapper(Mapper):
                 locale = None
         except:
             locale = None
-            
+
         column_name = self.logical(attribute, locale)
         reference = PhysicalReference(self.schema,
                                       self.fact_name,
