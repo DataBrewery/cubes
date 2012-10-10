@@ -1114,6 +1114,7 @@ class AggregationResult(object):
         d["remainder"] = self.remainder
         d["cells"] = self.cells
         d["total_cell_count"] = self.total_cell_count
+        d["measures"] = [str(m) for m in measures]
 
         if self.cell:
             d["cell"] = [cut.to_dict() for cut in self.cell.cuts]
@@ -1188,10 +1189,10 @@ class AggregationResult(object):
 
     def cross_table(self, onrows, oncolumns, measures=None):
         """
-        Creates a cross table from result's drilldown. `onrows`
-        contains list of attribute names to be placed at rows and `oncolumns`
-        contains list of attribute names to be placet at columns. `measures` is a
-        list of measures to be put into cells. If measures are not specified, then
+        Creates a cross table from result's cells. `onrows` contains list of
+        attribute names to be placed at rows and `oncolumns` contains list of
+        attribute names to be placet at columns. `measures` is a list of
+        measures to be put into cells. If measures are not specified, then
         only ``record_count`` is used.
 
         Returns a named tuble with attributes:

@@ -205,8 +205,9 @@ class StarBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
-    def aggregate(self, cell=None, measures=None, drilldown=None, attributes=None, 
-                  page=None, page_size=None, order=None, **options):
+    def aggregate(self, cell=None, measures=None, drilldown=None,
+                  attributes=None, page=None, page_size=None, order=None,
+                  **options):
         """Return aggregated result.
 
         Number of database queries:
@@ -229,6 +230,7 @@ class StarBrowser(AggregationBrowser):
 
         result = AggregationResult()
         result.cell = cell
+        result.measures = measures
 
         summary_statement = self.context.aggregation_statement(cell=cell,
                                                      measures=measures,

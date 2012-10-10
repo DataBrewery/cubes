@@ -1576,13 +1576,13 @@ class Level(object):
     * `attributes`: list of all level attributes. Raises `ModelError` when
       `attribute list is empty.
     * `key`: name of level key attribute (for example: ``customer_number`` for
-      customer level, ``region_code`` for region level, ``month`` for month level).
-      key will be used as a grouping field for aggregations. Key should be
-      unique within level. If not specified, then the first attribute is used as
-      key.
+      customer level, ``region_code`` for region level, ``month`` for month
+      level).  key will be used as a grouping field for aggregations. Key
+      should be unique within level. If not specified, then the first
+      attribute is used as key.
     * `label_attribute`: name of attribute containing label to be displayed
-      (for example: ``customer_name`` for customer level, ``region_name`` for region level,
-      ``month_name`` for month level)
+      (for example: ``customer_name`` for customer level, ``region_name`` for
+      region level, ``month_name`` for month level)
     * `label`: human readable label of the level
     * `info`: custom information dictionary, might be used to store
       application/front-end specific information
