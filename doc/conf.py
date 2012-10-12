@@ -50,7 +50,7 @@ copyright = u'2010-2012, Stefan Urbanek'
 #
 # The short X.Y version.
 # import cubes
-version = '0.10'
+version = '0.10.1'
 # The full version, including alpha/beta/rc tags.
 release = '0.10'
 

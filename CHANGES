@@ -9,16 +9,15 @@ New Features
 * added `create_server(config_path)` to simplify wsgi script
 * added `dimension_schema` option to star browser – use this when you have
   all dimensions grouped in a separate schema than fact table 
-
-Changes
--------
-
-* (none so far)
+* added `HierarchyError`
 
 Fixes
 -----
 
-* (none so far)
+* fixed ordering bug
+* `AggregationResult.table_rows` now works when there is no point cut
+* get correct reference in `table_rows` – now works when simple denormalized
+  table is used 
 
 0.10
 ====

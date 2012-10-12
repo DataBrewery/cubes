@@ -116,14 +116,14 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def values(self, cell, dimension, depth=None, paths=None, 
+    def values(self, cell, dimension, depth=None, paths=None,
                hierarchy=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
         .. note::
 
-            Some backends might support only default hierarchy. 
+            Some backends might support only default hierarchy.
         """
         raise NotImplementedError
 
@@ -731,7 +731,7 @@ set ?2 : date:[2004;2010;2033,04]
 def cuts_from_string(string):
     """Return list of cuts specified in `string`. You can use this function to
     parse cuts encoded in a URL.
-    
+
     Examples::
 
         date:2004
@@ -784,11 +784,11 @@ re_range = re.compile(r"^([\w,]*)-([\w,]*)$")
 def cut_from_string(dimension, string):
     """Returns a cut from `string` with dimension `dimension. The string
     should match one of the following patterns:
-    
+
     * point cut: ``2010,2,4``
     * range cut: ``2010-2012``, ``2010,1-2012,3,5``, ``2010,1-`` (open range)
     * set cut: ``2010+2012``, ``2010,1+2012,3,5+2012,10``
-    
+
     If the `string` does not match any of the patterns, then exception is
     raised.
     """
@@ -804,7 +804,7 @@ def cut_from_string(dimension, string):
         raise Exception("Unknown cut format (check that keys "
                         "consist only of of alphanumeric characters and "
                         "underscore)")
-                        
+
 def cut_from_dict(desc, cube=None):
     """Returns a cut from `desc` dictionary. If `cube` is specified, then the
     dimension is looked up in the cube and set as `Dimension` instances, if
@@ -816,7 +816,7 @@ def cut_from_dict(desc, cube=None):
 
     if dim and cube:
         dim = cube.dimension(dim)
-        
+
     if cut_type == "point":
         return PointCut(dim, desc.get("path"))
     elif cut_type == "set":
@@ -1158,10 +1158,7 @@ class AggregationResult(object):
         `TypeError` when cut for `dimension` is not `PointCut`.
         """
 
-        cut = self.cell.cut_for_dimension(dimension)
-
-        if cut and not isinstance(cut, PointCut):
-            raise TypeError("PointCut expected for drill down iterator dimension '%s' cut (was %s)" % (dimension, type(cut)))
+        cut = self.cell.point_cut_for_dimension(dimension)
 
         path = cut.path if cut else []
 
@@ -1175,7 +1172,7 @@ class AggregationResult(object):
             levels = hierarchy.levels_for_path(path, drilldown=True)
             current_level = levels[-1]
 
-        level_key = current_level.key.full_name()
+        level_key = current_level.key.ref()
         level_label = current_level.label_attribute.ref()
 
         for record in self.cells:
