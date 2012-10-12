@@ -1069,7 +1069,7 @@ class SetCut(Cut):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-DrilldownRow = namedtuple("DrilldownRow", ["key", "label", "path", "record"])
+TableRow = namedtuple("DrilldownRow", ["key", "label", "path", "record"])
 
 class AggregationResult(object):
     """Result of aggregation or drill down.
@@ -1114,7 +1114,7 @@ class AggregationResult(object):
         d["remainder"] = self.remainder
         d["cells"] = self.cells
         d["total_cell_count"] = self.total_cell_count
-        d["measures"] = [str(m) for m in measures]
+        d["measures"] = [str(m) for m in self.measures]
 
         if self.cell:
             d["cell"] = [cut.to_dict() for cut in self.cell.cuts]
@@ -1178,7 +1178,7 @@ class AggregationResult(object):
         for record in self.cells:
             drill_path = path[:] + [record[level_key]]
 
-            row = DrilldownRow(record[level_key],
+            row = TableRow(record[level_key],
                                record[level_label],
                                drill_path,
                                record)
