@@ -1446,7 +1446,7 @@ class Hierarchy(object):
         extend = 1 if drilldown else 0
 
         if depth + extend > len(self.levels):
-            raise ArgumentError("Depth %d is longer than hierarchy levels %s (drilldown: %s)" % (depth, self._levels.keys(), drilldown))
+            raise HierarchyError("Depth %d is longer than hierarchy levels %s (drilldown: %s)" % (depth, self._levels.keys(), drilldown))
 
         return self.levels[0:depth+extend]
 
@@ -1483,7 +1483,7 @@ class Hierarchy(object):
         try:
             return self._levels.keys().index(str(level))
         except ValueError:
-            raise ArgumentError("Level %s is not part of hierarchy %s"
+            raise HierarchyError("Level %s is not part of hierarchy %s"
                                     % (str(level), self.name))
 
     def is_last(self, level):
@@ -1495,14 +1495,14 @@ class Hierarchy(object):
         """Rolls-up the path to the `level`. If `level` is ``None`` then path is
         rolled-up only one level.
 
-        If `level` is deeper than last level of `path` the `cubes.ArgumentError`
+        If `level` is deeper than last level of `path` the `cubes.HierarchyError`
         exception is raised. If `level` is the same as `path` level, nothing
         happens."""
 
         if level:
             last = self.level_index(level) + 1
             if last > len(path):
-                raise ArgumentError("Can not roll-up: level '%s' in dimension "
+                raise HierarchyError("Can not roll-up: level '%s' in dimension "
                                     "'%s' is deeper than deepest element "
                                     "of path %s", str(level), self.dimension.name, path)
         else:

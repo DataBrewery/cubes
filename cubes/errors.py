@@ -7,7 +7,7 @@ class CubesError(Exception):
 
 class ModelError(CubesError):
     """Model related exception."""
-    
+
 class ModelInconsistencyError(ModelError):
     """Raised when there is incosistency in model structure."""
 
@@ -16,7 +16,7 @@ class NoSuchDimensionError(ModelError):
 
 class NoSuchAttributeError(ModelError):
     """Raised when an unknown attribute, measure or detail requested."""
-    
+
 class ArgumentError(CubesError):
     """Raised when an invalid or conflicting function argument is supplied.
     """
@@ -33,7 +33,11 @@ class MappingError(BackendError):
 
 class WorkspaceError(CubesError):
     """Backend Workspace related exception."""
-    
+
 class BrowserError(CubesError):
     """AggregationBrowser related exception."""
     pass
+
+class HierarchyError(CubesError):
+    """Raised when attemt to get level deeper than deepest level in a
+    hierarchy"""
