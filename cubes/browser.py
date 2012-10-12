@@ -28,7 +28,7 @@ __all__ = [
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",
-    "DrilldownRow",
+    "TableRow",
     "CrossTable",
     "cross_table"
 ]
