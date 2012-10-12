@@ -1114,7 +1114,10 @@ class AggregationResult(object):
         d["remainder"] = self.remainder
         d["cells"] = self.cells
         d["total_cell_count"] = self.total_cell_count
-        d["measures"] = [str(m) for m in self.measures]
+        if self.measures is not None:
+            d["measures"] = [str(m) for m in self.measures]
+        else:
+            d["measures"] = None
 
         if self.cell:
             d["cell"] = [cut.to_dict() for cut in self.cell.cuts]
