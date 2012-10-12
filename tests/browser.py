@@ -28,7 +28,7 @@ class CutsTestCase(unittest.TestCase):
     def test_cut_from_dict(self):
         # d = {"type":"point", "path":[2010]}
         # self.assertRaises(Exception, cubes.cut_from_dict, d)
-        
+
         d = {"type":"point", "path":[2010], "dimension":"date", "level_depth":1}
         cut = cubes.cut_from_dict(d)
         tcut = cubes.PointCut("date", [2010])
@@ -185,7 +185,7 @@ class AggregationBrowserTestCase(BrowserTestCase):
         names = [level.name for level in levels]
         self.assertEqual(names, ['division', 'group', 'class', 'category'])
 
-        self.assertRaises(ArgumentError, hier.levels_for_path, [1,2,3,4,5,6,7,8])
+        self.assertRaises(HierarchyError, hier.levels_for_path, [1,2,3,4,5,6,7,8])
 
     def test_hierarchy_drilldown_levels(self):
         dim =self.cube.dimension("cpv")
