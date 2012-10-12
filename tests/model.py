@@ -7,7 +7,7 @@ from cubes.errors import *
 
 from common import DATA_PATH
 
-DIM_DATE_DESC = { 
+DIM_DATE_DESC = {
             "name": "date",
             "levels": [
                     {"name":"year"},
@@ -22,7 +22,7 @@ DIM_DATE_DESC = {
 
 DIM_FLAG_DESC = { "name": "flag" }
 
-DIM_PRODUCT_DESC = { 
+DIM_PRODUCT_DESC = {
             "name": "product",
             "levels": [
                 {"name":"category", "attributes":["key", "name"]},
@@ -267,7 +267,7 @@ class HierarchyTestCase(unittest.TestCase):
         levels = self.hierarchy.levels_for_depth(1)
         self.assertEqual([self.levels[0]], levels)
 
-        self.assertRaises(ArgumentError, self.hierarchy.levels_for_depth, 4)
+        self.assertRaises(HierarchyError, self.hierarchy.levels_for_depth, 4)
 
     def test_level_ordering(self):
         """Ordering of levels (next, previous)"""
@@ -285,7 +285,7 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual(1, self.hierarchy.level_index(self.levels[1]))
         self.assertEqual(2, self.hierarchy.level_index(self.levels[2]))
 
-        self.assertRaises(cubes.ArgumentError, self.hierarchy.level_index, self.levels[3])
+        self.assertRaises(cubes.HierarchyError, self.hierarchy.level_index, self.levels[3])
 
     def test_rollup(self):
         """Path roll-up for hierarchy"""
@@ -293,8 +293,8 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual([2010,1], self.hierarchy.rollup(path))
         self.assertEqual([2010,1], self.hierarchy.rollup(path, "month"))
         self.assertEqual([2010], self.hierarchy.rollup(path, "year"))
-        self.assertRaises(ArgumentError, self.hierarchy.rollup, [2010],"month")
-        self.assertRaises(ArgumentError, self.hierarchy.rollup, [2010],"unknown")
+        self.assertRaises(HierarchyError, self.hierarchy.rollup, [2010],"month")
+        self.assertRaises(HierarchyError, self.hierarchy.rollup, [2010],"unknown")
 
     def test_base_path(self):
         """Test base paths"""
