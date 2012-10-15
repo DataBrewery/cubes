@@ -859,7 +859,9 @@ def ordered_statement(statement, order, context):
     # or as some column from joined table. Here we get the list of already
     # selected columns and derived aggregates
 
-    selection = dict(statement.columns)
+    selection = collections.OrderedDict()
+    for c in statement.columns:
+        selection[str(c)] = c
 
     # Make sure that the `order` is a list of of tuples (`attribute`,
     # `order`). If element of the `order` list is a string, then it is
