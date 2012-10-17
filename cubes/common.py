@@ -25,23 +25,23 @@ logger = None
 def get_logger():
     """Get brewery default logger"""
     global logger
-    
+
     if logger:
         return logger
     else:
         return create_logger()
-        
+
 def create_logger():
     """Create a default logger"""
     global logger
     logger = logging.getLogger(logger_name)
 
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
-    
+
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    
+
     return logger
 
 class IgnoringDictionary(dict):
@@ -55,7 +55,7 @@ class IgnoringDictionary(dict):
 class MissingPackageError(Exception):
     """Exception raised when encountered a missing package."""
     pass
-    
+
 class MissingPackage(object):
     """Bogus class to handle missing optional packages - packages that are not
     necessarily required for Cubes, but are needed for certain features."""
@@ -89,19 +89,19 @@ class MissingPackage(object):
             comment = ""
 
         raise MissingPackageError("Optional package '%s' is not installed. "
-                                  "Please install the package%s%s%s" % 
+                                  "Please install the package%s%s%s" %
                                       (self.package, source, use, comment))
 
 def node_level_points(node):
     """Get all level points within given node. Node is described as tuple:
     (object, levels) where levels is a list or a tuple"""
-    
+
     levels = []
     points = []
     for level in node[1]:
         levels.append(level)
         points.append( (node, tuple(levels)))
-        
+
     return points
 
 def combine_node_levels(nodes):
@@ -120,7 +120,7 @@ def combine_node_levels(nodes):
         # item = (node, plevels) => ( (name, (level,...)), (plevel, ...))
         # node = (name, levels) => (name, (level,...))
         # levels = (level)
-        
+
         combos = []
         for point in points:
             combos.append( (point, ) )
@@ -134,19 +134,18 @@ def combine_node_levels(nodes):
         current_points = node_level_points(current_node) # LIST OF POINTS
         other_points = combine_node_levels(other_nodes) # LIST OF POINTS ???
 
-        
         combos = []
 
         for combo in itertools.product(current_points, other_points):
             res = (combo[0], ) + combo[1]
             combos.append(res)
-        
+
         return list(combos)
 
 def combine_nodes(all_nodes, required_nodes = []):
     """Create all combinations of nodes, if required_nodes are specified, make
     them present in each combination."""
-    
+
     other_nodes = []
 
     if not all_nodes:
@@ -158,12 +157,12 @@ def combine_nodes(all_nodes, required_nodes = []):
     for node in all_nodes:
         if node not in required_nodes:
             other_nodes.append(node)
-    
+
     all_combinations = []
 
     if required_nodes:
         all_combinations += combine_node_levels(required_nodes)
-    
+
     if other_nodes:
         for i in range(1, len(other_nodes) + 1):
             combo_nodes = itertools.combinations(other_nodes, i)
@@ -172,12 +171,12 @@ def combine_nodes(all_nodes, required_nodes = []):
                 all_combinations += out
 
     return all_combinations
-    
+
 # FIXME: move this to Cube as Cube.all_cuboids(requred = [])
 def all_cuboids(dimensions, required = []):
     """Create cuboids for all possible combinations of dimensions for each
     levels in hierarchical order.
-    
+
     Returns list of dimension selectors. Each dimension selector is a list of
     tuples where first element is a dimension and second element is list of
     levels. Order of selectors and also dimensions within selector is
@@ -188,37 +187,37 @@ def all_cuboids(dimensions, required = []):
     If there are no hierarchies (dimensions are flat), then this method
     returns all combinations of all dimensions. If there are dimensions A, B,
     C with single level a, b, c, respectivelly, the output will be:
-    
+
     Output::
-    
-        (A, (a)) 
-        (B, (b)) 
-        (C, (c)) 
+
+        (A, (a))
+        (B, (b))
+        (C, (c))
         (A, (a)), (B, (b))
         (A, (a)), (C, (c))
         (B, (b)), (C, (c))
         (A, (a)), (B, (b)), (C, (c))
 
     *Example 2*:
-    
+
     Take dimensions from example 1 and add requirement for dimension A (might
     be date usually). then the youtput will contain dimension A in each
     returned tuple. Tuples without dimension A will be ommited.
 
     Output::
-    
-        (A, (a)) 
+
+        (A, (a))
         (A, (a)), (B, (b))
         (A, (a)), (C, (c))
         (A, (a)), (B, (b)), (C, (c))
 
     *Example 3*:
-    
+
     If there are multiple hierarchies, then all levels are combined. Say we
     have D with d1, d2, B with b1, b2, and C with c. D (as date) is required:
-    
+
     Output::
-    
+
         (D, (d1))
         (D, (d1, d2))
         (D, (d1)),     (B, (b1))
@@ -229,12 +228,12 @@ def all_cuboids(dimensions, required = []):
         (D, (d1, d2)), (B, (b1)),     (C, (c))
         (D, (d1)),     (B, (b1, b2)), (C, (c))
         (D, (d1, d2)), (B, (b1, b2)), (C, (c))
-        
+
     """
-    
+
     all_nodes = []
     required_nodes = []
-    
+
     for dim in required:
         if dim not in dimensions:
             raise AttributeError("Required dimension '%s' does not exist in list of computed "\
@@ -256,7 +255,7 @@ def all_cuboids(dimensions, required = []):
             levels = selector[1]
             new_selector.append( (dim, levels) )
         result.append(new_selector)
-            
+
     return result
 
 def expand_dictionary(record, separator = '.'):
@@ -302,13 +301,37 @@ def get_localizable_attributes(obj):
             locale["label"] = obj.label
     except:
         pass
-            
+
     try:
         if obj.description:
                 locale["description"] = obj.description
     except:
         pass
     return locale
+
+def subclass_iterator(cls, _seen=None):
+    """
+    Generator over all subclasses of a given class, in depth first order.
+
+    Source: http://code.activestate.com/recipes/576949-find-all-subclasses-of-a-given-class/
+    """
+
+    if not isinstance(cls, type):
+        raise TypeError('_subclass_iterator must be called with '
+                        'new-style classes, not %.100r' % cls)
+
+    _seen = _seen or set()
+
+    try:
+        subs = cls.__subclasses__()
+    except TypeError: # fails only when cls is type
+        subs = cls.__subclasses__(cls)
+    for sub in subs:
+        if sub not in _seen:
+            _seen.add(sub)
+            yield sub
+            for sub in subclass_iterator(sub, _seen):
+                yield sub
 
 def decamelize(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
