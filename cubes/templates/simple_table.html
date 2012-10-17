@@ -1,15 +1,12 @@
 <table {% if table_style %}class="{{table_style}}"{% endif %}>
     <thead>
         <tr>
-            {% for col in table.header %}
-            <th>{{col}}</th>
-            {% endfor %}
+            {% for col in table.header %}<th>{{col}}</th>{% endfor %}
         </tr>
     </thead>
     <tbody>
-    {% for row in table.rows %}
-    <tr>
-        <td>
+    {% for row in table.rows %}<tr>
+        <th>
         {% if not create_links or is_last %}
             {{row.header.label}}
         {% else %}
@@ -17,10 +14,8 @@
             {{row.header.label}}
         </a>
         {% endif %}
-        </td>
-        {% for tcell in row.data %}
-        <td>{{tcell}}</td>
-        {% endfor %}
+        </th>
+        {% for tcell in row.data %}<td>{{tcell}}</td>{% endfor %}
     </tr>
     {% endfor %}
     </tbody>

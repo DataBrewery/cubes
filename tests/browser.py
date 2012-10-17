@@ -81,14 +81,14 @@ class StringConversionsTestCase(unittest.TestCase):
     def test_set_cut_string(self):
 
         cut = cubes.browser.SetCut("foo", [["1"], ["2","3"], ["qwe", "asd", "100"]])
-        self.assertEqual("foo:1+2,3+qwe,asd,100", str(cut))
-        self.assertEqual(cut, cubes.cut_from_string("foo", "1+2,3+qwe,asd,100"))
+        self.assertEqual("foo:1;2,3;qwe,asd,100", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("foo", "1;2,3;qwe,asd,100"))
 
         cut = cubes.browser.SetCut("foo", ["a+b"])
-        self.assertRaises(Exception, cut.__str__)
+        self.assertRaises(ArgumentError, cut.__str__)
 
         cut = cubes.browser.SetCut("foo", ["a-b"])
-        self.assertRaises(Exception, cut.__str__)
+        self.assertRaises(ArgumentError, cut.__str__)
 
     def test_range_cut_string(self):
         cut = cubes.browser.RangeCut("date", ["2010"], ["2011"])
@@ -112,10 +112,10 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(cut, cubes.cut_from_string("date", "2010,11,12-2011,2,3"))
 
         cut = cubes.browser.RangeCut(None, ["a+b"], ["1"])
-        self.assertRaises(Exception, cut.__str__)
+        self.assertRaises(ArgumentError, cut.__str__)
 
         cut = cubes.browser.RangeCut("foo", ["a-b"], ["1"])
-        self.assertRaises(Exception, cut.__str__)
+        self.assertRaises(ArgumentError, cut.__str__)
 
 class BrowserTestCase(unittest.TestCase):
     def setUp(self):
