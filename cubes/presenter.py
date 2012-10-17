@@ -107,7 +107,7 @@ class TextTablePresenter(Presenter):
 
 
 class SimpleDataTablePresenter(Presenter):
-    def __init__(self, count_label=None):
+    def __init__(self, count_label=None, levels=None):
         """Creates a presenter that formats result into a tabular structure.
         `count_label` is default label to be used for `record_count`
         aggregation."""

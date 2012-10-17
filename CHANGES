@@ -2,6 +2,11 @@ Changes in the Cubes
 ====================
 
 0.10.1
+======
+
+Quick Summary:
+
+* added presenters
 
 New Features
 ------------
@@ -10,6 +15,14 @@ New Features
 * added `dimension_schema` option to star browser – use this when you have
   all dimensions grouped in a separate schema than fact table 
 * added `HierarchyError`
+* added presenters: simple_html_table, simple_data_table, text_table
+* added create_presenter(presenter_type, options ...)
+
+Changes
+-------
+
+* Changed string representation of a set cut: now using semicolon ';' as a
+  separator instead of a plus symbol '+'
 
 Fixes
 -----
