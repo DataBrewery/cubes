@@ -1,5 +1,7 @@
 from .errors import *
 from StringIO import StringIO
+from .model import split_aggregate_ref
+from .common import subclass_iterator, decamelize, to_identifier
 
 try:
     import jinja2
@@ -10,11 +12,13 @@ except ImportError:
 __all__ = [
             "create_presenter",
             "register_presenter",
-            "TextTablePresenter"
+            "collect_presenters",
+            "TextTablePresenter",
+            "SimpleDataTablePresenter",
+            "SimpleHTMLTablePresenter"
             ]
 
-_presenters = {
-        }
+_presenters = {}
 
 def register_presenter(presenter_type, factory):
     """Register presenter factory with type name `presenter_type`"""
@@ -23,18 +27,30 @@ def register_presenter(presenter_type, factory):
 
 def create_presenter(presenter_type, *args, **kwargs):
     """Create a presenter of type `presenter_type`"""
+    global _presenters
+
+    if not _presenters:
+        _presenters = collect_presenters()
 
     try:
-        presenter_factory = _presenters[type]
+        presenter_factory = _presenters[presenter_type]
     except KeyError:
-        # FIXME: camelize
-        #
-        presenter_factory = None
-
-    if not presenter_factory:
         raise CubesError("unknown presenter '%s'" % presenter_type)
 
     return presenter_factory(*args, **kwargs)
+
+def collect_presenters():
+    """Collect all subclasses of Presenter and return a dictionary where keys
+    are decamelized class names transformed to identifiers and with
+    `presenter` suffix removed."""
+    presenters = {}
+    for c in subclass_iterator(Presenter):
+        name = to_identifier(decamelize(c.__name__))
+        if name.endswith("_presenter"):
+            name = name[:-10]
+        presenters[name] = c
+
+    return presenters
 
 def _jinja_env():
     """Create and return cubes jinja2 environment"""
@@ -42,7 +58,12 @@ def _jinja_env():
     env = jinja2.Environment(loader=loader)
     return env
 
-class TextTablePresenter(object):
+class Presenter(object):
+    """Empty class for the time being. Currently used only for finding all
+    built-in subclasses"""
+    pass
+
+class TextTablePresenter(Presenter):
     def __init__(self, measure_format=None):
         super(TextTablePresenter, self).__init__()
         self.format = measure_format or {}
@@ -85,34 +106,90 @@ class TextTablePresenter(object):
         return value
 
 
-#class SimpleHtmlTablePresenter(object):
-#    def __init__(self):
-#        """Create a simple HTML table presenter"""
-#
-#        super(SimpleTablePresenter, self).__init__()
-#        self.env = _jinja_env()
-#        self.template = self.env.get_template("simple_table.html")
-#
-#    def present(result, dimension, measures):
-#        hierarchy = dimension.hierarchy()
-#        cut = result.cell.cut_for_dimension(dimension)
-#
-#        if cut:
-#            path = cut.path
-#        else:
-#            path = []
-#
-#        levels = hierarchy.levels_for_path(path)
-#        if levels:
-#            next_level = hierarchy.next_level(levels[-1])
-#        else:
-#            next_level = hierarchy.next_level(None)
-#
-#        is_last = hierarchy.is_last(next_level)
-#
-#        output = self.template.render(dimension=dimension,
-#                                      next_level=next_level,
-#                                      result=result,
-#                                      is_last=is_last)
-#        return output
-#
+class SimpleDataTablePresenter(Presenter):
+    def __init__(self, count_label=None):
+        """Creates a presenter that formats result into a tabular structure.
+        `count_label` is default label to be used for `record_count`
+        aggregation."""
+
+        super(SimpleDataTablePresenter, self).__init__()
+        self.count_label = count_label
+
+    def present(self, result, dimension, aggregated_measures):
+
+        cube = result.cell.cube
+        dimension = cube.dimension(dimension)
+        cut = result.cell.cut_for_dimension(dimension)
+
+        if cut:
+            path = cut.path
+            hierarchy = dimension.hierarchy(cut.hierarchy)
+        else:
+            path = []
+            hierarchy = dimension.hierarchy()
+
+        levels = hierarchy.levels_for_path(path)
+        if levels:
+            rows_level = hierarchy.next_level(levels[-1])
+        else:
+            rows_level = hierarchy.next_level(None)
+
+        is_last = hierarchy.is_last(rows_level)
+
+        rows = []
+
+        for row in result.table_rows(dimension):
+            rheader = {"label":row.label, "key":row.key}
+            # Get values for aggregated measures
+            data = [row.record[m] for m in aggregated_measures]
+            rows.append({"header":rheader, "data":data})
+
+        # Create column headings
+        measures = [split_aggregate_ref(m) for m in aggregated_measures]
+        # FIXME: we should format the measure with aggregate here
+
+        labels = []
+        for (measure, aggregation) in measures:
+            if measure != "record_count":
+                attr = cube.measure(measure)
+                label = attr.label or attr.name
+            else:
+                label = self.count_label or "Count"
+            labels.append(label)
+
+        hierarchy = dimension.hierarchy()
+        header = [rows_level.label or rows_level.name]
+        header += labels
+
+        data_table = {
+                "header": header,
+                "rows": rows
+                }
+        return data_table;
+
+class SimpleHTMLTablePresenter(Presenter):
+    def __init__(self, count_label=None, create_links=True,
+                 table_style=None):
+        """Create a simple HTML table presenter"""
+
+        super(SimpleHTMLTablePresenter, self).__init__()
+
+        self.env = _jinja_env()
+        self.presenter = SimpleDataTablePresenter(count_label)
+        self.template = self.env.get_template("simple_table.html")
+        self.create_links = create_links
+        self.table_style = table_style
+
+    def present(self, result, dimension, aggregated_measures):
+        cube = result.cell.cube
+        dimension = cube.dimension(dimension)
+
+        table = self.presenter.present(result, dimension, aggregated_measures)
+
+        output = self.template.render(cell=result.cell,
+                                      dimension=dimension,
+                                      table=table,
+                                      create_links=self.create_links,
+                                      table_style=self.table_style)
+        return output
+
