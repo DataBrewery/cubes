@@ -36,7 +36,9 @@ __all__ = [
     "Hierarchy",
     "Level",
     "Attribute",
-    "simple_model"
+    "simple_model",
+    "split_aggregate_ref",
+    "aggregate_ref"
 ]
 
 DIMENSION = 1
@@ -1580,6 +1582,7 @@ class Level(object):
       level).  key will be used as a grouping field for aggregations. Key
       should be unique within level. If not specified, then the first
       attribute is used as key.
+    * `sort_key`: name of attribute that is going to be used for sorting
     * `label_attribute`: name of attribute containing label to be displayed
       (for example: ``customer_name`` for customer level, ``region_name`` for
       region level, ``month_name`` for month level)
@@ -1589,7 +1592,7 @@ class Level(object):
     """
 
     def __init__(self, name, attributes, dimension = None, key=None,
-                 label_attribute=None, label=None, info=None):
+                 sort_key=None, label_attribute=None, label=None, info=None):
 
         self.name = name
         self.dimension = dimension
@@ -1616,6 +1619,8 @@ class Level(object):
             else:
                 self.label_attribute = self.key
 
+        self.sort_key = self.attribute(sort_key)
+
     def __eq__(self, other):
         if not other or type(other) != type(self):
             return False
@@ -1623,8 +1628,8 @@ class Level(object):
             return False
         elif self.label_attribute != other.label_attribute:
             return False
-        # elif self.dimension != other.dimension:
-        #     return False
+        elif self.sort_key != other.sort_key:
+             return False
 
         if self.attributes != other.attributes:
             return False
@@ -1642,7 +1647,7 @@ class Level(object):
         return self.name
 
     def __repr__(self):
-        return "<level: {name: '%s', key: %s, attributes: %s}>" % (self.name, self.key, self.attributes)
+        return str(self.to_dict())
 
     def to_dict(self, full_attribute_names=False, **options):
         """Convert to dictionary"""
@@ -1655,9 +1660,11 @@ class Level(object):
         if full_attribute_names:
             out.setnoempty("key", self.key.ref())
             out.setnoempty("label_attribute", self.label_attribute.ref())
+            out.setnoempty("sort_key", self.sort_key.ref())
         else:
             out.setnoempty("key", self.key.name)
             out.setnoempty("label_attribute", self.label_attribute.name)
+            out.setnoempty("sort_key", self.sort_key.name)
 
         array = []
         for attr in self.attributes:
@@ -1901,6 +1908,35 @@ class Attribute(object):
         locale.update(get_localizable_attributes(self))
 
         return locale
+
+def aggregate_ref(measure, aggregate):
+    """Creates a reference string for measure aggregate. Current
+    implementation joins the measure name and aggregate name with an
+    underscore character `'_'`. Use this method in in a backend to create
+    valid aggregate reference. See also `split_aggregate_ref()`"""
+
+    return "%s_%s" % (measure, aggregate)
+
+def split_aggregate_ref(measure):
+    """Splits aggregate measure reference into measure name and aggregate
+    name. Use this method in presenters to correctly get measure name and
+    aggregate name from aggregate reference that was created by
+    `aggregate_ref()` function.
+
+    If measure is `record_count` then `("record_count", None)` is returned.
+    """
+
+    measure = str(measure)
+
+    if measure == "record_count":
+        return (measure, None)
+
+    r = measure.rfind("_")
+
+    if r == -1 or r == len(measure):
+        raise ArgumentError("Invalid aggregate reference '%s'" % measure)
+
+    return (measure[:r], measure[r+1:])
 
 def localize_common(obj, trans):
     """Localize common attributes: label and description"""
