@@ -718,13 +718,12 @@ CUT_STRING_SEPARATOR = '|'
 DIMENSION_STRING_SEPARATOR = ':'
 PATH_STRING_SEPARATOR = ','
 RANGE_CUT_SEPARATOR = '-'
-SET_CUT_SEPARATOR = '+'
+SET_CUT_SEPARATOR = ';'
 
 """
 point: date:2004
 range: date:2004-2010
-set ?1 : date:2004+2010+2011,04+
-set ?2 : date:[2004;2010;2033,04]
+set: date:2004;2010;2011,04
 
 """
 
@@ -747,11 +746,11 @@ def cuts_from_string(string):
         date:2004,5-
         date:-2010
 
-    Sets are in form ``path1+path2+path3`` (none of the paths should be
+    Sets are in form ``path1;path2;path3`` (none of the paths should be
     empty)::
 
-        date:2004+2010
-        date:2004+2005,1+2010,10
+        date:2004;2010
+        date:2004;2005,1;2010,10
 
     Grammar::
 
@@ -778,7 +777,7 @@ def cuts_from_string(string):
 
 re_element = re.compile(r"^[\w,]*$")
 re_point = re.compile(r"^[\w,]*$")
-re_set = re.compile(r"^([\w,]+)(\+([\w,]+))+$")
+re_set = re.compile(r"^([\w,]+)(;([\w,]+))+$")
 re_range = re.compile(r"^([\w,]*)-([\w,]*)$")
 
 def cut_from_string(dimension, string):
@@ -787,7 +786,7 @@ def cut_from_string(dimension, string):
 
     * point cut: ``2010,2,4``
     * range cut: ``2010-2012``, ``2010,1-2012,3,5``, ``2010,1-`` (open range)
-    * set cut: ``2010+2012``, ``2010,1+2012,3,5+2012,10``
+    * set cut: ``2010;2012``, ``2010,1;2012,3,5;2012,10``
 
     If the `string` does not match any of the patterns, then exception is
     raised.
