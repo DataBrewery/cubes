@@ -1660,11 +1660,13 @@ class Level(object):
         if full_attribute_names:
             out.setnoempty("key", self.key.ref())
             out.setnoempty("label_attribute", self.label_attribute.ref())
-            out.setnoempty("sort_key", self.sort_key.ref())
+            if self.sort_key:
+                out.setnoempty("sort_key", self.sort_key.ref())
         else:
             out.setnoempty("key", self.key.name)
             out.setnoempty("label_attribute", self.label_attribute.name)
-            out.setnoempty("sort_key", self.sort_key.name)
+            if self.sort_key:
+                out.setnoempty("sort_key", self.sort_key.name)
 
         array = []
         for attr in self.attributes:
