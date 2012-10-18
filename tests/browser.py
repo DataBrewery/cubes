@@ -29,19 +29,22 @@ class CutsTestCase(unittest.TestCase):
         # d = {"type":"point", "path":[2010]}
         # self.assertRaises(Exception, cubes.cut_from_dict, d)
 
-        d = {"type":"point", "path":[2010], "dimension":"date", "level_depth":1}
+        d = {"type":"point", "path":[2010], "dimension":"date",
+                "level_depth":1, "hierarchy": None}
         cut = cubes.cut_from_dict(d)
         tcut = cubes.PointCut("date", [2010])
         self.assertEqual(tcut, cut)
         self.assertEqual(d, tcut.to_dict())
 
-        d = {"type":"range", "from":[2010], "to":[2012, 10], "dimension":"date", "level_depth":2}
+        d = {"type":"range", "from":[2010], "to":[2012, 10],
+                "dimension":"date", "level_depth":2, "hierarchy":None}
         cut = cubes.cut_from_dict(d)
         tcut = cubes.RangeCut("date", [2010], [2012, 10])
         self.assertEqual(tcut, cut)
         self.assertEqual(d, tcut.to_dict())
 
-        d = {"type":"set", "paths":[[2010], [2012, 10]], "dimension":"date", "level_depth":2}
+        d = {"type":"set", "paths":[[2010], [2012, 10]],
+                "dimension":"date", "level_depth":2, "hierarchy":None}
         cut = cubes.cut_from_dict(d)
         tcut = cubes.SetCut("date", [[2010], [2012, 10]])
         self.assertEqual(tcut, cut)

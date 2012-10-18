@@ -1,3 +1,5 @@
+# -*- coding=utf -*-
+
 import logging
 import json
 import decimal
@@ -788,8 +790,8 @@ def cut_from_string(dimension, string):
     * range cut: ``2010-2012``, ``2010,1-2012,3,5``, ``2010,1-`` (open range)
     * set cut: ``2010;2012``, ``2010,1;2012,3,5;2012,10``
 
-    If the `string` does not match any of the patterns, then exception is
-    raised.
+    If the `string` does not match any of the patterns, then ArgumentError
+    exception is raised.
     """
     if re_point.match(string):
         return PointCut(dimension, path_from_string(string))
@@ -800,7 +802,7 @@ def cut_from_string(dimension, string):
         (from_path, to_path) = map(path_from_string, string.split(RANGE_CUT_SEPARATOR))
         return RangeCut(dimension, from_path, to_path)
     else:
-        raise Exception("Unknown cut format (check that keys "
+        raise ArgumentError("Unknown cut format (check that keys "
                         "consist only of of alphanumeric characters and "
                         "underscore)")
 
@@ -869,14 +871,16 @@ def path_from_string(string):
     return path
 
 class Cut(object):
-    def __init__(self, dimension):
+    def __init__(self, dimension, hierarchy=None):
         self.dimension = dimension
+        self.hierarchy = hierarchy
 
     def to_dict(self):
         """Returns dictionary representation fo the receiver. The keys are:
         `dimension`."""
         d = {
             "dimension": str(self.dimension),
+            "hierarchy": str(self.hierarchy) if self.hierarchy else None,
             "level_depth": self.level_depth()
         }
         return d
@@ -886,12 +890,15 @@ class Cut(object):
         method"""
         raise NotImplementedError
 
+    def __repr__(self):
+        return str(self.to_dict())
+
 class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a
     dimension"""
 
-    def __init__(self, dimension, path):
-        super(PointCut, self).__init__(dimension)
+    def __init__(self, dimension, path, hierarchy=None):
+        super(PointCut, self).__init__(dimension, hierarchy)
         self.path = path
 
     def to_dict(self):
@@ -911,22 +918,9 @@ class PointCut(Cut):
         URLs"""
         path_str = string_from_path(self.path)
 
-        if type(self.dimension) == str or type(self.dimension) == unicode:
-            dim_name = self.dimension
-        else:
-            dim_name = self.dimension.name
-
-        string = dim_name + DIMENSION_STRING_SEPARATOR + path_str
+        string = str(self.dimension) + DIMENSION_STRING_SEPARATOR + path_str
 
         return string
-
-    def __repr__(self):
-        if isinstance(self.dimension, basestring):
-            dim_name = self.dimension
-        else:
-            dim_name = self.dimension.name
-
-        return '{"cut": "%s", "dimension":"%s", "path": "%s"}' % ("PointCut", dim_name, self.path)
 
     def __eq__(self, other):
         if self.dimension != other.dimension:
@@ -943,8 +937,8 @@ class RangeCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, from_path, to_path):
-        super(RangeCut, self).__init__(dimension)
+    def __init__(self, dimension, from_path, to_path, hierarchy=None):
+        super(RangeCut, self).__init__(dimension, hierarchy)
         self.from_path = from_path
         self.to_path = to_path
 
@@ -980,24 +974,10 @@ class RangeCut(Cut):
         else:
             to_path_str = string_from_path([])
 
-        if type(self.dimension) == str or type(self.dimension) == unicode:
-            dim_name = self.dimension
-        else:
-            dim_name = self.dimension.name
-
         range_str = from_path_str + RANGE_CUT_SEPARATOR + to_path_str
-        string = dim_name + DIMENSION_STRING_SEPARATOR + range_str
+        string = str(self.dimension) + DIMENSION_STRING_SEPARATOR + range_str
 
         return string
-
-    def __repr__(self):
-        if type(self.dimension) == str:
-            dim_name = self.dimension
-        else:
-            dim_name = self.dimension.name
-
-        return '{"cut": "%s", "dimension":"%s", "from": "%s", "to": "%s"}' % \
-                    ("RangeCut", dim_name, self.from_path, self.to_path)
 
     def __eq__(self, other):
         if self.dimension != other.dimension:
@@ -1016,8 +996,8 @@ class SetCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, paths):
-        super(SetCut, self).__init__(dimension)
+    def __init__(self, dimension, paths, hierarchy=None):
+        super(SetCut, self).__init__(dimension, hierarchy)
         self.paths = paths
 
     def to_dict(self):
@@ -1039,24 +1019,10 @@ class SetCut(Cut):
         for path in self.paths:
             path_strings.append(string_from_path(path))
 
-        if type(self.dimension) == str or type(self.dimension) == unicode:
-            dim_name = self.dimension
-        else:
-            dim_name = self.dimension.name
-
         set_string = SET_CUT_SEPARATOR.join(path_strings)
-        string = dim_name + DIMENSION_STRING_SEPARATOR + set_string
+        string = str(self.dimension) + DIMENSION_STRING_SEPARATOR + set_string
 
         return string
-
-    def __repr__(self):
-        if type(self.dimension) == str:
-            dim_name = self.dimension
-        else:
-            dim_name = self.dimension.name
-
-        return '{"cut": "%s", "dimension":"%s", "paths": "%s"}' % \
-                    ("SetCut", dim_name, self.paths)
 
     def __eq__(self, other):
         if self.dimension != other.dimension:
@@ -1075,21 +1041,24 @@ class AggregationResult(object):
 
     Attributes:
 
+    * `cell` – cell that this result is aggregate of
     * `summary` - dictionary of summary row fields
     * `cells` - list of cells that were drilled-down
-    * `remainder` - summary of remaining cells (not yet implemented)
     * `total_cell_count` - number of total cells in drill-down (after limit,
       before pagination)
+    * `measures` – measures that were selected in aggregation
+    * `remainder` - summary of remaining cells (not yet implemented)
 
     """
     def __init__(self):
         super(AggregationResult, self).__init__()
-        self.summary = {}
-        self.cells = []
-        self.remainder = {}
-        self.total_cell_count = None
         self.cell = None
         self.measures = None
+
+        self.summary = {}
+        self.cells = []
+        self.total_cell_count = None
+        self.remainder = {}
 
     @property
     def drilldown(self):
