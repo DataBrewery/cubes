@@ -4,8 +4,9 @@ Cubes - Online Analytical Processing Framework for Python
 About
 -----
 
-Cubes is a light-weight Python framework and set of tools for Online Analytical 
-Processing (OLAP), multidimensional analysis and browsing of aggregated data. 
+Cubes is a light-weight Python framework and set of tools for Online
+Analytical Processing (OLAP), multidimensional analysis and browsing of
+aggregated data. 
 
 *Focus on data analysis, in human way*
 
@@ -19,10 +20,10 @@ Features:
 * OLAP and aggregated browsing (default backend is for relational databse - 
   ROLAP)
 * multidimensional analysis
-* logical view of analysed data - how analysts look at data, how they think of 
+* logical view of analysed data - how analysts look at data, how they think of
   data, not not how the data are physically implemented in the data stores
-* hierarchical dimensions (attributes that have hierarchical dependencies, such 
-  as category-subcategory or country-region)
+* hierarchical dimensions (attributes that have hierarchical dependencies,
+  such as category-subcategory or country-region)
 * localizable metadata and data
 * OLAP server (WSGI HTTP server with JSON API based on Wergzeug)
 
@@ -36,7 +37,7 @@ See `examples` directory for simple examples and use-cases. Also see:
     https://github.com/stiivi/cubes-examples
     
 for more complex examples.
-    
+
 
 Source
 ------
@@ -46,13 +47,15 @@ Github source repository: https://github.com/Stiivi/cubes
 Requirements
 ------------
 
-Developed using python 2.7, reported to work with 2.6.
+Developed using python 2.7.
 
 Most of the requirements are soft (optional) and need to be satisfied only if 
 certain parts of cubes are being used.
 
-* SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.1 - for SQL backend
+* SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.1 - for SQL
+  backend
 * Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
+* Jinja2 from http://jinja.pocoo.org/docs/ for HTML presenters
 
 Support
 =======
