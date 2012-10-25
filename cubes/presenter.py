@@ -139,10 +139,11 @@ class SimpleDataTablePresenter(Presenter):
         rows = []
 
         for row in result.table_rows(dimension):
-            rheader = {"label":row.label, "key":row.key}
+            rheader = { "label":row.label,
+                        "key":row.key}
             # Get values for aggregated measures
             data = [row.record[m] for m in aggregated_measures]
-            rows.append({"header":rheader, "data":data})
+            rows.append({"header":rheader, "data":data, "is_base": row.is_base})
 
         # Create column headings
         measures = [split_aggregate_ref(m) for m in aggregated_measures]
@@ -183,6 +184,16 @@ class SimpleHTMLTablePresenter(Presenter):
     def present(self, result, dimension, aggregated_measures):
         cube = result.cell.cube
         dimension = cube.dimension(dimension)
+        cut = result.cell.cut_for_dimension(dimension)
+
+        if cut:
+            path = cut.path
+            hierarchy = dimension.hierarchy(cut.hierarchy)
+        else:
+            path = []
+            hierarchy = dimension.hierarchy()
+
+        is_last = len(path)+1 >= len(hierarchy)
 
         table = self.presenter.present(result, dimension, aggregated_measures)
 
@@ -190,6 +201,7 @@ class SimpleHTMLTablePresenter(Presenter):
                                       dimension=dimension,
                                       table=table,
                                       create_links=self.create_links,
-                                      table_style=self.table_style)
+                                      table_style=self.table_style,
+                                      is_last=is_last)
         return output
 

@@ -72,12 +72,12 @@ class StarSQLTestCase(unittest.TestCase):
                 }
             ]
         }
-        
+
         engine = sqlalchemy.create_engine('sqlite://')
         self.connection = engine.connect()
         metadata = sqlalchemy.MetaData()
         metadata.bind = engine
-        
+
         table = Table('sales', metadata,
                         Column('id', Integer, primary_key=True),
                         Column('amount', Float),
@@ -98,7 +98,7 @@ class StarSQLTestCase(unittest.TestCase):
                         Column('month_sname', String),
                         Column('year', Integer)
                     )
-                    
+
         table = Table('dim_product', metadata,
                         Column('id', Integer, primary_key=True),
                         Column('category_id', Integer),
@@ -134,11 +134,11 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
                     "subcategory.name.en": "subcategory.subcategory_name_en",
                     "subcategory.name.sk": "subcategory.subcategory_name_sk" 
                 }
-        
+
     def test_valid_model(self):
         """Model is valid"""
         self.assertEqual(True, self.model.is_valid())
-        
+
     def test_logical_reference(self):
 
         attr = cubes.Attribute("month",dimension=self.model.dimension("date"))
@@ -168,15 +168,15 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
 
     def test_logical_split(self):
         split = self.mapper.split_logical
-        
+
         self.assertEqual(('foo', 'bar'), split('foo.bar'))
         self.assertEqual(('foo', 'bar.baz'), split('foo.bar.baz'))
         self.assertEqual((None, 'foo'), split('foo'))
-        
+
     def assertMapping(self, expected, logical_ref, locale = None):
         """Create string reference by concatentanig table and column name.
         No schema is expected (is ignored)."""
-        
+
         attr = self.mapper.attributes[logical_ref]
         ref = self.mapper.physical(attr, locale)
         sref = ref[1] + "." + ref[2]
@@ -206,7 +206,7 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
         def assertPhysical(expected, actual, default=None):
             ref = coalesce_physical(actual, default)
             self.assertEqual(expected, ref)
-            
+
         assertPhysical((None, "table", "column", None), "table.column")
         assertPhysical((None, "table", "column.foo", None), "table.column.foo")
         assertPhysical((None, "table", "column", None), ["table", "column"])
@@ -257,7 +257,7 @@ class StarSQLAttributeMapperTestCase(StarSQLTestCase):
 class QueryContextTestCase(StarSQLTestCase):
     def setUp(self):
         super(QueryContextTestCase, self).setUp()
-        
+
     def test_denormalize(self):
         statement = self.browser.context.denormalized_statement()
         cols = [column.name for column in statement.columns]
@@ -268,21 +268,21 @@ class QueryContextTestCase(StarSQLTestCase):
         statement = self.browser.context.denormalized_statement(expand_locales=True)
         cols = [column.name for column in statement.columns]
         self.assertEqual(20, len(cols))
-        
+
     def test_coalesce_drilldown(self):
         cell = cubes.Cell(self.cube)
         dim = self.cube.dimension("date")
 
         drilldown = {"date": "year"}
         expected = {"date": [dim.level("year")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         drilldown = ["date"]
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         drilldown = {"date": "day"}
         expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         # Try "next level"
 
@@ -291,11 +291,11 @@ class QueryContextTestCase(StarSQLTestCase):
 
         drilldown = {"date": "year"}
         expected = {"date": [dim.level("year")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         drilldown = ["date"]
         expected = {"date": [dim.level("year"), dim.level("month")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         # Try with range cell
 
@@ -304,18 +304,18 @@ class QueryContextTestCase(StarSQLTestCase):
 
         drilldown = ["date"]
         expected = {"date": [dim.level("year"), dim.level("month")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         drilldown = {"date":"year"}
         expected = {"date": [dim.level("year")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         cut = cubes.RangeCut("date", [2009], [2010, 1])
         cell = cubes.Cell(self.cube, [cut])
 
         drilldown = ["date"]
         expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         # Try "last level"
 
@@ -324,17 +324,17 @@ class QueryContextTestCase(StarSQLTestCase):
 
         drilldown = {"date": "day"}
         expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
-        self.assertEqual(expected, coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
 
         drilldown = ["date"]
         expected = {"date": [dim.level("year"), dim.level("month")]}
-        self.assertRaises(ArgumentError, coalesce_drilldown, cell, drilldown)
-        
+        self.assertRaises(HierarchyError, cubes.coalesce_drilldown, cell, drilldown)
+
 
 class JoinsTestCase(StarSQLTestCase):
     def setUp(self):
         super(JoinsTestCase, self).setUp()
-        
+
         self.joins = [
                 {"master":"fact.date_id", "detail": "date.id"},
                 {"master":["fact", "product_id"], "detail": "product.id"},
@@ -343,7 +343,7 @@ class JoinsTestCase(StarSQLTestCase):
                 {"master":"subcategory.category_id", "detail": "category.id"}
             ]
         self.mapper._collect_joins(self.joins)
-        
+
     def test_basic_joins(self):
         relevant = self.mapper.relevant_joins([[None,"date"]])
         self.assertEqual(1, len(relevant))
@@ -360,17 +360,17 @@ class JoinsTestCase(StarSQLTestCase):
         self.assertEqual(1, len(relevant))
         self.assertEqual("date", relevant[0].detail.table)
         self.assertEqual("contract_date", relevant[0].alias)
-        
+
     def test_snowflake(self):
         relevant = self.mapper.relevant_joins([[None,"subcategory"]])
-        
+
         self.assertEqual(2, len(relevant))
         test = sorted([r.detail.table for r in relevant])
         self.assertEqual(["product","subcategory"], test)
         self.assertEqual([None, None], [r.alias for r in relevant])
 
         relevant = self.mapper.relevant_joins([[None,"category"]])
-        
+
         self.assertEqual(3, len(relevant))
         test = sorted([r.detail.table for r in relevant])
         self.assertEqual(["category", "product","subcategory"], test)
@@ -382,7 +382,7 @@ class StarValidationTestCase(StarSQLTestCase):
     def test_validate(self):
         result = self.browser.validate_model()
         self.assertEqual(0, len(result))
-        
+
 class StarSQLBrowserTestCase(StarSQLTestCase):
     def setUp(self):
         super(StarSQLBrowserTestCase, self).setUp()
