@@ -25,7 +25,6 @@ except ImportError:
 
 __all__ = [
     "StarBrowser",
-    "coalesce_drilldown",
     "create_workspace"
 ]
 
@@ -257,6 +256,8 @@ class StarBrowser(AggregationBrowser):
         ##
 
         if drilldown:
+            drilldown = coalesce_drilldown(cell, drilldown)
+            result.levels = drilldown
             statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures,
                                                          attributes=attributes,
@@ -426,14 +427,14 @@ class QueryContext(object):
         same as SQLAlchemy `whereclause` for
         `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
         references to attributes to be selected. If it is ``None`` then all
-        attributes are used."""
+        attributes are used. `drilldown` has to be a dictionary. Use
+        `coalesce_drilldown()` to prepare correct drill-down statement."""
 
         # TODO: do not ignore attributes
         cell_cond = self.condition_for_cell(cell)
         attributes = cell_cond.attributes
 
         if drilldown:
-            drilldown = coalesce_drilldown(cell, drilldown)
             for levels in drilldown.values():
                 for level in levels:
                     attributes |= set(level.attributes)
@@ -793,53 +794,6 @@ class QueryContext(object):
             columns = [self.column(attr) for attr in attributes]
 
         return columns
-
-
-def coalesce_drilldown(cell, drilldown):
-    """Returns a dictionary where keys are dimensions and values are list of
-    levels to be drilled down. `drilldown` should be a list of dimensions (or
-    dimension names) or a dictionary where keys are dimension names and values
-    are level names to drill up to.
-
-    For the list of dimensions or if the level is not specified, then up to
-    the next level in the cell is considered.
-    """
-
-    # TODO: consider hierarchies (currently ignored, default is used)
-    result = {}
-    depths = cell.level_depths()
-
-    # If the drilldown is a list, convert it into a dictionary
-    if not isinstance(drilldown, dict):
-        drilldown = {dim:None for dim in drilldown}
-
-    for dim, level in drilldown.items():
-        dim = cell.cube.dimension(dim)
-
-        if level:
-            hier = dim.hierarchy()
-            index = hier.level_index(level)
-            result[dim.name] = hier[:index+1]
-        else:
-            depth = depths.get(str(dim), 0)
-            result[dim.name] = drilldown_levels(dim, depth+1)
-
-    return result
-
-
-def drilldown_levels(dimension, depth, hierarchy=None):
-    """Get drilldown levels up to level at `depth`. If depth is ``None``
-    returns first level only. `dimension` has to be `Dimension` instance. """
-
-    hier = dimension.hierarchy(hierarchy)
-    depth = depth or 0
-
-    if depth > len(hier):
-        raise ArgumentError("Hierarchy %s in dimension %s has only %d levels, "
-                         "can not drill to %d" % \
-                         (hier,dimension,len(hier),depth))
-
-    return hier[:depth]
 
 def paginated_statement(statement, page, page_size):
     """Returns paginated statement if page is provided, otherwise returns

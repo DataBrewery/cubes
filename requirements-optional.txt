@@ -1,2 +1,4 @@
 sqlalchemy
 werkzeug
+jinja2
+

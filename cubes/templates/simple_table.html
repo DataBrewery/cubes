@@ -7,8 +7,8 @@
     <tbody>
     {% for row in table.rows %}<tr>
         <th>
-        {% if not create_links or is_last %}
-            {{row.header.label}}
+        {% if not create_links or row.is_base %}
+        {{row.header.label}}
         {% else %}
         <a href="?cut={{cell.drilldown(dimension, row.header.key)}}">
             {{row.header.label}}
