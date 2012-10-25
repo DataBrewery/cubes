@@ -32,7 +32,8 @@ __all__ = [
     "cut_from_dict",
     "TableRow",
     "CrossTable",
-    "cross_table"
+    "cross_table",
+    "coalesce_drilldown"
 ]
 
 class AggregationBrowser(object):
@@ -662,20 +663,12 @@ class Cell(object):
         is base if there is a point cut with path referring to the
         most detailed level of the dimension `hierarchy`."""
 
-
         hierarchy = dimension.hierarchy(hierarchy)
-
-        dim_cut = None
-        for cut in self.cuts:
-            if isinstance(cut, PointCut) and cut.dimension == dimension:
-                dim_cut = cut
-                break
-
-        depth = dim_cut.level_depth() if dim_cut else None
-
-        return depth == len(hierarchy)
-
-    # def level(self, ):
+        cut = self.point_cut_for_dimension(dimension)
+        if cut:
+            return cut.level_depth() >= len(hierarchy)
+        else:
+            return False
 
     def _filter_dimension_cuts(self, dimension, exclude=False):
         dimension = self.cube.dimension(dimension)
@@ -850,7 +843,7 @@ def string_from_path(path):
     if not all(map(re_element.match, path)):
         raise ArgumentError("Can not convert path to string: "
                             "keys contain invalid characters "
-                            "(should be alpha-numeric or underscore)")
+                            "(should be alpha-numeric or underscore) '%s'"%path)
 
     string = PATH_STRING_SEPARATOR.join(path)
     return string
@@ -1034,7 +1027,7 @@ class SetCut(Cut):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-TableRow = namedtuple("DrilldownRow", ["key", "label", "path", "record"])
+TableRow = namedtuple("TableRow", ["key", "label", "path", "is_base", "record"])
 
 class AggregationResult(object):
     """Result of aggregation or drill down.
@@ -1048,12 +1041,21 @@ class AggregationResult(object):
       before pagination)
     * `measures` – measures that were selected in aggregation
     * `remainder` - summary of remaining cells (not yet implemented)
+    * `levels` – aggregation levels for dimensions that were used to drill-
+      down
+
+
+    .. note::
+
+        Implementors of aggregation browsers should populate `cell`,
+        `measures` and `levels` from the aggregate query.
 
     """
     def __init__(self):
         super(AggregationResult, self).__init__()
         self.cell = None
         self.measures = None
+        self.levels = None
 
         self.summary = {}
         self.cells = []
@@ -1092,22 +1094,9 @@ class AggregationResult(object):
         else:
             d["cell"] = None
 
+        d["levels"] = self.levels
+
         return d
-
-    def as_json(self):
-        # FIXME: Eiter depreciate this or move it into backend. Also provide
-        # option for iterable result
-
-        def default(o):
-            if type(o) == decimal.Decimal:
-                return float(o)
-            else:
-                return JSONEncoder.default(self, o)
-
-        encoder = json.JSONEncoder(default = default, indent = 4)
-        json_string = encoder.encode(self.as_dict())
-
-        return json_string
 
     def table_rows(self, dimension, depth=None):
         """Returns iterator of drilled-down rows which yields a named tuple with
@@ -1118,6 +1107,8 @@ class AggregationResult(object):
         * `key`: value of key dimension attribute at level of interest
         * `label`: value of label dimension attribute at level of interest
         * `path`: full path for the drilled-down cell
+        * `is_base`: ``True`` when dimension element is base (can not drill
+          down more)
         * `record`: all drill-down attributes of the cell
 
         Example use::
@@ -1137,6 +1128,12 @@ class AggregationResult(object):
         dimension = self.cell.cube.dimension(dimension)
         hierarchy = dimension.hierarchy()
 
+        if self.levels:
+            dim_levels = self.levels.get(str(dimension), [])
+            is_base = len(dim_levels) >= len(hierarchy)
+        else:
+            is_base = len(hierarchy) == 1
+
         if depth:
             current_level = hierarchy[depth-1]
         else:
@@ -1152,6 +1149,7 @@ class AggregationResult(object):
             row = TableRow(record[level_key],
                                record[level_label],
                                drill_path,
+                               is_base,
                                record)
             yield row
 
@@ -1230,3 +1228,49 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
         data.append(row)
 
     return CrossTable(column_hdrs, row_hdrs, data)
+
+def coalesce_drilldown(cell, drilldown):
+    """Returns a dictionary where keys are dimensions and values are list of
+    levels to be drilled down. `drilldown` should be a list of dimensions (or
+    dimension names) or a dictionary where keys are dimension names and values
+    are level names to drill up to.
+
+    For the list of dimensions or if the level is not specified, then up to
+    the next level in the cell is considered.
+    """
+
+    # TODO: consider hierarchies (currently ignored, default is used)
+    result = {}
+    depths = cell.level_depths()
+
+    # If the drilldown is a list, convert it into a dictionary
+    if not isinstance(drilldown, dict):
+        drilldown = {dim:None for dim in drilldown}
+
+    for dim, level in drilldown.items():
+        dim = cell.cube.dimension(dim)
+
+        if level:
+            hier = dim.hierarchy()
+            index = hier.level_index(level)
+            result[dim.name] = hier[:index+1]
+        else:
+            depth = depths.get(str(dim), 0)
+            result[dim.name] = drilldown_levels(dim, depth+1)
+
+    return result
+
+
+def drilldown_levels(dimension, depth, hierarchy=None):
+    """Get drilldown levels up to level at `depth`. If depth is ``None``
+    returns first level only. `dimension` has to be `Dimension` instance. """
+
+    hier = dimension.hierarchy(hierarchy)
+    depth = depth or 0
+
+    if depth > len(hier):
+        raise HierarchyError("Hierarchy %s in dimension %s has only %d levels, "
+                         "can not drill to %d" % \
+                         (hier,dimension,len(hier),depth))
+
+    return hier[:depth]

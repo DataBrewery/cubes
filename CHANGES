@@ -17,12 +17,20 @@ New Features
 * added `HierarchyError`
 * added presenters: simple_html_table, simple_data_table, text_table
 * added create_presenter(presenter_type, options ...)
+* AggregationResult.levels is a new dictionary containing levels that the
+  result was drilled down to. Keys are dimension names, values are levels.
+* AggregationResult.table_rows() output has a new variable `is_base` to denote
+  whether the row is base or not in regard to table_rows dimension.
 
 Changes
 -------
 
 * Changed string representation of a set cut: now using semicolon ';' as a
   separator instead of a plus symbol '+'
+* aggregation browser subclasses should now fill result's `levels` variable
+  with `coalesced_drilldown()` output for requested drill-down levels.
+* Moved coalesce_drilldown() from star browser to cubes.browser module to be
+  reusable by other browsers. Method might be renamed in the future.
 
 Fixes
 -----
