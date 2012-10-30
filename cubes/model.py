@@ -1809,8 +1809,10 @@ class Attribute(object):
         if type(other) != Attribute:
             return False
 
-        return self.name == other.name and self.label == other.label \
-                    and self.locales == other.locales
+        return self.name == other.name \
+                and self.label == other.label \
+                and self.locales == other.locales \
+                and str(self.dimension) == str(other.dimension)
 
     def __ne__(self,other):
         return not self.__eq__(other)
