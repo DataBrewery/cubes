@@ -6,6 +6,8 @@ from cubes.backends.sql.mapper import DEFAULT_KEY_FIELD
 import logging
 import collections
 from cubes.errors import *
+from .utils import CreateTableAsSelect, InsertIntoAsSelect
+from cubes.computation import *
 
 try:
     import sqlalchemy
@@ -432,18 +434,31 @@ class QueryContext(object):
 
         # TODO: do not ignore attributes
         cell_cond = self.condition_for_cell(cell)
-        attributes = cell_cond.attributes
 
-        if drilldown:
-            for levels in drilldown.values():
-                for level in levels:
-                    attributes |= set(level.attributes)
+        if not attributes:
+            attributes = set()
+
+            if drilldown:
+                for levels in drilldown.values():
+                    attributes |= set([level.attributes for level in levels])
+
+        attributes = set(attributes) | set(cell_cond.attributes)
 
         # TODO: add measures as well
-        join_expression = self.join_expression_for_attributes(cell_cond.attributes)
-
+        join_expression = self.join_expression_for_attributes(attributes)
         selection = []
 
+        group_by = None
+        if drilldown:
+            group_by = []
+            for dim, levels in drilldown.items():
+                for level in levels:
+                    columns = [self.column(attr) for attr in level.attributes
+                                                        if attr in attributes]
+                    group_by.extend(columns)
+                    selection.extend(columns)
+
+        # Measures
         if measures is None:
             measures = self.cube.measures
 
@@ -455,18 +470,7 @@ class QueryContext(object):
         # TODO: make this label configurable (should we?)
         # TODO: make presence of this configurable (shoud we?)
         rcount_label = "record_count"
-
         selection.append(sql.functions.count().label(rcount_label))
-
-        group_by = None
-
-        if drilldown:
-            group_by = []
-            for dim, levels in drilldown.items():
-                for level in levels:
-                    columns = [self.column(attr) for attr in level.attributes]
-                    group_by.extend(columns)
-                    selection.extend(columns)
 
         select = sql.expression.select(selection,
                                     whereclause=cell_cond.condition,
@@ -1020,8 +1024,31 @@ class SQLStarWorkspace(object):
                               **self.options)
         return browser
 
-    def create_denormalized_view(self, cube, view_name=None, materialize=False, 
-                                 replace=False, create_index=False, 
+    def _drop_table(self, table, schema, force=False):
+        """Drops `table` in `schema`. If table exists, exception is raised
+        unless `force` is ``True``"""
+
+        view_name = str(table)
+        preparer = self.engine.dialect.preparer(self.engine.dialect)
+        full_name = preparer.format_table(table)
+
+        if table.exists() and not force:
+            raise WorkspaceError("View or table %s (schema: %s) already exists." % \
+                               (view_name, schema))
+
+        inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.engine)
+        view_names = inspector.get_view_names(schema=schema)
+
+        if view_name in view_names:
+            # Table reflects a view
+            drop_statement = "DROP VIEW %s" % full_name
+            self.engine.execute(drop_statement)
+        else:
+            # Table reflects a table
+            table.drop(checkfirst=False)
+
+    def create_denormalized_view(self, cube, view_name=None, materialize=False,
+                                 replace=False, create_index=False,
                                  keys_only=False, schema=None):
         """Creates a denormalized view named `view_name` of a `cube`. If
         `view_name` is ``None`` then view name is constructed by pre-pending
@@ -1066,30 +1093,17 @@ class SQLStarWorkspace(object):
         dview_prefix = self.options.get("denormalized_view_prefix","")
         view_name = view_name or dview_prefix + cube.name
 
+        if mapper.fact_name == view_name and schema == mapper.schema:
+            raise WorkspaceError("target denormalized view is the same as source fact table")
+
         table = sqlalchemy.Table(view_name, self.metadata,
                                  autoload=False, schema=schema)
 
         preparer = self.engine.dialect.preparer(self.engine.dialect)
         full_name = preparer.format_table(table)
 
-        if mapper.fact_name == view_name and schema == mapper.schema:
-            raise WorkspaceError("target denormalized view is the same as source fact table")
-
         if table.exists():
-            if not replace:
-                raise WorkspaceError("View or table %s (schema: %s) already exists." % \
-                                   (view_name, schema))
-
-            inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.engine)
-            view_names = inspector.get_view_names(schema=schema)
-
-            if view_name in view_names:
-                # Table reflects a view
-                drop_statement = "DROP VIEW %s" % full_name
-                self.engine.execute(drop_statement)
-            else:
-                # Table reflects a table
-                table.drop(checkfirst=False)
+            self._drop_table(table, schema, force=replace)
 
         if materialize:
             create_stat = "CREATE TABLE"
@@ -1146,3 +1160,91 @@ class SQLStarWorkspace(object):
             issues += browser.validate()
 
         return issues
+
+    def compute(self, cube, dimensions):
+        pass
+
+
+    def create_aggregated_cube(self, cube, table_name=None, dimensions=None,
+                                schema=None, replace=False):
+        """Creates an aggregate table. If dimensions is `None` then all cube's
+        dimensions are considered.
+
+        Arguments:
+
+        * `prefix`: aggregated table prefix
+
+        """
+
+        schema = schema or self.options.get("aggregated_cubes_schema") or self.schema
+        prefix = self.options.get("aggregated_cubes_prefix","")
+        table_name = table_name or prefix + cube.name
+
+        cube = self.model.cube(cube)
+        dimensions = dimensions or cube.dimensions
+
+        # Collect keys that are going to be used for aggregations
+        keys = []
+        for dimension in dimensions:
+            keys += [level.key for level in dimension.hierarchy().levels]
+
+        mapper = SnowflakeMapper(cube, cube.mappings, **self.options)
+        context = QueryContext(cube, mapper, metadata=self.metadata)
+
+        if mapper.fact_name == table_name and schema == mapper.schema:
+            raise WorkspaceError("target is the same as source fact table")
+
+        drilldown = {}
+
+        for dim in dimensions:
+            level = dim.hierarchy().levels[-1]
+            drilldown[str(dim)] = level
+
+        cell = Cell(cube)
+        drilldown = coalesce_drilldown(cell, drilldown)
+
+        statement = context.aggregation_statement(cell,
+                                                  attributes=keys,
+                                                  drilldown=drilldown)
+
+
+        #
+        # Create table
+        #
+        table = sqlalchemy.Table(table_name, self.metadata,
+                                 autoload=False, schema=schema)
+
+        if table.exists():
+            self._drop_table(table, schema, force=replace)
+
+        for col in statement.columns:
+            new_col = sqlalchemy.Column(str(col), col.type)
+            table.append_column(new_col)
+
+        self.logger.info("creating aggregation table '%s'" % str(table))
+        self.metadata.create_all(tables=[table])
+
+        connection = self.engine.connect()
+
+        cuboids = hierarchical_cuboids(dimensions)
+        for cuboid in cuboids:
+            self.logger.info("aggregating cuboid %s" % (cuboid, ) )
+
+            dd = {}
+            keys = None
+            for dim, level in cuboid:
+                dd[str(dim)] = level
+                dim = cube.dimension(dim)
+                hier = dim.hierarchy()
+                levels = hier.levels_for_depth(hier.level_index(level)+1)
+                keys = [l.key for l in levels]
+
+            dd = coalesce_drilldown(cell, dd)
+
+            statement = context.aggregation_statement(cell,
+                                                      attributes=keys,
+                                                      drilldown=drilldown)
+            self.logger.info("inserting")
+            insert = InsertIntoAsSelect(table, statement,
+                                  columns=statement.columns)
+            connection.execute(str(insert))
