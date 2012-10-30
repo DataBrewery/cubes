@@ -9,6 +9,7 @@ from workspace import *
 from errors import *
 from server import *
 from presenter import *
+from computation import *
 
 import backends
 
@@ -22,4 +23,5 @@ __all__ += model.__all__
 __all__ += workspace.__all__
 __all__ += server.__all__
 __all__ += presenter.__all__
+__all__ += computation.__all__
 
