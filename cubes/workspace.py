@@ -11,10 +11,10 @@ __all__ = [
 ]
 
 backend_aliases = {
-    "sql": "sql.star"
+    "sql": "sql.workspace"
 }
 
-DEFAULT_BACKEND = "sql.browser"
+DEFAULT_BACKEND = "sql"
 
 def get_backend(backend_name):
     """Finds the backend with name `backend_name`. First try to find backend
