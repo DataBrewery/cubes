@@ -22,6 +22,11 @@ New Features
 * AggregationResult.table_rows() output has a new variable `is_base` to denote
   whether the row is base or not in regard to table_rows dimension.
 
+* added sql worskspace functions:
+  * create_conformed_rollup()
+  * create_conformed_rollups()
+  * create_cube_aggregate()
+
 Changes
 -------
 

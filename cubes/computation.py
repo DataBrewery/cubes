@@ -1,3 +1,4 @@
+from cubes.errors import *
 import itertools
 
 __all__ = [
@@ -6,15 +7,32 @@ __all__ = [
         "hierarchical_cuboids"
         ]
 
-def combined_cuboids(dimensions):
+def combined_cuboids(dimensions, required=None):
     """Returns a list of all combinations of `dimensions` as tuples. For
     example, if `dimensions` is: ``['date', 'product']`` then it returs::
 
         ``[['date', 'cpv'], ['date'], ['cpv']]``
     """
+
+    required = tuple(required) if required else ()
+
+    for dim in required:
+        if dim not in dimensions:
+            raise ArgumentError("Required dimension '%s' is not in list of "
+                                "dimensions to be combined." % str(dim))
+
     cuboids = []
-    for i in range(len(dimensions), 0, -1):
-        cuboids += tuple(itertools.combinations(dimensions, i))
+    to_combine = [dim for dim in dimensions if not dim in required]
+
+    for i in range(len(to_combine), 0, -1):
+        combos = itertools.combinations(to_combine, i)
+        combos = [required+combo for combo in combos]
+
+        cuboids += tuple(combos)
+
+    if required:
+        cuboids = [required] + cuboids
+
     return cuboids
 
 def combined_levels(dimensions):
@@ -30,9 +48,9 @@ def combined_levels(dimensions):
     return tuple(itertools.product(*groups))
 
 
-def hierarchical_cuboids(dimensions):
+def hierarchical_cuboids(dimensions, required=None):
     """Returns a list of cuboids with all hierarchical level combinations."""
-    cuboids = combined_cuboids(dimensions)
+    cuboids = combined_cuboids(dimensions, required)
 
     result = []
     for cuboid in cuboids:
