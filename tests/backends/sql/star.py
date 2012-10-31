@@ -17,8 +17,8 @@ class StarSQLTestCase(unittest.TestCase):
             "cubes": [
                 {
                     "name": "sales",
-                    "measures": [ 
-                            {"name":"amount", "aggregations":["sum", "min"]}, 
+                    "measures": [
+                            {"name":"amount", "aggregations":["sum", "min"]},
                             "discount"
                             ],
                     "dimensions" : ["date", "flag", "product"],
@@ -119,139 +119,11 @@ class StarSQLTestCase(unittest.TestCase):
 
         self.model = cubes.create_model(model_desc)
         self.cube = self.model.cube("sales")
-        self.browser = StarBrowser(self.cube,connectable=self.connection, 
+        self.browser = SnowflakeBrowser(self.cube,connectable=self.connection,
                                     dimension_prefix="dim_")
         self.browser.debug = True
         self.cube.fact = 'sales'
         self.mapper = self.browser.mapper
-
-class StarSQLAttributeMapperTestCase(StarSQLTestCase):
-    def setUp(self):
-        super(StarSQLAttributeMapperTestCase, self).setUp()
-        self.mapper.mappings = { 
-                    "product.name": "product.product_name",
-                    "product.category": "product.category_id",
-                    "subcategory.name.en": "subcategory.subcategory_name_en",
-                    "subcategory.name.sk": "subcategory.subcategory_name_sk" 
-                }
-
-    def test_valid_model(self):
-        """Model is valid"""
-        self.assertEqual(True, self.model.is_valid())
-
-    def test_logical_reference(self):
-
-        attr = cubes.Attribute("month",dimension=self.model.dimension("date"))
-        self.assertEqual("date.month", self.mapper.logical(attr))
-
-        attr = cubes.Attribute("category",dimension=self.model.dimension("product"))
-        self.assertEqual("product.category", self.mapper.logical(attr))
-
-        self.assertEqual(True, self.mapper.simplify_dimension_references)
-        attr = cubes.Attribute("flag",dimension=self.model.dimension("flag"))
-        self.assertEqual("flag", self.mapper.logical(attr))
-
-        attr = cubes.Attribute("measure",dimension=None)
-        self.assertEqual("measure", self.mapper.logical(attr))
-
-    def test_logical_reference_as_string(self):
-        self.assertRaises(AttributeError, self.mapper.logical, "amount")
-
-    def test_dont_simplify_dimension_references(self):
-        self.mapper.simplify_dimension_references = False
-
-        attr = cubes.Attribute("flag",dimension=self.model.dimension("flag"))
-        self.assertEqual("flag.flag", self.mapper.logical(attr))
-
-        attr = cubes.Attribute("measure",dimension=None)
-        self.assertEqual("measure", self.mapper.logical(attr))
-
-    def test_logical_split(self):
-        split = self.mapper.split_logical
-
-        self.assertEqual(('foo', 'bar'), split('foo.bar'))
-        self.assertEqual(('foo', 'bar.baz'), split('foo.bar.baz'))
-        self.assertEqual((None, 'foo'), split('foo'))
-
-    def assertMapping(self, expected, logical_ref, locale = None):
-        """Create string reference by concatentanig table and column name.
-        No schema is expected (is ignored)."""
-
-        attr = self.mapper.attributes[logical_ref]
-        ref = self.mapper.physical(attr, locale)
-        sref = ref[1] + "." + ref[2]
-        self.assertEqual(expected, sref)
-
-    def test_physical_refs_dimensions(self):
-        """Testing correct default mappings of dimensions (with and without 
-        explicit default prefix) in physical references."""
-
-        # No dimension prefix
-        self.mapper.dimension_prefix = None
-        dim = self.model.dimension("product")
-        self.assertMapping("date.year", "date.year")
-        self.assertMapping("sales.flag", "flag")
-        self.assertMapping("sales.amount", "amount")
-        # self.assertEqual("fact.flag", sref("flag.flag"))
-
-        # With prefix
-        self.mapper.dimension_prefix = "dm_"
-        self.assertMapping("dm_date.year", "date.year")
-        self.assertMapping("dm_date.month_name", "date.month_name")
-        self.assertMapping("sales.flag", "flag")
-        self.assertMapping("sales.amount", "amount")
-        self.mapper.dimension_prefix = None
-
-    def test_coalesce_physical(self):
-        def assertPhysical(expected, actual, default=None):
-            ref = coalesce_physical(actual, default)
-            self.assertEqual(expected, ref)
-
-        assertPhysical((None, "table", "column", None), "table.column")
-        assertPhysical((None, "table", "column.foo", None), "table.column.foo")
-        assertPhysical((None, "table", "column", None), ["table", "column"])
-        assertPhysical(("schema", "table", "column", None), ["schema","table", "column"])
-        assertPhysical((None, "table", "column", None), {"column":"column"}, "table")
-        assertPhysical((None, "table", "column", None), {"table":"table",
-                                                        "column":"column"})
-        assertPhysical(("schema", "table", "column", None), {"schema":"schema",
-                                                        "table":"table",
-                                                        "column":"column"})
-        assertPhysical(("schema", "table", "column", "day"), {"schema":"schema",
-                                                        "table":"table",
-                                                        "column":"column",
-                                                        "extract":"day"})
-
-    def test_physical_refs_flat_dims(self):
-        self.cube.fact = None
-        self.assertMapping("sales.flag", "flag")
-
-    def test_physical_refs_facts(self):
-        """Testing correct mappings of fact attributes in physical references"""
-
-        fact = self.cube.fact
-        self.cube.fact = None
-        self.assertMapping("sales.amount", "amount")
-        # self.assertEqual("sales.flag", sref("flag.flag"))
-        self.cube.fact = fact
-        
-    def test_physical_refs_with_mappings_and_locales(self):
-        """Testing correct mappings of mapped attributes and localized 
-        attributes in physical references"""
-
-        # Test defaults
-        self.assertMapping("dim_date.month_name", "date.month_name")
-        self.assertMapping("dim_category.category_name_en", "product.category_name")
-        self.assertMapping("dim_category.category_name_sk", "product.category_name", "sk")
-        self.assertMapping("dim_category.category_name_en", "product.category_name", "de")
-
-        # Test with mapping
-        self.assertMapping("dim_product.product_name", "product.name")
-        self.assertMapping("dim_product.category_id", "product.category")
-        self.assertMapping("dim_product.product_name", "product.name", "sk")
-        self.assertMapping("dim_category.subcategory_name_en", "product.subcategory_name")
-        self.assertMapping("dim_category.subcategory_name_sk", "product.subcategory_name", "sk")
-        self.assertMapping("dim_category.subcategory_name_en", "product.subcategory_name", "de")
 
 
 class QueryContextTestCase(StarSQLTestCase):
@@ -448,7 +320,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
     def table(self, name):
         return sqlalchemy.Table(name, self.metadata,
                                 autoload=True)
-    
+
     def test_get_fact(self):
         """Get single fact"""
         self.assertEqual(True, self.mapper.simplify_dimension_references)
@@ -469,7 +341,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         values = list(self.browser.values(None,"product",3))
         self.assertIsNotNone(values)
         self.assertEqual(10, len(values))
-        
+
     def test_cut_details(self):
         cut = cubes.PointCut("date", [2012])
         details = self.browser.cut_details(cut)
@@ -511,7 +383,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
                 [{"product.category":10, "product.category_name": "Things",
                   "_key":10, "_label": "Things"}]
                         ], details)
-        
+
     def test_aggregation_for_measures(self):
         context = self.browser.context
 
@@ -536,7 +408,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         keys = sorted(result.summary.keys())
         self.assertEqual(2, len(keys))
         self.assertEqual(["discount_sum", "record_count"], keys)
-        
+
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):
         """Aggregation result should: SELECT from fact only"""
@@ -571,11 +443,8 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         pass
 
 
-    # def test_measure_selection(self):
-        
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(StarSQLAttributeMapperTestCase))
     suite.addTest(unittest.makeSuite(JoinsTestCase))
     suite.addTest(unittest.makeSuite(StarSQLBrowserTestCase))
     suite.addTest(unittest.makeSuite(StarValidationTestCase))
