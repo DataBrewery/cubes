@@ -3,6 +3,8 @@ from .star import SnowflakeBrowser, QueryContext
 from cubes.mapper import SnowflakeMapper, DenormalizedMapper
 from cubes.common import get_logger
 from cubes.errors import *
+from cubes.browser import *
+from cubes.computation import *
 
 from .utils import CreateTableAsSelect, InsertIntoAsSelect
 
@@ -292,9 +294,13 @@ class SQLStarWorkspace(object):
         * UNIQUE level key: join might be based on level key
     """
 
+    def _create_indexes(self, table, columns, schema=None):
+        """Create indexes on `table` in `schema` for `columns`"""
 
-    def extract_dimension(self, cube, dimension, level=None, hierarchy=None,
-                          schema=None, dimension_prefix=None, replace=False):
+        raise NotImplementedError
+
+    def create_conformed_rollup(self, cube, dimension, level=None, hierarchy=None,
+                                schema=None, dimension_prefix=None, replace=False):
         """Extracts dimension values at certain level into a separate table.
         The new table name will be composed of `dimension_prefix`, dimension
         name and suffixed by dimension level. For example a product dimension
@@ -342,8 +348,8 @@ class SQLStarWorkspace(object):
         self._create_table_from_statement(table_name, statement, schema,
                                             replace, insert=True)
 
-    def extract_dimensions(self, cube, dimensions, grain=None, schema=None,
-                            dimension_prefix=None, replace=False):
+    def create_conformed_rollups(self, cube, dimensions, grain=None, schema=None,
+                                 dimension_prefix=None, replace=False):
         """Extract multiple dimensions from a snowflake. See
         `extract_dimension()` for more information. `grain` is a dictionary
         where keys are dimension names and values are levels, if level is
@@ -404,8 +410,9 @@ class SQLStarWorkspace(object):
                                                   columns=statement.columns)
             self.engine.execute(str(insert_statement))
 
+        return table
 
-    def create_aggregated_cube(self, cube, table_name=None, dimensions=None,
+    def create_cube_aggregate(self, cube, table_name=None, dimensions=None,
                                 required_dimensions=None, schema=None,
                                 replace=False):
         """Creates an aggregate table. If dimensions is `None` then all cube's
@@ -459,12 +466,13 @@ class SQLStarWorkspace(object):
         #
         # Create table
         #
-        self._create_table_from_statement(statement, schema=schema,
-                                          replace=replace, insert=False)
+        table = self._create_table_from_statement(table_name, statement,
+                                schema=schema, replace=replace, insert=False)
 
         connection = self.engine.connect()
 
-        cuboids = hierarchical_cuboids(dimensions)
+        cuboids = hierarchical_cuboids(dimensions,
+                                        required=required_dimensions)
 
         for cuboid in cuboids:
 
