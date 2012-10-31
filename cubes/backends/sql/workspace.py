@@ -368,7 +368,7 @@ class SQLStarWorkspace(object):
 
             for depth in range(0,level_index):
                 level = hierarchy[depth]
-                self.extract_dimension(cube, dim, level=level,
+                self.create_conformed_rollup(cube, dim, level=level,
                                     schema=schema,
                                     dimension_prefix=dimension_prefix,
                                     replace=replace)
