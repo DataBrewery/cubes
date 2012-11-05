@@ -439,7 +439,8 @@ class QueryContext(object):
 
             if drilldown:
                 for levels in drilldown.values():
-                    attributes |= set([level.attributes for level in levels])
+                    for level in levels:
+                        attributes |= set(level.attributes)
 
         attributes = set(attributes) | set(cell_cond.attributes)
 
