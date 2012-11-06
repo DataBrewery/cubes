@@ -1,7 +1,7 @@
 import logging
 import sets
 import cubes.model as model
-from mapper import DEFAULT_KEY_FIELD
+from cubes.mapper import DEFAULT_KEY_FIELD
 try:
     import sqlalchemy
     import sqlalchemy.sql.expression as expression
@@ -10,21 +10,21 @@ except:
     pass
 
 import collections
-    
+
 __all__ = [
     "SQLDenormalizer"
-]    
+]
 
 Attribute = collections.namedtuple("Attribute", "attribute, alias, dimension, locales")
 
 class SQLDenormalizer(object):
     """Star/Snowflake schema denormalizer, uses SQL alchemy"""
-    
+
     capabilities = ["localization"]
-    
+
     def __init__(self, cube, connection = None, schema = None, dimension_table_prefix = None):
         """Creates a simple SQL view builder.
-        
+
         :Parameters:
             * `cube` - cube from logical model
             * `connection` - database connection, default None if you want only to create SELECT statement
@@ -32,20 +32,20 @@ class SQLDenormalizer(object):
               mapping for dimension attribute. Say you have dimension `supplier` and field `name` and
               dimension table prefix ``dm_`` then default physical mapping for that field would be:
               ``dm_supplier.name``
-        
+
         """
         if not cube:
             raise ValueError("Cube should be not null")
-            
+
         self.expression = None
-        
+
         self.cube = cube
         self.select_statement = None
         self.field_names = []
         self.table_aliases = {}
         self.schema = schema
         self.tables = {}
-        
+
         self.logger = logging.getLogger(__name__)
 
         # Use fact table name from model specification. If there is no fact specified, we assume
@@ -65,9 +65,9 @@ class SQLDenormalizer(object):
         for measure in self.cube.measures:
             # print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
             self.cube_attributes.append(str(measure))
-        
+
         self.dimension_table_prefix = dimension_table_prefix
-     
+
         if connection:
             self.connection = connection
             self.engine = self.connection.engine
@@ -86,18 +86,18 @@ class SQLDenormalizer(object):
 
     def denormalized_view(self):
         """Returns SQLAlchemy expression representing select from denormalized view."""
-        
+
         if not self.expression:
             self._create_view_expression()
 
         return self.expression
-        
+
     def _create_view_expression(self):
         """Creates a view expression - SQLAlchemy expression statement.
         """
 
         self.expression = None
-        
+
         self.index_attributes = []
 
         self._collect_attributes()
@@ -110,7 +110,7 @@ class SQLDenormalizer(object):
         # count = self.connection.execute(selection).rowcount
         # self.logger.info("rows: %d" % count)
         # self.logger.info("rows: %d" % self.connection.execute(self.fact_table.select()).rowcount)
-    
+
     def create_view(self, view_name, schema=None, index=False, materialize=True):
         """Creates a view.
 
@@ -150,7 +150,7 @@ class SQLDenormalizer(object):
                 name = "idx_%s_%s" % (view_name, attribute.alias)
                 index = sqlalchemy.schema.Index(name, column)
                 index.create(self.engine)
-                
+
     def _collect_attributes(self):
         """Collect all attributes from model and create mappings from logical to physical
         representation
@@ -168,7 +168,7 @@ class SQLDenormalizer(object):
 
         for attribute in self.cube.details:
             self.attributes.append( Attribute(attribute.name, str(attribute.name), None, None) )
-            
+
         # FIXME: refactor this
         for dim in self.cube.dimensions:
             # Treat flat dimensions with no hierarchies differently here
@@ -209,7 +209,7 @@ class SQLDenormalizer(object):
             master_name, master_key = self.split_field(join["master"])
             if not master_name:
                 master_name = self.fact_name
-                
+
             detail_name, detail_key = self.split_field(join["detail"])
             alias = join.get("alias")
 
@@ -234,27 +234,27 @@ class SQLDenormalizer(object):
 
     def _collect_columns(self):
         """Collect selected columns
-        
+
         Rules:
             * dimension field is mapped as "dimname.attribute"
             * fact field is mapped as "attribute"
-        
+
         """
         self.logger.info("building mappings...")
         # self.mappings = {}
 
         self.columns = []
-        
+
         for attribute in self.attributes:
             if attribute.locales:
                 for locale in attribute.locales:
                     self.columns.append(self._select_column(attribute, locale))
             else:
                 self.columns.append(self._select_column(attribute))
-                
+
     def _select_column(self, attribute, locale = None):
         """get select column"""
-        
+
         if locale:
             localized_alias = attribute.alias + "." + locale
         else:
@@ -284,13 +284,13 @@ class SQLDenormalizer(object):
             # FIXME: make this work
             if locale:
                 mapping = mapping + "_" + locale
-                
+
             self.logger.debug("  defaulting to: %s" % mapping)
 
         (table_name, field_name) = self.split_field(mapping)
         if not table_name:
             table_name = self.fact_name
-            
+
         table = self.table(table_name)
 
         try:
@@ -298,11 +298,11 @@ class SQLDenormalizer(object):
         except KeyError:
             raise model.ModelError("Mapped column '%s' does not exist (as %s.%s)" \
                                         % (localized_alias, table_name, field_name) )
-        
+
         self.logger.debug("adding column %s as %s" % (column, localized_alias))
         # self.mappings[localized_alias] = column
         return expression.label(localized_alias, column)
-            
+
     def split_field(self, field):
         """Split field into table and field name: before first '.' is table name, everything else
         is field name. If there is no '.', then table name is None."""
@@ -313,7 +313,7 @@ class SQLDenormalizer(object):
             return (table_name, field_name)
         else:
             return (None, field)
-    
+
     def table(self, table_name):
         """Get a table with name `table_name`. If table was not yet collected (while collecting joins)
         then raise an exception. If `alias` is specified, then table will be registered as known under
@@ -338,9 +338,9 @@ class SQLDenormalizer(object):
         self.logger.debug("registering table '%s' as '%s'" % (table_name, register_name))
         self.tables[register_name] = table
         return table
-        
+
     def _table(self, table_name, schema = None, autoload = True):
-        table = sqlalchemy.Table(table_name, self.metadata, 
-                                     autoload = autoload, 
+        table = sqlalchemy.Table(table_name, self.metadata,
+                                     autoload = autoload,
                                      schema = schema)
         return table
