@@ -1179,6 +1179,26 @@ class AggregationResult(object):
 
         return cross_table(self.drilldown, onrows, oncolumns, measures)
 
+    def __iter__(self):
+        """Return cells as iterator"""
+        return self.cells
+
+
+    def cached(self):
+        """Return shallow copy of the receiver with cached cells. If cells are
+        an iterator, they are all fetched in a list."""
+        result = AggregationResult()
+        result.cell = self.cell
+        result.measures = self.measures
+        result.levels = self.levels
+        result.summary = self.summary
+        result.total_cell_count = self.total_cell_count
+        result.remainder = self.remainder
+
+        # Cache cells from an iterator
+        result.cells = list(self.cells)
+        return result
+
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 
 def cross_table(drilldown, onrows, oncolumns, measures=None):
