@@ -257,7 +257,7 @@ class RickshawMultiSeriesPresenter(Presenter):
         series = []
         rows = [series_level.key.ref(), series_level.label_attribute.ref()]
         columns = [values_level.key.ref(), values_level.label_attribute.ref()]
-        print "rows: %s cols: %s" % (rows, columns)
+
         cross_table = result.cross_table(onrows=rows, oncolumns=columns,
                                          measures = [aggregated_measure])
 
@@ -266,10 +266,15 @@ class RickshawMultiSeriesPresenter(Presenter):
             for x, value in enumerate(row):
                 data.append({"x":x, "y":value[0]})
 
-            series_dict = { "data": data }
+            # Series label is in row heading at index 1
+            series_dict = {
+                            "data": data,
+                            "name": head[1]
+                          }
             # Use dimension key for color
             if color_map:
                 series_dict["color"] = color_map.get(str(head[0]))
+
             series.append(series_dict)
 
         return series
