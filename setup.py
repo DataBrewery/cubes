@@ -17,7 +17,7 @@ setup(
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        'cubes': ['templates/*.html'],
+        'cubes': ['templates/*.html', 'templates/*.js'],
         'cubes.server': ['templates/*.html']
     },
 
