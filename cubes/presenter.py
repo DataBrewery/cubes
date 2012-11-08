@@ -1,3 +1,4 @@
+# -*- coding=utf -*-
 from .errors import *
 from StringIO import StringIO
 from .model import split_aggregate_ref
@@ -204,4 +205,72 @@ class SimpleHTMLTablePresenter(Presenter):
                                       table_style=self.table_style,
                                       is_last=is_last)
         return output
+
+class RickshawSeriesPresenter(Presenter):
+    """Presenter for series to be used in Rickshaw JavaScript charting
+    library.
+
+    Library URL: http://code.shutterstock.com/rickshaw/"""
+
+    def present(self, result, aggregated_measure):
+        data = []
+        for x, row in enumerate(result):
+            data.append({"x":x, "y":row[aggregated_measure]})
+        return data
+
+
+class RickshawMultiSeriesPresenter(Presenter):
+    """Presenter for series to be used in Rickshaw JavaScript charting
+    library.
+
+    Library URL: http://code.shutterstock.com/rickshaw/"""
+
+    def present(self, result, series_dimension, values_dimension,
+                aggregated_measure,
+                color_map=None):
+        """Provide multiple series. Result is expected to be ordered.
+
+        Arguments:
+            * `result` – AggregationResult object
+            * `series_dimension` – dimension used for split to series
+            * `value_dimension` – dimension used to get values
+            * `aggregated_measure` – measure attribute to be plotted
+            * `color_map` – map between dimension keys and colors, the map
+              keys should be strings.
+        """
+
+        color_map = color_map or {}
+
+        cube = result.cell.cube
+        series_dimension = cube.dimension(series_dimension)
+        values_dimension = cube.dimension(values_dimension)
+        try:
+            series_level = result.levels[str(series_dimension)][-1]
+        except KeyError:
+            raise CubesError("Result was not drilled down by dimension '%s'" \
+                                % str(series_dimension))
+        try:
+            values_level = result.levels[str(values_dimension)][-1]
+        except KeyError:
+            raise CubesError("Result was not drilled down by dimension '%s'" \
+                                % str(values_dimension))
+        series = []
+        rows = [series_level.key.ref(), series_level.label_attribute.ref()]
+        columns = [values_level.key.ref(), values_level.label_attribute.ref()]
+        print "rows: %s cols: %s" % (rows, columns)
+        cross_table = result.cross_table(onrows=rows, oncolumns=columns,
+                                         measures = [aggregated_measure])
+
+        for head, row in zip(cross_table.rows, cross_table.data):
+            data = []
+            for x, value in enumerate(row):
+                data.append({"x":x, "y":value[0]})
+
+            series_dict = { "data": data }
+            # Use dimension key for color
+            if color_map:
+                series_dict["color"] = color_map.get(str(head[0]))
+            series.append(series_dict)
+
+        return series
 
