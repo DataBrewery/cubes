@@ -1177,11 +1177,11 @@ class AggregationResult(object):
 
         """
 
-        return cross_table(self.drilldown, onrows, oncolumns, measures)
+        return cross_table(self.cells, onrows, oncolumns, measures)
 
     def __iter__(self):
         """Return cells as iterator"""
-        return self.cells
+        return iter(self.cells)
 
 
     def cached(self):
