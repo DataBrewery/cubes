@@ -31,7 +31,7 @@ def create_presenter(presenter_type, *args, **kwargs):
     global _presenters
 
     if not _presenters:
-        _presenters = collect_presenters()
+        _presenters = collect_subclasses(Presenter, "_presenter")
 
     try:
         presenter_factory = _presenters[presenter_type]
@@ -39,19 +39,6 @@ def create_presenter(presenter_type, *args, **kwargs):
         raise CubesError("unknown presenter '%s'" % presenter_type)
 
     return presenter_factory(*args, **kwargs)
-
-def collect_presenters():
-    """Collect all subclasses of Presenter and return a dictionary where keys
-    are decamelized class names transformed to identifiers and with
-    `presenter` suffix removed."""
-    presenters = {}
-    for c in subclass_iterator(Presenter):
-        name = to_identifier(decamelize(c.__name__))
-        if name.endswith("_presenter"):
-            name = name[:-10]
-        presenters[name] = c
-
-    return presenters
 
 def _jinja_env():
     """Create and return cubes jinja2 environment"""
@@ -218,6 +205,8 @@ class RickshawSeriesPresenter(Presenter):
             data.append({"x":x, "y":row[aggregated_measure]})
         return data
 
+_default_ricshaw_palette = ["mediumorchid", "steelblue", "turquoise",
+                            "mediumseagreen", "gold", "orange", "tomato"]
 
 class RickshawMultiSeriesPresenter(Presenter):
     """Presenter for series to be used in Rickshaw JavaScript charting
@@ -227,7 +216,7 @@ class RickshawMultiSeriesPresenter(Presenter):
 
     def present(self, result, series_dimension, values_dimension,
                 aggregated_measure,
-                color_map=None):
+                color_map=None, color_palette=None):
         """Provide multiple series. Result is expected to be ordered.
 
         Arguments:
@@ -235,11 +224,19 @@ class RickshawMultiSeriesPresenter(Presenter):
             * `series_dimension` – dimension used for split to series
             * `value_dimension` – dimension used to get values
             * `aggregated_measure` – measure attribute to be plotted
-            * `color_map` – map between dimension keys and colors, the map
-              keys should be strings.
+            * `color_map` – The dictionary is a map between dimension keys and
+              colors, the map keys should be strings.
+            * `color_palette` – List of colors that will be cycled for each
+              series.
+
+        Note: you should use either color_map or color_palette, not both.
         """
 
+        if color_map and color_palette:
+            raise CubesError("Use either color_map or color_palette, not both")
+
         color_map = color_map or {}
+        color_palette = color_palette or _default_ricshaw_palette
 
         cube = result.cell.cube
         series_dimension = cube.dimension(series_dimension)
@@ -261,6 +258,8 @@ class RickshawMultiSeriesPresenter(Presenter):
         cross_table = result.cross_table(onrows=rows, oncolumns=columns,
                                          measures = [aggregated_measure])
 
+        color_index = 0
+
         for head, row in zip(cross_table.rows, cross_table.data):
             data = []
             for x, value in enumerate(row):
@@ -274,6 +273,9 @@ class RickshawMultiSeriesPresenter(Presenter):
             # Use dimension key for color
             if color_map:
                 series_dict["color"] = color_map.get(str(head[0]))
+            elif color_palette:
+                color_index = (color_index + 1) % len(color_palette)
+                series_dict["color"] = color_palette[color_index]
 
             series.append(series_dict)
 
