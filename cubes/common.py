@@ -18,6 +18,7 @@ __all__ = [
     "get_localizable_attributes",
     "decamelize",
     "to_identifier",
+    "collect_subclasses"
 ]
 
 logger_name = "cubes"
@@ -176,3 +177,15 @@ def decamelize(name):
 def to_identifier(name):
     return re.sub(r' ', r'_', name).lower()
 
+def collect_subclasses(parent, suffix=None):
+    """Collect all subclasses of `parent` and return a dictionary where keys
+    are decamelized class names transformed to identifiers and with
+    `suffix` removed."""
+    presenters = {}
+    for c in subclass_iterator(parent):
+        name = to_identifier(decamelize(c.__name__))
+        if suffix and name.endswith(suffix):
+            name = name[:-len(suffix)]
+        presenters[name] = c
+
+    return presenters
