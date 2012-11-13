@@ -13,7 +13,6 @@ except ImportError:
 __all__ = [
             "create_presenter",
             "register_presenter",
-            "collect_presenters",
             "TextTablePresenter",
             "SimpleDataTablePresenter",
             "SimpleHTMLTablePresenter"
