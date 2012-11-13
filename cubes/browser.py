@@ -56,6 +56,7 @@ class AggregationBrowser(object):
         self.cube = cube
 
     def full_cube(self):
+        # FIXME: Depreciate this method in favor of Cell(cube)
         return Cell(self.cube)
 
     def dimension_object(self, dimension):
