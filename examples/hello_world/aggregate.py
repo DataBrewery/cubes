@@ -10,7 +10,7 @@ cube = model.cube("irbd_balance")
 
 # 3. Create a browser and get a cell representing the whole cube (all data)
 browser = workspace.browser(cube)
-cell = browser.full_cube()
+cell = cubes.Cell(cube)
 
 # 4. Play with aggregates
 result = browser.aggregate(cell)
