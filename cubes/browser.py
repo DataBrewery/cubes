@@ -1266,7 +1266,7 @@ def coalesce_drilldown(cell, drilldown):
 
     # If the drilldown is a list, convert it into a dictionary
     if not isinstance(drilldown, dict):
-        drilldown = {dim:None for dim in drilldown}
+        drilldown = dict((dim,None) for dim in drilldown)
 
     for dim, level in drilldown.items():
         dim = cell.cube.dimension(dim)
