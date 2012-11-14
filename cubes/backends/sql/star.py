@@ -1,4 +1,6 @@
 # -*- coding=utf -*-
+# Actually, this is a furry snowflake, not a nice star
+
 from cubes.browser import *
 from cubes.common import get_logger
 from cubes.mapper import SnowflakeMapper, DenormalizedMapper
@@ -671,8 +673,8 @@ class QueryContext(object):
         return Condition(attributes,condition)
 
     def range_condition(self, dim, hierarchy, from_path, to_path):
-        """Return a condition for range (`from_path`, `to_path`). Return
-        value is a `Condition` tuple."""
+        """Return a condition for a hierarchical range (`from_path`,
+        `to_path`). Return value is a `Condition` tuple."""
 
         dim = self.cube.dimension(dim)
 
@@ -737,7 +739,7 @@ class QueryContext(object):
         condition = sql.expression.and_(*conditions)
         attributes |= last.attributes
 
-        if last.condition:
+        if last.condition is not None:
             condition = sql.expression.or_(condition, last.condition)
 
         return Condition(attributes, condition)
