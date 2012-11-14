@@ -440,7 +440,7 @@ class SnowflakeMapper(Mapper):
         if not self.joins:
             self.logger.debug("no joins to be searched for")
 
-        tables_to_join = {(ref[0], ref[1]) for ref in attributes}
+        tables_to_join = set((ref[0], ref[1]) for ref in attributes)
         joined_tables = set()
         joined_tables.add( (self.schema, self.fact_name) )
 
