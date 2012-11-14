@@ -83,7 +83,7 @@ Get a cube and :class:`browser<cubes.AggregationBrowser>` for the cube:
 :class:`cell<cubes.Cell>` defines context of interest - part of the cube we
 are looking at. We start with whole cube:
 
->>> cell = browser.full_cube()
+>>> cell = cubes.Cell(cube)
 
 Compute the aggregate. Measure fields of :class:`aggregation
 result<cubes.AggregationResult>` have aggregation suffix. Also a total record
