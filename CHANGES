@@ -7,11 +7,11 @@ Changes in the Cubes
 Quick Summary:
 
 * added presenters
+* preliminary implementation of pre-aggregation in SQL
 
 New Features
 ------------
 
-* added `create_server(config_path)` to simplify wsgi script
 * added `dimension_schema` option to star browser – use this when you have
   all dimensions grouped in a separate schema than fact table 
 * added `HierarchyError`
@@ -21,8 +21,9 @@ New Features
   result was drilled down to. Keys are dimension names, values are levels.
 * AggregationResult.table_rows() output has a new variable `is_base` to denote
   whether the row is base or not in regard to table_rows dimension.
+* added `create_server(config_path)` to simplify wsgi script
 
-* added sql worskspace functions:
+* added preliminary implemenation of pre-aggregation to sql worskspace:
   * create_conformed_rollup()
   * create_conformed_rollups()
   * create_cube_aggregate()
@@ -30,8 +31,8 @@ New Features
 Changes
 -------
 
-* Changed string representation of a set cut: now using semicolon ';' as a
-  separator instead of a plus symbol '+'
+* **Important:** Changed string representation of a set cut: now using
+  semicolon ';' as a separator instead of a plus symbol '+'
 * aggregation browser subclasses should now fill result's `levels` variable
   with `coalesced_drilldown()` output for requested drill-down levels.
 * Moved coalesce_drilldown() from star browser to cubes.browser module to be
@@ -41,6 +42,7 @@ Fixes
 -----
 
 * fixed ordering bug
+* fixed bug in generating conditions from range cuts
 * `AggregationResult.table_rows` now works when there is no point cut
 * get correct reference in `table_rows` – now works when simple denormalized
   table is used 
