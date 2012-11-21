@@ -554,6 +554,11 @@ Create server configuration file ``procurements.ini``::
     hu: /path/to/model-hu.json
 
 
+.. note::
+
+    the `path` in `[model]` has to be full path to the model, not relative to
+    the configuration file.
+
 Place the file in the same directory as the following WSGI script (for
 convenience).
 
@@ -569,7 +574,7 @@ Create a WSGI script ``/var/www/wsgi/olap/procurements.wsgi``:
     # Set the configuration file name (and possibly whole path) here
     CONFIG_PATH = os.path.join(CURRENT_DIR, "slicer.ini")
 
-    application = cubes.server.create_server(config)
+    application = cubes.server.create_server(CONFIG_PATH)
 
 
 Apache site configuration (for example in ``/etc/apache2/sites-enabled/``)::
