@@ -227,7 +227,7 @@ def create_dimension(obj, dimensions=None):
             template = dimensions[obj["template"]]
         except KeyError:
             raise NoSuchDimensionError("Could not find template dimension %s" % obj["template"])
-        levels = template.levels
+        levels = copy.deepcopy(template.levels)
         hierarchies = template.hierarchies.values()
         default_hierarchy_name = template.default_hierarchy_name
         label = template.label
@@ -1028,7 +1028,12 @@ class Dimension(object):
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
+
+        Note that the dimension will claim ownership of levels and their
+        attributes. You should make sure that you pass a copy of levels if you
+        are cloning another dimension.
         """
+
         self.name = name
 
         self.label = label
@@ -1649,6 +1654,21 @@ class Level(object):
     def __repr__(self):
         return str(self.to_dict())
 
+    def __deepcopy__(self, memo):
+        if self.sort_key:
+            sort_key = str(self.sort_key)
+        else:
+            sort_key = None
+
+        return Level(self.name,
+                        attributes=copy.deepcopy(self.attributes,memo),
+                        key=self.key.name,
+                        sort_key=sort_key,
+                        label_attribute=self.label_attribute.name,
+                        info=copy.copy(self.info),
+                        label=copy.copy(self.label)
+                        )
+
     def to_dict(self, full_attribute_names=False, **options):
         """Convert to dictionary"""
 
@@ -1798,6 +1818,17 @@ class Attribute(object):
             self.locales = []
         else:
             self.locales = locales
+
+    def __deepcopy__(self, memo):
+        return Attribute(self.name,
+                         self.label,
+                         dimension=self.dimension,
+                         locales=copy.deepcopy(self.locales, memo),
+                         order=copy.deepcopy(self.order, memo),
+                         description=self.description,
+                         aggregations=copy.deepcopy(self.aggregations, memo),
+                         info=copy.deepcopy(self.info, memo),
+                         format=self.format)
 
     def __str__(self):
         return self.name
