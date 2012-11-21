@@ -451,7 +451,7 @@ class SnowflakeMapper(Mapper):
             table = tables_to_join.pop()
             # self.logger.debug("joining table %s" % (table, ))
 
-            for join in self.joins:
+            for order, join in enumerate(self.joins):
                 # self.logger.debug("testing join: %s" % (join, ))
                 # print "--- testing join: %s" % (join, )
                 master = (join.master.schema, join.master.table)
@@ -459,7 +459,8 @@ class SnowflakeMapper(Mapper):
 
                 if table == detail:
                     # self.logger.debug("detail matches")
-                    joins.append(join)
+                    # Preserve join order
+                    joins.append( (order, join) )
 
                     if master not in joined_tables:
                         self.logger.debug("adding master %s to be joined" % (master, ))
@@ -471,8 +472,14 @@ class SnowflakeMapper(Mapper):
 
         # FIXME: is join order important? if yes, we should sort them here
         self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
-        self.logger.debug("joined tables: %s" % joins)
 
+        # Sort joins according to original order specified in the model
+        joins.sort()
+        self.logger.debug("joined tables: %s" % ([join[1].detail.table for join in
+                                                                joins], ) )
+
+        # Retrieve actual joins from tuples. Remember? We preserved order.
+        joins = [join[1] for join in joins]
         return joins
 
 
