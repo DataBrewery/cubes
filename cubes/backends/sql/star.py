@@ -148,9 +148,12 @@ class SnowflakeBrowser(AggregationBrowser):
 
         # TODO: add ordering (ORDER BY)
 
+        statement = self.context.denormalized_statement()
         cond = self.context.condition_for_cell(cell)
 
-        statement = self.context.denormalized_statement(whereclause=cond.condition)
+        if cond.condition is not None:
+            statement = statement.where(cond.condition)
+
         statement = paginated_statement(statement, page, page_size)
         statement = ordered_statement(statement, order, context=self.context)
 
@@ -189,10 +192,12 @@ class SnowflakeBrowser(AggregationBrowser):
         for level in levels:
             attributes.extend(level.attributes)
 
-        cond = self.context.condition_for_cell(cell)
-        statement = self.context.denormalized_statement(whereclause=cond.condition,
-                                                        attributes=attributes,
+        statement = self.context.denormalized_statement(attributes=attributes,
                                                         include_fact_key=False)
+        cond = self.context.condition_for_cell(cell)
+
+        if cond.condition is not None:
+            statement = statement.where(cond.condition)
         statement = paginated_statement(statement, page, page_size)
         statement = ordered_statement(statement, order, context=self.context)
 
@@ -375,6 +380,10 @@ class SnowflakeBrowser(AggregationBrowser):
 Condition = collections.namedtuple("Condition",
                                     ["attributes", "condition"])
 
+"""Aliased table information"""
+AliasedTable = collections.namedtuple("AliasedTable",
+                                    ["schema", "table", "alias"])
+
 class QueryContext(object):
 
     def __init__(self, cube, mapper, metadata, **options):
@@ -424,6 +433,27 @@ class QueryContext(object):
                     (self.schema, self.fact_name): self.fact_table
                 }
 
+        # Collect all tables and their aliases.
+        # FIXME: this should be cached per-browser/cube instance
+
+        # table_aliases contains mapping between aliased table name and real
+        # table name with alias:
+        # 
+        #       (schema, aliased_name) --> (schema, real_name, alias)
+        #
+        self.table_aliases = {
+            (self.schema, self.fact_name): (self.schema, self.fact_name, None)
+        }
+
+        # Collect all table aliases from joins detail tables
+        for join in self.mapper.joins:
+            # just ask for the table
+            table = AliasedTable(join.detail.schema,
+                                 join.detail.table,
+                                 join.alias)
+            table_alias = (join.detail.schema, join.alias or join.detail.table)
+            self.table_aliases[table_alias] = table
+
     def aggregation_statement(self, cell, measures=None,
                               attributes=None, drilldown=None):
         """Return a statement for summarized aggregation. `whereclause` is
@@ -433,7 +463,6 @@ class QueryContext(object):
         attributes are used. `drilldown` has to be a dictionary. Use
         `coalesce_drilldown()` to prepare correct drill-down statement."""
 
-        # TODO: do not ignore attributes
         cell_cond = self.condition_for_cell(cell)
 
         if not attributes:
@@ -446,8 +475,9 @@ class QueryContext(object):
 
         attributes = set(attributes) | set(cell_cond.attributes)
 
-        # TODO: add measures as well
         join_expression = self.join_expression_for_attributes(attributes)
+
+        # TODO: add measures as well
         selection = []
 
         group_by = None
@@ -475,10 +505,12 @@ class QueryContext(object):
         selection.append(sql.functions.count().label(rcount_label))
 
         select = sql.expression.select(selection,
-                                    whereclause=cell_cond.condition,
                                     from_obj=join_expression,
                                     use_labels=True,
                                     group_by=group_by)
+
+        if cell_cond.condition is not None:
+            select = select.where(cell_cond.condition)
 
         return select
 
@@ -511,8 +543,8 @@ class QueryContext(object):
 
         return result
 
-    def denormalized_statement(self, whereclause=None, attributes=None,
-                                expand_locales=False, include_fact_key=True):
+    def denormalized_statement(self, attributes=None, expand_locales=False,
+                               include_fact_key=True):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
@@ -534,7 +566,6 @@ class QueryContext(object):
             columns.insert(0, key_column)
 
         select = sql.expression.select(columns,
-                                    whereclause=whereclause,
                                     from_obj=join_expression,
                                     use_labels=True)
 
@@ -545,7 +576,12 @@ class QueryContext(object):
 
         key_column = self.fact_table.c[self.fact_key]
         condition = key_column == key_value
-        return self.denormalized_statement(whereclause=condition)
+        statement = self.denormalized_statement()
+
+        if condition is not None:
+            statement = statement.where(condition)
+
+        return statement
 
 
     def join_expression_for_attributes(self, attributes, expand_locales=False):
@@ -572,7 +608,7 @@ class QueryContext(object):
                 raise MappingError("Detail table name should be present and should not be a fact table.")
 
             master_table = self.table(join.master.schema, join.master.table)
-            detail_table = self.table(join.detail.schema, join.detail.table, join.alias)
+            detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
 
             try:
                 master_column = master_table.c[join.master.column]
@@ -744,28 +780,31 @@ class QueryContext(object):
 
         return Condition(attributes, condition)
 
-    def table(self, schema, table_name, alias=None):
+    def table(self, schema, table_name):
         """Return a SQLAlchemy Table instance. If table was already accessed,
         then existing table is returned. Otherwise new instance is created.
 
-        If `schema` is ``None`` then browser's schema is used. If `table_name`
-        is ``None``, then fact table is used.
+        If `schema` is ``None`` then browser's default schema is used.
         """
 
-        # table_name = table_name or self.fact_name
-        aliased_name = alias or table_name
-        table_ref = (schema or self.schema, aliased_name)
-        if table_ref in self.tables:
-            return self.tables[table_ref]
+        aliased_ref = (schema or self.schema, table_name)
 
-        table = sqlalchemy.Table(table_name, self.metadata,
-                                 autoload=True, schema=schema)
+        if aliased_ref in self.tables:
+            return self.tables[aliased_ref]
 
-        self.logger.debug("registering table '%s' as '%s'" % (table_name, aliased_name))
-        if alias:
-            table = table.alias(alias)
+        # Get real table reference
+        table_ref = self.table_aliases[aliased_ref]
 
-        self.tables[table_ref] = table
+        table = sqlalchemy.Table(table_ref.table, self.metadata,
+                                 autoload=True, schema=table_ref.schema)
+
+        self.logger.debug("registering table '%s' as '%s'" % (table_ref.table,
+                                                                table_name))
+        if table_ref.alias:
+            table = table.alias(table_ref.alias)
+
+        self.tables[aliased_ref] = table
+
         return table
 
     def column(self, attribute, locale=None):
