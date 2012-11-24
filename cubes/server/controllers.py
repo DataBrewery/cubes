@@ -201,7 +201,7 @@ class ModelController(ApplicationController):
 
 
 class CSVGenerator(object):
-    def __init__(self, records, fields, include_header = True, 
+    def __init__(self, records, fields, include_header = True,
                 dialect=csv.excel, encoding="utf-8", **kwds):
         # Redirect output to a queue
         self.include_header = include_header

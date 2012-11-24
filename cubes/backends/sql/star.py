@@ -79,10 +79,11 @@ class SnowflakeBrowser(AggregationBrowser):
         * `options` - passed to the mapper and context (see their respective
           documentation)
 
-        **Limitations:**
+        Limitations:
 
         * only one locale can be used for browsing at a time
         * locale is implemented as denormalized: one column for each language
+
         """
         super(SnowflakeBrowser, self).__init__(cube)
 
