@@ -1,11 +1,9 @@
-**************************************
-:mod:`browser` --- Aggregation Browser
-**************************************
+*****************************
+Aggregation Browser Reference
+*****************************
 
-.. module:: browser
-   :synopsis: aggregation browser, slicing and dicing functions
-
-:mod:`browser` is a package that provides abstraction for aggregated browsing (concrete implementation is provided by one of the backends in package :mod:`backend` or a custom backend).
+Abstraction for aggregated browsing (concrete implementation is provided by
+one of the backends in package :mod:`backend` or a custom backend).
 
 .. figure:: images/browser-package.png
     :align: center
@@ -58,4 +56,11 @@ In applications where slicing and dicing can be specified in form of a string, s
 
 .. autofunction:: cubes.path_from_string
 
+.. autofunction:: cubes.coalesce_drilldown
 
+Mapper
+------
+
+.. autoclass:: cubes.Mapper
+.. autoclass:: cubes.SnowflakeMapper
+.. autoclass:: cubes.DenormalizedMapper

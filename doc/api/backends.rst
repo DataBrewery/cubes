@@ -11,43 +11,23 @@ SQL - Star
 Workspace
 ---------
 
-.. autofunction:: cubes.backends.sql.star.create_workspace
-.. autoclass:: cubes.backends.sql.star.SQLStarWorkspace
-
-Mapper
-------
-
-.. autoclass:: cubes.backends.sql.mapper.Mapper
-.. autoclass:: cubes.backends.sql.mapper.SnowflakeMapper
-.. autoclass:: cubes.backends.sql.mapper.DenormalizedMapper
+.. autofunction:: cubes.backends.sql.workspace.create_workspace
+.. autoclass:: cubes.backends.sql.workspace.SQLStarWorkspace
 
 Browser
 -------
 
-.. autoclass:: cubes.backends.sql.star.StarBrowser
+.. autoclass:: cubes.backends.sql.star.SnowflakeBrowser
 .. autoclass:: cubes.backends.sql.star.QueryContext
 
 
 Helper functions
 ----------------
 
-.. autofunction:: cubes.backends.sql.star.coalesce_drilldown
-.. autofunction:: cubes.backends.sql.star.drilldown_levels
 .. autofunction:: cubes.backends.sql.star.paginated_statement
 .. autofunction:: cubes.backends.sql.star.ordered_statement
 .. autofunction:: cubes.backends.sql.star.order_column
 
-SQL - Denomralized (old)
-========================
-
-The original SQL backend provides full-featured aggregation browser of
-denormalized data source. The helper class ``SQLDenormalizer`` creates view or
-a table from a star or snowflake schema. The created view is then passed to
-the borwser for slicing and dicing.
-
-
-.. autoclass:: cubes.backends.sql.SQLDenormalizer
-.. autoclass:: cubes.backends.sql.SQLBrowser
 
 Slicer
 ======

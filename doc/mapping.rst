@@ -7,6 +7,10 @@ database is the mapping of logical attributes to their physical counterparts.
 In SQL database the physical attribute is stored in a column, which belongs to
 a table, which might be part of a database schema.
 
+.. figure:: images/mapping_logical_to_physical.png
+    :align: center
+    :width: 400px
+
 .. note:: 
 
     StarBrowser (SQL) is used as an example.
@@ -32,20 +36,103 @@ fact.
 
 The process is done in two steps:
 
-1. joining all star/snowflake tables
+1. joining relevant star/snowflake tables
 2. mapping logical attribute to table + column
-
-Mapping
-=======
 
 There are two ways how the mapping is being done: *implicit* and *explicit*.
 The simplest, straightforward and most customizable is the explicit way, where
 the actual column reference is provided in a mapping dictionary of the cube
 description.
 
-`Mapping dictionary` is a dictionary of logical attributes as keys and
-physical attributes (columns, fields) as values. The logical attributes
-references look like:
+Implicit Mapping
+----------------
+
+With implicit mapping one can match a database schema with logical model and
+does not have to specify additional mapping metadata. Expected structure is
+star schema with one table per (denormalized) dimension.
+
+**Fact table:** Cubes looks for fact table with the same name as cube name. You might specify
+prefix for every fact table with ``fact_table_prefix``. Example:
+
+* Cube is named `contracts`, framework looks for a table named `contracts`.
+
+* Cubes are named `contracts`, `invoices` and fact table prefix is ``fact_``
+  then framework looks for tables named ``fact_contracts`` and
+  ``fact_invoices`` respectively.
+
+
+Dimension tables
+----------------
+
+By default, dimension tables are expected to have same name as dimensions and
+dimension table columns are expected to have same name as dimension
+attributes:
+
+.. figure:: images/dimension_attribute_implicit_map.png
+    :align: center
+
+It is quite common practice that dimension tables have a prefix such as
+``dim_`` or ``dm_``. Such prefix can be specified with ``dimension_prefix``
+option.
+
+.. figure:: images/dimension_attribute_prefix_map.png
+    :align: center
+
+Basic rules:
+
+* fact table should have same name as represented cube
+* dimension table should have same name as the represented dimension, for
+  example: `product` (singular)
+* column name should have same name as dimension attribute: `name`, `code`,
+  `description`
+* references without dimension name in them are expected to be in the fact
+  table, for example: `amount`, `discount` (see note below for simple flat
+  dimensions)
+* if attribute is localized, then there should be one column per localization
+  and should have locale suffix: `description_en`, `description_sk`,
+  `description_fr` (see below for more information)
+
+**Flat dimension without details:** What about dimensions that have only one
+attribute, like one would not have a full date but just a `year`? In this case
+it is kept in the fact table without need of separate dimension table. The
+attribute is treated in by the same rule as measure and is referenced by
+simple `year`. This is applied to all dimensions that have only one attribute
+(representing key as well). This dimension is referred to as *flat and without
+details*.
+
+Note for advanced users: this behavior can be disabled by setting
+``simplify_dimension_references`` to ``False`` in the mapper. In that case you
+will have to have separate table for the dimension attribute and you will have
+to reference the attribute by full name. This might be useful when you know
+that your dimension will be more detailed.
+
+.. note::
+
+    In other than SQL backends, the implicit mapping might be implemented
+    differently. Refer to the respective backend documentation to learn how
+    the mapping is done.
+
+
+Database Schemas
+----------------
+
+For databases that support schemas, such as PostgreSQL, option ``schema`` can
+be used to specify default database schema where all tables are going to be
+looked for.
+
+In case you have dimensions stored in separate schema than fact table, you can
+specify that in ``dimension_schema``. All dimension tables are going to be
+searched in that schema.
+
+
+Explicit Mapping
+----------------
+
+If the schema does not match expectations of cubes, it is possible to
+explicitly specify how logical attributes are going to be mapped to their
+physical tables and columns. `Mapping dictionary` is a dictionary of logical
+attributes as keys and physical attributes (columns, fields) as values. The
+logical attributes references look like:
 
 * `dimensions_name.attribute_name`, for example: ``geography.country_name`` or 
   ``category.code``
@@ -87,50 +174,6 @@ The mapping process process is like this:
     In other than SQL backends, the value in the mapping dictionary can be
     interpreted differently. The (`schema`, `table`, `column`) tuple is
     used as an example from SQL browser.
-
-Implicit Mapping
-----------------
-
-With implicit mapping one can match a database schema with logical model and
-does not have to specify additional mapping metadata. Expected structure is
-star schema with one table per (denormalized) dimension.
-
-Basic rules:
-
-* fact table should have same name as represented cube
-* dimension table should have same name as the represented dimension, for
-  example: `product` (singular)
-* references without dimension name in them are expected to be in the fact
-  table, for example: `amount`, `discount` (see note below for simple flat
-  dimensions)
-* column name should have same name as dimension attribute: `name`, `code`,
-  `description`
-* if attribute is localized, then there should be one column per localization
-  and should have locale suffix: `description_en`, `description_sk`,
-  `description_fr` (see below for more information)
-
-This means, that by default `product.name` is mapped to the table `product`
-and column `name`. Measure `amount` is mapped to the table `sales` and column
-`amount`
-
-What about dimensions that have only one attribute, like one would not have a
-full date but just a `year`? In this case it is kept in the fact table without
-need of separate dimension table. The attribute is treated in by the same rule
-as measure and is referenced by simple `year`. This is applied to all
-dimensions that have only one attribute (representing key as well). This
-dimension is referred to as *flat and without details*.
-
-Note for advanced users: this behavior can be disabled by setting
-``simplify_dimension_references`` to ``False`` in the mapper. In that case you
-will have to have separate table for the dimension attribute and you will have
-to reference the attribute by full name. This might be useful when you know
-that your dimension will be more detailed.
-
-.. note::
-
-    In other than SQL backends, the implicit mapping might be implemented
-    differently. Refer to the respective backend documentation to learn how
-    the mapping is done.
 
 
 Date Data Type
@@ -365,13 +408,4 @@ specification:
             "detail": "dm_categories.id"
          }
     ]
-
-Original (Old) Browser
-======================
-
-The original default browser was a little bit limited. The differences are:
-
-* no support for custom schema - everything had to be in a single schema
-* flat dimension attributes were always simplified, and sometimes incorrectly
-* normalization was required for browsing
 

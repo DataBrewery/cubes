@@ -280,35 +280,6 @@ write only requests like ``/aggregate``.
 
         Requires a search backend to be installed.
 
-.. ``GET /cube/<cube>/drilldown/<dimension>/<path>``
-..     Aggregate next level of dimension. This is similar to ``/aggregate`` with
-..     ``drilldown=<dimension>`` parameter. Does not result in error when path
-..     has largest possible length, returns empty results instead and result
-..     count 0.
-..     
-..     If ``<path>`` is specified, it replaces any path specified in ``cut=`` parameter for given
-..     dimension. If ``<path>`` is not specified, it is taken from cut, where it should be
-..     represented as a point (not range nor set).
-..     
-..     
-..     In addition to ``/aggregate``
-..     result, folloing is returned:
-..     
-..     * ``is_leaf`` - Flag determining whether path refers to leaf or not. For
-..       example, this flag can be used to determine whether create links (is not
-..       last) or not (is last)
-..     * ``dimension`` - name of drilled dimension
-..     * ``path`` - path passed to drilldown
-.. 
-..     In addition to this, each returned cell contains additional attributes:
-.. 
-..     * ``_path`` - path to the cell - can be used for constructing further browsable links
-..     
-..     .. note::
-..     
-..         Not yet implemented
-..     
-
 Parameters that can be used in any request:
 
     * `prettyprint` - if set to ``true``, space indentation is added to the
@@ -353,7 +324,8 @@ formal way, here is the BNF for the cut::
     other possible frequent URL parameters that might modify page content/API
     result, such as ``type``, ``form``, ``source``.
 
-Following image contains examples of cuts in URLs and how they change by browsing cube aggregates:
+Following image contains examples of cuts in URLs and how they change by
+browsing cube aggregates:
 
 .. figure:: url_cutting.png
 
@@ -661,6 +633,8 @@ Workspace with SQL backend (``backend=sql`` in ``[server]``) options:
   cubes
 * ``dimension_prefix`` *(optional)* – used by snowflake mapper to find dimension
   tables when no explicit mapping is specified
+* ``dimension_schema`` – use this option when dimension tables are stored in
+  different schema than the fact tables
 * ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact table
   for a cube, when no explicit fact table name is specified
 * ``use_denormalization`` *(optional)* – browser will use dernormalized view
@@ -676,8 +650,6 @@ Workspace with SQL backend (``backend=sql`` in ``[server]``) options:
 Example configuration file::
 
     [server]
-    host: localhost
-    port: 5001
     reload: yes
     log: /var/log/cubes.log
     log_level: info
@@ -689,14 +661,7 @@ Example configuration file::
 
     [model]
     path: ~/models/contracts_model.json
-    cube: contracts
     locales: en,sk
 
     [translations]
     sk: ~/models/contracts_model-sk.json
-
-.. note::
-
-    For backward compatibility, sections ``[backend]`` and ``[db]`` are also
-    supported, but you should change them to ``[workspace]`` as soon as
-    possible
