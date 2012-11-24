@@ -315,7 +315,7 @@ class SQLStarWorkspace(object):
         * `schema` – target schema
         * `dimension_prefix` – prefix used for the dimension table
         * `replace` – if ``True`` then existing table will be replaced,
-         otherwise an exception is raised if table already exists.
+          otherwise an exception is raised if table already exists.
         """
         mapper = SnowflakeMapper(cube, cube.mappings, **self.options)
         context = QueryContext(cube, mapper, metadata=self.metadata)
@@ -419,6 +419,7 @@ class SQLStarWorkspace(object):
         dimensions are considered.
 
         Arguments:
+
         * `dimensions`: list of dimensions to use in the aggregated cuboid, if
           `None` then all cube dimensions are used
         * `required_dimensions`: list of dimensions that are required for each
