@@ -86,7 +86,7 @@ Optional arguments::
       -t TRANSLATION, --translation TRANSLATION
                             model translation file
                             
-For more information see Model Validation in :doc:`cubes`
+For more information see Model Validation in :doc:`model`
 
 Example output::
 
@@ -138,6 +138,7 @@ model translate
 Translate model using translation file::
 
     slicer model translate model.json translation.json
+
 ddl
 ---
 
