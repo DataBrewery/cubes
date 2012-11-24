@@ -2,9 +2,6 @@
 Logical Model and Metadata
 **************************
 
-Introduction
-============
-
 Logical model describes the data from user's or analyst's perspective: data
 how they are being measured, aggregated and reported. Model is independent of
 physical implementation of data. This physical independence makes it easier to
@@ -52,14 +49,14 @@ has two levels: `country` and `region`. Each level can have more attributes,
 such as code, name, population... In our example report we are interested only
 in geographical names, that is: `country.name` and `region.name`.
 
-How the physical attributes are located is described in the :doc:`mapping` 
-chapter.
+.. How the physical attributes are located is described in the :doc:`mapping` 
+.. chapter.
 
 Logical Model description
 =========================
 
 The logical model can be either constructed programmatically or provided as
-JSON. The model entities and their structure is depicted on the following
+JSON. The model entities and their structure are depicted on the following
 figure:
 
 .. figure:: logical_model.png
@@ -67,11 +64,106 @@ figure:
     :width: 550px
 
     The logical model entities and relationships.
+Load a model::
+
+    model = cubes.load_model(path)
+
+The ``path`` might be:
+
+* JSON file with a dictionary describing model
+* URL with a JSON dictionary
+* a directory with logical model description files (model, cubes, dimensions) - note that this is
+  the old way of specifying model and is being depreciated
+
+Model can be represented also as a single json file containing all model objects. 
+
+The directory contains:
+
+========================== =============================================
+File                       Description
+========================== =============================================
+model.json                 Core model information
+cube_*cube_name*.json      Cube description, one file per cube
+dim_*dimension_name*.json  Dimension description, one file per dimension
+========================== =============================================
+
+
+Model
+-----
+
+The `model` dictionary contains main model description. The structure is::
+
+    {
+    	"name": "public_procurements",
+    	"label": "Public Procurements of Slovakia",
+    	"description": "Contracts of public procurement winners in Slovakia"
+    	"cubes": [...]
+    	"dimensions": [...]
+    }
+
+============== ===================================================
+Key            Description
+============== ===================================================
+**cubes**      list of cube descriptions
+**dimensions** list of dimension descriptions
+name           model name *(optional)*
+label          human readable name - can be used in an application
+               *(optional)*
+description    longer human-readable description of the model
+               *(optional)*
+============== ===================================================
+
+Cubes
+-----
+
+Cube descriptions are stored as a dictionary for key ``cubes`` in the model
+description dictionary or in json files with prefix ``cube_`` like
+``cube_contracts``, or 
+
+============== ====================================================
+Key            Description
+============== ====================================================
+**name**       cube name
+**measures**   list of cube measures (recommended, but might be
+               empty for measure-less, record count only cubes)
+**dimensions** list of cube dimension names (recommended, but might
+               be empty for dimension-less cubes)
+label          human readable name - can be used in an application
+details        list of fact details (as Attributes) - attributes
+               that are not relevant to aggregation, but are
+               nice-to-have when displaying facts (might be
+               separately stored)
+joins          specification of physical table joins (required for
+               star/snowflake schema)
+mappings       :doc:`mapping<mapping>` of logical attributes to
+               physical attributes
+options        backend/workspace options
+info           custom info, such as formatting. Not used by cubes 
+               framework.
+============== ====================================================
+
+Example::
+
+    {
+        "name": "date",
+        "label": "Dátum",
+        "dimensions": [ "date", ... ]
+
+    	"measures": [...],
+    	"details": [...],
+
+    	"fact": "fact_table_name",
+    	"mappings": { ... },
+    	"joins": [ ... ]
+    }
+
+For more information about mappings see :doc:`mapping`
 
 Dimensions
 ----------
 
-Dimension descriptions are stored in model dictionary under the key ``dimensions``.
+Dimension descriptions are stored in model dictionary under the key
+``dimensions``.
 
 .. figure:: dimension_desc.png
 
@@ -82,13 +174,15 @@ The dimension description contains keys:
 ====================== ===================================================
 Key                    Description
 ====================== ===================================================
-name                   dimension name, used as identifier
+**name**               dimension name, used as identifier
 label                  human readable name - can be used in an application
 levels                 list of level descriptions
 hierarchies            list of dimension hierarchies
 hierarchy              if dimension has only one hierarchy, you can
                        specify it under this key 
 default_hierarchy_name name of a hierarchy that will be used as default
+info                   custom info, such as formatting. Not used by cubes 
+                       framework.
 ====================== ===================================================
 
 Example:
@@ -122,13 +216,16 @@ key              key field of the level (customer number for customer level,
 label_attribute  name of attribute containing label to be displayed (customer
                  name for customer level, region name for region level,
                  month name for month level)
+info             custom info, such as formatting. Not used by cubes 
+                 framework.
 ================ ================================================================
 
 Example of month level of date dimension:
 
 .. code-block:: javascript
 
-    "month": {
+    {
+        "month",
         "label": "Mesiac",
         "key": "month",
         "label_attribute": "month_name",
@@ -139,7 +236,8 @@ Example of supplier level of supplier dimension:
 
 .. code-block:: javascript
 
-    "supplier": {
+    {
+        "name": "supplier",
         "label": "Dodávateľ",
         "key": "ico",
         "label_attribute": "name",
@@ -197,6 +295,8 @@ locales          list of locales in which the attribute values are available in
                  (optional)
 aggregations     list of aggregations to be performed if the attribute is a 
                  measure
+info             custom info, such as formatting. Not used by cubes 
+                 framework.
 ================ ================================================================
 
 The optional `order` is used in aggregation browsing and reporting. If

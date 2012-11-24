@@ -1,11 +1,9 @@
-******************************
-:mod:`model` --- Logical Model
-******************************
+***********************
+Logical Model Reference
+***********************
 
-.. module:: model
-   :synopsis: logical model representation, cube descriptions, dimensions
-
-:mod:`model` is a package that provides Cubes meta-data objects and functionality for working with them. :doc:`../model`
+Model - Cubes meta-data objects and functionality for working with them.
+:doc:`../model`
    
 .. figure:: images/model-package.png
     :align: center
