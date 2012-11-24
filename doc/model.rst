@@ -64,6 +64,7 @@ figure:
     :width: 550px
 
     The logical model entities and relationships.
+
 Load a model::
 
     model = cubes.load_model(path)
@@ -410,7 +411,7 @@ that use of the model will result in failure.
         add the key to the attribute list (preferrably at the beginning) or
         choose another attribute as the level key.
     * - Duplicate attribute '*attribute*' in dimension '*dimension*' level
-        '*level*' (also defined in level '*another_level *')
+        '*level*' (also defined in level '*another_level*')
       - dimension
       - `attribute` is defined in two or more levels in the same dimension.
         Make sure that attribute names are all unique within one dimension.
