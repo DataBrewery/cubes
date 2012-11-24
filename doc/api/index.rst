@@ -11,4 +11,4 @@ Contents:
 	browser
 	backends
 	server
-	utils
+	common
