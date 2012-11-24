@@ -1581,7 +1581,7 @@ class Level(object):
     * `name`: level name
     * `dimension`: dimnesion the level is associated with
     * `attributes`: list of all level attributes. Raises `ModelError` when
-      `attribute list is empty.
+      `attribute` list is empty.
     * `key`: name of level key attribute (for example: ``customer_number`` for
       customer level, ``region_code`` for region level, ``month`` for month
       level).  key will be used as a grouping field for aggregations. Key

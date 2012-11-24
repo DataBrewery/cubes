@@ -11,33 +11,33 @@ except ImportError:
     jinja2 = MissingPackage("jinja2", "Templating engine")
 
 __all__ = [
-            "create_presenter",
-            "register_presenter",
-            "TextTablePresenter",
-            "SimpleDataTablePresenter",
-            "SimpleHTMLTablePresenter"
+            "create_formatter",
+            "register_formatter",
+            "TextTableFormatter",
+            "SimpleDataTableFormatter",
+            "SimpleHTMLTableFormatter"
             ]
 
-_presenters = {}
+_formatters = {}
 
-def register_presenter(presenter_type, factory):
-    """Register presenter factory with type name `presenter_type`"""
+def register_formatter(formatter_type, factory):
+    """Register formatter factory with type name `formatter_type`"""
 
-    _presenters[presenter_type] = factory
+    _formatters[formatter_type] = factory
 
-def create_presenter(presenter_type, *args, **kwargs):
-    """Create a presenter of type `presenter_type`"""
-    global _presenters
+def create_formatter(formatter_type, *args, **kwargs):
+    """Create a formatter of type `presenter_type`"""
+    global _formatters
 
-    if not _presenters:
-        _presenters = collect_subclasses(Presenter, "_presenter")
+    if not _formatters:
+        _formatters = collect_subclasses(Formatter, "_formatter")
 
     try:
-        presenter_factory = _presenters[presenter_type]
+        formatter_factory = _formatters[formatter_type]
     except KeyError:
-        raise CubesError("unknown presenter '%s'" % presenter_type)
+        raise CubesError("unknown formatter '%s'" % formatter_type)
 
-    return presenter_factory(*args, **kwargs)
+    return formatter_factory(*args, **kwargs)
 
 def _jinja_env():
     """Create and return cubes jinja2 environment"""
@@ -45,17 +45,62 @@ def _jinja_env():
     env = jinja2.Environment(loader=loader)
     return env
 
-class Presenter(object):
+def parse_format_arguments(formatter, args, prefix="f:"):
+    """Parses dictionary of `args` for formatter"""
+
+
+class Formatter(object):
     """Empty class for the time being. Currently used only for finding all
     built-in subclasses"""
     pass
 
-class TextTablePresenter(Presenter):
+class CSVFormatter(Formatter):
+    parameters = [
+                {
+                    "name": "dialect",
+                    "type": "string",
+                    "label": "CSV Dialect"
+                },
+                {
+                    "name": "attributes",
+                    "type": "list",
+                    "label": "Attribute list"
+                }
+            ]
+    mime_type = "text/csv"
+
+    def __init__(self, dialect=None):
+        pass
+
+    def format(self, result, attributes):
+        pass
+
+class TextTableFormatter(Formatter):
+    parameters = [
+                {
+                    "name": "measure_format",
+                    "type": "string",
+                    "label": "Measure format"
+                },
+                {
+                    "name": "dimension",
+                    "type": "string",
+                    "label": "dimension to consider"
+                },
+                {
+                    "name": "measures",
+                    "type": "list",
+                    "label": "list of measures"
+                }
+            ]
+
+    mime_type = "text/plain"
+
     def __init__(self, measure_format=None):
-        super(TextTablePresenter, self).__init__()
+        super(TextTableFormatter, self).__init__()
         self.format = measure_format or {}
 
-    def present(self, result, dimension, measures):
+    def format(self, result, dimension, measures):
         rows = []
         label_width = 0
         measure_widths = [0] * len(measures)
@@ -93,16 +138,38 @@ class TextTablePresenter(Presenter):
         return value
 
 
-class SimpleDataTablePresenter(Presenter):
+class SimpleDataTableFormatter(Formatter):
+
+    parameters = [
+                {
+                    "name": "count_label",
+                    "type": "string",
+                    "label": "Label of record count column"
+                },
+                {
+                    "name": "dimension",
+                    "type": "string",
+                    "label": "dimension to consider"
+                },
+                {
+                    "name": "aggregated_measures",
+                    "short_name": "measures",
+                    "type": "list",
+                    "label": "list of measures"
+                }
+            ]
+
+    mime_type = "application/json"
+
     def __init__(self, count_label=None, levels=None):
-        """Creates a presenter that formats result into a tabular structure.
+        """Creates a formatter that formats result into a tabular structure.
         `count_label` is default label to be used for `record_count`
         aggregation."""
 
-        super(SimpleDataTablePresenter, self).__init__()
+        super(SimpleDataTableFormatter, self).__init__()
         self.count_label = count_label
 
-    def present(self, result, dimension, aggregated_measures):
+    def format(self, result, dimension, aggregated_measures):
 
         cube = result.cell.cube
         dimension = cube.dimension(dimension)
@@ -155,20 +222,42 @@ class SimpleDataTablePresenter(Presenter):
                 }
         return data_table;
 
-class SimpleHTMLTablePresenter(Presenter):
+class SimpleHTMLTableFormatter(Formatter):
+
+    parameters = [
+                {
+                    "name": "count_label",
+                    "type": "string",
+                    "label": "Label of record count column"
+                },
+                {
+                    "name": "dimension",
+                    "type": "string",
+                    "label": "dimension to consider"
+                },
+                {
+                    "name": "aggregated_measures",
+                    "short_name": "measures",
+                    "type": "list",
+                    "label": "list of measures"
+                }
+            ]
+
+    mime_type = "text/html"
+
     def __init__(self, count_label=None, create_links=True,
                  table_style=None):
         """Create a simple HTML table presenter"""
 
-        super(SimpleHTMLTablePresenter, self).__init__()
+        super(SimpleHTMLTableFormatter, self).__init__()
 
         self.env = _jinja_env()
-        self.presenter = SimpleDataTablePresenter(count_label)
+        self.formatter = SimpleDataTableFormatter(count_label)
         self.template = self.env.get_template("simple_table.html")
         self.create_links = create_links
         self.table_style = table_style
 
-    def present(self, result, dimension, aggregated_measures):
+    def format(self, result, dimension, aggregated_measures):
         cube = result.cell.cube
         dimension = cube.dimension(dimension)
         cut = result.cell.cut_for_dimension(dimension)
@@ -182,7 +271,7 @@ class SimpleHTMLTablePresenter(Presenter):
 
         is_last = len(path)+1 >= len(hierarchy)
 
-        table = self.presenter.present(result, dimension, aggregated_measures)
+        table = self.formatter.format(result, dimension, aggregated_measures)
 
         output = self.template.render(cell=result.cell,
                                       dimension=dimension,
@@ -192,13 +281,13 @@ class SimpleHTMLTablePresenter(Presenter):
                                       is_last=is_last)
         return output
 
-class RickshawSeriesPresenter(Presenter):
+class RickshawSeriesFormatter(Formatter):
     """Presenter for series to be used in Rickshaw JavaScript charting
     library.
 
     Library URL: http://code.shutterstock.com/rickshaw/"""
 
-    def present(self, result, aggregated_measure):
+    def format(self, result, aggregated_measure):
         data = []
         for x, row in enumerate(result):
             data.append({"x":x, "y":row[aggregated_measure]})
@@ -207,13 +296,13 @@ class RickshawSeriesPresenter(Presenter):
 _default_ricshaw_palette = ["mediumorchid", "steelblue", "turquoise",
                             "mediumseagreen", "gold", "orange", "tomato"]
 
-class RickshawMultiSeriesPresenter(Presenter):
+class RickshawMultiSeriesFormatter(Formatter):
     """Presenter for series to be used in Rickshaw JavaScript charting
     library.
 
     Library URL: http://code.shutterstock.com/rickshaw/"""
 
-    def present(self, result, series_dimension, values_dimension,
+    def format(self, result, series_dimension, values_dimension,
                 aggregated_measure,
                 color_map=None, color_palette=None):
         """Provide multiple series. Result is expected to be ordered.
