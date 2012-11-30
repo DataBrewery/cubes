@@ -9,6 +9,7 @@ import logging
 import collections
 from cubes.errors import *
 from cubes.computation import *
+from cubes.backends.sql import extensions
 
 try:
     import sqlalchemy
@@ -18,7 +19,10 @@ try:
         "sum": sql.functions.sum,
         "min": sql.functions.min,
         "max": sql.functions.max,
-        "count": sql.functions.count
+        "count": sql.functions.count,
+        "avg": extensions.avg,
+        "stddev": extensions.stddev,
+        "variance": extensions.variance
     }
 
 except ImportError:
