@@ -117,7 +117,8 @@ Aggregations and Aggregation Result
 
 Aggregate types depend on the backend, however there is at least one that
 should be supported by all backends: `sum`. The SQL StarBrowser supports also
-`min`, and `max`.
+`min`, `max` and `avg`. In some databases, such as PostgreSQL, `stddev` and
+`variance` can be used.
 
 Relevant aggregations for a measure can be specified in the model description:
 
