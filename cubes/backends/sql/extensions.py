@@ -1,5 +1,5 @@
 try:
-    import sqlalchemyd
+    import sqlalchemy
     import sqlalchemy.sql as sql
     from sqlalchemy.sql.functions import ReturnTypeFromArgs
 
