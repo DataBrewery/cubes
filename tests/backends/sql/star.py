@@ -4,9 +4,10 @@ import json
 import re
 import cubes
 import sqlalchemy
+import datetime
+
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
-
 from cubes.mapper import coalesce_physical
 from cubes.backends.sql.star import *
 from cubes.errors import *
@@ -44,14 +45,14 @@ class StarSQLTestCase(unittest.TestCase):
                     "name": "date",
                     "levels": [
                         { "name": "year", "attributes": ["year"] },
-                        { "name": "month", "attributes": 
+                        { "name": "month", "attributes":
                                     ["month", "month_name", "month_sname"] },
                         { "name": "day", "attributes": ["id", "day"] }
                     ],
                     "hierarchy": ["year", "month", "day"]
                 },
                 { "name": "flag" },
-                { "name": "product", 
+                { "name": "product",
                     "levels": [
                         {"name": "category",
                             "attributes": ["category",
@@ -63,7 +64,7 @@ class StarSQLTestCase(unittest.TestCase):
                                             {"name": "subcategory_name", "locales": ["en", "sk"] }
                                         ]
                         },
-                        { "name": "product", 
+                        { "name": "product",
                           "attributes": [ "id",
                                           {"name": "name"}
                                         ],
@@ -141,66 +142,69 @@ class QueryContextTestCase(StarSQLTestCase):
         cols = [column.name for column in statement.columns]
         self.assertEqual(20, len(cols))
 
-    def test_coalesce_drilldown(self):
+    def test_levels_from_drilldown(self):
         cell = cubes.Cell(self.cube)
         dim = self.cube.dimension("date")
+        l_year = dim.level("year")
+        l_month = dim.level("month")
+        l_day = dim.level("day")
 
-        drilldown = {"date": "year"}
-        expected = {"date": [dim.level("year")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        drilldown = [("date", None, "year")]
+        expected = [(dim, [l_year])]
+        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         drilldown = ["date"]
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
-        drilldown = {"date": "day"}
-        expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        drilldown = [("date", None, "year")]
+        expected = [(dim, [l_year])]
+        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # Try "next level"
 
         cut = cubes.PointCut("date", [2010])
         cell = cubes.Cell(self.cube, [cut])
 
-        drilldown = {"date": "year"}
-        expected = {"date": [dim.level("year")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        drilldown = [("date", None, "year")]
+        expected = [(dim, [l_year])]
+        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         drilldown = ["date"]
-        expected = {"date": [dim.level("year"), dim.level("month")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        expected = [(dim, [l_year, l_month])]
+        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # Try with range cell
 
-        cut = cubes.RangeCut("date", [2009], [2010])
-        cell = cubes.Cell(self.cube, [cut])
+        # cut = cubes.RangeCut("date", [2009], [2010])
+        # cell = cubes.Cell(self.cube, [cut])
 
-        drilldown = ["date"]
-        expected = {"date": [dim.level("year"), dim.level("month")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        # drilldown = ["date"]
+        # expected = [(dim, [l_year, l_month])]
+        # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
-        drilldown = {"date":"year"}
-        expected = {"date": [dim.level("year")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        # drilldown = [("date", None, "year")]
+        # expected = [(dim, [l_year])]
+        # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
-        cut = cubes.RangeCut("date", [2009], [2010, 1])
-        cell = cubes.Cell(self.cube, [cut])
+        # cut = cubes.RangeCut("date", [2009], [2010, 1])
+        # cell = cubes.Cell(self.cube, [cut])
 
-        drilldown = ["date"]
-        expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        # drilldown = ["date"]
+        # expected = [(dim, [l_year, l_month, l_day])]
+        # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # Try "last level"
 
         cut = cubes.PointCut("date", [2010, 1,2])
         cell = cubes.Cell(self.cube, [cut])
 
-        drilldown = {"date": "day"}
-        expected = {"date": [dim.level("year"), dim.level("month"), dim.level("day")]}
-        self.assertEqual(expected, cubes.coalesce_drilldown(cell, drilldown))
+        drilldown = [("date", None, "day")]
+        expected = [(dim, [l_year, l_month, l_day])]
+        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         drilldown = ["date"]
-        expected = {"date": [dim.level("year"), dim.level("month")]}
-        self.assertRaises(HierarchyError, cubes.coalesce_drilldown, cell, drilldown)
+        expected = [(dim, [l_year, l_month])]
+        self.assertRaises(HierarchyError, cubes.levels_from_drilldown, cell, drilldown)
 
 
 class JoinsTestCase(StarSQLTestCase):
@@ -368,7 +372,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         cell = cubes.Cell( self.cube, [cubes.PointCut("product", [10])] )
         details = self.browser.cell_details(cell)
         self.assertEqual(1, len(details))
-        self.assertEqual([[{"product.category":10, 
+        self.assertEqual([[{"product.category":10,
                            "product.category_name":"Things",
                            "_key":10,
                            "_label": "Things"}]], details)
@@ -443,11 +447,195 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         pass
 
 
+class HierarchyTestCase(unittest.TestCase):
+    def setUp(self):
+        model = {
+            "cubes": [
+                {
+                    "name":"cube",
+                    "dimensions": ["date"],
+                    "joins": [
+                        {"master":"date_id", "detail":"dim_date.id"}
+                    ]
+                }
+            ],
+            "dimensions": [
+                {
+                    "name": "date",
+                    "levels": [
+                        {"name":"year"},
+                        {"name":"quarter"},
+                        {"name":"month"},
+                        {"name":"week"},
+                        {"name":"day"}
+                    ],
+                    "hierarchies": [
+                        {"name": "ymd", "levels":["year", "month", "day"]},
+                        {"name": "ym", "levels":["year", "month"]},
+                        {"name": "yqmd", "levels":["year", "quarter", "month", "day"]},
+                        {"name": "ywd", "levels":["year", "week", "day"]}
+                    ],
+                    "default_hierarchy_name": "ymd"
+                }
+            ]
+        }
+
+        self.model = cubes.create_model(model)
+
+        engine = create_engine("sqlite:///")
+        metadata = MetaData(bind=engine)
+        d_table = Table("dim_date", metadata,
+                        Column('id', Integer, primary_key=True),
+                        Column('year', Integer),
+                        Column('quarter', Integer),
+                        Column('month', Integer),
+                        Column('week', Integer),
+                        Column('day', Integer))
+
+        f_table = Table("ft_cube", metadata,
+                        Column('id', Integer, primary_key=True),
+                        Column('date_id', Integer))
+        metadata.create_all()
+
+        start_date = datetime.date(2000, 1, 1)
+        end_date = datetime.date(2001, 1,1)
+        delta = datetime.timedelta(1)
+        date = start_date
+
+        d_insert = d_table.insert()
+        f_insert = f_table.insert()
+
+        i = 1
+        while date < end_date:
+            record = {
+                        "id": int(date.strftime('%Y%m%d')),
+                        "year": date.year,
+                        "quarter": (date.month-1)//3+1,
+                        "month": date.month,
+                        "week": int(date.strftime("%U")),
+                        "day": date.day
+                    }
+
+            engine.execute(d_insert.values(record))
+
+            # For each date insert one fact record
+            record = {"id": i,
+                      "date_id": record["id"]
+                      }
+            engine.execute(f_insert.values(record))
+            date = date + delta
+            i += 1
+
+        self.cube = self.model.cube("cube")
+        self.browser = SnowflakeBrowser(self.cube,
+                                        connectable=engine,
+                                        dimension_prefix="dim_",
+                                        fact_prefix="ft_")
+        self.browser.debug = True
+
+    def test_cell(self):
+        cell = cubes.Cell(self.cube)
+        result = self.browser.aggregate(cell)
+        self.assertEqual(366, result.summary["record_count"])
+
+        cut = cubes.PointCut("date", [2000, 2])
+        cell = cubes.Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell)
+        self.assertEqual(29, result.summary["record_count"])
+
+        cut = cubes.PointCut("date", [2000, 2], hierarchy="ywd")
+        cell = cubes.Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell)
+        self.assertEqual(7, result.summary["record_count"])
+
+        cut = cubes.PointCut("date", [2000, 1], hierarchy="yqmd")
+        cell = cubes.Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell)
+        self.assertEqual(91, result.summary["record_count"])
+
+    def test_drilldown(self):
+        cell = cubes.Cell(self.cube)
+        result = self.browser.aggregate(cell, drilldown=["date"])
+        self.assertEqual(1, result.total_cell_count)
+
+        result = self.browser.aggregate(cell, drilldown=["date:month"])
+        self.assertEqual(12, result.total_cell_count)
+
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", None, "month")])
+        self.assertEqual(12, result.total_cell_count)
+
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", None, "day")])
+        self.assertEqual(366, result.total_cell_count)
+
+        # Test year-quarter-month-day
+        hier = self.model.dimension("date").hierarchy("yqmd")
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", "yqmd", "day")])
+        self.assertEqual(366, result.total_cell_count)
+
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", "yqmd", "quarter")])
+        self.assertEqual(4, result.total_cell_count)
+
+    def test_range_drilldown(self):
+        cut = cubes.RangeCut("date", [2000, 1], [2000,3])
+        cell = cubes.Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell, drilldown=["date"])
+        # This should test that it does not drilldown on range
+        self.assertEqual(1, result.total_cell_count)
+
+    def test_implicit_level(self):
+        cut = cubes.PointCut("date", [2000])
+        cell = cubes.Cell(self.cube, [cut])
+
+        result = self.browser.aggregate(cell, drilldown=["date"])
+        self.assertEqual(12, result.total_cell_count)
+        result = self.browser.aggregate(cell, drilldown=["date:month"])
+        self.assertEqual(12, result.total_cell_count)
+
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", None, "month")])
+        self.assertEqual(12, result.total_cell_count)
+
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", None, "day")])
+        self.assertEqual(366, result.total_cell_count)
+
+    def test_hierarchy_compatibility(self):
+        cut = cubes.PointCut("date", [2000])
+        cell = cubes.Cell(self.cube, [cut])
+
+        self.assertRaises(HierarchyError, self.browser.aggregate,
+                            cell, drilldown=[("date", "yqmd", None)])
+
+        cut = cubes.PointCut("date", [2000], hierarchy="yqmd")
+        cell = cubes.Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", "yqmd", None)])
+
+        self.assertEqual(4, result.total_cell_count)
+
+        cut = cubes.PointCut("date", [2000], hierarchy="yqmd")
+        cell = cubes.Cell(self.cube, [cut])
+        self.assertRaises(HierarchyError, self.browser.aggregate,
+                            cell, drilldown=[("date", "ywd", None)])
+
+        cut = cubes.PointCut("date", [2000], hierarchy="ywd")
+        cell = cubes.Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell,
+                                        drilldown=[("date", "ywd", None)])
+
+        self.assertEqual(54, result.total_cell_count)
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(JoinsTestCase))
     suite.addTest(unittest.makeSuite(StarSQLBrowserTestCase))
     suite.addTest(unittest.makeSuite(StarValidationTestCase))
     suite.addTest(unittest.makeSuite(QueryContextTestCase))
+    suite.addTest(unittest.makeSuite(HierarchyTestCase))
 
     return suite
