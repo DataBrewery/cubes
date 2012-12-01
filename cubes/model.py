@@ -1053,7 +1053,7 @@ class Dimension(object):
             hier = Hierarchy("default", self.levels)
             self.hierarchies = {"default": hier}
 
-        # Fix dimension in hierarchies
+        # Claim ownership of hierarchies
         for hier in self.hierarchies.values():
             hier.dimension = self
 
@@ -1412,6 +1412,13 @@ class Hierarchy(object):
 
         return self._levels.values()
 
+    @property
+    def levels_dict(self):
+        if not self._levels:
+            self._set_levels(self._level_refs)
+
+        return self._levels
+
     def __eq__(self, other):
         if not other or type(other) != type(self):
             return False
@@ -1465,8 +1472,8 @@ class Hierarchy(object):
         if not level:
             return self.levels[0]
 
-        index = self._levels.keys().index(str(level))
-        if index + 1 >= len(self._levels):
+        index = self.levels_dict.keys().index(str(level))
+        if index + 1 >= len(self.levels):
             return None
         else:
             return self.levels[index + 1]
@@ -1478,7 +1485,7 @@ class Hierarchy(object):
         if level is None:
             return None
 
-        index = self._levels.keys().index(str(level))
+        index = self.levels_dict.keys().index(str(level))
         if index == 0:
             return None
         else:
@@ -1488,7 +1495,7 @@ class Hierarchy(object):
         """Get order index of level. Can be used for ordering and comparing
         levels within hierarchy."""
         try:
-            return self._levels.keys().index(str(level))
+            return self.levels_dict.keys().index(str(level))
         except ValueError:
             raise HierarchyError("Level %s is not part of hierarchy %s"
                                     % (str(level), self.name))
@@ -1528,7 +1535,7 @@ class Hierarchy(object):
         path where there are no more levels to be added - no drill down
         possible."""
 
-        return path != None and len(path) == len(self._levels)
+        return path != None and len(path) == len(self.levels)
 
     def key_attributes(self):
         """Return all dimension key attributes as a single list."""
