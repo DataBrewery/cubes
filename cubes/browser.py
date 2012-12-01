@@ -27,6 +27,7 @@ __all__ = [
     "cuts_from_string",
     "string_from_cuts",
     "string_from_path",
+    "string_from_hierarchy",
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",
@@ -789,15 +790,30 @@ def cut_from_string(dimension, string):
 
     If the `string` does not match any of the patterns, then ArgumentError
     exception is raised.
+
+    `dimension` can specify a hierarchy in form ``dimension@hierarchy`` such
+    as ``date@dqmy``.
     """
+
+    pattern = r"(?P<dim>\w+)(@(?P<hier>\w+))?"
+    match = re.match(pattern, dimension)
+
+    if match:
+        d = match.groupdict()
+        dimension = d["dim"]
+        hierarchy = d["hier"]
+    else:
+        raise ArgumentError("Dimension spec '%s' does not match "
+                            "pattern 'dimension@hierarchy'" % dimension)
+
     if re_point.match(string):
-        return PointCut(dimension, path_from_string(string))
+        return PointCut(dimension, path_from_string(string), hierarchy)
     elif re_set.match(string):
         paths = map(path_from_string, string.split(SET_CUT_SEPARATOR))
-        return SetCut(dimension, paths)
+        return SetCut(dimension, paths, hierarchy)
     elif re_range.match(string):
         (from_path, to_path) = map(path_from_string, string.split(RANGE_CUT_SEPARATOR))
-        return RangeCut(dimension, from_path, to_path)
+        return RangeCut(dimension, from_path, to_path, hierarchy)
     else:
         raise ArgumentError("Unknown cut format (check that keys "
                         "consist only of of alphanumeric characters and "
@@ -816,11 +832,12 @@ def cut_from_dict(desc, cube=None):
         dim = cube.dimension(dim)
 
     if cut_type == "point":
-        return PointCut(dim, desc.get("path"))
+        return PointCut(dim, desc.get("path"), desc.get("hierarchy"))
     elif cut_type == "set":
-        return SetCut(dim, desc.get("paths"))
+        return SetCut(dim, desc.get("paths"), desc.get("hierarchy"))
     elif cut_type == "range":
-        return RangeCut(dim, desc.get("from"), desc.get("to"))
+        return RangeCut(dim, desc.get("from"), desc.get("to"),
+                                desc.get("hierarchy"))
     else:
         raise ArgumentError("Unknown cut type %s" % cut_type)
 
@@ -851,6 +868,14 @@ def string_from_path(path):
 
     string = PATH_STRING_SEPARATOR.join(path)
     return string
+
+def string_from_hierarchy(dimension, hierarchy):
+    """Returns a string in form ``dimension@hierarchy`` or ``dimension`` if
+    `hierarchy` is ``None``"""
+    if hierarchy:
+        return "%s@%s" % (str(dimension), str(hierarchy))
+    else:
+        return str(dimension)
 
 def path_from_string(string):
     """Returns a dimension point path from `string`. The path elements are
@@ -914,8 +939,8 @@ class PointCut(Cut):
         """Return string representation of point cut, you can use it in
         URLs"""
         path_str = string_from_path(self.path)
-
-        string = str(self.dimension) + DIMENSION_STRING_SEPARATOR + path_str
+        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
+        string = dim_str + DIMENSION_STRING_SEPARATOR + path_str
 
         return string
 
@@ -972,7 +997,8 @@ class RangeCut(Cut):
             to_path_str = string_from_path([])
 
         range_str = from_path_str + RANGE_CUT_SEPARATOR + to_path_str
-        string = str(self.dimension) + DIMENSION_STRING_SEPARATOR + range_str
+        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
+        string = dim_str + DIMENSION_STRING_SEPARATOR + range_str
 
         return string
 
@@ -1017,7 +1043,8 @@ class SetCut(Cut):
             path_strings.append(string_from_path(path))
 
         set_string = SET_CUT_SEPARATOR.join(path_strings)
-        string = str(self.dimension) + DIMENSION_STRING_SEPARATOR + set_string
+        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
+        string = dim_str + DIMENSION_STRING_SEPARATOR + set_string
 
         return string
 

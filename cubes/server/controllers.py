@@ -308,11 +308,13 @@ class CubesController(ApplicationController):
         self.browser = self.app.workspace.browser(self.cube, self.locale)
 
     def prepare_cell(self):
-        cut_string = self.args.get("cut")
+        cut_strings = self.args.getlist("cut")
 
-        if cut_string:
-            self.logger.debug("preparing cell from string: '%s'" % cut_string)
-            cuts = cubes.cuts_from_string(cut_string)
+        if cut_strings:
+            cuts = []
+            for cut_string in cut_strings:
+                self.logger.debug("preparing cell from string: '%s'" % cut_string)
+                cuts += cubes.cuts_from_string(cut_string)
         else:
             self.logger.debug("preparing cell as whole cube")
             cuts = []
@@ -323,20 +325,18 @@ class CubesController(ApplicationController):
         self.create_browser(cube)
         self.prepare_cell()
 
-        drilldown = self.args.getlist("drilldown")
-        dic_drilldown = {}
+        ddlist = self.args.getlist("drilldown")
 
-        # Allow dimension:level specification for drilldown
+        drilldown = []
 
-        if drilldown:
-            for drill_dim in drilldown:
-                split = drill_dim.split(":")
-                dic_drilldown[split[0]] = split[1] if len(split) >= 2 else None
+        if ddlist:
+            for ddstring in ddlist:
+                drilldown += ddstring.split("|")
 
-        result = self.browser.aggregate(self.cell, drilldown = dic_drilldown,
-                                        page = self.page,
-                                        page_size = self.page_size,
-                                        order = self.order)
+        result = self.browser.aggregate(self.cell, drilldown=drilldown,
+                                        page=self.page,
+                                        page_size=self.page_size,
+                                        order=self.order)
 
         return self.json_response(result)
 
