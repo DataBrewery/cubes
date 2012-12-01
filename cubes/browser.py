@@ -33,7 +33,7 @@ __all__ = [
     "TableRow",
     "CrossTable",
     "cross_table",
-    "coalesce_drilldown"
+    "levels_from_drilldown"
 ]
 
 class AggregationBrowser(object):
@@ -168,6 +168,9 @@ class AggregationBrowser(object):
 
         Raises `cubes.ArgumentError` when there are no queries specified
         or if a query is of unknown type.
+
+        .. `formatters` is a dictionary where keys are formatter names
+        .. (arbitrary) and values are formatter instances.
 
         *Roll-up*
 
@@ -1250,48 +1253,102 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
 
     return CrossTable(column_hdrs, row_hdrs, data)
 
-def coalesce_drilldown(cell, drilldown):
-    """Returns a dictionary where keys are dimensions and values are list of
-    levels to be drilled down. `drilldown` should be a list of dimensions (or
-    dimension names) or a dictionary where keys are dimension names and values
-    are level names to drill up to.
 
-    For the list of dimensions or if the level is not specified, then up to
-    the next level in the cell is considered.
+def string_to_drilldown(astring):
+    """Converts `astring` into a drilldown tuple (`dimension`, `hierarchy`,
+    `level`). The string should have a format:
+    ``dimension@hierarchy:level``. Hierarchy and level are optional.
+
+    Raises `ArgumentError` when `astring` does not match expected pattern.
     """
 
-    # TODO: consider hierarchies (currently ignored, default is used)
-    result = {}
-    depths = cell.level_depths()
+    pattern = r"(?P<dim>\w+)(@(?P<hier>\w+))?(:(?P<level>\w+))?"
+    match = re.match(pattern, astring)
+
+    if match:
+        d = match.groupdict()
+        return (d["dim"], d["hier"], d["level"])
+    else:
+        raise ArgumentError("String '%s' does not match drilldown level "
+                            "pattern 'dim@hier:level'" % astring)
+
+def levels_from_drilldown(cell, drilldown):
+    """Converts `drilldown` into a list of levels to be used to drill down.
+    `drilldown` can be:
+
+    * list of dimensions
+    * list of dimension level specifier strings (``dimension@hierarchy:level``)
+    * list of tuples in form (`dimension`, `hierarchy`, `level`).
+
+    If `drilldown is a list of dimensions or if the level is not specified,
+    then next level in the cell is considered. The implicit next level is
+    determined from a `PointCut` for `dimension` in the `cell`.
+
+    For other types of cuts, such as range or set, "next" level is the first
+    level of hierarachy.
+
+    Returns a list of tuples: (`dimension`, `levels`) where `levels` is a list
+    of levels to be drilled down.
+
+    .. note::
+
+        For backward compatibility the function accepts a dictionary where
+        keys are dimension names and values are level names to drill up to.
+        This is argument format is depreciated.
+
+    """
+
+    result = []
 
     # If the drilldown is a list, convert it into a dictionary
-    if not isinstance(drilldown, dict):
-        drilldown = dict((dim,None) for dim in drilldown)
+    if isinstance(drilldown, dict):
+        logger = get_logger()
+        logger.warn("drilldown as dictionary is depreciated. Use a list of: "
+                    "(dim, hierarchy, level) instead")
+        drilldown = [(dim,None,level) for dim, level in drilldown.items()]
 
-    for dim, level in drilldown.items():
+    for obj in drilldown:
+        if isinstance(obj, basestring):
+            obj = string_to_drilldown(obj)
+        elif len(obj) != 3:
+            raise ArgumentError("Drilldown item should be either a string "
+                            " or a tuple of three elements. Is: %s" (obj, ))
+
+        dim, hier, level = obj
         dim = cell.cube.dimension(dim)
 
+        hier = dim.hierarchy(hier)
+
         if level:
-            hier = dim.hierarchy()
             index = hier.level_index(level)
-            result[dim.name] = hier[:index+1]
+            levels = hier[:index+1]
         else:
-            depth = depths.get(str(dim), 0)
-            result[dim.name] = drilldown_levels(dim, depth+1)
+            cut = cell.point_cut_for_dimension(dim)
+            if cut:
+                cut_hierarchy = dim.hierarchy(cut.hierarchy)
+                depth = cut.level_depth()
+            else:
+                cut_hierarchy = hier
+                depth = 0
+
+            if cut_hierarchy != hier:
+                raise HierarchyError("Cut hierarchy %s for dimension %s is "
+                        "different than drilldown hierarchy %s. Can not "
+                        "determine implicit next level." % \
+                                (hier, dim, cut_hierarchy))
+
+            if depth >= len(hier):
+                raise HierarchyError("Hierarchy %s in dimension %s has only "
+                                     "%d levels, can not drill to %d" % \
+                                     (hier,dim,len(hier),depth+1))
+
+            # if index + 1 >= len(hier):
+            #     raise HierarchyError("Can not drill down. Level %s is "
+            #                          "last in hierarchy %s for dimension "
+            #                          "%s" % (level, hier, dim))
+            levels = hier[:depth+1]
+
+        result.append( (dim, levels) )
 
     return result
 
-
-def drilldown_levels(dimension, depth, hierarchy=None):
-    """Get drilldown levels up to level at `depth`. If depth is ``None``
-    returns first level only. `dimension` has to be `Dimension` instance. """
-
-    hier = dimension.hierarchy(hierarchy)
-    depth = depth or 0
-
-    if depth > len(hier):
-        raise HierarchyError("Hierarchy %s in dimension %s has only %d levels, "
-                         "can not drill to %d" % \
-                         (hier,dimension,len(hier),depth))
-
-    return hier[:depth]
