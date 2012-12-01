@@ -171,7 +171,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
-    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, 
+    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None,
                 page=None, page_size=None, order=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
@@ -269,7 +269,8 @@ class SnowflakeBrowser(AggregationBrowser):
         ##
 
         if drilldown:
-            drilldown = coalesce_drilldown(cell, drilldown)
+            drilldown = levels_from_drilldown(cell, drilldown)
+            # FIXME: use a list of (dim, levels) 
             result.levels = drilldown
             statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures,
@@ -466,7 +467,7 @@ class QueryContext(object):
         `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
         references to attributes to be selected. If it is ``None`` then all
         attributes are used. `drilldown` has to be a dictionary. Use
-        `coalesce_drilldown()` to prepare correct drill-down statement."""
+        `levels_from_drilldown()` to prepare correct drill-down statement."""
 
         cell_cond = self.condition_for_cell(cell)
 
@@ -474,7 +475,7 @@ class QueryContext(object):
             attributes = set()
 
             if drilldown:
-                for levels in drilldown.values():
+                for dim, levels in drilldown:
                     for level in levels:
                         attributes |= set(level.attributes)
 
@@ -488,7 +489,7 @@ class QueryContext(object):
         group_by = None
         if drilldown:
             group_by = []
-            for dim, levels in drilldown.items():
+            for dim, levels in drilldown:
                 for level in levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
@@ -654,7 +655,8 @@ class QueryContext(object):
 
             if isinstance(cut, PointCut):
                 path = cut.path
-                wrapped_cond = self.condition_for_point(dim, path)
+                wrapped_cond = self.condition_for_point(dim, path,
+                                                        cut.hierarchy)
 
                 condition = wrapped_cond.condition
                 attributes |= wrapped_cond.attributes
@@ -663,15 +665,18 @@ class QueryContext(object):
                 set_conds = []
 
                 for path in cut.paths:
-                    wrapped_cond = self.condition_for_point(dim, path)
+                    wrapped_cond = self.condition_for_point(dim, path,
+                                                            cut.hierarchy)
                     set_conds.append(wrapped_cond.condition)
                     attributes |= wrapped_cond.attributes
 
                 condition = sql.expression.or_(*set_conds)
 
             elif isinstance(cut, RangeCut):
-                # FIXME: use hierarchy
-                range_cond = self.range_condition(cut.dimension, None, cut.from_path, cut.to_path)
+                range_cond = self.range_condition(cut.dimension,
+                                                  cut.hierarchy,
+                                                  cut.from_path,
+                                                  cut.to_path)
                 condition = range_cond.condition
                 attributes |= range_cond.attributes
 
@@ -798,7 +803,12 @@ class QueryContext(object):
             return self.tables[aliased_ref]
 
         # Get real table reference
-        table_ref = self.table_aliases[aliased_ref]
+        try:
+            table_ref = self.table_aliases[aliased_ref]
+        except KeyError:
+            raise ModelError("Table with reference %s not found. "
+                             "Missing join in cube '%s'?" %
+                                    (aliased_ref, self.cube.name) )
 
         table = sqlalchemy.Table(table_ref.table, self.metadata,
                                  autoload=True, schema=table_ref.schema)
