@@ -270,8 +270,12 @@ class SnowflakeBrowser(AggregationBrowser):
 
         if drilldown:
             drilldown = levels_from_drilldown(cell, drilldown)
-            # FIXME: use a list of (dim, levels) 
-            result.levels = drilldown
+
+            ddlevels = []
+            for dim, levels in drilldown:
+                ddlevels = [str(dim), [str(level) for level in levels]]
+
+            result.levels = ddlevels
             statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures,
                                                          attributes=attributes,
