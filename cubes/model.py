@@ -1145,7 +1145,7 @@ class Dimension(object):
             return self._default_hierarchy()
         if isinstance(obj, basestring):
             if obj not in self.hierarchies:
-                raise KeyError("No hierarchy %s in dimension %s" % (obj, self.name))
+                raise ModelError("No hierarchy %s in dimension %s" % (obj, self.name))
             return self.hierarchies[obj]
         elif isinstance(obj, Hierarchy):
             return obj
@@ -1192,13 +1192,13 @@ class Dimension(object):
 
                         return self._flat_hierarchy
                     elif len(self.levels) > 1:
-                        raise KeyError("There are no hierarchies in dimenson %s "
+                        raise ModelError("There are no hierarchies in dimenson %s "
                                        "and there are more than one level" % self.name)
                     else:
-                        raise KeyError("There are no hierarchies in dimenson %s "
+                        raise ModelError("There are no hierarchies in dimenson %s "
                                        "and there are no levels to make hierarchy from" % self.name)
                 else:
-                    raise KeyError("No default hierarchy specified in dimension '%s' " \
+                    raise ModelError("No default hierarchy specified in dimension '%s' " \
                                    "and there is more (%d) than one hierarchy defined" \
                                    % (self.name, len(self.hierarchies)))
 
