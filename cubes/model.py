@@ -241,6 +241,10 @@ def create_dimension(obj, dimensions=None):
         description = None
         info = None
 
+    label = obj.get("label") or label
+    description = obj.get("description") or description
+    info = obj.get("info") or info
+
     # Levels
     # ------
 
@@ -259,7 +263,7 @@ def create_dimension(obj, dimensions=None):
         if not attributes:
             attributes = attribute_list([name])
 
-        levels = [Level(name=name, attributes=attributes)]
+        levels = [Level(name=name, label=label, attributes=attributes)]
 
 
     # Hierarchies
@@ -285,9 +289,6 @@ def create_dimension(obj, dimensions=None):
             hierarchies = [Hierarchy(**h) for h in hierarchies]
 
     default_hierarchy_name = obj.get("default_hierarchy_name") or default_hierarchy_name
-    label = obj.get("label") or label
-    description = obj.get("description") or description
-    info = obj.get("info") or info
 
     # Merge with template:
     return Dimension(name=name,
