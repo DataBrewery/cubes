@@ -116,7 +116,7 @@ class ApplicationController(object):
         info = {
             "version": cubes.__version__,
             # Backward compatibility key
-            "server_version": cubes.__version__, 
+            "server_version": cubes.__version__,
             "api_version": API_VERSION
         }
         return info
@@ -167,7 +167,7 @@ class ModelController(ApplicationController):
         return self.json_response(dim.to_dict())
 
     def _cube_dict(self, cube):
-        d = cube.to_dict(expand_dimensions = True, 
+        d = cube.to_dict(expand_dimensions = True,
                          with_mappings = False,
                          full_attribute_names = True
                          )
@@ -396,7 +396,7 @@ class CubesController(ApplicationController):
             raise NotFoundError(dim_name, "dimension",
                                 message="Dimension '%s' was not found" % dim_name)
 
-        values = self.browser.values(self.cell, dimension, depth=depth, 
+        values = self.browser.values(self.cell, dimension, depth=depth,
                                      page=self.page, page_size=self.page_size)
 
         result = {
@@ -444,7 +444,7 @@ class CubesController(ApplicationController):
 
         details = self.browser.cell_details(self.cell)
         cell_dict = self.cell.to_dict()
-        
+
         for cut, detail in zip(cell_dict["cuts"], details):
             cut["details"] = detail
 
@@ -456,7 +456,7 @@ class CubesController(ApplicationController):
         self.prepare_cell()
 
         result = self.browser.cell_details(self.cell)
-        
+
         return self.json_response(result)
 
 
@@ -470,15 +470,24 @@ class SearchController(ApplicationController):
     sql_url
     search_backend: sphinx otherwise we raise exception.
 
-    """        
+    """
 
     def create_browser(self, cube_name):
-        # FIXME: remove this (?)
-        if not cube_name:
-            cube_name = self.config.get("model", "cube")
+        # FIXME: reuse? 
+        if cube_name:
+            self.cube = self.model.cube(cube_name)
+        else:
+            if self.config.has_option("model", "cube"):
+                self.logger.debug("using default cube specified in cofiguration")
+                cube_name = self.config.get("model", "cube")
+                self.cube = self.model.cube(cube_name)
+            else:
+                self.logger.debug("using first cube from model")
+                self.cube = self.model.cubes.values()[0]
+                cube_name = self.cube.name
 
-        self.cube = self.model.cube(cube_name)
-        self.browser = self.app.workspace.browser(self.cube, locale = self.locale)
+        self.browser = self.app.workspace.browser(self.cube,
+                                                  locale=self.locale)
 
         if self.config.has_option("sphinx", "host"):
             self.sphinx_host = self.config.get("sphinx","host")
@@ -492,7 +501,7 @@ class SearchController(ApplicationController):
 
     def search(self, cube):
         self.create_browser(cube)
-        
+
         if not SphinxSearcher:
             raise ServerError("Search extension cubes_search is not installed")
 
@@ -500,14 +509,14 @@ class SearchController(ApplicationController):
 
         dimension = self.args.get("dimension")
         if not dimension:
-            return RequestError("No dimension provided for search")
+            raise RequestError("No dimension provided for search")
 
         query = self.args.get("q")
         if not query:
             query = self.args.get("query")
 
         if not query:
-            return RequestError("No search query provided")
+            raise RequestError("No search query provided")
 
         zipped = self.args.get("_zip")
 
@@ -519,7 +528,7 @@ class SearchController(ApplicationController):
                     break
 
 
-        search_result = sphinx.search(query, dimension, locale_tag = locale_tag)
+        search_result = sphinx.search(query, dimension, locale_tag=locale_tag)
 
         # FIXME: remove "values" - backward compatibility key
         result = {
