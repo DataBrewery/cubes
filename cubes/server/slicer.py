@@ -91,8 +91,8 @@ rules = Map([
 class Slicer(object):
 
     def __init__(self, config=None):
-        """Create a WSGI server for providing OLAP web service. You might provide ``config``
-        as ``ConfigParser`` object.
+        """Create a WSGI server for providing OLAP web service. You might
+        provide ``config`` as ``ConfigParser`` object.
         """
 
         self.config = config
@@ -143,7 +143,7 @@ class Slicer(object):
     def wsgi_app(self, environ, start_response):
         request = Request(environ)
         urls = rules.bind_to_environ(environ)
-        
+
         try:
             endpoint, params = urls.match()
 
@@ -174,13 +174,14 @@ class Slicer(object):
         return response
 
     def localized_model(self, locale=None):
-        """Tries to translate the model. Looks for language in configuration file under 
-        ``[translations]``, if no translation is provided, then model remains untouched."""
+        """Tries to translate the model. Looks for language in configuration
+        file under ``[translations]``, if no translation is provided, then
+        model remains untouched."""
 
         # FIXME: Rewrite this to make it thread safer
         if not locale:
             return self.model
-            
+
         self.logger.debug("localization to '%s' (current: '%s') requested (has: %s)" % (locale, self.model.locale, self.model_localizations.keys()))
 
         if locale in self.model_localizations:
