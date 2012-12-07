@@ -32,18 +32,31 @@ rules = Map([
                         endpoint = (controllers.ApplicationController, 'version')),
     Rule('/locales',
                         endpoint = (controllers.ApplicationController, 'locales')),
+    #
+    # Model requests
+    #
     Rule('/model',
                         endpoint = (controllers.ModelController, 'show')),
-    Rule('/model/dimension/<string:dim_name>',
-                        endpoint = (controllers.ModelController, 'dimension')),
+
+    Rule('/model/cubes',
+                        endpoint = (controllers.ModelController, 'list_cubes')),
     Rule('/model/cube',
                         endpoint = (controllers.ModelController, 'get_default_cube')),
     Rule('/model/cube/<string:cube_name>',
                         endpoint = (controllers.ModelController, 'get_cube')),
+    Rule('/model/cube/<string:cube_name>/dimensions',
+                        endpoint = (controllers.ModelController, 'list_cube_dimensions')),
+
+    Rule('/model/dimension/<string:dim_name>',
+                        endpoint = (controllers.ModelController, 'dimension')),
     Rule('/model/dimension/<string:dim_name>/levels',
                         endpoint = (controllers.ModelController, 'dimension_levels')),
     Rule('/model/dimension/<string:dim_name>/level_names',
                         endpoint = (controllers.ModelController, 'dimension_level_names')),
+
+    #
+    # Aggregation browser requests
+    #
     Rule('/cube/<string:cube>/aggregate',
                         endpoint = (controllers.CubesController, 'aggregate')),
     Rule('/cube/<string:cube>/facts',
@@ -58,9 +71,6 @@ rules = Map([
                         endpoint = (controllers.CubesController, 'cell_details')),
     Rule('/cube/<string:cube>/details',
                         endpoint = (controllers.CubesController, 'details')),
-    Rule('/cube/<string:cube>/search',
-                        endpoint = (controllers.SearchController, 'search')),
-
     # Use default cube (specified in config as: [model] cube = ... )
     Rule('/aggregate',
                         endpoint = (controllers.CubesController, 'aggregate'),
@@ -83,6 +93,12 @@ rules = Map([
     Rule('/details',
                         endpoint = (controllers.CubesController, 'details'),
                         defaults={"cube":None}),
+    #
+    # Other utility requests
+    #
+    Rule('/cube/<string:cube>/search',
+                        endpoint = (controllers.SearchController, 'search')),
+
     Rule('/search',
                         endpoint = (controllers.SearchController, 'search'),
                         defaults={"cube":None})

@@ -181,6 +181,15 @@ class ModelController(ApplicationController):
         cube = self.model.cube(cube_name)
         return self.json_response(self._cube_dict(cube))
 
+    def list_cubes(self):
+        cubes = [cube.to_dict() for cube in self.model.cubes.values()]
+        return self.json_response(cubes)
+
+    def list_cube_dimensions(self, cube_name):
+        cube = self.model.cube(cube_name)
+        dimensions = [dim.to_dict() for dim in cube.dimensions]
+        return self.json_response(dimensions)
+
     def dimension_levels(self, dim_name):
         # FIXME: remove this method
         self.logger.warn("/dimension/.../levels is depreciated")
