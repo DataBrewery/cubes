@@ -26,14 +26,20 @@ Model
     Get model metadata as JSON. In addition to standard model attributes a 
     ``locales`` key is added with list of available model locales.
     
+``GET /model/cubes``
+    Get list of cubes.
+
+``GET /model/cube/<name>/dimensions``
+    Get list of cube's dimensions.
+
 ``GET /model/dimension/<name>``
     Get dimension metadata as JSON
 
 ``GET /locales``
     Get list of model locales
 
-Cube
-----
+Browsing and Aggregation
+------------------------
 
 Cube API calls have format: ``/cube/<cube_name>/<browser_action>`` where the 
 browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and 
@@ -256,7 +262,8 @@ write only requests like ``/aggregate``.
     containing report specification where keys are names of queries and values
     are dictionaries describing the queries.
     
-    ``report`` expects ``Content-type`` header to be set to ``application/json``.
+    ``report`` expects ``Content-type`` header to be set to
+    ``application/json``.
     
     See :ref:`serverreport` for more information.
     
@@ -273,7 +280,8 @@ write only requests like ``/aggregate``.
         * `attribute` - dimension attribute name where searched value was found
         * `value` - value of dimension attribute that matches search query
         * `path` - dimension hierarchy path to the found value
-        * `level_label` - label for dimension level (value of label_attribute for level)
+        * `level_label` - label for dimension level (value of label_attribute
+          for level)
         
     .. warning::
     
@@ -639,14 +647,14 @@ Workspace with SQL backend (``backend=sql`` in ``[server]``) options:
 
 * ``url`` *(required)* – database URL in form: 
   ``adapter://user:password@host:port/database``
-* ``schema`` *(optional)* – schema containing denormalized views for relational DB
-  cubes
-* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find dimension
-  tables when no explicit mapping is specified
+* ``schema`` *(optional)* – schema containing denormalized views for
+  relational DB cubes
+* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
+  dimension tables when no explicit mapping is specified
 * ``dimension_schema`` – use this option when dimension tables are stored in
   different schema than the fact tables
-* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact table
-  for a cube, when no explicit fact table name is specified
+* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact
+  table for a cube, when no explicit fact table name is specified
 * ``use_denormalization`` *(optional)* – browser will use dernormalized view
   instead of snowflake
 * ``denormalized_view_prefix`` *(optional, advanced)* – if denormalization is
