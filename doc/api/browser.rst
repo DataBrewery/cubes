@@ -56,7 +56,7 @@ In applications where slicing and dicing can be specified in form of a string, s
 
 .. autofunction:: cubes.path_from_string
 
-.. autofunction:: cubes.coalesce_drilldown
+.. autofunction:: cubes.levels_from_drilldown
 
 Mapper
 ------
