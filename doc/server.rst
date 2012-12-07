@@ -60,7 +60,10 @@ write only requests like ``/aggregate``.
     * `drilldown` - dimension to be drilled down. For example 
       ``drilldown=date`` will give rows for each value of next level of 
       dimension date. You can explicitly specify level to drill down in 
-      form: ``dimension:level``, such as: ``drilldown=date:month``
+      form: ``dimension:level``, such as: ``drilldown=date:month``. To specify
+      a hierarchy use ``dimension@hierarchy`` as in ``drilldown=date@ywd`` for
+      implicit level or ``drilldown=date@ywd:week`` to explicitly specify
+      level.
     * `page` - page number for paginated results
     * `pagesize` - size of a page for paginated results
     * `order` - list of attributes to be ordered by
@@ -323,6 +326,12 @@ formal way, here is the BNF for the cut::
     Why dimension names are not URL parameters? This prevents conflict from
     other possible frequent URL parameters that might modify page content/API
     result, such as ``type``, ``form``, ``source``.
+
+
+To specify other than default hierarchy use format `dimension@hierarchy`, the
+path then should contain values for specified hierarchy levels::
+
+    date@ywd:2004,25
 
 Following image contains examples of cuts in URLs and how they change by
 browsing cube aggregates:
