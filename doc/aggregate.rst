@@ -327,7 +327,7 @@ path.
 
 .. code-block:: python
 
-    def drill_down(cell, dimension, path = []):
+    def drill_down(cell, dimension, path=[]):
 
 Get dimension's default hierarchy. Cubes supports multiple hierarchies, for 
 example for date you might have year-month-day or year-quarter-month-day. Most 
@@ -570,4 +570,33 @@ Summary
   special detail attribute: label attribute used for display in user
   interfaces
 
-    
+Multiple Hierarchies
+====================
+
+Dimension can have multiple hierarchies defined. To use specific hierarchy for
+drilling down:
+
+.. code-block:: python
+
+    result = browser.aggregate(cell, drilldown = [("date", "dmy", None)])
+
+The `drilldown` argument takes list of three element tuples in form:
+(`dimension`, `hierarchy`, `level`). The `hierarchy` and `level` are optional.
+If `level` is ``None``, as in our example, then next level is used. If
+`hierarchy` is ``None`` then default hierarchy is used.
+
+To sepcify hierarchy in cell cuts just pass `hierarchy` argument during cut
+construction. For example to specify cut through week 15 in year 2010:
+
+.. code-block:: python
+
+    cut = cubes.PointCut("date", [2010, 15], hierarchy="ywd")
+
+.. note::
+
+    If drilling down a hierarchy and asking cubes for next implicit level the
+    cuts should be using same hierarchy as drilldown. Otherwise exception is
+    raised. For example: if cutting through year-month-day and asking for next
+    level after year in year-week-day hierarchy, exception is raised.
+
+
