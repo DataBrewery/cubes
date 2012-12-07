@@ -85,12 +85,13 @@ class ApplicationController(object):
         #
 
         self.order = []
-        for order in self.args.getlist("order"):
-            split = order.split(":")
-            if len(split) == 1:
-                self.order.append( (order, None) )
-            else:
-                self.order.append( (split[0], split[1]) )
+        for orders in self.args.getlist("order"):
+            for order in orders.split(","):
+                split = order.split(":")
+                if len(split) == 1:
+                    self.order.append( (order, None) )
+                else:
+                    self.order.append( (split[0], split[1]) )
 
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))

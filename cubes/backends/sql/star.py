@@ -188,7 +188,6 @@ class SnowflakeBrowser(AggregationBrowser):
         elif depth is not None:
             levels = levels[0:depth]
 
-        # TODO: add ordering (ORDER BY)
         # TODO: this might unnecessarily add fact table as well, there might
         #       be cases where we do not want that (hm, might be? really? note
         #       the cell)
