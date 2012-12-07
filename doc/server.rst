@@ -320,9 +320,13 @@ Open range::
     date:2004,1,1-
     date:-2005,5,10
 
+Set cuts::
+
+    date:2005;2007
+
 Dimension name is followed by colon ``:``, each dimension cut is separated by
-``|``, and path for dimension levels is separated by a comma ``,``. Or in more
-formal way, here is the BNF for the cut::
+``|``, and path for dimension levels is separated by a comma ``,``. Set cuts are
+separated by semicolons ``;``. Or in more formal way, here is the BNF for the cut::
 
     <list>      ::= <cut> | <cut> '|' <list>
     <cut>       ::= <dimension> ':' <path>
