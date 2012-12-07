@@ -348,6 +348,7 @@ specification.
 Keys:
 
     * `queries` - dictionary of named queries
+..    * `formatters` - dictionary of formatter configurations
 
 Query specification should contain at least one key: `query` - which is query
 type: ``aggregate``, ``cell_details``, ``values`` (for dimension

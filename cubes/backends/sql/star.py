@@ -526,9 +526,9 @@ class QueryContext(object):
         return select
 
     def aggregations_for_measure(self, measure):
-        """Returns list of aggregation functions (sqlalchemy) on measure columns. 
-        The result columns are labeled as `measure` + ``_`` = `aggregation`,
-        for example: ``amount_sum`` or ``discount_min``.
+        """Returns list of aggregation functions (sqlalchemy) on measure
+        columns.  The result columns are labeled as `measure` + ``_`` =
+        `aggregation`, for example: ``amount_sum`` or ``discount_min``.
 
         `measure` has to be `Attribute` instance.
 
@@ -559,8 +559,8 @@ class QueryContext(object):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
-        logical references to attributes to be selected. If it is ``None`` then
-        all attributes are used.
+        logical references to attributes to be selected. If it is ``None``
+        then all attributes are used.
 
         Set `expand_locales` to ``True`` to expand all localized attributes.
         """

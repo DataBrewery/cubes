@@ -120,6 +120,11 @@ class StringConversionsTestCase(unittest.TestCase):
         cut = cubes.browser.RangeCut("foo", ["a-b"], ["1"])
         self.assertRaises(ArgumentError, cut.__str__)
 
+    def test_hierarchy_cut(self):
+        cut = cubes.browser.PointCut("date", ["10"], "dqmy")
+        self.assertEqual("date@dqmy:10", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("date@dqmy", "10"))
+
 class BrowserTestCase(unittest.TestCase):
     def setUp(self):
         self.model_path = os.path.join(DATA_PATH, 'model.json')

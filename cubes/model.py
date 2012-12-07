@@ -45,7 +45,7 @@ DIMENSION = 1
 MEASURE = 2
 DETAIL = 3
 
-def load_model(resource, translations = None):
+def load_model(resource, translations=None):
     """Load logical model from object reference. `resource` can be an URL,
     local file path or file-like object.
 
