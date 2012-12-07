@@ -142,12 +142,12 @@ def run_server(args):
     config = read_config(args.config)
 
     # Load extensions
-    
+
     if config.has_option("server", "modules"):
         modules = shlex.split(config.get("server", "modules"))
         for module in modules:
             e = __import__(module)
-    
+
     cubes.server.run_server(config)
 
 def run_test(args):

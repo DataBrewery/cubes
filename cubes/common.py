@@ -1,3 +1,4 @@
+# -*- coding=utf -*-
 """Utility functions for computing combinations of dimensions and hierarchy
 levels"""
 
@@ -181,11 +182,29 @@ def collect_subclasses(parent, suffix=None):
     """Collect all subclasses of `parent` and return a dictionary where keys
     are decamelized class names transformed to identifiers and with
     `suffix` removed."""
-    presenters = {}
+    subclasses = {}
     for c in subclass_iterator(parent):
         name = to_identifier(decamelize(c.__name__))
         if suffix and name.endswith(suffix):
             name = name[:-len(suffix)]
-        presenters[name] = c
+        subclasses[name] = c
 
-    return presenters
+    return subclasses
+
+def string_to_value(astring, value_type):
+    """Convert string into an object value of `value_type`. The type might be:
+        `string` (no conversion), `integer`, `float`, `list` – comma separated
+        list of strings.
+    """
+    value_type = value_type.lower()
+
+    if value_type == 'string':
+        return astring
+    if value_type == 'list':
+        return astring.split(",")
+    if value_type == "float":
+        return float(astring)
+    if value_type == "integer":
+        return int(astring)
+    if value_type == "bool":
+        return astring in ["true", "yes", "1"]

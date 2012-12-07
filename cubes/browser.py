@@ -1160,6 +1160,8 @@ class AggregationResult(object):
         hierarchy = dimension.hierarchy()
 
         if self.levels:
+            # Convert "levels" to a dictionary:
+            # all_levels = dict((dim, levels) for dim, levels in self.levels)
             dim_levels = self.levels.get(str(dimension), [])
             is_base = len(dim_levels) >= len(hierarchy)
         else:

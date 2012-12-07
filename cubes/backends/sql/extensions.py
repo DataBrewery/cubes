@@ -2,8 +2,6 @@ try:
     import sqlalchemy
     import sqlalchemy.sql as sql
     from sqlalchemy.sql.functions import ReturnTypeFromArgs
-
-
 except ImportError:
     from cubes.common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")

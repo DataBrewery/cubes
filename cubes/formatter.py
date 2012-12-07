@@ -26,7 +26,7 @@ def register_formatter(formatter_type, factory):
     _formatters[formatter_type] = factory
 
 def create_formatter(formatter_type, *args, **kwargs):
-    """Create a formatter of type `presenter_type`"""
+    """Create a formatter of type `formatter_type`"""
     global _formatters
 
     if not _formatters:
@@ -53,27 +53,6 @@ class Formatter(object):
     """Empty class for the time being. Currently used only for finding all
     built-in subclasses"""
     pass
-
-class CSVFormatter(Formatter):
-    parameters = [
-                {
-                    "name": "dialect",
-                    "type": "string",
-                    "label": "CSV Dialect"
-                },
-                {
-                    "name": "attributes",
-                    "type": "list",
-                    "label": "Attribute list"
-                }
-            ]
-    mime_type = "text/csv"
-
-    def __init__(self, dialect=None):
-        pass
-
-    def format(self, result, attributes):
-        pass
 
 class TextTableFormatter(Formatter):
     parameters = [
@@ -247,7 +226,7 @@ class SimpleHTMLTableFormatter(Formatter):
 
     def __init__(self, count_label=None, create_links=True,
                  table_style=None):
-        """Create a simple HTML table presenter"""
+        """Create a simple HTML table formatter"""
 
         super(SimpleHTMLTableFormatter, self).__init__()
 
