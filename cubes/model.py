@@ -1,9 +1,6 @@
 # -*- coding=utf -*-
 """Logical model."""
 
-# FIXME: Model constructors contain lots of default initializations. This
-# should be moved to some other place or made optional by a flag
-
 import os
 import re
 import urllib2
@@ -41,10 +38,6 @@ __all__ = [
     "aggregate_ref"
 ]
 
-DIMENSION = 1
-MEASURE = 2
-DETAIL = 3
-
 def load_model(resource, translations=None):
     """Load logical model from object reference. `resource` can be an URL,
     local file path or file-like object.
@@ -62,7 +55,10 @@ def load_model(resource, translations=None):
     if isinstance(resource, basestring):
         parts = urlparse.urlparse(resource)
         should_close = True
-        handle = open(resource) if parts.scheme in ('', 'file') else urllib2.urlopen(resource)
+        if parts.scheme in ('', 'file'):
+            handle = open(resource)
+        else:
+            handle = urllib2.urlopen(resource)
     else:
         handle = resource
         should_close = False
@@ -1894,7 +1890,7 @@ class Attribute(object):
         if locale:
             if not self.locales:
                 raise ArgumentError("Attribute '%s' is not loalizable "
-                                    "(localization %s requested)" 
+                                    "(localization %s requested)"
                                         % (self.name, locale))
             elif locale not in self.locales:
                 raise ArgumentError("Attribute '%s' has no localization %s "
