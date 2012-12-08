@@ -127,11 +127,22 @@ def create_slicer_context(config):
 
 
 def create_workspace(backend_name, model, **options):
-    """Finds the backend with name `backend_name` and creates a workspace
-    instance. The workspace is responsible for database connections and for
-    creation of aggregation browser. You can get a browser with method
-    ``browser()``. The browser returned might be either created or reused, it
-    depends on the backend.
+    """Designated function to create a backend-specific workspace that holds
+    all relevant data and metadata for aggregated browsing.
+
+    Use:
+
+    >>> workspace = cubes.create_workspace("sql", model, url="postgres://localhost/database")
+
+    Most frequently used method of workspace is browser creation:
+
+    >>> browser = workspace.browser(cube)
+
+    `create_workspace` finds the backend with name `backend_name` and creates
+    a workspace instance. The workspace is responsible for database
+    connections and for creation of aggregation browser. You can get a browser
+    with method ``browser()``. The browser returned might be either created or
+    reused, it depends on the backend.
 
     *Implementing Backend*
 
@@ -144,3 +155,4 @@ def create_workspace(backend_name, model, **options):
     backend = get_backend(backend_name)
 
     return backend.create_workspace(model, **options)
+
