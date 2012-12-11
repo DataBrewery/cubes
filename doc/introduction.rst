@@ -5,8 +5,6 @@ Introduction
 Why cubes?
 ==========
 
-*Focus on data analysis, in human way*
-
 Purpose is to provide a framework for giving analyst or any application 
 end-user understandable and natural way of presenting the multidimensional 
 data. One of the main features is the logical model, which serves as 
@@ -17,10 +15,13 @@ functionality.
 
 Features:
 
-* logical view of analysed data - how analysts look at data, how they think of 
+* logical view of analysed data - how analysts look at data, how they think of
   data, not not how the data are physically implemented in the data stores
-* hierarchical dimensions (attributes that have hierarchical dependencies, such 
-  as category-subcategory or country-region)
+* hierarchical dimensions (attributes that have hierarchical dependencies,
+  such as category-subcategory or country-region)
+* multiple hierarchies in a dimension – date can be split into year, month,
+  day or year, quaryer, month, day; geography can be categorized by country,
+  state, city or country, region, county, city.
 * localizable metadata and data (see :doc:`localization`)
 
 * OLAP and aggregated browsing (default backend is for relational databse - 
@@ -38,10 +39,10 @@ The framework thiks of the data as a cube with multiple dimensions:
 
     a data cube
     
-The most detailed unit of the data is a *fact*. Fact can be a contract, 
-invoice, spending, task, etc. Each fact might have a *measure* – an attribute 
-that can be measured, such as: price, amount, revenue, duration, tax, discount, 
-etc.
+The most detailed unit of the data is a *fact*. Fact can be a contract,
+invoice, spending, task, etc. Each fact might have a *measure* – an attribute
+that can be measured, such as: price, amount, revenue, duration, tax,
+discount, etc.
 
 The *dimension* provides context for facts. Is used to:
 
@@ -50,8 +51,8 @@ The *dimension* provides context for facts. Is used to:
 * used for ordering or sorting
 * defines master-detail relationship
 
-Dimension can have multiple *hierarchies*, for example the date dimension might 
-have year, month and day levels in a hierarchy.
+Dimension can have multiple *hierarchies*, for example the date dimension
+might have year, month and day levels in a hierarchy.
 
 Architecture
 ============
@@ -74,9 +75,9 @@ The framework is composed of four modules and one command-line tool:
 Model
 -----
 
-Logical model describes the data from user’s or analyst’s perspective: data how 
-they are being measured, aggregated and reported. Model is independent of 
-physical implementation of data. This physical independence makes it easier to 
+Logical model describes the data from user’s or analyst’s perspective: data
+how they are being measured, aggregated and reported. Model is independent of
+physical implementation of data. This physical independence makes it easier to
 focus on data instead on ways of how to get the data in understandable form.
 
 More information about logical model can be found in the chapter :doc:`model`. 
@@ -99,8 +100,9 @@ Backends provide the actual data aggregation and browsing functionality. Cubes
 comes with built-in `ROLAP`_ backend which uses SQL database through 
 `SQLAlchemy`_.
 
-Framework has modular nature and supports multiple database backends, therefore 
-different ways of cube computation and ways of browsing aggregated data.
+Framework has modular nature and supports multiple database backends,
+therefore different ways of cube computation and ways of browsing aggregated
+data.
 
 See also programming reference of the :mod:`backends` module.
 
