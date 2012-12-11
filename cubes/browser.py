@@ -1082,10 +1082,10 @@ class AggregationResult(object):
         `measures` and `levels` from the aggregate query.
 
     """
-    def __init__(self):
+    def __init__(self, cell=None, measures=None):
         super(AggregationResult, self).__init__()
-        self.cell = None
-        self.measures = None
+        self.cell = cell
+        self.measures = measures
         self.levels = None
 
         self.summary = {}

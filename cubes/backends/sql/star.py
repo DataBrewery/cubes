@@ -83,6 +83,14 @@ class SnowflakeBrowser(AggregationBrowser):
         * `options` - passed to the mapper and context (see their respective
           documentation)
 
+        Tuning:
+
+        * `include_summary` - it ``True`` then summary is included in
+          aggregation result. Turned on by default.
+        * `include_cell_count` – if ``True`` then total cell count is included
+          in aggregation result. Turned on by default, might be turned off for
+          performance reasons
+
         Limitations:
 
         * only one locale can be used for browsing at a time
@@ -104,6 +112,8 @@ class SnowflakeBrowser(AggregationBrowser):
             self.connectable = connectable
             self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
 
+        self.include_summary = options.get("include_summary", True)
+        self.include_cell_count = options.get("include_cell_count", True)
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
@@ -151,16 +161,14 @@ class SnowflakeBrowser(AggregationBrowser):
     def facts(self, cell, order=None, page=None, page_size=None):
         """Return all facts from `cell`, might be ordered and paginated."""
 
-        # TODO: add ordering (ORDER BY)
-
         statement = self.context.denormalized_statement()
         cond = self.context.condition_for_cell(cell)
 
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
-        statement = paginated_statement(statement, page, page_size)
-        statement = ordered_statement(statement, order, context=self.context)
+        statement = self.context.paginated_statement(statement, page, page_size)
+        statement = self.context.ordered_statement(statement, order)
 
         if self.debug:
             self.logger.info("facts SQL:\n%s" % statement)
@@ -171,8 +179,8 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
-    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None,
-                page=None, page_size=None, order=None, **options):
+    def values(self, cell, dimension, depth=None, hierarchy=None, page=None,
+               page_size=None, order=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
@@ -202,8 +210,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
         if cond.condition is not None:
             statement = statement.where(cond.condition)
-        statement = paginated_statement(statement, page, page_size)
-        statement = ordered_statement(statement, order, context=self.context)
+
+        statement = self.context.paginated_statement(statement, page, page_size)
+        statement = self.context.ordered_statement(statement, order)
 
         group_by = [self.context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
@@ -218,14 +227,32 @@ class SnowflakeBrowser(AggregationBrowser):
 
     def aggregate(self, cell=None, measures=None, drilldown=None,
                   attributes=None, page=None, page_size=None, order=None,
-                  **options):
+                  include_summary=None, include_cell_count=None, **options):
         """Return aggregated result.
+
+        Arguments:
+
+        * `cell`: cell to be aggregated
+        * `measures`: list of measures to be considered in aggregation
+        * `drilldown`: list of dimensions or list of tuples: (`dimension`,
+          `hierarchy`, `level`)
+        * `attributes`: list of attributes from drilled-down dimensions to be
+          returned in the result
+        * `include_cell_count`: if ``True`` then `result.total_cell_count` is
+          computed as well, otherwise it will be ``None``.
+
+        Result is paginated by `page_size` and ordered by `order`.
 
         Number of database queries:
 
         * without drill-down: 1 (summary)
         * with drill-down: 3 (summary, drilldown, total drill-down record
           count)
+
+        Notes:
+
+        * measures can be only in the fact table
+
         """
 
         if not cell:
@@ -239,29 +266,28 @@ class SnowflakeBrowser(AggregationBrowser):
         if measures:
             measures = [self.cube.measure(measure) for measure in measures]
 
-        result = AggregationResult()
-        result.cell = cell
-        result.measures = measures
+        result = AggregationResult(cell=cell, measures=measures)
 
-        summary_statement = self.context.aggregation_statement(cell=cell,
-                                                     measures=measures,
-                                                     attributes=attributes)
+        if include_summary or \
+                include_summary is None and self.include_summary:
+            summary_statement = self.context.aggregation_statement(cell=cell,
+                                                         measures=measures)
 
-        if self.debug:
-            self.logger.info("aggregation SQL:\n%s" % summary_statement)
+            if self.debug:
+                self.logger.info("aggregation SQL:\n%s" % summary_statement)
 
-        cursor = self.connectable.execute(summary_statement)
-        row = cursor.fetchone()
+            cursor = self.connectable.execute(summary_statement)
+            row = cursor.fetchone()
 
-        if row:
-            # Convert SQLAlchemy object into a dictionary
-            labels = [c.name for c in summary_statement.columns]
-            record = dict(zip(labels, row))
-        else:
-            record = None
+            if row:
+                # Convert SQLAlchemy object into a dictionary
+                labels = [c.name for c in summary_statement.columns]
+                record = dict(zip(labels, row))
+            else:
+                record = None
 
-        cursor.close()
-        result.summary = record
+            cursor.close()
+            result.summary = record
 
         ##
         # Drill-down
@@ -284,8 +310,8 @@ class SnowflakeBrowser(AggregationBrowser):
             if self.debug:
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
 
-            statement = paginated_statement(statement, page, page_size)
-            statement = ordered_statement(statement, order, context=self.context)
+            statement = self.context.paginated_statement(statement, page, page_size)
+            statement = self.context.ordered_statement(statement, order)
 
             dd_result = self.connectable.execute(statement)
             labels = [c.name for c in statement.columns]
@@ -294,10 +320,12 @@ class SnowflakeBrowser(AggregationBrowser):
 
             # TODO: introduce option to disable this
 
-            count_statement = statement.alias().count()
-            row_count = self.connectable.execute(count_statement).fetchone()
-            total_cell_count = row_count[0]
-            result.total_cell_count = total_cell_count
+            if include_cell_count or \
+                    include_cell_count is None and self.include_cell_count:
+                count_statement = statement.alias().count()
+                row_count = self.connectable.execute(count_statement).fetchone()
+                total_cell_count = row_count[0]
+                result.total_cell_count = total_cell_count
 
         return result
 
@@ -444,8 +472,7 @@ class QueryContext(object):
                 }
 
         # Collect all tables and their aliases.
-        # FIXME: this should be cached per-browser/cube instance
-
+        #
         # table_aliases contains mapping between aliased table name and real
         # table name with alias:
         # 
@@ -487,7 +514,6 @@ class QueryContext(object):
 
         join_expression = self.join_expression_for_attributes(attributes)
 
-        # TODO: add measures as well
         selection = []
 
         group_by = None
@@ -567,7 +593,8 @@ class QueryContext(object):
         if attributes is None:
             attributes = self.mapper.all_attributes()
 
-        join_expression = self.join_expression_for_attributes(attributes, expand_locales=expand_locales)
+        join_expression = self.join_expression_for_attributes(attributes,
+                                                expand_locales=expand_locales)
 
         columns = self.columns(attributes, expand_locales=expand_locales)
 
@@ -576,8 +603,8 @@ class QueryContext(object):
             columns.insert(0, key_column)
 
         select = sql.expression.select(columns,
-                                    from_obj=join_expression,
-                                    use_labels=True)
+                                       from_obj=join_expression,
+                                       use_labels=True)
 
         return select
 
@@ -586,10 +613,9 @@ class QueryContext(object):
 
         key_column = self.fact_table.c[self.fact_key]
         condition = key_column == key_value
-        statement = self.denormalized_statement()
 
-        if condition is not None:
-            statement = statement.where(condition)
+        statement = self.denormalized_statement()
+        statement = statement.where(condition)
 
         return statement
 
@@ -615,7 +641,8 @@ class QueryContext(object):
             # self.logger.debug("join detail: %s" % (join.detail, ))
 
             if not join.detail.table or join.detail.table == self.fact_name:
-                raise MappingError("Detail table name should be present and should not be a fact table.")
+                raise MappingError("Detail table name should be present and "
+                                   "should not be a fact table.")
 
             master_table = self.table(join.master.schema, join.master.table)
             detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
@@ -794,6 +821,75 @@ class QueryContext(object):
 
         return Condition(attributes, condition)
 
+    def paginated_statement(self, statement, page, page_size):
+        """Returns paginated statement if page is provided, otherwise returns
+        the same statement."""
+
+        if page is not None and page_size is not None:
+            return statement.offset(page * page_size).limit(page_size)
+        else:
+            return statement
+
+    def ordered_statement(self, statement, order):
+        """Returns a SQL statement which is ordered according to the `order`. If
+        the statement contains attributes that have natural order specified, then
+        the natural order is used, if not overriden in the `order`."""
+
+        # Each attribute mentioned in the order should be present in the selection
+        # or as some column from joined table. Here we get the list of already
+        # selected columns and derived aggregates
+
+        selection = collections.OrderedDict()
+        for c in statement.columns:
+            selection[str(c)] = c
+
+        # Make sure that the `order` is a list of of tuples (`attribute`,
+        # `order`). If element of the `order` list is a string, then it is
+        # converted to (`string`, ``None``).
+
+        order = order or []
+        order_by = collections.OrderedDict()
+
+        for item in order:
+            if isinstance(item, basestring):
+                try:
+                    attribute = self.mapper.attribute(item)
+                    column = self.column(attribute)
+                except KeyError:
+                    column = selection[item]
+
+                order_by[item] = column
+            else:
+                # item is a two-element tuple where first element is attribute
+                # name and second element is ordering
+                try:
+                    attribute = self.mapper.attribute(item[0])
+                    column = self.column(attribute)
+                except KeyError:
+                    column = selection[item[0]]
+                order_by[item] = order_column(column, item[1])
+
+        # Collect natural order for selected columns
+
+        for (name, column) in selection.items():
+            try:
+                # Backward mapping: get Attribute instance by name. The column
+                # name used here is already labelled to the logical name
+                attribute = self.mapper.attribute(name)
+            except KeyError:
+                # Since we are already selecting the column, then it should
+                # exist this exception is raised when we are trying to get
+                # Attribute object for an aggregate - we can safely ignore
+                # this.
+
+                # TODO: add natural ordering for measures (may be nice)
+                attribute = None
+
+            if attribute and attribute.order and name not in order_by.keys():
+                order_by[name] = order_column(column, attribute.order)
+
+        return statement.order_by(*order_by.values())
+
     def table(self, schema, table_name):
         """Return a SQLAlchemy Table instance. If table was already accessed,
         then existing table is returned. Otherwise new instance is created.
@@ -914,76 +1010,6 @@ class AggregatedCubeBrowser(AggregationBrowser):
         self.context = QueryContext(self.cube, self.mapper,
                                       metadata=self.metadata)
 
-def paginated_statement(statement, page, page_size):
-    """Returns paginated statement if page is provided, otherwise returns
-    the same statement."""
-
-    if page is not None and page_size is not None:
-        return statement.offset(page * page_size).limit(page_size)
-    else:
-        return statement
-
-def ordered_statement(statement, order, context):
-    """Returns a SQL statement which is ordered according to the `order`. If
-    the statement contains attributes that have natural order specified, then
-    the natural order is used, if not overriden in the `order`."""
-
-    # Each attribute mentioned in the order should be present in the selection
-    # or as some column from joined table. Here we get the list of already
-    # selected columns and derived aggregates
-
-    selection = collections.OrderedDict()
-    for c in statement.columns:
-        selection[str(c)] = c
-
-    # Make sure that the `order` is a list of of tuples (`attribute`,
-    # `order`). If element of the `order` list is a string, then it is
-    # converted to (`string`, ``None``).
-
-    order = order or []
-    order_by = collections.OrderedDict()
-
-    for item in order:
-        if isinstance(item, basestring):
-            try:
-                attribute = context.mapper.attribute(item)
-                column = context.column(attribute)
-            except KeyError:
-                column = selection[item]
-
-            order_by[item] = column
-        else:
-            # item is a two-element tuple where first element is attribute
-            # name and second element is ordering
-            try:
-                attribute = context.mapper.attribute(item[0])
-                column = context.column(attribute)
-            except KeyError:
-                column = selection[item[0]]
-            order_by[item] = order_column(column, item[1])
-
-    # Collect natural order for selected columns
-
-    # TODO: should we add natural order for columns that are not selected
-    #       but somewhat involved in the process (GROUP BY)?
-
-    for (name, column) in selection.items():
-        try:
-            # Backward mapping: get Attribute instance by name. The column
-            # name used here is already labelled to the logical name
-            attribute = context.mapper.attribute(name)
-        except KeyError:
-            # Since we are already selecting the column, then it should exist
-            # this exception is raised when we are trying to get Attribute
-            # object for an aggregate - we can safely ignore this.
-
-            # TODO: add natural ordering for measures (may be nice)
-            attribute = None
-
-        if attribute and attribute.order and name not in order_by.keys():
-            order_by[name] = order_column(column, attribute.order)
-
-    return statement.order_by(*order_by.values())
 
 
 def order_column(column, order):
