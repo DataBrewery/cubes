@@ -133,7 +133,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # also caches information about tables retrieved from metadata.
 
         self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata)
+                                      metadata=self.metadata, **options)
 
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube."""
@@ -146,7 +146,7 @@ class SnowflakeBrowser(AggregationBrowser):
         cursor = self.connectable.execute(select)
         row = cursor.fetchone()
 
-        labels = [c.name for c in select.columns]
+        labels = [c for c in self.context.to_attributes(select.columns)]
 
         if row:
             # Convert SQLAlchemy object into a dictionary
@@ -175,7 +175,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         result = self.connectable.execute(statement)
 
-        labels = [c.name for c in statement.columns]
+        labels = [c for c in self.context.to_attributes(statement.columns)]
 
         return ResultIterator(result, labels)
 
@@ -221,7 +221,7 @@ class SnowflakeBrowser(AggregationBrowser):
             self.logger.info("dimension values SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
-        labels = [c.name for c in statement.columns]
+        labels = [c for c in self.context.to_attributes(statement.columns)]
 
         return ResultIterator(result, labels)
 
@@ -281,7 +281,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                labels = [c.name for c in summary_statement.columns]
+                labels = [c for c in self.context.to_attributes(summary_statement.columns)]
                 record = dict(zip(labels, row))
             else:
                 record = None
@@ -307,14 +307,14 @@ class SnowflakeBrowser(AggregationBrowser):
                                                          attributes=attributes,
                                                          drilldown=drilldown)
 
-            if self.debug:
-                self.logger.info("aggregation drilldown SQL:\n%s" % statement)
-
             statement = self.context.paginated_statement(statement, page, page_size)
             statement = self.context.ordered_statement(statement, order)
 
+            if self.debug:
+                self.logger.info("aggregation drilldown SQL:\n%s" % statement)
+
             dd_result = self.connectable.execute(statement)
-            labels = [c.name for c in statement.columns]
+            labels = [c for c in self.context.to_attributes(statement.columns)]
 
             result.cells = ResultIterator(dd_result, labels)
 
@@ -490,6 +490,14 @@ class QueryContext(object):
                                  join.alias)
             table_alias = (join.detail.schema, join.alias or join.detail.table)
             self.table_aliases[table_alias] = table
+
+        # Mapping where keys are attributes and values are columns
+        self.logical_to_column = {}
+        # Mapping where keys are column labels and values are attributes
+        self.column_to_logical = {}
+
+        self.safe_labels = options.get("safe_labels", False)
+        self.label_counter = 1
 
     def aggregation_statement(self, cell, measures=None,
                               attributes=None, drilldown=None):
@@ -840,8 +848,12 @@ class QueryContext(object):
         # selected columns and derived aggregates
 
         selection = collections.OrderedDict()
-        for c in statement.columns:
-            selection[str(c)] = c
+
+        # Get logical attributes from column labels (see to_attributes method
+        # description for more information why this step is necessary)
+        logical = self.to_attributes(statement.columns)
+        for column, ref in zip(statement.columns, logical):
+            selection[ref] = column
 
         # Make sure that the `order` is a list of of tuples (`attribute`,
         # `order`). If element of the `order` list is a string, then it is
@@ -853,24 +865,24 @@ class QueryContext(object):
         for item in order:
             if isinstance(item, basestring):
                 try:
+                    column = selection[item]
+                except KeyError:
                     attribute = self.mapper.attribute(item)
                     column = self.column(attribute)
-                except KeyError:
-                    column = selection[item]
 
                 order_by[item] = column
             else:
                 # item is a two-element tuple where first element is attribute
                 # name and second element is ordering
                 try:
+                    column = selection[item[0]]
+                except KeyError:
                     attribute = self.mapper.attribute(item[0])
                     column = self.column(attribute)
-                except KeyError:
-                    column = selection[item[0]]
+
                 order_by[item] = order_column(column, item[1])
 
         # Collect natural order for selected columns
-
         for (name, column) in selection.items():
             try:
                 # Backward mapping: get Attribute instance by name. The column
@@ -927,6 +939,10 @@ class QueryContext(object):
         to be used. If not specified, then the current browsing/mapping locale
         is used for localizable attributes."""
 
+        logical = self.mapper.logical(attribute, locale)
+        if logical in self.logical_to_column:
+            return self.logical_to_column[logical]
+
         ref = self.mapper.physical(attribute, locale)
         table = self.table(ref.schema, ref.table)
         column = table.c[ref.column]
@@ -935,7 +951,16 @@ class QueryContext(object):
         if ref.extract:
             column = sql.expression.extract(ref.extract, column)
 
-        column = column.label(self.mapper.logical(attribute, locale))
+        if self.safe_labels:
+            label = "a%d" % self.label_counter
+            self.label_counter += 1
+        else:
+            label = logical
+
+        column = column.label(label)
+
+        self.logical_to_column[logical] = column
+        self.column_to_logical[label] = logical
 
         return column
 
@@ -954,6 +979,23 @@ class QueryContext(object):
             columns = [self.column(attr) for attr in attributes]
 
         return columns
+
+    def to_attributes(self, columns):
+        """Returns list of logical attribute references from list of columns
+        or column labels.
+
+        This method and additional internal references were added because some
+        database dialects, such as Exasol, can not handle dots in column
+        names, even when quoted.
+        """
+
+        attributes = []
+
+        for column in columns:
+            attributes.append(self.column_to_logical.get(str(column),
+                                                         str(column)))
+
+        return attributes
 
 class AggregatedCubeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
@@ -1010,7 +1052,9 @@ class AggregatedCubeBrowser(AggregationBrowser):
         self.context = QueryContext(self.cube, self.mapper,
                                       metadata=self.metadata)
 
-
+        # Map: logical attribute --> 
+        self.attribute_columns = {}
+        self.alias_columns
 
 def order_column(column, order):
     """Orders a `column` according to `order` specified as string."""
