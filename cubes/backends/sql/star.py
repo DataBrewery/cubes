@@ -146,7 +146,7 @@ class SnowflakeBrowser(AggregationBrowser):
         cursor = self.connectable.execute(select)
         row = cursor.fetchone()
 
-        labels = [c for c in self.context.to_attributes(select.columns)]
+        labels = self.context.logical_labels(select.columns)
 
         if row:
             # Convert SQLAlchemy object into a dictionary
@@ -174,8 +174,7 @@ class SnowflakeBrowser(AggregationBrowser):
             self.logger.info("facts SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
-
-        labels = [c for c in self.context.to_attributes(statement.columns)]
+        labels = self.context.logical_labels(statement.columns)
 
         return ResultIterator(result, labels)
 
@@ -221,7 +220,7 @@ class SnowflakeBrowser(AggregationBrowser):
             self.logger.info("dimension values SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
-        labels = [c for c in self.context.to_attributes(statement.columns)]
+        labels = self.context.logical_labels(statement.columns)
 
         return ResultIterator(result, labels)
 
@@ -281,7 +280,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                labels = [c for c in self.context.to_attributes(summary_statement.columns)]
+                labels = self.context.logical_labels(summary_statement.columns)
                 record = dict(zip(labels, row))
             else:
                 record = None
@@ -314,7 +313,7 @@ class SnowflakeBrowser(AggregationBrowser):
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
 
             dd_result = self.connectable.execute(statement)
-            labels = [c for c in self.context.to_attributes(statement.columns)]
+            labels = self.context.logical_labels(statement.columns)
 
             result.cells = ResultIterator(dd_result, labels)
 
@@ -849,9 +848,9 @@ class QueryContext(object):
 
         selection = collections.OrderedDict()
 
-        # Get logical attributes from column labels (see to_attributes method
+        # Get logical attributes from column labels (see logical_labels method
         # description for more information why this step is necessary)
-        logical = self.to_attributes(statement.columns)
+        logical = self.logical_labels(statement.columns)
         for column, ref in zip(statement.columns, logical):
             selection[ref] = column
 
@@ -980,8 +979,8 @@ class QueryContext(object):
 
         return columns
 
-    def to_attributes(self, columns):
-        """Returns list of logical attribute references from list of columns
+    def logical_labels(self, columns):
+        """Returns list of logical attribute labels from list of columns
         or column labels.
 
         This method and additional internal references were added because some
