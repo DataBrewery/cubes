@@ -25,8 +25,15 @@ def register_formatter(formatter_type, factory):
 
     _formatters[formatter_type] = factory
 
-def create_formatter(formatter_type, *args, **kwargs):
-    """Create a formatter of type `formatter_type`"""
+def create_formatter(formatter_type, convert_options=False, **options):
+    """Create a formatter of type `formatter_type` with initialization
+    `options`.
+
+    If `convert_values` is ``True`` then values are considered to be
+    strings and are converted into their respective types as specified in
+    the formatter metadata. This should be used as convenience conversion
+    from web server, for example.
+    """
     global _formatters
 
     if not _formatters:
@@ -37,7 +44,76 @@ def create_formatter(formatter_type, *args, **kwargs):
     except KeyError:
         raise CubesError("unknown formatter '%s'" % formatter_type)
 
-    return formatter_factory(*args, **kwargs)
+    if convert_options:
+        options = convert_formatter_options(formatter_factory, options)
+
+    return formatter_factory(**options)
+
+def create_formatters(description, convert_options=False):
+    """Initialize formatters from `description` dictionary where keys are
+    formatter identifiers used in reports and values are formatter options
+    passed to the formatter's initialization method.
+
+    By default formatter of the same type as contents of the identifier
+    string is created. You can specify formatter type in ``type`` key of
+    the formatter options. For example:
+
+    .. code-block: javascript
+
+        {
+            "csv": { "delimiter": "|" },
+            "csv_no_headers": {"type":"csv", "headers": False}
+        }
+
+    Returns a dictionary with formatter identifiers as keys and formatter
+    instances as values.
+
+    Use this method to create dictionary of formatters from a configuration
+    file, web server configuration, database or any other user facing
+    application that does not require (or does not allow) Python to be used by
+    users.
+    """
+
+    formatters = {}
+
+    for name, options in config:
+        if "type" in options:
+            formatter_type = options["type"]
+            options = dict(options)
+            del options["type"]
+        else:
+            formatter_type = name
+
+        formatter = create_formatter(name,
+                                     convert_options=convert_options,
+                                     **options)
+        formatters[name] = formatter
+
+    return formatters
+
+
+def convert_formatter_options(formatter, options):
+    """Convert options according to type specification of formatter
+    parameters."""
+    new_options = {}
+
+    parameters = {}
+    for parameter in formatter.parameters:
+        parameters[parameter["name"]] = parameter
+        if "short_name" in "parameter":
+            parameters[parameter["short_name"]] = parameter
+
+    for key, string_value in options:
+        try:
+            parameter = parameters[key]
+        except KeyError:
+            raise ArgumentError("Unknown parameter %s for formatter %s" %
+                                                    (key, formatter_type))
+        value_type = parameter.get("type", "string")
+        value = string_to_value(string_value, parameter_type, key)
+        new_options[key] = value
+
+    return new_options
 
 def _jinja_env():
     """Create and return cubes jinja2 environment"""
