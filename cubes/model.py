@@ -1592,6 +1592,8 @@ class Level(object):
       should be unique within level. If not specified, then the first
       attribute is used as key.
     * `sort_key`: name of attribute that is going to be used for sorting
+    * `order`: ordering of the level. `asc` for ascending, `desc` for
+      descending or might be unspecified.
     * `label_attribute`: name of attribute containing label to be displayed
       (for example: ``customer_name`` for customer level, ``region_name`` for
       region level, ``month_name`` for month level)
@@ -1601,7 +1603,8 @@ class Level(object):
     """
 
     def __init__(self, name, attributes, dimension = None, key=None,
-                 sort_key=None, label_attribute=None, label=None, info=None):
+                 sort_key=None, order=None, label_attribute=None, label=None,
+                 info=None):
 
         self.name = name
         self.dimension = dimension
@@ -1629,6 +1632,7 @@ class Level(object):
                 self.label_attribute = self.key
 
         self.sort_key = self.attribute(sort_key)
+        self.order = order
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
@@ -1691,6 +1695,8 @@ class Level(object):
             out.setnoempty("label_attribute", self.label_attribute.name)
             if self.sort_key:
                 out.setnoempty("sort_key", self.sort_key.name)
+
+        out.setnoempty("order", self.order)
 
         array = []
         for attr in self.attributes:
