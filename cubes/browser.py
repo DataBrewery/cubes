@@ -262,9 +262,9 @@ class AggregationBrowser(object):
                     cut["details"] = detail
 
                 result = cell_dict
-
             else:
-                raise ArgumentError("Unknown report query '%s' for '%s'" % (query_type, result_name))
+                raise ArgumentError("Unknown report query '%s' for '%s'" %
+                                                    (query_type, result_name))
 
             report_result[result_name] = result
 
