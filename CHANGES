@@ -1,6 +1,45 @@
 Changes in the Cubes
 ====================
 
+Actual
+======
+
+New Features
+------------
+
+* added `order` to Level object - can be `asc`, `desc` or None for unspecified
+  order (will be ignored)
+* added `order_attribute` to Level object - specifies attribute to be used for
+  ordering according to `order`. If not specified, then first attribute is
+  going to be used.
+* added hierarchy argument to `AggregationResult.table_rows()`
+
+SQL:
+
+* added option to SQL workspace/browser `safe_labels` to use safe column
+  labels for databases that do not support characters like `.` in column names
+  even when quoted (advanced feature, does not work with denormalization)
+* browser accepts include_cell_count and include_summary arguments to
+  optionally disable/enable inclusion of respective results in the aggregation
+  result object
+* added implicit ordering by levels to aggregate and dimension values methods
+  (for list of facts it is not yet decided how this should work)
+
+Server:
+
+* added comma separator for `order=` parameter
+
+Changes
+-------
+
+None so far.
+
+Fixes
+-----
+
+None so far.
+
+
 0.10.1
 ======
 
