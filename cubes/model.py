@@ -1591,9 +1591,10 @@ class Level(object):
       level).  key will be used as a grouping field for aggregations. Key
       should be unique within level. If not specified, then the first
       attribute is used as key.
-    * `sort_key`: name of attribute that is going to be used for sorting
     * `order`: ordering of the level. `asc` for ascending, `desc` for
       descending or might be unspecified.
+    * `order_attribute`: name of attribute that is going to be used for
+      sorting, default is first attribute (usually key)
     * `label_attribute`: name of attribute containing label to be displayed
       (for example: ``customer_name`` for customer level, ``region_name`` for
       region level, ``month_name`` for month level)
@@ -1603,7 +1604,7 @@ class Level(object):
     """
 
     def __init__(self, name, attributes, dimension = None, key=None,
-                 sort_key=None, order=None, label_attribute=None, label=None,
+                 order_attribute=None, order=None, label_attribute=None, label=None,
                  info=None):
 
         self.name = name
@@ -1623,6 +1624,10 @@ class Level(object):
         else:
             raise ModelInconsistencyError("Attribute list should not be empty")
 
+        # Set second attribute to be label attribute if label attribute is not
+        # set. If dimension is flat (only one attribute), then use the only
+        # key attribute as label.
+
         if label_attribute:
             self.label_attribute = self.attribute(label_attribute)
         else:
@@ -1631,7 +1636,14 @@ class Level(object):
             else:
                 self.label_attribute = self.key
 
-        self.sort_key = self.attribute(sort_key)
+        # Set first attribute to be order attribute if order attribute is not
+        # set
+
+        if order_attribute:
+            self.order_attribute = self.attribute(order_attribute)
+        else:
+            self.order_attribute = coalesce_attribute(self.attributes[0], dimension)
+
         self.order = order
 
     def __eq__(self, other):
@@ -1641,7 +1653,7 @@ class Level(object):
             return False
         elif self.label_attribute != other.label_attribute:
             return False
-        elif self.sort_key != other.sort_key:
+        elif self.order_attribute != other.order_attribute:
              return False
 
         if self.attributes != other.attributes:
@@ -1663,15 +1675,11 @@ class Level(object):
         return str(self.to_dict())
 
     def __deepcopy__(self, memo):
-        if self.sort_key:
-            sort_key = str(self.sort_key)
-        else:
-            sort_key = None
-
         return Level(self.name,
                         attributes=copy.deepcopy(self.attributes,memo),
                         key=self.key.name,
-                        sort_key=sort_key,
+                        order_attribute=self.order_attribute.name,
+                        order=self.order,
                         label_attribute=self.label_attribute.name,
                         info=copy.copy(self.info),
                         label=copy.copy(self.label)
@@ -1688,13 +1696,11 @@ class Level(object):
         if full_attribute_names:
             out.setnoempty("key", self.key.ref())
             out.setnoempty("label_attribute", self.label_attribute.ref())
-            if self.sort_key:
-                out.setnoempty("sort_key", self.sort_key.ref())
+            out.setnoempty("order_attribute", self.order_attribute.ref())
         else:
             out.setnoempty("key", self.key.name)
             out.setnoempty("label_attribute", self.label_attribute.name)
-            if self.sort_key:
-                out.setnoempty("sort_key", self.sort_key.name)
+            out.setnoempty("order_attribute", self.order_attribute.name)
 
         out.setnoempty("order", self.order)
 
