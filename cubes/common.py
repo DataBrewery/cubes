@@ -191,20 +191,30 @@ def collect_subclasses(parent, suffix=None):
 
     return subclasses
 
-def string_to_value(astring, value_type):
+def string_to_value(astring, value_type, label=None):
     """Convert string into an object value of `value_type`. The type might be:
         `string` (no conversion), `integer`, `float`, `list` – comma separated
         list of strings.
     """
     value_type = value_type.lower()
 
-    if value_type == 'string':
-        return astring
-    if value_type == 'list':
-        return astring.split(",")
-    if value_type == "float":
-        return float(astring)
-    if value_type == "integer":
-        return int(astring)
-    if value_type == "bool":
-        return astring in ["true", "yes", "1"]
+    try:
+        if value_type == 'string':
+            return_value = astring
+        elif value_type == 'list':
+            return_value = astring.split(",")
+        elif value_type == "float":
+            return_value = float(astring)
+        elif value_type == "integer":
+            return_value = int(astring)
+        elif value_type == "bool":
+            return_value = astring.lower() in ["true", "yes", "1"]
+    except ValueError:
+        if label:
+            label = "parameter %s " % label
+        else:
+            label = ""
+
+        raise ArgumentError("Unable to convert %svalue '%s' into type %s" %
+                                                (label, astring, value_type))
+    return return_value
