@@ -35,35 +35,6 @@ __all__ = [
     "QueryContext"
 ]
 
-# Required functionality checklist
-# 
-# * [done] fact
-# * [partial] facts in a cell
-# *     [done] pagination
-# *     [done] ordering
-# * [partial] aggregation
-# *     [done] drill-down
-# *     [done] drill-down pagination
-# *     [done] number of total items in drill-down
-# *     [done] drill-down ordering
-# *     [ ] drill-down limits (such as top-10)
-# *     [ ] remainder
-# * [ ] ratio - aggregate sum(current)/sum(total) 
-# * [ ] derived measures
-# * [partial] dimension values
-# *     [done] pagination
-# *     [done] ordering
-
-# Browsing context:
-#     * engine
-#     * metadata
-#
-#     * locale
-#
-#     * fact name
-#     * dimension table prefix
-#     * schema
-
 class SnowflakeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
 
@@ -412,8 +383,8 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return issues
 
-"""A Condition representation. `attributes` - list of attributes involved in the conditions,
-`conditions` - SQL conditions"""
+"""A Condition representation. `attributes` - list of attributes involved in
+the conditions, `conditions` - SQL conditions"""
 Condition = collections.namedtuple("Condition",
                                     ["attributes", "condition"])
 
@@ -837,10 +808,14 @@ class QueryContext(object):
         else:
             return statement
 
-    def ordered_statement(self, statement, order):
+    def ordered_statement(self, statement, order, dimension_levels=None):
         """Returns a SQL statement which is ordered according to the `order`. If
         the statement contains attributes that have natural order specified, then
-        the natural order is used, if not overriden in the `order`."""
+        the natural order is used, if not overriden in the `order`.
+
+        `dimension_levels` is list of considered dimension levels in form of
+        tuples (`dimension`, `levels`). For each level it's sort key is used.
+        """
 
         # Each attribute mentioned in the order should be present in the selection
         # or as some column from joined table. Here we get the list of already

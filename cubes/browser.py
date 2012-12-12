@@ -1129,7 +1129,7 @@ class AggregationResult(object):
 
         return d
 
-    def table_rows(self, dimension, depth=None):
+    def table_rows(self, dimension, depth=None, hierarchy=None):
         """Returns iterator of drilled-down rows which yields a named tuple with
         named attributes: (key, label, path, record). `depth` is last level of
         interest. If not specified (set to ``None``) then deepest level for
@@ -1157,7 +1157,7 @@ class AggregationResult(object):
 
         # FIXME: use hierarchy from cut (when implemented)
         dimension = self.cell.cube.dimension(dimension)
-        hierarchy = dimension.hierarchy()
+        hierarchy = dimension.hierarchy(hierarchy)
 
         if self.levels:
             # Convert "levels" to a dictionary:
