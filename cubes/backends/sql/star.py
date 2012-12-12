@@ -139,6 +139,8 @@ class SnowflakeBrowser(AggregationBrowser):
             statement = statement.where(cond.condition)
 
         statement = self.context.paginated_statement(statement, page, page_size)
+        # FIXME: use level based ordering here. What levels to consider? In
+        # what order?
         statement = self.context.ordered_statement(statement, order)
 
         if self.debug:
@@ -182,7 +184,9 @@ class SnowflakeBrowser(AggregationBrowser):
             statement = statement.where(cond.condition)
 
         statement = self.context.paginated_statement(statement, page, page_size)
-        statement = self.context.ordered_statement(statement, order)
+        order_levels = [(dimension, levels)]
+        statement = self.context.ordered_statement(statement, order,
+                                                        order_levels)
 
         group_by = [self.context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
@@ -278,7 +282,8 @@ class SnowflakeBrowser(AggregationBrowser):
                                                          drilldown=drilldown)
 
             statement = self.context.paginated_statement(statement, page, page_size)
-            statement = self.context.ordered_statement(statement, order)
+            statement = self.context.ordered_statement(statement, order,
+                                                                    drilldown)
 
             if self.debug:
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
@@ -834,6 +839,15 @@ class QueryContext(object):
         # converted to (`string`, ``None``).
 
         order = order or []
+
+        if dimension_levels:
+            for dim, levels in dimension_levels:
+                dim = self.cube.dimension(dim)
+                for level in levels:
+                    level = dim.level(level)
+                    if level.order:
+                        order.append( (level.order_attribute.ref(), level.order) )
+
         order_by = collections.OrderedDict()
 
         for item in order:
@@ -844,7 +858,6 @@ class QueryContext(object):
                     attribute = self.mapper.attribute(item)
                     column = self.column(attribute)
 
-                order_by[item] = column
             else:
                 # item is a two-element tuple where first element is attribute
                 # name and second element is ordering
@@ -854,7 +867,10 @@ class QueryContext(object):
                     attribute = self.mapper.attribute(item[0])
                     column = self.column(attribute)
 
-                order_by[item] = order_column(column, item[1])
+                column = order_column(column, item[1])
+
+            if item not in order_by:
+                order_by[item] = column
 
         # Collect natural order for selected columns
         for (name, column) in selection.items():
