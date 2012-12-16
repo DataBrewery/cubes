@@ -199,6 +199,29 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
+    def path_details(self, dimension, path, hierarchy=None):
+        """Returns details for `path` in `dimension`. Can be used for
+        multi-dimensional "breadcrumbs" in a used interface"""
+
+        statement = self.context.detail_statement(dimension, path, hierarchy)
+        labels = self.context.logical_labels(statement.columns)
+
+        if self.debug:
+            self.logger.info("path details SQL:\n%s" % statement)
+
+        cursor = self.connectable.execute(statement)
+        row = cursor.fetchone()
+
+        if row:
+            record = dict(zip(labels, row))
+        else:
+            record = None
+
+        cursor.close()
+
+        return record
+
+
     def aggregate(self, cell=None, measures=None, drilldown=None,
                   attributes=None, page=None, page_size=None, order=None,
                   include_summary=None, include_cell_count=None, **options):
@@ -591,6 +614,29 @@ class QueryContext(object):
 
         return select
 
+    def detail_statement(self, dimension, path, hierarchy=None):
+        """Returns statement for dimension details. `attributes` should be a
+        list of attributes from one dimension that is one branch
+        (master-detail) of a star/snowflake."""
+
+        dimension = self.cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
+        attributes = hierarchy.all_attributes()
+
+        expression = self.join_expression_for_attributes(attributes,
+                                                        include_fact=False)
+        columns = self.columns(attributes)
+        select = sql.expression.select(columns,
+                                       from_obj=expression,
+                                       use_labels=True)
+
+        cond = self.condition_for_point(dimension, path, hierarchy)
+        select = select.where(cond.condition)
+
+        print "\n\nSQL:\n%s \n\n" % select
+
+        return select
+
     def fact_statement(self, key_value):
         """Return a statement for selecting a single fact based on `key_value`"""
 
@@ -603,25 +649,35 @@ class QueryContext(object):
         return statement
 
 
-    def join_expression_for_attributes(self, attributes, expand_locales=False):
+    def join_expression_for_attributes(self, attributes, expand_locales=False,
+                                        include_fact=True):
         """Returns a join expression for `attributes`"""
         physical_references = self.mapper.map_attributes(attributes, expand_locales=expand_locales)
 
         joins = self.mapper.relevant_joins(physical_references)
-        return self.join_expression(joins)
+        return self.join_expression(joins, include_fact)
 
-    def join_expression(self, joins):
+    def join_expression(self, joins, include_fact=True):
         """Create partial expression on a fact table with `joins` that can be
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
+
+        If `include_fact` is ``True`` (default) then fact table is considered
+        as starting point. If it is ``False`` The first detail table is
+        considered as starting point for joins. This might be useful when
+        getting values of a dimension without cell restrictions.
         """
 
         self.logger.debug("create basic expression with %d joins" % len(joins))
 
-        expression = self.fact_table
+        if include_fact:
+            self.logger.debug("join: starting with fact table")
+            expression = self.fact_table
+        else:
+            self.logger.debug("join: ignoring fact table")
+            expression = None
 
         for join in joins:
-            # self.logger.debug("join detail: %s" % (join.detail, ))
 
             if not join.detail.table or join.detail.table == self.fact_name:
                 raise MappingError("Detail table name should be present and "
@@ -643,9 +699,15 @@ class QueryContext(object):
 
             onclause = master_column == detail_column
 
-            expression = sql.expression.join(expression,
+            if expression is not None:
+                expression = sql.expression.join(expression,
                                                     detail_table,
                                                     onclause=onclause)
+            else:
+                self.logger.debug("join: starting with detail table '%s'" %
+                                                                detail_table)
+                expression = detail_table
+
         return expression
 
     def condition_for_cell(self, cell):

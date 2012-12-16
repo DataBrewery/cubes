@@ -317,15 +317,16 @@ class AggregationBrowser(object):
         """
 
         dimension = self.cube.dimension(cut.dimension)
+        details = cut.to_dict()
 
         if isinstance(cut, PointCut):
-            details = self._path_details(dimension, cut.path)
+            details["details"] = self._path_details(dimension, cut.path)
 
         elif isinstance(cut, SetCut):
-            details = [self._path_details(dimension, path) for path in cut.paths]
+            details["details"] = [self._path_details(dimension, path) for path in cut.paths]
 
         elif isinstance(cut, RangeCut):
-            details = {
+            details["details"] = {
                 "from": self._path_details(dimension, cut.from_path),
                 "to": self._path_details(dimension, cut.to_path)
             }
@@ -354,16 +355,11 @@ class AggregationBrowser(object):
 
         cut = PointCut(dimension, path)
         cell = Cell(self.cube, cuts=[cut])
-        dim_values = list(self.values(cell, dimension, len(path)))
 
-        if len(dim_values) > 1:
-            raise Exception("There are more than one detail rows for dimension %s path %s" % \
-                                (str(dimension), path) )
+        details = self.path_details(dimension, path, hierarchy)
 
-        if not dim_values:
+        if not details:
             return None
-
-        details = dim_values[0]
 
         if (dimension.is_flat and not dimension.has_details):
             name = dimension.all_attributes()[0].name
