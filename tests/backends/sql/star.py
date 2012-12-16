@@ -349,24 +349,21 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
     def test_cut_details(self):
         cut = cubes.PointCut("date", [2012])
         details = self.browser.cut_details(cut)
-        details = details["details"]
         self.assertEqual([{"date.year":2012, "_key":2012, "_label":2012}], details)
 
         cut = cubes.PointCut("date", [2013])
         details = self.browser.cut_details(cut)
-        details = details["details"]
         self.assertEqual(None, details)
 
         cut = cubes.PointCut("date", [2012,3])
         details = self.browser.cut_details(cut)
-        details = details["details"]
         self.assertEqual([{"date.year":2012, "_key":2012, "_label":2012},
                           {"date.month_name":"March",
                           "date.month_sname":"Mar",
                           "date.month":3,
                           "_key":3, "_label":"March"}], details)
 
-    @unittest.skip("test model is not suitable ")
+    @unittest.skip("test model is not suitable")
     def test_cell_details(self):
         cell = cubes.Cell(self.cube, [cubes.PointCut("date", [2012])])
         details = self.browser.cell_details(cell)

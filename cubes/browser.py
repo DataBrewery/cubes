@@ -304,29 +304,25 @@ class AggregationBrowser(object):
         return details
 
     def cut_details(self, cut):
-        """Returns details for a `cut` which should be a `Cut` instance.
+        """Gets details for a `cut` which should be a `Cut` instance.
 
         * `PointCut` - all attributes for each level in the path
         * `SetCut` - list of `PointCut` results, one per path in the set
         * `RangeCut` - `PointCut`-like results for lower range (from) and
           upper range (to)
 
-        Default implemenatation uses `AggregationBrowser.values()` for each
-        path. Backends might customize this method to make it more efficient.
-
         """
 
         dimension = self.cube.dimension(cut.dimension)
-        details = cut.to_dict()
 
         if isinstance(cut, PointCut):
-            details["details"] = self._path_details(dimension, cut.path)
+            details = self._path_details(dimension, cut.path)
 
         elif isinstance(cut, SetCut):
-            details["details"] = [self._path_details(dimension, path) for path in cut.paths]
+            details = [self._path_details(dimension, path) for path in cut.paths]
 
         elif isinstance(cut, RangeCut):
-            details["details"] = {
+            details = {
                 "from": self._path_details(dimension, cut.from_path),
                 "to": self._path_details(dimension, cut.to_path)
             }
