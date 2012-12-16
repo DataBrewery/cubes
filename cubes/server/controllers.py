@@ -528,8 +528,6 @@ class SearchController(ApplicationController):
         if not query:
             raise RequestError("No search query provided")
 
-        zipped = self.args.get("_zip")
-
         locale_tag = 0
         if self.locale:
             for (i, locale) in enumerate(self.app.locales):
