@@ -316,15 +316,17 @@ class AggregationBrowser(object):
         dimension = self.cube.dimension(cut.dimension)
 
         if isinstance(cut, PointCut):
-            details = self._path_details(dimension, cut.path)
+            details = self._path_details(dimension, cut.path, cut.hierarchy)
 
         elif isinstance(cut, SetCut):
-            details = [self._path_details(dimension, path) for path in cut.paths]
+            details = [self._path_details(dimension, path, cut.hierarchy) for path in cut.paths]
 
         elif isinstance(cut, RangeCut):
             details = {
-                "from": self._path_details(dimension, cut.from_path),
-                "to": self._path_details(dimension, cut.to_path)
+                "from": self._path_details(dimension, cut.from_path,
+                                            cut.hierarchy),
+                "to": self._path_details(dimension, cut.to_path,
+                                            cut.hierarchy)
             }
 
         else:
