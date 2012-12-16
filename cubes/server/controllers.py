@@ -461,13 +461,7 @@ class CubesController(ApplicationController):
         return self.json_response(cell_dict)
 
     def details(self, cube):
-        self.logger.warn("/details is depreciated, use /cell")
-        self.create_browser(cube)
-        self.prepare_cell()
-
-        result = self.browser.cell_details(self.cell)
-
-        return self.json_response(result)
+        raise RequestError("'details' request is depreciated, use 'cell' request")
 
 
 class SearchController(ApplicationController):
