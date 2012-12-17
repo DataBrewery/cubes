@@ -399,8 +399,10 @@ class SnowflakeBrowser(AggregationBrowser):
         physical = self.mapper.map_attributes(attributes)
 
         for attr, ref in zip(attributes, physical):
-            table_ref = (ref.schema, ref.table)
+            alias_ref = (ref.schema, ref.table)
+            table_ref = alias_map.get(alias_ref, alias_ref)
             table = physical_tables.get(table_ref)
+
             if table is None:
                 issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
             else:
@@ -997,7 +999,13 @@ class QueryContext(object):
 
         ref = self.mapper.physical(attribute, locale)
         table = self.table(ref.schema, ref.table)
-        column = table.c[ref.column]
+        try:
+            column = table.c[ref.column]
+        except:
+            # FIXME: do not expose this exception to server
+            avail = [str(c) for c in table.columns]
+            raise BrowserError("Unknown column '%s' in table '%s' avail: %s" %
+                                        (ref.column, ref.table, avail))
 
         # Extract part of the date
         if ref.extract:
