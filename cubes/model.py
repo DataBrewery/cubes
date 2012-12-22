@@ -11,7 +11,7 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-from cubes.common import IgnoringDictionary, get_logger
+from cubes.common import IgnoringDictionary, get_logger, to_label
 from cubes.errors import *
 
 try:
@@ -880,13 +880,17 @@ class Cube(object):
 
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
-        out.setnoempty("label", self.label)
         out.setnoempty("info", self.info)
 
-        measures = [m.to_dict() for m in self.measures]
+        if options.get("create_label"):
+            out.setnoempty("label", self.label or to_label(self.name))
+        else:
+            out.setnoempty("label", self.label)
+
+        measures = [m.to_dict(**options) for m in self.measures]
         out.setnoempty("measures", measures)
 
-        details = [a.to_dict() for a in self.details]
+        details = [a.to_dict(**options) for a in self.details]
         out.setnoempty("details", details)
 
         if expand_dimensions:
@@ -1224,12 +1228,16 @@ class Dimension(object):
 
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
-        out.setnoempty("label", self.label)
         out.setnoempty("info", self.info)
         out.setnoempty("default_hierarchy_name", self.default_hierarchy_name)
 
-        out["levels"] = [level.to_dict() for level in self.levels]
-        out["hierarchies"] = [hier.to_dict() for hier in self.hierarchies.values()]
+        if options.get("create_label"):
+            out.setnoempty("label", self.label or to_label(self.name))
+        else:
+            out.setnoempty("label", self.label)
+
+        out["levels"] = [level.to_dict(**options) for level in self.levels]
+        out["hierarchies"] = [hier.to_dict(**options) for hier in self.hierarchies.values()]
 
         # Use only for reading, during initialization these keys are ignored, as they are derived
         # They are provided here for convenience.
@@ -1559,9 +1567,13 @@ class Hierarchy(object):
 
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
-        out.setnoempty("label", self.label)
         out.setnoempty("levels", [str(l) for l in self.levels])
         out.setnoempty("info", self.info)
+
+        if options.get("create_label"):
+            out.setnoempty("label", self.label or to_label(self.name))
+        else:
+            out.setnoempty("label", self.label)
 
         return out
 
@@ -1690,8 +1702,13 @@ class Level(object):
 
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
-        out.setnoempty("label", self.label)
         out.setnoempty("info", self.info)
+
+        if options.get("create_label"):
+            out.setnoempty("label", self.label or to_label(self.name))
+        else:
+            out.setnoempty("label", self.label)
+
 
         if full_attribute_names:
             out.setnoempty("key", self.key.ref())
@@ -1872,7 +1889,10 @@ class Attribute(object):
                 "ref": self.ref()
             }
         if self.label is not None:
-            d["label"] = self.label
+            if options.get("create_label"):
+                d["label"] = self.label or to_label(self.name)
+            else:
+                d["label"] = self.label
         if self.locales:
             d["locales"] = self.locales
         if self.order is not None:
