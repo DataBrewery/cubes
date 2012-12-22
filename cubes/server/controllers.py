@@ -157,7 +157,7 @@ class ApplicationController(object):
 class ModelController(ApplicationController):
 
     def show(self):
-        d = self.model.to_dict(with_mappings = False)
+        d = self.model.to_dict(with_mappings=False,create_label=True)
 
         # Add available model locales based on server configuration
         d["locales"] = self.app.locales;
@@ -165,12 +165,13 @@ class ModelController(ApplicationController):
 
     def dimension(self, dim_name):
         dim = self.model.dimension(dim_name)
-        return self.json_response(dim.to_dict())
+        return self.json_response(dim.to_dict(create_label=True))
 
     def _cube_dict(self, cube):
-        d = cube.to_dict(expand_dimensions = True,
-                         with_mappings = False,
-                         full_attribute_names = True
+        d = cube.to_dict(expand_dimensions=True,
+                         with_mappings=False,
+                         full_attribute_names=True,
+                         create_label=True
                          )
 
         return d
@@ -183,12 +184,12 @@ class ModelController(ApplicationController):
         return self.json_response(self._cube_dict(cube))
 
     def list_cubes(self):
-        cubes = [cube.to_dict() for cube in self.model.cubes.values()]
+        cubes = [self._cube_dict(cube) for cube in self.model.cubes.values()]
         return self.json_response(cubes)
 
     def list_cube_dimensions(self, cube_name):
         cube = self.model.cube(cube_name)
-        dimensions = [dim.to_dict() for dim in cube.dimensions]
+        dimensions = [dim.to_dict(create_label=True) for dim in cube.dimensions]
         return self.json_response(dimensions)
 
     def dimension_levels(self, dim_name):
