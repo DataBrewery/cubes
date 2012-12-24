@@ -13,7 +13,7 @@ setup(
     # installed or upgraded on the target machine
     install_requires = requirements,
 
-    packages=find_packages(exclude=['ez_setup']),
+    packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
