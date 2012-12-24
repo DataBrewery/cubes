@@ -5,6 +5,7 @@ Cubes Examples
   server
 * `flask_dimension_browser` - simple Flask (web microframework) application for
   browsing a dimension hierarchy
+* `model_browser` – Flask based browser for Cubes model (requires slicer.ini)
 
 Other examples (with larger datasets and more complex models) can be found in:
 
