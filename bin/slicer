@@ -92,7 +92,7 @@ def model_to_json(args):
     """docstring for validate_model"""
     model = cubes.model_from_path(args.model)
     dump_model(model)
-    
+
 def update_locale(args):
     raise NotImplementedError("update of localizable dictionary is not yet implemented")
 
@@ -107,7 +107,7 @@ def translate_model(args):
     handle = open(trans_path)
     trans_dict = json.load(handle)
     handle.close()
-    
+
     model.localize(trans_dict)
     dump_model(model)
 
@@ -121,7 +121,7 @@ def read_config(cfg):
         config.read(args.config)
     except Exception as e:
         raise Exception("Unable to load config: %s" % e)
-        
+
     return config
 
 def generate_ddl(args):
@@ -131,7 +131,7 @@ def generate_ddl(args):
         backend = cubes.workspace.get_backend(args.backend)
     else:
         backend = cubes.backends.sql.browser
-    
+
     ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix, 
                         dimension_prefix=args.dimension_prefix)
 
@@ -161,10 +161,8 @@ def run_test(args):
         for module in modules:
             e = __import__(module)
 
-    context = cubes.workspace.create_slicer_context(config)
-    backend = context["backend"]
-    workspace = backend.create_workspace(context["model"],
-                                         **context["workspace_options"])
+    workspace = cubes.create_workspace_from_config(config)
+
     results = workspace.validate_model()
     if results:
         print("\nvalidation results:\n")
@@ -176,12 +174,9 @@ def run_test(args):
 def denormalize(args):
     cube_list = args.cube
     config = read_config(args.config)
-    context = cubes.workspace.create_slicer_context(config)
-    model = context["model"]
 
-    backend = context["backend"]
-    workspace = backend.create_workspace(context["model"],
-                                         **context["workspace_options"])
+    workspace = cubes.create_workspace_from_config(config)
+    model = workspace.model
 
     if not cube_list:
         cube_list = [cube.name for cube in model.cubes.values()]
@@ -197,9 +192,9 @@ def denormalize(args):
         print("denormalizing cube '%s' into '%s'" % (cube_name, view_name))
 
         workspace.create_denormalized_view(cube, view_name,
-                                            materialize=args.materialize, 
+                                            materialize=args.materialize,
                                             replace=args.replace,
-                                            create_index=args.index, 
+                                            create_index=args.index,
                                             keys_only=False,
                                             schema=view_schema)
 
@@ -213,19 +208,19 @@ subparsers = parser.add_subparsers(title='commands')
 # Command: valdate_model
 
 model_parser = subparsers.add_parser('model', help="logical model validation, translation, conversion")
-model_subparsers = model_parser.add_subparsers(title='model commands', 
+model_subparsers = model_parser.add_subparsers(title='model commands',
                             help='additional model help')
 
-parser_validate = model_subparsers.add_parser('validate', 
+parser_validate = model_subparsers.add_parser('validate',
                             help="validate model and print validation report")
 
-parser_validate.add_argument('-d', '--defaults', 
+parser_validate.add_argument('-d', '--defaults',
                             dest='show_defaults', action='store_true', default=False,
                             help='show defaults')
-parser_validate.add_argument('-w', '--no-warnings', 
-                            dest='show_warnings', action='store_false', default=True, 
+parser_validate.add_argument('-w', '--no-warnings',
+                            dest='show_warnings', action='store_false', default=True,
                             help='disable warnings')
-parser_validate.add_argument('-t', '--translation', 
+parser_validate.add_argument('-t', '--translation',
                             dest='translation',
                             help='model translation file')
 parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
@@ -282,13 +277,13 @@ subparser.set_defaults(func=run_test)
 subparser = subparsers.add_parser('denormalize',
                                   help="create denormalized view(s) using SQL star backend")
 subparser.add_argument('config', help='slicer confuguration .ini file')
-subparser.add_argument('-p', '--prefix', 
+subparser.add_argument('-p', '--prefix',
                             dest='prefix',
                             help='prefix for denormalized views (overrides config value)')
-subparser.add_argument('-f', '--force', 
+subparser.add_argument('-f', '--force',
                             dest='replace', action='store_true', default=False,
                             help='replace existing views')
-subparser.add_argument('-m', '--materialize', 
+subparser.add_argument('-m', '--materialize',
                             dest='materialize', action='store_true', default=False,
                             help='create materialized view (table)')
 subparser.add_argument('-i', '--index',
@@ -308,14 +303,14 @@ subparser.set_defaults(func=denormalize)
 subparser = subparsers.add_parser('ddl', help="generate DDL of star schema, based on logical model (works only for SQL backend)")
 subparser.add_argument('url', help='SQL database connection URL')
 subparser.add_argument('model', help='model reference - can be a local file path or URL')
-subparser.add_argument('--dimension-prefix', 
+subparser.add_argument('--dimension-prefix',
                             dest='dimension_prefix',
                             help='prefix for dimension tables')
-subparser.add_argument('--fact-prefix', 
+subparser.add_argument('--fact-prefix',
                             dest='fact_prefix',
                             default="",
                             help='prefix for fact tables')
-subparser.add_argument('--backend', 
+subparser.add_argument('--backend',
                             dest='backend',
                             help='backend name (currently limited only to SQL backends)')
 subparser.set_defaults(func=generate_ddl)

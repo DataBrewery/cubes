@@ -7,6 +7,7 @@ __all__ = [
     "backend_aliases",
     "get_backend",
     "create_workspace",
+    "create_workspace_from_config",
     "create_slicer_context"
 ]
 
@@ -156,3 +157,13 @@ def create_workspace(backend_name, model, **options):
 
     return backend.create_workspace(model, **options)
 
+def create_workspace_from_config(config):
+    """Creates a workspace from configuration `config` which should be a
+    `ConfigParser` object."""
+
+    context = create_slicer_context(config)
+    backend = context["backend"]
+    workspace = backend.create_workspace(context["model"],
+                                         **context["workspace_options"])
+
+    return workspace
