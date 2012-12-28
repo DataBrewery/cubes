@@ -7,7 +7,9 @@ try:
 except ImportError:
     from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
-    Slicer = run_server = _missing
+    Slicer = _missing
+    run_server = _missing
+    create_server = _missing
 
 __all__ = (
     "Slicer",
