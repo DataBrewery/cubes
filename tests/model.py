@@ -415,6 +415,20 @@ class DimensionTestCase(unittest.TestCase):
         hier = dim.hierarchy()
         self.assertEqual(2, len(hier.levels))
 
+        template = self.dimension.to_dict()
+        template["hierarchies"] = [
+                    {"name":"ym", "levels": ["year", "month"]},
+                    {"name":"ymd", "levels": ["year", "month", "day"]}
+                ]
+        template["default_hierarchy_name"] = "ym"
+        template = cubes.create_dimension(template)
+        dims = {"date":template}
+        desc = {"template":"date", "name":"another_date"}
+        dim = cubes.create_dimension(desc, dims)
+        self.assertEqual(2, len(dim.hierarchies))
+        self.assertEqual(["ym", "ymd"],
+                         [hier.name for hier in dim.hierarchies.values()])
+
 class CubeTestCase(unittest.TestCase):
     def setUp(self):
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]

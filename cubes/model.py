@@ -277,7 +277,8 @@ def create_dimension(obj, dimensions=None):
             hierarchy = Hierarchy("default", levels=hierarchy)
 
         hierarchies = [hierarchy]
-    else:
+
+    elif "hierarchies" in obj:
         hierarchies = _fix_dict_list(obj.get("hierarchies"),
                                      warning="Hierarchies in a dimension (%s) should"
                                              "be a list, not a dictionary" % name)
