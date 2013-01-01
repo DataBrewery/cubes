@@ -107,7 +107,9 @@ class SnowflakeBrowser(AggregationBrowser):
                                       metadata=self.metadata, **options)
 
     def fact(self, key_value):
-        """Get a single fact with key `key_value` from cube."""
+        """Get a single fact with key `key_value` from cube.
+
+        Number of SQL queries: 1."""
 
         select = self.context.fact_statement(key_value)
 
@@ -130,7 +132,10 @@ class SnowflakeBrowser(AggregationBrowser):
         return record
 
     def facts(self, cell, order=None, page=None, page_size=None):
-        """Return all facts from `cell`, might be ordered and paginated."""
+        """Return all facts from `cell`, might be ordered and paginated.
+
+        Number of SQL queries: 1.
+        """
 
         statement = self.context.denormalized_statement()
         cond = self.context.condition_for_cell(cell)
@@ -201,7 +206,10 @@ class SnowflakeBrowser(AggregationBrowser):
 
     def path_details(self, dimension, path, hierarchy=None):
         """Returns details for `path` in `dimension`. Can be used for
-        multi-dimensional "breadcrumbs" in a used interface"""
+        multi-dimensional "breadcrumbs" in a used interface.
+
+        Number of SQL queries: 1.
+        """
 
         statement = self.context.detail_statement(dimension, path, hierarchy)
         labels = self.context.logical_labels(statement.columns)
@@ -235,16 +243,22 @@ class SnowflakeBrowser(AggregationBrowser):
           `hierarchy`, `level`)
         * `attributes`: list of attributes from drilled-down dimensions to be
           returned in the result
-        * `include_cell_count`: if ``True`` then `result.total_cell_count` is
+
+        Query tuning:
+
+        * `include_cell_count`: if ``True`` (default) then
+          `result.total_cell_count` is
           computed as well, otherwise it will be ``None``.
+        * `include_summary`: if ``True`` (default) then summary is computed,
+          otherwise it will be ``None``
 
         Result is paginated by `page_size` and ordered by `order`.
 
         Number of database queries:
 
-        * without drill-down: 1 (summary)
-        * with drill-down: 3 (summary, drilldown, total drill-down record
-          count)
+        * without drill-down: 1 – summary
+        * with drill-down (default): 3 – summary, drilldown, total drill-down
+          record count
 
         Notes:
 
