@@ -298,7 +298,7 @@ def create_dimension(obj, dimensions=None):
                      )
 
 def create_level(obj):
-    """Creates a level from `obj` which can be a `Level` instance, string or 
+    """Creates a level from `obj` which can be a `Level` instance, string or
     a dictionary. If it is a string, then the string represents level name and
     the only one attribute of the level. If `obj` is a dictionary, then the
     keys are:
@@ -310,7 +310,7 @@ def create_level(obj):
 
     Defaults:
 
-    * if no attributes are specified, then one is created with the same name 
+    * if no attributes are specified, then one is created with the same name
       as the level name.
 
     """
@@ -463,7 +463,8 @@ def simple_model(cube_name, dimensions, measures):
 
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
-                 label=None, description=None, info=None, **kwargs):
+                 label=None, description=None, info=None, mappings=None,
+                 **kwargs):
         """
         Logical Model represents analysts point of view on data.
 
@@ -476,6 +477,24 @@ class Model(object):
         * `label` - human readable name - can be used in an application
         * `description` - longer human-readable description of the model
         * `info` - custom information dictionary
+        * `mappings` – model-wide mappings of logical-to-physical attributes
+
+        The `mappings` is a dictiononary of form::
+
+            {
+                "cubes": {
+                    "cube_name" : { ... }
+                },
+                "dimensions": {
+                    "dimension_name" : {
+                        "dimension_attribute": "physical_attribute"
+                    }
+                }
+            }
+
+        The mappings in `cubes` are the same as mappings in the `Cube`
+        definition. The logical name (keys) of dimension mappings is just
+        dimension attribute name without the dimension prefix.
         """
 
         self.name = name
@@ -483,6 +502,8 @@ class Model(object):
         self.description = description
         self.locale = locale
         self.info = info
+
+        self.mappings = mappings
 
         self._dimensions = OrderedDict()
         if dimensions:
@@ -598,6 +619,9 @@ class Model(object):
         cubes = [cube.to_dict(**options) for cube in self.cubes.values()]
         out.setnoempty("cubes", cubes)
 
+        if options.get("with_mappings"):
+            out.setnoempty("mappings", self.mappings)
+
         return out
 
     def __eq__(self, other):
@@ -671,6 +695,39 @@ class Model(object):
                 return False
 
         return True
+
+    # def mappings_for_cube(self, cube):
+    #     """Returns consolidated mappings for `cube`."""
+    #     cube = self.cube(cube)
+    #     if cube.name in self._cube_mappings:
+    #         return self._cube_mappings[cube.name]
+
+    #     try:
+    #         mappings = self.mappings["cubes"][cube.name].copy()
+    #     except KeyError:
+    #         mappings = None
+
+    #     if mappings and cube.mappings():
+    #         raise ModelError("Both old-style mapping (in cube definition) "
+    #                 "and new-style mapping (in model) provided for "
+    #                 "cube %s. It is recommended to provide mapping at "
+    #                 "the model level." %  cube.name)
+
+    #     if cube.mappings():
+    #         mappings = cube.mappings().copy()
+    #     else:
+    #         mappings = mappings or {}
+
+    #     try:
+    #         all_dims = self.mappings["dimensions"]
+    #     except KeyError:
+    #         all_dims = {}
+
+    #     raise NotImplementedError("Continue here")
+
+    #     for dim in cube.dimensions():
+    #         if dim.name in all_dims:
+    #             for key, value in all_dims[dim.name]
 
     def _add_translation(self, lang, translation):
         self.translations[lang] = translation
@@ -1338,11 +1395,19 @@ class Dimension(object):
 
     def localize(self, locale):
         localize_common(self, locale)
+        # FIXME: remove htis
+        print "LOCALIZE %s TO %s" % (self.name, locale)
+        print "LABEL: %s" % self.label
+        attr_locales = locale.get("attributes", {})
 
-        level_locales = locale.get("levels")
-        if level_locales:
-            for level in self.levels:
-                level_locale = level_locales.get(level.name)
+        for attrib in self.all_attributes():
+            if attrib.name in attr_locales:
+                localize_common(attrib, attr_locales[attrib.name])
+
+        level_locales = locale.get("levels") or {}
+        for level in self.levels:
+            level_locale = level_locales.get(level.name)
+            if level_locale:
                 level.localize(level_locale)
 
         hier_locales = locale.get("hierarcies")
@@ -1751,6 +1816,11 @@ class Level(object):
 
         attr_locales = locale.get("attributes")
         if attr_locales:
+            logger = get_logger()
+            logger.warn("'attributes' in localization dictionary of levels "
+                        "is depreciated. Use list of `attributes` in "
+                        "localization of dimension")
+
             for attrib in self.attributes:
                 if attrib.name in attr_locales:
                     localize_common(attrib, attr_locales[attrib.name])
@@ -2011,11 +2081,16 @@ def split_aggregate_ref(measure):
     return (measure[:r], measure[r+1:])
 
 def localize_common(obj, trans):
-    """Localize common attributes: label and description"""
-    if "label" in trans:
-        obj.label = trans["label"]
-    if "description" in trans:
-        obj.description = trans["description"]
+    """Localize common attributes: label and description. `trans` should be a
+    dictionary or a string. If it is just a string, then only `label` will be
+    localized."""
+    if isinstance(trans, basestring):
+        obj.label = trans
+    else:
+        if "label" in trans:
+            obj.label = trans["label"]
+        if "description" in trans:
+            obj.description = trans["description"]
 
 
 def localize_attributes(attribs, translations):

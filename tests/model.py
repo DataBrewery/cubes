@@ -532,6 +532,45 @@ class ModelTestCase(unittest.TestCase):
         self.assertNotEqual(None, cube)
         self.assertEqual(cube.name, "contracts")
 
+    def test_localize(self):
+        translation = {
+                "locale": "sk",
+                "dimensions": {
+                    "date": {
+                            "label": "Datum",
+                            "attributes": {"month":"mesiac"}
+                        }
+                    }
+                }
+        localized = self.model.localize(translation)
+        dim = localized.dimension("date")
+        self.assertEqual("Datum", dim.label)
+        self.assertEqual("mesiac", dim.attribute("month").label)
+
+        translation["dimensions"]["date"]["attributes"]["month"] = {
+                    "label":"mesiac"
+                }
+        dim = localized.dimension("date")
+        self.assertEqual("Datum", dim.label)
+        self.assertEqual("mesiac", dim.attribute("month").label)
+
+        # FIXME: this is depreciated
+        translation = {
+                "locale": "sk",
+                "dimensions": {
+                    "date": {
+                            "label": "Datum",
+                            "levels": { "month":
+                                { "attributes": {"month":"mesiac"} }
+                            }
+                        }
+                    }
+                }
+        localized = self.model.localize(translation)
+        dim = localized.dimension("date")
+        self.assertEqual("Datum", dim.label)
+        self.assertEqual("mesiac", dim.attribute("month").label)
+
 class OldModelValidatorTestCase(unittest.TestCase):
 
     def setUp(self):
