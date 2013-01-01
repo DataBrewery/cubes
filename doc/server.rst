@@ -161,9 +161,11 @@ write only requests like ``/aggregate``.
     * `cut` - see ``/aggregate``
     * `depth` - specify depth (number of levels) to retrieve. If not
       specified, then all levels are returned
+    * `hierarchy` – name of hierarchy to be considered, if not specified, then
+      dimension's default hierarchy is used 
     * `page`, `pagesize` - paginate results
     * `order` - order results
-    
+
     **Response:** dictionary with keys ``dimension`` – dimension name,
     ``depth`` – level depth and ``data`` – list of records.
     

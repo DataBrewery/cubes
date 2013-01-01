@@ -407,8 +407,14 @@ class CubesController(ApplicationController):
             raise NotFoundError(dim_name, "dimension",
                                 message="Dimension '%s' was not found" % dim_name)
 
+        hier_name = self.args.get("hierarchy")
+        hierarchy = dimension.hierarchy(hier_name)
+
         values = self.browser.values(self.cell, dimension, depth=depth,
+                                     hierarchy=hierarchy,
                                      page=self.page, page_size=self.page_size)
+
+        depth = depth or len(hierarchy)
 
         result = {
             "dimension": dimension.name,
