@@ -51,14 +51,18 @@ There is one major difference between master model file and model
 translations: all attribute lists, such as cube measures, cube details or
 dimension level attributes are dictionaries, not arrays. Keys are attribute
 names, values are metadata translations. Therefore in master model file you
-will have::
+will have:
+
+.. code-block:: java-script
 
     attributes = [
                     { "name": "name", "label": "Name" },
                     { "name": "cat", "label": "Category" }
                  ]
 
-in translation file you will have::
+in translation file you will have:
+
+.. code-block:: java-script
 
     attributes = {
                     "name": {"label": "Meno"},
