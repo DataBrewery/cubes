@@ -1,3 +1,4 @@
+# -*- coding=utf -*-
 # import logging
 import os.path
 import json
@@ -36,15 +37,16 @@ __all__ = (
 )
 
 class ApplicationController(object):
-    def __init__(self, args, app, config):
+    def __init__(self, args, workspace, logger, config):
 
-        self.app = app
+        self.workspace = workspace
         self.args = args
         self.config = config
-        self.logger = app.logger
+        self.logger = logger
 
         self.locale = self.args.get("lang")
-        self.model = self.app.localized_model(self.locale)
+        self.locales = self.workspace.locales
+        self.model = self.workspace.localized_model(self.locale)
 
         if config.has_option("server","json_record_limit"):
             self.json_record_limit = config.get("server","json_record_limit")
@@ -125,9 +127,9 @@ class ApplicationController(object):
     def version(self):
         return self.json_response(self.server_info())
 
-    def locales(self):
+    def get_locales(self):
         """Return list of available model locales"""
-        return self.json_response(self.app.locales)
+        return self.json_response(self.locales)
 
     def json_response(self, obj):
         if self.prettyprint:
@@ -160,7 +162,7 @@ class ModelController(ApplicationController):
         d = self.model.to_dict(with_mappings=False,create_label=True)
 
         # Add available model locales based on server configuration
-        d["locales"] = self.app.locales;
+        d["locales"] = self.locales;
         return self.json_response(d)
 
     def dimension(self, dim_name):
@@ -316,7 +318,7 @@ class CubesController(ApplicationController):
                 cube_name = self.cube.name
 
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
-        self.browser = self.app.workspace.browser(self.cube, self.locale)
+        self.browser = self.workspace.browser(self.cube, self.locale)
 
     def prepare_cell(self):
         cut_strings = self.args.getlist("cut")
@@ -497,7 +499,7 @@ class SearchController(ApplicationController):
                 self.cube = self.model.cubes.values()[0]
                 cube_name = self.cube.name
 
-        self.browser = self.app.workspace.browser(self.cube,
+        self.browser = self.workspace.browser(self.cube,
                                                   locale=self.locale)
 
         if self.config.has_option("sphinx", "host"):
@@ -531,7 +533,7 @@ class SearchController(ApplicationController):
 
         locale_tag = 0
         if self.locale:
-            for (i, locale) in enumerate(self.app.locales):
+            for (i, locale) in enumerate(self.locales):
                 if locale == self.locale:
                     locale_tag = i
                     break
