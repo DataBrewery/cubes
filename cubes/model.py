@@ -38,6 +38,19 @@ __all__ = [
     "aggregate_ref"
 ]
 
+def _open_url_resource(resource):
+    """Opens `resource` either as a file with `open()`or as URL with
+    `urllib2.urlopen()`. Returns opened handle. """
+
+    parts = urlparse.urlparse(resource)
+    should_close = True
+    if parts.scheme in ('', 'file'):
+        handle = open(resource)
+    else:
+        handle = urllib2.urlopen(resource)
+    return handle
+
+
 def load_model(resource, translations=None):
     """Load logical model from object reference. `resource` can be an URL,
     local file path or file-like object.
@@ -47,18 +60,17 @@ def load_model(resource, translations=None):
     * JSON file with a dictionary describing model
     * URL with a JSON dictionary
 
+    `translations` is a dictionary where keys are locale names and values are
+    paths to translation dictionaries (json files).
+
     Raises `ModelError` when model description file does not contain a
     dictionary.
     """
 
     handle = None
     if isinstance(resource, basestring):
-        parts = urlparse.urlparse(resource)
+        handle = _open_url_resource(resource)
         should_close = True
-        if parts.scheme in ('', 'file'):
-            handle = open(resource)
-        else:
-            handle = urllib2.urlopen(resource)
     else:
         handle = resource
         should_close = False
@@ -76,14 +88,16 @@ def load_model(resource, translations=None):
 
     if translations:
         for lang, path in translations.items():
-            handle = urllib2.urlopen(path)
-            trans = json.load(handle)
-            handle.close()
+            handle = _open_url_resource(path)
+            try:
+                trans = json.load(handle)
+            finally:
+                handle.close()
             model._add_translation(lang, trans)
 
     return model
 
-def create_model(model, cubes=None, dimensions=None):
+def create_model(model, cubes=None, dimensions=None, translations=None):
     """Create a model from a model description dictionary in `model`. This is
     designated way of creating the model from a dictionary.
 
@@ -102,12 +116,8 @@ def create_model(model, cubes=None, dimensions=None):
         	"dimensions": [...]
         }
 
-    .. note::
-
-        Current implementation is the same as passing `description` to the
-        `Model` class initialization. In the future all default constructions
-        will be moved here and the initialization methods will require logical
-        model class instances.
+    `translations` is a dictionary where keys are locale names and values are
+    translation dictionaries. See `Model.localize()` for more information.
     """
 
     model_desc = dict(model)
@@ -151,8 +161,14 @@ def create_model(model, cubes=None, dimensions=None):
             raise ModelError("Duplicate cube '%s'" % cube.name)
         model_cubes[cube.name] = cube
 
-    return Model(dimensions=model_dimensions.values(),
+    model = Model(dimensions=model_dimensions.values(),
             cubes=model_cubes.values(), **model_desc)
+
+    if translations:
+        for lang, trans in translations.items():
+            model._add_translation(lang, trans)
+
+    return model
 
 def _fix_dict_list(obj, key_name="name", warning=None):
     """Returns a list of dictionaries instead of dictionary of dictionaries"""
@@ -733,12 +749,57 @@ class Model(object):
         self.translations[lang] = translation
 
     def localize(self, translation):
-        """Return localized version of model"""
+        """Return localized version of the model.
+
+        `translation` might be a string or a dicitonary. If it is a string,
+        then it represents locale name from model's localizations provided on
+        model creation. If it is a dictionary, it should contains full model
+        translation that is going to be applied.
+
+
+        Translation dictionary structure example::
+
+            {
+                "locale": "sk",
+                "cubes": {
+                    "sales": {
+                        "label": "Predaje",
+                        "measures":
+                            {
+                                "amount": "suma",
+                                "discount": {"label": "zľava",
+                                             "description": "uplatnená zľava"}
+                            }
+                    }
+                },
+                "dimensions": {
+                    "date": {
+                        "label": "Dátum"
+                        "attributes": {
+                            "year": "rok",
+                            "month": {"label": "mesiac"}
+                        },
+                        "levels": {
+                            "month": {"label": "mesiac"}
+                        }
+                    }
+                }
+            }
+
+        .. note::
+
+            Whenever master model changes, you should call this method to get
+            actualized localization of the original model.
+        """
 
         model = copy.deepcopy(self)
 
         if type(translation) == str or type(translation) == unicode:
-            translation = self.translations[translation]
+            try:
+                translation = self.translations[translation]
+            except KeyError:
+                raise ModelError("Model has no translation for %s" %
+                                    translation)
 
         if "locale" not in translation:
             raise ValueError("No locale specified in model translation")
@@ -1395,9 +1456,7 @@ class Dimension(object):
 
     def localize(self, locale):
         localize_common(self, locale)
-        # FIXME: remove htis
-        print "LOCALIZE %s TO %s" % (self.name, locale)
-        print "LABEL: %s" % self.label
+
         attr_locales = locale.get("attributes", {})
 
         for attrib in self.all_attributes():

@@ -1,3 +1,4 @@
+# -*- coding=utf -*-
 # Package imports
 import json
 import cubes
@@ -31,7 +32,7 @@ rules = Map([
     Rule('/version',
                         endpoint = (controllers.ApplicationController, 'version')),
     Rule('/locales',
-                        endpoint = (controllers.ApplicationController, 'locales')),
+                        endpoint = (controllers.ApplicationController, 'get_locales')),
     #
     # Model requests
     #
@@ -120,14 +121,6 @@ class Slicer(object):
         self.locales = self.context["locales"]
         self.backend = self.context["backend"]
 
-        self.model_localizations = {}
-
-        if self.locales is None:
-            if self.model.locale:
-                self.locales = [self.model.locale]
-            else:
-                self.locales = []
-
         ## Create workspace
         self.logger.info("using backend '%s'" % self.context["backend_name"])
         self.workspace = self.backend.create_workspace(self.model,
@@ -176,12 +169,14 @@ class Slicer(object):
 
     def dispatch(self, ctrl_class, action_name, request, params):
 
-        controller = ctrl_class(request.args, self, self.config)
-        controller.request = request
-        action = getattr(controller, action_name)
-
-        response = None
         try:
+            controller = ctrl_class(request.args,
+                                    workspace=self.workspace,
+                                    logger=self.logger,
+                                    config=self.config)
+            controller.request = request
+            action = getattr(controller, action_name)
+            self.logger.warn("ACTION: %s" % (action, ))
             response = action(**params)
             response.headers.add("Access-Control-Allow-Origin", "*")
         except cubes.CubesError as e:
@@ -189,38 +184,6 @@ class Slicer(object):
 
         return response
 
-    def localized_model(self, locale=None):
-        """Tries to translate the model. Looks for language in configuration
-        file under ``[translations]``, if no translation is provided, then
-        model remains untouched."""
-
-        # FIXME: Rewrite this to make it thread safer
-        if not locale:
-            return self.model
-
-        self.logger.debug("localization to '%s' (current: '%s') requested (has: %s)" % (locale, self.model.locale, self.model_localizations.keys()))
-
-        if locale in self.model_localizations:
-            self.logger.debug("localization '%s' found" % locale)
-            return self.model_localizations[locale]
-
-        elif locale == self.model.locale:
-            self.model_localizations[locale] = self.model
-            return self.model
-
-        elif self.config.has_option("translations", locale):
-            path = self.config.get("translations", locale)
-            self.logger.debug("translating model to '%s' translation path: %s" % (locale, path))
-            with open(path) as handle:
-                trans = json.load(handle)
-
-            model = self.model.localize(trans)
-
-            self.model_localizations[locale] = model
-            return model
-
-        else:
-            raise common.RequestError("No translation for language '%s'" % locale)
 
 def create_server(config_file):
     """Returns a WSGI server application. `config_file` is a path to an `.ini`
