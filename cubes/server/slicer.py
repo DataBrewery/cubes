@@ -176,7 +176,6 @@ class Slicer(object):
                                     config=self.config)
             controller.request = request
             action = getattr(controller, action_name)
-            self.logger.warn("ACTION: %s" % (action, ))
             response = action(**params)
             response.headers.add("Access-Control-Allow-Origin", "*")
         except cubes.CubesError as e:
