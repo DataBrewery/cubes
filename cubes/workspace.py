@@ -1,6 +1,8 @@
+# -*- coding=utf -*-
 import sys
 from .model import load_model
 from .common import get_logger
+from .errors import *
 import ConfigParser
 
 __all__ = [
@@ -45,7 +47,8 @@ def create_slicer_context(config):
 
     Returns a dictionary with keys:
 
-    * `model` - loaded model
+    * `model` - loaded model (with applied translations)
+    * `translations ` – model translations
     * `locales` - list of model locales
     * `backend_name` - backend name
     * `backend` - backend module
@@ -56,27 +59,31 @@ def create_slicer_context(config):
 
     context = {}
 
-    model_path = config.get("model", "path")
-    try:
-        model = load_model(model_path)
-    except Exception as e:
-        if not model_path:
-            model_path = 'unknown path'
-        raise Exception("Unable to load model from %s, reason: %s" % (model_path, e))
-
-    context["model"] = model
-
     #
     # Locales
     # 
 
-    if config.has_option("model", "locales"):
-        context["locales"] = config.get("model", "locales").split(",")
-    elif model.locale:
-        context["locales"] = [model.locale]
+    if config.has_section("translations"):
+        context["locales"] = config.options("translations")
+        context["translations"] = dict(config.items("translations"))
+        logger.debug("Model translations: %s" % ", ".join(context["locales"]))
     else:
         context["locales"] = []
+        context["translations"] = None
 
+    model_path = config.get("model", "path")
+    try:
+        logger.debug("Loading model from %s")
+        model = load_model(model_path, context["translations"])
+    except Exception as e:
+        if not model_path:
+            model_path = 'unknown path'
+        raise CubesError("Unable to load model from %s, reason: %s" % (model_path, e))
+
+    context["model"] = model
+
+    if model.locale:
+        context["locales"].append(model.locale)
     #
     # Backend
     # 
@@ -167,3 +174,54 @@ def create_workspace_from_config(config):
                                          **context["workspace_options"])
 
     return workspace
+
+class Workspace(object):
+    def __init__(self, model):
+        """Initializes the base class for cubes workspace. Prepares all
+        model's translations. Provides attributes:
+
+        * `model`
+        * `logger`
+
+        """
+
+        self.model = model
+        if model.translations:
+            self.locales = model.translations.keys()
+            # Small usability treatment for debugging readability
+        else:
+            self.locales = []
+
+        if model.locale:
+            self.locales.append(model.locale)
+
+        self.locales.sort()
+        self.localized_models = {}
+        self.logger = get_logger()
+
+    def localized_model(self, locale):
+        """Tries to translate the model. Looks for language in configuration
+        file under ``[translations]``, if no translation is provided, then
+        model remains untouched."""
+
+        self.logger.debug("preparing model localization '%s' (current: '%s') "
+                            "(has: %s)" % (locale, self.model.locale,
+                                           self.locales))
+
+        if not locale:
+            return self.model
+
+        if locale in self.localized_models:
+            self.logger.debug("localization '%s' found" % locale)
+            return self.localized_models[locale]
+
+        elif locale == self.model.locale:
+            self.localized_models[locale] = self.model
+            return self.model
+
+        else:
+            model = self.model.localize(locale)
+
+            self.localized_models[locale] = model
+            return model
+

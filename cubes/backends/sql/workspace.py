@@ -5,6 +5,7 @@ from cubes.common import get_logger
 from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
+from cubes.workspace import Workspace
 
 from .utils import CreateTableAsSelect, InsertIntoAsSelect
 
@@ -99,39 +100,25 @@ def create_workspace(model, **options):
 
     return workspace
 
-class SQLStarWorkspace(object):
+class SQLStarWorkspace(Workspace):
     """Factory for browsers"""
     def __init__(self, model, engine, **options):
         """Create a workspace. For description of options see
         `create_workspace()` """
 
-        super(SQLStarWorkspace, self).__init__()
+        super(SQLStarWorkspace, self).__init__(model)
 
         self.logger = get_logger()
 
-        self.model = model
         self.engine = engine
         self.schema = options.get("schema")
         self.metadata = sqlalchemy.MetaData(bind=self.engine,schema=self.schema)
         self.options = options
 
-    def browser_for_cube(self, cube, locale=None):
-        """Creates, configures and returns a browser for a cube.
-
-        .. note::
-
-            Use `workspace.browser()` instead.
-        """
-
-        # TODO(Stiivi): make sure that we are leaking connections here
-        self.logger.info("workspace.create_browser() is depreciated, use "
-                         ".browser() instead")
-
-        return self.browser(cube, locale)
-
     def browser(self, cube, locale=None):
-        """Returns a browser for a cube."""
-        cube = self.model.cube(cube)
+        """Returns a browser for a `cube`."""
+        model = self.localized_model(locale)
+        cube = model.cube(cube)
         browser = SnowflakeBrowser(cube, self.engine, locale=locale,
                               metadata=self.metadata,
                               **self.options)
