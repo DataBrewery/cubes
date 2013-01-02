@@ -145,7 +145,7 @@ class ApplicationController(object):
 
     def json_request(self):
         content_type = self.request.headers.get('content-type')
-        if content_type == 'application/json':
+        if content_type.split(';')[0] == 'application/json':
             try:
                 result = json.loads(self.request.data)
             except Exception as e:
