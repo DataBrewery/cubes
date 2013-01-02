@@ -238,9 +238,22 @@ def create_dimension(obj, dimensions=None):
         try:
             template = dimensions[obj["template"]]
         except KeyError:
-            raise NoSuchDimensionError("Could not find template dimension %s" % obj["template"])
+            raise NoSuchDimensionError("Could not find template dimension %s"
+                                                            % obj["template"])
+
         levels = copy.deepcopy(template.levels)
-        hierarchies = template.hierarchies.values()
+
+        # Create copy of template's hierarchies, but reference newly created
+        # copies of level objects
+        hierarchies = []
+        level_dict = dict((level.name, level) for level in levels)
+
+        for hier in template.hierarchies.values():
+            levels = [level_dict[level.name] for level in hier.levels]
+            hier_copy = Hierarchy(hier.name, levels,
+                                  label=hier.label, info=hier.info)
+            hierarchies.append(hier_copy)
+
         default_hierarchy_name = template.default_hierarchy_name
         label = template.label
         description = template.description
