@@ -249,8 +249,8 @@ def create_dimension(obj, dimensions=None):
         level_dict = dict((level.name, level) for level in levels)
 
         for hier in template.hierarchies.values():
-            levels = [level_dict[level.name] for level in hier.levels]
-            hier_copy = Hierarchy(hier.name, levels,
+            hier_levels = [level_dict[level.name] for level in hier.levels]
+            hier_copy = Hierarchy(hier.name, hier_levels,
                                   label=hier.label, info=hier.info)
             hierarchies.append(hier_copy)
 
