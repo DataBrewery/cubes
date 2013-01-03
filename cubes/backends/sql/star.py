@@ -181,10 +181,12 @@ class SnowflakeBrowser(AggregationBrowser):
         for level in levels:
             attributes.extend(level.attributes)
 
-        statement = self.context.denormalized_statement(attributes=attributes,
-                                                        include_fact_key=False)
         cond = self.context.condition_for_cell(cell)
 
+        statement = self.context.denormalized_statement(attributes=attributes,
+                                                        include_fact_key=False,
+                                                        condition_attributes=
+                                                              cond.attributes)
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
@@ -602,12 +604,14 @@ class QueryContext(object):
         return result
 
     def denormalized_statement(self, attributes=None, expand_locales=False,
-                               include_fact_key=True):
+                               include_fact_key=True, condition_attributes=None):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
         logical references to attributes to be selected. If it is ``None``
-        then all attributes are used.
+        then all attributes are used. `condition_attributes` contains list of
+        attributes that are not going to be selected, but are required for
+        WHERE condition.
 
         Set `expand_locales` to ``True`` to expand all localized attributes.
         """
@@ -615,7 +619,12 @@ class QueryContext(object):
         if attributes is None:
             attributes = self.mapper.all_attributes()
 
-        join_expression = self.join_expression_for_attributes(attributes,
+        if condition_attributes:
+            join_attributes = set(attributes) | condition_attributes
+        else:
+            join_attributes = set(attributes)
+
+        join_expression = self.join_expression_for_attributes(join_attributes,
                                                 expand_locales=expand_locales)
 
         columns = self.columns(attributes, expand_locales=expand_locales)
