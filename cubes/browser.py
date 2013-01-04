@@ -1180,7 +1180,7 @@ class AggregationResult(object):
                                record)
             yield row
 
-    def cross_table(self, onrows, oncolumns, measures=None):
+    def cross_table(self, onrows, oncolumns, measures=None,measures_in_columns=False):
         """
         Creates a cross table from result's cells. `onrows` contains list of
         attribute names to be placed at rows and `oncolumns` contains list of
@@ -1204,7 +1204,7 @@ class AggregationResult(object):
 
         """
 
-        return cross_table(self.cells, onrows, oncolumns, measures)
+        return cross_table(self.cells, onrows, oncolumns, measures, measures_in_columns)
 
     def __iter__(self):
         """Return cells as iterator"""
@@ -1228,7 +1228,7 @@ class AggregationResult(object):
 
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 
-def cross_table(drilldown, onrows, oncolumns, measures=None):
+def cross_table(drilldown, onrows, oncolumns, measures=None, measures_in_columns=False):
     """
     Creates a cross table from a drilldown (might be any list of records).
     `onrows` contains list of attribute names to be placed at rows and
@@ -1260,14 +1260,24 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
 
     for record in drilldown:
         hrow = tuple(record[f] for f in onrows)
-        hcol = tuple(record[f] for f in oncolumns)
-
+        
         if not hrow in row_hdrs:
             row_hdrs.append(hrow)
-        if not hcol in column_hdrs:
-            column_hdrs.append(hcol)
 
-        matrix[(hrow, hcol)] = tuple(record[m] for m in measures)
+        if measures_in_columns :
+            for m in measures:
+
+                hcol_tmp = [record[f] for f in oncolumns]
+                hcol_tmp.append(m)
+                hcol = tuple(hcol_tmp)
+                if not hcol in column_hdrs:
+                    column_hdrs.append(hcol)
+                matrix[(hrow, hcol)] = record[m]
+        else:
+            hcol = tuple(record[f] for f in oncolumns)
+            if not hcol in column_hdrs:
+                column_hdrs.append(hcol)
+            matrix[(hrow, hcol)] = tuple(record[m] for m in measures)
 
     data = []
     for hrow in row_hdrs:
