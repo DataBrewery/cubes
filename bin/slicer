@@ -15,7 +15,7 @@ import cubes
 import cubes.server
 import ConfigParser
 import shlex
-from cubes.common import MissingPackageError
+from cubes.common import MissingPackageError, create_logger
 from cubes.errors import CubesError
 
 def validate_model(args):
@@ -25,7 +25,7 @@ def validate_model(args):
     try:
         model = cubes.load_model(args.model)
     except cubes.ModelError as e:
-        print("error: model loading failed because of logical model error: %s" % e)
+        print("error: model loading failed because of model file error: %s" % e)
         exit(1)
 
     if args.translation:
@@ -50,8 +50,10 @@ def validate_model(args):
     error_count = 0
     warning_count = 0
     default_count = 0
-    results = model.validate()
-
+    try:
+        results = model.validate()
+    except CubesError as e:
+        results = [["error", "Can not validate model: %s" % str(e)]]
     show_warnings = args.show_warnings
     show_defaults = args.show_defaults
 
@@ -154,8 +156,11 @@ def run_test(args):
     """Run test of Slicer HTTP server configuration."""
     config = read_config(args.config)
 
-    # Load extensions
+    # FIXME: this should be in "workspace"
+    if config.has_option("server", "log_level"):
+        create_logger(config.get("server", "log_level"))
 
+    # Load extensions
     if config.has_option("server", "modules"):
         modules = shlex.split(config.get("server", "modules"))
         for module in modules:
