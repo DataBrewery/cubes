@@ -15,7 +15,8 @@ __all__ = [
             "register_formatter",
             "TextTableFormatter",
             "SimpleDataTableFormatter",
-            "SimpleHTMLTableFormatter"
+            "SimpleHTMLTableFormatter",
+            "FullHTMLTableFormatter"
             ]
 
 _formatters = {}
@@ -334,6 +335,27 @@ class SimpleHTMLTableFormatter(Formatter):
                                       create_links=self.create_links,
                                       table_style=self.table_style,
                                       is_last=is_last)
+        return output
+    
+class FullHTMLTableFormatter(Formatter):
+
+    
+    mime_type = "text/html"
+
+    def __init__(self, count_label=None,table_style=None):
+        """Create a simple HTML table formatter"""
+
+        super(FullHTMLTableFormatter, self).__init__()
+
+        self.env = _jinja_env()
+        self.template = self.env.get_template("full_table.html")
+        self.table_style = table_style
+
+    def format(self, result, onrows, oncolumns, aggregated_measures):
+
+        table = result.cross_table(onrows, oncolumns, aggregated_measures, True)
+
+        output = self.template.render(table=table,table_style=self.table_style)
         return output
 
 class RickshawSeriesFormatter(Formatter):
