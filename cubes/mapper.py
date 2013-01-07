@@ -116,6 +116,15 @@ class Mapper(object):
         else:
             self.simplify_dimension_references = True
 
+        if self.schema:
+            schemastr = "'%s'" % self.schema
+        else:
+            schemastr = "(default)"
+
+        self.logger.debug("mapper options: fact:'%s', schema:%s, "
+                          "simplify: %s" % (self.fact_name, schemastr,
+                                            self.simplify_dimension_references))
+
         self._collect_attributes()
 
     def _collect_attributes(self):

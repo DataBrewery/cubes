@@ -1271,9 +1271,6 @@ class Dimension(object):
         """Get hierarchy object either by name or as `Hierarchy`. If `obj` is
         ``None`` then default hierarchy is returned."""
 
-        # TODO: this should replace default_hierarchy constructed property
-        #       see Issue #46
-
         if obj is None:
             return self._default_hierarchy()
         if isinstance(obj, basestring):
@@ -1299,6 +1296,9 @@ class Dimension(object):
             Depreciated. Use `Dimension.hierarchy()` instead.
 
         """
+        logger = get_logger()
+        logger.warn("Dimension.default_hierarchy is depreciated, use "
+                    "hierarchy() instead")
         return self._default_hierarchy()
 
     def _default_hierarchy(self):

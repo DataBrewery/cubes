@@ -34,7 +34,7 @@ def get_logger():
     else:
         return create_logger()
 
-def create_logger():
+def create_logger(level=None):
     """Create a default logger"""
     global logger
     logger = logging.getLogger(logger_name)
@@ -44,6 +44,17 @@ def create_logger():
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+    if level:
+        level = level.lower()
+        levels = {  "info": logging.INFO,
+                    "debug": logging.DEBUG,
+                    "warn":logging.WARN,
+                    "error": logging.ERROR}
+        if level not in levels:
+            logger.warn("Unknown logging level '%s', keeping default" % level)
+        else:
+            logger.setLevel(levels[level])
 
     return logger
 
