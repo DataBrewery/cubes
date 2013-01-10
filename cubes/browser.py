@@ -1101,6 +1101,15 @@ class AggregationResult(object):
 
         return d
 
+    def has_dimension(self, dimension):
+        """Returns `True` if the result was drilled down by `dimension` (at
+        any level)"""
+
+        if not self.levels:
+            return False
+
+        return str(dimension) in self.levels
+
     def table_rows(self, dimension, depth=None, hierarchy=None):
         """Returns iterator of drilled-down rows which yields a named tuple with
         named attributes: (key, label, path, record). `depth` is last level of
@@ -1230,6 +1239,9 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
 
     """
 
+    logger = get_logger()
+    logger.warn("cross_table() is depreciated, use cross table formatter: "
+                "create_formatter(\"cross_table\", ...)")
     matrix = {}
     row_hdrs = []
     column_hdrs = []
