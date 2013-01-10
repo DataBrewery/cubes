@@ -19,6 +19,7 @@ Contents:
    aggregate
    computing
    localization
+   formatters
    server
    slicer
    api/index

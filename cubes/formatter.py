@@ -2,7 +2,8 @@
 from .errors import *
 from StringIO import StringIO
 from .model import split_aggregate_ref
-from .common import subclass_iterator, decamelize, to_identifier
+from .common import collect_subclasses, decamelize, to_identifier
+from collections import namedtuple
 
 try:
     import jinja2
@@ -15,7 +16,9 @@ __all__ = [
             "register_formatter",
             "TextTableFormatter",
             "SimpleDataTableFormatter",
-            "SimpleHTMLTableFormatter"
+            "SimpleHTMLTableFormatter",
+            "CrossTableFormatter",
+            "HTMLCrossTableFormatter"
             ]
 
 _formatters = {}
@@ -276,6 +279,282 @@ class SimpleDataTableFormatter(Formatter):
                 "rows": rows
                 }
         return data_table;
+
+class TextTableFormatter(Formatter):
+    parameters = [
+                {
+                    "name": "measure_format",
+                    "type": "string",
+                    "label": "Measure format"
+                },
+                {
+                    "name": "dimension",
+                    "type": "string",
+                    "label": "dimension to consider"
+                },
+                {
+                    "name": "measures",
+                    "type": "list",
+                    "label": "list of measures"
+                }
+            ]
+
+    mime_type = "text/plain"
+
+    def __init__(self, measure_format=None):
+        super(TextTableFormatter, self).__init__()
+        self.format = measure_format or {}
+
+    def format(self, result, dimension, measures):
+        cube = result.cube
+        dimension = cube.dimension(dimension)
+
+        if not result.has_dimension(dimension):
+            raise CubesError("Result was not drilled down by dimension "
+                             "'%s'" % str(dimension))
+
+        raise NotImplementedError
+        table_formatter = SimpleDataTableFormatter()
+
+CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
+
+class CrossTableFormatter(Formatter):
+    parameters = [
+                {
+                    "name": "measures_as",
+                    "type": "string",
+                    "label": "Localtion of measures. Can be columns, rows or "
+                             "cells",
+                    "scope": "formatter",
+                },
+                {
+                    "name": "count_label",
+                    "type": "string",
+                    "label": "Label to be used for record_count measure",
+                    "scopr": "formatter"
+                },
+                {
+                    "name": "onrows",
+                    "type": "attributes",
+                    "label": "List of dimension attributes to be put on rows"
+                },
+                {
+                    "name": "oncolumns",
+                    "type": "attributes",
+                    "label": "List of attributes to be put on columns"
+                },
+                {
+                    "name": "measures",
+                    "short_name": "measures",
+                    "type": "list",
+                    "label": "list of aggregated measures"
+                }
+            ]
+
+    mime_type = "application/json"
+
+    def __init__(self, measures_as=None, measure_labels=None,
+            aggregation_labels=None, measure_label_format=None,
+            count_label=None):
+        """Creates a cross-table formatter.
+
+        Arguments:
+
+        * `measures_as` – specify how to put measures in the table. Might be
+          one of ``rows``, ``columns`` or ``cells`` (default).
+        * `measure_labels` – dictionary of labels to be used for measures
+        * `aggregation_labels` – dictionary of labels of aggregations, used
+          for default measure labeling
+        * `measure_label_format` – format string for measure label, default is
+          ``{measure} ({aggregation})``
+        * `record_count_label` – label to be used for record count. Overrides
+          default setting
+
+        If measures are put on rows or columns, then respective row or column
+        is added per measure. The data contains single measure values.
+
+        If measures are put in the table as cells, then the data contains
+        tuples of measures in the order as specified in the `measures`
+        argument of `format()` method.
+
+        If no `measure_labels` is provided or no key for a measure is found in
+        the dictionary, then the label is constructect with form: "Measure
+        (aggregation)", for example: "Amount (sum)".
+
+        If `aggregation_labels` is provided, then it is used to give measure
+        aggregation label.
+        """
+        super(CrossTableFormatter, self).__init__()
+
+        self.measures_as = measures_as
+        self.measure_labels = measure_labels or {}
+        self.aggregation_labels = aggregation_labels or {}
+        self.measure_label_format = measure_label_format or "{measure} ({aggregation})"
+        self.count_label = count_label
+
+    def format(self, result, onrows=None, oncolumns=None, measures=None,
+               measures_as=None):
+        """
+        Creates a cross table from a drilldown (might be any list of records).
+        `onrows` contains list of attribute names to be placed at rows and
+        `oncolumns` contains list of attribute names to be placet at columns.
+        `measures` is a list of measures to be put into cells. If measures are not
+        specified, then only ``record_count`` is used.
+
+        Returns a named tuble with attributes:
+
+        * `columns` - labels of columns. The tuples correspond to values of
+          attributes in `oncolumns`.
+        * `rows` - labels of rows as list of tuples. The tuples correspond to
+          values of attributes in `onrows`.
+        * `data` - list of measure data per row. Each row is a list of measure
+          tuples.
+
+        """
+
+        # Use formatter's default, if set
+        measures_as = measures_as or self.measures_as
+        cube = result.cell.cube
+
+        matrix = {}
+        row_hdrs = []
+        column_hdrs = []
+
+        measures = measures or ["record_count"]
+
+        measure_labels = []
+        for agg_measure in measures:
+            if agg_measure != "record_count":
+                # Try to get label from measure_labels
+                label = self.measure_labels.get(agg_measure)
+
+                # Construct a label if not provided
+                if not label:
+                    name, agg = split_aggregate_ref(agg_measure)
+                    measure = cube.measure(name)
+
+                    agg_label = self.aggregation_labels.get(agg, agg)
+                    m_label = measure.label or measure.name
+
+                    args = {"measure":m_label, "aggregation":agg_label}
+                    label = self.measure_label_format.format(**args)
+            else:
+                measure = cube.measure("record_count")
+                label = self.count_label or measure.label or str(measure)
+
+            measure_labels.append(label)
+
+        if measures_as is None or measures_as == "cells":
+            for record in result.cells:
+                # Get table coordinates
+                hrow = tuple(record[f] for f in onrows)
+                hcol = tuple(record[f] for f in oncolumns)
+
+                if not hrow in row_hdrs:
+                    row_hdrs.append(hrow)
+                if not hcol in column_hdrs:
+                    column_hdrs.append(hcol)
+
+                matrix[(hrow, hcol)] = tuple(record[m] for m in measures)
+
+        else:
+            for record in result.cells:
+                # Get table coordinates
+                base_hrow = [record[f] for f in onrows]
+                base_hcol = [record[f] for f in oncolumns]
+
+                for i, measure in enumerate(measures):
+                    measure_label = measure_labels[i]
+                    if measures_as == "rows":
+                        hrow = tuple(base_hrow + [measure_label])
+                        hcol = tuple(base_hcol)
+                    elif measures_as == "columns":
+                        hrow = tuple(base_hrow)
+                        hcol = tuple(base_hcol + [measure_label])
+
+                    if not hrow in row_hdrs:
+                        row_hdrs.append(hrow)
+                    if not hcol in column_hdrs:
+                        column_hdrs.append(hcol)
+
+                    matrix[(hrow, hcol)] = record[measure]
+
+        data = []
+
+        for hrow in row_hdrs:
+            row = [matrix.get((hrow, hcol)) for hcol in column_hdrs]
+            data.append(row)
+
+        return CrossTable(column_hdrs, row_hdrs, data)
+
+class HTMLCrossTableFormatter(CrossTableFormatter):
+    parameters = [
+                {
+                    "name": "measures_as",
+                    "type": "string",
+                    "label": "Localtion of measures. Can be columns, rows or "
+                             "cells",
+                    "scope": "formatter",
+                },
+                {
+                    "name": "count_label",
+                    "type": "string",
+                    "label": "Label to be used for record_count measure",
+                    "scopr": "formatter"
+                },
+                {
+                    "name": "onrows",
+                    "type": "attributes",
+                    "label": "List of dimension attributes to be put on rows"
+                },
+                {
+                    "name": "oncolumns",
+                    "type": "attributes",
+                    "label": "List of attributes to be put on columns"
+                },
+                {
+                    "name": "measures",
+                    "short_name": "measures",
+                    "type": "list",
+                    "label": "list of aggregated measures"
+                },
+                {
+                    "name": "table_style",
+                    "description": "CSS style for the table"
+                }
+            ]
+    mime_type = "text/html"
+
+    def __init__(self, measures_as=None, measure_labels=None,
+            aggregation_labels=None, measure_label_format=None,
+            count_label=None, table_style=None):
+        """Create a simple HTML table formatter. See `CrossTableFormatter` for
+        information about arguments."""
+
+        if measures_as not in ["columns", "rows"]:
+            raise ArgumentError("measures_as sohuld be either 'columns' "
+                                "or 'rows', is %s" % measures_as)
+
+        super(HTMLCrossTableFormatter, self).__init__(measures_as=measures_as,
+                                                measure_labels=measure_labels,
+                                                aggregation_labels=aggregation_labels,
+                                                measure_label_format=measure_label_format,
+                                                count_label=count_label)
+
+        self.env = _jinja_env()
+        self.template = self.env.get_template("cross_table.html")
+        self.table_style = table_style
+
+    def format(self, result, onrows=None, oncolumns=None, measures=None):
+
+        table = super(HTMLCrossTableFormatter, self).format(result,
+                                                        onrows=onrows,
+                                                        oncolumns=oncolumns,
+                                                        measures=measures)
+        output = self.template.render(table=table,
+                                      table_style=self.table_style)
+        return output
+
 
 class SimpleHTMLTableFormatter(Formatter):
 
