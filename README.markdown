@@ -52,7 +52,7 @@ Developed using python 2.7.
 Most of the requirements are soft (optional) and need to be satisfied only if 
 certain parts of cubes are being used.
 
-* SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.1 - for SQL
+* SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.4 - for SQL
   backend
 * Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
 * Jinja2 from http://jinja.pocoo.org/docs/ for HTML presenters
