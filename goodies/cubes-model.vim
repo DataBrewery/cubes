@@ -31,11 +31,17 @@ syn match Keyword "\"locales\"" display
 syn match Keyword "\"info\"" display
 syn match Keyword "\"options\"" display
 syn match Keyword "\"order\"" display
+syn match Keyword "\"aggregations\"" display
 
+" Mappings
 syn match Keyword "\"joins\"" display
 syn match Keyword "\"mappings\"" display
 syn match Keyword "\"master\"" display
 syn match Keyword "\"detail\"" display
 syn match Keyword "\"alias\"" display
 
+syn match Keyword "\"column\"" display
+syn match Keyword "\"table\"" display
+syn match Keyword "\"schema\"" display
+syn match Keyword "\"extract\"" display
 
