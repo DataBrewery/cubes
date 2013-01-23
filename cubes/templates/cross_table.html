@@ -1,0 +1,19 @@
+<table {% if table_style %}class="{{table_style}}"{% endif %}>
+    <thead>
+        	{% for t in table.columns[0] %}<tr>
+        		{% for r in table.rows[0] %}<th></th>{% endfor %}
+        		{% set index = loop.index0 %}
+            	{% for col in table.columns %}<th>{{col[index]}}</th>{% endfor %}
+            </tr>{% endfor %}
+    </thead>
+    <tbody>
+    {% for row in table.rows %}<tr>
+    	{% for t in row %}<th>{{t}}</th>{% endfor %}
+        {% for tcell in table.data[loop.index0] %}<td>{{tcell}}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+
+
