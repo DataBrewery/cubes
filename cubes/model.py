@@ -986,6 +986,10 @@ class Cube(object):
         """
 
         if isinstance(obj, basestring):
+            # FIXME: make this default attribute if not provided in the model
+            if obj == "record_count":
+                return Attribute("record_count", label="Count")
+
             lookup = [m for m in self.measures if m.name == obj]
             if lookup:
                 if len(lookup) == 1:
@@ -1271,9 +1275,6 @@ class Dimension(object):
         """Get hierarchy object either by name or as `Hierarchy`. If `obj` is
         ``None`` then default hierarchy is returned."""
 
-        # TODO: this should replace default_hierarchy constructed property
-        #       see Issue #46
-
         if obj is None:
             return self._default_hierarchy()
         if isinstance(obj, basestring):
@@ -1299,6 +1300,9 @@ class Dimension(object):
             Depreciated. Use `Dimension.hierarchy()` instead.
 
         """
+        logger = get_logger()
+        logger.warn("Dimension.default_hierarchy is depreciated, use "
+                    "hierarchy() instead")
         return self._default_hierarchy()
 
     def _default_hierarchy(self):
@@ -2147,8 +2151,14 @@ def split_aggregate_ref(measure):
 
     r = measure.rfind("_")
 
-    if r == -1 or r == len(measure):
-        raise ArgumentError("Invalid aggregate reference '%s'" % measure)
+    if r == -1 or r >= len(measure)-1:
+        if r == -1:
+            meaning = measure + "_sum"
+        else:
+            meaning = measure + "sum"
+
+        raise ArgumentError("Invalid aggregate reference '%s'. "
+                            "Did you mean '%s'?"% (measure, meaning))
 
     return (measure[:r], measure[r+1:])
 

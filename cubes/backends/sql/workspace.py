@@ -256,7 +256,7 @@ class SQLStarWorkspace(Workspace):
         issues = []
 
         for cube in self.model.cubes:
-            browser = self.browser_for_cube(cube)
+            browser = self.browser(cube)
             issues += browser.validate()
 
         return issues

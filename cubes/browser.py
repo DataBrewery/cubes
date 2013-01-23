@@ -58,27 +58,9 @@ class AggregationBrowser(object):
 
     def full_cube(self):
         # FIXME: Depreciate this method in favor of Cell(cube)
+        logger = get_logger()
+        logger.warn("browser.full_cube() is depreciated, use Cell(cube)")
         return Cell(self.cube)
-
-    def dimension_object(self, dimension):
-        """Helper function to return proper dimension object as a subclass of
-        Dimension.
-
-        .. Warning::
-
-            Depreciated. Use :meth:`cubes.Cube.dimension`
-
-        Arguments:
-
-        * `dimension` - a dimension object or a string, if it is a string,
-          then dimension object is retrieved from cube
-        """
-        # FIXME: depreciate, use cube.dimension(...) directly
-
-        if type(dimension) == str:
-            return self.cube.dimension(dimension)
-        else:
-            return dimension
 
     def aggregate(self, cell=None, measures=None, drilldown=None, **options):
         """Return aggregate of a cell.
@@ -288,8 +270,6 @@ class AggregationBrowser(object):
             one.
         """
 
-        # TODO: is the name right?
-        # TODO: dictionary or class representation?
         # TODO: how we can add the cell as well?
         if not cell:
             return []
@@ -643,8 +623,6 @@ class Cell(object):
     def level_depths(self):
         """Returns a dictionary of dimension names as keys and level depths
         (index of deepest level)."""
-
-        # TODO: should accept hierarchies
 
         levels = {}
 
@@ -1123,6 +1101,15 @@ class AggregationResult(object):
 
         return d
 
+    def has_dimension(self, dimension):
+        """Returns `True` if the result was drilled down by `dimension` (at
+        any level)"""
+
+        if not self.levels:
+            return False
+
+        return str(dimension) in self.levels
+
     def table_rows(self, dimension, depth=None, hierarchy=None):
         """Returns iterator of drilled-down rows which yields a named tuple with
         named attributes: (key, label, path, record). `depth` is last level of
@@ -1252,6 +1239,9 @@ def cross_table(drilldown, onrows, oncolumns, measures=None, measures_in_columns
 
     """
 
+    logger = get_logger()
+    logger.warn("cross_table() is depreciated, use cross table formatter: "
+                "create_formatter(\"cross_table\", ...)")
     matrix = {}
     row_hdrs = []
     column_hdrs = []

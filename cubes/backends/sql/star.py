@@ -480,8 +480,13 @@ class QueryContext(object):
         #
         self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
         self.fact_name = mapper.fact_name
-        self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
+        try:
+            self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
                                            autoload=True, schema=self.schema)
+        except sqlalchemy.exc.NoSuchTableError:
+            in_schema = " in schema '%s'" if self.schema else ""
+            msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
+            raise WorkspaceError(msg)
 
         self.tables = {
                     (self.schema, self.fact_name): self.fact_table
