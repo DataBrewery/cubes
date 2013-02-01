@@ -102,9 +102,19 @@ class SnowflakeBrowser(AggregationBrowser):
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
         # also caches information about tables retrieved from metadata.
-
+        # FIXME: new context is created also when locale changes in set_locale
+        self.options = options
         self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata, **options)
+                                      metadata=self.metadata, **self.options)
+
+    def set_locale(self, locale):
+        """Change the browser's locale"""
+        self.logger.debug("changing browser's locale to %s" % locale)
+        self.mapper.set_locale(locale)
+        self.locale = locale
+        # Reset context
+        self.context = QueryContext(self.cube, self.mapper,
+                                      metadata=self.metadata, **self.options)
 
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube.
@@ -438,6 +448,9 @@ Condition = collections.namedtuple("Condition",
 AliasedTable = collections.namedtuple("AliasedTable",
                                     ["schema", "table", "alias"])
 
+# FIXME: Remove/dissolve this class, it is just historical remnant
+# NOTE: the class was meant to contain reusable code by different SQL
+#       backends
 class QueryContext(object):
 
     def __init__(self, cube, mapper, metadata, **options):
