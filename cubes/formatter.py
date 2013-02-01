@@ -4,12 +4,18 @@ from StringIO import StringIO
 from .model import split_aggregate_ref
 from .common import collect_subclasses, decamelize, to_identifier
 from collections import namedtuple
+import os
 
 try:
     import jinja2
 except ImportError:
     from .common import MissingPackage
     jinja2 = MissingPackage("jinja2", "Templating engine")
+try:
+    from mako.lookup import TemplateLookup
+except ImportError:
+    from .common import MissingPackage
+    TemplateLookup = MissingPackage("mako", "Templating engine")
 
 __all__ = [
             "create_formatter",
@@ -122,6 +128,11 @@ def _jinja_env():
     """Create and return cubes jinja2 environment"""
     loader = jinja2.PackageLoader('cubes', 'templates')
     env = jinja2.Environment(loader=loader)
+    return env
+
+def _mako_env():
+    """Create and return cubes mako environment"""
+    env = TemplateLookup(directories=[os.path.join(os.path.dirname(__file__), 'templates')])
     return env
 
 def parse_format_arguments(formatter, args, prefix="f:"):
@@ -527,7 +538,7 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
 
     def __init__(self, measures_as=None, measure_labels=None,
             aggregation_labels=None, measure_label_format=None,
-            count_label=None, table_style=None):
+            count_label=None, table_style=None, template_env=None):
         """Create a simple HTML table formatter. See `CrossTableFormatter` for
         information about arguments."""
 
@@ -540,9 +551,13 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
                                                 aggregation_labels=aggregation_labels,
                                                 measure_label_format=measure_label_format,
                                                 count_label=count_label)
-
-        self.env = _jinja_env()
-        self.template = self.env.get_template("cross_table.html")
+        if(not template_env):
+            self.env = _jinja_env()
+            self.template = self.env.get_template("cross_table.html")
+        else:
+            self.env = _mako_env()
+            self.template = self.env.get_template("mako_cross_table.html")
+        
         self.table_style = table_style
 
     def format(self, result, onrows=None, oncolumns=None, measures=None):
