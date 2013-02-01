@@ -15,16 +15,16 @@ try:
     from werkzeug.wrappers import Response
     from werkzeug.utils import redirect
     from werkzeug.exceptions import NotFound
-except:
+except ImportError:
     from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Response = redirect = NotFound = _missing
 
 try:
-    from cubes_search.sphinx import SphinxSearcher
-except:
+    import cubes_search
+except ImportError:
     from cubes.common import MissingPackage
-    SphinxSearcher = None
+    cubes_search = None
     # SphinxSearcher = MissingPackage("cubes_search", "Sphinx search ", 
     #                         source = "https://github.com/Stiivi/cubes")
     # Get cubes sphinx search backend from: https://github.com/Stiivi/cubes
@@ -502,23 +502,24 @@ class SearchController(ApplicationController):
         self.browser = self.workspace.browser(self.cube,
                                                   locale=self.locale)
 
-        if self.config.has_option("sphinx", "host"):
-            self.sphinx_host = self.config.get("sphinx","host")
+    def create_searcher(self):
+        if self.config.has_section("search"):
+            self.options = dict(self.config.items("search"))
+            self.engine_name = self.config.get("search", "engine")
         else:
-            self.sphinx_host = None
-
-        if self.config.has_option("sphinx", "port"):
-            self.sphinx_port = self.config.getint("sphinx","port")
-        else:
-            self.sphinx_port = None
+            raise CubesError("Search engine not configured.")
+        self.logger.debug("using search engine: %s" % self.engine_name)
+        options = dict(self.options)
+        del options["engine"]
+        self.searcher = cubes_search.create_searcher(self.engine_name,
+                                            browser=self.browser,
+                                            locales=self.locales,
+                                            **options)
 
     def search(self, cube):
         self.create_browser(cube)
+        self.create_searcher()
 
-        if not SphinxSearcher:
-            raise ServerError("Search extension cubes_search is not installed")
-
-        sphinx = SphinxSearcher(self.browser, self.sphinx_host, self.sphinx_port)
 
         dimension = self.args.get("dimension")
         if not dimension:
@@ -531,25 +532,20 @@ class SearchController(ApplicationController):
         if not query:
             raise RequestError("No search query provided")
 
-        locale_tag = 0
-        if self.locale:
-            for (i, locale) in enumerate(self.locales):
-                if locale == self.locale:
-                    locale_tag = i
-                    break
+        locale = self.locale
+        if not locale and self.locales:
+            locale = self.locales[0]
 
+        self.logger.debug("searching for '%s' in %s, locale %s" % (query,
+            dimension, locale))
 
-        search_result = sphinx.search(query, dimension, locale_tag=locale_tag)
+        search_result = self.searcher.search(query, dimension, locale=locale)
 
-        # FIXME: remove "values" - backward compatibility key
         result = {
-            "values": None,
             "matches": search_result.dimension_matches(dimension),
             "dimension": dimension,
             "total_found": search_result.total_found,
-            "locale": self.locale,
-            "_locale_tag": locale_tag,
-            "_browser_locale": self.browser.locale
+            "locale": self.locale
         }
 
         if search_result.error:
