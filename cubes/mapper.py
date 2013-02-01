@@ -147,6 +147,11 @@ class Mapper(object):
                     raise Exception("No dimension in attr %s" % attr)
                 self.attributes[self.logical(attr)] = attr
 
+    def set_locale(self, locale):
+        """Change the mapper's locale"""
+        self.locale = locale
+        self._collect_attributes()
+
     def all_attributes(self, expand_locales=False):
         """Return a list of all attributes of a cube. If `expand_locales` is
         ``True``, then localized logical reference is returned for each
