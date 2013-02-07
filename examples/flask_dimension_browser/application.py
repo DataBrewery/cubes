@@ -94,7 +94,7 @@ def initialize_model():
                                                      fact_prefix="ft_")
 
 def get_browser():
-    return workspace.browser_for_cube(model.cube(CUBE_NAME))
+    return workspace.browser(model.cube(CUBE_NAME))
 
 if __name__ == "__main__":
     app.debug = True
