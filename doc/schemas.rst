@@ -1,0 +1,398 @@
+******************
+Schemas and Models
+******************
+
+Basic Schemas
+=============
+
+Simple Star Schema
+------------------
+
+*Synopsis: Fact table has the same name as the cube, dimension tables have same names as
+dimensions.*
+
+Fact table is called `sales`, has one measure `amount` and two dimensions:
+`store` and `product`. Each dimension has two attributes.
+
+.. image:: images/schemas/schema-default.png
+    :align: center
+
+.. code-block:: javascript
+
+   "cubes": [
+       {
+           "name": "sales",
+           "dimensions": ["product", "store"],
+           "joins": [
+               {"master":"product_id", "detail":"product.id"},
+               {"master":"store_id", "detail":"store.id"}
+           ]
+       }
+   ],
+   "dimensions": [
+       { "name": "product", "attributes": ["code", "name"] },
+       { "name": "store", "attributes": ["code", "address"] }
+   ]
+    
+
+Simple Dimension
+----------------
+
+*Synopsis: Dimension is represented only by one attribute, has no details, neither hierarchy.*
+
+Similar schema as `Simple Star Schema`_ Note the dimension `year` which is
+represented just by one numeroc attribute.
+
+It is important that no attributes are specified for the dimension. There
+dimension will be referenced just by its name and dimension label is going to
+be used as attribute label as well.
+
+.. image:: images/schemas/schema-flat_dimension.png
+    :align: center
+
+.. code-block:: javascript
+
+   "cubes": [
+       {
+           "name": "sales",
+           "dimensions": ["product", "store", "year"],
+           "joins": [
+               {"master":"product_id", "detail":"product.id"},
+               {"master":"store_id", "detail":"store.id"}
+           ]
+       }
+   ],
+   "dimensions": [
+       { "name": "product", "attributes": ["code", "name"] },
+       { "name": "store", "attributes": ["code", "address"] }
+       { "name": "year" }
+   ]
+
+Table Prefix
+------------
+
+*Synopsis: dimension tables share a common prefix, fact tables share common
+prefix.*
+
+.. image:: images/schemas/schema-prefix.png
+    :align: center
+
+In our example the dimension tables have prefix ``dim_`` as in ``dim_product``
+or ``dim_store`` and facts have prefix ``fact_`` as in ``fact_sales``.
+
+There is no need to change the model, only configuration. In Python code we
+specify the prefix during workspace creation in :func:`cubes.create_worskspace`:
+
+.. code-block:: python
+
+    workspace = cubes.create_workspace("sql",
+                                       url=DATABASE_URL,
+                                       dimension_prefix="dim_",
+                                       fact_prefix="fact_")
+
+When using the :doc:`server` we specify the prefixes in the ``[worskpace]``
+section of the `slicer.ini` configuration file:
+
+.. code-block:: ini
+
+    [workspacee]
+    dimension_prefix="dim_"
+    fact_prefix="fact_"
+
+
+Not Default Database Schema
+---------------------------
+
+*Synopsis: all tables are stored in one common schema that is other than default database schema.*
+
+
+.. image:: images/schemas/schema-common_db_schema.png
+    :align: center
+
+To specify database schema (in our example ``sales_datamart``) in Python pass
+it in the `schema` argument of :func:`cubes.create_workspace`:
+
+.. code-block:: python
+
+    workspace = cubes.create_workspace("sql",
+                                       url=DATABASE_URL,
+                                       schema="sales_datamart")
+
+For the :doc:`server` the schema is specifiedn in the ``[workspace]`` section
+of the `slicer.ini` configuration file:
+
+.. code-block:: ini
+
+    [workspacee]
+    schema="sales_datamart"
+
+Separate Dimension Schema
+-------------------------
+
+*Synopsis: dimension tables share one database schema and fact tables share another
+database schema*
+
+
+
+.. image:: images/schemas/schema-different_db_schemas.png
+    :align: center
+
+Dimensions can be stored in a different database schema than the fact table schema.
+
+To specify database schema of dimensions (in our example ``dimensions``) in Python pass
+it in the `dimension_schema` argument of :func:`cubes.create_workspace`:
+
+.. code-block:: python
+
+    workspace = cubes.create_workspace("sql",
+                                       url=DATABASE_URL,
+                                       schema="facts",
+                                       dimension_schema="dimensions")
+
+For the :doc:`server` the dimension schema is specifiedn in the ``[workspace]`` section
+of the `slicer.ini` configuration file:
+
+.. code-block:: ini
+
+    [workspacee]
+    schema="facts"
+    dimension_schema="dimensions"
+
+
+Mappings
+========
+
+Following patterns use the :ref:`explicit_mapping`. 
+
+Basic Attribute Mapping
+-----------------------
+
+*Synopsis: table column has different name than a dimension attribute or a
+measure.*
+
+.. image:: images/schemas/schema-mapping.png
+    :align: center
+
+
+In our example we have a flat dimension called `year`, but the physical table
+column is “sales_year”. In addition we have a measure `amount` however
+respective physical column is named `total_amount`.
+
+We define the `mappings` within a cube:
+
+.. code-block:: javascript
+
+   "cubes": [
+       {
+           "dimensions": [..., "year"],
+           "measures": ["amount"],
+           "mappings": {
+               "year":"sales_year",
+               "amount":"total_amount"]
+           }
+       }
+   ],
+   "dimensions": [
+       ...
+       { "name": "year" }
+   ]
+
+
+Shared Dimension Table
+----------------------
+
+*Synopsis: multiple dimensions share the same dimension table*
+
+.. image:: images/schemas/schema-alias.png
+    :align: center
+
+Clients and suppliers might share one table with all organisations and
+companies. We have to specify a table alias in the `joins` part of the cube
+definition. The table aliases should follow the same naming pattern as the
+other tables – that is, if we are using dimension prefix, then the alias
+should include the prefix as well:
+
+If the alias follows dimension naming convention, as in the example, then no
+mapping is required.
+
+.. code-block:: javascript
+
+    "cubes": [
+        {
+            "name": "sales"
+            "dimensions": ["supplier", "client"],
+            "measures": ["amount"],
+            "joins": [
+                {
+                    "master":"supplier_id",
+                    "detail":"dim_organisation.id",
+                    "alias":"dim_supplier" ⬅
+                },
+                {
+                    "master":"client_id",
+                    "detail":"dim_organisation.id",
+                    "alias":"dim_client" ⬅
+                }
+            ]
+        }
+    ],
+    "dimensions": [
+        { 
+          "name": "supplier",
+          "attributes": ["id", "name", "address"] }
+        { 
+          "name": "client",
+          "attributes": ["id", "name", "address"] }
+    ]
+
+
+Hierarchies
+===========
+
+Following patterns show how to specify one or multiple dimension hierarchies.
+
+Simple Hierarchy
+----------------
+
+*Synopsis: Dimension has more than one level.*
+
+.. image:: images/schemas/schema-hierarchy1.png
+    :align: center
+
+`Product` dimension has two levels: `product category` and `product`. The
+`product category` level is represented by two attributes ``category_code``
+(as key) and ``category``. The `product` has also two attributes:
+``product_code`` and ``name``.
+
+.. code-block:: javascript
+
+    "cubes": [
+        {
+            "dimensions": ["product", ...],
+            "measures": ["amount"],
+            "joins": [
+                {"master":"product_id", "detail":"product.id"}
+            ]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "product",
+            "levels": [
+                {
+                    "name":"category",
+                    "attributes": ["category_code", "category"]
+                },
+                {
+                    "name":"product",
+                    "attributes": ["code", "name"]
+                }
+            ]
+        }
+    ]
+ 
+  
+Multiple Hierarchies
+--------------------
+
+*Synopsis: Dimension has multiple ways how to organise levels into hierarchies.*
+
+.. image:: images/schemas/schema-hierarchy2.png
+    :align: center
+
+Dimensions such as `date` (depicted below) or `geography` might have multiple
+ways of organizing their attributes into a hierarchy. The date can be composed
+of `year-month-day` or `year-quarter-month-day`.
+
+To define multiple hierarchies, first define all possible levels. Then create
+list of hierarchies where you specify order of levels for that particular
+hierarchy.
+
+The code example below is in the “dimensions” section of the model:
+
+.. code-block:: javascript
+
+    {
+        "name":"date",
+        "levels": [
+            { "name": "year", "attributes": ["year"] },
+            { "name": "quarter", "attributes": ["quarter"] },
+            { "name": "month", "attributes": ["month", "month_name"] },
+            { "name": "week", "attributes": ["week"] },
+            { "name": "weekday", "attributes": ["weekday"] },
+            { "name": "day", "attributes": ["day"] }
+        ],
+        "hierarchies": [
+            {"name": "ymd", "levels":["year", "month", "day"]},
+            {"name": "ym", "levels":["year", "month"]},
+            {"name": "yqmd", "levels":["year", "quarter", "month", "day"]},
+            {"name": "ywd", "levels":["year", "week", "weekday"]}
+        ],
+        "default_hierarchy_name": "ymd"
+    }
+
+The ``default_hierarchy_name`` specifies which hierarchy will be used if not
+mentioned explicitly.
+
+
+User-oriented Metadata
+======================
+
+Key and Label Attribute
+-----------------------
+
+*Synopsis: specify which attributes are going to be used for flitering (keys)
+and which are going to be displayed in the user interface (labels)*
+
+.. code-block:: javascript
+
+    "dimensions": [
+        {
+            "name": "product",
+            "levels": [
+                {
+                    "name": "product",
+                    "attributes": ["code", "name", "price"]
+                    "key": "code",
+                    "label_attribute": "name"
+                }
+            ]
+        }
+    ]
+
+Example use:
+
+.. code-block:: python
+
+    result = browser.aggregate(drilldown=["product"])
+
+    for row in result.table_rows("product"):
+       print "%s: %s" % (row.label, row.record["amount_sum"])
+
+Labels
+------
+
+*Synopsis: Labels of attributes that are to be displayed to the user*
+
+.. code-block:: javascript
+    
+    "cubes": [
+        {
+            "name": "sales",
+            "label": "Product Sales",
+            "dimensions": ["product", ...]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "product",
+            "label": "Product",
+            "attributes": [
+                {"name": "code", "label": "Code"},
+                {"name": "name", "label": "Product"},
+                {"name": "price", "label": "Unit Price"},
+            ]
+        }
+    ]
+
+
