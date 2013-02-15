@@ -435,7 +435,7 @@ class Cell(object):
             cuts.append(cut)
         return Cell(cube=self.cube, cuts=cuts)
 
-    def drilldown(self, dimension, value):
+    def drilldown(self, dimension, value, hierarchy=None):
         """Create another cell by drilling down `dimension` next level on
         current level's key `value`.
 
@@ -461,7 +461,7 @@ class Cell(object):
         dim_cut = self.cut_for_dimension(dimension)
 
         old_path = dim_cut.path if dim_cut else []
-        new_cut = PointCut(dimension, old_path + [value])
+        new_cut = PointCut(dimension, old_path + [value], hierarchy=hierarchy)
 
         cuts = [cut for cut in self.cuts if cut is not dim_cut]
         cuts.append(new_cut)
@@ -541,7 +541,7 @@ class Cell(object):
         # are removing the cut for the dimension.
 
         if rollup_path:
-            new_cut = PointCut(dimension, rollup_path)
+            new_cut = PointCut(dimension, rollup_path, hierarchy=hierarchy)
             cuts.append(new_cut)
 
         return Cell(cube=self.cube, cuts=cuts)
