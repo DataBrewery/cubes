@@ -15,6 +15,7 @@ Contents:
    introduction
    install
    model
+   schemas
    mapping
    aggregate
    computing
