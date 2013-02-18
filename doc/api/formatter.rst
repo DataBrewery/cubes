@@ -58,9 +58,6 @@ In applications where slicing and dicing can be specified in form of a string, s
 
 .. autofunction:: cubes.levels_from_drilldown
 
-.. autofunction:: cubes.string_to_drilldown
-
-
 Mapper
 ------
 

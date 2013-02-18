@@ -22,7 +22,7 @@ Cubes is metadata and data level.
 Localization in cubes is very simple:
 
 1. Create master model definition and specify locale the model is in
-2. Specify attributes that are localized (see :ref:`PhysicalAttributeMappings`)
+2. Specify attributes that are localized (see :ref:`explicit_mapping`)
 3. Create model translations for each required language
 4. Make cubes function or a tool create translated versions the master model
 
@@ -53,7 +53,7 @@ dimension level attributes are dictionaries, not arrays. Keys are attribute
 names, values are metadata translations. Therefore in master model file you
 will have:
 
-.. code-block:: java-script
+.. code-block:: javascript
 
     attributes = [
                     { "name": "name", "label": "Name" },
@@ -62,7 +62,7 @@ will have:
 
 in translation file you will have:
 
-.. code-block:: java-script
+.. code-block:: javascript
 
     attributes = {
                     "name": {"label": "Meno"},
@@ -91,7 +91,7 @@ To load a model:
 .. code-block:: python
 
     import cubes
-    model_sk = cubes.load_model("procurements.json", translations = { 
+    model_sk = cubes.load_model("procurements.json", translations = {
                                     "en": "procurements_en.json",
                                     "hu": "procurements_hu.json",
                                     })
@@ -110,7 +110,7 @@ Or you can get translated version of the model by directly passing translation d
     handle = open("procurements_en.json")
     trans = json.load(handle)
     handle.close()
-    
+
     model_en = model.translate("en", trans)
 
 
@@ -118,7 +118,7 @@ Data Localization
 -----------------
 
 If you have attributes that needs to be localized, specify the locales (languages) in the attribute
-definition in :ref:`PhysicalAttributeMappings`.
+definition in :ref:`explicit_mapping`.
 
 .. note::
 

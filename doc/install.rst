@@ -11,7 +11,8 @@ Basic Installation
 
 The cubes has optional requirements:
 
-* `SQLAlchemy`_ for SQL database aggregation browsing backend
+* `SQLAlchemy`_ for SQL database aggregation browsing backend (version >=
+  0.7.4)
 * `Werkzeug`_ for Slicer WSGI server
 
 .. note::
