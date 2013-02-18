@@ -6,8 +6,8 @@ Why cubes?
 ==========
 
 Purpose is to provide a framework for giving analyst or any application 
-end-user understandable and natural way of presenting the multidimensional 
-data. One of the main features is the logical model, which serves as 
+end-user understandable and natural way of reporting by multidimensional 
+data modeling. One of the main features is the logical model, which serves as
 abstraction over physical data to provide end-user layer.
 
 It is meant to be used by application builders that want to provide analytical
@@ -31,7 +31,7 @@ Features:
 Cube, Dimensions, Facts and Measures
 ====================================
 
-The framework thiks of the data as a cube with multiple dimensions:
+The framework models the data as a cube with multiple dimensions:
 
 .. figure:: images/cube-dims_and_cell.png
     :align: center
@@ -59,16 +59,24 @@ Architecture
 
 The framework is composed of four modules and one command-line tool:
 
-* :mod:`model` - Description of data (*metadata*): dimensions, hierarchies, 
+* **Model** - Description of data (*metadata*): dimensions hierarchies,
   attributes, labels, localizations.
-* :mod:`browser` - Aggregation browsing, slicing-and-dicing, drill-down.
-* :mod:`backends` - Actual aggregation implementation and utility functions.
-* :mod:`server` - WSGI HTTP server for Cubes
+  (see :doc:`docs<model>`, :doc:`reference<api/model>`) 
+* **Browser** - Aggregation browsing, slicing-and-dicing, drill-down.
+  (see :doc:`docs<aggregate>`, :doc:`reference<api/browser>`) 
+* **Backend** - Actual aggregation implementation and utility functions.
+  (see :doc:`docs<backends>`, :doc:`reference<api/backends>`) 
+* **Server** - WSGI HTTP server for Cubes
+  (see :doc:`docs<server>`, :doc:`reference<api/server>`) 
+* **Formatters** - Data formatters
+  (see :doc:`docs<formatters>`, :doc:`reference<api/formatter>`) 
+* **Workspace** – Cubes workspace
+  (see :doc:`reference<api/workspace>`) 
 * :doc:`slicer` - command-line tool
 
 .. figure:: images/arch-modules.png
     :align: center
-    :width: 400px
+    :width: 600px
 
     framework modules
 
@@ -118,3 +126,10 @@ based on the Werkzeug WSGI framework.
 
 More information about the Slicer server requests can be found in the chapter 
 :doc:`server`. See also programming reference of the :mod:`server` module.
+
+
+.. seealso::
+
+    :doc:`schemas`
+        Example database schemas and use patterns with their respective
+        models.

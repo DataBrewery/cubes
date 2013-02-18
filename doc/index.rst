@@ -1,9 +1,11 @@
+######################
 Cubes - OLAP Framework
-===================================
+######################
 
-Cubes is a light-weight Python framework and set of tools for Online Analytical 
-Processing (OLAP), multidimensional analysis and browsing of aggregated data. 
-It is part of `Data Brewery`_.
+Cubes is a light-weight Python framework and set of tools for development of
+reporting and analytical applications, Online Analytical Processing (OLAP),
+multidimensional analysis and browsing of aggregated data.  It is part of
+`Data Brewery`_.
 
 .. _Data Brewery: http://databrewery.org/
 
