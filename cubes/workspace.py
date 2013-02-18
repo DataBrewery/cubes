@@ -10,7 +10,8 @@ __all__ = [
     "get_backend",
     "create_workspace",
     "create_workspace_from_config",
-    "create_slicer_context"
+    "create_slicer_context",
+    "Workspace"
 ]
 
 backend_aliases = {
@@ -198,6 +199,16 @@ class Workspace(object):
         self.locales.sort()
         self.localized_models = {}
         self.logger = get_logger()
+
+    def browser(self, cube, locale=None):
+        """Creates new or provides a shared browser instance. `cube` is the
+        browsed cube and `locale` is optional specification of locale to be
+        used for browsing.
+
+        Subclasses should implement this method and should ask for a model
+        instance with `self.localized_model(locale)`
+        """
+        raise NotImplementedError("Subclasses should override browser()")
 
     def localized_model(self, locale):
         """Tries to translate the model. Looks for language in configuration

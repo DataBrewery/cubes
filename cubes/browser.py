@@ -28,6 +28,7 @@ __all__ = [
     "string_from_cuts",
     "string_from_path",
     "string_from_hierarchy",
+    "string_to_drilldown",
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",

@@ -26,7 +26,7 @@
         {
             "name": "irbd_balance",
             "dimensions": ["item", "year"],
-            "measures": ["amount"],
+            "measures": [{"name":"amount", "label":"Amount"}],
             "mappings": {
                           "item.line_item": "line_item",
                           "item.subcategory": "subcategory",

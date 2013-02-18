@@ -3,7 +3,7 @@ Schemas and Models
 ******************
 
 This section contains example database schemas and their respective models
-with description.
+with description. The examples are based on the SQL backend.
 
 .. seealso::
 
@@ -349,11 +349,52 @@ mentioned explicitly.
 User-oriented Metadata
 ======================
 
+Model Labels
+------------
+
+*Synopsis: Labels for parts of model that are to be displayed to the user*
+
+.. image:: images/schemas/schema-labels.png
+    :align: center
+
+Labels are used in report tables as column headings or as filter descriptions. 
+Attribute (and column) names should be used only for report creation and
+despite being readable and understandable, they should not be presented to the
+user in the raw form.
+
+Labels can be specified for any model object (cube, dimension, level,
+attribute) with the `label` attribute:
+
+.. code-block:: javascript
+    
+    "cubes": [
+        {
+            "name": "sales",
+            "label": "Product Sales",
+            "dimensions": ["product", ...]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "product",
+            "label": "Product",
+            "attributes": [
+                {"name": "code", "label": "Code"},
+                {"name": "name", "label": "Product"},
+                {"name": "price", "label": "Unit Price"},
+            ]
+        }
+    ]
+
+
 Key and Label Attribute
 -----------------------
 
 *Synopsis: specify which attributes are going to be used for flitering (keys)
 and which are going to be displayed in the user interface (labels)*
+
+.. image:: images/schemas/schema-label_attributes.png
+    :align: center
 
 .. code-block:: javascript
 
@@ -380,30 +421,219 @@ Example use:
     for row in result.table_rows("product"):
        print "%s: %s" % (row.label, row.record["amount_sum"])
 
-Labels
-------
+Localization
+============
 
-*Synopsis: Labels of attributes that are to be displayed to the user*
+Localized Data
+--------------
+
+*Synopsis: attributes might have values in multiple languages*
+
+.. image:: images/schemas/schema-localized_data.png
+    :align: center
+
+Dimension attributes might have language-specific content. In cubes it can be
+achieved by providing one column per language (denormalized localization). The
+default column name should be the same as the localized attribute name with
+locale suffix, for example if the reported attribute is called `name` then the
+columns should be `name_en` for English localization and `name_hu` for
+Hungarian localization. 
 
 .. code-block:: javascript
-    
-    "cubes": [
-        {
-            "name": "sales",
-            "label": "Product Sales",
-            "dimensions": ["product", ...]
-        }
-    ],
-    "dimensions": [
+
+   "dimensions": [
         {
             "name": "product",
             "label": "Product",
             "attributes": [
                 {"name": "code", "label": "Code"},
-                {"name": "name", "label": "Product"},
-                {"name": "price", "label": "Unit Price"},
+                {
+                    "name": "name",
+                    "label": "Product",
+                    "locales": ["en", "fr", "es"]
+                }
             ]
         }
     ]
 
+Use in Python:
 
+.. code-block:: python
+
+	browser = workspace.browser(cube, locale="fr")
+
+The `browser` instance will now use only the French localization of attributes
+if available.
+
+In slicer server requests language can be specified by the ``lang=`` parameter
+in the URL.
+
+The dimension attributes are referred in the same way, regardless of
+localization. No change to reports is necessary when a new language is added.
+
+Notes:
+
+* only one locale per browser instance – either switch the locale or create
+  another browser
+* when non-existing locale is requested, then the default (first in the list
+  of the localized attribute) locale is used
+
+Localized Model Labels
+----------------------
+
+*Synopsis: Labels of model objects, such as dimensions, levels or attributes
+are localized.*
+
+.. image:: images/schemas/schema-localized_labels.png
+    :align: center
+
+
+.. note::
+
+   Way how model is localized is not yet decided, the current implementation
+   might be changed.
+   
+We have a reporting site that uses two languages: English and Slovak. We want
+all labels to be available in both of the languages. Also we have a product
+name that has to be localized.
+
+First we define the model and specify that the default locale of the model is
+English (for this case). Note the `locale` property of the model, the `label`
+attributes and the locales of `product.name` attribute: 
+
+.. code-block:: javascript
+
+    {
+        "locale": "en",
+        "cubes": [
+            {
+                "name": "sales",
+                "label": "Product Sales",
+                "dimensions": ["product"],
+                "measures": [
+                    {"name": "amount", "label": "Amount"}
+                ]
+            }
+        ],
+        "dimensions": [
+            {
+                "name": "product",
+                "label": "Product",
+                "attributes": [
+                    {
+                      "name": "code",
+                      "label": "Code"
+                    },
+                    {
+                      "name": "name",
+                      "label": "Product",
+                      "locales": ["en", "sk"]
+                    },
+                    {
+                      "name": "price",
+                      "label": "Unit Price"
+                    }
+                ]
+            }
+        ]
+    }
+   
+
+Next we create a separate translation dictionary for the other locale, in our
+case it is Slovak or ``sk``. If we are translating only labels, no
+descriptions or any other information, we can use the simplified form:
+
+.. code-block:: javascript
+
+    {
+       "locale": "sk",
+       "dimensions":
+       {
+          "product”:
+          {
+               "levels":
+               {
+                  "product" : "Produkt" 
+               },
+               "attributes" :
+               {
+                   "code": "Kód produktu",
+                   "name": "Produkt",
+                   "price": "Jednotková cena"
+               }
+            }
+        },
+        "cubes":
+        {
+            "sales":
+            {
+                "measures":
+                {
+                    "amount": "Suma"
+                }
+            }
+        }
+    }
+
+Full localization with detailed dictionaries looks like this:
+
+.. code-block:: javascript
+
+    {
+       "locale": "sk",
+       "dimensions":
+       {
+          "product”:
+          {
+               "levels":
+               {
+                  "product" : { "label" : "Produkt"}
+               },
+               "attributes" :
+               {
+                   "code": {"label": "Kód produktu"},
+                   "name": {"label": "Produkt"},
+                   "price": {"label": "Jednotková cena"}
+               }
+            }
+        },
+        "cubes":
+        {
+            "sales":
+            {
+                "measures":
+                {
+                    "amount": {"label": "Suma"}
+                }
+            }
+        }
+    }
+
+
+To create a model with translations:
+
+.. code-block:: python
+
+    translations = {"sk": "model-sk.json"}
+    model = create_model("model.json", translations)
+
+The model created this way will be in the default locale. To get localized
+version of the master model:
+
+.. code-block:: python
+
+    localized_model = model.localize("sk")
+
+.. note::
+
+    The :meth:`cubes.Workspace.browser` method creates a browser with
+    appropriate model localization, no explicit request for localization is
+    needed.
+
+.. seealso::
+
+    :func:`cubes.load_model`
+        Designated model loading function which accepts model translations.
+
+    :meth:`cubes.Model.localize`
+        Get localized version of the model.

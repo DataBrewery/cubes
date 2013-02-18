@@ -15,3 +15,5 @@ other information or data that can be shared between borwsers.
 
 .. autofunction:: cubes.get_backend
 
+.. autoclass:: cubes.Workspace
+
