@@ -6,15 +6,13 @@ Data and metadata from aggregation result can be transformed to one of
 multiple forms using formatters:
 
 .. code-block:: python
+
     formatter = cubes.create_formatter("text_table")
 
     result = browser.aggregate(cell, drilldown="date")
 
     print formatter.format(result, "date")
 
-Output::
-
-    FIXME: put output here
 
 Available formmaters:
 
@@ -29,6 +27,7 @@ Available formmaters:
 
 Formatters
 ----------
+
 .. autofunction:: cubes.create_formatter
 .. autofunction:: cubes.register_formatter
 
@@ -37,3 +36,4 @@ Formatters
 .. autoclass:: cubes.SimpleHTMLTableFormatter
 .. autoclass:: cubes.CrossTableFormatter
 .. autoclass:: cubes.HTMLCrossTableFormatter
+

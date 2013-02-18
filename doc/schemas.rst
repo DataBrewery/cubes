@@ -2,6 +2,17 @@
 Schemas and Models
 ******************
 
+This section contains example database schemas and their respective models
+with description.
+
+.. seealso::
+
+    :doc:`model`
+        Logical model description.
+
+    :doc:`api/model`
+        Reference of model classes and fucntions.
+
 Basic Schemas
 =============
 

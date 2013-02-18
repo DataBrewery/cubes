@@ -42,7 +42,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Cubes'
-copyright = u'2010-2012, Stefan Urbanek'
+copyright = u'2010-2013, Stefan Urbanek'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -50,7 +50,7 @@ copyright = u'2010-2012, Stefan Urbanek'
 #
 # The short X.Y version.
 # import cubes
-version = '0.10.1'
+version = '0.10.2'
 # The full version, including alpha/beta/rc tags.
 release = '0.10'
 

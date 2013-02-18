@@ -6,10 +6,19 @@ Logical model describes the data from user's or analyst's perspective: data
 how they are being measured, aggregated and reported. Model is independent of
 physical implementation of data. This physical independence makes it easier to
 focus on data instead on ways of how to get the data in understandable form.
-Objects and functionality for working with metadata are provided by the
-:mod:`model` package.
 
-In short, logical model enables users to:
+.. seealso::
+
+    :doc:`schemas`
+        Example database schemas and their respective models.
+
+    :doc:`api/model`
+        Reference of model classes and fucntions.
+
+Introduction
+============
+
+The logical model enables users to:
 
 * refer to dimension attributes by name regardless of storage (which table)
 * specify hierarchical dependencies of attributes, such as:
@@ -52,7 +61,7 @@ in geographical names, that is: `country.name` and `region.name`.
 .. How the physical attributes are located is described in the :doc:`mapping` 
 .. chapter.
 
-Logical Model description
+Logical Model Description
 =========================
 
 The logical model can be either constructed programmatically or provided as
@@ -65,7 +74,9 @@ figure:
 
     The logical model entities and relationships.
 
-Load a model::
+Load a model:
+
+.. code-block:: python
 
     model = cubes.load_model(path)
 
@@ -92,7 +103,9 @@ dim_*dimension_name*.json  Dimension description, one file per dimension
 Model
 -----
 
-The `model` dictionary contains main model description. The structure is::
+The `model` dictionary contains main model description. The structure is:
+
+.. code-block:: javascript
 
     {
     	"name": "public_procurements",
@@ -112,7 +125,20 @@ label          human readable name - can be used in an application
                *(optional)*
 description    longer human-readable description of the model
                *(optional)*
+locale         default model locale               
 ============== ===================================================
+
+.. seealso::
+
+    :func:`cubes.load_model`
+        Load a model from a file or a URL.
+
+    :func:`cubes.create_model`
+        Create model from a dictionary.
+
+    :class:`cubes.Model`
+        Model class reference.
+
 
 Cubes
 -----
@@ -130,6 +156,8 @@ Key            Description
 **dimensions** list of cube dimension names (recommended, but might
                be empty for dimension-less cubes)
 label          human readable name - can be used in an application
+description    longer human-readable description of the cube
+               *(optional)*
 details        list of fact details (as Attributes) - attributes
                that are not relevant to aggregation, but are
                nice-to-have when displaying facts (might be
@@ -143,7 +171,9 @@ info           custom info, such as formatting. Not used by cubes
                framework.
 ============== ====================================================
 
-Example::
+Example:
+
+.. code-block:: javascript
 
     {
         "name": "date",
@@ -158,7 +188,16 @@ Example::
     	"joins": [ ... ]
     }
 
-For more information about mappings see :doc:`mapping`
+
+.. seealso::
+
+   :class:`cubes.Cube`
+        Cube class reference.
+
+   :func:`cubes.create_cube`
+        Create cube from a description dictionary.
+
+   :doc:`mapping`
 
 Dimensions
 ----------
@@ -177,6 +216,8 @@ Key                    Description
 ====================== ===================================================
 **name**               dimension name, used as identifier
 label                  human readable name - can be used in an application
+description            longer human-readable description of the dimension
+                       *(optional)*
 levels                 list of level descriptions
 hierarchies            list of dimension hierarchies
 hierarchy              if dimension has only one hierarchy, you can
@@ -184,6 +225,7 @@ hierarchy              if dimension has only one hierarchy, you can
 default_hierarchy_name name of a hierarchy that will be used as default
 info                   custom info, such as formatting. Not used by cubes 
                        framework.
+template               name of a dimension that will be used as template 
 ====================== ===================================================
 
 Example:
@@ -194,11 +236,40 @@ Example:
         "name": "date",
         "label": "Dátum",
         "levels": [ ... ]
-        "attributes": [ ... ]
         "hierarchies": [ ... ]
     }
 
 Use either ``hierarchies`` or ``hierarchy``, using both results in an error.
+
+If you are creating more dimensions with the same or similar structure, such
+as multiple dates or different types of organisational relationships, you
+might create a template dimension and then use it as base for the other
+dimensions:
+
+.. code-block:: javascript
+
+    "dimensions" = [
+        {
+            "name": "date",
+            "levels": [...]
+        },
+        {
+            "name": "creation_date",
+            "template": "date"
+        },
+        {
+            "name": "closing_date",
+            "template": "date"
+        }
+    ]
+
+All properties from the template dimension will be copied to the new
+dimension. Properties can be redefined in the new dimension. In that case, the
+old value is discarded. You might change levels, hierarchies or default
+hierarchy. There is no way how to add or drop a level from the template, all
+new levels have to be specified again if they are different than in the
+original template dimension. However, you might want to just redefine
+hierarchies to omit unnecessary levels.
 
 Hierarchy levels are described as:
 
@@ -217,6 +288,8 @@ key              key field of the level (customer number for customer level,
 label_attribute  name of attribute containing label to be displayed (customer
                  name for customer level, region name for region level,
                  month name for month level)
+order_attribute  name of attribute that is used for sorting, default is the
+                 first attribute (key)
 info             custom info, such as formatting. Not used by cubes 
                  framework.
 ================ ================================================================
@@ -245,6 +318,20 @@ Example of supplier level of supplier dimension:
         "attributes": ["ico", "name", "address", "date_start", "date_end",
                         "legal_form", "ownership"]
     }
+
+.. seealso::
+
+   :class:`Dimension`
+        Dimension class reference
+
+   :func:`cubes.create_dimension`
+        Create a dimension object from a description dictionary.
+
+   :class:`Level`
+        Level class reference
+
+   :func:`create_level`
+        Create level object from a description dictionary.
 
 Hierarchies are described as:
 
@@ -298,6 +385,7 @@ aggregations     list of aggregations to be performed if the attribute is a
                  measure
 info             custom info, such as formatting. Not used by cubes 
                  framework.
+format           application specific display format information
 ================ ================================================================
 
 The optional `order` is used in aggregation browsing and reporting. If
@@ -328,7 +416,8 @@ specified as:
         {"name" = "group_code"},
         {"name" = "group_name", "order": "asc", "locales" = ["sk", "en", "hu"]}
     ]
-    
+
+
 `group name` is localized, but `group code` is not. Also you can see that the
 result will always be sorted by `group name` alphabetical in ascending order.
 See :ref:`PhysicalAttributeMappings` for more information about how logical
@@ -338,13 +427,18 @@ In reports you do not specify locale for each localized attribute, you specify
 locale for whole report or browsing session. Report queries remain the same
 for all languages.
 
+
+   
 Model validation
 ================
 
-To validate a model do::
+To validate a model do:
+
+.. code-block:: python
 
     results = model.validate()
-    
+
+
 This will return a list of tuples `(result, message)` where result might be
 'warning' or 'error'. If validation contains errors, the model can not be used
 without resulting in failure. If there are warnings, some functionalities
