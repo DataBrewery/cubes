@@ -1140,6 +1140,9 @@ class Cube(object):
 
         return locale
 
+    def __str__(self):
+        return self.name
+
 class Dimension(object):
     """
     Cube dimension.
