@@ -1,66 +1,21 @@
-*****************************
-Aggregation Browser Reference
-*****************************
+####################
+Formatters Reference
+####################
 
-Abstraction for aggregated browsing (concrete implementation is provided by
-one of the backends in package :mod:`backend` or a custom backend).
+.. autofunction:: cubes.create_formatter
+.. autofunction:: cubes.register_formatter
 
-.. figure:: images/browser-package.png
-    :align: center
-    :width: 400px
+Formatters
+==========
 
-    Browser package classes.
+.. autoclass:: cubes.TextTableFormatter
+.. autoclass:: cubes.SimpleDataTableFormatter
+.. autoclass:: cubes.SimpleHTMLTableFormatter
+.. autoclass:: cubes.CrossTableFormatter
+.. autoclass:: cubes.HTMLCrossTableFormatter
 
-Aggregate browsing
-==================
 
-.. autoclass:: cubes.AggregationBrowser
-    :members:
+.. seealso::
 
-Result
-------
-
-The result of aggregated browsing is returned as object:
-
-.. autoclass:: cubes.AggregationResult
-    :members:
-
-Slicing and Dicing
-==================
-
-.. autoclass:: cubes.Cell
-    :members:
-
-Cuts
-----
-
-.. autoclass:: cubes.PointCut
-    :members:
-
-.. autoclass:: cubes.RangeCut
-    :members:
-
-.. autoclass:: cubes.SetCut
-    :members:
-
-String conversions
-------------------
-
-In applications where slicing and dicing can be specified in form of a string, such as arguments of HTTP requests of an web application, there are couple helper methods that do the string-to-object conversion:
-
-.. autofunction:: cubes.cuts_from_string
-
-.. autofunction:: cubes.string_from_cuts
-
-.. autofunction:: cubes.string_from_path
-
-.. autofunction:: cubes.path_from_string
-
-.. autofunction:: cubes.levels_from_drilldown
-
-Mapper
-------
-
-.. autoclass:: cubes.Mapper
-.. autoclass:: cubes.SnowflakeMapper
-.. autoclass:: cubes.DenormalizedMapper
+   :doc:`formatters`
+        Formatters documentation.

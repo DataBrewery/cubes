@@ -25,15 +25,7 @@ Available formmaters:
   `columns` – column headings and `data` with rows of cells
 * `html_cross_table` – HTML version of the `cross_table` formatter
 
-Formatters
-----------
+.. seealso::
 
-.. autofunction:: cubes.create_formatter
-.. autofunction:: cubes.register_formatter
-
-.. autoclass:: cubes.TextTableFormatter
-.. autoclass:: cubes.SimpleDataTableFormatter
-.. autoclass:: cubes.SimpleHTMLTableFormatter
-.. autoclass:: cubes.CrossTableFormatter
-.. autoclass:: cubes.HTMLCrossTableFormatter
-
+    :doc:`api/formatter`
+        Formatter reference
