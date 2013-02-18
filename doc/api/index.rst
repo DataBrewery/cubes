@@ -10,6 +10,7 @@ Contents:
     workspace
 	model
 	browser
+    formatter
 	backends
 	server
 	common

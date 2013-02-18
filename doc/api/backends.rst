@@ -38,14 +38,10 @@ Browser
 .. autoclass:: cubes.backends.sql.star.SnowflakeBrowser
 .. autoclass:: cubes.backends.sql.star.QueryContext
 
+.. note::
 
-Helper functions
-----------------
-
-.. autofunction:: cubes.backends.sql.star.paginated_statement
-.. autofunction:: cubes.backends.sql.star.ordered_statement
-.. autofunction:: cubes.backends.sql.star.order_column
-
+   :class:`cubes.QueryContext` does not serve to it's original purpose anymore
+   and will be verylikely meerged with the browser.
 
 Slicer
 ======

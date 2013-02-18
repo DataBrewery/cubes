@@ -124,6 +124,7 @@ In case you have dimensions stored in separate schema than fact table, you can
 specify that in ``dimension_schema``. All dimension tables are going to be
 searched in that schema.
 
+.. _explicit_mapping:
 
 Explicit Mapping
 ----------------
