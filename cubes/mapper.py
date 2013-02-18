@@ -276,6 +276,7 @@ class SnowflakeMapper(Mapper):
         * `dimension_prefix` – prefix for dimension tables
         * `dimension_schema` – schema whre dimension tables are stored (if
           different than fact table schema)
+
         `mappings` is a dictionary where keys are logical attribute references
         and values are table column references. The keys are mostly in the
         form:

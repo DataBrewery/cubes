@@ -367,7 +367,7 @@ class CrossTableFormatter(Formatter):
           for default measure labeling
         * `measure_label_format` – format string for measure label, default is
           ``{measure} ({aggregation})``
-        * `record_count_label` – label to be used for record count. Overrides
+        * `count_label` – label to be used for record count. Overrides
           default setting
 
         If measures are put on rows or columns, then respective row or column
