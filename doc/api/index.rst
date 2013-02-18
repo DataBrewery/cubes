@@ -5,12 +5,12 @@ Reference
 Contents:
 
 .. toctree::
-	:maxdepth: 2
+    :maxdepth: 2
 
     workspace
-	model
-	browser
+    model
+    browser
     formatter
-	backends
-	server
-	common
+    backends
+    server
+    common

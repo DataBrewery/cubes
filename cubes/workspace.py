@@ -49,11 +49,12 @@ def create_slicer_context(config):
     Returns a dictionary with keys:
 
     * `model` - loaded model (with applied translations)
-    * `translations ` – model translations
+    * `translations` – model translations
     * `locales` - list of model locales
     * `backend_name` - backend name
     * `backend` - backend module
     * `backend_config` - backend configuration dictionary
+
     """
 
     logger = get_logger()
