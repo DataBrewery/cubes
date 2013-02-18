@@ -14,6 +14,7 @@ The cubes has optional requirements:
 * `SQLAlchemy`_ for SQL database aggregation browsing backend (version >=
   0.7.4)
 * `Werkzeug`_ for Slicer WSGI server
+* jinja2 for formatters
 
 .. note::
 
@@ -28,7 +29,7 @@ The cubes has optional requirements:
 
 For quick satisfaction of requirements install the packages::
 
-    pip install sqlalchemy werkzeug
+    pip install sqlalchemy werkzeug jinja2
 
 Then install the Cubes::
 
