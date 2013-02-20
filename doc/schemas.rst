@@ -237,12 +237,12 @@ mapping is required.
                 {
                     "master":"supplier_id",
                     "detail":"dim_organisation.id",
-                    "alias":"dim_supplier" ⬅
+                    "alias":"dim_supplier" 
                 },
                 {
                     "master":"client_id",
                     "detail":"dim_organisation.id",
-                    "alias":"dim_client" ⬅
+                    "alias":"dim_client" 
                 }
             ]
         }
