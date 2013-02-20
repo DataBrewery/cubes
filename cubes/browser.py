@@ -375,7 +375,7 @@ class Cell(object):
 
         return result;
 
-    def slice(self, cut, dummy=None):
+    def slice(self, cut):
         """Returns new cell by slicing receiving cell with `cut`. Cut with
         same dimension as `cut` will be replaced, if there is no cut with the
         same dimension, then the `cut` will be appended.
@@ -385,7 +385,6 @@ class Cell(object):
         if isinstance(cut, Dimension) or isinstance(cut, basestring):
             raise CubesError("slice() should now be called with a cut (since v0.9.2). To get "
                              "original behaviour of one-dimension point cut, "
-                             "use point_slice(dim, path) instead or better: "
                              "use cell.slice(PointCut(dim,path))")
 
         cuts = self.cuts[:]
@@ -456,7 +455,10 @@ class Cell(object):
         Works only if the cut for dimension is `PointCut`. Otherwise the
         behaviour is undefined.
 
-        Returns: new derived cell object.
+        If `hierarchy` is not specified (by default) then default dimension
+        hierarchy is used.
+
+        Returns new derived cell object.
         """
         dimension = self.cube.dimension(dimension)
         dim_cut = self.cut_for_dimension(dimension)
@@ -514,11 +516,10 @@ class Cell(object):
         hierarchy. If there is no level to go up (we are at the top level),
         then the cut is removed.
 
+        If no `hierarchy` is specified, then the default dimension's hierarchy
+        is used.
+
         Returns new cell object.
-
-        .. note::
-
-                Only default hierarchy is currently supported.
         """
 
         # FIXME: make this the default roll-up
