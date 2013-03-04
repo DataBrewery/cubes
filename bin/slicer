@@ -106,11 +106,11 @@ def extract_locale(args):
 def translate_model(args):
     model = cubes.model_from_path(args.model)
     trans_path = args.translation
-    handle = open(trans_path)
-    trans_dict = json.load(handle)
-    handle.close()
 
-    model.localize(trans_dict)
+    with open(trans_path) as f:
+        trans_dict = json.load(f)
+
+    model = model.localize(trans_dict)
     dump_model(model)
 
 def dump_model(model):
