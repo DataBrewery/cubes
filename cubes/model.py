@@ -123,9 +123,8 @@ def create_model(model, cubes=None, dimensions=None, translations=None):
     model_desc = dict(model)
     # print "creating model from %s" % model_desc["dimensions"]
     if "dimensions" in model_desc:
-        all_dimensions = _fix_dict_list(model["dimensions"],
+        all_dimensions = _fix_dict_list(model_desc.pop("dimensions", None),
                 warning="'dimensions' in model description should be a list not a dictionary")
-        del model_desc["dimensions"]
     else:
         all_dimensions = []
 
@@ -143,9 +142,8 @@ def create_model(model, cubes=None, dimensions=None, translations=None):
         model_dimensions[dimension.name] = dimension
 
     if "cubes" in model_desc:
-        all_cubes = _fix_dict_list(model["cubes"],
+        all_cubes = _fix_dict_list(model_desc.pop("cubes", None),
                 warning="'cubes' in model description should be a list not a dictionary")
-        del model_desc["cubes"]
     else:
         all_cubes = []
 
@@ -826,7 +824,23 @@ class Model(object):
                 cube.localize(cube_trans)
 
         if "dimensions" in translation:
-            for name, dim_trans in translation["dimensions"].items():
+            dimensions = translation["dimensions"]
+            for name, dim_trans in dimensions.items():
+                # Use translation template if exists, similar to dimension
+                # template
+                template_name = dim_trans.get("template")
+
+                if False and template_name:
+                    try:
+                        template = dimensions[template_name]
+                    except KeyError:
+                        raise ModelError("No translation template '%s' for "
+                                "dimension '%s'" % (template_name, name) )
+
+                    template = dict(template)
+                    template.update(dim_trans)
+                    dim_trans = template
+
                 dim = model.dimension(name)
                 dim.localize(dim_trans)
 
@@ -1892,6 +1906,9 @@ class Level(object):
 
     def localize(self, locale):
         localize_common(self,locale)
+
+        if isinstance(locale, basestring):
+            return
 
         attr_locales = locale.get("attributes")
         if attr_locales:
