@@ -24,16 +24,15 @@ def create_workspace(model, **options):
 
     """
 
-    mongo = pymongo.MongoClient(**options)
 
-    workspace = MongoWorkspace(model, mongo, **options)
+    workspace = MongoWorkspace(model, **options)
 
     return workspace
 
 class MongoWorkspace(Workspace):
 
     """Factory for browsers"""
-    def __init__(self, model, mongo, **options):
+    def __init__(self, model, **options):
         """Create a workspace. For description of options see
         `create_workspace()` """
 
@@ -41,7 +40,6 @@ class MongoWorkspace(Workspace):
 
         self.logger = get_logger()
 
-        self.mongo = mongo
         self.schema = options.get("schema")
         self.options = options
 
@@ -49,5 +47,8 @@ class MongoWorkspace(Workspace):
         """Returns a browser for a `cube`."""
         model = self.localized_model(locale)
         cube = model.cube(cube)
-        browser = MongoSimpleCubeBrowser(cube, self.mongo.SquarespaceEvents.shopper_events)
+
+        database = pymongo.MongoClient(host='localhost')
+
+        browser = MongoSimpleCubeBrowser(cube, 'shopper_events', database['SquarespaceEvents'])
         return browser
