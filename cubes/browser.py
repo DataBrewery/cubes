@@ -749,10 +749,14 @@ def cuts_from_string(string):
 
     return cuts
 
-re_element = re.compile(r"^[\w,]*$")
-re_point = re.compile(r"^[\w,]*$")
-re_set = re.compile(r"^([\w,]+)(;([\w,]+))+$")
-re_range = re.compile(r"^([\w,]*)-([\w,]*)$")
+# TODO Because many dimension values can contain any UTF-8 character,
+# our cut parser needs to recognize not just whitespace characters in dimension
+# values, but also characters that have meaning in the cut syntax, e.g. "," ";" "-".
+# we need an escaping mechanism to allow these characters.
+re_element = re.compile(r"^[\w ,]*$")
+re_point = re.compile(r"^[\w ,]*$")
+re_set = re.compile(r"^([\w ,]+)(;([\w ,]+))+$")
+re_range = re.compile(r"^([\w ,]*)-([\w ,]*)$")
 
 def cut_from_string(dimension, string):
     """Returns a cut from `string` with dimension `dimension. The string
