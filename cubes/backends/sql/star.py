@@ -410,6 +410,8 @@ class SnowflakeBrowser(AggregationBrowser):
         # Check for existence of joined tables:
         physical_tables = {}
 
+        # Add fact table to support simple attributes
+        physical_tables[(self.context.fact_table.schema, self.context.fact_table.name)] = self.context.fact_table
         for table in tables:
             try:
                 physical_table = sqlalchemy.Table(table[1], self.metadata,
