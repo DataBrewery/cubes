@@ -688,11 +688,17 @@ class Cell(object):
         cuts-to-string conversion."""
         return self.to_str()
 
-CUT_STRING_SEPARATOR = '|'
-DIMENSION_STRING_SEPARATOR = ':'
-PATH_STRING_SEPARATOR = ','
-RANGE_CUT_SEPARATOR = '-'
-SET_CUT_SEPARATOR = ';'
+CUT_STRING_SEPARATOR_CHAR = "|"
+DIMENSION_STRING_SEPARATOR_CHAR = ":"
+PATH_STRING_SEPARATOR_CHAR = ","
+RANGE_CUT_SEPARATOR_CHAR = "-"
+SET_CUT_SEPARATOR_CHAR = ";"
+
+CUT_STRING_SEPARATOR = re.compile(r'(?<!\\)|')
+DIMENSION_STRING_SEPARATOR = re.compile(r'(?<!\\):')
+PATH_STRING_SEPARATOR = re.compile(r'(?<!\\),')
+RANGE_CUT_SEPARATOR = re.compile(r'(?<!\\)-')
+SET_CUT_SEPARATOR = re.compile(r'(?<!\\);')
 
 """
 point: date:2004
@@ -742,21 +748,18 @@ def cuts_from_string(string):
 
     cuts = []
 
-    dim_cuts = string.split(CUT_STRING_SEPARATOR)
+    dim_cuts = CUT_STRING_SEPARATOR.split(string)
     for dim_cut in dim_cuts:
-        (dimension, cut_string) = dim_cut.split(DIMENSION_STRING_SEPARATOR)
+        (dimension, cut_string) = DIMENSION_STRING_SEPARATOR.split(dim_cut)
         cuts.append(cut_from_string(dimension, cut_string))
 
     return cuts
 
-# TODO Because many dimension values can contain any UTF-8 character,
-# our cut parser needs to recognize not just whitespace characters in dimension
-# values, but also characters that have meaning in the cut syntax, e.g. "," ";" "-".
-# we need an escaping mechanism to allow these characters.
-re_element = re.compile(r"^[\w ,]*$")
-re_point = re.compile(r"^[\w ,]*$")
-re_set = re.compile(r"^([\w ,]+)(;([\w ,]+))+$")
-re_range = re.compile(r"^([\w ,]*)-([\w ,]*)$")
+_element_pattern = r"(?:\\.|[^:;|-])+"
+re_element = re.compile(r"^%s$" % _element_pattern)
+re_point = re.compile(r"^%s$" % _element_pattern)
+re_set = re.compile(r"^(%s)(;(%s))*$" % (_element_pattern, _element_pattern))
+re_range = re.compile(r"^(%s)?-(%s)?$" % (_element_pattern, _element_pattern))
 
 def cut_from_string(dimension, string):
     """Returns a cut from `string` with dimension `dimension. The string
@@ -787,15 +790,15 @@ def cut_from_string(dimension, string):
     if re_point.match(string):
         return PointCut(dimension, path_from_string(string), hierarchy)
     elif re_set.match(string):
-        paths = map(path_from_string, string.split(SET_CUT_SEPARATOR))
+        paths = map(path_from_string, SET_CUT_SEPARATOR.split(string))
         return SetCut(dimension, paths, hierarchy)
     elif re_range.match(string):
-        (from_path, to_path) = map(path_from_string, string.split(RANGE_CUT_SEPARATOR))
+        (from_path, to_path) = map(path_from_string, RANGE_CUT_SEPARATOR.split(string))
         return RangeCut(dimension, from_path, to_path, hierarchy)
     else:
         raise ArgumentError("Unknown cut format (check that keys "
-                        "consist only of of alphanumeric characters and "
-                        "underscore)")
+                        "consist only of alphanumeric characters and "
+                        "underscore): %s" % string)
 
 def cut_from_dict(desc, cube=None):
     """Returns a cut from `desc` dictionary. If `cube` is specified, then the
@@ -819,10 +822,20 @@ def cut_from_dict(desc, cube=None):
     else:
         raise ArgumentError("Unknown cut type %s" % cut_type)
 
+
+PATH_PART_ESCAPE_PATTERN = re.compile(r"([\\|:;,-])")
+PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\|;,-])")
+
+def _path_part_escape(path_part):
+    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
+
+def _path_part_unescape(path_part):
+    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", path_part)
+
 def string_from_cuts(cuts):
     """Returns a string represeting `cuts`. String can be used in URLs"""
     strings = [str(cut) for cut in cuts]
-    string = CUT_STRING_SEPARATOR.join(strings)
+    string = CUT_STRING_SEPARATOR_CHAR.join(strings)
     return string
 
 def string_from_path(path):
@@ -837,23 +850,23 @@ def string_from_path(path):
         return ""
 
     # FIXME: do some escaping or something like URL encoding
-    path = [unicode(s) if s is not None else "" for s in path]
+    path = [_path_part_escape(unicode(s)) if s is not None else "" for s in path]
 
     if not all(map(re_element.match, path)):
-        raise ArgumentError("Can not convert path to string: "
+        get_logger().warn("Can not convert path to string: "
                             "keys contain invalid characters "
                             "(should be alpha-numeric or underscore) '%s'"%path)
 
-    string = PATH_STRING_SEPARATOR.join(path)
+    string = PATH_STRING_SEPARATOR_CHAR.join(path)
     return string
 
 def string_from_hierarchy(dimension, hierarchy):
     """Returns a string in form ``dimension@hierarchy`` or ``dimension`` if
     `hierarchy` is ``None``"""
     if hierarchy:
-        return "%s@%s" % (str(dimension), str(hierarchy))
+        return "%s@%s" % (_path_part_escape(str(dimension)), _path_part_escape(str(hierarchy)))
     else:
-        return str(dimension)
+        return _path_part_escape(str(dimension))
 
 def path_from_string(string):
     """Returns a dimension point path from `string`. The path elements are
@@ -865,8 +878,8 @@ def path_from_string(string):
     if not string:
         return []
 
-    path = string.split(PATH_STRING_SEPARATOR)
-    path = [v if v != "" else None for v in path]
+    path = PATH_STRING_SEPARATOR.split(string)
+    path = [_path_part_unescape(v) if v != "" else None for v in path]
 
     return path
 
@@ -918,7 +931,7 @@ class PointCut(Cut):
         URLs"""
         path_str = string_from_path(self.path)
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = dim_str + DIMENSION_STRING_SEPARATOR + path_str
+        string = dim_str + DIMENSION_STRING_SEPARATOR_CHAR + path_str
 
         return string
 
@@ -974,9 +987,9 @@ class RangeCut(Cut):
         else:
             to_path_str = string_from_path([])
 
-        range_str = from_path_str + RANGE_CUT_SEPARATOR + to_path_str
+        range_str = from_path_str + RANGE_CUT_SEPARATOR_CHAR + to_path_str
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = dim_str + DIMENSION_STRING_SEPARATOR + range_str
+        string = dim_str + DIMENSION_STRING_SEPARATOR_CHAR + range_str
 
         return string
 
@@ -1020,9 +1033,9 @@ class SetCut(Cut):
         for path in self.paths:
             path_strings.append(string_from_path(path))
 
-        set_string = SET_CUT_SEPARATOR.join(path_strings)
+        set_string = SET_CUT_SEPARATOR_CHAR.join(path_strings)
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = dim_str + DIMENSION_STRING_SEPARATOR + set_string
+        string = dim_str + DIMENSION_STRING_SEPARATOR_CHAR + set_string
 
         return string
 
@@ -1160,10 +1173,12 @@ class AggregationResult(object):
             levels = hierarchy.levels_for_path(path, drilldown=True)
             current_level = levels[-1]
 
+        print current_level
         level_key = current_level.key.ref()
         level_label = current_level.label_attribute.ref()
 
         for record in self.cells:
+            print record
             drill_path = path[:] + [record[level_key]]
 
             row = TableRow(record[level_key],
