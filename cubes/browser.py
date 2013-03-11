@@ -694,7 +694,7 @@ PATH_STRING_SEPARATOR_CHAR = ","
 RANGE_CUT_SEPARATOR_CHAR = "-"
 SET_CUT_SEPARATOR_CHAR = ";"
 
-CUT_STRING_SEPARATOR = re.compile(r'(?<!\\)|')
+CUT_STRING_SEPARATOR = re.compile(r'(?<!\\)\|')
 DIMENSION_STRING_SEPARATOR = re.compile(r'(?<!\\):')
 PATH_STRING_SEPARATOR = re.compile(r'(?<!\\),')
 RANGE_CUT_SEPARATOR = re.compile(r'(?<!\\)-')
