@@ -2095,7 +2095,7 @@ class Attribute(object):
         return d
 
     def ref(self, simplify=True, locale=None):
-        """Return full attribute reference. Append `locale` if it is one of of
+        """Return full attribute reference. Append `locale` if it is one of
         attribute's locales, otherwise raise `cubes.ArgumentError`. If
         `simplify` is ``True``, then reference to an attribute of flat
         dimension without details will be just the dimension name.
@@ -2131,7 +2131,7 @@ class Attribute(object):
 
     def full_name(self, dimension=None, locale=None, simplify=True):
         """Return full name of an attribute as if it was part of `dimension`.
-        Append `locale` if it is one of of attribute's locales, otherwise
+        Append `locale` if it is one of attribute's locales, otherwise
         raise `cubes.ArgumentError`.
 
         .. warning:
