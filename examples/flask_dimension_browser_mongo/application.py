@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request
 import cubes
 
+from pymongo.read_preferences import ReadPreference
+
 app = Flask(__name__)
 
 #
@@ -89,9 +91,14 @@ def initialize_model():
     global workspace
     global model
 
+    config = {
+        'host': 'localhost',
+        'max_pool_size': 3,
+        'read_preference': ReadPreference.SECONDARY
+    }
+
     model = cubes.load_model(MODEL_PATH)
-    workspace = cubes.create_workspace("sql", model, url=DB_URL,
-                                                     fact_prefix="ft_")
+    workspace = cubes.create_workspace("mongo", model, **config)
 
 def get_browser():
     return workspace.browser(model.cube(CUBE_NAME))
