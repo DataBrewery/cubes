@@ -442,12 +442,12 @@ def model_from_path(path):
                 desc = _model_desc_from_json_file(obj_path)
                 if "name" not in desc:
                     raise ModelError("Dimension file '%s' has no name key" % obj_path)
-                model_desc["dimensions"][desc["name"]] = desc
+                model_desc["dimensions"].append(desc)
             elif prefix == 'cube':
                 desc = _model_desc_from_json_file(obj_path)
                 if "name" not in desc:
                     raise ModelError("Cube file '%s' has no name key" % obj_path)
-                model_desc["cubes"][desc["name"]] = desc
+                model_desc["cubes"].append(desc)
 
     return create_model(model_desc)
 
