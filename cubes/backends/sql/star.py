@@ -35,6 +35,11 @@ __all__ = [
     "QueryContext"
 ]
 
+_EXPR_EVAL_NS = {
+    "func": sql.expression.func,
+    "case": sql.expression.case
+}
+
 class SnowflakeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
 
@@ -1055,6 +1060,11 @@ class QueryContext(object):
             column = sql.expression.extract(ref.extract, column)
         if ref.func:
             column = getattr(sql.expression.func, ref.func)(column)
+        if ref.expr:
+            expr_func = eval(compile(ref.expr, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+            if not callable(expr_func):
+                raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
+            column = expr_func(column)
 
         if self.safe_labels:
             label = "a%d" % self.label_counter
