@@ -1053,6 +1053,8 @@ class QueryContext(object):
         # Extract part of the date
         if ref.extract:
             column = sql.expression.extract(ref.extract, column)
+        if ref.func:
+            column = getattr(sql.expression.func, ref.func)(column)
 
         if self.safe_labels:
             label = "a%d" % self.label_counter
