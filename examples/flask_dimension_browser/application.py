@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, make_response
 import cubes
+cubes.common.create_logger("debug")
 
 app = Flask(__name__)
 
@@ -7,15 +8,19 @@ app = Flask(__name__)
 # Data we aregoing to browse and logical model of the data
 #
 
-MODEL_PATH = "model.json"
-DB_URL = "sqlite:///data.sqlite"
-CUBE_NAME = "irbd_balance"
+MODEL_PATH = "/pipeline/cubes/model.json"
+DB_URL = "mysql://webapp:q7678heub@bizdb.nyc.squarespace.net/bizdw_v6"
+CUBE_NAME = "v6_new_subs"
 
 # Some global variables. We do not have to care about Flask provided thread
 # safety here, as they are non-mutable.
 
 workspace = None
 model = None
+
+@app.route("/favicon.ico")
+def favicon():
+    return make_response("")
 
 @app.route("/")
 @app.route("/<dim_name>")
@@ -53,6 +58,7 @@ def report(dim_name=None):
     # Do the work, do the aggregation.
     #
     result = browser.aggregate(cell, drilldown=[dim_name])
+    print result.__dict__
 
     # If we have no path, then there is no cut for the dimension, # therefore
     # there is no corresponding detail.
@@ -99,4 +105,4 @@ def get_browser():
 if __name__ == "__main__":
     app.debug = True
     initialize_model()
-    app.run()
+    app.run(host='0.0.0.0')
