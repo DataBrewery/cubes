@@ -776,11 +776,12 @@ def cut_from_string(dimension, string):
     as ``date@dqmy``.
     """
 
-    pattern = r"(?P<dim>\w+)(@(?P<hier>\w+))?"
+    pattern = r"(?P<invert>!)?(?P<dim>\w+)(@(?P<hier>\w+))?"
     match = re.match(pattern, dimension)
 
     if match:
         d = match.groupdict()
+        invert = (not not d["invert"])
         dimension = d["dim"]
         hierarchy = d["hier"]
     else:
@@ -788,13 +789,13 @@ def cut_from_string(dimension, string):
                             "pattern 'dimension@hierarchy'" % dimension)
 
     if re_point.match(string):
-        return PointCut(dimension, path_from_string(string), hierarchy)
+        return PointCut(dimension, path_from_string(string), hierarchy, invert)
     elif re_set.match(string):
         paths = map(path_from_string, SET_CUT_SEPARATOR.split(string))
-        return SetCut(dimension, paths, hierarchy)
+        return SetCut(dimension, paths, hierarchy, invert)
     elif re_range.match(string):
         (from_path, to_path) = map(path_from_string, RANGE_CUT_SEPARATOR.split(string))
-        return RangeCut(dimension, from_path, to_path, hierarchy)
+        return RangeCut(dimension, from_path, to_path, hierarchy, invert)
     else:
         raise ArgumentError("Unknown cut format (check that keys "
                         "consist only of alphanumeric characters and "
@@ -813,18 +814,18 @@ def cut_from_dict(desc, cube=None):
         dim = cube.dimension(dim)
 
     if cut_type == "point":
-        return PointCut(dim, desc.get("path"), desc.get("hierarchy"))
+        return PointCut(dim, desc.get("path"), desc.get("hierarchy"), desc.get('invert'))
     elif cut_type == "set":
-        return SetCut(dim, desc.get("paths"), desc.get("hierarchy"))
+        return SetCut(dim, desc.get("paths"), desc.get("hierarchy"), desc.get('invert'))
     elif cut_type == "range":
         return RangeCut(dim, desc.get("from"), desc.get("to"),
-                                desc.get("hierarchy"))
+                                desc.get("hierarchy"), desc.get('invert'))
     else:
         raise ArgumentError("Unknown cut type %s" % cut_type)
 
 
-PATH_PART_ESCAPE_PATTERN = re.compile(r"([\\|:;,-])")
-PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\|;,-])")
+PATH_PART_ESCAPE_PATTERN = re.compile(r"([\\!|:;,-])")
+PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|;,-])")
 
 def _path_part_escape(path_part):
     return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
@@ -884,9 +885,10 @@ def path_from_string(string):
     return path
 
 class Cut(object):
-    def __init__(self, dimension, hierarchy=None):
+    def __init__(self, dimension, hierarchy=None, invert=False):
         self.dimension = dimension
         self.hierarchy = hierarchy
+        self.invert = invert
 
     def to_dict(self):
         """Returns dictionary representation fo the receiver. The keys are:
@@ -894,7 +896,8 @@ class Cut(object):
         d = {
             "dimension": str(self.dimension),
             "hierarchy": str(self.hierarchy) if self.hierarchy else None,
-            "level_depth": self.level_depth()
+            "level_depth": self.level_depth(),
+            "invert": self.invert
         }
         return d
 
@@ -910,8 +913,8 @@ class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a
     dimension"""
 
-    def __init__(self, dimension, path, hierarchy=None):
-        super(PointCut, self).__init__(dimension, hierarchy)
+    def __init__(self, dimension, path, hierarchy=None, invert=False):
+        super(PointCut, self).__init__(dimension, hierarchy, invert)
         self.path = path
 
     def to_dict(self):
@@ -931,7 +934,7 @@ class PointCut(Cut):
         URLs"""
         path_str = string_from_path(self.path)
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = dim_str + DIMENSION_STRING_SEPARATOR_CHAR + path_str
+        string = ("!" if self.invert else "") + dim_str + DIMENSION_STRING_SEPARATOR_CHAR + path_str
 
         return string
 
@@ -939,6 +942,8 @@ class PointCut(Cut):
         if self.dimension != other.dimension:
             return False
         elif self.path != other.path:
+            return False
+        elif self.invert != other.invert:
             return False
         return True
 
@@ -950,8 +955,8 @@ class RangeCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, from_path, to_path, hierarchy=None):
-        super(RangeCut, self).__init__(dimension, hierarchy)
+    def __init__(self, dimension, from_path, to_path, hierarchy=None, invert=False):
+        super(RangeCut, self).__init__(dimension, hierarchy, invert)
         self.from_path = from_path
         self.to_path = to_path
 
@@ -989,7 +994,7 @@ class RangeCut(Cut):
 
         range_str = from_path_str + RANGE_CUT_SEPARATOR_CHAR + to_path_str
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = dim_str + DIMENSION_STRING_SEPARATOR_CHAR + range_str
+        string = ("!" if self.invert else "") + dim_str + DIMENSION_STRING_SEPARATOR_CHAR + range_str
 
         return string
 
@@ -999,6 +1004,8 @@ class RangeCut(Cut):
         elif self.from_path != other.from_path:
             return False
         elif self.to_path != other.to_path:
+            return False
+        elif self.invert != other.invert:
             return False
         return True
 
@@ -1010,8 +1017,8 @@ class SetCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, paths, hierarchy=None):
-        super(SetCut, self).__init__(dimension, hierarchy)
+    def __init__(self, dimension, paths, hierarchy=None, invert=False):
+        super(SetCut, self).__init__(dimension, hierarchy, invert)
         self.paths = paths
 
     def to_dict(self):
@@ -1035,7 +1042,7 @@ class SetCut(Cut):
 
         set_string = SET_CUT_SEPARATOR_CHAR.join(path_strings)
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = dim_str + DIMENSION_STRING_SEPARATOR_CHAR + set_string
+        string = ("!" if self.invert else "") + dim_str + DIMENSION_STRING_SEPARATOR_CHAR + set_string
 
         return string
 
@@ -1043,6 +1050,8 @@ class SetCut(Cut):
         if self.dimension != other.dimension:
             return False
         elif self.paths != other.paths:
+            return False
+        elif self.invert != other.invert:
             return False
         return True
 
