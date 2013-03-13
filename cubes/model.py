@@ -154,7 +154,7 @@ def create_model(model, cubes=None, dimensions=None, translations=None):
 
     model_cubes = OrderedDict()
     for desc in all_cubes:
-        cube = create_cube(desc, model_dimensions, model_desc.get('mappings'))
+        cube = create_cube(desc, model_dimensions, model_desc.get('mappings'), model_desc.get('joins'))
         if cube.name in model_cubes:
             raise ModelError("Duplicate cube '%s'" % cube.name)
         model_cubes[cube.name] = cube
