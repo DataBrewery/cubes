@@ -5,7 +5,7 @@ import base
 class MongoSimpleCubeBrowser(AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, collection, database = None, aggregate_flag_field = "_is_aggregate"):
+    def __init__(self, cube, collection, database, aggregate_flag_field = "_is_aggregate"):
         """Create a browser.
         
         :Attributes:
@@ -77,6 +77,8 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
         
         ###################################################
         # 3. Perform selection - find records in collection
+
+        print 'CONDITION', condition
         
         cursor = self.collection.find(spec = condition)
         return cursor

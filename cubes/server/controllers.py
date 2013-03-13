@@ -490,6 +490,11 @@ class CubesController(ApplicationController):
     def details(self, cube):
         raise RequestError("'details' request is depreciated, use 'cell' request")
 
+    def build(self, cube):
+        b = self.workspace.builder(cube)
+        b.compute()
+        return self.json_response({'status': 'building'})
+
 
 class SearchController(ApplicationController):
     """docstring for SearchController
