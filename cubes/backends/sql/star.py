@@ -783,7 +783,7 @@ class QueryContext(object):
             if isinstance(cut, PointCut):
                 path = cut.path
                 wrapped_cond = self.condition_for_point(dim, path,
-                                                        cut.hierarchy)
+                                                        cut.hierarchy, cut.invert)
 
                 condition = wrapped_cond.condition
                 attributes |= wrapped_cond.attributes
@@ -793,17 +793,19 @@ class QueryContext(object):
 
                 for path in cut.paths:
                     wrapped_cond = self.condition_for_point(dim, path,
-                                                            cut.hierarchy)
+                                                            cut.hierarchy, False)
                     set_conds.append(wrapped_cond.condition)
                     attributes |= wrapped_cond.attributes
 
                 condition = sql.expression.or_(*set_conds)
+                if cut.invert:
+                    condition = sql.expression.not_(condition)
 
             elif isinstance(cut, RangeCut):
                 range_cond = self.range_condition(cut.dimension,
                                                   cut.hierarchy,
                                                   cut.from_path,
-                                                  cut.to_path)
+                                                  cut.to_path, cut.invert)
                 condition = range_cond.condition
                 attributes |= range_cond.attributes
 
@@ -815,7 +817,7 @@ class QueryContext(object):
         condition = sql.expression.and_(*conditions)
         return Condition(attributes, condition)
 
-    def condition_for_point(self, dim, path, hierarchy=None):
+    def condition_for_point(self, dim, path, hierarchy=None, invert=False):
         """Returns a `Condition` tuple (`attributes`, `conditions`,
         `group_by`) dimension `dim` point at `path`. It is a compound
         condition - one equality condition for each path element in form:
@@ -843,9 +845,12 @@ class QueryContext(object):
 
         condition = sql.expression.and_(*conditions)
 
+        if invert:
+            condition = sql.expression.not_(condition)
+
         return Condition(attributes,condition)
 
-    def range_condition(self, dim, hierarchy, from_path, to_path):
+    def range_condition(self, dim, hierarchy, from_path, to_path, invert=False):
         """Return a condition for a hierarchical range (`from_path`,
         `to_path`). Return value is a `Condition` tuple."""
 
@@ -855,13 +860,18 @@ class QueryContext(object):
         upper = self.boundary_condition(dim, hierarchy, to_path, 1)
 
         if from_path and not to_path:
-            return lower
+            condition = lower
         elif not from_path and to_path:
-            return upper
+            condition = upper
         else:
             attributes = lower.attributes | upper.attributes
-            condition = sql.expression.and_(lower.condition, upper.condition)
-            return Condition(attributes, condition)
+            condexpr = sql.expression.and_(lower.condition, upper.condition)
+            condition = Condition(attributes, condexpr)
+        
+        if invert:
+            condition = Condition(condition.attributes, sql.expression.not_(condition.condition))
+
+        return condition
 
     def boundary_condition(self, dim, hierarchy, path, bound, first=None):
         """Return a `Condition` tuple for a boundary condition. If `bound` is
