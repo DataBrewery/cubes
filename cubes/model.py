@@ -154,7 +154,7 @@ def create_model(model, cubes=None, dimensions=None, translations=None):
 
     model_cubes = OrderedDict()
     for desc in all_cubes:
-        cube = create_cube(desc, model_dimensions)
+        cube = create_cube(desc, model_dimensions, model_desc.get('mappings'))
         if cube.name in model_cubes:
             raise ModelError("Duplicate cube '%s'" % cube.name)
         model_cubes[cube.name] = cube
@@ -359,7 +359,7 @@ def create_level(obj):
 
         return Level(**obj)
 
-def create_cube(desc, dimensions):
+def create_cube(desc, dimensions, model_mappings=None):
     """Creates a `Cube` instance from dictionary description `desc` with
     dimension dictionary in `dimensions`
 
@@ -387,6 +387,11 @@ def create_cube(desc, dimensions):
         del desc["dimensions"]
     else:
         cube_dims = None
+
+    if model_mappings:
+        merged_mappings = copy.deepcopy(model_mappings)
+        merged_mappings.update(desc.get("mappings", {}))
+        desc['mappings'] = merged_mappings
 
     return Cube(dimensions=cube_dims, **desc)
 
