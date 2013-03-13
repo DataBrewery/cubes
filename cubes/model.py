@@ -359,7 +359,7 @@ def create_level(obj):
 
         return Level(**obj)
 
-def create_cube(desc, dimensions, model_mappings=None):
+def create_cube(desc, dimensions, model_mappings=None, model_joins=None):
     """Creates a `Cube` instance from dictionary description `desc` with
     dimension dictionary in `dimensions`
 
@@ -393,6 +393,23 @@ def create_cube(desc, dimensions, model_mappings=None):
         merged_mappings.update(desc.get("mappings", {}))
         desc['mappings'] = merged_mappings
 
+    # model joins, if present, should be merged with cube's overrides.
+    # joins are matched by the "name" key.
+    if desc.get('joins') and model_joins:
+        model_join_map = {}
+        for mj in model_joins:
+            mj_name = mj.get('name')
+            if mj_name is None:
+                raise ModelError("Cannot define a join in model without 'name' key.")
+            if model_join_map.has_key(mj_name):
+                raise ModelError("Cannot define a join in model with a duplicate 'name' of %s." % mj_name)
+            model_join_map[mj_name] = copy.deepcopy(mj)
+        merged_joins = []
+        for j in desc.get('joins'):
+            model_j = model_join_map.get(j.get('name'), {})
+            model_j.update(j)
+            merged_joins.append(j)
+        desc['joins'] = merged_joins
     return Cube(dimensions=cube_dims, **desc)
 
 def model_from_path(path):
