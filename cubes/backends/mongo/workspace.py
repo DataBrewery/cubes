@@ -3,6 +3,7 @@
 from cubes.workspace import Workspace
 from cubes.common import get_logger
 from browser import *
+from builder import *
 import pymongo
 
 __all__ = [
@@ -65,6 +66,6 @@ class MongoWorkspace(Workspace):
 
         database = self.mongo[db]
 
-        browser = MongoSimpleCubeBrowser(cube, database, coll)
+        builder = MongoSimpleCubeBuilder(cube, database, coll, required_dimensions = ['t',])
         return builder
 

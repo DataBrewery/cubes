@@ -491,6 +491,14 @@ class CubesController(ApplicationController):
         raise RequestError("'details' request is depreciated, use 'cell' request")
 
     def build(self, cube):
+
+        print "BUILDER, I'M IN THE BUILDER YEA"
+
+        cube = self.model.cube(cube)
+
+        print '=Workspace', self.workspace
+        print '=Workspace dir', dir(self.workspace)
+
         b = self.workspace.builder(cube)
         b.compute()
         return self.json_response({'status': 'building'})
