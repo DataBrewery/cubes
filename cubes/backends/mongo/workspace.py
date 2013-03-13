@@ -40,6 +40,8 @@ class MongoWorkspace(Workspace):
 
         self.logger = get_logger()
 
+        self.mongo = pymongo.MongoClient(**options)
+
         self.schema = options.get("schema")
         self.options = options
 
@@ -48,7 +50,21 @@ class MongoWorkspace(Workspace):
         model = self.localized_model(locale)
         cube = model.cube(cube)
 
-        database = pymongo.MongoClient(host='localhost')
+        db, coll = cube.name.split('.')
 
-        browser = MongoSimpleCubeBrowser(cube, 'shopper_events', database['SquarespaceEvents'])
+        print 'CONNECT', db, coll
+
+        database = self.mongo[db]
+
+        browser = MongoSimpleCubeBrowser(cube, coll, database)
         return browser
+
+    def builder(self, cube):
+
+        db, coll = cube.name.split('.')
+
+        database = self.mongo[db]
+
+        browser = MongoSimpleCubeBrowser(cube, database, coll)
+        return builder
+
