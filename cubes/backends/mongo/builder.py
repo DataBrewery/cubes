@@ -5,6 +5,8 @@ import base
 import itertools
 import logging
 
+import types
+
 try:
     import pymongo
     import bson
@@ -49,10 +51,12 @@ class MongoSimpleCubeBuilder(object):
         else:
             self.cube_collection = fact_collection
             
-        if type(self.fact_collection) == str:
+        if type(self.fact_collection) in (types.StringType, types.UnicodeType):
+            print 'MONGOFICATION OF FACT'
             self.fact_collection = self.database[self.fact_collection]
 
-        if type(self.cube_collection) == str:
+        if type(self.cube_collection) in (types.StringType, types.UnicodeType):
+            print 'MONGOFICATION OF FACT'
             self.cube_collection = self.database[self.cube_collection]
             
         if required_dimensions:
