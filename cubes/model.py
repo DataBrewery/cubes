@@ -408,8 +408,9 @@ def create_cube(desc, dimensions, model_mappings=None, model_joins=None):
         for j in desc.get('joins'):
             model_j = model_join_map.get(j.get('name'), {})
             model_j.update(j)
-            merged_joins.append(j)
+            merged_joins.append(model_j)
         desc['joins'] = merged_joins
+
     return Cube(dimensions=cube_dims, **desc)
 
 def model_from_path(path):
