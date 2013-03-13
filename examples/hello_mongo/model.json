@@ -1,0 +1,24 @@
+{
+    "dimensions": [
+        {
+         "name":"t"
+        },
+        {
+         "name":"type"
+        }
+    ],
+    "cubes": [
+        {
+            "name": "SquarespaceEvents.shopper_events",
+            "dimensions": [
+              "t"
+            ],
+            "measures": [
+              {"name":"d.ProductPrice", "label":"ProductPrice"}
+            ],
+            "mappings": {
+              "d.type": "type"
+            }
+        }
+    ]
+}
