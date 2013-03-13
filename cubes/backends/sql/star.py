@@ -750,9 +750,10 @@ class QueryContext(object):
             onclause = master_column == detail_column
 
             if expression is not None:
-                expression = sql.expression.join(expression,
-                                                    detail_table,
-                                                    onclause=onclause)
+                expression = sql.expression.join(expression, 
+                                                 detail_table, 
+                                                 onclause=onclause,
+                                                 isouter=(include_fact and join.outer))
             else:
                 self.logger.debug("join: starting with detail table '%s'" %
                                                                 detail_table)

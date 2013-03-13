@@ -25,7 +25,7 @@ TableColumnReference = collections.namedtuple("TableColumnReference",
 """Table join specification. `master` and `detail` are TableColumnReference
 (3-item) tuples"""
 TableJoin = collections.namedtuple("TableJoin",
-                                    ["master", "detail", "alias"])
+                                    ["master", "detail", "alias", "outer"])
 
 def coalesce_physical(ref, default_table=None, schema=None):
     """Coalesce physical reference `ref` which might be:
@@ -320,7 +320,7 @@ class SnowflakeMapper(Mapper):
             master = coalesce_physical(join["master"],self.fact_name,schema=self.schema)
             detail = coalesce_physical(join["detail"],schema=self.schema)
             self.logger.debug("collecting join %s - %s" % (tuple(master), tuple(detail)))
-            self.joins.append(TableJoin(master, detail, join.get("alias")))
+            self.joins.append(TableJoin(master, detail, join.get("alias"), join.get("outer")))
 
     def physical(self, attribute, locale=None):
         """Returns physical reference as tuple for `attribute`, which should
@@ -477,7 +477,7 @@ class SnowflakeMapper(Mapper):
                 if table == detail:
                     # self.logger.debug("detail matches")
                     # Preserve join order
-                    joins.append( (order, join) )
+                    joins.append( ((1 if join.outer else 0), order, join) )
 
                     if master not in joined_tables:
                         self.logger.debug("adding master %s to be joined" % (master, ))
@@ -492,11 +492,11 @@ class SnowflakeMapper(Mapper):
 
         # Sort joins according to original order specified in the model
         joins.sort()
-        self.logger.debug("joined tables: %s" % ([join[1].detail.table for join in
+        self.logger.debug("joined tables: %s" % ([join[2].detail.table for join in
                                                                 joins], ) )
 
         # Retrieve actual joins from tuples. Remember? We preserved order.
-        joins = [join[1] for join in joins]
+        joins = [join[2] for join in joins]
         return joins
 
 
