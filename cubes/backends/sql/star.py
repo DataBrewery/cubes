@@ -7,6 +7,7 @@ from cubes.mapper import SnowflakeMapper, DenormalizedMapper
 from cubes.mapper import DEFAULT_KEY_FIELD
 import logging
 import collections
+import re
 from cubes.errors import *
 from cubes.computation import *
 from cubes.backends.sql import extensions
@@ -1117,9 +1118,10 @@ class QueryContext(object):
 
         attributes = []
 
+        _QUOTE_STRIPPER = re.compile(r"^\"(.+)\"$")
         for column in columns:
-            attributes.append(self.column_to_logical.get(column.name,
-                                                         column.name))
+            attributes.append(self.column_to_logical.get(str(column),
+                                                         _QUOTE_STRIPPER.sub(r"\1", str(column))))
 
         return attributes
 
