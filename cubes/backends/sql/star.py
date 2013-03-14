@@ -609,7 +609,7 @@ class QueryContext(object):
             conditions.append(drilldown_ptd_condition.condition)
 
         if conditions:
-            select = select.where(sql.expression.and_(conditions) if len(conditions) > 1 else conditions[0])
+            select = select.where(sql.expression.and_(*conditions) if len(conditions) > 1 else conditions[0])
 
         return select
 
@@ -924,8 +924,8 @@ class QueryContext(object):
             attributes = upper.attributes
         else:
             attributes = lower.attributes | upper.attributes
-            conditions = [lower.condition, upper.condition]
-            condexpr = sql.expression.and_(lower.condition, upper.condition)
+            conditions = [ c for c in [lower.condition, upper.condition] if c is not None ]
+            condexpr = sql.expression.and_(*conditions) if len(conditions) > 1 else condition[0]
             condition = Condition(attributes, condexpr)
         
         if ptd_condition:
