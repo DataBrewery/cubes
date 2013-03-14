@@ -211,11 +211,20 @@ class MongoSimpleCubeBuilder(object):
         function(doc, out) {
                 out.record_count ++;
                 %(aggregate_lines)s
+                return out;
         }\n''' % {"aggregate_lines": "\n".join(aggregate_lines)}
 
         finalize_function = None
 
-        cursor = self.fact_collection.group(key = keys, condition = condition,
+        k = keys[0].to_dict().keys()
+
+        print 'key', k
+        print 'condition', condition
+        print 'initial', initial
+        print 'reduce_function', reduce_function
+        print 'finalize', finalize_function
+
+        cursor = self.fact_collection.group(key = k, condition = condition,
                                             initial = initial, reduce = reduce_function,
                                             finalize = finalize_function)
 
