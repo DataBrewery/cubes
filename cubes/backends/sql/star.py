@@ -991,10 +991,10 @@ class QueryContext(object):
             attributes.add(attr)
 
         condition = sql.expression.and_(*conditions)
-        attributes |= last.attributes
+        attributes |= last[0].attributes
 
-        if last.condition is not None:
-            condition = sql.expression.or_(condition, last.condition)
+        if last[0].condition is not None:
+            condition = sql.expression.or_(condition, last[0].condition)
 
         return Condition(attributes, condition), ptd_condition
 
