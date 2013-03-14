@@ -6,6 +6,7 @@ import cStringIO
 import csv
 import codecs
 import cubes
+from caching import cacheable
 
 from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
 from .common import RequestError, ServerError, NotFoundError
@@ -39,6 +40,18 @@ __all__ = (
 
 class ApplicationController(object):
     def __init__(self, args, workspace, logger, config):
+        print '=WORKSPACE', workspace.options
+
+        if 'cache_host' in workspace.options:
+            import caching
+            import pymongo
+            import cPickle as pickle
+
+            ttl = int(workspace.options.get('ttl')) or 60 * 3
+            client = pymongo.MongoClient(host=workspace.options['cache_host'])
+
+            cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads)
+            self.cache = cache
 
         self.workspace = workspace
         self.args = args
@@ -335,6 +348,7 @@ class CubesController(ApplicationController):
 
         self.cell = cubes.Cell(self.cube, cuts)
 
+    @cacheable
     def aggregate(self, cube):
         self.create_browser(cube)
         self.prepare_cell()
