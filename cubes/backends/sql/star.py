@@ -609,7 +609,6 @@ class QueryContext(object):
             conditions.append(drilldown_ptd_condition.condition)
 
         if conditions:
-            print [ str(c) for c in conditions ]
             select = select.where(sql.expression.and_(conditions) if len(conditions) > 1 else conditions[0])
 
         return select
@@ -863,7 +862,6 @@ class QueryContext(object):
             raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
         condition = expr_func(column)
 
-        print "PERIODSTODATE RETURNING CONDITION: %s" % condition
         return Condition(set(), condition)
 
     def condition_for_point(self, dim, path, hierarchy=None, invert=False):
@@ -951,9 +949,9 @@ class QueryContext(object):
             return self._boundary_condition(dim, hierarchy, path, bound, first=True)
 
         if not path:
-            return Condition(set(), None)
+            return (Condition(set(), None), None)
 
-        last = self._boundary_condition(dim, hierarchy, path[:-1], bound, first=False)
+        last, ptd_condition = self._boundary_condition(dim, hierarchy, path[:-1], bound, first=False)
 
         levels = dim.hierarchy(hierarchy).levels_for_path(path)
 
@@ -964,7 +962,6 @@ class QueryContext(object):
         attributes = set()
         conditions = []
 
-        ptd_condition = None
         for level, value in zip(levels[:-1], path[:-1]):
             column = self.column(level.key)
             conditions.append(column == value)
@@ -991,12 +988,12 @@ class QueryContext(object):
             attributes.add(attr)
 
         condition = sql.expression.and_(*conditions)
-        attributes |= last[0].attributes
+        attributes |= last.attributes
 
-        if last[0].condition is not None:
-            condition = sql.expression.or_(condition, last[0].condition)
+        if last.condition is not None:
+            condition = sql.expression.or_(condition, last.condition)
 
-        return Condition(attributes, condition), ptd_condition
+        return (Condition(attributes, condition), ptd_condition)
 
     def paginated_statement(self, statement, page, page_size):
         """Returns paginated statement if page is provided, otherwise returns
