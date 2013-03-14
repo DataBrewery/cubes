@@ -1391,7 +1391,7 @@ def levels_from_drilldown(cell, drilldown):
             #                          "%s" % (level, hier, dim))
             levels = hier[:depth+1]
 
-        result.append( (dim, levels) )
+        result.append( (dim, hier, levels) )
 
     return result
 

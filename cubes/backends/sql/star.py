@@ -331,7 +331,7 @@ class SnowflakeBrowser(AggregationBrowser):
             drilldown = levels_from_drilldown(cell, drilldown)
 
             dim_levels = {}
-            for dim, levels in drilldown:
+            for dim, hier, levels in drilldown:
                 dim_levels[str(dim)] = [str(level) for level in levels]
 
             result.levels = dim_levels
@@ -561,7 +561,7 @@ class QueryContext(object):
             attributes = set()
 
             if drilldown:
-                for dim, levels in drilldown:
+                for dim, hier, levels in drilldown:
                     for level in levels:
                         attributes |= set(level.attributes)
 
@@ -575,13 +575,13 @@ class QueryContext(object):
         drilldown_ptd_condition = None
         if drilldown:
             group_by = []
-            for dim, levels in drilldown:
+            for dim, hier, levels in drilldown:
                 for level in levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
-                    drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
+                    drilldown_ptd_condition = self.condition_for_level(level, hier) or drilldown_ptd_condition
 
         # Measures
         if measures is None:
@@ -835,13 +835,12 @@ class QueryContext(object):
 
         return Condition(attributes, condition)
 
-    def condition_for_level(self, level):
-        if not level.info:
+    def condition_for_level(self, level, hier=None):
+        if not hier.info:
             return None
-        if not level.info.get('is_periodstodate'):
+        if not hier.info.get('is_periodstodate'):
             return None
-        # resolve mappings and go
- 
+
         key_physical = self.mapper.physical(level.key)
         level_mapping_ptd = self.cube.mappings.get(level.key.ref()).get('periodstodate', None)
         if not level_mapping_ptd:
@@ -887,7 +886,7 @@ class QueryContext(object):
             column = self.column(level.key)
             conditions.append(column == value)
 
-            periodstodate_condition = self.condition_for_level(level) or periodstodate_condition
+            periodstodate_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or periodstodate_condition
 
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
@@ -966,7 +965,7 @@ class QueryContext(object):
             column = self.column(level.key)
             conditions.append(column == value)
 
-            ptd_condition = self.condition_for_level(level) or ptd_condition
+            ptd_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or ptd_condition
 
             for attr in level.attributes:
                 attributes.add(attr)
@@ -1032,7 +1031,7 @@ class QueryContext(object):
         order = order or []
 
         if dimension_levels:
-            for dim, levels in dimension_levels:
+            for dim, hier, levels in dimension_levels:
                 dim = self.cube.dimension(dim)
                 for level in levels:
                     level = dim.level(level)
