@@ -3,11 +3,12 @@
 
 from cubes.browser import *
 from cubes.common import get_logger
-from cubes.mapper import SnowflakeMapper, DenormalizedMapper
+from cubes.mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical
 from cubes.mapper import DEFAULT_KEY_FIELD
 import logging
 import collections
 import re
+import datetime
 from cubes.errors import *
 from cubes.computation import *
 from cubes.backends.sql import extensions
@@ -37,8 +38,12 @@ __all__ = [
 ]
 
 _EXPR_EVAL_NS = {
+    "sql": sql,
     "func": sql.expression.func,
-    "case": sql.expression.case
+    "case": sql.expression.case,
+    "text": sql.expression.text,
+    "datetime" : datetime,
+    "re": re
 }
 
 class SnowflakeBrowser(AggregationBrowser):
@@ -567,6 +572,7 @@ class QueryContext(object):
         selection = []
 
         group_by = None
+        drilldown_ptd_condition = None
         if drilldown:
             group_by = []
             for dim, levels in drilldown:
@@ -575,6 +581,7 @@ class QueryContext(object):
                                                         if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
+                    drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
         # Measures
         if measures is None:
@@ -595,8 +602,15 @@ class QueryContext(object):
                                     use_labels=True,
                                     group_by=group_by)
 
+        conditions = []
         if cell_cond.condition is not None:
-            select = select.where(cell_cond.condition)
+            conditions.append(cell_cond.condition)
+        if drilldown_ptd_condition:
+            conditions.append(drilldown_ptd_condition.condition)
+
+        if conditions:
+            print [ str(c) for c in conditions ]
+            select = select.where(sql.expression.and_(conditions) if len(conditions) > 1 else conditions[0])
 
         return select
 
@@ -815,8 +829,42 @@ class QueryContext(object):
 
             conditions.append(condition)
 
-        condition = sql.expression.and_(*conditions)
+        if conditions:
+            condition = sql.expression.and_(*conditions)
+        else:
+            condition = None
+
         return Condition(attributes, condition)
+
+    def condition_for_level(self, level):
+        if not level.info:
+            return None
+        if not level.info.get('is_periodstodate'):
+            return None
+        # resolve mappings and go
+ 
+        key_physical = self.mapper.physical(level.key)
+        level_mapping_ptd = self.cube.mappings.get(level.key.ref()).get('periodstodate', None)
+        if not level_mapping_ptd:
+            raise BrowserError("periodstodate level has no physical mapping available for periodstodate behavior: %s" % level)
+        ref = coalesce_physical(level_mapping_ptd, key_physical.table, key_physical.schema)
+
+        table = self.table(ref.schema, ref.table)
+        try:
+            column = table.c[ref.column]
+        except:
+            raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
+
+        # evaluate the condition expression
+        if not ref.expr:
+            raise BrowserError("periodstodate level mapping contains no expr condition to evaluate")
+        expr_func = eval(compile(ref.expr, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+        if not callable(expr_func):
+            raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
+        condition = expr_func(column)
+
+        print "PERIODSTODATE RETURNING CONDITION: %s" % condition
+        return Condition(set(), condition)
 
     def condition_for_point(self, dim, path, hierarchy=None, invert=False):
         """Returns a `Condition` tuple (`attributes`, `conditions`,
@@ -833,16 +881,24 @@ class QueryContext(object):
             raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
                                 "in dimension %s" % (len(path), path, len(levels), dim.name))
 
+        periodstodate_condition = None
+
         for level, value in zip(levels, path):
 
             # Prepare condition: dimension.level_key = path_value
             column = self.column(level.key)
             conditions.append(column == value)
 
+            periodstodate_condition = self.condition_for_level(level) or periodstodate_condition
+
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
             for attr in level.attributes:
                 attributes.add(attr)
+
+        if periodstodate_condition:
+            conditions.append(periodstodate_condition.condition)
+            attributes = attributes | condition.attributes
 
         condition = sql.expression.and_(*conditions)
 
@@ -857,36 +913,47 @@ class QueryContext(object):
 
         dim = self.cube.dimension(dim)
 
-        lower = self.boundary_condition(dim, hierarchy, from_path, 0)
-        upper = self.boundary_condition(dim, hierarchy, to_path, 1)
+        lower, lower_ptd = self._boundary_condition(dim, hierarchy, from_path, 0)
+        upper, upper_ptd = self._boundary_condition(dim, hierarchy, to_path, 1)
+
+        ptd_condition = lower_ptd or upper_ptd
 
         if from_path and not to_path:
-            condition = lower
+            conditions = [lower.condition]
+            attributes = lower.attributes
         elif not from_path and to_path:
-            condition = upper
+            condition = [upper.condition]
+            attributes = upper.attributes
         else:
             attributes = lower.attributes | upper.attributes
+            conditions = [lower.condition, upper.condition]
             condexpr = sql.expression.and_(lower.condition, upper.condition)
             condition = Condition(attributes, condexpr)
         
+        if ptd_condition:
+            conditions.append(ptd_condition.condition)
+            attributes = attributes | ptd_condition.attributes
+
+        condexpr = sql.expression.and_(conditions) if len(conditions) > 1 else conditions[0]
+
         if invert:
-            condition = Condition(condition.attributes, sql.expression.not_(condition.condition))
+            condexpr = sql.expression.not_(condexpr)
 
-        return condition
+        return Condition(attributes, condexpr)
 
-    def boundary_condition(self, dim, hierarchy, path, bound, first=None):
+    def _boundary_condition(self, dim, hierarchy, path, bound, first=None):
         """Return a `Condition` tuple for a boundary condition. If `bound` is
         1 then path is considered to be upper bound (operators < and <= are
         used), otherwise path is considered as lower bound (operators > and >=
         are used )"""
 
         if first is None:
-            return self.boundary_condition(dim, hierarchy, path, bound, first=True)
+            return self._boundary_condition(dim, hierarchy, path, bound, first=True)
 
         if not path:
             return Condition(set(), None)
 
-        last = self.boundary_condition(dim, hierarchy, path[:-1], bound, first=False)
+        last = self._boundary_condition(dim, hierarchy, path[:-1], bound, first=False)
 
         levels = dim.hierarchy(hierarchy).levels_for_path(path)
 
@@ -897,9 +964,12 @@ class QueryContext(object):
         attributes = set()
         conditions = []
 
+        ptd_condition = None
         for level, value in zip(levels[:-1], path[:-1]):
             column = self.column(level.key)
             conditions.append(column == value)
+
+            ptd_condition = self.condition_for_level(level) or ptd_condition
 
             for attr in level.attributes:
                 attributes.add(attr)
@@ -926,7 +996,7 @@ class QueryContext(object):
         if last.condition is not None:
             condition = sql.expression.or_(condition, last.condition)
 
-        return Condition(attributes, condition)
+        return Condition(attributes, condition), ptd_condition
 
     def paginated_statement(self, statement, page, page_size):
         """Returns paginated statement if page is provided, otherwise returns
@@ -1077,7 +1147,6 @@ class QueryContext(object):
             if not callable(expr_func):
                 raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
             column = expr_func(column)
-
         if self.safe_labels:
             label = "a%d" % self.label_counter
             self.label_counter += 1
