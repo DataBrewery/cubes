@@ -20,7 +20,7 @@ DEFAULT_KEY_FIELD = "id"
 """Physical reference to a table column. Note that the table might be an
 aliased table name as specified in relevant join."""
 TableColumnReference = collections.namedtuple("TableColumnReference",
-                                    ["schema", "table", "column", "extract", "func", "expr"])
+                                    ["schema", "table", "column", "extract", "func", "expr", "periodstodate"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
 (3-item) tuples"""
@@ -54,21 +54,22 @@ def coalesce_physical(ref, default_table=None, schema=None):
         if len(split) > 1:
             dim_name = split[0]
             attr_name = ".".join(split[1:])
-            return TableColumnReference(schema, dim_name, attr_name, None, None, None)
+            return TableColumnReference(schema, dim_name, attr_name, None, None, None, None)
         else:
-            return TableColumnReference(schema, default_table, ref, None, None, None)
+            return TableColumnReference(schema, default_table, ref, None, None, None, None)
     elif isinstance(ref, dict):
         return TableColumnReference(ref.get("schema", schema),
                                  ref.get("table", default_table),
                                  ref.get("column"),
                                  ref.get("extract"),
                                  ref.get("func"),
-                                 ref.get("expr"))
+                                 ref.get("expr"),
+                                 ref.get("periodstodate"))
     else:
         if len(ref) == 2:
-            return TableColumnReference(schema, ref[0], ref[1], None, None, None)
+            return TableColumnReference(schema, ref[0], ref[1], None, None, None, None)
         elif len(ref) == 3:
-            return TableColumnReference(ref[0], ref[1], ref[2], None, None, None)
+            return TableColumnReference(ref[0], ref[1], ref[2], None, None, None, None)
         else:
             raise BackendError("Number of items in table reference should "\
                                "be 2 (table, column) or 3 (schema, table, column)")
@@ -410,7 +411,7 @@ class SnowflakeMapper(Mapper):
                 table_name = self.fact_name
 
             schema = self.dimension_schema or self.schema
-            reference = TableColumnReference(schema, table_name, column_name, None, None, None)
+            reference = TableColumnReference(schema, table_name, column_name, None, None, None, None)
 
         return reference
 
@@ -547,7 +548,7 @@ class DenormalizedMapper(Mapper):
         reference = TableColumnReference(self.schema,
                                           self.fact_name,
                                           column_name,
-                                          None, None, None)
+                                          None, None, None, None)
 
         return reference
 
@@ -632,7 +633,7 @@ class StarMapper(Mapper):
         else:
             schema = self.schema
 
-        reference = TableColumnReference(schema, table_name, column_name, None, None, None)
+        reference = TableColumnReference(schema, table_name, column_name, None, None, None, None)
 
         return reference
 
