@@ -24,6 +24,7 @@ __all__ = [
     "RangeCut",
     "SetCut",
     "AggregationResult",
+    "CalculatedResultIterator",
     "cuts_from_string",
     "string_from_cuts",
     "string_from_path",
@@ -1060,6 +1061,23 @@ class SetCut(Cut):
 
 TableRow = namedtuple("TableRow", ["key", "label", "path", "is_base", "record"])
 
+class CalculatedResultIterator(object):
+    """
+    Iterator that decorates data items 
+    """
+    def __init__(self, calculators, iterator):
+        self.calculators = calculators
+        self.iterator = iterator
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        item = self.iterator.next()
+        for calc in self.calculators:
+            calc(item)
+        return item
+
 class AggregationResult(object):
     """Result of aggregation or drill down.
 
@@ -1089,9 +1107,23 @@ class AggregationResult(object):
         self.levels = None
 
         self.summary = {}
-        self.cells = []
+        self._cells = []
         self.total_cell_count = None
         self.remainder = {}
+
+        self.calculators = []
+
+
+    @property
+    def cells(self):
+        return self._cells
+    
+    @cells.setter
+    def cells(self, val):
+        # decorate iterable with calcs if needed
+        if self.calculators:
+            val = CalculatedResultIterator(self.calculators, val)
+        self._cells = val
 
     @property
     def drilldown(self):

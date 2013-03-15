@@ -12,6 +12,8 @@ import datetime
 from cubes.errors import *
 from cubes.computation import *
 from cubes.backends.sql import extensions
+from cubes import statutils
+from cubes.model import Attribute
 
 try:
     import sqlalchemy
@@ -25,6 +27,11 @@ try:
         "avg": extensions.avg,
         "stddev": extensions.stddev,
         "variance": extensions.variance
+    }
+
+    calculated_aggregation_functions = {
+        "sma": statutils.simple_moving_average_factory,
+        "wma": statutils.weighted_moving_average_factory
     }
 
 except ImportError:
@@ -298,7 +305,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # strings. Strings are converted to corresponding Cube measure
         # attributes
         if measures:
-            measures = [self.cube.measure(measure) for measure in measures]
+            measures = [self.cube.measure(measure) for measure in measures ]
 
         result = AggregationResult(cell=cell, measures=measures)
 
@@ -351,7 +358,17 @@ class SnowflakeBrowser(AggregationBrowser):
             dd_result = self.connectable.execute(statement)
             labels = self.context.logical_labels(statement.columns)
 
+            # decorate with calculated measures if applicable
+            measures_for_calc_agg = []
+            if measures:
+                measures_for_calc_agg += measures
+            if not len( [ m for m in measures_for_calc_agg if m.name == 'record_count' ] ):
+                measures_for_calc_agg.insert(0, Attribute("record_count", label="Count", aggregations=["sma"]))
+            result.calculators = []
+            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown) for measure in measures_for_calc_agg ]:
+                result.calculators += calc_aggs
             result.cells = ResultIterator(dd_result, labels)
+
 
             # TODO: introduce option to disable this
 
@@ -363,6 +380,15 @@ class SnowflakeBrowser(AggregationBrowser):
                 result.total_cell_count = total_cell_count
 
         return result
+
+    def calculated_aggregations_for_measure(self, measure, drilldown_levels=None):
+        """Returns a list of calculator objects that implement aggregations by calculating
+        on retrieved results, given a particular drilldown.
+        """
+        if not measure.aggregations or not drilldown_levels or len(drilldown_levels) < 2:
+            return []
+
+        return [ func(measure, drilldown_levels) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -632,8 +658,9 @@ class QueryContext(object):
         result = []
         for agg_name in aggregations:
             if not agg_name in aggregation_functions:
-                raise ArgumentError("Unknown aggregation type %s for measure %s" % \
-                                    (agg_name, measure))
+                if not agg_name in calculated_aggregation_functions:
+                    raise ArgumentError("Unknown aggregation type %s for measure %s" % \
+                                        (agg_name, measure))
 
             func = aggregation_functions[agg_name]
             label = "%s_%s" % (str(measure), agg_name)
@@ -697,7 +724,7 @@ class QueryContext(object):
         cond = self.condition_for_point(dimension, path, hierarchy)
         select = select.where(cond.condition)
 
-        print "\n\nSQL:\n%s \n\n" % select
+        self.logger.debug("\n\nSQL:\n%s \n\n" % select)
 
         return select
 
