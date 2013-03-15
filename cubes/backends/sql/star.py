@@ -919,13 +919,11 @@ class QueryContext(object):
             conditions = [lower.condition]
             attributes = lower.attributes
         elif not from_path and to_path:
-            condition = [upper.condition]
+            conditions = [upper.condition]
             attributes = upper.attributes
         else:
             attributes = lower.attributes | upper.attributes
             conditions = [ c for c in [lower.condition, upper.condition] if c is not None ]
-            condexpr = sql.expression.and_(*conditions) if len(conditions) > 1 else condition[0]
-            condition = Condition(attributes, condexpr)
         
         if ptd_condition:
             conditions.append(ptd_condition.condition)

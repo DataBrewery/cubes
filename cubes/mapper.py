@@ -33,10 +33,10 @@ def coalesce_physical(ref, default_table=None, schema=None):
     * a string in form ``"table.column"``
     * a list in form ``(table, column)``
     * a list in form ``(schema, table, column)``
-    * a dictionary with keys: ``schema``, ``table``, ``column`` where
+    * a dictionary with keys: ``schema``, ``table``, ``column``, ``extract``, ``func``, ``expr``, ``periodstodate`` where
       ``column`` is required, the rest are optional
 
-    Returns tuple (`schema`, `table`, `column`, `extract`), which is a named
+    Returns tuple (`schema`, `table`, `column`, `extract`, `func`, `expr`, `periodstodate`), which is a named
     tuple `TableColumnReference`.
 
     If no table is specified in reference and `default_table` is not
