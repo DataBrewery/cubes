@@ -158,9 +158,16 @@ class FlaskTest(StarSQLTestCase):
                 '/model/cube/sales/dimensions',
                 '/model/dimension/date', '/model/dimension/date/levels',
                 '/model/dimension/date/level_names',
-                '/cube/sales/aggregate', '/cube/sales/facts',
+                '/cube/sales/aggregate',
+                '/cube/sales/facts',
                 '/cube/sales/fact/1',
                 '/cube/sales/dimension/date',
+                '/cube/sales/cell',
+                '/cube/aggregate',
+                '/cube/facts',
+                '/cube/fact/1',
+                '/cube/dimension/date',
+                '/cube/cell',
         ]
         for url in urls:
             response = self.client.get(url)

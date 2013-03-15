@@ -1,9 +1,18 @@
+from cubes.errors import CubesError
 from cubes.server.controllers import CSVGenerator
 import flask
 from werkzeug.local import LocalProxy
 
 import cubes
 from cubes.server.common import SlicerJSONEncoder, RequestError
+try:
+    import cubes_search
+except ImportError:
+    from cubes.common import MissingPackage
+    cubes_search = None
+    # SphinxSearcher = MissingPackage("cubes_search", "Sphinx search ",
+    #                         source = "https://github.com/Stiivi/cubes")
+    # Get cubes sphinx search backend from: https://github.com/Stiivi/cubes
 
 
 API_VERSION = "1"
@@ -68,7 +77,7 @@ def _cubes():
 
 @app.route('/model/cube')
 def default_cube():
-    cube = _get_default_cube()
+    cube = get_default_cube()
     return json_response(_cube_dict(cube))
 
 
@@ -115,6 +124,7 @@ def dimension_level_names(dim_name):
 #
 
 @app.route('/cube/<string:cube_name>/aggregate')
+@app.route('/cube/aggregate', defaults={'cube_name': None})
 def aggregate(cube_name):
     cube = get_cube(cube_name)
     browser = create_browser(cube, get_locale())
@@ -137,6 +147,7 @@ def aggregate(cube_name):
     return json_response(result)
 
 
+@app.route('/cube/facts', defaults={'cube_name':None})
 @app.route('/cube/<string:cube_name>/facts')
 def facts(cube_name):
     cube = get_cube(cube_name)
@@ -170,6 +181,7 @@ def facts(cube_name):
 
 
 @app.route('/cube/<string:cube_name>/fact/<string:fact_id>')
+@app.route('/cube/fact/<string:fact_id>', defaults={'cube_name':None})
 def fact(cube_name, fact_id):
     cube = get_cube(cube_name)
     browser = create_browser(cube, get_locale())
@@ -182,6 +194,7 @@ def fact(cube_name, fact_id):
 
 
 @app.route('/cube/<string:cube_name>/dimension/<string:dimension_name>')
+@app.route('/cube/dimension/<string:dimension_name>', defaults={'cube_name':None})
 def values(cube_name, dimension_name):
     cube = get_cube(cube_name)
     browser = create_browser(cube)
@@ -254,34 +267,71 @@ def report(cube_name):
 
     return json_response(result)
 
-#     Rule('/cube/<string:cube>/report', methods = ['POST'],
-#                         endpoint = (controllers.CubesController, 'report')),
-#     Rule('/cube/<string:cube>/cell',
-#                         endpoint = (controllers.CubesController, 'cell_details')),
-#     Rule('/cube/<string:cube>/details',
-#                         endpoint = (controllers.CubesController, 'details')),
-#     # Use default cube (specified in config as: [model] cube = ... )
-#     Rule('/aggregate',
-#                         endpoint = (controllers.CubesController, 'aggregate'),
-#                         defaults={"cube":None}),
-#     Rule('/facts',
-#                         endpoint = (controllers.CubesController, 'facts'),
-#                         defaults={"cube":None}),
-#     Rule('/fact/<string:fact_id>',
-#                         endpoint = (controllers.CubesController, 'fact'),
-#                         defaults={"cube":None}),
-#     Rule('/dimension/<string:dimension_name>',
-#                         endpoint=(controllers.CubesController, 'values'),
-#                         defaults={"cube":None}),
-#     Rule('/report', methods = ['POST'],
-#                         endpoint = (controllers.CubesController, 'report'),
-#                         defaults={"cube":None}),
-#     Rule('/cell',
-#                         endpoint = (controllers.CubesController, 'cell_details'),
-#                         defaults={"cube":None}),
-#     Rule('/details',
-#                         endpoint = (controllers.CubesController, 'details'),
-#                         defaults={"cube":None}),
+
+@app.route('/cube/<string:cube_name>/cell')
+@app.route('/cube/cell', defaults={'cube_name':None})
+def cell(cube_name):
+    cube = get_cube(cube_name)
+    browser = create_browser(cube)
+    cell = prepare_cell(cube)
+
+    details = browser.cell_details(cell)
+    cell_dict = cell.to_dict()
+
+    for cut, detail in zip(cell_dict["cuts"], details):
+        cut["details"] = detail
+
+    return json_response(cell_dict)
+
+
+@app.route('/cube/<string:cube_name>/details')
+@app.route('/cube/details', defaults={'cube_name':None})
+def details(cube_name):
+    raise RequestError("'details' request is depreciated, use 'cell' request")
+
+
+@app.route('/cube/search', defaults={'cube_name':None})
+@app.route('/cube/<string:cube_name>/search',)
+def search(cube_name):
+    cube = get_cube(cube_name)
+    browser = create_browser(cube)
+    searcher = create_searcher(browser)
+
+
+    dimension = flask.request.args.get("dimension")
+    if not dimension:
+        raise RequestError("No dimension provided for search")
+
+    query = flask.request.args.get("q")
+    if not query:
+        query = flask.request.args.get("query")
+
+    if not query:
+        raise RequestError("No search query provided")
+
+    locale = get_locale()
+    if not locale and workspace.locales:
+        locale = workspace.locales[0]
+
+    flask.current_app.logger.debug("searching for '%s' in %s, locale %s" % (query,
+        dimension, locale))
+
+    search_result = searcher.search(query, dimension, locale=locale)
+
+    result = {
+        "matches": search_result.dimension_matches(dimension),
+        "dimension": dimension,
+        "total_found": search_result.total_found,
+        "locale": locale
+    }
+
+    if search_result.error:
+        result["error"] = search_result.error
+    if search_result.warning:
+        result["warning"] = search_result.warning
+
+    return json_response(result)
+
 #     #
 #     # Other utility requests
 #     #
@@ -312,7 +362,7 @@ def _cube_dict(cube):
     return d
 
 
-def _get_default_cube():
+def get_default_cube():
     if flask.current_app.config.get('SLICER_DEFAULT_CUBE'):
         flask.current_app.logger.debug(
             "using default cube specified in cofiguration")
@@ -384,7 +434,23 @@ def order():
     return order
 
 def get_cube(cube_name):
+    if cube_name is None:
+        return get_default_cube()
     return model.cube(cube_name)
 
 def get_locale():
     return flask.request.args.get('lang')
+
+def create_searcher(browser):
+    if flask.current_app.config.get('CUBES_SEARCH_ENGINE'):
+        options = flask.current_app.config.get('CUBES_SEARCH_OPTIONS')
+        engine_name = flask.current_app.config['CUBES_SEARCH_ENGINE']
+    else:
+        raise CubesError("Search engine not configured.")
+
+    flask.current_app.logger.debug("using search engine: %s" % engine_name)
+    options = dict(options)
+    searcher = cubes_search.create_searcher(engine_name,
+                                        browser=browser,
+                                        locales=workspace.locales,
+                                        **options)
