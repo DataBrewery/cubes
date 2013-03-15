@@ -262,7 +262,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
     def aggregate(self, cell=None, measures=None, drilldown=None,
                   attributes=None, page=None, page_size=None, order=None,
-                  include_summary=None, include_cell_count=None, **options):
+                  include_summary=None, include_cell_count=False, **options):
         """Return aggregated result.
 
         Arguments:
@@ -276,7 +276,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         Query tuning:
 
-        * `include_cell_count`: if ``True`` (default) then
+        * `include_cell_count`: if ``True`` (``False`` is default) then
           `result.total_cell_count` is
           computed as well, otherwise it will be ``None``.
         * `include_summary`: if ``True`` (default) then summary is computed,
@@ -372,8 +372,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             # TODO: introduce option to disable this
 
-            if include_cell_count or \
-                    include_cell_count is None and self.include_cell_count:
+            if include_cell_count or include_cell_count is None and self.include_cell_count:
                 count_statement = statement.alias().count()
                 row_count = self.connectable.execute(count_statement).fetchone()
                 total_cell_count = row_count[0]
@@ -385,7 +384,7 @@ class SnowflakeBrowser(AggregationBrowser):
         """Returns a list of calculator objects that implement aggregations by calculating
         on retrieved results, given a particular drilldown.
         """
-        if not measure.aggregations or not drilldown_levels or len(drilldown_levels) < 2:
+        if not measure.aggregations or not drilldown_levels or len(drilldown_levels) < 1:
             return []
 
         return [ func(measure, drilldown_levels) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
