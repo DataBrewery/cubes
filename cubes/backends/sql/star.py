@@ -212,7 +212,7 @@ class SnowflakeBrowser(AggregationBrowser):
             statement = statement.where(cond.condition)
 
         statement = self.context.paginated_statement(statement, page, page_size)
-        order_levels = [(dimension, levels)]
+        order_levels = [(dimension, hierarchy, levels)]
         statement = self.context.ordered_statement(statement, order,
                                                         order_levels)
 
