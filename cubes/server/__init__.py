@@ -11,11 +11,11 @@ except ImportError:
     create_server = _missing
 
 try:
-    from blueprint import app as slicer_blueprint
+    from blueprint import SlicerBlueprint
 except ImportError:
     from cubes.common import MissingPackage
     _missing = MissingPackage("flask", "Slicer blueprint")
-    slicer_blueprint = _missing
+    SlicerBlueprint = _missing
 
 __all__ = (
     "Slicer",

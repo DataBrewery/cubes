@@ -143,12 +143,12 @@ class StarSQLTestCase(unittest.TestCase):
 class FlaskTest(StarSQLTestCase):
     def setUp(self):
         super(FlaskTest, self).setUp()
-        engine = sqlalchemy.create_engine('sqlite://')
         workspace = cubes.create_workspace('sql', self.model,
                                            engine=self.connection)
 
         self.app = Flask(__name__)
-        self.app.register_blueprint(cubes.server.slicer_blueprint)
+        slicer_blueprint = cubes.server.SlicerBlueprint(workspace, 'slicer', __name__)
+        self.app.register_blueprint(slicer_blueprint)
         self.app.workspace = workspace
         self.client = self.app.test_client()
 
