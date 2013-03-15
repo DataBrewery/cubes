@@ -6,6 +6,7 @@ import cPickle as pickle
 import types
 
 from werkzeug.routing import Rule
+from werkzeug.wrappers import Response
 
 
 def _make_key_str(name, *args, **kwargs):
@@ -71,10 +72,14 @@ def cacheable(fn):
             v = cache_impl.get(key)
 
             if not v:
+                self.logger.debug('CACHE MISS')
                 v = fn(self, *args, **kwargs)
                 cache_impl.set(key, v)
+            else:
+                self.logger.debug('CACHE HIT')
             return v
-        except:
+        except Exception as e:
+            self.logger.error('CACHE ERROR: %s', e)
             v = fn(self, *args, **kwargs)
             cache_impl.set(key, v)
             return v

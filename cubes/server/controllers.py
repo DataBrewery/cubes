@@ -40,18 +40,6 @@ __all__ = (
 
 class ApplicationController(object):
     def __init__(self, args, workspace, logger, config):
-        print '=WORKSPACE', workspace.options
-
-        if 'cache_host' in workspace.options:
-            import caching
-            import pymongo
-            import cPickle as pickle
-
-            ttl = int(workspace.options.get('ttl')) or 60 * 3
-            client = pymongo.MongoClient(host=workspace.options['cache_host'])
-
-            cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads)
-            self.cache = cache
 
         self.workspace = workspace
         self.args = args
@@ -108,6 +96,20 @@ class ApplicationController(object):
                     self.order.append( (order, None) )
                 else:
                     self.order.append( (split[0], split[1]) )
+
+
+        if 'cache_host' in workspace.options:
+            import caching
+            import pymongo
+            import cPickle as picklee
+
+            self.logger.info('Caching Enabled')
+
+            ttl = int(workspace.options.get('ttl')) or 60 * 3
+            client = pymongo.MongoClient(host=workspace.options['cache_host'])
+
+            cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads)
+            self.cache = cache
 
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
@@ -368,6 +370,7 @@ class CubesController(ApplicationController):
 
         return self.json_response(result)
 
+    @cacheable
     def facts(self, cube):
         self.create_browser(cube)
         self.prepare_cell()
