@@ -22,6 +22,8 @@ def simple_moving_average_factory(measure, drilldown_paths):
     return _moving_average_factory(measure, drilldown_paths, _sma, '_sma')
 
 def _moving_average_factory(measure, drilldown_paths, avg_func, field_suffix):
+    if not drilldown_paths:
+        return lambda item: None
 
     # if the level we're drilling to doesn't have aggregation_units configured,
     # we're not doing any calculations
