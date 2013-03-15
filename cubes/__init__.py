@@ -13,6 +13,7 @@ from computation import *
 from mapper import *
 
 import backends
+import statutils
 
 __all__ = [
     "__version__"
