@@ -3,7 +3,7 @@ import flask
 from werkzeug.local import LocalProxy
 
 import cubes
-from cubes.server.common import SlicerJSONEncoder
+from cubes.server.common import SlicerJSONEncoder, RequestError
 
 
 API_VERSION = "1"
@@ -101,6 +101,7 @@ def dimension_levels(dim_name):
 
     return json_response(levels)
 
+
 @app.route('/model/dimension/<string:dim_name>/level_names')
 def dimension_level_names(dim_name):
     # FIXME: remove this method
@@ -135,6 +136,7 @@ def aggregate(cube_name):
 
     return json_response(result)
 
+
 @app.route('/cube/<string:cube_name>/facts')
 def facts(cube_name):
     cube = get_cube(cube_name)
@@ -166,6 +168,7 @@ def facts(cube_name):
     else:
         flask.abort(400, "unknown response format '%s'" % format_)
 
+
 @app.route('/cube/<string:cube_name>/fact/<string:fact_id>')
 def fact(cube_name, fact_id):
     cube = get_cube(cube_name)
@@ -177,10 +180,80 @@ def fact(cube_name, fact_id):
     else:
         flask.abort(404, "fact", message="No fact with id '%s'" % fact_id)
 
-#     Rule('/cube/<string:cube>/fact/<string:fact_id>',
-#                         endpoint = (controllers.CubesController, 'fact')),
-#     Rule('/cube/<string:cube>/dimension/<string:dimension_name>',
-#                         endpoint = (controllers.CubesController, 'values')),
+
+@app.route('/cube/<string:cube_name>/dimension/<string:dimension_name>')
+def values(cube_name, dimension_name):
+    cube = get_cube(cube_name)
+    browser = create_browser(cube)
+    cell = prepare_cell(cube)
+
+    depth_string = flask.request.args.get("depth")
+    if depth_string:
+        try:
+            depth = int(flask.request.args.get("depth"))
+        except ValueError:
+            flask.abort(400, "depth should be an integer")
+            raise Exception() # only for compiler, abort raises exception
+
+    else:
+        depth = None
+
+    try:
+        dimension = cube.dimension(dimension_name)
+    except KeyError:
+        flask.abort(404, "Dimension '%s' was not found" % dimension_name)
+        raise Exception() # only for compiler, abort raises exception
+
+    hier_name = flask.request.args.get("hierarchy")
+    hierarchy = dimension.hierarchy(hier_name)
+
+    page, page_size = paging()
+    values = browser.values(cell, dimension, depth=depth,
+                                 hierarchy=hierarchy,
+                                 page=page, page_size=page_size)
+
+    depth = depth or len(hierarchy)
+
+    result = {
+        "dimension": dimension.name,
+        "depth": depth,
+        "data": values
+    }
+
+    return json_response(result)
+
+
+@app.route('/cube/<string:cube_name>/report', methods = ['POST'])
+def report(cube_name):
+    """Create multi-query report response."""
+    cube = get_cube(cube_name)
+    browser = create_browser(cube)
+    cell = prepare_cell(cube)
+
+    report_request = flask.request.json
+
+    try:
+        queries = report_request["queries"]
+    except KeyError:
+        help = "Wrap all your report queries under a 'queries' key. The " \
+                "old documentation was mentioning this requirement, however it " \
+                "was not correctly implemented and wrong example was provided."
+
+        raise RequestError("Report request does not contain 'queries' key",
+                                    help=help)
+
+    cell_cuts = report_request.get("cell")
+
+    if cell_cuts:
+        # Override URL cut with the one in report
+        cuts = [cubes.cut_from_dict(cut) for cut in cell_cuts]
+        cell = cubes.Cell(browser.cube, cuts)
+        flask.current_app.logger.info("using cell from report specification (URL parameters are ignored)")
+
+    result = browser.report(cell, queries)
+
+    return json_response(result)
+
 #     Rule('/cube/<string:cube>/report', methods = ['POST'],
 #                         endpoint = (controllers.CubesController, 'report')),
 #     Rule('/cube/<string:cube>/cell',
@@ -252,7 +325,7 @@ def _get_default_cube():
 
     return cube
 
-def create_browser(cube, locale):
+def create_browser(cube, locale=None):
     """Initializes the controller:
 
     * tries to get cube name
@@ -261,6 +334,7 @@ def create_browser(cube, locale):
     * assigns a browser for the controller
 
     """
+    locale = locale if locale else get_locale()
     flask.current_app.logger.info("browsing cube '%s' (locale: %s)" % (cube.name, locale))
     browser = workspace.browser(cube, locale)
     return browser

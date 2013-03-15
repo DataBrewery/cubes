@@ -1,7 +1,7 @@
 import unittest
 
 import sqlalchemy
-from flask import Flask
+from flask import Flask, json
 from sqlalchemy import Table, Column, Integer, Float, String
 
 import cubes
@@ -35,8 +35,8 @@ class StarSQLTestCase(unittest.TestCase):
                         "date.day": "dim_date.day",
                         "date.year": "dim_date.year",
                         "date.id": "dim_date.id",
-                        'product.id':'dim_product.id',
-                         "product.category": "dim_product.category_id",
+                        'product.id': 'dim_product.id',
+                        "product.category": "dim_product.category_id",
                         "product.category_name.en": "dim_category.category_name_en",
                         "product.category_name.sk": "dim_category.category_name_sk",
                         "product.subcategory": "dim_category.subcategory_id",
@@ -99,27 +99,27 @@ class StarSQLTestCase(unittest.TestCase):
         )
 
         date = Table('dim_date', metadata,
-                      Column('id', Integer, primary_key=True),
-                      Column('day', Integer),
-                      Column('month', Integer),
-                      Column('month_name', String),
-                      Column('month_sname', String),
-                      Column('year', Integer)
+                     Column('id', Integer, primary_key=True),
+                     Column('day', Integer),
+                     Column('month', Integer),
+                     Column('month_name', String),
+                     Column('month_sname', String),
+                     Column('year', Integer)
         )
 
         product = Table('dim_product', metadata,
-                      Column('id', Integer, primary_key=True),
-                      Column('category_id', Integer),
-                      Column('product_name', String),
+                        Column('id', Integer, primary_key=True),
+                        Column('category_id', Integer),
+                        Column('product_name', String),
         )
 
         category = Table('dim_category', metadata,
-                      Column('id', Integer, primary_key=True),
-                      Column('category_name_en', String),
-                      Column('category_name_sk', String),
-                      Column('subcategory_id', Integer),
-                      Column('subcategory_name_en', String),
-                      Column('subcategory_name_sk', String)
+                         Column('id', Integer, primary_key=True),
+                         Column('category_name_en', String),
+                         Column('category_name_sk', String),
+                         Column('subcategory_id', Integer),
+                         Column('subcategory_name_en', String),
+                         Column('subcategory_name_sk', String)
         )
 
         metadata.create_all(engine)
@@ -127,8 +127,9 @@ class StarSQLTestCase(unittest.TestCase):
 
         self.connection.execute(category.insert().values(id=1))
         self.connection.execute(product.insert().values(id=1, category_id=1))
-        self.connection.execute(date.insert().values(id=1))
-        self.connection.execute(sales.insert().values(product_id=1, date_id=1, category_id=1))
+        self.connection.execute(date.insert().values(id=1, year=2010))
+        self.connection.execute(
+            sales.insert().values(product_id=1, date_id=1, category_id=1))
 
         self.model = cubes.create_model(model_desc)
         self.cube = self.model.cube("sales")
@@ -138,12 +139,13 @@ class StarSQLTestCase(unittest.TestCase):
         self.cube.fact = 'sales'
         self.mapper = self.browser.mapper
 
+
 class FlaskTest(StarSQLTestCase):
     def setUp(self):
         super(FlaskTest, self).setUp()
         engine = sqlalchemy.create_engine('sqlite://')
-        workspace = cubes.create_workspace('sql', self.model, engine=self.connection)
-
+        workspace = cubes.create_workspace('sql', self.model,
+                                           engine=self.connection)
 
         self.app = Flask(__name__)
         self.app.register_blueprint(cubes.server.slicer_blueprint)
@@ -152,12 +154,28 @@ class FlaskTest(StarSQLTestCase):
 
     def test_urls(self):
         urls = ['/', '/version', '/locales', '/model', '/model/cubes',
-                '/model/cube', '/model/cube/sales', '/model/cube/sales/dimensions',
+                '/model/cube', '/model/cube/sales',
+                '/model/cube/sales/dimensions',
                 '/model/dimension/date', '/model/dimension/date/levels',
-               '/model/dimension/date/level_names',
-               '/cube/sales/aggregate', '/cube/sales/facts',
-               '/cube/sales/fact/1']
+                '/model/dimension/date/level_names',
+                '/cube/sales/aggregate', '/cube/sales/facts',
+                '/cube/sales/fact/1',
+                '/cube/sales/dimension/date',
+        ]
         for url in urls:
             response = self.client.get(url)
             self.assertEqual(200, response.status_code,
                              msg='Invalid url: %r' % url)
+
+    def test_report(self):
+        data = {
+            'queries': {
+                "year_list":
+                    {"query": "values",
+                     "dimension": "date",
+                     "depth": 1}
+            }
+        }
+        response = self.client.post('/cube/sales/report', data=json.dumps(data),
+                                    content_type='application/json')
+        self.assertEqual(200, response.status_code)
