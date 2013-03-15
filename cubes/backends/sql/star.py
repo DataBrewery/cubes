@@ -605,7 +605,7 @@ class QueryContext(object):
         conditions = []
         if cell_cond.condition is not None:
             conditions.append(cell_cond.condition)
-        if drilldown_ptd_condition:
+        if drilldown_ptd_condition and drilldown_ptd_condition is not None:
             conditions.append(drilldown_ptd_condition.condition)
 
         if conditions:
@@ -915,34 +915,33 @@ class QueryContext(object):
 
         ptd_condition = lower_ptd or upper_ptd
 
-        if from_path and not to_path:
-            conditions = [lower.condition]
-            attributes = lower.attributes
-        elif not from_path and to_path:
-            conditions = [upper.condition]
-            attributes = upper.attributes
-        else:
-            attributes = lower.attributes | upper.attributes
-            conditions = [ c for c in [lower.condition, upper.condition] if c is not None ]
+        conditions = []
+        attributes = set()
+        if lower.condition is not None:
+            conditions.append(lower.condition)
+            attributes |= lower.attributes
+        if upper.condition is not None:
+            conditions.append(upper.condition)
+            attributes |= upper.attributes
         
-        if ptd_condition:
+        if ptd_condition and ptd_condition.condition is not None:
             conditions.append(ptd_condition.condition)
-            attributes = attributes | ptd_condition.attributes
+            attributes |= ptd_condition.attributes
 
-        condexpr = sql.expression.and_(conditions) if len(conditions) > 1 else conditions[0]
+        condexpr = sql.expression.and_(*conditions) if len(conditions) > 1 else conditions[0]
 
         if invert:
             condexpr = sql.expression.not_(condexpr)
 
         return Condition(attributes, condexpr)
 
-    def _boundary_condition(self, dim, hierarchy, path, bound, first=None):
+    def _boundary_condition(self, dim, hierarchy, path, bound, first=False):
         """Return a `Condition` tuple for a boundary condition. If `bound` is
         1 then path is considered to be upper bound (operators < and <= are
         used), otherwise path is considered as lower bound (operators > and >=
         are used )"""
 
-        if first is None:
+        if not first:
             return self._boundary_condition(dim, hierarchy, path, bound, first=True)
 
         if not path:
@@ -989,6 +988,7 @@ class QueryContext(object):
 
         if last.condition is not None:
             condition = sql.expression.or_(condition, last.condition)
+            attributes |= last.attributes
 
         return (Condition(attributes, condition), ptd_condition)
 
