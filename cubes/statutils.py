@@ -22,7 +22,13 @@ def simple_moving_average_factory(measure, drilldown_paths):
     return _moving_average_factory(measure, drilldown_paths, _sma, '_sma')
 
 def _moving_average_factory(measure, drilldown_paths, avg_func, field_suffix):
-    num_units = drilldown_paths[-1][2][-1].info.get('aggregation_units', 10)
+
+    # if the level we're drilling to doesn't have aggregation_units configured,
+    # we're not doing any calculations
+    num_units = drilldown_paths[-1][2][-1].info.get('aggregation_units', None)
+    if num_units is None or not isinstance(num_units, int) or num_units < 2:
+        return lambda item: None
+
     def key_extractor(item):
         vals = []
         for dim, hier, levels in drilldown_paths[:-1]:
