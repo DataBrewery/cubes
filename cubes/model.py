@@ -279,15 +279,20 @@ def create_dimension(obj, dimensions=None):
 
         levels = [create_level(level) for level in levels_desc]
     elif not levels:
-        attributes = obj.get("attributes")
+        # Attributes of level model
+        level_attributes = ["attributes", "key", "order_attribute", "order",
+                            "label_attribute"]
+        info = {}
+        for attr in level_attributes:
+            if attr in obj:
+                info[attr] = obj[attr]
 
         # Default: if no attributes, then there is single flat attribute whith same name
         # as the dimension
-        if not attributes:
-            attributes = attribute_list([name])
+        if not "attributes" in info:
+            info["attributes"] = attribute_list([name])
 
-        levels = [Level(name=name, label=label, attributes=attributes)]
-
+        levels = [Level(name=name, label=label, **info)]
 
     # Hierarchies
     # -----------
@@ -1811,7 +1816,14 @@ class Level(object):
         # set
 
         if order_attribute:
-            self.order_attribute = self.attribute(order_attribute)
+            try:
+                self.order_attribute = self.attribute(order_attribute)
+            except NoSuchAttributeError:
+                raise NoSuchAttributeError("Unknown order attribute %s in "\
+                                            "dimension %s, level %s" %
+                                                (order_attribute,
+                                                    str(self.dimension),
+                                                    self.name))
         else:
             self.order_attribute = coalesce_attribute(self.attributes[0], dimension)
 
@@ -1846,10 +1858,12 @@ class Level(object):
         return str(self.to_dict())
 
     def __deepcopy__(self, memo):
+        order_attribute = str(self.order_attribute) if self.order_attribute \
+                                                                else None
         return Level(self.name,
                         attributes=copy.deepcopy(self.attributes,memo),
                         key=self.key.name,
-                        order_attribute=self.order_attribute.name,
+                        order_attribute=order_attribute,
                         order=self.order,
                         label_attribute=self.label_attribute.name,
                         info=copy.copy(self.info),
@@ -1895,7 +1909,7 @@ class Level(object):
         if attrs:
             return attrs[0]
         else:
-            return None
+            raise NoSuchAttributeError(name)
 
     @property
     def has_details(self):
