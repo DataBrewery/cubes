@@ -27,6 +27,7 @@ syn match Keyword "\"label\"" display
 syn match Keyword "\"description\"" display
 syn match Keyword "\"key\"" display
 syn match Keyword "\"label_attribute\"" display
+syn match Keyword "\"order_attribute\"" display
 syn match Keyword "\"locales\"" display
 syn match Keyword "\"info\"" display
 syn match Keyword "\"options\"" display
