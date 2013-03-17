@@ -80,7 +80,9 @@ def create_slicer_context(config):
     except Exception as e:
         if not model_path:
             model_path = 'unknown path'
-        raise CubesError("Unable to load model from %s, reason: %s" % (model_path, e))
+        raise CubesError("Unable to load model from %s, reason: %s (%s)" %
+                                                    (model_path, e,
+                                                        e.__class__.__name__))
 
     context["model"] = model
 
