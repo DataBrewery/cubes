@@ -120,18 +120,14 @@ def create_workspace(model, **options):
                                 "provide at least one")
 
         # Process SQLAlchemy options
-        sa_keys = [key for key in options.keys() if key.startswith("sqlalchemy_")]
-        sa_options = {}
-        for key in sa_keys:
-            sa_key = key[11:]
-            sa_options[sa_key] = options.pop(key)
+        sqlalchemy_options = {}
+        sqlalchemy_options_str = options.get("sqlalchemy_options")
+        if (sqlalchemy_options_str):
+            for option in sqlalchemy_options_str.split('&'):
+                option_parts = option.split("=")
+                sqlalchemy_options[option_parts[0]] = option_parts[1]
 
-        sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
-        sa_options = {}
-
-        engine = sqlalchemy.create_engine(db_url, **sa_options)
-
-    options = coalesce_options(options, OPTION_TYPES)
+        engine = sqlalchemy.create_engine(db_url, **sqlalchemy_options)
 
     workspace = SQLStarWorkspace(model, engine, **options)
 
