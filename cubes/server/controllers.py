@@ -10,6 +10,7 @@ import cubes
 from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
 from .common import RequestError, ServerError, NotFoundError
 from .common import SlicerJSONEncoder
+from ..errors import *
 
 try:
     from werkzeug.wrappers import Response
