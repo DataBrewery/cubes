@@ -60,6 +60,8 @@ def create_workspace(model, **options):
 
     * `url` - database URL in form of:
       ``backend://user:password@host:port/database``
+    * `sqlalchemy_options` - this backend accepts options for SQLAlchemy in the form:
+      ``option1=value1[&option2=value2]...``
     * `engine` - SQLAlchemy engine - either this or URL should be provided
 
     Optional:
@@ -93,7 +95,16 @@ def create_workspace(model, **options):
         except KeyError:
             raise ArgumentError("No URL or engine specified in options, "
                                 "provide at least one")
-        engine = sqlalchemy.create_engine(db_url)
+
+        # Process SQLAlchemy options
+        sqlalchemy_options = {}
+        sqlalchemy_options_str = options.get("sqlalchemy_options")
+        if (sqlalchemy_options_str):
+            for option in sqlalchemy_options_str.split('&'):
+                option_parts = option.split("=")
+                sqlalchemy_options[option_parts[0]] = option_parts[1]
+
+        engine = sqlalchemy.create_engine(db_url, **sqlalchemy_options)
 
 
     workspace = SQLStarWorkspace(model, engine, **options)
