@@ -102,7 +102,7 @@ class SnowflakeBrowser(AggregationBrowser):
             self.connectable = connectable
             self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
 
-        self.include_summary = options.get("include_summary", True)
+        self.include_summary = options.get("include_summary", False)
         self.include_cell_count = options.get("include_cell_count", False)
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
@@ -311,7 +311,8 @@ class SnowflakeBrowser(AggregationBrowser):
         result = AggregationResult(cell=cell, measures=measures)
 
         if include_summary or \
-                include_summary is None and self.include_summary:
+                ( include_summary is None and self.include_summary ) or \
+                not drilldown:
             summary_statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures)
 
@@ -363,8 +364,6 @@ class SnowflakeBrowser(AggregationBrowser):
             measures_for_calc_agg = []
             if measures:
                 measures_for_calc_agg += measures
-            if not len( [ m for m in measures_for_calc_agg if m.name == 'record_count' ] ):
-                measures_for_calc_agg.insert(0, Attribute("record_count", label="Count", aggregations=["sma"]))
             result.calculators = []
             for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown) for measure in measures_for_calc_agg ]:
                 result.calculators += calc_aggs
@@ -617,12 +616,6 @@ class QueryContext(object):
         for measure in measures:
             selection.extend(self.aggregations_for_measure(measure))
 
-        # Added total record count
-        # TODO: make this label configurable (should we?)
-        # TODO: make presence of this configurable (shoud we?)
-        rcount_label = "record_count"
-        selection.append(sql.functions.count().label(rcount_label))
-
         select = sql.expression.select(selection,
                                     from_obj=join_expression,
                                     use_labels=True,
@@ -662,10 +655,11 @@ class QueryContext(object):
                     raise ArgumentError("Unknown aggregation type %s for measure %s" % \
                                         (agg_name, measure))
 
-            func = aggregation_functions[agg_name]
-            label = "%s%s" % (str(measure), ("_" + agg_name if agg_name != "identity" else "") )
-            aggregation = func(self.column(measure)).label(label)
-            result.append(aggregation)
+            else:
+                func = aggregation_functions[agg_name]
+                label = "%s%s" % (str(measure), ("_" + agg_name if agg_name != "identity" else "") )
+                aggregation = func(self.column(measure)).label(label)
+                result.append(aggregation)
 
         return result
 

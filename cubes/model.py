@@ -38,6 +38,8 @@ __all__ = [
     "aggregate_ref"
 ]
 
+RECORD_COUNT_MEASURE = { 'name': 'record', 'label': 'Count', 'aggregations': [ 'count', 'sma' ] }
+
 def _open_url_resource(resource):
     """Opens `resource` either as a file with `open()`or as URL with
     `urllib2.urlopen()`. Returns opened handle. """
@@ -933,6 +935,8 @@ class Cube(object):
 
         logger = get_logger()
 
+        if not measures:
+            measures = [ copy.deepcopy(RECORD_COUNT_MEASURE) ]
         self.measures = attribute_list(measures)
         self.details = attribute_list(details)
 
@@ -1028,10 +1032,6 @@ class Cube(object):
         """
 
         if isinstance(obj, basestring):
-            # FIXME: make this default attribute if not provided in the model
-            if obj == "record_count":
-                return Attribute("record_count", label="Count")
-
             lookup = [m for m in self.measures if m.name == obj]
             if lookup:
                 if len(lookup) == 1:
@@ -2197,14 +2197,9 @@ def split_aggregate_ref(measure):
     name. Use this method in presenters to correctly get measure name and
     aggregate name from aggregate reference that was created by
     `aggregate_ref()` function.
-
-    If measure is `record_count` then `("record_count", None)` is returned.
     """
 
     measure = str(measure)
-
-    if measure == "record_count":
-        return (measure, None)
 
     r = measure.rfind("_")
 
