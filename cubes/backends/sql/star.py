@@ -26,7 +26,8 @@ try:
         "count": sql.functions.count,
         "avg": extensions.avg,
         "stddev": extensions.stddev,
-        "variance": extensions.variance
+        "variance": extensions.variance,
+        "identity": lambda c: c
     }
 
     calculated_aggregation_functions = {
@@ -662,7 +663,7 @@ class QueryContext(object):
                                         (agg_name, measure))
 
             func = aggregation_functions[agg_name]
-            label = "%s_%s" % (str(measure), agg_name)
+            label = "%s%s" % (str(measure), ("_" + agg_name if agg_name != "identity" else "") )
             aggregation = func(self.column(measure)).label(label)
             result.append(aggregation)
 
@@ -961,14 +962,11 @@ class QueryContext(object):
 
         return Condition(attributes, condexpr)
 
-    def _boundary_condition(self, dim, hierarchy, path, bound, first=False):
+    def _boundary_condition(self, dim, hierarchy, path, bound, first=True):
         """Return a `Condition` tuple for a boundary condition. If `bound` is
         1 then path is considered to be upper bound (operators < and <= are
         used), otherwise path is considered as lower bound (operators > and >=
         are used )"""
-
-        if not first:
-            return self._boundary_condition(dim, hierarchy, path, bound, first=True)
 
         if not path:
             return (Condition(set(), None), None)
