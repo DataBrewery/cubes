@@ -1,4 +1,5 @@
-from cubes.errors import CubesError
+import json
+from cubes.errors import CubesError, ModelError
 from cubes.server.controllers import CSVGenerator
 import flask
 from werkzeug.local import LocalProxy
@@ -362,7 +363,7 @@ class SlicerBlueprint(flask.Blueprint):
         #                         endpoint = (controllers.SearchController, 'search'),
         #                         defaults={"cube":None})
         def json_response(obj):
-            response = flask.make_response(flask.json.dumps(obj, cls=SlicerJSONEncoder))
+            response = flask.make_response(json.dumps(obj, cls=SlicerJSONEncoder))
             response.mimetype = 'application/json'
             return response
 
@@ -454,9 +455,12 @@ class SlicerBlueprint(flask.Blueprint):
             return order
 
         def get_cube(cube_name):
-            if cube_name is None:
-                return get_default_cube()
-            return model.cube(cube_name)
+            try:
+                if cube_name is None:
+                    return get_default_cube()
+                return model.cube(cube_name)
+            except ModelError, e:
+                flask.abort(404, e.message)
 
         def get_locale():
             return flask.request.args.get('lang')

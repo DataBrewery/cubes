@@ -149,7 +149,6 @@ class FlaskTest(StarSQLTestCase):
         self.app = Flask(__name__)
         slicer_blueprint = cubes.server.SlicerBlueprint(workspace, 'slicer', __name__)
         self.app.register_blueprint(slicer_blueprint)
-        self.app.workspace = workspace
         self.client = self.app.test_client()
 
     def test_urls(self):
