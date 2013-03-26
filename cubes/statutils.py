@@ -75,7 +75,7 @@ def _moving_average_factory(measure, drilldown_paths, avg_func, aggregation_name
             val_list.append(val)
         while len(val_list) > num_units:
             val_list.popleft()
-        if len(val_list) >= num_units:
+        if len(val_list) > 0:
             item[field_name] = avg_func(val_list)
 
     return f
