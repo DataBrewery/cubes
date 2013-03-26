@@ -16,31 +16,51 @@ def _sma(values):
     return round(reduce(lambda i, c: c + i, values, 0.0) / len(values), 2)
 
 def weighted_moving_average_factory(measure, drilldown_paths):
-    return _moving_average_factory(measure, drilldown_paths, _wma, '_wma')
+    return _moving_average_factory(measure, drilldown_paths, _wma, 'wma')
 
 def simple_moving_average_factory(measure, drilldown_paths):
-    return _moving_average_factory(measure, drilldown_paths, _sma, '_sma')
+    return _moving_average_factory(measure, drilldown_paths, _sma, 'sma')
 
-def _moving_average_factory(measure, drilldown_paths, avg_func, field_suffix):
+def _moving_average_factory(measure, drilldown_paths, avg_func, aggregation_name):
     if not drilldown_paths:
         return lambda item: None
 
     # if the level we're drilling to doesn't have aggregation_units configured,
     # we're not doing any calculations
-    relevant_level = drilldown_paths[-1][2][-1]
-    if not relevant_level.info:
-        return lambda item: None
-    num_units = relevant_level.info.get('aggregation_units', None)
+    key_drilldown_paths = []
+    num_units = None
+    for path in drilldown_paths:
+        relevant_level = path[2][-1]
+        these_num_units = None
+        if relevant_level.info:
+            these_num_units = relevant_level.info.get('aggregation_units', None)
+        if these_num_units is None:
+            key_drilldown_paths.append(path)
+        else:
+            num_units = these_num_units
+
     if num_units is None or not isinstance(num_units, int) or num_units < 2:
         return lambda item: None
 
+    # determine the measure on which to calculate.
+    measure_ref = measure.ref()
+    for agg in measure.aggregations:
+        if agg == aggregation_name:
+            continue
+        if agg != "identity":
+            measure_ref += "_" + agg
+        break
+
+    field_name = measure_ref + '_' + aggregation_name
+
+    # if no key_drilldown_paths, the key is always the empty tuple.
     def key_extractor(item):
         vals = []
-        for dim, hier, levels in drilldown_paths[:-1]:
+        for dim, hier, levels in key_drilldown_paths:
             for level in levels:
                 vals.append( item.get(level.key.ref()) )
         return tuple(vals)
-    field_name = measure.ref() + field_suffix
+
 
     by_value_map = {}
 
@@ -50,7 +70,7 @@ def _moving_average_factory(measure, drilldown_paths, avg_func, field_suffix):
         if val_list is None:
             val_list = deque()
             by_value_map[by_value] = val_list
-        val = item.get(measure.ref())
+        val = item.get(measure_ref)
         if val is not None:
             val_list.append(val)
         while len(val_list) > num_units:
