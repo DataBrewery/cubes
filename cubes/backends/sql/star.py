@@ -389,7 +389,13 @@ class SnowflakeBrowser(AggregationBrowser):
         if not measure.aggregations or not drilldown_levels or len(drilldown_levels) < 1:
             return []
 
-        return [ func(measure, drilldown_levels) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
+        # Each calculated aggregation calculates on every non-calculated aggregation.
+        non_calculated_aggs = [ agg for agg in measure.aggregations if aggregation_functions.get(agg) is not None ]
+
+        if not non_calculated_aggs:
+            return []
+
+        return [ func(measure, drilldown_levels, non_calculated_aggs) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
 
     def validate(self):
         """Validate physical representation of model. Returns a list of

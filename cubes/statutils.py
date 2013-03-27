@@ -15,14 +15,14 @@ def _sma(values):
     # use all the values
     return round(reduce(lambda i, c: c + i, values, 0.0) / len(values), 2)
 
-def weighted_moving_average_factory(measure, drilldown_paths):
-    return _moving_average_factory(measure, drilldown_paths, _wma, 'wma')
+def weighted_moving_average_factory(measure, drilldown_paths, source_aggregations):
+    return _moving_average_factory(measure, drilldown_paths, source_aggregations, _wma, 'wma')
 
-def simple_moving_average_factory(measure, drilldown_paths):
-    return _moving_average_factory(measure, drilldown_paths, _sma, 'sma')
+def simple_moving_average_factory(measure, drilldown_paths, source_aggregations):
+    return _moving_average_factory(measure, drilldown_paths, source_aggregations, _sma, 'sma')
 
-def _moving_average_factory(measure, drilldown_paths, avg_func, aggregation_name):
-    if not drilldown_paths:
+def _moving_average_factory(measure, drilldown_paths, source_aggregations, avg_func, aggregation_name):
+    if not drilldown_paths or not source_aggregations:
         return lambda item: None
 
     # if the level we're drilling to doesn't have aggregation_units configured,
@@ -42,17 +42,6 @@ def _moving_average_factory(measure, drilldown_paths, avg_func, aggregation_name
     if num_units is None or not isinstance(num_units, int) or num_units < 2:
         return lambda item: None
 
-    # determine the measure on which to calculate.
-    measure_ref = measure.ref()
-    for agg in measure.aggregations:
-        if agg == aggregation_name:
-            continue
-        if agg != "identity":
-            measure_ref += "_" + agg
-        break
-
-    field_name = measure_ref + '_' + aggregation_name
-
     # if no key_drilldown_paths, the key is always the empty tuple.
     def key_extractor(item):
         vals = []
@@ -61,9 +50,27 @@ def _moving_average_factory(measure, drilldown_paths, avg_func, aggregation_name
                 vals.append( item.get(level.key.ref()) )
         return tuple(vals)
 
+    calculators = []
+    measure_baseref = measure.ref()
+
+    for agg in source_aggregations:
+        if agg != "identity":
+            measure_ref = measure_baseref + "_" + agg
+        else:
+            measure_ref = measure_baseref
+        calculators.append(
+            _calc_func(measure_ref + "_" + aggregation_name, measure_ref, avg_func, key_extractor, num_units)
+        )
+
+    def calculator(item):
+        for calc in calculators:
+            calc(item)
+
+    return calculator
+
+def _calc_func(field_name, measure_ref, avg_func, key_extractor, num_units):
 
     by_value_map = {}
-
     def f(item):
         by_value = key_extractor(item)
         val_list = by_value_map.get(by_value)
