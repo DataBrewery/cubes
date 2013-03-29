@@ -284,17 +284,17 @@ def create_dimension(obj, dimensions=None):
         # Attributes of level model
         level_attributes = ["attributes", "key", "order_attribute", "order",
                             "label_attribute"]
-        info = {}
+        level_args = {}
         for attr in level_attributes:
             if attr in obj:
-                info[attr] = obj[attr]
+                level_args[attr] = obj[attr]
 
         # Default: if no attributes, then there is single flat attribute whith same name
         # as the dimension
-        if not "attributes" in info:
-            info["attributes"] = attribute_list([name])
+        if not "attributes" in level_args:
+            level_args["attributes"] = attribute_list([name])
 
-        levels = [Level(name=name, label=label, **info)]
+        levels = [Level(name=name, label=label, **level_args)]
 
     # Hierarchies
     # -----------
