@@ -5,7 +5,7 @@ from ...common import get_logger, coalesce_options
 from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
-from cubes.workspace import Workspace
+from cubes.workspace import Workspace, interpret_config_value
 
 from .utils import CreateTableAsSelect, InsertIntoAsSelect
 
@@ -125,7 +125,7 @@ def create_workspace(model, **options):
         if (sqlalchemy_options_str):
             for option in sqlalchemy_options_str.split('&'):
                 option_parts = option.split("=")
-                sqlalchemy_options[option_parts[0]] = option_parts[1]
+                sqlalchemy_options[option_parts[0]] = interpret_config_value(option_parts[1])
 
         engine = sqlalchemy.create_engine(db_url, **sqlalchemy_options)
 
