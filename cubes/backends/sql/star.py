@@ -78,7 +78,7 @@ class SnowflakeBrowser(AggregationBrowser):
         * `include_summary` - it ``True`` then summary is included in
           aggregation result. Turned on by default.
         * `include_cell_count` – if ``True`` then total cell count is included
-          in aggregation result. Turned off by default.
+          in aggregation result. Turned on by default.
           performance reasons
 
         Limitations:
@@ -102,8 +102,8 @@ class SnowflakeBrowser(AggregationBrowser):
             self.connectable = connectable
             self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
 
-        self.include_summary = options.get("include_summary", False)
-        self.include_cell_count = options.get("include_cell_count", False)
+        self.include_summary = options.get("include_summary", True)
+        self.include_cell_count = options.get("include_cell_count", True)
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
@@ -263,7 +263,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
     def aggregate(self, cell=None, measures=None, drilldown=None,
                   attributes=None, page=None, page_size=None, order=None,
-                  include_summary=None, include_cell_count=False, **options):
+                  include_summary=None, include_cell_count=None, **options):
         """Return aggregated result.
 
         Arguments:
@@ -277,7 +277,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         Query tuning:
 
-        * `include_cell_count`: if ``True`` (``False`` is default) then
+        * `include_cell_count`: if ``True`` (``True`` is default) then
           `result.total_cell_count` is
           computed as well, otherwise it will be ``None``.
         * `include_summary`: if ``True`` (default) then summary is computed,
