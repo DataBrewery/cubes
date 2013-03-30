@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 from .star import SnowflakeBrowser, QueryContext
 from cubes.mapper import SnowflakeMapper, DenormalizedMapper
-from cubes.common import get_logger
+from ...common import get_logger, coalesce_options
 from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
@@ -20,6 +20,29 @@ __all__ = [
     "create_workspace"
 ]
 
+# Data types of options passed to sqlalchemy.create_engine 
+# This is used to coalesce configuration string values into appropriate types
+SQLALCHEMY_OPTION_TYPES = {
+        "case_sensitive":"bool",
+        "convert_unicode":"bool",
+        "echo":"bool",
+        "echo_pool":"bool",
+        "implicit_returning":"bool",
+        "label_length":"int",
+        "max_overflow":"int",
+        "pool_size":"int",
+        "pool_recycle":"int",
+        "pool_timeout":"int"
+}
+
+# Data types of options passed to the workspace, browser and mapper
+# This is used to coalesce configuration string values
+OPTION_TYPES = {
+        "include_summary": "bool",
+        "include_cell_count": "bool",
+        "use_denormalization": "bool",
+        "safe_labels": "bool"
+}
 
 ####
 # Backend related functions
@@ -97,15 +120,18 @@ def create_workspace(model, **options):
                                 "provide at least one")
 
         # Process SQLAlchemy options
-        sqlalchemy_options = {}
-        sqlalchemy_options_str = options.get("sqlalchemy_options")
-        if (sqlalchemy_options_str):
-            for option in sqlalchemy_options_str.split('&'):
-                option_parts = option.split("=")
-                sqlalchemy_options[option_parts[0]] = option_parts[1]
+        sa_keys = [key for key in options.keys() if key.startswith("sqlalchemy_")]
+        sa_options = {}
+        for key in sa_keys:
+            sa_key = key[11:]
+            sa_options[sa_key] = options.pop(key)
 
-        engine = sqlalchemy.create_engine(db_url, **sqlalchemy_options)
+        sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
+        sa_options = {}
 
+        engine = sqlalchemy.create_engine(db_url, **sa_options)
+
+    options = coalesce_options(options, OPTION_TYPES)
 
     workspace = SQLStarWorkspace(model, engine, **options)
 
