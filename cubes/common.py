@@ -213,7 +213,7 @@ def collect_subclasses(parent, suffix=None):
 
     return subclasses
 
-def string_to_value(astring, value_type, label=None):
+def coalesce_option_value(value, value_type, label=None):
     """Convert string into an object value of `value_type`. The type might be:
         `string` (no conversion), `integer`, `float`, `list` – comma separated
         list of strings.
@@ -222,15 +222,17 @@ def string_to_value(astring, value_type, label=None):
 
     try:
         if value_type == 'string':
-            return_value = astring
+            return_value = str(value)
         elif value_type == 'list':
-            return_value = astring.split(",")
+            return_value = value.split(",")
         elif value_type == "float":
-            return_value = float(astring)
-        elif value_type == "integer":
-            return_value = int(astring)
-        elif value_type == "bool":
-            return_value = astring.lower() in ["true", "yes", "1"]
+            return_value = float(value)
+        elif value_type in ["integer", "int"]:
+            return_value = int(value)
+        elif value_type in ["bool", "boolean"]:
+            return_value = value.lower() in ["1", "true", "yes", "on"]
+        else:
+            raise ArgumentError("Unknown option value type %s" % value_type)
     except ValueError:
         if label:
             label = "parameter %s " % label
@@ -240,3 +242,18 @@ def string_to_value(astring, value_type, label=None):
         raise ArgumentError("Unable to convert %svalue '%s' into type %s" %
                                                 (label, astring, value_type))
     return return_value
+
+def coalesce_options(options, types):
+    """Coalesce `options` dictionary according to types dictionary. Keys in
+    `types` refer to keys in `options`, values of `types` are value types:
+    string, list, float, integer or bool."""
+
+    out = {}
+
+    for key, value in options.items():
+        if key in types:
+            out[key] = coalesce_option_value(value, types[key], key)
+        else:
+            out[key] = value
+
+    return out
