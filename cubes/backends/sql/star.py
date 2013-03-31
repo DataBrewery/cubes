@@ -1093,8 +1093,8 @@ class QueryContext(object):
         attributes = []
 
         for column in columns:
-            attributes.append(self.column_to_logical.get(str(column),
-                                                         str(column)))
+            attributes.append(self.column_to_logical.get(column.name,
+                                                         column.name))
 
         return attributes
 
