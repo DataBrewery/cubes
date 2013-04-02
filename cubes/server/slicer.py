@@ -1,11 +1,14 @@
 # -*- coding=utf -*-
 # Package imports
 import json
+import flask
 import cubes
 import logging
 import ConfigParser
 
 # Werkzeug - soft dependency
+from cubes.server.blueprint import SlicerBlueprint
+
 try:
     from werkzeug.routing import Map, Rule
     from werkzeug.wrappers import Request, Response
@@ -194,7 +197,20 @@ def create_server(config_file):
     except Exception as e:
         raise Exception("Unable to load configuration: %s" % e)
 
-    return Slicer(config)
+    app = _create_server_from_config(config)
+    return app
+
+
+def _create_server_from_config(config):
+    context = create_slicer_context(config)
+    backend = context['backend']
+    model = context['model']
+
+    workspace = backend.create_workspace(model, **context["workspace_options"])
+
+    app = flask.Flask(__name__)
+    app.register_blueprint(SlicerBlueprint(workspace, 'slicer'))
+
 
 def run_server(config):
     """Run OLAP server with configuration specified in `config`"""
@@ -213,6 +229,6 @@ def run_server(config):
     else:
         use_reloader = False
 
-    application = Slicer(config)
-    werkzeug.serving.run_simple(host, port, application, use_reloader=use_reloader)
+    application = _create_server_from_config(config)
+    application.run(host=host, port=port, use_reloader=use_reloader)
 

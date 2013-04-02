@@ -18,6 +18,7 @@ except ImportError:
 
 API_VERSION = "1"
 
+
 class SlicerBlueprint(flask.Blueprint):
     def __init__(self, workspace,  *args, **kwargs):
         super(SlicerBlueprint, self).__init__(*args, **kwargs)
