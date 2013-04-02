@@ -1209,8 +1209,8 @@ class QueryContext(object):
 
         _QUOTE_STRIPPER = re.compile(r"^\"(.+)\"$")
         for column in columns:
-            attributes.append(self.column_to_logical.get(str(column),
-                                                         _QUOTE_STRIPPER.sub(r"\1", str(column))))
+            attributes.append(self.column_to_logical.get(column.name,
+                                                         column.name))
 
         return attributes
 
