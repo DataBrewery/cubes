@@ -28,6 +28,8 @@ class MongoWorkspace(Workspace):
     def __init__(self, model, **options):
         super(MongoWorkspace, self).__init__(model)
         self.logger = get_logger()
+        self.options = options
+        self.metadata = {}
 
     def browser(self, cube, locale=None):
         print 'browser:', cube, locale
@@ -44,20 +46,21 @@ class MongoWorkspace(Workspace):
         return browser
 
 
-def get_mongo_collection(**options):
-    mongo_client = pymongo.MongoClient(**options)
-    return mongo_client[ options.get('database') ][ options.get('collection') ]
-
 class MongoBrowser(AggregationBrowser):
     def __init__(self, cube, locale=None, metadata={}, **options):
         super(MongoBrowser, self).__init__(cube)
-        self.data_store = get_mongo_collection(**options)
+
+        print 'CUBE', cube
+        mongo_client = pymongo.MongoClient(**options)
+
+        db, coll = cube.name.split('.')
+
+        self.data_store = mongo_client[db][coll]
 
     def aggregate(self, cell=None, measures=None, drilldown=None, 
                   attributes=None, order=None, page=None, page_size=None, 
                   **options):
-        if not cell:
-            cell = Cell(self.cube)
+        cell = cell or Cell(self.cube)
 
         if measures:
             measures = [self.cube.measure(measure) for measure in measures]
@@ -72,6 +75,9 @@ class MongoBrowser(AggregationBrowser):
             for dim, levels in drilldown_levels:
                 dim_levels[str(dim)] = [str(level) for level in levels]
             result.levels = dim_levels
+
+
+        print 'CELL', cell
 
         cursor = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels)
         result.cells = cursor
@@ -88,16 +94,15 @@ class MongoBrowser(AggregationBrowser):
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, order=None, page=None, page_size=None, **options):
         raise NotImplementedError
 
-    def _do_aggregation_query(cell, measures, attributes, drilldown):
+    def _do_aggregation_query(self, cell, measures, attributes, drilldown):
 
         # determine query for cell cut
         find_clauses = []
+        query_obj = {}
         for cut in cell.cuts:
             find_clauses += self._query_conditions_for_cut(cut)
         if find_clauses:
-            query_obj = { "$and": find_clauses }
-        else:
-            query_obj = {}
+            query_obj.update({ "$and": find_clauses })
         fields_obj = {}
 
         if attributes:
@@ -106,7 +111,7 @@ class MongoBrowser(AggregationBrowser):
 
         # if no drilldown, no aggregation pipeline needed.
         if not drilldown:
-            return self.data_store.find(query_object).count()
+            return self.data_store.find(query_obj).count()
 
         # drilldown, fire up the pipeline
         group_obj = {}
