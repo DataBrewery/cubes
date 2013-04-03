@@ -52,7 +52,6 @@ def get_mongo_collection(**options):
 class MongoBrowser(AggregationBrowser):
     def __init__(self, cube, locale=None, metadata={}, **options):
         super(MongoBrowser, self).__init__(cube)
-<<<<<<< Updated upstream
         self.data_store = get_mongo_collection(**options)
 
     def aggregate(self, cell=None, measures=None, drilldown=None, 
@@ -190,9 +189,3 @@ class MongoBrowser(AggregationBrowser):
 
     def _document_field(self, ref):
         return str(ref)
-=======
-        self.data_store = pymongo.MongoClient(**options)
-
-    def aggregate(self, cell=None, measures=None, drilldown=None, **options):
-        pass
->>>>>>> Stashed changes
