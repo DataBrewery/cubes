@@ -9,7 +9,7 @@
     ],
     "cubes": [
         {
-            "name": "SquarespaceEvents.shopper_events",
+            "name": "SquarespaceEvents.discrete_events",
             "dimensions": [
               "t"
             ],

@@ -574,6 +574,9 @@ class Model(object):
 
         self.translations = {}
 
+    def __str__(self):
+        return 'Model(%s)' % self.name
+
     def add_cube(self, cube):
         """Adds cube to the model and also assigns the model to the cube. If
         cube has a model assigned and it is not this model, then error is
