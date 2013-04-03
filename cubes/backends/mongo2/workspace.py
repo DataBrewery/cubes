@@ -91,10 +91,17 @@ class MongoBrowser(AggregationBrowser):
         raise NotImplementedError
 
     def _do_aggregation_query(cell, measures, attributes, drilldown):
-        query_obj = {}
+
+        # determine query for cell cut
+        find_clauses = []
         for cut in cell.cuts:
-            query_obj.update(self._query_condition_for_cut(cut))
+            find_clauses += self._query_conditions_for_cut(cut)
+        if find_clauses:
+            query_obj = { "$and": find_clauses }
+        else:
+            query_obj = {}
         fields_obj = {}
+
         if attributes:
             for attribute in attributes:
                 fields_obj[ attribute.ref() ] = 1
@@ -128,9 +135,37 @@ class MongoBrowser(AggregationBrowser):
                 pipeline.append({ "$limit": page_size })
         return self.data_store.aggregate(pipeline).get('result', [])
 
-    def _query_condition_for_cut(self, cut):
-        # TODO 
-        return {}
+    def _query_conditions_for_cut(self, cut):
+        conds = []
+        if isinstance(cut, PointCut):
+            # one condition per path element
+            for p in cut.path:
+                conds.append( self._query_condition_for_path_value(cut.dimension, p, "$ne" if cut.invert else None) )
+        elif isinstance(cut, SetCut):
+            for path in cut.paths:
+                path_conds = []
+                for p in path:
+                    path_conds.append( self._query_condition_for_path_value(cut.dimension, p, "$ne" if cut.invert else None) )
+                conds.append({ "$and" : path_conds })
+            conds = { "$or" : conds }
+        # FIXME this is broken. Multi-level dimensions require range cuts to have extra conditions depending on the depth
+        # of the level value.
+        elif isinstance(cut, RangeCut):
+            if cut.from_path:
+                for p in cut.from_path:
+                    conds.append( self._query_condition_for_path_value(cut.dimension, p, "$lt" if cut.invert else "$gte") )
+            if cut.to_path:
+                for p in cut.to_path:
+                    conds.append( self._query_condition_for_path_value(cut.dimension, p, "$gt" if cut.invert else "$lte") )
+        else:
+            raise ValueError("Unrecognized cut object: %r" % cut)
+        return conds
+
+    def _query_condition_for_path_value(self, dim, value, op=None):
+        if op is None:
+            return { str(dim) : value }
+        else:
+            return { str(dim) : { op : value } }
 
     def _order_to_sort_list(self, order=None):
         if not order:
