@@ -430,8 +430,8 @@ class SnowflakeMapper(Mapper):
         }
 
         for join in self.joins:
-            if not join.detail.table or join.detail.table == self.fact_name:
-                raise BackendError("Detail table name should be present and should not be a fact table.")
+            if not join.detail.table or (join.detail.table == self.fact_name and not join.alias):
+                raise BackendError("Detail table name should be present and should not be a fact table unless aliased.")
 
             ref = (join.master.schema, join.master.table)
             tables[ref] = ref

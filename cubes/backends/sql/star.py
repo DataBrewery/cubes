@@ -722,9 +722,9 @@ class QueryContext(object):
 
         for join in joins:
 
-            if not join.detail.table or join.detail.table == self.fact_name:
+            if not join.detail.table or (join.detail.table == self.fact_name and not join.alias):
                 raise MappingError("Detail table name should be present and "
-                                   "should not be a fact table.")
+                                   "should not be a fact table unless aliased.")
 
             master_table = self.table(join.master.schema, join.master.table)
             detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
