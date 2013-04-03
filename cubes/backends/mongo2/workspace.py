@@ -99,12 +99,13 @@ class MongoBrowser(AggregationBrowser):
         # determine query for cell cut
         find_clauses = []
         query_obj = {}
-        for cut in cell.cuts:
-            find_clauses += self._query_conditions_for_cut(cut)
+
+        find_clauses = [self._query_conditions_for_cut(cut) for cut in cell.cuts]
+
         if find_clauses:
             query_obj.update({ "$and": find_clauses })
+        
         fields_obj = {}
-
         if attributes:
             for attribute in attributes:
                 fields_obj[ attribute.ref() ] = 1
@@ -128,14 +129,17 @@ class MongoBrowser(AggregationBrowser):
             { "$match": query_obj },
             { "$project": fields_obj },
             { "$group": group_obj }
-            ]
+        ]
+
         if order:
             pipeline.append({ "$sort": self._order_to_sort_list(order) })
-        if page is not None and page_size is not None:
-            if page > 0:
-                pipeline.append({ "$skip": page * page_size })
-            if page_size > 0:
-                pipeline.append({ "$limit": page_size })
+        
+        if page and page > 0:
+            pipeline.append({ "$skip": page * page_size })
+        
+        if page_size and page_size > 0:
+            pipeline.append({ "$limit": page_size })
+        
         return self.data_store.aggregate(pipeline).get('result', [])
 
     def _query_conditions_for_cut(self, cut):
