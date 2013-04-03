@@ -216,6 +216,9 @@ class Workspace(object):
         self.localized_models = {}
         self.logger = get_logger()
 
+    def __str__(self):
+        return 'Workspace(%s)' % str(self.model)
+
     def browser(self, cube, locale=None):
         """Creates new or provides a shared browser instance. `cube` is the
         browsed cube and `locale` is optional specification of locale to be

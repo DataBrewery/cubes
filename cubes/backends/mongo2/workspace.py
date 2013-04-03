@@ -15,18 +15,19 @@ __all__ = [
     "create_workspace"
 ]
 
+
 def create_workspace(model, **options):
-    print 'MODEL:', model
-    print 'options:', options
+    print 'model:', model
+    for k, v in options.items():
+        print k, v
 
-    return MongoWorkspace(model, options)
-
+    return MongoWorkspace(model, **options)
 
 
 class MongoWorkspace(Workspace):
+
     def __init__(self, model, **options):
         super(MongoWorkspace, self).__init__(model)
-        self.data_store = data_store
         self.logger = get_logger()
 
     def browser(self, cube, locale=None):
@@ -51,6 +52,7 @@ def get_mongo_collection(**options):
 class MongoBrowser(AggregationBrowser):
     def __init__(self, cube, locale=None, metadata={}, **options):
         super(MongoBrowser, self).__init__(cube)
+<<<<<<< Updated upstream
         self.data_store = get_mongo_collection(**options)
 
     def aggregate(self, cell=None, measures=None, drilldown=None, 
@@ -153,3 +155,9 @@ class MongoBrowser(AggregationBrowser):
 
     def _document_field(self, ref):
         return str(ref)
+=======
+        self.data_store = pymongo.MongoClient(**options)
+
+    def aggregate(self, cell=None, measures=None, drilldown=None, **options):
+        pass
+>>>>>>> Stashed changes
