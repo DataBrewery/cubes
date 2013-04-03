@@ -13,7 +13,7 @@ def _wma(values):
 
 def _sma(values):
     # use all the values
-    return round(reduce(lambda i, c: c + i, values, 0.0) / len(values), 2)
+    return round(reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
 
 def weighted_moving_average_factory(measure, drilldown_paths, source_aggregations):
     return _moving_average_factory(measure, drilldown_paths, source_aggregations, _wma, 'wma')
