@@ -7,7 +7,6 @@ from cubes.computation import *
 from cubes.workspace import Workspace
 
 import pymongo
-from pymongo.son import SON
 import bson
 
 
@@ -75,7 +74,7 @@ class MongoBrowser(AggregationBrowser):
             result.levels = dim_levels
 
         cursor = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels)
-            result.cells = cursor
+        result.cells = cursor
 
         return result
 
@@ -126,7 +125,7 @@ class MongoBrowser(AggregationBrowser):
             { "$group": group_obj }
             ]
         if order:
-            pipeline.append({ "$sort": SON(self._order_to_sort_list(order)) })
+            pipeline.append({ "$sort": self._order_to_sort_list(order) })
         if page is not None and page_size is not None:
             if page > 0:
                 pipeline.append({ "$skip": page * page_size })
@@ -147,14 +146,18 @@ class MongoBrowser(AggregationBrowser):
                     path_conds.append( self._query_condition_for_path_value(cut.dimension, p, "$ne" if cut.invert else None) )
                 conds.append({ "$and" : path_conds })
             conds = { "$or" : conds }
-        # FIXME this is broken. Multi-level dimensions require range cuts to have extra conditions depending on the depth
+        # FIXME for multi-level range: it's { $or: [ level_above_me < value_above_me, $and: [level_above_me = value_above_me, my_level < my_value] }
         # of the level value.
         elif isinstance(cut, RangeCut):
             if cut.from_path:
-                for p in cut.from_path:
-                    conds.append( self._query_condition_for_path_value(cut.dimension, p, "$lt" if cut.invert else "$gte") )
+                last_idx = len(cut.from_path) - 1
+                for idx, p in enumerate(cut.from_path):
+                    op = ( ("$lt", "$ne") if cut.invert else ("$gte", None) )[0 if idx == last_idx else 1]
+                    conds.append( self._query_condition_for_path_value(cut.dimension, p, op))
             if cut.to_path:
-                for p in cut.to_path:
+                last_idx = len(cut.to_path) - 1
+                for idx, p in enumerate(cut.to_path):
+                    op = ( ("$gt", "$ne") if cut.invert else ("$lte", None) )[0 if idx == last_idx else 1]
                     conds.append( self._query_condition_for_path_value(cut.dimension, p, "$gt" if cut.invert else "$lte") )
         else:
             raise ValueError("Unrecognized cut object: %r" % cut)
