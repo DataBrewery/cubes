@@ -72,6 +72,8 @@ rules = Map([
                         endpoint = (controllers.CubesController, 'cell_details')),
     Rule('/cube/<string:cube>/details',
                         endpoint = (controllers.CubesController, 'details')),
+    Rule('/cube/<string:cube>/build',
+                        endpoint = (controllers.CubesController, 'build')),
     # Use default cube (specified in config as: [model] cube = ... )
     Rule('/aggregate',
                         endpoint = (controllers.CubesController, 'aggregate'),
@@ -102,7 +104,7 @@ rules = Map([
 
     Rule('/search',
                         endpoint = (controllers.SearchController, 'search'),
-                        defaults={"cube":None})
+                        defaults={"cube":None}),
 ])
 
 class Slicer(object):

@@ -15,7 +15,9 @@ __all__ = [
 ]
 
 backend_aliases = {
-    "sql": "sql.workspace"
+    "sql": "sql.workspace",
+    "mongo": "mongo.workspace",
+    "mongo2": "mongo2.workspace"
 }
 
 DEFAULT_BACKEND = "sql"
@@ -214,6 +216,9 @@ class Workspace(object):
         self.locales.sort()
         self.localized_models = {}
         self.logger = get_logger()
+
+    def __str__(self):
+        return 'Workspace(%s)' % str(self.model)
 
     def browser(self, cube, locale=None):
         """Creates new or provides a shared browser instance. `cube` is the

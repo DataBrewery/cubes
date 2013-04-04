@@ -5,7 +5,7 @@ import base
 class MongoSimpleCubeBrowser(AggregationBrowser):
     """Browser for aggregated cube computed by :class:`cubes.build.MongoSimpleCubeBuilder` """
     
-    def __init__(self, cube, collection, database = None, aggregate_flag_field = "_is_aggregate"):
+    def __init__(self, cube, collection, database, aggregate_flag_field = "_is_aggregate"):
         """Create a browser.
         
         :Attributes:
@@ -31,14 +31,14 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
         self.aggregate_flag_field = aggregate_flag_field
         self.cell_selector_name = "_selector"
 
-    def aggregate(self, cell, measures = None, drill_down = None):
+    def aggregate(self, cell, measures = None, drilldown = None, page=None, page_size=None, order=None):
         """See :meth:`cubes.browsers.cell.aggregate`."""
         
         ###################################################
         # 1. Prepare cell selector
 
-        if drill_down:
-            drill_dimension = self.cube.dimension(drill_down)
+        if drilldown:
+            drill_dimension = self.cube.dimension(drilldown)
         else:
             drill_dimension = None
             
@@ -46,8 +46,8 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
         condition = { self.cell_selector_name: selector }
         condition[self.aggregate_flag_field] = True
         
-        if drill_down:
-            drill_dimension = self.cube.dimension(drill_down)
+        if drilldown:
+            drill_dimension = self.cube.dimension(drilldown)
         else:
             drill_dimension = None
 
@@ -77,6 +77,8 @@ class MongoSimpleCubeBrowser(AggregationBrowser):
         
         ###################################################
         # 3. Perform selection - find records in collection
+
+        print 'CONDITION', condition
         
         cursor = self.collection.find(spec = condition)
         return cursor
