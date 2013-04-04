@@ -5,10 +5,9 @@ from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
 from cubes.workspace import Workspace
+
 import collections
-import datetime
-
-
+import copy
 import pymongo
 import bson
 
@@ -19,10 +18,6 @@ __all__ = [
 
 
 def create_workspace(model, **options):
-    print 'model:', model
-    for k, v in options.items():
-        print k, v
-
     return MongoWorkspace(model, **options)
 
 
@@ -53,7 +48,6 @@ class MongoBrowser(AggregationBrowser):
     def __init__(self, cube, locale=None, metadata={}, **options):
         super(MongoBrowser, self).__init__(cube)
 
-        print 'CUBE', cube
         mongo_client = pymongo.MongoClient(options.get('url'))
         mongo_client.read_preference = pymongo.read_preferences.ReadPreference.SECONDARY
 
@@ -82,8 +76,6 @@ class MongoBrowser(AggregationBrowser):
                 dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
             result.levels = dim_levels
 
-        print 'CELL', cell
-
         summary, cursor = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, order=order, page=page, page_size=page_size)
         result.cells = cursor
         result.summary = summary
@@ -105,6 +97,8 @@ class MongoBrowser(AggregationBrowser):
         # determine query for cell cut
         find_clauses = []
         query_obj = {}
+        if self.cube.mappings and self.cube.mappings.get('__query__'):
+            query_obj.update(copy.deepcopy(self.cube.mappings['__query__']))
 
         find_clauses = reduce(lambda i, c: i + c, [self._query_conditions_for_cut(cut) for cut in cell.cuts], [])
 
