@@ -1402,6 +1402,9 @@ def levels_from_drilldown(cell, drilldown):
             if cut:
                 cut_hierarchy = dim.hierarchy(cut.hierarchy)
                 depth = cut.level_depth()
+                # inverted cut means not to auto-drill to the next level
+                if cut.invert:
+                    depth -= 1
             else:
                 cut_hierarchy = hier
                 depth = 0
