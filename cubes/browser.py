@@ -687,7 +687,7 @@ class Cell(object):
     def __str__(self):
         """Return string representation of the cell by using standard
         cuts-to-string conversion."""
-        return self.to_str()
+        return 'Cell(%s: %s)' % (str(self.cube), self.to_str() or 'All')
 
 CUT_STRING_SEPARATOR_CHAR = "|"
 DIMENSION_STRING_SEPARATOR_CHAR = ":"

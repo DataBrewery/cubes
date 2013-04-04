@@ -23,3 +23,5 @@ doc/_build/
 
 # Local sandbox/playground
 /sandbox
+
+.DS_Store
