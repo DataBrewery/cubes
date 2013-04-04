@@ -19,15 +19,15 @@ class MongoDocumentField(object):
         self.field = field
         self.match = match
         self.project = project
-        self.encode = None
+        self.encode = lambda x: x
         if encode:
             self.encode = compile(encode, 'eval')
-        self.decode = None
+        self.decode = lambda x: x
         if decode:
             self.decode = compile(decode, 'eval')
 
     def match_expression(self, value, op=None):
-        value = self.encode_value(value)
+        value = self.encode(value)
         if op is None:
             return { self.field : value }
         else:
@@ -38,18 +38,6 @@ class MongoDocumentField(object):
             return copy.deepcopy(self.project)
         else:
             return "$%s" % self.field
-
-    def encode_value(self, value):
-        if self.encode:
-            return self.encode(value)
-        else:
-            return value
-
-    def decode_value(self, value):
-        if self.decode:
-            return self.decode(value)
-        else:
-            return value
 
 def coalesce_physical(ref):
     if isinstance(ref, basestring):
@@ -99,43 +87,7 @@ class MongoCollectionMapper(Mapper):
         """Returns physical reference as tuple for `attribute`, which should
         be an instance of :class:`cubes.model.Attribute`. If there is no
         dimension specified in attribute, then fact table is assumed. The
-        returned tuple has structure: (`schema`, `table`, `column`).
-
-        The algorithm to find physicl reference is as follows::
-
-            IF localization is requested:
-                IF is attribute is localizable:
-                    IF requested locale is one of attribute locales
-                        USE requested locale
-                    ELSE
-                        USE default attribute locale
-                ELSE
-                    do not localize
-
-            IF mappings exist:
-                GET string for logical reference
-                IF locale:
-                    append '.' and locale to the logical reference
-
-                IF mapping value exists for localized logical reference
-                    USE value as reference
-
-            IF no mappings OR no mapping was found:
-                column name is attribute name
-
-                IF locale:
-                    append '_' and locale to the column name
-
-                IF dimension specified:
-                    # Example: 'date.year' -> 'date.year'
-                    table name is dimension name
-
-                    IF there is dimension table prefix
-                        use the prefix for table name
-
-                ELSE (if no dimension is specified):
-                    # Example: 'date' -> 'fact.date'
-                    table name is fact table name
+        returned object is a MongoDocumentField object.
         """
 
         reference = None
