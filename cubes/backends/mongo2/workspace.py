@@ -1,10 +1,10 @@
 import logging
-from cubes.mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical
 from cubes.common import get_logger
 from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
 from cubes.workspace import Workspace
+from .mapper import MongoCollectionMapper
 
 import collections
 import copy
@@ -43,7 +43,6 @@ class MongoWorkspace(Workspace):
 
         return browser
 
-
 class MongoBrowser(AggregationBrowser):
     def __init__(self, cube, locale=None, metadata={}, **options):
         super(MongoBrowser, self).__init__(cube)
@@ -55,7 +54,7 @@ class MongoBrowser(AggregationBrowser):
 
         self.data_store = mongo_client[db][coll]
 
-        self.mapper = SnowflakeMapper(cube, locale)
+        self.mapper = MongoCollectionMapper(cube, locale)
 
     def aggregate(self, cell=None, measures=None, drilldown=None, 
                   attributes=None, order=None, page=None, page_size=None, 
@@ -108,7 +107,7 @@ class MongoBrowser(AggregationBrowser):
         fields_obj = {}
         if attributes:
             for attribute in attributes:
-                fields_obj[ self.mapper.physical(attribute) ] = 1
+                fields_obj[ escape_level(attribute.ref()) ] = self.mapper.physical(attribute).project_expression()
 
         # if no drilldown, no aggregation pipeline needed.
         if not drilldown:
@@ -119,9 +118,9 @@ class MongoBrowser(AggregationBrowser):
         group_id = {}
         for dim, hier, levels in drilldown:
             for level in levels:
-                phys = self.mapper.physical(level.key).column
-                fields_obj[phys] = 1
-                group_id[level.key.ref()] = "$%s" % phys
+                phys = self.mapper.physical(level.key)
+                fields_obj[escape_level(level.key.ref())] = phys.project_expression()
+                group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
 
         agg = self.cube.measure('record_count').aggregations[0]
         if agg == 'count':
@@ -153,7 +152,8 @@ class MongoBrowser(AggregationBrowser):
         print "PIPELINE", pipeline
         for item in self.data_store.aggregate(pipeline).get('result', []):
             new_item = {}
-            new_item.update(item['_id'])
+            for k, v in item['_id'].items():
+                new_item[unescape_level(k)] = v
             new_item['record_count'] = item['record_count']
             result_items.append(new_item)
         return (None, result_items)
@@ -176,6 +176,8 @@ class MongoBrowser(AggregationBrowser):
         # FIXME for multi-level range: it's { $or: [ level_above_me < value_above_me, $and: [level_above_me = value_above_me, my_level < my_value] }
         # of the level value.
         elif isinstance(cut, RangeCut):
+            if True:
+                raise ArgumentError("No support yet for range cuts in mongo2 backend")
             if cut.from_path:
                 last_idx = len(cut.from_path) - 1
                 for idx, p in enumerate(cut.from_path):
@@ -191,11 +193,8 @@ class MongoBrowser(AggregationBrowser):
         return conds
 
     def _query_condition_for_path_value(self, attr, value, op=None):
-        tcr = self.mapper.physical(attr)
-        if op is None:
-            return { tcr.column : value }
-        else:
-            return { tcr.column : { op : value } }
+        phys = self.mapper.physical(attr)
+        return phys.match_expression(value, op)
 
     def _order_to_sort_object(self, order=None):
         if not order:
@@ -206,9 +205,14 @@ class MongoBrowser(AggregationBrowser):
         for attrname, sort_order_string in order:
             sort_order = -1 if sort_order_string in ('desc', 'DESC') else 1
             attribute = self.mapper.attribute(attrname)
-            field = self.mapper.physical(attribute)
 
             if attrname not in order_by:
-                order_by[attrname] = ( attribute.ref(), sort_order )
+                order_by[escape_level(attribute.ref())] = ( escape_level(attribute.ref()), sort_order )
         return dict( order_by.values() )
 
+
+def escape_level(ref):
+    return ref.replace('.', '___')
+
+def unescape_level(ref):
+    return ref.replace('___', '.')
