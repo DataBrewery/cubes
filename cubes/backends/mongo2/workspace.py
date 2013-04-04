@@ -123,7 +123,16 @@ class MongoBrowser(AggregationBrowser):
                 fields_obj[phys] = 1
                 group_id[level.key.ref()] = "$%s" % phys
 
-        group_obj = { "_id": group_id, "record_count": { "$sum": 1 } }
+        agg = self.cube.measure('record_count').aggregations[0]
+        if agg == 'count':
+            agg = 'sum'
+            agg_field = 1
+        else:
+            agg_field = self.cube.mappings.get('record_count')
+            if agg_field:
+                fields_obj[ agg_field ] = 1
+            agg_field = "$%s" % agg_field if agg_field else 1
+        group_obj = { "_id": group_id, "record_count": { "$%s" % agg: agg_field } }
 
         pipeline = [
             { "$match": query_obj },
@@ -141,6 +150,7 @@ class MongoBrowser(AggregationBrowser):
             pipeline.append({ "$limit": page_size })
         
         result_items = []
+        print "PIPELINE", pipeline
         for item in self.data_store.aggregate(pipeline).get('result', []):
             new_item = {}
             new_item.update(item['_id'])
