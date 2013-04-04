@@ -16,7 +16,8 @@ __all__ = [
 
 backend_aliases = {
     "sql": "sql.workspace",
-    "mongo": "mongo.workspace"
+    "mongo": "mongo.workspace",
+    "mongo2": "mongo2.workspace"
 }
 
 DEFAULT_BACKEND = "sql"
