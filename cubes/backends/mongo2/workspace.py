@@ -77,7 +77,7 @@ class MongoBrowser(AggregationBrowser):
 
         summary, cursor = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, order=order, page=page, page_size=page_size)
         result.cells = cursor
-        result.summary = summary
+        result.summary = { "record_count": summary }
 
         return result
 
