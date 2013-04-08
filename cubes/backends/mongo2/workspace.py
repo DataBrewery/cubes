@@ -11,6 +11,7 @@ import copy
 import pymongo
 import bson
 
+from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
 from itertools import groupby
 from functools import partial
@@ -284,8 +285,6 @@ class MongoBrowser(AggregationBrowser):
                 item['record_count'] = group_fn([d['record_count'] for d in items])
 
                 item = _date_norm(item, datenormalize)
-
-                print '=formatted_item', item
                 formatted_results.append(item)
 
             if page and page_size:
@@ -303,13 +302,33 @@ class MongoBrowser(AggregationBrowser):
         return (None, result_items)
 
     def _query_conditions_for_cut(self, cut):
+
+        print '=cut', cut, type(cut)
+
         conds = []
         cut_dimension = self.cube.dimension(cut.dimension)
         cut_hierarchy = cut_dimension.hierarchy(cut.hierarchy)
         if isinstance(cut, PointCut):
-            # one condition per path element
-            for idx, p in enumerate(cut.path):
-                conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else None) )
+            if cut.dimension.lower() == 'date':
+                dateparts = ['year', 'month', 'day', 'hour']
+
+                date_dict = {'month': 1, 'day': 1, 'hour':0}
+                min_part = None
+
+                for val, dp in zip(cut.path, dateparts[:len(cut.path)]):
+                    date_dict[dp] = int(val)
+                    min_part = dp
+
+                start = _eastern_date_as_utc(**date_dict)
+                end = start + relativedelta(**{dp+'s':1})
+                conds.append(self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte'))
+                conds.append(self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'))
+
+            else:
+                # one condition per path element
+                for idx, p in enumerate(cut.path):
+                    print '=cut', idx, p
+                    conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else None) )
         elif isinstance(cut, SetCut):
             for path in cut.paths:
                 path_conds = []
@@ -353,6 +372,18 @@ class MongoBrowser(AggregationBrowser):
             if attrname not in order_by:
                 order_by[escape_level(attribute.ref())] = ( escape_level(attribute.ref()), sort_order )
         return dict( order_by.values() )
+
+
+def _eastern_date_as_utc(year, **kwargs):
+
+    dateparts = {'year': year, 'tzinfo': tz}
+    dateparts.update(kwargs)
+
+    date = datetime(**dateparts)
+
+    return date.astimezone(tz_utc)
+
+
 
 
 def escape_level(ref):
