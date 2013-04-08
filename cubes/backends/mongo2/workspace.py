@@ -11,10 +11,58 @@ import copy
 import pymongo
 import bson
 
+from datetime import datetime, timedelta
+from itertools import groupby
+from functools import partial
+import pytz
+
+tz = pytz.timezone('America/New_York')
+tz_utc = pytz.timezone('UTC')
 
 __all__ = [
     "create_workspace"
 ]
+
+
+def _calc_week(dt):
+    year = dt.year
+
+    dt = _get_next_weekdate(dt)
+
+    count = 0
+    while dt.year == year:
+        count += 1
+        dt -= timedelta(days=7)
+
+    return count
+
+def _get_next_weekdate(dt):
+    dt = dt.replace(**{
+            'hour': 0,
+            'minute': 0,
+            'second': 0,
+            'microsecond': 0,
+        })
+
+    while dt.weekday() != 4:
+        dt += timedelta(1)
+
+    return dt
+
+_datepart_functions = {
+    'year': lambda x:x.year,
+    'month': lambda x:x.month,
+    'week': _calc_week,
+    'day': lambda x:x.day,
+    'hour': lambda x:x.hour,
+}
+
+_date_norm_map = {
+    'month': 1,
+    'day': 1,
+    'hour': 0,
+    'minute': 0, 
+}
 
 
 def create_workspace(model, **options):
@@ -93,6 +141,15 @@ class MongoBrowser(AggregationBrowser):
 
     def _do_aggregation_query(self, cell, measures, attributes, drilldown, order, page, page_size):
 
+        print '=QUERY'
+        print 'cell', cell
+        print 'measures', measures
+        print 'attributes', attributes
+        print 'drilldown', drilldown
+        print 'order', order
+        print 'page', page
+        print 'page_size', page_size
+
         # determine query for cell cut
         find_clauses = []
         query_obj = {}
@@ -116,11 +173,52 @@ class MongoBrowser(AggregationBrowser):
         # drilldown, fire up the pipeline
         group_obj = {}
         group_id = {}
+
+        date_processing = False
+        date_transform = lambda x:x
+
         for dim, hier, levels in drilldown:
-            for level in levels:
-                phys = self.mapper.physical(level.key)
-                fields_obj[escape_level(level.key.ref())] = phys.project_expression()
-                group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
+
+            # Special Mongo Date Hack for TZ Support
+            if dim and dim.name.lower() == 'date':
+                date_processing = True
+                phys = self.mapper.physical(levels[0].key)
+                date_idx = phys.project_expression()
+
+                query_obj.update(phys.match_expression(1, op='$exists'))
+                fields_obj[date_idx[1:]] = 1
+
+                group_id.update({
+                    'year': {'$year': date_idx},
+                    'month': {'$month': date_idx},
+                    'day': {'$dayOfMonth': date_idx},
+                    'hour': {'$hour': date_idx},
+                })
+
+                def _date_transform(item, date_field):
+
+                    date_dict = {}
+                    for k in ['year', 'month', 'day', 'hour']:
+                        date_dict[k] = item['_id'].pop(k)
+                    date_dict.update({'tzinfo': tz_utc})
+
+                    date = datetime(**date_dict)
+                    date = date.astimezone(tz=tz) # convert to eastern
+
+                    item['_id'][date_field] = date
+
+                    print '=item', item
+                    return item
+
+                date_transform = partial(_date_transform, date_field=dim.name)
+
+            else:
+                for level in levels:
+                    phys = self.mapper.physical(level.key)
+                    exp = phys.project_expression()
+                    fields_obj[escape_level(level.key.ref())] = exp
+                    group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
+                    query_obj.update(phys.match_expression(1, op='$exists'))
 
         agg = self.cube.measure('record_count').aggregations[0]
         if agg == 'count':
@@ -133,24 +231,81 @@ class MongoBrowser(AggregationBrowser):
             agg_field = "$%s" % agg_field if agg_field else 1
         group_obj = { "_id": group_id, "record_count": { "$%s" % agg: agg_field } }
 
-        pipeline = [
-            { "$match": query_obj },
-            { "$project": fields_obj },
-            { "$group": group_obj }
-        ]
+        pipeline = []
+        pipeline.append({ "$match": query_obj })
+        if fields_obj:
+            pipeline.append({ "$project": fields_obj })
+        pipeline.append({ "$group": group_obj })
 
-        if order:
+        if not date_processing and order:
             pipeline.append({ "$sort": self._order_to_sort_object(order) })
         
-        if page and page > 0:
+        if not date_processing and page and page > 0:
             pipeline.append({ "$skip": page * page_size })
         
-        if page_size and page_size > 0:
+        if not date_processing and page_size and page_size > 0:
             pipeline.append({ "$limit": page_size })
         
         result_items = []
         print "PIPELINE", pipeline
-        for item in self.data_store.aggregate(pipeline).get('result', []):
+
+        results = self.data_store.aggregate(pipeline).get('result', [])
+        results = [date_transform(r) for r in results]
+
+        if date_processing:
+            dategrouping = ['year', 'month', 'week', 'day', 'hour',]
+            datenormalize = ['year', 'month', 'day', 'hour',]
+
+            for dim, hier, levels in drilldown:
+                if dim and dim.name.lower() == 'date':
+                    dategrouping = [str(l).lower() for l in levels]
+                    for dg in dategrouping:
+                        datenormalize.remove(dg)
+                    print '=datenormalize', datenormalize
+                    print '=dategrouping', dategrouping
+                    break
+
+            def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
+                dt = item['_id']['date']
+                key = [_datepart_functions.get(dp)(dt) for dp in dategrouping]
+                
+                for k, v in sorted(item['_id'].items(), key=lambda x:x[0]):
+                    if k != 'date':
+                        key.append(v)
+
+                print '=key', key
+                return key
+
+            results = sorted(results, key=partial(_date_key, dategrouping=dategrouping))
+            groups = groupby(results, key=partial(_date_key, dategrouping=dategrouping))
+
+            def _date_norm(item, datenormalize):
+                replace_dict = dict([(k, _date_norm_map.get(k)) for k in datenormalize])
+                item['_id']['date'] = item['_id']['date'].replace(**replace_dict)
+                return item
+
+
+            group_fn = sum
+            formatted_results = []
+            for g in groups:
+                item = {}
+                items = [i for i in g[1]]
+
+                item.update(items[0])
+                item['record_count'] = group_fn([d['record_count'] for d in items])
+
+                item = _date_norm(item, datenormalize)
+
+                print '=formatted_item', item
+                formatted_results.append(item)
+
+            if page and page_size:
+                idx = page*page_size
+                formatted_results = formatted_results[idx:idx + page_size]
+
+            results = formatted_results
+
+        for item in results:
             new_item = {}
             for k, v in item['_id'].items():
                 new_item[unescape_level(k)] = v
