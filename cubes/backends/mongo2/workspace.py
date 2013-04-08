@@ -141,15 +141,6 @@ class MongoBrowser(AggregationBrowser):
 
     def _do_aggregation_query(self, cell, measures, attributes, drilldown, order, page, page_size):
 
-        print '=QUERY'
-        print 'cell', cell
-        print 'measures', measures
-        print 'attributes', attributes
-        print 'drilldown', drilldown
-        print 'order', order
-        print 'page', page
-        print 'page_size', page_size
-
         # determine query for cell cut
         find_clauses = []
         query_obj = {}
@@ -185,6 +176,7 @@ class MongoBrowser(AggregationBrowser):
                 phys = self.mapper.physical(levels[0].key)
                 date_idx = phys.project_expression()
 
+                # add to $match and $project expressions
                 query_obj.update(phys.match_expression(1, op='$exists'))
                 fields_obj[date_idx[1:]] = 1
 
@@ -196,7 +188,6 @@ class MongoBrowser(AggregationBrowser):
                 })
 
                 def _date_transform(item, date_field):
-
                     date_dict = {}
                     for k in ['year', 'month', 'day', 'hour']:
                         date_dict[k] = item['_id'].pop(k)
@@ -206,8 +197,6 @@ class MongoBrowser(AggregationBrowser):
                     date = date.astimezone(tz=tz) # convert to eastern
 
                     item['_id'][date_field] = date
-
-                    print '=item', item
                     return item
 
                 date_transform = partial(_date_transform, date_field=dim.name)
@@ -256,26 +245,26 @@ class MongoBrowser(AggregationBrowser):
             dategrouping = ['year', 'month', 'week', 'day', 'hour',]
             datenormalize = ['year', 'month', 'day', 'hour',]
 
+            # calculate correct date:level
             for dim, hier, levels in drilldown:
                 if dim and dim.name.lower() == 'date':
                     dategrouping = [str(l).lower() for l in levels]
                     for dg in dategrouping:
                         datenormalize.remove(dg)
-                    print '=datenormalize', datenormalize
-                    print '=dategrouping', dategrouping
                     break
 
             def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
+                # sort group on date
                 dt = item['_id']['date']
                 key = [_datepart_functions.get(dp)(dt) for dp in dategrouping]
                 
+                # add remainder elements to sort and group
                 for k, v in sorted(item['_id'].items(), key=lambda x:x[0]):
                     if k != 'date':
                         key.append(v)
-
-                print '=key', key
                 return key
 
+            # sort and group [date_parts,...,non-date parts]
             results = sorted(results, key=partial(_date_key, dategrouping=dategrouping))
             groups = groupby(results, key=partial(_date_key, dategrouping=dategrouping))
 
@@ -284,8 +273,8 @@ class MongoBrowser(AggregationBrowser):
                 item['_id']['date'] = item['_id']['date'].replace(**replace_dict)
                 return item
 
-
-            group_fn = sum
+            group_fn = sum  # maybe support avg in future
+            
             formatted_results = []
             for g in groups:
                 item = {}
