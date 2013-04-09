@@ -16,7 +16,7 @@ def enum(**enums):
 
 WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
                   FRIDAY=4, SATURDAY=5, SUNDAY=6)
-   
+
 
 def eastern_date_as_utc(year, **kwargs):
 
@@ -49,7 +49,7 @@ def get_date_for_week(year, week):
 
 def calc_week(dt):
     
-    dt = get_next_weekdate(dt, direction='down')
+    dt = get_next_weekdate(dt, direction='up')
     year = dt.year
 
     count = 0
