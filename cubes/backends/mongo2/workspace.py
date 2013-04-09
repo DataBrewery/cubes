@@ -287,6 +287,9 @@ class MongoBrowser(AggregationBrowser):
                 item = _date_norm(item, datenormalize)
                 formatted_results.append(item)
 
+            if order:
+                formatted_results = complex_sorted(formatted_results, order)
+
             if page and page_size:
                 idx = page*page_size
                 formatted_results = formatted_results[idx:idx + page_size]
@@ -374,6 +377,18 @@ class MongoBrowser(AggregationBrowser):
         return dict( order_by.values() )
 
 
+def complex_sorted(items, sortings):
+    if not sortings or not items:
+        return items
+
+    idx, direction = sortings.pop(0)
+
+    if sortings:
+        items = complex_sorted(items, sortings)
+
+    return sorted(items, key=lambda x:x.get(idx) or x['_id'].get(idx), reverse=direction in set(['reverse', 'desc', '-1', -1]))
+
+
 def _eastern_date_as_utc(year, **kwargs):
 
     dateparts = {'year': year, 'tzinfo': tz}
@@ -384,10 +399,9 @@ def _eastern_date_as_utc(year, **kwargs):
     return date.astimezone(tz_utc)
 
 
-
-
 def escape_level(ref):
     return ref.replace('.', '___')
+
 
 def unescape_level(ref):
     return ref.replace('___', '.')
