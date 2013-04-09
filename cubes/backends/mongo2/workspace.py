@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 from itertools import groupby
 from functools import partial
 import pytz
+from datesupport import get_date_for_week, calc_week, get_next_weekdate, datepart_functions, date_norm_map, eastern_date_as_utc
+
 
 tz = pytz.timezone('America/New_York')
 tz_utc = pytz.timezone('UTC')
@@ -23,47 +25,6 @@ tz_utc = pytz.timezone('UTC')
 __all__ = [
     "create_workspace"
 ]
-
-
-def _calc_week(dt):
-    year = dt.year
-
-    dt = _get_next_weekdate(dt)
-
-    count = 0
-    while dt.year == year:
-        count += 1
-        dt -= timedelta(days=7)
-
-    return count
-
-def _get_next_weekdate(dt):
-    dt = dt.replace(**{
-            'hour': 0,
-            'minute': 0,
-            'second': 0,
-            'microsecond': 0,
-        })
-
-    while dt.weekday() != 4:
-        dt += timedelta(1)
-
-    return dt
-
-_datepart_functions = {
-    'year': lambda x:x.year,
-    'month': lambda x:x.month,
-    'week': _calc_week,
-    'day': lambda x:x.day,
-    'hour': lambda x:x.hour,
-}
-
-_date_norm_map = {
-    'month': 1,
-    'day': 1,
-    'hour': 0,
-    'minute': 0, 
-}
 
 
 def create_workspace(model, **options):
@@ -129,7 +90,6 @@ class MongoBrowser(AggregationBrowser):
         result.summary = { "record_count": summary }
 
         return result
-
 
     def facts(self, cell=None, order=None, page=None, page_size=None, **options):
         raise NotImplementedError
@@ -244,7 +204,7 @@ class MongoBrowser(AggregationBrowser):
 
         if date_processing:
             dategrouping = ['year', 'month', 'week', 'day', 'hour',]
-            datenormalize = ['year', 'month', 'day', 'hour',]
+            datenormalize = ['year', 'month', 'week', 'day', 'hour',]
 
             # calculate correct date:level
             for dim, hier, levels in drilldown:
@@ -257,7 +217,7 @@ class MongoBrowser(AggregationBrowser):
             def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
                 # sort group on date
                 dt = item['_id']['date']
-                key = [_datepart_functions.get(dp)(dt) for dp in dategrouping]
+                key = [datepart_functions.get(dp)(dt) for dp in dategrouping]
                 
                 # add remainder elements to sort and group
                 for k, v in sorted(item['_id'].items(), key=lambda x:x[0]):
@@ -265,16 +225,24 @@ class MongoBrowser(AggregationBrowser):
                         key.append(v)
                 return key
 
+            if dategrouping[-1] == 'week':
+                dategrouping.remove('year') # year included in week calc because week year might change
+
             # sort and group [date_parts,...,non-date parts]
             results = sorted(results, key=partial(_date_key, dategrouping=dategrouping))
             groups = groupby(results, key=partial(_date_key, dategrouping=dategrouping))
 
-            def _date_norm(item, datenormalize):
-                replace_dict = dict([(k, _date_norm_map.get(k)) for k in datenormalize])
-                item['_id']['date'] = item['_id']['date'].replace(**replace_dict)
-                return item
+            def _date_norm(item, datenormalize, dategrouping):
+                # Week we have to round
+                if dategrouping[-1] == 'week':
+                    item['_id']['date'] = get_next_weekdate(item['_id']['date'], direction='down')
+                    return item
+                else:
+                    replace_dict = dict([(k, date_norm_map.get(k)) for k in datenormalize if k != 'week'])
+                    item['_id']['date'] = item['_id']['date'].replace(**replace_dict)
+                    return item
 
-            group_fn = sum  # maybe support avg in future
+            aggregate_fn = sum  # maybe support avg in future
             
             formatted_results = []
             for g in groups:
@@ -282,9 +250,9 @@ class MongoBrowser(AggregationBrowser):
                 items = [i for i in g[1]]
 
                 item.update(items[0])
-                item['record_count'] = group_fn([d['record_count'] for d in items])
+                item['record_count'] = aggregate_fn([d['record_count'] for d in items])
 
-                item = _date_norm(item, datenormalize)
+                item = _date_norm(item, datenormalize, dategrouping)
                 formatted_results.append(item)
 
             if order:
@@ -387,16 +355,6 @@ def complex_sorted(items, sortings):
         items = complex_sorted(items, sortings)
 
     return sorted(items, key=lambda x:x.get(idx) or x['_id'].get(idx), reverse=direction in set(['reverse', 'desc', '-1', -1]))
-
-
-def _eastern_date_as_utc(year, **kwargs):
-
-    dateparts = {'year': year, 'tzinfo': tz}
-    dateparts.update(kwargs)
-
-    date = datetime(**dateparts)
-
-    return date.astimezone(tz_utc)
 
 
 def escape_level(ref):
