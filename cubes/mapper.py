@@ -20,7 +20,7 @@ DEFAULT_KEY_FIELD = "id"
 """Physical reference to a table column. Note that the table might be an
 aliased table name as specified in relevant join."""
 TableColumnReference = collections.namedtuple("TableColumnReference",
-                                    ["schema", "table", "column", "extract", "func", "expr", "periodstodate"])
+                                    ["schema", "table", "column", "extract", "func", "expr", "condition"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
 (3-item) tuples"""
@@ -33,10 +33,10 @@ def coalesce_physical(ref, default_table=None, schema=None):
     * a string in form ``"table.column"``
     * a list in form ``(table, column)``
     * a list in form ``(schema, table, column)``
-    * a dictionary with keys: ``schema``, ``table``, ``column``, ``extract``, ``func``, ``expr``, ``periodstodate`` where
+    * a dictionary with keys: ``schema``, ``table``, ``column``, ``extract``, ``func``, ``expr``, ``condition`` where
       ``column`` is required, the rest are optional
 
-    Returns tuple (`schema`, `table`, `column`, `extract`, `func`, `expr`, `periodstodate`), which is a named
+    Returns tuple (`schema`, `table`, `column`, `extract`, `func`, `expr`, `condition`), which is a named
     tuple `TableColumnReference`.
 
     If no table is specified in reference and `default_table` is not
@@ -64,7 +64,7 @@ def coalesce_physical(ref, default_table=None, schema=None):
                                  ref.get("extract"),
                                  ref.get("func"),
                                  ref.get("expr"),
-                                 ref.get("periodstodate"))
+                                 ref.get("condition"))
     else:
         if len(ref) == 2:
             return TableColumnReference(schema, ref[0], ref[1], None, None, None, None)
