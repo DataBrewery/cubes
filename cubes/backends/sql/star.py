@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*i coding=utf -*-
 # Actually, this is a furry snowflake, not a nice star
 
 from cubes.browser import *
@@ -865,16 +865,11 @@ class QueryContext(object):
         return Condition(attributes, condition)
 
     def condition_for_level(self, level, hier=None):
-        if not hier.info:
-            return None
-        if not hier.info.get('is_periodstodate'):
-            return None
 
-        key_physical = self.mapper.physical(level.key)
-        level_mapping_ptd = self.cube.mappings.get(level.key.ref()).get('periodstodate', None)
-        if not level_mapping_ptd:
-            raise BrowserError("periodstodate level has no physical mapping available for periodstodate behavior: %s" % level)
-        ref = coalesce_physical(level_mapping_ptd, key_physical.table, key_physical.schema)
+        ref = self.mapper.physical(level.key)
+
+        if not ref.condition:
+            return None
 
         table = self.table(ref.schema, ref.table)
         try:
@@ -883,11 +878,9 @@ class QueryContext(object):
             raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
 
         # evaluate the condition expression
-        if not ref.expr:
-            raise BrowserError("periodstodate level mapping contains no expr condition to evaluate")
-        expr_func = eval(compile(ref.expr, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+        expr_func = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
         if not callable(expr_func):
-            raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
+            raise BrowserError("Cannot evaluate a callable object from reference's condition expr: %r" % ref)
         condition = expr_func(column)
 
         return Condition(set(), condition)
@@ -907,7 +900,7 @@ class QueryContext(object):
             raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
                                 "in dimension %s" % (len(path), path, len(levels), dim.name))
 
-        periodstodate_condition = None
+        level_condition = None
 
         for level, value in zip(levels, path):
 
@@ -915,15 +908,16 @@ class QueryContext(object):
             column = self.column(level.key)
             conditions.append(column == value)
 
-            periodstodate_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or periodstodate_condition
+            # currently, only the lowermost level's condition will apply
+            level_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or level_condition
 
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
             for attr in level.attributes:
                 attributes.add(attr)
 
-        if periodstodate_condition:
-            conditions.append(periodstodate_condition.condition)
+        if level_condition:
+            conditions.append(level_condition.condition)
             attributes = attributes | condition.attributes
 
         condition = sql.expression.and_(*conditions)
