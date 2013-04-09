@@ -9,6 +9,15 @@ tz_utc = pytz.timezone('UTC')
 DATE_PARTS = ['year', 'month', 'day']
 TIME_PARTS = ['hour', 'minute', 'second', 'microsecond']
 
+
+def enum(**enums):
+    return type('Enum', (), enums)
+
+
+WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
+                  FRIDAY=4, SATURDAY=5, SUNDAY=6)
+   
+
 def eastern_date_as_utc(year, **kwargs):
 
     dateparts = {'year': year, 'tzinfo': tz}
@@ -29,7 +38,7 @@ def get_date_for_week(year, week):
             'day': 1
         })
 
-    while dt.weekday() != 4:
+    while dt.weekday() != WEEK_DAY.FRIDAY:
         dt += timedelta(1)
 
     week -= 1
@@ -48,7 +57,7 @@ def calc_week(dt):
         count += 1
         dt -= timedelta(days=7)
 
-    return (year, count)
+    return (year, count) # the week year might be different
 
 
 def clear(dt, parts=TIME_PARTS):
@@ -62,7 +71,7 @@ def clear(dt, parts=TIME_PARTS):
 
 def get_next_weekdate(dt, direction='up'):
     dr = clear(dt)
-    while dr.weekday() != 4:
+    while dr.weekday() != WEEK_DAY.FRIDAY:
         if direction in set(['up', 'asc', '1', 1]):
             dr += timedelta(1)
         else:
