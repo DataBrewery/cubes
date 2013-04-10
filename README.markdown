@@ -56,6 +56,8 @@ certain parts of cubes are being used.
   backend
 * Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
 * Jinja2 from http://jinja.pocoo.org/docs/ for HTML presenters
+* PyMongo for mongo and mongo2 backend
+* pytz for mongo2 backend
 
 Support
 =======
