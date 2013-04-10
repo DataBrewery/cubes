@@ -92,7 +92,26 @@ class MongoBrowser(AggregationBrowser):
         return result
 
     def facts(self, cell=None, order=None, page=None, page_size=None, **options):
-        raise NotImplementedError
+        query_obj, fields_obj = self._build_query_and_fields(cell, [])
+        # TODO include fields_obj, fully populated
+        cursor = self.data_store.find(query_obj)
+        if order:
+            order_obj = self._order_to_sort_object(order)
+            k, v = order_obj.iteritems().next()
+            cursor = cursor.sort(k, pymongo.DESCENDING if v == -1 else pymongo.ASCENDING)
+        if page_size and page > 0:
+            cursor = cursor.skip(page * page_size)
+        if page_size and page_size > 0:
+            cursor = cursor.limit(page_size)
+        
+        # TODO map back to logical values
+        items = []
+        for item in cursor:
+            new_item = {}
+            for k,v in item.iteritems():
+                new_item[k] = str(v) if isinstance(v, bson.objectid.ObjectId) else v
+            items.append(new_item)
+        return items
 
     def fact(self, key):
         raise NotImplementedError
@@ -126,9 +145,7 @@ class MongoBrowser(AggregationBrowser):
 
         return data
 
-    def _do_aggregation_query(self, cell, measures, attributes, drilldown, order, page, page_size):
-
-        # determine query for cell cut
+    def _build_query_and_fields(self, cell, attributes):
         find_clauses = []
         query_obj = {}
         if self.cube.mappings and self.cube.mappings.get('__query__'):
@@ -143,6 +160,13 @@ class MongoBrowser(AggregationBrowser):
         if attributes:
             for attribute in attributes:
                 fields_obj[ escape_level(attribute.ref()) ] = self.mapper.physical(attribute).project_expression()
+
+        return query_obj, fields_obj
+
+    def _do_aggregation_query(self, cell, measures, attributes, drilldown, order, page, page_size):
+
+        # determine query for cell cut
+        query_obj, fields_obj = self._build_query_and_fields(cell, attributes)
 
         # if no drilldown, no aggregation pipeline needed.
         if not drilldown:
