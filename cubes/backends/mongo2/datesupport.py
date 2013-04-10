@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
+from functools import partial
 import pytz
 
 
@@ -9,6 +10,8 @@ tz_utc = pytz.timezone('UTC')
 DATE_PARTS = ['year', 'month', 'day']
 TIME_PARTS = ['hour', 'minute', 'second', 'microsecond']
 
+ALL_PARTS = ['year', 'week', 'month', 'day'] + TIME_PARTS
+
 
 def enum(**enums):
     return type('Enum', (), enums)
@@ -16,6 +19,17 @@ def enum(**enums):
 
 WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
                   FRIDAY=4, SATURDAY=5, SUNDAY=6)
+
+
+def so_far_filter(initial, datepart):
+    def _so_far_filter(dt, initial, datepart):
+        for dp in ALL_PARTS[ALL_PARTS.index(datepart) + 1:]:
+            dp_fn = datepart_functions.get(dp)
+            if dp_fn(initial) < dp_fn(dt):
+                print '=RESULT', dp , dt.isoformat(), dp_fn(initial), dp_fn(dt)
+                return None
+        return dt
+    return partial(_so_far_filter, initial=initial, datepart=datepart)
 
 
 def eastern_date_as_utc(year, **kwargs):
@@ -48,7 +62,6 @@ def get_date_for_week(year, week):
 
 
 def calc_week(dt):
-    
     dt = get_next_weekdate(dt, direction='up')
     year = dt.year
 
@@ -86,6 +99,9 @@ datepart_functions = {
     'week': calc_week,
     'day': lambda x:x.day,
     'hour': lambda x:x.hour,
+    'minute': lambda x:x.minute,
+    'second': lambda x:x.second,
+    'microsecond': lambda x:x.microsecond,
 }
 
 
