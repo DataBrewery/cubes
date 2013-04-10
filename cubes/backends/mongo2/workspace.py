@@ -259,14 +259,15 @@ class MongoBrowser(AggregationBrowser):
             groups = groupby(results, key=partial(_date_key, dategrouping=dategrouping))
 
             def _date_norm(item, datenormalize, dategrouping):
-                # Week we have to round
+                dt = item['_id'].pop('date')
+
                 if dategrouping[-1] == 'week':
-                    item['_id']['date'] = get_next_weekdate(item['_id']['date'], direction='down')
-                    return item
-                else:
-                    replace_dict = dict([(k, date_norm_map.get(k)) for k in datenormalize if k != 'week'])
-                    item['_id']['date'] = item['_id']['date'].replace(**replace_dict)
-                    return item
+                    dt= get_next_weekdate(dt, direction='up')
+
+                for dp in dategrouping:
+                    item['_id']['date.%s' % dp] = datepart_functions.get(dp)(dt)
+
+                return item
 
             aggregate_fn = sum  # maybe support avg in future
             
@@ -316,7 +317,7 @@ class MongoBrowser(AggregationBrowser):
                     date_dict[dp] = int(val)
                     min_part = dp
 
-                start = _eastern_date_as_utc(**date_dict)
+                start = eastern_date_as_utc(**date_dict)
                 end = start + relativedelta(**{dp+'s':1})
                 conds.append(self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte'))
                 conds.append(self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'))
