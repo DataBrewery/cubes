@@ -98,7 +98,37 @@ class MongoBrowser(AggregationBrowser):
         raise NotImplementedError
 
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, order=None, page=None, page_size=None, **options):
-        raise NotImplementedError
+        cell = cell or Cell(self.cube)
+        dimension = self.cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
+        levels = hierarchy.levels
+        if depth == 0:
+            raise ArgumentError("depth may not be 0 to values call")
+        if depth is None:
+            depth = len(levels)
+        levels = levels[0:depth]
+
+        level_attributes = []
+        for level in levels:
+           level_attributes += level.attributes
+        summary, cursor = self._do_aggregation_query(cell=cell, measures=None, attributes=level_attributes, drilldown=[(dimension, hierarchy, levels)], order=order, page=page, page_size=page_size)
+
+        data = []
+        for item in cursor:
+            new_item = {}
+            for level in levels:
+                # TODO make sure _do_aggregation_query projects all of a level's attributes!
+                for level_attr in level.attributes:
+                    k = level_attr.ref()
+                    if item.has_key(k):
+                        new_item[k] = item[k]
+            data.append(new_item)
+
+        return {
+            'depth': depth,
+            'dimension': dimension.name,
+            'data': data
+        }
 
     def _do_aggregation_query(self, cell, measures, attributes, drilldown, order, page, page_size):
 
