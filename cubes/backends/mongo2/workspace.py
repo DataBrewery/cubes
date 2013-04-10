@@ -91,6 +91,12 @@ class MongoBrowser(AggregationBrowser):
 
         return result
 
+    def _json_safe_item(self, item):
+        new_item = {}
+        for k,v in item.iteritems():
+            new_item[k] = str(v) if isinstance(v, bson.objectid.ObjectId) else v
+        return new_item
+
     def facts(self, cell=None, order=None, page=None, page_size=None, **options):
         query_obj, fields_obj = self._build_query_and_fields(cell, [])
         # TODO include fields_obj, fully populated
@@ -107,10 +113,7 @@ class MongoBrowser(AggregationBrowser):
         # TODO map back to logical values
         items = []
         for item in cursor:
-            new_item = {}
-            for k,v in item.iteritems():
-                new_item[k] = str(v) if isinstance(v, bson.objectid.ObjectId) else v
-            items.append(new_item)
+            items.append(self._json_safe_item(item))
         return items
 
     def fact(self, key):
@@ -121,7 +124,10 @@ class MongoBrowser(AggregationBrowser):
             key_value = bson.objectid.ObjectId(key)
         except:
             pass
-        return self.data_store.find_one({key_field.field: key_value})
+        item = self.data_store.find_one({key_field.field: key_value})
+        if item is not None:
+            item = self._json_safe_item(item)
+        return item
 
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, order=None, page=None, page_size=None, **options):
         cell = cell or Cell(self.cube)
