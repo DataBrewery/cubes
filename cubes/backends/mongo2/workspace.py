@@ -114,7 +114,14 @@ class MongoBrowser(AggregationBrowser):
         return items
 
     def fact(self, key):
-        raise NotImplementedError
+        # TODO make it possible to have a fact key that is not an ObjectId
+        key_field = self.mapper.physical(self.mapper.attribute(self.cube.key))
+        key_value = key
+        try:
+            key_value = bson.objectid.ObjectId(key)
+        except:
+            pass
+        return self.data_store.find_one({key_field.field: key_value})
 
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, order=None, page=None, page_size=None, **options):
         cell = cell or Cell(self.cube)
