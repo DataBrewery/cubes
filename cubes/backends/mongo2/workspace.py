@@ -102,10 +102,10 @@ class MongoBrowser(AggregationBrowser):
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
         levels = hierarchy.levels
-        if depth == 0:
-            raise ArgumentError("depth may not be 0 to values call")
         if depth is None:
             depth = len(levels)
+        if depth < 1 or depth > len(levels):
+            raise ArgumentError("depth may not be less than 1 or more than %d, the maximum depth of dimension %s" % (len(levels), dimension.name))
         levels = levels[0:depth]
 
         level_attributes = []
@@ -124,11 +124,7 @@ class MongoBrowser(AggregationBrowser):
                         new_item[k] = item[k]
             data.append(new_item)
 
-        return {
-            'depth': depth,
-            'dimension': dimension.name,
-            'data': data
-        }
+        return data
 
     def _do_aggregation_query(self, cell, measures, attributes, drilldown, order, page, page_size):
 
