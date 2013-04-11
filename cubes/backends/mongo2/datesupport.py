@@ -26,8 +26,9 @@ def so_far_filter(initial, datepart):
         for dp in ALL_PARTS[ALL_PARTS.index(datepart) + 1:]:
             dp_fn = datepart_functions.get(dp)
             if dp_fn(initial) < dp_fn(dt):
-                print '=RESULT', dp , dt.isoformat(), dp_fn(initial), dp_fn(dt)
+                print '=DISCARDING', dp , dt.isoformat(), initial.isoformat()
                 return None
+        print '=KEEPING', dp , dt.isoformat(), initial.isoformat()
         return dt
     return partial(_so_far_filter, initial=initial, datepart=datepart)
 
