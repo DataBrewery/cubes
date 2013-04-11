@@ -16,7 +16,8 @@ from datetime import datetime, timedelta
 from itertools import groupby
 from functools import partial
 import pytz
-from datesupport import get_date_for_week, calc_week, get_next_weekdate, datepart_functions, date_norm_map, eastern_date_as_utc
+from datesupport import get_date_for_week, calc_week, get_next_weekdate,\
+                        datepart_functions, date_norm_map, eastern_date_as_utc, so_far_filter
 
 
 tz = pytz.timezone('America/New_York')
@@ -269,12 +270,16 @@ class MongoBrowser(AggregationBrowser):
             dategrouping = ['year', 'month', 'week', 'day', 'hour',]
             datenormalize = ['year', 'month', 'week', 'day', 'hour',]
 
+            filter_so_far = False
             # calculate correct date:level
             for dim, hier, levels in drilldown:
                 if dim and dim.name.lower() == 'date':
                     dategrouping = [str(l).lower() for l in levels]
                     for dg in dategrouping:
                         datenormalize.remove(dg)
+
+                    if hier.name.lower() == 'sofar':
+                        filter_so_far = True
                     break
 
             def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
@@ -290,6 +295,12 @@ class MongoBrowser(AggregationBrowser):
 
             if dategrouping[-1] == 'week':
                 dategrouping.remove('year') # year included in week calc because week year might change
+
+
+            if filter_so_far:
+                filt = so_far_filter(datetime.utcnow(), dategrouping[-1], key=lambda x:x['_id']['date'])
+                results = filter(filt, results)
+
 
             # sort and group [date_parts,...,non-date parts]
             results = sorted(results, key=partial(_date_key, dategrouping=dategrouping))

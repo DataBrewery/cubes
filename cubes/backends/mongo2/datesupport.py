@@ -21,14 +21,29 @@ WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
                   FRIDAY=4, SATURDAY=5, SUNDAY=6)
 
 
-def so_far_filter(initial, datepart):
+def so_far_filter(initial, datepart, key=lambda x:x):
     def _so_far_filter(dt, initial, datepart):
-        for dp in ALL_PARTS[ALL_PARTS.index(datepart) + 1:]:
+        dateparts = list(ALL_PARTS)
+        if datepart == 'week':
+            dateparts.pop(dateparts.index('month'))
+            dateparts.pop(dateparts.index('day'))
+        else:
+            dateparts.pop(dateparts.index('week'))
+
+        dt = key(dt)
+
+        def _print(header):
+            print header, dp, str(dp_fn(dt)) + ':' + str(dp_fn(initial)),dt.isoformat(), initial.isoformat() 
+
+        for dp in dateparts[dateparts.index(datepart) + 1:]:
             dp_fn = datepart_functions.get(dp)
-            if dp_fn(initial) < dp_fn(dt):
-                print '=DISCARDING', dp , dt.isoformat(), initial.isoformat()
+            if dp_fn(dt) > dp_fn(initial):
+                # _print('DISCARED')
                 return None
-        print '=KEEPING', dp , dt.isoformat(), initial.isoformat()
+            elif dp_fn(dt) < dp_fn(initial):
+                # _print('KEPT')
+                return dt
+        # _print('KEPT')
         return dt
     return partial(_so_far_filter, initial=initial, datepart=datepart)
 
