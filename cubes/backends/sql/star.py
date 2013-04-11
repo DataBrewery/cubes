@@ -918,7 +918,7 @@ class QueryContext(object):
 
         if level_condition:
             conditions.append(level_condition.condition)
-            attributes = attributes | condition.attributes
+            attributes = attributes | level_condition.attributes
 
         condition = sql.expression.and_(*conditions)
 
