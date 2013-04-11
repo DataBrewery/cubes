@@ -336,33 +336,40 @@ class MongoBrowser(AggregationBrowser):
             result_items.append(new_item)
         return (None, result_items)
 
+    def _build_date_for_cut(self, path):
+        dateparts = ['year', 'month', 'day', 'hour']
+
+        date_dict = {'month': 1, 'day': 1, 'hour':0}
+        min_part = None
+
+        for val, dp in zip(path, dateparts[:len(path)]):
+            date_dict[dp] = int(val)
+            min_part = dp
+
+        return  eastern_date_as_utc(**date_dict), min_part
+
     def _query_conditions_for_cut(self, cut):
-
-        print '=cut', cut, type(cut)
-
         conds = []
         cut_dimension = self.cube.dimension(cut.dimension)
         cut_hierarchy = cut_dimension.hierarchy(cut.hierarchy)
+
         if isinstance(cut, PointCut):
             if cut.dimension.lower() == 'date':
-                dateparts = ['year', 'month', 'day', 'hour']
-
-                date_dict = {'month': 1, 'day': 1, 'hour':0}
-                min_part = None
-
-                for val, dp in zip(cut.path, dateparts[:len(cut.path)]):
-                    date_dict[dp] = int(val)
-                    min_part = dp
-
-                start = eastern_date_as_utc(**date_dict)
+                start, dp = self._build_date_for_cut(cut.path)
                 end = start + relativedelta(**{dp+'s':1})
-                conds.append(self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte'))
-                conds.append(self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'))
+
+                start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
+                end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
+
+                if not cut.invert:
+                    conds.append(start_cond)
+                    conds.append(end_cond)
+                else:
+                    conds.append({'$or':[start_cond, end_cond]})
 
             else:
                 # one condition per path element
                 for idx, p in enumerate(cut.path):
-                    print '=cut', idx, p
                     conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else None) )
         elif isinstance(cut, SetCut):
             for path in cut.paths:
@@ -374,18 +381,33 @@ class MongoBrowser(AggregationBrowser):
         # FIXME for multi-level range: it's { $or: [ level_above_me < value_above_me, $and: [level_above_me = value_above_me, my_level < my_value] }
         # of the level value.
         elif isinstance(cut, RangeCut):
-            if True:
-                raise ArgumentError("No support yet for range cuts in mongo2 backend")
-            if cut.from_path:
-                last_idx = len(cut.from_path) - 1
-                for idx, p in enumerate(cut.from_path):
-                    op = ( ("$lt", "$ne") if cut.invert else ("$gte", None) )[0 if idx == last_idx else 1]
-                    conds.append( self._query_condition_for_path_value(cut.dimension, p, op))
-            if cut.to_path:
-                last_idx = len(cut.to_path) - 1
-                for idx, p in enumerate(cut.to_path):
-                    op = ( ("$gt", "$ne") if cut.invert else ("$lte", None) )[0 if idx == last_idx else 1]
-                    conds.append( self._query_condition_for_path_value(cut.dimension, p, "$gt" if cut.invert else "$lte") )
+            if cut.dimension.lower() == 'date':
+                start, dp = self._build_date_for_cut(cut.from_path)
+                end, dp = self._build_date_for_cut(cut.to_path)
+
+                end = end + relativedelta(**{dp+'s':1}) # inclusive
+
+                start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
+                end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
+
+                if not cut.invert:
+                    conds.append(start_cond)
+                    conds.append(end_cond)
+                else:
+                    conds.append({'$or':[start_cond, end_cond]})
+                
+            if False:
+                raise ArgumentError("No support yet for non-date range cuts in mongo2 backend")
+                if cut.from_path:
+                    last_idx = len(cut.from_path) - 1
+                    for idx, p in enumerate(cut.from_path):
+                        op = ( ("$lt", "$ne") if cut.invert else ("$gte", None) )[0 if idx == last_idx else 1]
+                        conds.append( self._query_condition_for_path_value(cut.dimension, p, op))
+                if cut.to_path:
+                    last_idx = len(cut.to_path) - 1
+                    for idx, p in enumerate(cut.to_path):
+                        op = ( ("$gt", "$ne") if cut.invert else ("$lte", None) )[0 if idx == last_idx else 1]
+                        conds.append( self._query_condition_for_path_value(cut.dimension, p, "$gt" if cut.invert else "$lte") )
         else:
             raise ValueError("Unrecognized cut object: %r" % cut)
         return conds
