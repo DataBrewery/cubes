@@ -347,10 +347,10 @@ class MongoBrowser(AggregationBrowser):
             result_items.append(new_item)
         return (None, result_items)
 
-    def _build_date_for_cut(self, path):
+    def _build_date_for_cut(self, path, tzinfo=tz_utc):
         dateparts = ['year', 'month', 'day', 'hour']
 
-        date_dict = {'month': 1, 'day': 1, 'hour':0}
+        date_dict = {'month': 1, 'day': 1, 'hour':0, 'tzinfo':tzinfo}
         min_part = None
 
         for val, dp in zip(path, dateparts[:len(path)]):
