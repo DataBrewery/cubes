@@ -5,6 +5,7 @@ import pytz
 
 
 tz = pytz.timezone('America/New_York')
+tz_eastern = pytz.timezone('America/New_York')
 tz_utc = pytz.timezone('UTC')
 
 DATE_PARTS = ['year', 'month', 'day']
@@ -48,12 +49,13 @@ def so_far_filter(initial, datepart, key=lambda x:x):
     return partial(_so_far_filter, initial=initial, datepart=datepart)
 
 
-def eastern_date_as_utc(year, **kwargs):
+def date_as_utc(year, tzinfo=tz_eastern, **kwargs):
 
-    dateparts = {'year': year, 'tzinfo': tz}
+    dateparts = {'year': year}
     dateparts.update(kwargs)
 
     date = datetime(**dateparts)
+    tzinfo.localize(date)
 
     return date.astimezone(tz_utc)
 
