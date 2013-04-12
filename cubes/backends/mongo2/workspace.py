@@ -17,10 +17,11 @@ from itertools import groupby
 from functools import partial
 import pytz
 from datesupport import get_date_for_week, calc_week, get_next_weekdate,\
-                        datepart_functions, date_norm_map, eastern_date_as_utc, so_far_filter
+                        datepart_functions, date_norm_map, date_as_utc, so_far_filter
 
 
 tz = pytz.timezone('America/New_York')
+tz_eastern = pytz.timezone('America/New_York')
 tz_utc = pytz.timezone('UTC')
 
 __all__ = [
@@ -347,17 +348,20 @@ class MongoBrowser(AggregationBrowser):
             result_items.append(new_item)
         return (None, result_items)
 
-    def _build_date_for_cut(self, path, tzinfo=tz_utc):
+    def _build_date_for_cut(self, path, tzinfo=tz_eastern):
         dateparts = ['year', 'month', 'day', 'hour']
 
-        date_dict = {'month': 1, 'day': 1, 'hour':0, 'tzinfo':tzinfo}
+        date_dict = {'month': 1, 'day': 1, 'hour':0}
         min_part = None
 
         for val, dp in zip(path, dateparts[:len(path)]):
             date_dict[dp] = int(val)
             min_part = dp
 
-        return  eastern_date_as_utc(**date_dict), min_part
+        print '=datedict', date_dict
+
+        # return date_as_utc(**date_dict), min_part
+        return datetime(**date_dict), min_part
 
     def _query_conditions_for_cut(self, cut):
         conds = []
@@ -368,6 +372,14 @@ class MongoBrowser(AggregationBrowser):
             if cut.dimension.lower() == 'date':
                 start, dp = self._build_date_for_cut(cut.path)
                 end = start + relativedelta(**{dp+'s':1})
+
+                # localize for daylight savings post math
+                start = tz_eastern.localize(start)
+                end = tz_eastern.localize(end)
+
+                # convert to UTC
+                start = start.astimezone(tz_utc)
+                end = end.astimezone(tz_utc)
 
                 start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
                 end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
@@ -395,8 +407,15 @@ class MongoBrowser(AggregationBrowser):
             if cut.dimension.lower() == 'date':
                 start, dp = self._build_date_for_cut(cut.from_path)
                 end, dp = self._build_date_for_cut(cut.to_path)
-
                 end = end + relativedelta(**{dp+'s':1}) # inclusive
+
+                # localize for daylight savings post math
+                start = tz_eastern.localize(start)
+                end = tz_eastern.localize(end)
+
+                # convert to UTC
+                start = start.astimezone(tz_utc)
+                end = end.astimezone(tz_utc)
 
                 start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
                 end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
