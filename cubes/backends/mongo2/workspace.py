@@ -4,6 +4,7 @@ from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
 from cubes.workspace import Workspace
+from cubes import statutils
 from .mapper import MongoCollectionMapper
 
 import collections
@@ -28,6 +29,16 @@ __all__ = [
     "create_workspace"
 ]
 
+AGGREGATIONS = {
+    'count': (lambda field: { '$sum': 1 }),
+    'sum': (lambda field: { '$sum': field.project_expression() }),
+    'identity': (lambda field: { '$sum': 1 })
+}
+
+CALCULATED_AGGREGATIONS = {
+    "sma": statutils.simple_moving_average_factory,
+    "wma": statutils.weighted_moving_average_factory
+}
 
 def is_date_dimension(dim):
     if isinstance(dim, basestring):
@@ -80,6 +91,9 @@ class MongoBrowser(AggregationBrowser):
                   **options):
         cell = cell or Cell(self.cube)
 
+        if not measures:
+            measures = ['record_count']
+
         if measures:
             measures = [self.cube.measure(measure) for measure in measures]
 
@@ -94,11 +108,29 @@ class MongoBrowser(AggregationBrowser):
                 dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
             result.levels = dim_levels
 
-        summary, cursor = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, order=order, page=page, page_size=page_size)
-        result.cells = cursor
+            calc_aggs = []
+            for measure in measures:
+                calc_aggs += self.calculated_aggregations_for_measure(measure, drilldown_levels)
+            if calc_aggs:
+                result.calculators = calc_aggs
+
+        summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, order=order, page=page, page_size=page_size)
+        result.cells = iter(items)
         result.summary = { "record_count": summary }
 
         return result
+
+    def calculated_aggregations_for_measure(self, measure, drilldown_levels):
+        if not drilldown_levels:
+            return []
+
+        # TODO fix the hack that assumes everything will be record_count
+        calc_aggs = [ agg for agg in measure.aggregations if agg in CALCULATED_AGGREGATIONS ]
+
+        if not calc_aggs:
+            return []
+
+        return [ CALCULATED_AGGREGATIONS.get(c)(measure, drilldown_levels, ['identity']) for c in calc_aggs ]
 
     def _json_safe_item(self, item):
         new_item = {}
@@ -190,8 +222,10 @@ class MongoBrowser(AggregationBrowser):
         # determine query for cell cut
         query_obj, fields_obj = self._build_query_and_fields(cell, attributes)
 
+        agg = self.cube.measure('record_count').aggregations[0]
+
         # if no drilldown, no aggregation pipeline needed.
-        if not drilldown:
+        if not drilldown and agg == 'count':
             return (self.data_store.find(query_obj).count(), [])
 
         # drilldown, fire up the pipeline
@@ -242,7 +276,6 @@ class MongoBrowser(AggregationBrowser):
                     group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
                     query_obj.update(phys.match_expression(1, op='$exists'))
 
-        agg = self.cube.measure('record_count').aggregations[0]
         if agg == 'count':
             agg = 'sum'
             agg_field = 1
