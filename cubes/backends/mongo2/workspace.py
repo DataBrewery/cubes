@@ -36,9 +36,8 @@ def create_workspace(model, **options):
 class MongoWorkspace(Workspace):
 
     def __init__(self, model, **options):
-        super(MongoWorkspace, self).__init__(model)
+        super(MongoWorkspace, self).__init__(model, **options)
         self.logger = get_logger()
-        self.options = options
         self.metadata = {}
 
     def browser(self, cube, locale=None):

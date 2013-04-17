@@ -125,7 +125,7 @@ class Slicer(object):
 
         ## Create workspace
         self.logger.info("using backend '%s'" % self.context["backend_name"])
-        self.workspace = self.backend.create_workspace(self.model,
+        self.workspace = self.backend.create_workspace(self.model, config=self.config,
                                                        **self.context["workspace_options"])
 
     def initialize_logger(self):
