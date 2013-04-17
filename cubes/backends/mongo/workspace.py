@@ -37,14 +37,13 @@ class MongoWorkspace(Workspace):
         """Create a workspace. For description of options see
         `create_workspace()` """
 
-        super(MongoWorkspace, self).__init__(model)
+        super(MongoWorkspace, self).__init__(model, **options)
 
         self.logger = get_logger()
 
         self.mongo = pymongo.MongoClient(**options)
 
         self.schema = options.get("schema")
-        self.options = options
 
     def browser(self, cube, locale=None):
         """Returns a browser for a `cube`."""
