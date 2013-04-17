@@ -446,6 +446,9 @@ def merge_models(models):
             if all_cubes.has_key(cube.name):
                 raise ModelError("Found duplicate cube named '%s', cannot merge models" % cube.name)
             model.remove_cube(cube)
+            if cube.info is None:
+                cube.info = {}
+            cube.info.update(model.info if model.info else {})
             all_cubes[cube.name] = cube
 
     return Model(name=name, label=label, description=description, info=info, dimensions=dimensions.values(), cubes=all_cubes.values())

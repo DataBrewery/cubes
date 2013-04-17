@@ -139,14 +139,13 @@ class SQLStarWorkspace(Workspace):
         """Create a workspace. For description of options see
         `create_workspace()` """
 
-        super(SQLStarWorkspace, self).__init__(model)
+        super(SQLStarWorkspace, self).__init__(model, **options)
 
         self.logger = get_logger()
 
         self.engine = engine
         self.schema = options.get("schema")
         self.metadata = sqlalchemy.MetaData(bind=self.engine,schema=self.schema)
-        self.options = options
 
     def browser(self, cube, locale=None):
         """Returns a browser for a `cube`."""
