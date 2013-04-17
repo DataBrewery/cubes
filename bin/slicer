@@ -92,8 +92,12 @@ def validate_model(args):
 
 def model_to_json(args):
     """docstring for validate_model"""
-    model = cubes.model_from_path(args.model)
-    dump_model(model)
+    models = []
+    for path in args.models:
+        model = cubes.model_from_path(path)
+        models.append(model)
+    merged_model = cubes.merge_models(models)
+    dump_model(merged_model)
 
 def update_locale(args):
     raise NotImplementedError("update of localizable dictionary is not yet implemented")
@@ -244,7 +248,7 @@ subparser.set_defaults(func=translate_model)
 # Command: model_to_json
 
 subparser = model_subparsers.add_parser('json')
-subparser.add_argument('model', help='model reference - can be a local file path or URL')
+subparser.add_argument('models', nargs='+', help='one or more model references - can be local file paths or URL')
 subparser.set_defaults(func=model_to_json)
 
 ################################################################################
