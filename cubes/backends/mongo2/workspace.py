@@ -29,6 +29,14 @@ __all__ = [
 ]
 
 
+def is_date_dimension(dim):
+    if isinstance(dim, basestring):
+        return 'date' in dim.lower()
+    elif hasattr(dim, 'name'):
+        return 'date' in dim.name
+    else:
+        return False
+
 def create_workspace(model, **options):
     return MongoWorkspace(model, **options)
 
@@ -196,7 +204,7 @@ class MongoBrowser(AggregationBrowser):
         for dim, hier, levels in drilldown:
 
             # Special Mongo Date Hack for TZ Support
-            if dim and dim.name.lower() == 'date':
+            if dim and is_date_dimension(dim):
                 date_processing = True
                 phys = self.mapper.physical(levels[0].key)
                 date_idx = phys.project_expression()
@@ -270,26 +278,29 @@ class MongoBrowser(AggregationBrowser):
             dategrouping = ['year', 'month', 'week', 'day', 'hour',]
             datenormalize = ['year', 'month', 'week', 'day', 'hour',]
 
+            date_field = None
             filter_so_far = False
             # calculate correct date:level
             for dim, hier, levels in drilldown:
-                if dim and dim.name.lower() == 'date':
+                if dim and is_date_dimension(dim):
+                    date_field = dim.name
                     dategrouping = [str(l).lower() for l in levels]
                     for dg in dategrouping:
                         datenormalize.remove(dg)
 
+                    # TODO don't use magic sofar string
                     if hier.name.lower() == 'sofar':
                         filter_so_far = True
                     break
 
             def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
                 # sort group on date
-                dt = item['_id']['date']
+                dt = item['_id'][date_field]
                 key = [datepart_functions.get(dp)(dt) for dp in dategrouping]
                 
                 # add remainder elements to sort and group
                 for k, v in sorted(item['_id'].items(), key=lambda x:x[0]):
-                    if k != 'date':
+                    if k != date_field:
                         key.append(v)
                 return key
 
@@ -298,7 +309,7 @@ class MongoBrowser(AggregationBrowser):
 
 
             if filter_so_far:
-                filt = so_far_filter(datetime.utcnow(), dategrouping[-1], key=lambda x:x['_id']['date'])
+                filt = so_far_filter(datetime.utcnow(), dategrouping[-1], key=lambda x:x['_id'][date_field])
                 results = filter(filt, results)
 
 
@@ -307,13 +318,13 @@ class MongoBrowser(AggregationBrowser):
             groups = groupby(results, key=partial(_date_key, dategrouping=dategrouping))
 
             def _date_norm(item, datenormalize, dategrouping):
-                dt = item['_id'].pop('date')
+                dt = item['_id'].pop(date_field)
 
                 if dategrouping[-1] == 'week':
                     dt= get_next_weekdate(dt, direction='up')
 
                 for dp in dategrouping:
-                    item['_id']['date.%s' % dp] = datepart_functions.get(dp)(dt)
+                    item['_id']['%s.%s' % (date_field, dp)] = datepart_functions.get(dp)(dt)
 
                 return item
 
@@ -368,7 +379,7 @@ class MongoBrowser(AggregationBrowser):
         cut_hierarchy = cut_dimension.hierarchy(cut.hierarchy)
 
         if isinstance(cut, PointCut):
-            if cut.dimension.lower() == 'date':
+            if is_date_dimension(cut.dimension):
                 start, dp = self._build_date_for_cut(cut.path)
                 end = start + relativedelta(**{dp+'s':1})
 
@@ -403,27 +414,33 @@ class MongoBrowser(AggregationBrowser):
         # FIXME for multi-level range: it's { $or: [ level_above_me < value_above_me, $and: [level_above_me = value_above_me, my_level < my_value] }
         # of the level value.
         elif isinstance(cut, RangeCut):
-            if cut.dimension.lower() == 'date':
-                start, dp = self._build_date_for_cut(cut.from_path)
-                end, dp = self._build_date_for_cut(cut.to_path)
-                end = end + relativedelta(**{dp+'s':1}) # inclusive
-
-                # localize for daylight savings post math
-                start = tz_eastern.localize(start)
-                end = tz_eastern.localize(end)
-
-                # convert to UTC
-                start = start.astimezone(tz_utc)
-                end = end.astimezone(tz_utc)
-
-                start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
-                end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
+            if is_date_dimension(cut.dimension.lower()):
+                start_cond = None
+                end_cond = None
+                if cut.from_path:
+                    start, dp = self._build_date_for_cut(cut.from_path)
+                    start = tz_eastern.localize(start)
+                    start = start.astimezone(tz_utc)
+                    start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
+                if cut.to_path:
+                    end, dp = self._build_date_for_cut(cut.to_path)
+                    end = end + relativedelta(**{dp+'s':1}) # inclusive
+                    end = tz_eastern.localize(end)
+                    end = end.astimezone(tz_utc)
+                    end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
 
                 if not cut.invert:
-                    conds.append(start_cond)
-                    conds.append(end_cond)
+                    if start_cond:
+                        conds.append(start_cond)
+                    if end_cond:
+                        conds.append(end_cond)
                 else:
-                    conds.append({'$or':[start_cond, end_cond]})
+                    if start_cond and end_cond:
+                        conds.append({'$or':[start_cond, end_cond]})
+                    elif start_cond:
+                        conds.append(start_cond)
+                    elif end_cond:
+                        conds.append(end_cond)
                 
             if False:
                 raise ArgumentError("No support yet for non-date range cuts in mongo2 backend")
