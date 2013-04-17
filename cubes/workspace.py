@@ -256,3 +256,29 @@ class Workspace(object):
             self.localized_models[locale] = model
             return model
 
+class CompositeWorkspace(Workspace):
+    def __init__(self, model):
+        super(CompositeWorkspace).__init__(self, model)
+        self.workspaces = {}
+
+
+    def __str__(self):
+        return 'CompositeWorkspace(%s)' % str(self.model)
+
+    def browser(self, cube, locale=None):
+        workspace = self.workspace_for_cube(cube)
+
+        model = self.localized_model(locale)
+        return workspace.create_browser(cube, model, **options)
+
+    def workspace_for_cube(self, cube):
+        datasource = cube.info.get('datasource') or self.model.info.get('datasource')
+        if datasource in workspaces:
+            return workspaces[datasource]
+        wksp = create_workspace(datasource, self.model)
+        workspaces[datasource] = wksp
+        return wksp
+
+    
+
+

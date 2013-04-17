@@ -21,6 +21,7 @@ except ImportError:
 __all__ = [
     "load_model",
     "model_from_path",
+    "merge_models",
     "create_model",
     "create_cube",
     "create_dimension",
@@ -414,6 +415,40 @@ def create_cube(desc, dimensions, model_mappings=None, model_joins=None):
         desc['joins'] = merged_joins
 
     return Cube(dimensions=cube_dims, **desc)
+
+def merge_models(models):
+    dimensions = {}
+    all_cubes = {}
+    name = None
+    label = None
+    description = None
+    info = None
+    locale = None
+    for model in models:
+        if name is None and model.name:
+            name = model.name
+        if label is None and model.label:
+            label = model.label
+        if description is None and model.description:
+            description = model.description
+        if info is None and model.info:
+            info = copy.deepcopy(model.info)
+        if locale is None and model.locale:
+            locale = model.locale
+
+        # dimensions, fail on conflicting names
+        for dim in model.dimensions:
+            if dimensions.has_key(dim.name):
+                raise ModelError("Found duplicate dimension named '%s', cannot merge models" % dim.name)
+            dimensions[dim.name] = dim
+        # cubes, fail on conflicting names
+        for cube in model.cubes.values():
+            if all_cubes.has_key(cube.name):
+                raise ModelError("Found duplicate cube named '%s', cannot merge models" % cube.name)
+            model.remove_cube(cube)
+            all_cubes[cube.name] = cube
+
+    return Model(name=name, label=label, description=description, info=info, dimensions=dimensions.values(), cubes=all_cubes.values())
 
 def model_from_path(path):
     """Load logical model from a file or a directory specified by `path`.
