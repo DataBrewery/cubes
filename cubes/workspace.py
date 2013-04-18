@@ -11,6 +11,7 @@ __all__ = [
     "create_workspace",
     "create_workspace_from_config",
     "create_slicer_context",
+    "config_items_to_dict",
     "Workspace"
 ]
 
@@ -70,7 +71,7 @@ def create_slicer_context(config):
 
     if config.has_section("translations"):
         context["locales"] = config.options("translations")
-        context["translations"] = items_to_dict(config.items("translations"))
+        context["translations"] = config_items_to_dict(config.items("translations"))
         logger.debug("Model translations: %s" % ", ".join(context["locales"]))
     else:
         context["locales"] = []
@@ -121,14 +122,14 @@ def create_slicer_context(config):
 
     if section:
         try:
-            config_dict = items_to_dict(config.items(section))
+            config_dict = config_items_to_dict(config.items(section))
         except ConfigParser.NoSectionError:
             try:
-                config_dict = items_to_dict(config.items("backend"))
+                config_dict = config_items_to_dict(config.items("backend"))
                 logger.warn("slicer config [backend] section is depreciated, rename to [workspace]")
             except ConfigParser.NoSectionError:
                 try:
-                    config_dict = items_to_dict(config.items("db"))
+                    config_dict = config_items_to_dict(config.items("db"))
                     logger.warn("slicer config [db] section is depreciated, rename to [workspace]")
                 except ConfigParser.NoSectionError:
                     logger.warn("no section [workspace] found in slicer config, using empty options")
@@ -140,7 +141,7 @@ def create_slicer_context(config):
 
     return context
 
-def items_to_dict(items):
+def config_items_to_dict(items):
     return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
 
 def interpret_config_value(value):

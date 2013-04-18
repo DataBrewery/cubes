@@ -5,7 +5,7 @@ from cubes.browser import *
 from cubes.computation import *
 from cubes.workspace import Workspace
 from cubes import statutils
-from .mapper import MongoCollectionMapper
+from .mapper import MongoCollectionMapper, coalesce_physical
 
 import collections
 import copy
@@ -30,9 +30,18 @@ __all__ = [
 ]
 
 AGGREGATIONS = {
-    'count': (lambda field: { '$sum': 1 }),
-    'sum': (lambda field: { '$sum': field.project_expression() }),
-    'identity': (lambda field: { '$sum': 1 })
+    'count': {
+        'group_by': (lambda field: { '$sum': 1 }),
+        'aggregate_fn': len,
+    },
+    'sum': {
+        'group_by': (lambda field: { '$sum': "$%s" % field }),
+        'aggregate_fn': sum,
+    },
+    'identity': {
+        'group_by' : (lambda field: { '$sum': 1 }),
+        'aggregate_fn': len
+    }
 }
 
 CALCULATED_AGGREGATIONS = {
@@ -81,10 +90,14 @@ class MongoBrowser(AggregationBrowser):
         mongo_client.read_preference = pymongo.read_preferences.ReadPreference.SECONDARY
 
         db, coll = options.get('database'), options.get('collection')
+        if db is None:
+            raise ArgumentError("Options to MongoBrowser must include 'database'")
+        if coll is None:
+            raise ArgumentError("Options to MongoBrowser must include 'collection'")
 
         self.data_store = mongo_client[db][coll]
 
-        self.mapper = MongoCollectionMapper(cube, locale)
+        self.mapper = MongoCollectionMapper(cube, db, coll, locale)
 
     def aggregate(self, cell=None, measures=None, drilldown=None, 
                   attributes=None, order=None, page=None, page_size=None, 
@@ -199,6 +212,14 @@ class MongoBrowser(AggregationBrowser):
 
         return data
 
+    def _in_same_collection(self, physical_ref):
+        return (physical_ref.database == self.mapper.database) and (physical_ref.collection == self.mapper.collection)
+
+    def _measure_aggregation_field(self, logical_ref, aggregation_name):
+        if aggregation_name == 'identity':
+            return logical_ref
+        return "%s_%s" % (logical_ref, aggregation_name)
+
     def _build_query_and_fields(self, cell, attributes):
         find_clauses = []
         query_obj = {}
@@ -213,7 +234,10 @@ class MongoBrowser(AggregationBrowser):
         fields_obj = {}
         if attributes:
             for attribute in attributes:
-                fields_obj[ escape_level(attribute.ref()) ] = self.mapper.physical(attribute).project_expression()
+                phys = self.mapper.physical(attribute)
+                if not self._in_same_collection(phys):
+                    raise ValueError("Cannot fetch field that is in different collection than this browser: %r" % phys)
+                fields_obj[ escape_level(attribute.ref()) ] = phys.project_expression()
 
         return query_obj, fields_obj
 
@@ -222,11 +246,10 @@ class MongoBrowser(AggregationBrowser):
         # determine query for cell cut
         query_obj, fields_obj = self._build_query_and_fields(cell, attributes)
 
-        agg = self.cube.measure('record_count').aggregations[0]
-
-        # if no drilldown, no aggregation pipeline needed.
-        if not drilldown and agg == 'count':
-            return (self.data_store.find(query_obj).count(), [])
+        # if no drilldown, only one measure, and only aggregations to do on it are count or identity, no aggregation pipeline needed.
+        if not drilldown and len(measures) == 1 and measures[0].aggregations:
+            if len([ a for a in measures[0].aggregations if a not in ('count', 'identity')]) == 0:
+                return (self.data_store.find(query_obj).count(), [])
 
         # drilldown, fire up the pipeline
         group_obj = {}
@@ -235,57 +258,61 @@ class MongoBrowser(AggregationBrowser):
         date_processing = False
         date_transform = lambda x:x
 
-        for dim, hier, levels in drilldown:
+        if drilldown:
+            for dim, hier, levels in drilldown:
 
-            # Special Mongo Date Hack for TZ Support
-            if dim and is_date_dimension(dim):
-                date_processing = True
-                phys = self.mapper.physical(levels[0].key)
-                date_idx = phys.project_expression()
+                # Special Mongo Date Hack for TZ Support
+                if dim and is_date_dimension(dim):
+                    date_processing = True
+                    phys = self.mapper.physical(levels[0].key)
+                    date_idx = phys.project_expression()
 
-                # add to $match and $project expressions
-                query_obj.update(phys.match_expression(1, op='$exists'))
-                fields_obj[date_idx[1:]] = 1
-
-                group_id.update({
-                    'year': {'$year': date_idx},
-                    'month': {'$month': date_idx},
-                    'day': {'$dayOfMonth': date_idx},
-                    'hour': {'$hour': date_idx},
-                })
-
-                def _date_transform(item, date_field):
-                    date_dict = {}
-                    for k in ['year', 'month', 'day', 'hour']:
-                        date_dict[k] = item['_id'].pop(k)
-                    date_dict.update({'tzinfo': tz_utc})
-
-                    date = datetime(**date_dict)
-                    date = date.astimezone(tz=tz) # convert to eastern
-
-                    item['_id'][date_field] = date
-                    return item
-
-                date_transform = partial(_date_transform, date_field=dim.name)
-
-            else:
-                for level in levels:
-                    phys = self.mapper.physical(level.key)
-                    exp = phys.project_expression()
-                    fields_obj[escape_level(level.key.ref())] = exp
-                    group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
+                    # add to $match and $project expressions
                     query_obj.update(phys.match_expression(1, op='$exists'))
+                    fields_obj[date_idx[1:]] = 1
 
-        if agg == 'count':
-            agg = 'sum'
-            agg_field = 1
-        else:
-            agg_field = self.cube.mappings.get('record_count')
-            if agg_field:
-                fields_obj[ agg_field ] = 1
-            agg_field = "$%s" % agg_field if agg_field else 1
-        group_obj = { "_id": group_id, "record_count": { "$%s" % agg: agg_field } }
+                    group_id.update({
+                        'year': {'$year': date_idx},
+                        'month': {'$month': date_idx},
+                        'day': {'$dayOfMonth': date_idx},
+                        'hour': {'$hour': date_idx},
+                    })
 
+                    def _date_transform(item, date_field):
+                        date_dict = {}
+                        for k in ['year', 'month', 'day', 'hour']:
+                            date_dict[k] = item['_id'].pop(k)
+                        date_dict.update({'tzinfo': tz_utc})
+
+                        date = datetime(**date_dict)
+                        date = date.astimezone(tz=tz) # convert to eastern
+
+                        item['_id'][date_field] = date
+                        return item
+
+                    date_transform = partial(_date_transform, date_field=dim.name)
+
+                else:
+                    for level in levels:
+                        phys = self.mapper.physical(level.key)
+                        exp = phys.project_expression()
+                        fields_obj[escape_level(level.key.ref())] = exp
+                        group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
+                        query_obj.update(phys.match_expression(1, op='$exists'))
+
+        group_obj = { "_id": group_id }
+
+        aggregate_fn_pairs = []
+        for m in measures:
+            for agg in [ agg for agg in m.aggregations if AGGREGATIONS.has_key(agg) ]:
+                agg_ref = AGGREGATIONS.get(agg)
+                phys = self.mapper.physical(m)
+                fields_obj[ escape_level(m.ref()) ] = phys.project_expression()
+                if not self._in_same_collection(phys):
+                    raise ValueError("Measure cannot be in different database or collection than browser: %r" % phys)
+                aggregate_fn_pairs.append( ( escape_level(self._measure_aggregation_field(m.ref(), agg)), sum ) )
+                group_obj[ escape_level(self._measure_aggregation_field(m.ref(), agg)) ] = phys.group if phys.group else agg_ref.get('group_by')(escape_level(m.ref()))
+        
         pipeline = []
         pipeline.append({ "$match": query_obj })
         if fields_obj:
@@ -361,15 +388,15 @@ class MongoBrowser(AggregationBrowser):
 
                 return item
 
-            aggregate_fn = sum  # maybe support avg in future
-            
             formatted_results = []
             for g in groups:
                 item = {}
                 items = [i for i in g[1]]
 
                 item.update(items[0])
-                item['record_count'] = aggregate_fn([d['record_count'] for d in items])
+
+                for agg_fn_pair in aggregate_fn_pairs:
+                    item[ agg_fn_pair[0] ] = agg_fn_pair[1]([d[ agg_fn_pair[0] ] for d in items])
 
                 item = _date_norm(item, datenormalize, dategrouping)
                 formatted_results.append(item)
@@ -387,7 +414,8 @@ class MongoBrowser(AggregationBrowser):
             new_item = {}
             for k, v in item['_id'].items():
                 new_item[unescape_level(k)] = v
-            new_item['record_count'] = item['record_count']
+            for agg_fn_pair in aggregate_fn_pairs:
+                new_item[ unescape_level(agg_fn_pair[0]) ] = item [ agg_fn_pair[0] ]
             result_items.append(new_item)
         return (None, result_items)
 
