@@ -336,7 +336,7 @@ class MongoBrowser(AggregationBrowser):
 
         if date_processing:
             dategrouping = ['year', 'month', 'week', 'day', 'hour',]
-            datenormalize = ['year', 'month', 'week', 'day', 'hour',]
+            datenormalize = ['year', 'month', 'week', 'dow', 'day', 'hour',]
 
             date_field = None
             filter_so_far = False
@@ -374,7 +374,7 @@ class MongoBrowser(AggregationBrowser):
 
 
             # sort and group [date_parts,...,non-date parts]
-            results = sorted(results, key=partial(_date_key, dategrouping=dategrouping))
+            results = sorted(results, key=partial(_date_key, dategrouping=[ ("dow_sort" if x == "dow" else x) for x in dategrouping ]))
             groups = groupby(results, key=partial(_date_key, dategrouping=dategrouping))
 
             def _date_norm(item, datenormalize, dategrouping):
