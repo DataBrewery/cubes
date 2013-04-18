@@ -21,6 +21,7 @@ def enum(**enums):
 WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
                   FRIDAY=4, SATURDAY=5, SUNDAY=6)
 
+WEEK_DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
 
 def so_far_filter(initial, datepart, key=lambda x:x):
     def _so_far_filter(dt, initial, datepart):
@@ -78,18 +79,15 @@ def get_date_for_week(year, week):
 
     return dt
 
-
 def calc_week(dt):
     dt = get_next_weekdate(dt, direction='up')
-    year = dt.year
+    return dt.strftime('%Y-%m-%d')
 
-    count = 0
-    while dt.year == year:
-        count += 1
-        dt -= timedelta(days=7)
+def calc_dow(dt):
+    return WEEK_DAY_NAMES[ dt.weekday() ]
 
-    return (year, count) # the week year might be different
-
+def calc_dow_sort(dt):
+    return dt.weekday() + 2 if dt.weekday() < 5 else dt.weekday() - 5
 
 def clear(dt, parts=TIME_PARTS):
     replace_dict = {}
@@ -114,6 +112,8 @@ def get_next_weekdate(dt, direction='up'):
 datepart_functions = {
     'year': lambda x:x.year,
     'month': lambda x:x.month,
+    'dow': calc_dow,
+    'dow_sort': calc_dow_sort,
     'week': calc_week,
     'day': lambda x:x.day,
     'hour': lambda x:x.hour,
