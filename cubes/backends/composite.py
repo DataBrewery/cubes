@@ -1,4 +1,4 @@
-from cubes.workspace import Workspace, get_backend
+from cubes.workspace import Workspace, get_backend, config_items_to_dict
 
 def create_workspace(model, **options):
     return CompositeWorkspace(model, **options)
@@ -23,7 +23,7 @@ class CompositeWorkspace(Workspace):
         if datasource in self.workspaces:
             return self.workspaces[datasource]
         # look up config section in config
-        ds_config = dict(self.config.items(datasource))
+        ds_config = config_items_to_dict(self.config.items(datasource))
         if not ds_config:
             raise ValueError("Can't find config section named %s" % datasource)
         # get backend
