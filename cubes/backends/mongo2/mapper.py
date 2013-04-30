@@ -6,6 +6,7 @@ import copy
 from cubes.common import get_logger
 from cubes.errors import *
 from cubes.mapper import Mapper
+from bson.objectid import ObjectId
 
 __all__ = (
     "MongoCollectionMapper"
@@ -13,9 +14,19 @@ __all__ = (
 
 DEFAULT_KEY_FIELD = "_id"
 
+MONGO_TYPES = {
+    'string': str,
+    'objectid': ObjectId,
+    'oid': ObjectId,
+    'integer': int,
+    'int': int,
+    'float': float,
+    'double': float
+}
+
 """Physical reference to a mongo document field."""
 class MongoDocumentField(object):
-    def __init__(self, database, collection, field, match, project, group, encode, decode):
+    def __init__(self, database, collection, field, match, project, group, encode, decode, type=None):
         self.database = database
         self.collection = collection
         self.field = field
@@ -30,6 +41,8 @@ class MongoDocumentField(object):
         self.decode = lambda x: x
         if decode:
             self.decode = compile(decode, 'eval')
+
+        self.type = MONGO_TYPES.get(str('string' if type is None else type).lower(), str)
 
     def group_expression(self):
         return copy.deepcopy(self.group) if self.group else self.group
@@ -49,7 +62,7 @@ class MongoDocumentField(object):
 
 def coalesce_physical(mapper, ref):
     if isinstance(ref, basestring):
-        return MongoDocumentField(mapper.database, mapper.collection, ref, None, None, None, None, None)
+        return MongoDocumentField(mapper.database, mapper.collection, ref, None, None, None, None, None, None)
     elif isinstance(ref, dict):
         return MongoDocumentField(
             ref.get('database', mapper.database), 
@@ -59,7 +72,8 @@ def coalesce_physical(mapper, ref):
             ref.get('project'), 
             ref.get('group'), 
             ref.get("encode"), 
-            ref.get("decode")
+            ref.get("decode"),
+            ref.get("type")
             )
     else:
         raise BackendError("Number of items in mongo document field reference should "\
