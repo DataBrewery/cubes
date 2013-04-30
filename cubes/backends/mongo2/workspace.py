@@ -11,6 +11,7 @@ import collections
 import copy
 import pymongo
 import bson
+import re
 
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
@@ -48,6 +49,8 @@ CALCULATED_AGGREGATIONS = {
     "sma": statutils.simple_moving_average_factory,
     "wma": statutils.weighted_moving_average_factory
 }
+
+SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
 
 def is_date_dimension(dim):
     if isinstance(dim, basestring):
@@ -348,8 +351,8 @@ class MongoBrowser(AggregationBrowser):
                     for dg in dategrouping:
                         datenormalize.remove(dg)
 
-                    # TODO don't use magic sofar string
-                    if hier.name.lower() == 'sofar':
+                    # TODO don't use magic _sf string for sofar
+                    if SO_FAR_DIMENSION_REGEX.match(dim.name):
                         filter_so_far = True
                     break
 
