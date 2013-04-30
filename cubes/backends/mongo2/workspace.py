@@ -22,8 +22,6 @@ from datesupport import get_date_for_week, calc_week, get_next_weekdate,\
                         datepart_functions, date_norm_map, date_as_utc, so_far_filter
 
 
-tz = pytz.timezone('America/New_York')
-tz_eastern = pytz.timezone('America/New_York')
 tz_utc = pytz.timezone('UTC')
 
 __all__ = [
@@ -101,6 +99,8 @@ class MongoBrowser(AggregationBrowser):
         self.data_store = mongo_client[db][coll]
 
         self.mapper = MongoCollectionMapper(cube, db, coll, locale)
+
+        self.timezone = pytz.timezone(cube.info.get('timezone')) if cube.info.get('timezone') else pytz.timezone('UTC')
 
     def aggregate(self, cell=None, measures=None, drilldown=None, 
                   attributes=None, order=None, page=None, page_size=None, 
@@ -285,10 +285,10 @@ class MongoBrowser(AggregationBrowser):
                         date_dict = {}
                         for k in ['year', 'month', 'day', 'hour']:
                             date_dict[k] = item['_id'].pop(k)
-                        date_dict.update({'tzinfo': tz_utc})
 
                         date = datetime(**date_dict)
-                        date = date.astimezone(tz=tz) # convert to eastern
+                        date = tz_utc.localize(date)
+                        date = date.astimezone(tz=self.timezone) # convert to browser timezone
 
                         item['_id'][date_field] = date
                         return item
@@ -367,7 +367,7 @@ class MongoBrowser(AggregationBrowser):
                         key.append(v)
                 return key
 
-            if dategrouping[-1] == 'week':
+            if dategrouping[-1] == 'week' and 'year' in dategrouping:
                 dategrouping.remove('year') # year included in week calc because week year might change
 
 
@@ -422,20 +422,21 @@ class MongoBrowser(AggregationBrowser):
             result_items.append(new_item)
         return (None, result_items)
 
-    def _build_date_for_cut(self, path, tzinfo=tz_eastern):
-        dateparts = ['year', 'month', 'day', 'hour']
-
-        date_dict = {'month': 1, 'day': 1, 'hour':0}
+    def _build_date_for_cut(self, hier, path):
+        date_dict = {'month': 1, 'day': 1, 'hour':0 }
         min_part = None
 
-        for val, dp in zip(path, dateparts[:len(path)]):
-            date_dict[dp] = int(val)
+        for val, dp in zip(path, hier.levels[:len(path)]):
+            # TODO saner type conversion based on mapping field
+            date_dict[dp.key.name] = self.mapper.physical(dp.key).type(val)
             min_part = dp
 
         print '=datedict', date_dict
 
-        # return date_as_utc(**date_dict), min_part
-        return datetime(**date_dict), min_part
+        if 'year' not in date_dict:
+            return None, min_part
+
+        return self.timezone.localize(datetime(**date_dict)).astimezone(tz_utc), min_part
 
     def _query_conditions_for_cut(self, cut):
         conds = []
@@ -444,16 +445,10 @@ class MongoBrowser(AggregationBrowser):
 
         if isinstance(cut, PointCut):
             if is_date_dimension(cut.dimension):
-                start, dp = self._build_date_for_cut(cut.path)
+                start, dp = self._build_date_for_cut(cut_hierarchy, cut.path)
+                if start is None:
+                    return conds
                 end = start + relativedelta(**{dp+'s':1})
-
-                # localize for daylight savings post math
-                start = tz_eastern.localize(start)
-                end = tz_eastern.localize(end)
-
-                # convert to UTC
-                start = start.astimezone(tz_utc)
-                end = end.astimezone(tz_utc)
 
                 start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
                 end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
@@ -482,16 +477,14 @@ class MongoBrowser(AggregationBrowser):
                 start_cond = None
                 end_cond = None
                 if cut.from_path:
-                    start, dp = self._build_date_for_cut(cut.from_path)
-                    start = tz_eastern.localize(start)
-                    start = start.astimezone(tz_utc)
-                    start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
+                    start, dp = self._build_date_for_cut(cut_hierarchy, cut.from_path)
+                    if start is not None:
+                        start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
                 if cut.to_path:
-                    end, dp = self._build_date_for_cut(cut.to_path)
+                    end, dp = self._build_date_for_cut(cut_hierarchy, cut.to_path)
                     end = end + relativedelta(**{dp+'s':1}) # inclusive
-                    end = tz_eastern.localize(end)
-                    end = end.astimezone(tz_utc)
-                    end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
+                    if end is not None:
+                        end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
 
                 if not cut.invert:
                     if start_cond:
