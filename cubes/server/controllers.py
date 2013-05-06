@@ -51,7 +51,7 @@ class ApplicationController(object):
         self.model = self.workspace.localized_model(self.locale)
 
         if config.has_option("server","json_record_limit"):
-            self.json_record_limit = config.get("server","json_record_limit")
+            self.json_record_limit = config.getint("server","json_record_limit")
         else:
             self.json_record_limit = 1000
 
