@@ -59,6 +59,7 @@ def cacheable(fn):
     def _cache(self, *args, **kwargs):
 
         if not hasattr(self, 'cache'):
+            logging.warn('Object is not configured with cache for @cacheable function')
             return fn(self, *args, **kwargs)
 
         additional_args = getattr(self, 'args', {})
@@ -81,8 +82,10 @@ def cacheable(fn):
         except Exception as e:
             self.logger.error('CACHE ERROR: %s', e)
             v = fn(self, *args, **kwargs)
-            cache_impl.set(key, v)
-            return v
+            try:
+                cache_impl.set(key, v)
+            finally:
+                return v
         
     return update_wrapper(_cache, fn)
 
@@ -99,6 +102,16 @@ class Cache(object):
         return self.rem(key)
 
 
+def trap(fn):
+    def _trap(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except e:
+            logging.error('%s: %s, %s', fn.__name__, args, kwargs)
+            logging.exception(e)
+    return _trap
+
+
 class MongoCache(Cache):
 
     def __init__(self, name, ds, ttl=60, ttl_strategy=_default_strategy, dumps=_NOOP, loads=_NOOP, **kwargs):
@@ -108,6 +121,7 @@ class MongoCache(Cache):
         self.loads = loads
         self.ttl_strategy = ttl_strategy
 
+    @trap
     def set(self, key, val, ttl=None):
         t = ttl or self.ttl_strategy(val) or self.ttl
         n = datetime.utcnow() + timedelta(seconds=t)
@@ -123,6 +137,7 @@ class MongoCache(Cache):
 
         return item is not None
 
+    @trap
     def get(self, key):
         n = datetime.utcnow()
         item = self.store.find_one({'_id':key})
