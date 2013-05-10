@@ -633,7 +633,7 @@ class QueryContext(object):
         conditions = []
         if cell_cond.condition is not None:
             conditions.append(cell_cond.condition)
-        if drilldown_ptd_condition and drilldown_ptd_condition is not None:
+        if drilldown_ptd_condition is not None:
             conditions.append(drilldown_ptd_condition.condition)
 
         if conditions:
