@@ -46,6 +46,7 @@ __all__ = [
 ]
 
 _EXPR_EVAL_NS = {
+    "sqlalchemy": sqlalchemy,
     "sql": sql,
     "func": sql.expression.func,
     "case": sql.expression.case,
