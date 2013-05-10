@@ -517,7 +517,7 @@ def _model_desc_from_json_file(object_path):
     try:
         desc = json.load(a_file)
     except ValueError as e:
-        raise SyntaxError("Syntaxt error in %s: %s" % (full_path, e.args))
+        raise SyntaxError("Syntaxt error in %s: %s" % (object_path, e.args))
     finally:
         a_file.close()
 
