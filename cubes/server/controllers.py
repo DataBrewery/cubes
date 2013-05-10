@@ -337,18 +337,19 @@ class CubesController(ApplicationController):
         self.browser = self.workspace.browser(self.cube, self.locale)
 
     def prepare_cell(self):
-        cut_strings = self.args.getlist("cut")
+        cuts = self._parse_cut_spec(self.args.getlist("cut"), 'cell')
+        self.cell = cubes.Cell(self.cube, cuts)
 
+    def _parse_cut_spec(self, cut_strings, context):
         if cut_strings:
             cuts = []
             for cut_string in cut_strings:
-                self.logger.debug("preparing cell from string: '%s'" % cut_string)
+                self.logger.debug("preparing %s from string: '%s'" % (context, cut_string))
                 cuts += cubes.cuts_from_string(cut_string)
         else:
-            self.logger.debug("preparing cell as whole cube")
+            self.logger.debug("preparing %s as whole cube" % context)
             cuts = []
-
-        self.cell = cubes.Cell(self.cube, cuts)
+        return cuts
 
     @cacheable
     def aggregate(self, cube):
@@ -363,7 +364,12 @@ class CubesController(ApplicationController):
             for ddstring in ddlist:
                 drilldown += ddstring.split("|")
 
-        result = self.browser.aggregate(self.cell, drilldown=drilldown,
+        split = None
+        split_cuts = self._parse_cut_spec(self.args.getlist("split"), 'split')
+        if split_cuts:
+            split = cubes.Cell(self.cube, split_cuts)
+
+        result = self.browser.aggregate(self.cell, drilldown=drilldown, split=split,
                                         page=self.page,
                                         page_size=self.page_size,
                                         order=self.order)
