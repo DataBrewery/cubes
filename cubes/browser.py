@@ -36,8 +36,11 @@ __all__ = [
     "TableRow",
     "CrossTable",
     "cross_table",
-    "levels_from_drilldown"
+    "levels_from_drilldown",
+    "SPLIT_DIMENSION_NAME"
 ]
+
+SPLIT_DIMENSION_NAME = '__split__'
 
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
