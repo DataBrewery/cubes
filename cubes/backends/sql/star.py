@@ -344,25 +344,26 @@ class SnowflakeBrowser(AggregationBrowser):
         ##
 
         if drilldown or split:
-            drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else []
+            drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else [])
            
-            if split:
-                drilldown = [(_SPLIT_DIMENSION, 'split', ['within_split_cell'])] + drilldown
-
             dim_levels = {}
             for dim, hier, levels in drilldown:
                 dim_levels[str(dim)] = [str(level) for level in levels]
+
+            if split:
+                dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
 
             result.levels = dim_levels
 
             statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures,
                                                          attributes=attributes,
-                                                         drilldown=drilldown)
+                                                         drilldown=drilldown,
+                                                         split=split)
 
             statement = self.context.paginated_statement(statement, page, page_size)
             statement = self.context.ordered_statement(statement, order,
-                                                                    drilldown)
+                                                                    drilldown, split)
 
             if self.debug:
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
@@ -588,7 +589,7 @@ class QueryContext(object):
         self.label_counter = 1
 
     def aggregation_statement(self, cell, measures=None,
-                              attributes=None, drilldown=None):
+                              attributes=None, drilldown=None, split=None):
         """Return a statement for summarized aggregation. `whereclause` is
         same as SQLAlchemy `whereclause` for
         `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
@@ -597,6 +598,9 @@ class QueryContext(object):
         `levels_from_drilldown()` to prepare correct drill-down statement."""
 
         cell_cond = self.condition_for_cell(cell)
+        split_dim_cond = None
+        if split:
+            split_dim_cond = self.condition_for_cell(split)
 
         if not attributes:
             attributes = set()
@@ -607,6 +611,8 @@ class QueryContext(object):
                         attributes |= set(level.attributes)
 
         attributes = set(attributes) | set(cell_cond.attributes)
+        if split_dim_cond:
+            attributes |= set(split_dim_cond.attributes)
 
         join_expression = self.join_expression_for_attributes(attributes)
 
@@ -614,8 +620,11 @@ class QueryContext(object):
 
         group_by = None
         drilldown_ptd_condition = None
-        if drilldown:
+        if split_dim_cond or drilldown:
             group_by = []
+            if split_dim_cond:
+                group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
+                selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
             for dim, hier, levels in drilldown:
                 for level in levels:
                     columns = [self.column(attr) for attr in level.attributes
@@ -1029,7 +1038,7 @@ class QueryContext(object):
         else:
             return statement
 
-    def ordered_statement(self, statement, order, dimension_levels=None):
+    def ordered_statement(self, statement, order, dimension_levels=None, split=None):
         """Returns a SQL statement which is ordered according to the `order`. If
         the statement contains attributes that have natural order specified, then
         the natural order is used, if not overriden in the `order`.
@@ -1056,6 +1065,9 @@ class QueryContext(object):
 
         order = order or []
 
+        if split:
+            order.append( SPLIT_DIMENSION_NAME )
+
         if dimension_levels:
             for dim, hier, levels in dimension_levels:
                 dim = self.cube.dimension(dim)
@@ -1067,7 +1079,9 @@ class QueryContext(object):
         order_by = collections.OrderedDict()
 
         for item in order:
-            if isinstance(item, basestring):
+            if item == SPLIT_DIMENSION_NAME:
+                column = sql.expression.column(SPLIT_DIMENSION_NAME)
+            elif isinstance(item, basestring):
                 try:
                     column = selection[item]
                 except KeyError:
