@@ -64,7 +64,7 @@ class AggregationBrowser(object):
         logger.warn("browser.full_cube() is depreciated, use Cell(cube)")
         return Cell(self.cube)
 
-    def aggregate(self, cell=None, measures=None, drilldown=None, **options):
+    def aggregate(self, cell=None, measures=None, drilldown=None, split=None, **options):
         """Return aggregate of a cell.
 
         Subclasses of aggregation browser should implement this method.
