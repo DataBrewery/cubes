@@ -40,7 +40,7 @@ __all__ = [
     "SPLIT_DIMENSION_NAME"
 ]
 
-SPLIT_DIMENSION_NAME = '__split__'
+SPLIT_DIMENSION_NAME = '__within_split__'
 
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
