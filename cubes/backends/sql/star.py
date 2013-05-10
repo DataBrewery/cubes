@@ -262,7 +262,7 @@ class SnowflakeBrowser(AggregationBrowser):
         return record
 
 
-    def aggregate(self, cell=None, measures=None, drilldown=None,
+    def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
                   include_summary=None, include_cell_count=None, **options):
         """Return aggregated result.
@@ -273,6 +273,8 @@ class SnowflakeBrowser(AggregationBrowser):
         * `measures`: list of measures to be considered in aggregation
         * `drilldown`: list of dimensions or list of tuples: (`dimension`,
           `hierarchy`, `level`)
+        * `split`: an optional cell that becomes an extra drilldown segmenting
+          the data into those within split cell and those not within 
         * `attributes`: list of attributes from drilled-down dimensions to be
           returned in the result
 
@@ -337,10 +339,15 @@ class SnowflakeBrowser(AggregationBrowser):
 
         ##
         # Drill-down
+        #
+        # Note that a split cell if present prepends a drilldown
         ##
 
-        if drilldown:
-            drilldown = levels_from_drilldown(cell, drilldown)
+        if drilldown or split:
+            drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else []
+           
+            if split:
+                drilldown = [(_SPLIT_DIMENSION, 'split', ['within_split_cell'])] + drilldown
 
             dim_levels = {}
             for dim, hier, levels in drilldown:
