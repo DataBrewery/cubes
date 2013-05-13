@@ -47,12 +47,13 @@ class MongoDocumentField(object):
     def group_expression(self):
         return copy.deepcopy(self.group) if self.group else self.group
 
-    def match_expression(self, value, op=None):
+    def match_expression(self, value, op=None, for_project=False):
         value = self.encode(value)
+        field_name = ("$%s" % self.field) if for_project else self.field
         if op is None:
-            return { self.field : value }
+            return { field_name : value }
         else:
-            return { self.field : { op : value } }
+            return { field_name : { op : value } }
 
     def project_expression(self):
         if self.project:
