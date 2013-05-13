@@ -148,7 +148,7 @@ class MongoBrowser(AggregationBrowser):
         if not calc_aggs:
             return []
 
-        return [ CALCULATED_AGGREGATIONS.get(c)(measure, drilldown_levels, ['identity']) for c in calc_aggs ]
+        return [ CALCULATED_AGGREGATIONS.get(c)(measure, drilldown_levels, split, ['identity']) for c in calc_aggs ]
 
     def _json_safe_item(self, item):
         new_item = {}
