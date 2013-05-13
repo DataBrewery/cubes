@@ -23,14 +23,14 @@ def simple_moving_average_factory(measure, drilldown_paths, split_cell, source_a
     return _moving_average_factory(measure, drilldown_paths, split_cell, source_aggregations, _sma, 'sma')
 
 def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggregations, avg_func, aggregation_name):
-    if (not drilldown_paths and not split) or not source_aggregations:
+    if (not drilldown_paths and not split_cell) or not source_aggregations:
         return lambda item: None
 
     # if the level we're drilling to doesn't have aggregation_units configured,
     # we're not doing any calculations
     key_drilldown_paths = []
 
-    if split:
+    if split_cell:
         key_drilldown_paths.append(SPLIT_DIMENSION_NAME)
     num_units = None
     for path in drilldown_paths:
@@ -49,7 +49,7 @@ def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggrega
     # if no key_drilldown_paths, the key is always the empty tuple.
     def key_extractor(item):
         vals = []
-        if split:
+        if split_cell:
             val.append( item.get(SPLIT_DIMENSION_NAME) )
         for dim, hier, levels in key_drilldown_paths:
             for level in levels:
