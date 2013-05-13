@@ -2,6 +2,7 @@ import re
 from functools import partial
 import pytz
 from datetime import datetime, timedelta
+from utils import now
 import logging
 
 
@@ -26,16 +27,6 @@ def op(target):
         target = target.replace(mk.group(), new_val)
         logging.debug("Replaced wildcard with %s", target)
     return target
-
-
-tz_eastern = pytz.timezone('America/New_York')
-tz_utc = pytz.timezone('UTC')
-
-
-def now(tzinfo=tz_eastern):
-    n = datetime.utcnow()
-    n = tz_utc.localize(n)
-    return n.astimezone(tzinfo)
 
 
 def lastN(token, days=14, format='%Y-%m-%d', tzinfo='America/NewYork'):
