@@ -228,7 +228,7 @@ class MongoBrowser(AggregationBrowser):
     def _build_query_and_fields(self, cell, attributes, for_project=False):
         find_clauses = []
         query_obj = {}
-        if self.cube.mappings and self.cube.mappings.get('__query__'):
+        if not for_project and self.cube.mappings and self.cube.mappings.get('__query__'):
             query_obj.update(copy.deepcopy(self.cube.mappings['__query__']))
 
         find_clauses = reduce(lambda i, c: i + c, [self._query_conditions_for_cut(cut, for_project) for cut in cell.cuts], [])
@@ -258,7 +258,6 @@ class MongoBrowser(AggregationBrowser):
 
         # prepare split-related projection of complex boolean condition
         if split:
-            import pdb; pdb.set_trace()
             split_query_like_obj, dummy = self._build_query_and_fields(split, [], for_project=True)
             if split_query_like_obj:
                 fields_obj[ escape_level(SPLIT_DIMENSION_NAME) ] = split_query_like_obj
