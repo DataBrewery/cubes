@@ -102,7 +102,7 @@ class MongoBrowser(AggregationBrowser):
 
         self.timezone = pytz.timezone(cube.info.get('timezone')) if cube.info.get('timezone') else pytz.timezone('UTC')
 
-    def aggregate(self, cell=None, measures=None, drilldown=None, 
+    def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, order=None, page=None, page_size=None, 
                   **options):
         cell = cell or Cell(self.cube)
@@ -117,20 +117,22 @@ class MongoBrowser(AggregationBrowser):
 
         drilldown_levels = None
 
-        if drilldown:
-            drilldown_levels = levels_from_drilldown(cell, drilldown)
+        if drilldown or split:
+            drilldown_levels = levels_from_drilldown(cell, drilldown) if drilldown else []
             dim_levels = {}
+            if split:
+                dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict.get('cuts')
             for dim, hier, levels in drilldown_levels:
                 dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
             result.levels = dim_levels
 
             calc_aggs = []
             for measure in measures:
-                calc_aggs += self.calculated_aggregations_for_measure(measure, drilldown_levels)
+                calc_aggs += self.calculated_aggregations_for_measure(measure, drilldown_levels, split)
             if calc_aggs:
                 result.calculators = calc_aggs
 
-        summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, order=order, page=page, page_size=page_size)
+        summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, split=split, order=order, page=page, page_size=page_size)
         result.cells = iter(items)
         result.summary = { "record_count": summary }
 
@@ -244,17 +246,24 @@ class MongoBrowser(AggregationBrowser):
 
         return query_obj, fields_obj
 
-    def _do_aggregation_query(self, cell, measures, attributes, drilldown, order, page, page_size):
+    def _do_aggregation_query(self, cell, measures, attributes, drilldown, split, order, page, page_size):
 
         # determine query for cell cut
         query_obj, fields_obj = self._build_query_and_fields(cell, attributes)
 
-        # if no drilldown, only one measure, and only aggregations to do on it are count or identity, no aggregation pipeline needed.
-        if not drilldown and len(measures) == 1 and measures[0].aggregations:
+        # if no drilldown or split, only one measure, and only aggregations to do on it are count or identity, no aggregation pipeline needed.
+        if (not drilldown and not split) and len(measures) == 1 and measures[0].aggregations:
             if len([ a for a in measures[0].aggregations if a not in ('count', 'identity')]) == 0:
                 return (self.data_store.find(query_obj).count(), [])
 
+        # prepare split-related projection of complex boolean condition
+        if split:
+            split_query_like_obj, dummy = self._build_query_and_fields(split, [])
+            if split_query_like_obj:
+                fields_obj[ escape_level(SPLIT_DIMENSION_NAME) ] = split_query_like_obj
+
         # drilldown, fire up the pipeline
+
         group_obj = {}
         group_id = {}
 
@@ -462,12 +471,12 @@ class MongoBrowser(AggregationBrowser):
             else:
                 # one condition per path element
                 for idx, p in enumerate(cut.path):
-                    conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else None) )
+                    conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else '$eq') )
         elif isinstance(cut, SetCut):
             for path in cut.paths:
                 path_conds = []
                 for idx, p in enumerate(path):
-                    path_conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else None) )
+                    path_conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else '$eq') )
                 conds.append({ "$and" : path_conds })
             conds = [{ "$or" : conds }]
         # FIXME for multi-level range: it's { $or: [ level_above_me < value_above_me, $and: [level_above_me = value_above_me, my_level < my_value] }
@@ -484,7 +493,7 @@ class MongoBrowser(AggregationBrowser):
                     end, dp = self._build_date_for_cut(cut_hierarchy, cut.to_path)
                     end = end + relativedelta(**{dp+'s':1}) # inclusive
                     if end is not None:
-                        end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
+                        end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt' if not cut.invert else '$gte')
 
                 if not cut.invert:
                     if start_cond:
@@ -504,12 +513,12 @@ class MongoBrowser(AggregationBrowser):
                 if cut.from_path:
                     last_idx = len(cut.from_path) - 1
                     for idx, p in enumerate(cut.from_path):
-                        op = ( ("$lt", "$ne") if cut.invert else ("$gte", None) )[0 if idx == last_idx else 1]
+                        op = ( ("$lt", "$ne") if cut.invert else ("$gte", "$eq") )[0 if idx == last_idx else 1]
                         conds.append( self._query_condition_for_path_value(cut.dimension, p, op))
                 if cut.to_path:
                     last_idx = len(cut.to_path) - 1
                     for idx, p in enumerate(cut.to_path):
-                        op = ( ("$gt", "$ne") if cut.invert else ("$lte", None) )[0 if idx == last_idx else 1]
+                        op = ( ("$gt", "$ne") if cut.invert else ("$lte", "$eq") )[0 if idx == last_idx else 1]
                         conds.append( self._query_condition_for_path_value(cut.dimension, p, "$gt" if cut.invert else "$lte") )
         else:
             raise ValueError("Unrecognized cut object: %r" % cut)
