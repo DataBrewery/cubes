@@ -24,6 +24,7 @@ import common
 # Local imports
 import controllers
 from utils import local_manager
+import utils
 
 # TODO: this deserves Flask!
 
@@ -204,6 +205,11 @@ def run_server(config):
         host = config.get("server", "host")
     else:
         host = "localhost"
+
+    if config.has_option('server', 'tz'):
+        import pytz
+        utils.default_tz = pytz.timezone(config.get("server", "tz"))
+        print 'Loaded TZ', utils.default_tz
 
     if config.has_option("server", "port"):
         port = config.getint("server", "port")
