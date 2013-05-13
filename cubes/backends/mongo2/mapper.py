@@ -52,6 +52,8 @@ class MongoDocumentField(object):
         field_name = ("$%s" % self.field) if for_project else self.field
         if op is None:
             return { field_name : value }
+        elif for_project:
+            return { op : [ field_name, value ] }
         else:
             return { field_name : { op : value } }
 
