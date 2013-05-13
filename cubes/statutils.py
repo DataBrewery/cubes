@@ -50,7 +50,7 @@ def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggrega
     def key_extractor(item):
         vals = []
         if split_cell:
-            val.append( item.get(SPLIT_DIMENSION_NAME) )
+            vals.append( item.get(SPLIT_DIMENSION_NAME) )
         for dim, hier, levels in key_drilldown_paths:
             for level in levels:
                 vals.append( item.get(level.key.ref()) )
