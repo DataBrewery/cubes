@@ -258,6 +258,7 @@ class MongoBrowser(AggregationBrowser):
 
         # prepare split-related projection of complex boolean condition
         if split:
+            import pdb; pdb.set_trace()
             split_query_like_obj, dummy = self._build_query_and_fields(split, [], for_project=True)
             if split_query_like_obj:
                 fields_obj[ escape_level(SPLIT_DIMENSION_NAME) ] = split_query_like_obj
