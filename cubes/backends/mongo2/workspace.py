@@ -138,8 +138,8 @@ class MongoBrowser(AggregationBrowser):
 
         return result
 
-    def calculated_aggregations_for_measure(self, measure, drilldown_levels):
-        if not drilldown_levels:
+    def calculated_aggregations_for_measure(self, measure, drilldown_levels, split):
+        if not drilldown_levels and not split:
             return []
 
         # TODO fix the hack that assumes everything will be record_count
