@@ -256,16 +256,16 @@ class MongoBrowser(AggregationBrowser):
             if len([ a for a in measures[0].aggregations if a not in ('count', 'identity')]) == 0:
                 return (self.data_store.find(query_obj).count(), [])
 
+        group_id = {}
+
         # prepare split-related projection of complex boolean condition
         if split:
             split_query_like_obj, dummy = self._build_query_and_fields(split, [], for_project=True)
             if split_query_like_obj:
                 fields_obj[ escape_level(SPLIT_DIMENSION_NAME) ] = split_query_like_obj
+                group_id[ escape_level(SPLIT_DIMENSION_NAME) ] = "$%s" % escape_level(SPLIT_DIMENSION_NAME)
 
         # drilldown, fire up the pipeline
-
-        group_obj = {}
-        group_id = {}
 
         date_processing = False
         date_transform = lambda x:x
