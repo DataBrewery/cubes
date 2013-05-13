@@ -30,8 +30,6 @@ def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggrega
     # we're not doing any calculations
     key_drilldown_paths = []
 
-    if split_cell:
-        key_drilldown_paths.append(SPLIT_DIMENSION_NAME)
     num_units = None
     for path in drilldown_paths:
         relevant_level = path[2][-1]
