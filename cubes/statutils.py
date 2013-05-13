@@ -1,5 +1,6 @@
 from collections import deque
 from cubes.model import Attribute
+from cubes.browser import SPLIT_DIMENSION_NAME
 
 def _wma(values):
     n = len(values)
@@ -15,19 +16,22 @@ def _sma(values):
     # use all the values
     return round(reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
 
-def weighted_moving_average_factory(measure, drilldown_paths, source_aggregations):
-    return _moving_average_factory(measure, drilldown_paths, source_aggregations, _wma, 'wma')
+def weighted_moving_average_factory(measure, drilldown_paths, split_cell, source_aggregations):
+    return _moving_average_factory(measure, drilldown_paths, split_cell, source_aggregations, _wma, 'wma')
 
-def simple_moving_average_factory(measure, drilldown_paths, source_aggregations):
-    return _moving_average_factory(measure, drilldown_paths, source_aggregations, _sma, 'sma')
+def simple_moving_average_factory(measure, drilldown_paths, split_cell, source_aggregations):
+    return _moving_average_factory(measure, drilldown_paths, split_cell, source_aggregations, _sma, 'sma')
 
-def _moving_average_factory(measure, drilldown_paths, source_aggregations, avg_func, aggregation_name):
-    if not drilldown_paths or not source_aggregations:
+def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggregations, avg_func, aggregation_name):
+    if (not drilldown_paths and not split) or not source_aggregations:
         return lambda item: None
 
     # if the level we're drilling to doesn't have aggregation_units configured,
     # we're not doing any calculations
     key_drilldown_paths = []
+
+    if split:
+        key_drilldown_paths.append(SPLIT_DIMENSION_NAME)
     num_units = None
     for path in drilldown_paths:
         relevant_level = path[2][-1]
@@ -45,6 +49,8 @@ def _moving_average_factory(measure, drilldown_paths, source_aggregations, avg_f
     # if no key_drilldown_paths, the key is always the empty tuple.
     def key_extractor(item):
         vals = []
+        if split:
+            val.append( item.get(SPLIT_DIMENSION_NAME) )
         for dim, hier, levels in key_drilldown_paths:
             for level in levels:
                 vals.append( item.get(level.key.ref()) )

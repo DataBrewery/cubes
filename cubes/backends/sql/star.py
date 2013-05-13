@@ -376,7 +376,7 @@ class SnowflakeBrowser(AggregationBrowser):
             if measures:
                 measures_for_calc_agg += measures
             result.calculators = []
-            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown) for measure in measures_for_calc_agg ]:
+            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures_for_calc_agg ]:
                 result.calculators += calc_aggs
             result.cells = ResultIterator(dd_result, labels)
 
@@ -391,11 +391,11 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return result
 
-    def calculated_aggregations_for_measure(self, measure, drilldown_levels=None):
+    def calculated_aggregations_for_measure(self, measure, drilldown_levels=None, split=None):
         """Returns a list of calculator objects that implement aggregations by calculating
         on retrieved results, given a particular drilldown.
         """
-        if not measure.aggregations or not drilldown_levels or len(drilldown_levels) < 1:
+        if not measure.aggregations or ((not drilldown_levels or len(drilldown_levels) < 1) and not split):
             return []
 
         # Each calculated aggregation calculates on every non-calculated aggregation.
@@ -404,7 +404,7 @@ class SnowflakeBrowser(AggregationBrowser):
         if not non_calculated_aggs:
             return []
 
-        return [ func(measure, drilldown_levels, non_calculated_aggs) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
+        return [ func(measure, drilldown_levels, split, non_calculated_aggs) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
