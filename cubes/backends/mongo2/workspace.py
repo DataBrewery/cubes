@@ -225,13 +225,13 @@ class MongoBrowser(AggregationBrowser):
             return logical_ref
         return "%s_%s" % (logical_ref, aggregation_name)
 
-    def _build_query_and_fields(self, cell, attributes):
+    def _build_query_and_fields(self, cell, attributes, for_project=False):
         find_clauses = []
         query_obj = {}
         if self.cube.mappings and self.cube.mappings.get('__query__'):
             query_obj.update(copy.deepcopy(self.cube.mappings['__query__']))
 
-        find_clauses = reduce(lambda i, c: i + c, [self._query_conditions_for_cut(cut) for cut in cell.cuts], [])
+        find_clauses = reduce(lambda i, c: i + c, [self._query_conditions_for_cut(cut, for_project) for cut in cell.cuts], [])
 
         if find_clauses:
             query_obj.update({ "$and": find_clauses })
@@ -258,7 +258,7 @@ class MongoBrowser(AggregationBrowser):
 
         # prepare split-related projection of complex boolean condition
         if split:
-            split_query_like_obj, dummy = self._build_query_and_fields(split, [])
+            split_query_like_obj, dummy = self._build_query_and_fields(split, [], for_project=True)
             if split_query_like_obj:
                 fields_obj[ escape_level(SPLIT_DIMENSION_NAME) ] = split_query_like_obj
 
@@ -447,7 +447,7 @@ class MongoBrowser(AggregationBrowser):
 
         return self.timezone.localize(datetime(**date_dict)).astimezone(tz_utc), min_part
 
-    def _query_conditions_for_cut(self, cut):
+    def _query_conditions_for_cut(self, cut, for_project=False):
         conds = []
         cut_dimension = self.cube.dimension(cut.dimension)
         cut_hierarchy = cut_dimension.hierarchy(cut.hierarchy)
@@ -459,8 +459,8 @@ class MongoBrowser(AggregationBrowser):
                     return conds
                 end = start + relativedelta(**{dp+'s':1})
 
-                start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
-                end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte')
+                start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt', for_project)
+                end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte', for_project)
 
                 if not cut.invert:
                     conds.append(start_cond)
@@ -471,12 +471,12 @@ class MongoBrowser(AggregationBrowser):
             else:
                 # one condition per path element
                 for idx, p in enumerate(cut.path):
-                    conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else '$eq') )
+                    conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else '$eq', for_project) )
         elif isinstance(cut, SetCut):
             for path in cut.paths:
                 path_conds = []
                 for idx, p in enumerate(path):
-                    path_conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else '$eq') )
+                    path_conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else '$eq', for_project) )
                 conds.append({ "$and" : path_conds })
             conds = [{ "$or" : conds }]
         # FIXME for multi-level range: it's { $or: [ level_above_me < value_above_me, $and: [level_above_me = value_above_me, my_level < my_value] }
@@ -488,12 +488,12 @@ class MongoBrowser(AggregationBrowser):
                 if cut.from_path:
                     start, dp = self._build_date_for_cut(cut_hierarchy, cut.from_path)
                     if start is not None:
-                        start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt')
+                        start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt', for_project)
                 if cut.to_path:
                     end, dp = self._build_date_for_cut(cut_hierarchy, cut.to_path)
                     end = end + relativedelta(**{dp+'s':1}) # inclusive
                     if end is not None:
-                        end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt' if not cut.invert else '$gte')
+                        end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt' if not cut.invert else '$gte', for_project)
 
                 if not cut.invert:
                     if start_cond:
@@ -514,19 +514,19 @@ class MongoBrowser(AggregationBrowser):
                     last_idx = len(cut.from_path) - 1
                     for idx, p in enumerate(cut.from_path):
                         op = ( ("$lt", "$ne") if cut.invert else ("$gte", "$eq") )[0 if idx == last_idx else 1]
-                        conds.append( self._query_condition_for_path_value(cut.dimension, p, op))
+                        conds.append( self._query_condition_for_path_value(cut.dimension, p, op, for_project))
                 if cut.to_path:
                     last_idx = len(cut.to_path) - 1
                     for idx, p in enumerate(cut.to_path):
                         op = ( ("$gt", "$ne") if cut.invert else ("$lte", "$eq") )[0 if idx == last_idx else 1]
-                        conds.append( self._query_condition_for_path_value(cut.dimension, p, "$gt" if cut.invert else "$lte") )
+                        conds.append( self._query_condition_for_path_value(cut.dimension, p, "$gt" if cut.invert else "$lte", for_project) )
         else:
             raise ValueError("Unrecognized cut object: %r" % cut)
         return conds
 
-    def _query_condition_for_path_value(self, attr, value, op=None):
+    def _query_condition_for_path_value(self, attr, value, op=None, for_project=False):
         phys = self.mapper.physical(attr)
-        return phys.match_expression(value, op)
+        return phys.match_expression(value, op, for_project)
 
     def _order_to_sort_object(self, order=None):
         if not order:
