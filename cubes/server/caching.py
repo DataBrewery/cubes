@@ -59,7 +59,7 @@ def cacheable(fn):
     def _cache(self, *args, **kwargs):
 
         if not hasattr(self, 'cache'):
-            logging.warn('Object is not configured with cache for @cacheable function')
+            logging.warn('Object is not configured with cache for @cacheable function: %s', self)
             return fn(self, *args, **kwargs)
 
         additional_args = getattr(self, 'args', {})
