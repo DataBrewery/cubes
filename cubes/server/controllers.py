@@ -6,6 +6,7 @@ import cStringIO
 import csv
 import codecs
 import cubes
+import wildcards
 from caching import cacheable
 
 from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
@@ -42,7 +43,7 @@ class ApplicationController(object):
     def __init__(self, args, workspace, logger, config):
 
         self.workspace = workspace
-        self.args = args
+        self.args = wildcards.proc_wildcards(args)
         self.config = config
         self.logger = logger
 
