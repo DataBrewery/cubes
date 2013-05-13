@@ -121,7 +121,7 @@ class MongoBrowser(AggregationBrowser):
             drilldown_levels = levels_from_drilldown(cell, drilldown) if drilldown else []
             dim_levels = {}
             if split:
-                dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict.get('cuts')
+                dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
             for dim, hier, levels in drilldown_levels:
                 dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
             result.levels = dim_levels
