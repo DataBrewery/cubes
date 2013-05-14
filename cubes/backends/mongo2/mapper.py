@@ -37,10 +37,10 @@ class MongoDocumentField(object):
             self.group = copy.deepcopy(group)
         self.encode = lambda x: x
         if encode:
-            self.encode = compile(encode, 'eval')
+            self.encode = compile(encode, '<string>', 'eval')
         self.decode = lambda x: x
         if decode:
-            self.decode = compile(decode, 'eval')
+            self.decode = compile(decode, '<string>', 'eval')
 
         self.type = MONGO_TYPES.get(str('string' if type is None else type).lower(), str)
 
