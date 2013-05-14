@@ -84,10 +84,10 @@ class MongoWorkspace(Workspace):
         return browser
 
 class MongoBrowser(AggregationBrowser):
-    def __init__(self, cube, locale=None, metadata={}, database=None, collection=None):
+    def __init__(self, cube, locale=None, metadata={}, url=None, database=None, collection=None, **options):
         super(MongoBrowser, self).__init__(cube)
 
-        mongo_client = pymongo.MongoClient(options.get('url'))
+        mongo_client = pymongo.MongoClient(url)
         mongo_client.read_preference = pymongo.read_preferences.ReadPreference.SECONDARY
 
         db = cube.options.get('database')
