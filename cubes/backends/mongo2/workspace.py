@@ -84,17 +84,23 @@ class MongoWorkspace(Workspace):
         return browser
 
 class MongoBrowser(AggregationBrowser):
-    def __init__(self, cube, locale=None, metadata={}, **options):
+    def __init__(self, cube, locale=None, metadata={}, database=None, collection=None):
         super(MongoBrowser, self).__init__(cube)
 
         mongo_client = pymongo.MongoClient(options.get('url'))
         mongo_client.read_preference = pymongo.read_preferences.ReadPreference.SECONDARY
 
-        db, coll = options.get('database'), options.get('collection')
+        db = cube.options.get('database')
         if db is None:
-            raise ArgumentError("Options to MongoBrowser must include 'database'")
+            db = database
+        if db is None:
+            raise ArgumentError("'database' must be defined in argument to MongoBrowser or in cube.options")
+
+        coll = cube.options.get('collection')
         if coll is None:
-            raise ArgumentError("Options to MongoBrowser must include 'collection'")
+            coll = collection
+        if coll is None:
+            raise ArgumentError("'collection' must be defined in argument to MongoBrowser or in cube.options")
 
         self.data_store = mongo_client[db][coll]
 
