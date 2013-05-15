@@ -116,7 +116,7 @@ class MongoBrowser(AggregationBrowser):
         if measures:
             measures = [self.cube.measure(measure) for measure in measures]
         else:
-            measures = [self.cube.measure(measure) for measure in cube.measures]
+            measures = [self.cube.measure(measure) for measure in self.cube.measures]
 
         result = AggregationResult(cell=cell, measures=measures)
 
