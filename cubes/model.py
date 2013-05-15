@@ -1086,7 +1086,7 @@ class Cube(object):
             raise NoSuchAttributeError("Invalid measure or measure reference '%s' for cube '%s'" %
                                     (obj, self.name))
 
-    def to_dict(self, with_mappings=True, **options):
+    def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is default) then `joins`,
         `mappings`, `fact` and `options` are included. Should be set to
         ``False`` when returning a dictionary that will be provided in an user
@@ -1108,7 +1108,10 @@ class Cube(object):
         details = [a.to_dict(**options) for a in self.details]
         out.setnoempty("details", details)
 
-        dims = [dim.name for dim in self.dimensions]
+        if expand_dimensions:
+            dims = [dim.to_dict() for dim in self.dimensions]
+        else:
+            dims = [dim.name for dim in self.dimensions]
 
         out.setnoempty("dimensions", dims)
 

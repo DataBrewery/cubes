@@ -187,7 +187,8 @@ class ModelController(ApplicationController):
         return self.json_response(dim.to_dict(create_label=True))
 
     def _cube_dict(self, cube):
-        d = cube.to_dict(with_mappings=False,
+        d = cube.to_dict(expand_dimensions=True,
+                         with_mappings=False,
                          full_attribute_names=True,
                          create_label=True
                          )
