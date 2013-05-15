@@ -698,8 +698,6 @@ class Model(object):
         """Return dictionary representation of the model. All object
         references within the dictionary are name based
 
-        * `expand_dimensions` - if set to True then fully expand dimension
-          information in cubes
         * `full_attribute_names` - if set to True then attribute names will be
           written as ``dimension_name.attribute_name``
         """
@@ -1088,10 +1086,8 @@ class Cube(object):
             raise NoSuchAttributeError("Invalid measure or measure reference '%s' for cube '%s'" %
                                     (obj, self.name))
 
-    def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
-        """Convert to a dictionary. If `expand_dimensions` is ``True``
-        (default is ``False``) then fully expand dimension information If
-        `with_mappings` is ``True`` (which is default) then `joins`,
+    def to_dict(self, with_mappings=True, **options):
+        """Convert to a dictionary. If `with_mappings` is ``True`` (which is default) then `joins`,
         `mappings`, `fact` and `options` are included. Should be set to
         ``False`` when returning a dictionary that will be provided in an user
         interface or through server API.
@@ -1112,13 +1108,7 @@ class Cube(object):
         details = [a.to_dict(**options) for a in self.details]
         out.setnoempty("details", details)
 
-        if expand_dimensions:
-            # FIXME: remove this option
-            logger = get_logger()
-            logger.warn("expand_dimensions is depreciated, cube should have only dimension references")
-            dims = [dim.to_dict(**options) for dim in self.dimensions]
-        else:
-            dims = [dim.name for dim in self.dimensions]
+        dims = [dim.name for dim in self.dimensions]
 
         out.setnoempty("dimensions", dims)
 
