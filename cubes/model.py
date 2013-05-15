@@ -935,7 +935,7 @@ class Model(object):
 class Cube(object):
     def __init__(self, name, dimensions=None, measures=None, model=None,
                  label=None, details=None, mappings=None, joins=None,
-                 fact=None, key=None, description=None, options=None,
+                 fact=None, key=None, description=None, options={},
                  info=None, **kwargs):
         """Create a new Cube model.
 
