@@ -291,7 +291,7 @@ class MongoBrowser(AggregationBrowser):
                             'hour': {'$hour': date_idx}
                         }
                         for lvl in levels:
-                            group_id[str(lvl)] = possible_groups[lvl.key]
+                            group_id[lvl.name] = possible_groups[lvl.key]
 
                     else:
                         date_processing = True
