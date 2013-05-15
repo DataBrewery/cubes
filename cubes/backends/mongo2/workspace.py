@@ -113,11 +113,10 @@ class MongoBrowser(AggregationBrowser):
                   **options):
         cell = cell or Cell(self.cube)
 
-        if not measures:
-            measures = ['record_count']
-
         if measures:
             measures = [self.cube.measure(measure) for measure in measures]
+        else:
+            measures = [self.cube.measure(measure) for measure in cube.measures]
 
         result = AggregationResult(cell=cell, measures=measures)
 
