@@ -359,7 +359,12 @@ class CubesController(ApplicationController):
 
         ddlist = self.args.getlist("drilldown")
 
-        measures = self.args.getlist("measures")
+        measures = []
+        mlist = self.args.getlist("measure")
+        if mlist:
+            for mstring in mlist:
+                measures.append( mstring.split("|") )
+            
 
         drilldown = []
 
