@@ -315,7 +315,7 @@ class MongoBrowser(AggregationBrowser):
                             item['_id'][date_field] = date
                             return item
 
-                    date_transform = partial(_date_transform, date_field=dim.name)
+                        date_transform = partial(_date_transform, date_field=dim.name)
 
                 else:
                     for level in levels:
