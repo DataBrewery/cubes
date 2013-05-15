@@ -463,7 +463,7 @@ class MongoBrowser(AggregationBrowser):
                 start, dp = self._build_date_for_cut(cut_hierarchy, cut.path)
                 if start is None:
                     return conds
-                end = start + relativedelta(**{dp+'s':1})
+                end = start + relativedelta(**{str(dp)+'s':1})
 
                 start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt', for_project)
                 end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte', for_project)
@@ -497,7 +497,7 @@ class MongoBrowser(AggregationBrowser):
                         start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt', for_project)
                 if cut.to_path:
                     end, dp = self._build_date_for_cut(cut_hierarchy, cut.to_path)
-                    end = end + relativedelta(**{dp+'s':1}) # inclusive
+                    end = end + relativedelta(**{str(dp)+'s':1}) # inclusive
                     if end is not None:
                         end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt' if not cut.invert else '$gte', for_project)
 
