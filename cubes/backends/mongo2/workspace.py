@@ -113,10 +113,7 @@ class MongoBrowser(AggregationBrowser):
                   **options):
         cell = cell or Cell(self.cube)
 
-        if measures:
-            measures = [self.cube.measure(measure) for measure in measures]
-        else:
-            measures = [self.cube.measure(measure) for measure in self.cube.measures]
+        measures = [self.cube.measure(measure) for measure in (measures if measures else self.cube.measures)]
 
         result = AggregationResult(cell=cell, measures=measures)
 
@@ -147,7 +144,6 @@ class MongoBrowser(AggregationBrowser):
         if not drilldown_levels and not split:
             return []
 
-        # TODO fix the hack that assumes everything will be record_count
         calc_aggs = [ agg for agg in measure.aggregations if agg in CALCULATED_AGGREGATIONS ]
 
         if not calc_aggs:
@@ -213,7 +209,6 @@ class MongoBrowser(AggregationBrowser):
         for item in cursor:
             new_item = {}
             for level in levels:
-                # TODO make sure _do_aggregation_query projects all of a level's attributes!
                 for level_attr in level.attributes:
                     k = level_attr.ref()
                     if item.has_key(k):
@@ -280,7 +275,7 @@ class MongoBrowser(AggregationBrowser):
 
                 # Special Mongo Date Hack for TZ Support
                 if dim and is_date_dimension(dim):
-                    date_processing = True
+                    is_utc = (self.timezone == pytz.utc)
                     phys = self.mapper.physical(levels[0].key)
                     date_idx = phys.project_expression()
 
@@ -288,24 +283,37 @@ class MongoBrowser(AggregationBrowser):
                     query_obj.update(phys.match_expression(1, op='$exists'))
                     fields_obj[date_idx[1:]] = 1
 
-                    group_id.update({
-                        'year': {'$year': date_idx},
-                        'month': {'$month': date_idx},
-                        'day': {'$dayOfMonth': date_idx},
-                        'hour': {'$hour': date_idx},
-                    })
+                    if is_utc:
+                        possible_groups = {
+                            'year': {'$year': date_idx},
+                            'month': {'$month': date_idx},
+                            'day': {'$dayOfMonth': date_idx},
+                            'hour': {'$hour': date_idx}
+                        }
+                        for lvl in levels:
+                            group_id[str(lvl)] = possible_groups[lvl.key]
 
-                    def _date_transform(item, date_field):
-                        date_dict = {}
-                        for k in ['year', 'month', 'day', 'hour']:
-                            date_dict[k] = item['_id'].pop(k)
+                    else:
+                        date_processing = True
+                        group_id.update({
+                            'year': {'$year': date_idx},
+                            'month': {'$month': date_idx},
+                            'day': {'$dayOfMonth': date_idx},
+                            'hour': {'$hour': date_idx},
+                        })
 
-                        date = datetime(**date_dict)
-                        date = tz_utc.localize(date)
-                        date = date.astimezone(tz=self.timezone) # convert to browser timezone
+                        def _date_transform(item, date_field):
+                            date_dict = {}
+                            for k in ['year', 'month', 'day', 'hour']:
+                                if item['_id'].has_key(k):
+                                    date_dict[k] = item['_id'].pop(k)
 
-                        item['_id'][date_field] = date
-                        return item
+                            date = datetime(**date_dict)
+                            date = tz_utc.localize(date)
+                            date = date.astimezone(tz=self.timezone) # convert to browser timezone
+
+                            item['_id'][date_field] = date
+                            return item
 
                     date_transform = partial(_date_transform, date_field=dim.name)
 
