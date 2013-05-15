@@ -359,6 +359,8 @@ class CubesController(ApplicationController):
 
         ddlist = self.args.getlist("drilldown")
 
+        measures = self.args.getlist("measures")
+
         drilldown = []
 
         if ddlist:
@@ -370,7 +372,9 @@ class CubesController(ApplicationController):
         if split_cuts:
             split = cubes.Cell(self.cube, split_cuts)
 
-        result = self.browser.aggregate(self.cell, drilldown=drilldown, split=split,
+        result = self.browser.aggregate(self.cell, 
+                                        measures=measures, 
+                                        drilldown=drilldown, split=split,
                                         page=self.page,
                                         page_size=self.page_size,
                                         order=self.order)
