@@ -308,10 +308,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # Coalesce measures - make sure that they are Attribute objects, not
         # strings. Strings are converted to corresponding Cube measure
         # attributes
-        if measures is None:
-            measures = self.cube.measures
-        else:
-            measures = [ self.cube.measure(measure) for measure in measures ]
+        measures = [ self.cube.measure(measure) for measure in (measures if measures else self.cube.measures) ]
 
         result = AggregationResult(cell=cell, measures=measures)
 
