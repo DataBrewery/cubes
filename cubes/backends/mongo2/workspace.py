@@ -125,7 +125,9 @@ class MongoBrowser(AggregationBrowser):
             if split:
                 dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
             for dim, hier, levels in drilldown_levels:
-                # if one of these levels is high_cardinality, and there is no pagesize and page, raise BrowserError
+                # if dim or one of its levels is high_cardinality, and there is no pagesize and page, raise BrowserError
+                if dim.info.get('high_cardinality') and not (pagesize and page is not None):
+                    raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both pagesize and page arguments" % (dim.name))
                 if [ l for l in levels if l.info.get('high_cardinality') ] and not (pagesize and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both pagesize and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
                 dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
