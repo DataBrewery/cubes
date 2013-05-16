@@ -558,7 +558,7 @@ def simple_model(cube_name, dimensions, measures):
 
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
-                 label=None, description=None, info=None, mappings=None,
+                 label=None, description=None, info={}, mappings=None,
                  **kwargs):
         """
         Logical Model represents analysts point of view on data.
@@ -936,7 +936,7 @@ class Cube(object):
     def __init__(self, name, dimensions=None, measures=None, model=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, options={},
-                 info=None, **kwargs):
+                 info={}, **kwargs):
         """Create a new Cube model.
 
         Attributes:
@@ -1225,7 +1225,7 @@ class Dimension(object):
 
     """
     def __init__(self, name, levels, hierarchies=None, default_hierarchy_name=None,
-                 label=None, description=None, info=None, **desc):
+                 label=None, description=None, info={}, **desc):
 
         """Create a new dimension
 
@@ -1606,7 +1606,7 @@ class Hierarchy(object):
     hierarchy name.
 
     """
-    def __init__(self, name, levels, dimension=None, label=None, info=None):
+    def __init__(self, name, levels, dimension=None, label=None, info={}):
         self.name = name
         self.label = label
         self.info = info
@@ -1838,7 +1838,7 @@ class Level(object):
 
     def __init__(self, name, attributes, dimension = None, key=None,
                  order_attribute=None, order=None, label_attribute=None, label=None,
-                 info=None):
+                 info={}):
 
         self.name = name
         self.dimension = dimension
@@ -2038,7 +2038,7 @@ class Attribute(object):
 
     def __init__(self, name, label=None, locales=None, order=None,
                 description=None,dimension=None, aggregations=None,
-                info=None, format=None, **kwargs):
+                info={}, format=None, **kwargs):
         """Cube attribute - represents any fact field/column
 
         Attributes:
