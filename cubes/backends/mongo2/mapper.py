@@ -50,7 +50,7 @@ class MongoDocumentField(object):
     def match_expression(self, value, op=None, for_project=False):
         value = self.encode(value)
         field_name = ("$%s" % self.field) if for_project else self.field
-        if op is None:
+        if op is None or (op == '$eq' and not for_project):
             return { field_name : value }
         elif for_project:
             return { op : [ field_name, value ] }
