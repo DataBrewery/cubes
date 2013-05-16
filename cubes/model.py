@@ -265,7 +265,7 @@ def create_dimension(obj, dimensions=None):
         default_hierarchy_name = None
         label = None
         description = None
-        info = None
+        info = {}
 
     label = obj.get("label") or label
     description = obj.get("description") or description
@@ -422,7 +422,7 @@ def merge_models(models):
     name = None
     label = None
     description = None
-    info = None
+    info = {}
     locale = None
     for model in models:
         if name is None and model.name:
