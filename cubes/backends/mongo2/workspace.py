@@ -267,7 +267,7 @@ class MongoBrowser(AggregationBrowser):
 
         # drilldown, fire up the pipeline
 
-        date_processing = False
+        timezone_shift_processing = False
         date_transform = lambda x:x
 
         if drilldown:
@@ -294,7 +294,7 @@ class MongoBrowser(AggregationBrowser):
                             group_id[escape_level(lvl.key.ref())] = possible_groups[lvl.name]
 
                     else:
-                        date_processing = True
+                        timezone_shift_processing = True
                         group_id.update({
                             'year': {'$year': date_idx},
                             'month': {'$month': date_idx},
@@ -344,13 +344,13 @@ class MongoBrowser(AggregationBrowser):
             pipeline.append({ "$project": fields_obj })
         pipeline.append({ "$group": group_obj })
 
-        if not date_processing and order:
+        if not timezone_shift_processing and order:
             pipeline.append({ "$sort": self._order_to_sort_object(order) })
         
-        if not date_processing and page and page > 0:
+        if not timezone_shift_processing and page and page > 0:
             pipeline.append({ "$skip": page * page_size })
         
-        if not date_processing and page_size and page_size > 0:
+        if not timezone_shift_processing and page_size and page_size > 0:
             pipeline.append({ "$limit": page_size })
         
         result_items = []
@@ -359,7 +359,7 @@ class MongoBrowser(AggregationBrowser):
         results = self.data_store.aggregate(pipeline).get('result', [])
         results = [date_transform(r) for r in results]
 
-        if date_processing:
+        if timezone_shift_processing:
             dategrouping = ['year', 'month', 'week', 'day', 'hour',]
             datenormalize = ['year', 'month', 'week', 'dow', 'day', 'hour',]
 
