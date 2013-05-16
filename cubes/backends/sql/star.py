@@ -347,7 +347,7 @@ class SnowflakeBrowser(AggregationBrowser):
             dim_levels = {}
             for dim, hier, levels in drilldown:
                 if [ l for l in levels if l.info.get('high_cardinality') ] and not (pagesize and page is not None):
-                    raise BrowserError("""Cannot drilldown on high-cardinality levels (%s) without including both pagesize and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
+                    raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both pagesize and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
 
                 dim_levels[str(dim)] = [str(level) for level in levels]
 
