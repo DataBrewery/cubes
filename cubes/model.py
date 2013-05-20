@@ -20,7 +20,7 @@ except ImportError:
     import simplejson as json
 __all__ = [
     "load_model",
-    "model_from_path",
+    "write_model_bundle",
     "create_model",
     "create_cube",
     "create_dimension",
@@ -35,67 +35,147 @@ __all__ = [
     "Attribute",
     "simple_model",
     "split_aggregate_ref",
-    "aggregate_ref"
+    "aggregate_ref",
+
+    # TODO: depreciated in favor of generic load_model
+    "model_from_path"
 ]
 
-def _open_url_resource(resource):
+def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
     `urllib2.urlopen()`. Returns opened handle. """
 
-    parts = urlparse.urlparse(resource)
-    should_close = True
+    parts = urlparse.urlparse(url)
     if parts.scheme in ('', 'file'):
-        handle = open(resource)
+        handle = open(url)
     else:
-        handle = urllib2.urlopen(resource)
-    return handle
+        handle = urllib2.urlopen(url)
+
+    try:
+        desc = json.load(handle)
+    except ValueError as e:
+        raise SyntaxError("Syntaxt error in %s: %s" % (path, e.args))
+    finally:
+        handle.close()
+
+    return desc
 
 
 def load_model(resource, translations=None):
-    """Load logical model from object reference. `resource` can be an URL,
-    local file path or file-like object.
+    """Load a model from `resource` which can be a filename, URL, file-like
+    object or a directory path.
 
-    The ``path`` might be:
+    If a `resource` is a directory it is considered a model bundle and has to
+    have the following contents:
 
-    * JSON file with a dictionary describing model
-    * URL with a JSON dictionary
+    * model.json – main model file
+    * dim_*.json - files with dimension defition, one dimension per file
+    * cube_*.json - files with cube definition, one cube per file
 
-    `translations` is a dictionary where keys are locale names and values are
-    paths to translation dictionaries (json files).
-
-    Raises `ModelError` when model description file does not contain a
-    dictionary.
     """
 
-    handle = None
     if isinstance(resource, basestring):
-        handle = _open_url_resource(resource)
-        should_close = True
-    else:
-        handle = resource
-        should_close = False
-
-    try:
-        model_desc = json.load(handle)
-    finally:
-        if should_close:
-            handle.close()
-
-    if type(model_desc) != dict:
-        raise ModelError("Model description file should contain a dictionary")
-
-    model = create_model(model_desc)
+        parts = urlparse.urlparse(resource)
+        if parts.scheme in ('', 'file') and os.path.isdir(resource):
+            model = load_model_bundle(resource)
+        else:
+            model = create_model(_json_from_url(resource))
 
     if translations:
         for lang, path in translations.items():
-            handle = _open_url_resource(path)
-            try:
-                trans = json.load(handle)
-            finally:
-                handle.close()
+            trans = _json_from_url(path)
             model._add_translation(lang, trans)
 
     return model
+
+def write_model_bundle(model, path):
+    """Write model to `path` model directory. If directory exists, then an
+    exception is raised."""
+
+    if os.path.exists(path):
+        raise CubesError("Model bundle '%s' already exists")
+
+    os.makedirs(path)
+
+    # write main model file
+
+    info = model.to_dict(target="origin")
+
+    for dim in info["dimensions"]:
+        name = dim["name"]
+        filename = os.path.join(path, "dim_%s.json" % name)
+        with open(filename, "w") as f:
+            json.dump(dim, f, indent=4)
+
+    del info["dimensions"]
+
+    for cube in info["cubes"]:
+        name = cube["name"]
+        filename = os.path.join(path, "cube_%s.json" % name)
+        with open(filename, "w") as f:
+            json.dump(cube, f, indent=4)
+
+    del info["cubes"]
+
+    filename = os.path.join(path, "model.json")
+    with open(filename, "w") as f:
+        json.dump(info, f, indent=4)
+
+# TODO: backward compatibility, remove it later
+def model_from_path(resource):
+    logger = get_logger()
+    logger.warn("model_from_path() is depreciated, use load_model()")
+    return load_model(resource)
+
+def load_model_bundle(path):
+    """Load logical model from a directory specified by `path`.
+    Returs instance of `Model`. """
+
+    if not os.path.isdir(path):
+        raise CubesError("Path '%s' should be a model directory")
+
+    # Load basic model file
+    info_path = os.path.join(path, 'model.json')
+
+    if os.path.exists(info_path):
+        model_desc = _json_from_url(info_path)
+    else:
+        model_desc = {}
+    # Find model object files and load them
+
+    dimensions_to_load = []
+    if not "dimensions" in model_desc:
+        model_desc["dimensions"] = []
+
+
+    cubes_to_load = []
+    if not "cubes" in model_desc:
+        model_desc["cubes"] = []
+
+    for dirname, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            if os.path.splitext(filename)[1] != '.json':
+                continue
+
+            split = re.split('_', filename)
+            prefix = split[0]
+
+            obj_path = os.path.join(dirname, filename)
+
+            if prefix == 'dim' or prefix == 'dimension':
+                desc = _json_from_url(obj_path)
+                if "name" not in desc:
+                    raise ModelError("Dimension file '%s' has no name key" % obj_path)
+                model_desc["dimensions"].append(desc)
+
+            elif prefix == 'cube':
+                desc = _json_from_url(obj_path)
+                if "name" not in desc:
+                    raise ModelError("Cube file '%s' has no name key" % obj_path)
+                model_desc["cubes"].append(desc)
+
+    return create_model(model_desc)
+
 
 def create_model(model, cubes=None, dimensions=None, translations=None):
     """Create a model from a model description dictionary in `model`. This is
@@ -255,18 +335,18 @@ def create_dimension(obj, dimensions=None):
         default_hierarchy_name = template.default_hierarchy_name
         label = template.label
         description = template.description
-        info = template.info
+        dim_info = template.info
     else:
         levels = None
         hierarchies = None
         default_hierarchy_name = None
         label = None
         description = None
-        info = None
+        dim_info = None
 
     label = obj.get("label") or label
     description = obj.get("description") or description
-    info = obj.get("info") or info
+    dim_info = obj.get("info") or dim_info
 
     # Levels
     # ------
@@ -326,7 +406,7 @@ def create_dimension(obj, dimensions=None):
                      default_hierarchy_name=default_hierarchy_name,
                      label=label,
                      description=description,
-                     info=info
+                     info=dim_info
                      )
 
 def create_level(obj):
@@ -394,76 +474,6 @@ def create_cube(desc, dimensions, model_mappings=None):
         desc['mappings'] = merged_mappings
 
     return Cube(dimensions=cube_dims, **desc)
-
-def model_from_path(path):
-    """Load logical model from a file or a directory specified by `path`.
-    Returs instance of `Model`. """
-
-    # FIXME: refactor this/merge with load_model
-
-    if not os.path.isdir(path):
-        a_file = open(path)
-        model_desc = json.load(a_file)
-        a_file.close()
-        return create_model(model_desc)
-
-    info_path = os.path.join(path, 'model.json')
-
-    if not os.path.exists(info_path):
-        raise ModelError('main model info %s does not exist' % info_path)
-
-    a_file = open(info_path)
-    model_desc = json.load(a_file)
-    a_file.close()
-
-    if not "name" in model_desc:
-        raise ModelError("model has no name")
-
-    # Find model object files and load them
-
-    dimensions_to_load = []
-    cubes_to_load = []
-
-    if not "dimensions" in model_desc:
-        model_desc["dimensions"] = []
-
-    if not "cubes" in model_desc:
-        model_desc["cubes"] = []
-
-    for dirname, dirnames, filenames in os.walk(path):
-        for filename in filenames:
-            if os.path.splitext(filename)[1] != '.json':
-                continue
-            split = re.split('_', filename)
-            prefix = split[0]
-
-            obj_path = os.path.join(dirname, filename)
-            if prefix == 'dim' or prefix == 'dimension':
-                desc = _model_desc_from_json_file(obj_path)
-                if "name" not in desc:
-                    raise ModelError("Dimension file '%s' has no name key" % obj_path)
-                model_desc["dimensions"].append(desc)
-            elif prefix == 'cube':
-                desc = _model_desc_from_json_file(obj_path)
-                if "name" not in desc:
-                    raise ModelError("Cube file '%s' has no name key" % obj_path)
-                model_desc["cubes"].append(desc)
-
-    return create_model(model_desc)
-
-def _model_desc_from_json_file(object_path):
-    """Get a dictionary from reading model json file at `object_path`.
-    Returs a dictionary from the file.
-    """
-    a_file = open(object_path)
-    try:
-        desc = json.load(a_file)
-    except ValueError as e:
-        raise SyntaxError("Syntaxt error in %s: %s" % (full_path, e.args))
-    finally:
-        a_file.close()
-
-    return desc
 
 def _assert_instance(obj, class_, label):
     """Raises ModelInconsistencyError when `obj` is not instance of `cls`"""
@@ -656,7 +666,7 @@ class Model(object):
         cubes = [cube.to_dict(**options) for cube in self.cubes.values()]
         out.setnoempty("cubes", cubes)
 
-        if options.get("with_mappings"):
+        if options.get("target") == "origin" or options.get("with_mappings"):
             out.setnoempty("mappings", self.mappings)
 
         return out
@@ -1063,7 +1073,7 @@ class Cube(object):
 
         out.setnoempty("dimensions", dims)
 
-        if with_mappings:
+        if options.get("target") == "origin" or with_mappings:
             out.setnoempty("mappings", self.mappings)
             out.setnoempty("fact", self.fact)
             out.setnoempty("joins", self.joins)
@@ -1404,8 +1414,9 @@ class Dimension(object):
 
         # Use only for reading, during initialization these keys are ignored, as they are derived
         # They are provided here for convenience.
-        out["is_flat"] = self.is_flat
-        out["has_details"] = self.has_details
+        if options.get("target") != "origin":
+            out["is_flat"] = self.is_flat
+            out["has_details"] = self.has_details
 
         return out
 
@@ -2068,12 +2079,13 @@ class Attribute(object):
         return not self.__eq__(other)
 
     def to_dict(self, **options):
-        # FIXME: Depreciated key "full_name" in favour of "ref"
-        d = {
-                "name": self.name,
-                "full_name": self.ref(),
-                "ref": self.ref()
-            }
+        d = { "name": self.name }
+
+        if options.get("target") != "origin":
+            # TODO: Depreciated key "full_name" in favour of "ref"
+            d["full_name"] = self.ref()
+            d["ref"] = self.ref()
+
         if self.label is not None:
             if options.get("create_label"):
                 d["label"] = self.label or to_label(self.name)

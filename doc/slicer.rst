@@ -17,24 +17,25 @@ or::
 
 Commands are:
 
-+-----------------------+----------------------------------------------------------------------+
-| Command               | Description                                                          |
-+=======================+======================================================================+
-|``serve``              | Start OLAP server                                                    |
-+-----------------------+----------------------------------------------------------------------+
-|``model validate``     | Validates logical model for OLAP cubes                               |
-+-----------------------+----------------------------------------------------------------------+
-|``model json``         | Create JSON representation of a model (can be used)                  |
-|                       | when model is a directory.                                           |
-+-----------------------+----------------------------------------------------------------------+
-|``extract_locale``     | Get localizable part of the model                                    |
-+-----------------------+----------------------------------------------------------------------+
-|``translate``          | Translate model with translation file                                |
-+-----------------------+----------------------------------------------------------------------+
-|``test``               | Test the model against backend database *(experimental)*             |
-+-----------------------+----------------------------------------------------------------------+
-|``ddl``                | Generate DDL for SQL backend *(experimental)*                        |
-+-----------------------+----------------------------------------------------------------------+
++--------------------------+----------------------------------------------------------+
+| Command                  | Description                                              |
++==========================+==========================================================+
+| ``serve``                | Start OLAP server                                        |
++--------------------------+----------------------------------------------------------+
+| ``model validate``       | Validates the logical model                              |
++--------------------------+----------------------------------------------------------+
+| ``model convert``        | Convert the model between various model formats          |
++--------------------------+----------------------------------------------------------+
+| ``model extract_locale`` | Get localizable part of the model                        |
++--------------------------+----------------------------------------------------------+
+| ``model translate``      | Translate model with a translation file                  |
++--------------------------+----------------------------------------------------------+
+| ``denomralize``          | Denormalize                                              |
++--------------------------+----------------------------------------------------------+
+| ``test``                 | Test the model against backend database *(experimental)* |
++--------------------------+----------------------------------------------------------+
+| ``ddl``                  | Generate DDL for SQL backend *(experimental)*            |
++--------------------------+----------------------------------------------------------+
 
 serve
 -----
@@ -120,11 +121,27 @@ The tool output contains recommendation whether the model can be used:
   produce invalid or unexpected output
 * `model can not be used` - model contain errors and it is unusable
 
+model conver
+------------
 
-model json
-----------
+Usage::
 
-For any given input model produce reusable JSON model.
+    slicer model convert [-h] [--format {json,bundle}] [--force] model [target]
+
+Example – convert .json model into a model bundle directory::
+
+    slicer model convert --format bundle model.json
+
+Positional arguments:
+
+* `model` – model reference - can be a path or URL
+* `target` – target output path
+
+Optional arguments:
+
+* ``--format`` – output model format, might be `json` or `bundle`
+* ``--force`` – replace existing model bundle if exists
+
 
 model extract_locale
 --------------------

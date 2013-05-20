@@ -84,20 +84,27 @@ The ``path`` might be:
 
 * JSON file with a dictionary describing model
 * URL with a JSON dictionary
-* a directory with logical model description files (model, cubes, dimensions) - note that this is
-  the old way of specifying model and is being depreciated
+* model directory bundle
 
-Model can be represented also as a single json file containing all model objects. 
+The model directory bundle contains `model.json` file with general model
+information, such as model name or description. For each dimension or cube
+there should be a separate `.json` file with dimension or cube description
+dictionary. Dimension files are prefixed with `dim_`, such as
+`dim_customer.json`, cube files are prefixed with `cube_`, such as
+`cube_contracts.json`. Example model directory::
 
-The directory contains:
+    model.cubesmodel/
+        model.json
+        cube_invoices.json
+        cube_calls.json
+        dim_customer.json
+        dim_date.json
+        dim_product.json
 
-========================== =============================================
-File                       Description
-========================== =============================================
-model.json                 Core model information
-cube_*cube_name*.json      Cube description, one file per cube
-dim_*dimension_name*.json  Dimension description, one file per dimension
-========================== =============================================
+.. note::
+
+   See the :doc:`slicer tool documentation<slicer>` for more information about
+   model format conversion.
 
 
 Model

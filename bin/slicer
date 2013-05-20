@@ -17,6 +17,8 @@ import ConfigParser
 import shlex
 from cubes.common import MissingPackageError, create_logger
 from cubes.errors import CubesError
+import shutil
+import os.path
 
 def validate_model(args):
     """docstring for validate_model"""
@@ -90,10 +92,31 @@ def validate_model(args):
     if error_count > 0:
         exit(1)
 
-def model_to_json(args):
+def convert_model(args):
     """docstring for validate_model"""
-    model = cubes.model_from_path(args.model)
-    dump_model(model)
+    path = args.target
+    model = cubes.load_model(args.model)
+    if args.format == "bundle":
+        if os.path.exists(path):
+            if not os.path.isdir(path):
+                raise CubesError("Target exists and is a file, "
+                                 "can not replace")
+            elif not os.path.exists(os.path.join(path, "model.json")):
+                raise CubesError("Target is not a model directory, "
+                                    "can not replace.")
+            if args.force:
+                shutil.rmtree(path)
+            else:
+                raise CubesError("Target already exists. "
+                                    "Remove it or use --force.")
+        cubes.write_model_bundle(model, args.target)
+    elif args.format == "json":
+        info = model.to_dict(target="origin")
+        if not path:
+            print json.dumps(info)
+        else:
+            with open(path, "w") as f:
+                json.dump(info, f)
 
 def update_locale(args):
     raise NotImplementedError("update of localizable dictionary is not yet implemented")
@@ -114,7 +137,7 @@ def translate_model(args):
     dump_model(model)
 
 def dump_model(model):
-    print json.dumps(model.to_dict(with_mappings=True))
+    print json.dumps(model.to_dict(target="origin"))
 
 def read_config(cfg):
     """Read the configuration file."""
@@ -243,9 +266,18 @@ subparser.set_defaults(func=translate_model)
 ################################################################################
 # Command: model_to_json
 
-subparser = model_subparsers.add_parser('json')
-subparser.add_argument('model', help='model reference - can be a local file path or URL')
-subparser.set_defaults(func=model_to_json)
+subparser = model_subparsers.add_parser('convert')
+subparser.add_argument('--format',
+                            dest='format',
+                            choices=('json', 'bundle'),
+                            default='json',
+                            help='output model format')
+subparser.add_argument('--force',
+                            dest='force', action='store_true', default=False,
+                            help='replace existing model bundle<D-i>')
+subparser.add_argument('model', help='model reference - can be a path or URL')
+subparser.add_argument('target', help='target output path', nargs='?', default=None)
+subparser.set_defaults(func=convert_model)
 
 ################################################################################
 # Command: extract_locale
