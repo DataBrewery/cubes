@@ -11,7 +11,7 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-from cubes.common import IgnoringDictionary, get_logger, to_label
+from cubes.common import SimplifyingDict, get_logger, to_label
 from cubes.errors import *
 
 try:
@@ -653,21 +653,21 @@ class Model(object):
           written as ``dimension_name.attribute_name``
         """
 
-        out = IgnoringDictionary()
+        out = SimplifyingDict()
 
-        out.setnoempty("name", self.name)
-        out.setnoempty("label", self.label)
-        out.setnoempty("description", self.description)
-        out.setnoempty("info", self.info)
+        out["name"] = self.name
+        out["label"] = self.label
+        out["description"] = self.description
+        out["info"] = self.info
 
         dims = [dim.to_dict(**options) for dim in self._dimensions.values()]
-        out.setnoempty("dimensions", dims)
+        out["dimensions"] = dims
 
         cubes = [cube.to_dict(**options) for cube in self.cubes.values()]
-        out.setnoempty("cubes", cubes)
+        out["cubes"] = cubes
 
         if options.get("target") == "origin" or options.get("with_mappings"):
-            out.setnoempty("mappings", self.mappings)
+            out["mappings"] = self.mappings
 
         return out
 
@@ -1048,20 +1048,20 @@ class Cube(object):
         interface or through server API.
         """
 
-        out = IgnoringDictionary()
-        out.setnoempty("name", self.name)
-        out.setnoempty("info", self.info)
+        out = SimplifyingDict()
+        out["name"] = self.name
+        out["info"] = self.info
 
         if options.get("create_label"):
-            out.setnoempty("label", self.label or to_label(self.name))
+            out["label"] = self.label or to_label(self.name)
         else:
-            out.setnoempty("label", self.label)
+            out["label"] = self.label
 
         measures = [m.to_dict(**options) for m in self.measures]
-        out.setnoempty("measures", measures)
+        out["measures"] = measures
 
         details = [a.to_dict(**options) for a in self.details]
-        out.setnoempty("details", details)
+        out["details"] = details
 
         if expand_dimensions:
             # FIXME: remove this option
@@ -1071,15 +1071,15 @@ class Cube(object):
         else:
             dims = [dim.name for dim in self.dimensions]
 
-        out.setnoempty("dimensions", dims)
+        out["dimensions"] = dims
 
         if options.get("target") == "origin" or with_mappings:
-            out.setnoempty("mappings", self.mappings)
-            out.setnoempty("fact", self.fact)
-            out.setnoempty("joins", self.joins)
-            out.setnoempty("options", self.options)
+            out["mappings"] = self.mappings
+            out["fact"] = self.fact
+            out["joins"] = self.joins
+            out["options"] = self.options
 
-        out.setnoempty("key", self.key)
+        out["key"] = self.key
 
         return out
 
@@ -1399,15 +1399,15 @@ class Dimension(object):
     def to_dict(self, **options):
         """Return dictionary representation of the dimension"""
 
-        out = IgnoringDictionary()
-        out.setnoempty("name", self.name)
-        out.setnoempty("info", self.info)
-        out.setnoempty("default_hierarchy_name", self.default_hierarchy_name)
+        out = SimplifyingDict()
+        out["name"] = self.name
+        out["info"] = self.info
+        out["default_hierarchy_name"] = self.default_hierarchy_name
 
         if options.get("create_label"):
-            out.setnoempty("label", self.label or to_label(self.name))
+            out["label"] = self.label or to_label(self.name)
         else:
-            out.setnoempty("label", self.label)
+            out["label"] = self.label
 
         out["levels"] = [level.to_dict(**options) for level in self.levels]
         out["hierarchies"] = [hier.to_dict(**options) for hier in self.hierarchies.values()]
@@ -1745,15 +1745,15 @@ class Hierarchy(object):
 
         """
 
-        out = IgnoringDictionary()
-        out.setnoempty("name", self.name)
-        out.setnoempty("levels", [str(l) for l in self.levels])
-        out.setnoempty("info", self.info)
+        out = SimplifyingDict()
+        out["name"] = self.name
+        out["levels"] = [str(l) for l in self.levels]
+        out["info"] = self.info
 
         if options.get("create_label"):
-            out.setnoempty("label", self.label or to_label(self.name))
+            out["label"] = self.label or to_label(self.name)
         else:
-            out.setnoempty("label", self.label)
+            out["label"] = self.label
 
         return out
 
@@ -1889,31 +1889,31 @@ class Level(object):
     def to_dict(self, full_attribute_names=False, **options):
         """Convert to dictionary"""
 
-        out = IgnoringDictionary()
-        out.setnoempty("name", self.name)
-        out.setnoempty("info", self.info)
+        out = SimplifyingDict()
+        out["name"] = self.name
+        out["info"] = self.info
 
         if options.get("create_label"):
-            out.setnoempty("label", self.label or to_label(self.name))
+            out["label"] = self.label or to_label(self.name)
         else:
-            out.setnoempty("label", self.label)
+            out["label"] = self.label
 
 
         if full_attribute_names:
-            out.setnoempty("key", self.key.ref())
-            out.setnoempty("label_attribute", self.label_attribute.ref())
-            out.setnoempty("order_attribute", self.order_attribute.ref())
+            out["key"] = self.key.ref()
+            out["label_attribute"] = self.label_attribute.ref()
+            out["order_attribute"] = self.order_attribute.ref()
         else:
-            out.setnoempty("key", self.key.name)
-            out.setnoempty("label_attribute", self.label_attribute.name)
-            out.setnoempty("order_attribute", self.order_attribute.name)
+            out["key"] = self.key.name
+            out["label_attribute"] = self.label_attribute.name
+            out["order_attribute"] = self.order_attribute.name
 
-        out.setnoempty("order", self.order)
+        out["order"] = self.order
 
         array = []
         for attr in self.attributes:
             array.append(attr.to_dict(**options))
-        out.setnoempty("attributes", array)
+        out["attributes"] = array
 
         return out
 
@@ -2079,7 +2079,9 @@ class Attribute(object):
         return not self.__eq__(other)
 
     def to_dict(self, **options):
-        d = { "name": self.name }
+        d = SimplifyingDict()
+
+        d["name"] = self.name
 
         if options.get("target") != "origin":
             # TODO: Depreciated key "full_name" in favour of "ref"
@@ -2091,18 +2093,19 @@ class Attribute(object):
                 d["label"] = self.label or to_label(self.name)
             else:
                 d["label"] = self.label
+
+        if self.description is not None:
+            d["description"] = self.description
         if self.locales:
             d["locales"] = self.locales
         if self.order is not None:
             d["order"] = self.order
-        if self.description is not None:
-            d["description"] = self.description
         if self.aggregations is not None:
             d["aggregations"] = self.aggregations
-        if self.info is not None:
-            d["info"] = self.info
         if self.format is not None:
             d["format"] = self.format
+        if self.info is not None:
+            d["info"] = self.info
 
         return d
 

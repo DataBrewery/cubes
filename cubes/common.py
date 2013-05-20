@@ -8,11 +8,16 @@ import sys
 import re
 import collections
 
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 __all__ = [
     "logger_name",
     "get_logger",
     "create_logger",
-    "IgnoringDictionary",
+    "SimplifyingDict",
     "MissingPackage",
     "localize_common",
     "localize_attributes",
@@ -58,13 +63,17 @@ def create_logger(level=None):
 
     return logger
 
-class IgnoringDictionary(dict):
-    """Simple dictionary extension that will ignore any keys of which values
-    are empty (None/False)"""
-    def setnoempty(self, key, value):
-        """Set value in a dictionary if value is not null"""
-        if value:
-            self[key] = value
+class SimplifyingDict(OrderedDict):
+    """An ordered dictionary that ignores `None` values. Used mostly for
+    generation of model dictionaries to be more human-readable."""
+
+    def __setitem__(self, key, value):
+        if value is not None:
+            super(SimplifyingDict, self).__setitem__(key,value)
+
+    def set(self, key, value):
+        """Set value in a dictionary even if value is `None`"""
+        super(SimplifyingDict, self).__setitem__(key,value)
 
 class MissingPackageError(Exception):
     """Exception raised when encountered a missing package."""
