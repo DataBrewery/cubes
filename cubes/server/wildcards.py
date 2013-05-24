@@ -30,7 +30,7 @@ def op(target):
 
 _the_n_regex = re.compile(r'^last(\d+)$')
 
-def lastN(token, days=14, format='%Y-%m-%d', tzinfo='America/NewYork'):
+def lastN(token, days=14, format='%Y,%m,%d', tzinfo='America/NewYork'):
     m = _the_n_regex.search(token)
     if m:
         mdays = int(m.group(1))
