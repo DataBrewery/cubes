@@ -156,7 +156,7 @@ class TextTableFormatter(Formatter):
 
     def __init__(self, measure_format=None):
         super(TextTableFormatter, self).__init__()
-        self.format = measure_format or {}
+        self.measure_format = measure_format or {}
 
     def format(self, result, dimension, measures):
         rows = []
@@ -173,7 +173,7 @@ class TextTableFormatter(Formatter):
                 else:
                     default_fmt = ".2f"
 
-                fmt = self.format.get(measure, default_fmt)
+                fmt = self.measure_format.get(measure, default_fmt)
                 text = format(row.record[measure], fmt)
                 measure_widths[i] = max(measure_widths[i], len(text))
                 display_row.append( (text, '>') )
