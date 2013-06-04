@@ -275,6 +275,8 @@ class MongoBrowser(AggregationBrowser):
         timezone_shift_processing = False
         date_transform = lambda x:x
 
+        sort_obj = bson.son.SON()
+
         if drilldown:
             for dim, hier, levels in drilldown:
 
@@ -297,6 +299,7 @@ class MongoBrowser(AggregationBrowser):
                         }
                         for lvl in levels:
                             group_id[escape_level(lvl.key.ref())] = possible_groups[lvl.name]
+                            sort_obj["_id." + escape_level(lvl.key.ref())] = 1
 
                     else:
                         timezone_shift_processing = True
@@ -328,6 +331,7 @@ class MongoBrowser(AggregationBrowser):
                         exp = phys.project_expression()
                         fields_obj[escape_level(level.key.ref())] = exp
                         group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
+                        sort_obj["_id." + escape_level(level.key.ref())] = 1
                         query_obj.update(phys.match_expression(1, op='$exists'))
 
         group_obj = { "_id": group_id }
@@ -349,8 +353,12 @@ class MongoBrowser(AggregationBrowser):
             pipeline.append({ "$project": fields_obj })
         pipeline.append({ "$group": group_obj })
 
-        if not timezone_shift_processing and order:
-            pipeline.append({ "$sort": self._order_to_sort_object(order) })
+        if not timezone_shift_processing:
+            if order:
+                pipeline.append({ "$sort": self._order_to_sort_object(order) })
+            elif len(sort_obj):
+                print sort_obj
+                pipeline.append({ "$sort": sort_obj })
         
         if not timezone_shift_processing and page and page > 0:
             pipeline.append({ "$skip": page * page_size })
