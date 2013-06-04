@@ -221,6 +221,11 @@ def run_server(config):
     else:
         use_reloader = False
 
+    if config.has_option('server', 'processes'):
+        processes = config.getint('server', 'processes')
+    else:
+        processes = 1
+
     application = Slicer(config)
-    werkzeug.serving.run_simple(host, port, application, use_reloader=use_reloader)
+    werkzeug.serving.run_simple(host, port, application, processes=processes, use_reloader=use_reloader)
 
