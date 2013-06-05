@@ -80,7 +80,8 @@ def cacheable(fn):
                 self.logger.debug('CACHE HIT')
             return v
         except Exception as e:
-            self.logger.error('CACHE ERROR: %s', e)
+            self.logger.warn('ERROR, skipping cache')
+            self.logger.exception(e)
             v = fn(self, *args, **kwargs)
             try:
                 cache_impl.set(key, v)
