@@ -175,17 +175,18 @@ class ApplicationController(object):
 
 class ModelController(ApplicationController):
 
-    _cached_model_dict = None
+    _cached_model_reply = None
 
     def show(self):
-        d = self._cached_model_dict
+        d = self._cached_model_reply
         if d is None:
             d = self.model.to_dict(with_mappings=False,create_label=True)
             # Add available model locales based on server configuration
-            d["locales"] = self.locales;
-            self._cached_model_dict = d
+            d["locales"] = self.locales
+            d = json.dumps(d)
+            self._cached_model_reply = d
 
-        return self.json_response(d)
+        return Response(d, mimetype='application/json')
 
     def dimension(self, dim_name):
         dim = self.model.dimension(dim_name)
@@ -209,11 +210,13 @@ class ModelController(ApplicationController):
 
     _cached_cubes_list = None
     def list_cubes(self):
-        cubes = self._cached_cubes_list
-        if cubes is None:
+        resp = self._cached_cubes_list
+        if resp is None:
             cubes = [self._cube_dict(cube) for cube in self.model.cubes.values()]
-            self._cached_cubes_list = cubes
-        return self.json_response(cubes)
+            resp = json.dumps(cubes)
+            self._cached_cubes_list = resp
+
+        return Response(resp, mimetype='application/json')
 
     def list_cube_dimensions(self, cube_name):
         cube = self.model.cube(cube_name)
