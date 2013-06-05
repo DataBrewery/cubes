@@ -207,8 +207,12 @@ class ModelController(ApplicationController):
         cube = self.model.cube(cube_name)
         return self.json_response(self._cube_dict(cube))
 
+    _cached_cubes_list = None
     def list_cubes(self):
-        cubes = [self._cube_dict(cube) for cube in self.model.cubes.values()]
+        cubes = self._cached_cubes_list
+        if cubes is None:
+            cubes = [self._cube_dict(cube) for cube in self.model.cubes.values()]
+            self._cached_cubes_list = cubes
         return self.json_response(cubes)
 
     def list_cube_dimensions(self, cube_name):
