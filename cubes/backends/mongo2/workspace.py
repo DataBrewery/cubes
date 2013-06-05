@@ -70,7 +70,7 @@ class MongoWorkspace(Workspace):
         self.metadata = {}
 
     def browser(self, cube, locale=None):
-        print 'browser:', cube, locale
+        self.logger.debug('browser: %s %s', cube, locale)
 
         model = self.localized_model(locale)
         cube = model.cube(cube)
@@ -86,6 +86,8 @@ class MongoWorkspace(Workspace):
 class MongoBrowser(AggregationBrowser):
     def __init__(self, cube, locale=None, metadata={}, url=None, database=None, collection=None, **options):
         super(MongoBrowser, self).__init__(cube)
+
+        self.logger = get_logger()
 
         mongo_client = pymongo.MongoClient(url)
         mongo_client.read_preference = pymongo.read_preferences.ReadPreference.SECONDARY
@@ -357,7 +359,6 @@ class MongoBrowser(AggregationBrowser):
             if order:
                 pipeline.append({ "$sort": self._order_to_sort_object(order) })
             elif len(sort_obj):
-                print sort_obj
                 pipeline.append({ "$sort": sort_obj })
         
         if not timezone_shift_processing and page and page > 0:
@@ -367,7 +368,7 @@ class MongoBrowser(AggregationBrowser):
             pipeline.append({ "$limit": page_size })
         
         result_items = []
-        print "PIPELINE", pipeline
+        self.logger.debug("PIPELINE: %s", pipeline)
 
         results = self.data_store.aggregate(pipeline).get('result', [])
         results = [date_transform(r) for r in results]
@@ -466,7 +467,7 @@ class MongoBrowser(AggregationBrowser):
             date_dict[dp.key.name] = self.mapper.physical(dp.key).type(val)
             min_part = dp
 
-        print '=datedict', date_dict
+        self.logger.debug('=datedict: %s', date_dict)
 
         if 'year' not in date_dict:
             return None, min_part
