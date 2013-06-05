@@ -175,11 +175,16 @@ class ApplicationController(object):
 
 class ModelController(ApplicationController):
 
-    def show(self):
-        d = self.model.to_dict(with_mappings=False,create_label=True)
+    _cached_model_dict = None
 
-        # Add available model locales based on server configuration
-        d["locales"] = self.locales;
+    def show(self):
+        d = self._cached_model_dict
+        if d is None:
+            d = self.model.to_dict(with_mappings=False,create_label=True)
+            # Add available model locales based on server configuration
+            d["locales"] = self.locales;
+            self._cached_model_dict = d
+
         return self.json_response(d)
 
     def dimension(self, dim_name):
