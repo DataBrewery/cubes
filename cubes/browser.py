@@ -1400,6 +1400,8 @@ def levels_from_drilldown(cell, drilldown):
         if level:
             index = hier.level_index(level)
             levels = hier[:index+1]
+        elif dim.is_flat:
+            levels = hier[:]
         else:
             cut = cell.point_cut_for_dimension(dim)
             if cut:
@@ -1408,6 +1410,7 @@ def levels_from_drilldown(cell, drilldown):
                 # inverted cut means not to auto-drill to the next level
                 if cut.invert:
                     depth -= 1
+                # a flat dimension means not to auto-drill to the next level
             else:
                 cut_hierarchy = hier
                 depth = 0
@@ -1423,10 +1426,6 @@ def levels_from_drilldown(cell, drilldown):
                                      "%d levels, can not drill to %d" % \
                                      (hier,dim,len(hier),depth+1))
 
-            # if index + 1 >= len(hier):
-            #     raise HierarchyError("Can not drill down. Level %s is "
-            #                          "last in hierarchy %s for dimension "
-            #                          "%s" % (level, hier, dim))
             levels = hier[:depth+1]
 
         result.append( (dim, hier, levels) )
