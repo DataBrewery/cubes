@@ -41,6 +41,7 @@ __all__ = [
 ]
 
 SPLIT_DIMENSION_NAME = '__within_split__'
+NULL_PATH_VALUE = '__null__'
 
 class AggregationBrowser(object):
     """Class for browsing data cube aggregations
@@ -759,7 +760,7 @@ def cuts_from_string(string):
 
     return cuts
 
-_element_pattern = r"(?:\\.|[^:;|-])+"
+_element_pattern = r"(?:\\.|[^:;|-])*"
 re_element = re.compile(r"^%s$" % _element_pattern)
 re_point = re.compile(r"^%s$" % _element_pattern)
 re_set = re.compile(r"^(%s)(;(%s))*$" % (_element_pattern, _element_pattern))
@@ -792,7 +793,10 @@ def cut_from_string(dimension, string):
         raise ArgumentError("Dimension spec '%s' does not match "
                             "pattern 'dimension@hierarchy'" % dimension)
 
-    if re_point.match(string):
+    # special case: completely empty string means single path element of ''
+    if string == '':
+        return PointCut(dimension, [''], hierarchy, invert)
+    elif re_point.match(string):
         return PointCut(dimension, path_from_string(string), hierarchy, invert)
     elif re_set.match(string):
         paths = map(path_from_string, SET_CUT_SEPARATOR.split(string))
@@ -832,9 +836,13 @@ PATH_PART_ESCAPE_PATTERN = re.compile(r"([\\!|:;,-])")
 PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|;,-])")
 
 def _path_part_escape(path_part):
+    if part_part is None:
+        return NULL_PATH_VALUE
     return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
 
 def _path_part_unescape(path_part):
+    if path_part == NULL_PATH_VALUE:
+        return None
     return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", path_part)
 
 def string_from_cuts(cuts):
@@ -854,8 +862,7 @@ def string_from_path(path):
     if not path:
         return ""
 
-    # FIXME: do some escaping or something like URL encoding
-    path = [_path_part_escape(unicode(s)) if s is not None else "" for s in path]
+    path = [_path_part_escape(unicode(s)) for s in path]
 
     if not all(map(re_element.match, path)):
         get_logger().warn("Can not convert path to string: "
@@ -884,7 +891,7 @@ def path_from_string(string):
         return []
 
     path = PATH_STRING_SEPARATOR.split(string)
-    path = [_path_part_unescape(v) if v != "" else None for v in path]
+    path = [_path_part_unescape(v) for v in path]
 
     return path
 
