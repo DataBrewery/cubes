@@ -15,6 +15,7 @@ except ImportError:
 from cubes.errors import *
 from .model import Dimension, Cube
 from .common import get_logger
+from urllib2 import unquote
 
 __all__ = [
     "AggregationBrowser",
@@ -740,19 +741,22 @@ def cuts_from_string(string):
     if not string:
         return []
 
+    cut_string = unquote(string)
+
     cuts = []
 
     dim_cuts = string.split(CUT_STRING_SEPARATOR)
     for dim_cut in dim_cuts:
-        (dimension, cut_string) = dim_cut.split(DIMENSION_STRING_SEPARATOR)
+        (dimension, cut_string) = dim_cut.split(DIMENSION_STRING_SEPARATOR, 1)
         cuts.append(cut_from_string(dimension, cut_string))
 
     return cuts
 
-re_element = re.compile(r"^[\w,]*$")
-re_point = re.compile(r"^[\w,]*$")
-re_set = re.compile(r"^([\w,]+)(;([\w,]+))+$")
-re_range = re.compile(r"^([\w,]*)-([\w,]*)$")
+re_element = re.compile(r"^[\w,./#:=]*$")
+re_point = re.compile(r"^[\w,./#:=]*$")
+re_set = re.compile(r"^([\w,./#:=]+)(;([\w,./#:=]+))+$")
+re_range = re.compile(r"^([\w,./#:=]*)-([\w,./#:=]*)$")
+
 
 def cut_from_string(dimension, string):
     """Returns a cut from `string` with dimension `dimension. The string
@@ -771,6 +775,7 @@ def cut_from_string(dimension, string):
 
     pattern = r"(?P<dim>\w+)(@(?P<hier>\w+))?"
     match = re.match(pattern, dimension)
+
 
     if match:
         d = match.groupdict()
