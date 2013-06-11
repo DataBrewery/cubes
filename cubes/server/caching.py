@@ -2,6 +2,7 @@ import json
 import logging
 from functools import update_wrapper, wraps
 from datetime import datetime, timedelta
+from exceptions import BaseException
 import cPickle as pickle
 import types
 
@@ -107,7 +108,7 @@ def trap(fn):
     def _trap(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
-        except e:
+        except BaseException as e:
             logging.error('%s: %s, %s', fn.__name__, args, kwargs)
             logging.exception(e)
     return _trap
