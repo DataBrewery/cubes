@@ -153,7 +153,7 @@ class MongoCache(Cache):
                 return item['d']
             else:
                 logging.debug('Stale: %s', key)
-                self.store.remove(item)
+                self.store.remove({'_id': key})
                 return None
         else:
             logging.debug('Miss: %s', key)
