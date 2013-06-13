@@ -59,8 +59,7 @@ class MongoBrowser(AggregationBrowser):
 
         self.logger = get_logger()
 
-        mongo_client = pymongo.MongoClient(url)
-        mongo_client.read_preference = pymongo.read_preferences.ReadPreference.SECONDARY
+        mongo_client = pymongo.MongoClient(url, read_preference=pymongo.read_preferences.ReadPreference.SECONDARY)
 
         db = cube.options.get('database')
         if db is None:
