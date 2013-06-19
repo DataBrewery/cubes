@@ -54,7 +54,7 @@ def _json_from_url(url):
     try:
         desc = json.load(handle)
     except ValueError as e:
-        raise SyntaxError("Syntaxt error in %s: %s" % (path, e.args))
+        raise SyntaxError("Syntax error in %s: %s" % (url, e.args))
     finally:
         handle.close()
 
