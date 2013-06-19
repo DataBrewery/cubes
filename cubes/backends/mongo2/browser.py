@@ -298,12 +298,13 @@ class MongoBrowser(AggregationBrowser):
 
                 else:
                     for level in levels:
-                        phys = self.mapper.physical(level.key)
-                        exp = phys.project_expression()
-                        fields_obj[escape_level(level.key.ref())] = exp
-                        group_id[escape_level(level.key.ref())] = "$%s" % escape_level(level.key.ref())
+                        key_phys = self.mapper.physical(level.key)
                         sort_obj["_id." + escape_level(level.key.ref())] = 1
-                        query_obj.update(phys.match_expression(1, op='$exists'))
+                        query_obj.update(key_phys.match_expression(1, op='$exists'))
+                        # this loop will include key
+                        for attr in level.attributes:
+                            fields_obj[escape_level(attr.ref())] = self.mapper.physical(attr).project_expression()
+                            group_id[escape_level(attr.ref())] = "$%s" % escape_level(attr.ref())
 
         group_obj = { "_id": group_id }
 
