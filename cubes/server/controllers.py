@@ -109,7 +109,7 @@ class ApplicationController(object):
             ttl = int(workspace.options.get('ttl')) or 60 * 3
             client = pymongo.MongoClient(host=workspace.options['cache_host'])
 
-            cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads)
+            cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads, logger=self.logger)
             self.cache = cache
 
     def index(self):
