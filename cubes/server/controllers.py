@@ -104,10 +104,10 @@ class ApplicationController(object):
             import pymongo
             import cPickle as picklee
 
-            self.logger.info('Caching Enabled')
-
             ttl = int(workspace.options.get('ttl')) or 60 * 3
             client = pymongo.MongoClient(host=workspace.options['cache_host'])
+
+            self.logger.info("Caching Enabled, host: %s, TTL: %d" % (workspace.options['cache_host'], ttl))
 
             cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads, logger=self.logger)
             self.cache = cache
