@@ -33,7 +33,7 @@ def query_ttl_strategy(data):
         config = measures.get_measure_manifest().get(query.measure, {})
         ttl = config.get('ttl', None)
         if ttl:
-            logging.debug('Using configured ttl: %s', ttl)
+            logging.getLogger().debug('Using configured ttl: %s', ttl)
         return ttl
 
     return None
@@ -60,7 +60,7 @@ def cacheable(fn):
     def _cache(self, *args, **kwargs):
 
         if not hasattr(self, 'cache'):
-            logging.warn('Object is not configured with cache for @cacheable function: %s', self)
+            logging.getLogger().warn('Object is not configured with cache for @cacheable function: %s', self)
             return fn(self, *args, **kwargs)
 
         additional_args = getattr(self, 'args', {})
@@ -109,19 +109,20 @@ def trap(fn):
         try:
             return fn(*args, **kwargs)
         except BaseException as e:
-            logging.error('%s: %s, %s', fn.__name__, args, kwargs)
-            logging.exception(e)
+            logging.getLogger().error('%s: %s, %s', fn.__name__, args, kwargs)
+            logging.getLogger().exception(e)
     return _trap
 
 
 class MongoCache(Cache):
 
-    def __init__(self, name, ds, ttl=60, ttl_strategy=_default_strategy, dumps=_NOOP, loads=_NOOP, **kwargs):
+    def __init__(self, name, ds, ttl=60, ttl_strategy=_default_strategy, dumps=_NOOP, loads=_NOOP, logger=logging.getLogger(), **kwargs):
         self.ttl = ttl
         self.store = ds.Caches[name]
         self.dumps = dumps
         self.loads = loads
         self.ttl_strategy = ttl_strategy
+        self.logger=logger
 
     @trap
     def set(self, key, val, ttl=None):
@@ -134,7 +135,7 @@ class MongoCache(Cache):
             'd': self.dumps(val)
         }
 
-        logging.debug('Set: %s, ttl: %s', key, t)
+        self.logger.debug('Set: %s, ttl: %s', key, t)
         item = self.store.save(p)
 
         return item is not None
@@ -149,14 +150,14 @@ class MongoCache(Cache):
             item['d'] = self.loads(item['d'])
             exp = item['t']
             if exp >= n:
-                logging.debug('Hit: %s', key)
+                self.logger.debug('Hit: %s', key)
                 return item['d']
             else:
-                logging.debug('Stale: %s', key)
+                self.logger.debug('Stale: %s', key)
                 self.store.remove({'_id': key})
                 return None
         else:
-            logging.debug('Miss: %s', key)
+            self.logger.debug('Miss: %s', key)
             return None
 
     def rem(self, key):
@@ -164,9 +165,9 @@ class MongoCache(Cache):
         item = self.store.find_one({'_id':key})
 
         if item:
-            logging.debug('Remove: %s', key)
+            self.logger.debug('Remove: %s', key)
             self.store.remove(item)
             return True
         else:
-            logging.debug('Miss: %s', key)
+            self.logger.debug('Miss: %s', key)
             return False
