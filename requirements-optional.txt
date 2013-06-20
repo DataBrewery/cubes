@@ -3,4 +3,5 @@ pytz
 pymongo
 werkzeug
 jinja2
+python-dateutil
 
