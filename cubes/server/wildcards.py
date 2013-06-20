@@ -87,6 +87,8 @@ def lastN(token, amt=14, unit="day", format='%Y,%m,%d', tzinfo='America/NewYork'
     # start with now() truncated to most recent instance of the unit
     n = truncated_now(unit)
     n = subtract_units(n, amt, unit)
+    if unit == 'hour':
+        format = format + ",%H"
     return n.strftime(format)
 
 def transform_token(token):
