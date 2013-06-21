@@ -190,7 +190,7 @@ def create_workspace_from_config(config):
 
     context = create_slicer_context(config)
     backend = context["backend"]
-    workspace = backend.create_workspace(context["model"],
+    workspace = backend.create_workspace(context["model"], config=config,
                                          **context["workspace_options"])
 
     return workspace
