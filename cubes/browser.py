@@ -836,7 +836,7 @@ PATH_PART_ESCAPE_PATTERN = re.compile(r"([\\!|:;,-])")
 PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|;,-])")
 
 def _path_part_escape(path_part):
-    if part_part is None:
+    if path_part is None:
         return NULL_PATH_VALUE
     return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
 
