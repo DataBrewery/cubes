@@ -7,6 +7,7 @@ import logging
 import sys
 import re
 import collections
+import exceptions
 
 __all__ = [
     "logger_name",
@@ -257,3 +258,13 @@ def coalesce_options(options, types):
             out[key] = value
 
     return out
+
+def to_unicode_string(s):
+    s = str(s)
+    for enc in ('utf8', 'latin-1'):
+        try:
+            return unicode(s, enc)
+        except exceptions.UnicodeDecodeError:
+            get_logger().info("Cannot decode using %s: %s" % (enc, s))
+    raise ValueError("Cannot decode for unicode using any of the available encodings: %s" % s)
+

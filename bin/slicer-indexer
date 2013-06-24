@@ -1,0 +1,62 @@
+"""Sphinx indexer
+
+    For more information run: slicer-indexer --help
+
+    Author: Stefan Urbanek <stefan.urbanek@gmail.com>
+    Date: 2011-01
+"""
+
+import argparse
+import sys
+import ConfigParser
+
+import cubes
+import cubes_search
+
+def read_config(path):
+    """Read the configuration file."""
+    config = ConfigParser.SafeConfigParser()
+    try:
+        config.read(path)
+    except Exception as e:
+        raise Exception("Unable to load config: %s" % e)
+
+    return config
+
+def create_index(args):
+    """Create index"""
+    config = read_config(args.config)
+    workspace = cubes.create_workspace_from_config(config)
+    cube = workspace.model.cube(args.cube)
+    browser = workspace.browser(cube)
+
+    locales = workspace.locales
+    if not locales:
+        locales = ["default"]
+
+    if args.engine == 'sphinx':
+        iclass = cubes_search.sphinx.XMLSphinxIndexer
+    elif args.engine == 'whoosh':
+        iclass = cubes_search.whoosh_engine.WhooshIndexer
+    else:
+        raise Exception('Unknown search engine %s' % args.engine)
+
+
+    indexer = iclass(browser, config)
+    indexer.index(locales, labels_only=args.labels_only, init=args.init)
+
+################################################################################
+# Main code
+
+parser = argparse.ArgumentParser(description='Cubes indexer')
+
+parser.add_argument('config', help='server confuguration .ini file')
+parser.add_argument('cube', help='cube name')
+parser.set_defaults(func=create_index)
+parser.add_argument('--engine')
+parser.add_argument('--init', action='store_true', help="initialize (create) the index")
+parser.add_argument('--labels-only', action='store_true')
+
+args = parser.parse_args(sys.argv[1:])
+
+args.func(args)
