@@ -14,7 +14,7 @@ except ImportError:
 
 from cubes.errors import *
 from .model import Dimension, Cube
-from .common import get_logger
+from .common import get_logger, to_unicode_string
 
 __all__ = [
     "AggregationBrowser",
@@ -851,6 +851,8 @@ def string_from_cuts(cuts):
     string = CUT_STRING_SEPARATOR_CHAR.join(strings)
     return string
 
+import exceptions
+
 def string_from_path(path):
     """Returns a string representing dimension `path`. If `path` is ``None``
     or empty, then returns empty string. The ptah elements are comma ``,``
@@ -862,7 +864,7 @@ def string_from_path(path):
     if not path:
         return ""
 
-    path = [_path_part_escape(unicode(s)) for s in path]
+    path = [_path_part_escape(to_unicode_string(s)) for s in path]
 
     if not all(map(re_element.match, path)):
         get_logger().warn("Can not convert path to string: "
