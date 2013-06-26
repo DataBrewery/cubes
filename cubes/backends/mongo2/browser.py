@@ -79,6 +79,9 @@ class MongoBrowser(AggregationBrowser):
 
         self.timezone = pytz.timezone(cube.info.get('timezone')) if cube.info.get('timezone') else pytz.timezone('UTC')
 
+    def set_locale(self, locale):
+        self.mapper.set_locale(locale)
+
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, order=None, page=None, page_size=None, 
                   **options):
