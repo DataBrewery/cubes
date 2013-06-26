@@ -167,8 +167,19 @@ class SnowflakeBrowser(AggregationBrowser):
         Number of SQL queries: 1.
         """
 
-        statement = self.context.denormalized_statement()
+        attributes = set()
+        attributes |= set(self.cube.details)
+        for dim in self.cube.dimensions:
+            attributes |= set(dim.hierarchy().all_attributes())
+        # all measures that fit the bill
+        attributes |= set([ m for m in self.cube.measures if 'identity' not in m.aggregations ])
+
         cond = self.context.condition_for_cell(cell)
+        statement = self.context.denormalized_statement(
+            attributes=attributes,
+            include_fact_key=True,
+            condition_attributes=cond.attributes
+        )
 
         if cond.condition is not None:
             statement = statement.where(cond.condition)
@@ -1191,6 +1202,9 @@ class QueryContext(object):
             self.label_counter += 1
         else:
             label = logical
+
+        if isinstance(column, basestring):
+            raise ValueError("Cannot resolve %s to a column object: %r" % (attribute, column))
 
         column = column.label(label)
 
