@@ -1,6 +1,44 @@
 Changes in the Cubes
 ====================
 
+Current
+=======
+
+Summary:
+
+* brought back model bundle directory - easier to maintain larger models
+
+Thanks:
+
+* Robin Thomas from Squarespace
+* Jose Juan Montes (@jjmontsl)
+
+New Features
+============
+
+* added command `slicer model convert` to convert between model formats
+* allow a fact table to be a detail table in a join, provided that it has an
+  alias. This allows for an ancestor relationship between facts to be
+  presented as a dimension (by rthomas)
+* added `template` to translations of dimensions
+* model now can contain base mappings for all cubes (by rthomas)
+
+SQL and Server
+
+* added support for SQLAlchemy configuration options
+
+Changes
+=======
+
+* `load_model` now accepts model bundle directory path (therefore can be used
+  in slicer.ini)
+* removed `slicer model json` in favor on `slicer model convert`
+
+Fixes
+-----
+
+* proper handling of order_attribute and order in flat dimensions 
+
 0.10.2
 ======
 
