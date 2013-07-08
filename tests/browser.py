@@ -30,27 +30,39 @@ class CutsTestCase(unittest.TestCase):
         # self.assertRaises(Exception, cubes.cut_from_dict, d)
 
         d = {"type":"point", "path":[2010], "dimension":"date",
-                "level_depth":1, "hierarchy": None}
+                "level_depth":1, "hierarchy": None, "invert": False}
         cut = cubes.cut_from_dict(d)
         tcut = cubes.PointCut("date", [2010])
         self.assertEqual(tcut, cut)
         self.assertEqual(d, tcut.to_dict())
+        self._assert_invert(d, cut, tcut)
 
         d = {"type":"range", "from":[2010], "to":[2012, 10],
-                "dimension":"date", "level_depth":2, "hierarchy":None}
+                "dimension":"date", "level_depth":2, "hierarchy":None, "invert": False}
         cut = cubes.cut_from_dict(d)
         tcut = cubes.RangeCut("date", [2010], [2012, 10])
         self.assertEqual(tcut, cut)
         self.assertEqual(d, tcut.to_dict())
+        self._assert_invert(d, cut, tcut)
 
         d = {"type":"set", "paths":[[2010], [2012, 10]],
-                "dimension":"date", "level_depth":2, "hierarchy":None}
+                "dimension":"date", "level_depth":2, "hierarchy":None, "invert": False}
         cut = cubes.cut_from_dict(d)
         tcut = cubes.SetCut("date", [[2010], [2012, 10]])
         self.assertEqual(tcut, cut)
         self.assertEqual(d, tcut.to_dict())
+        self._assert_invert(d, cut, tcut)
+
 
         self.assertRaises(ArgumentError, cubes.cut_from_dict, {"type":"xxx"})
+
+    def _assert_invert(self, d, cut, tcut):
+        cut.invert = True
+        tcut.invert = True
+        d["invert"] = True
+        self.assertEqual(tcut, cut)
+        self.assertEqual(d, tcut.to_dict())
+
 
 class StringConversionsTestCase(unittest.TestCase):
     def test_cut_string_conversions(self):
@@ -63,13 +75,19 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(cut, cubes.cut_from_string("foo", "123_abc_,10,_"))
 
         cut = cubes.browser.PointCut("foo", ["123_ abc_"])
-        self.assertRaises(Exception, cut.__str__)
+        self.assertEqual(r"foo:123_ abc_", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string(r"foo", "123_ abc_"))
 
         cut = cubes.browser.PointCut("foo", ["a-b"])
-        self.assertRaises(Exception, cut.__str__)
+        self.assertEqual(r"foo:a\-b", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string(r"foo", "a\-b"))
 
         cut = cubes.browser.PointCut("foo", ["a+b"])
-        self.assertRaises(Exception, cut.__str__)
+        self.assertEqual(r"foo:a+b", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string(r"foo", "a+b"))
+
+    def test_special_characters(self):
+        self.assertEqual(r'\:q\-we,a\\sd\;,100', cubes.browser.string_from_path([":q-we", "a\\sd;",100]))
 
     def test_string_from_path(self):
         self.assertEqual('qwe,asd,100', cubes.browser.string_from_path(["qwe", "asd",100]))
@@ -87,11 +105,14 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual("foo:1;2,3;qwe,asd,100", str(cut))
         self.assertEqual(cut, cubes.cut_from_string("foo", "1;2,3;qwe,asd,100"))
 
-        cut = cubes.browser.SetCut("foo", ["a+b"])
-        self.assertRaises(ArgumentError, cut.__str__)
+        # single-element SetCuts cannot go round trip, they become point cuts
+        cut = cubes.browser.SetCut("foo", [["a+b"]])
+        self.assertEqual("foo:a+b", str(cut))
+        self.assertEqual(cubes.browser.PointCut("foo", ["a+b"]), cubes.cut_from_string("foo", "a+b"))
 
-        cut = cubes.browser.SetCut("foo", ["a-b"])
-        self.assertRaises(ArgumentError, cut.__str__)
+        cut = cubes.browser.SetCut("foo", [["a-b"]])
+        self.assertEqual(r"foo:a\-b", str(cut))
+        self.assertEqual(cubes.browser.PointCut("foo", ["a-b"]), cubes.cut_from_string(r"foo", "a\-b"))
 
     def test_range_cut_string(self):
         cut = cubes.browser.RangeCut("date", ["2010"], ["2011"])
@@ -114,11 +135,13 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual("date:2010,11,12-2011,2,3", str(cut))
         self.assertEqual(cut, cubes.cut_from_string("date", "2010,11,12-2011,2,3"))
 
-        cut = cubes.browser.RangeCut(None, ["a+b"], ["1"])
-        self.assertRaises(ArgumentError, cut.__str__)
+        cut = cubes.browser.RangeCut("foo", ["a+b"], ["1"])
+        self.assertEqual("foo:a+b-1", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string("foo", "a+b-1"))
 
         cut = cubes.browser.RangeCut("foo", ["a-b"], ["1"])
-        self.assertRaises(ArgumentError, cut.__str__)
+        self.assertEqual(r"foo:a\-b-1", str(cut))
+        self.assertEqual(cut, cubes.cut_from_string(r"foo", "a\-b-1"))
 
     def test_hierarchy_cut(self):
         cut = cubes.browser.PointCut("date", ["10"], "dqmy")

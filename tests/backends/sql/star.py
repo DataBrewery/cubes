@@ -150,14 +150,14 @@ class QueryContextTestCase(StarSQLTestCase):
         l_day = dim.level("day")
 
         drilldown = [("date", None, "year")]
-        expected = [(dim, [l_year])]
+        expected = [(dim, dim.hierarchy(), [l_year])]
         self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         drilldown = ["date"]
         self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         drilldown = [("date", None, "year")]
-        expected = [(dim, [l_year])]
+        expected = [(dim, dim.hierarchy(), [l_year])]
         self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # Try "next level"
@@ -166,11 +166,11 @@ class QueryContextTestCase(StarSQLTestCase):
         cell = cubes.Cell(self.cube, [cut])
 
         drilldown = [("date", None, "year")]
-        expected = [(dim, [l_year])]
+        expected = [(dim, dim.hierarchy(), [l_year])]
         self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         drilldown = ["date"]
-        expected = [(dim, [l_year, l_month])]
+        expected = [(dim, dim.hierarchy(), [l_year, l_month])]
         self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # Try with range cell
@@ -179,18 +179,18 @@ class QueryContextTestCase(StarSQLTestCase):
         # cell = cubes.Cell(self.cube, [cut])
 
         # drilldown = ["date"]
-        # expected = [(dim, [l_year, l_month])]
+        # expected = [(dim, dim.hierarchy(), [l_year, l_month])]
         # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # drilldown = [("date", None, "year")]
-        # expected = [(dim, [l_year])]
+        # expected = [(dim, dim.hierarchy(), [l_year])]
         # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # cut = cubes.RangeCut("date", [2009], [2010, 1])
         # cell = cubes.Cell(self.cube, [cut])
 
         # drilldown = ["date"]
-        # expected = [(dim, [l_year, l_month, l_day])]
+        # expected = [(dim, dim.hierarchy(), [l_year, l_month, l_day])]
         # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         # Try "last level"
@@ -199,11 +199,11 @@ class QueryContextTestCase(StarSQLTestCase):
         cell = cubes.Cell(self.cube, [cut])
 
         drilldown = [("date", None, "day")]
-        expected = [(dim, [l_year, l_month, l_day])]
+        expected = [(dim, dim.hierarchy(), [l_year, l_month, l_day])]
         self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
 
         drilldown = ["date"]
-        expected = [(dim, [l_year, l_month])]
+        expected = [(dim, dim.hierarchy(), [l_year, l_month])]
         self.assertRaises(HierarchyError, cubes.levels_from_drilldown, cell, drilldown)
 
 
