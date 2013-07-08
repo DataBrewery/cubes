@@ -147,17 +147,17 @@ class MapperTestCase(unittest.TestCase):
             ref = cubes.coalesce_physical(actual, default)
             self.assertEqual(expected, ref)
 
-        assertPhysical((None, "table", "column", None), "table.column")
-        assertPhysical((None, "table", "column.foo", None), "table.column.foo")
-        assertPhysical((None, "table", "column", None), ["table", "column"])
-        assertPhysical(("schema", "table", "column", None), ["schema","table", "column"])
-        assertPhysical((None, "table", "column", None), {"column":"column"}, "table")
-        assertPhysical((None, "table", "column", None), {"table":"table",
+        assertPhysical((None, "table", "column", None, None, None, None), "table.column")
+        assertPhysical((None, "table", "column.foo", None, None, None, None), "table.column.foo")
+        assertPhysical((None, "table", "column", None, None, None, None), ["table", "column"])
+        assertPhysical(("schema", "table", "column", None, None, None, None), ["schema","table", "column"])
+        assertPhysical((None, "table", "column", None, None, None, None), {"column":"column"}, "table")
+        assertPhysical((None, "table", "column", None, None, None, None), {"table":"table",
                                                         "column":"column"})
-        assertPhysical(("schema", "table", "column", None), {"schema":"schema",
+        assertPhysical(("schema", "table", "column", None, None, None, None), {"schema":"schema",
                                                         "table":"table",
                                                         "column":"column"})
-        assertPhysical(("schema", "table", "column", "day"), {"schema":"schema",
+        assertPhysical(("schema", "table", "column", "day", None, None, None), {"schema":"schema",
                                                         "table":"table",
                                                         "column":"column",
                                                         "extract":"day"})

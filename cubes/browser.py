@@ -822,12 +822,12 @@ def cut_from_dict(desc, cube=None):
         dim = cube.dimension(dim)
 
     if cut_type == "point":
-        return PointCut(dim, desc.get("path"), desc.get("hierarchy"), desc.get('invert'))
+        return PointCut(dim, desc.get("path"), desc.get("hierarchy"), desc.get('invert', False))
     elif cut_type == "set":
-        return SetCut(dim, desc.get("paths"), desc.get("hierarchy"), desc.get('invert'))
+        return SetCut(dim, desc.get("paths"), desc.get("hierarchy"), desc.get('invert', False))
     elif cut_type == "range":
         return RangeCut(dim, desc.get("from"), desc.get("to"),
-                                desc.get("hierarchy"), desc.get('invert'))
+                                desc.get("hierarchy"), desc.get('invert', False))
     else:
         raise ArgumentError("Unknown cut type %s" % cut_type)
 
@@ -952,6 +952,8 @@ class PointCut(Cut):
         return string
 
     def __eq__(self, other):
+        if not isinstance(other, PointCut):
+            return False
         if self.dimension != other.dimension:
             return False
         elif self.path != other.path:
@@ -1012,6 +1014,8 @@ class RangeCut(Cut):
         return string
 
     def __eq__(self, other):
+        if not isinstance(other, RangeCut):
+            return False
         if self.dimension != other.dimension:
             return False
         elif self.from_path != other.from_path:
@@ -1060,7 +1064,9 @@ class SetCut(Cut):
         return string
 
     def __eq__(self, other):
-        if self.dimension != other.dimension:
+        if not isinstance(other, SetCut):
+            return False
+        elif self.dimension != other.dimension:
             return False
         elif self.paths != other.paths:
             return False
