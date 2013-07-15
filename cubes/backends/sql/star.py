@@ -640,12 +640,14 @@ class QueryContext(object):
                 group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
                 selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
             for dim, hier, levels in drilldown:
+                last_level = levels[-1] if len(levels) else None
                 for level in levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
-                    drilldown_ptd_condition = self.condition_for_level(level, hier) or drilldown_ptd_condition
+                    if last_level == level:
+                        drilldown_ptd_condition = self.condition_for_level(level, dim.hierarchy(hier)) or drilldown_ptd_condition
 
         # Measures
         if measures is None:
@@ -895,7 +897,7 @@ class QueryContext(object):
 
         return Condition(attributes, condition)
 
-    def condition_for_level(self, level, hier=None):
+    def condition_for_level(self, level):
 
         ref = self.mapper.physical(level.key)
 
@@ -933,14 +935,17 @@ class QueryContext(object):
 
         level_condition = None
 
+        last_level = levels[-1] if len(levels) else None
+
         for level, value in zip(levels, path):
 
             # Prepare condition: dimension.level_key = path_value
             column = self.column(level.key)
             conditions.append(column == value)
 
-            # currently, only the lowermost level's condition will apply
-            level_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or level_condition
+            # only the lowermost level's condition should apply
+            if level == last_level:
+                level_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or level_condition
 
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
@@ -1009,11 +1014,14 @@ class QueryContext(object):
         attributes = set()
         conditions = []
 
+        last_level = levels[-1] if len(levels) else None
+
         for level, value in zip(levels[:-1], path[:-1]):
             column = self.column(level.key)
             conditions.append(column == value)
 
-            ptd_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or ptd_condition
+            if first and last_level == level:
+                ptd_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or ptd_condition
 
             for attr in level.attributes:
                 attributes.add(attr)
