@@ -647,7 +647,7 @@ class QueryContext(object):
                     group_by.extend(columns)
                     selection.extend(columns)
                     if last_level == level:
-                        drilldown_ptd_condition = self.condition_for_level(level, dim.hierarchy(hier)) or drilldown_ptd_condition
+                        drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
         # Measures
         if measures is None:
@@ -945,7 +945,7 @@ class QueryContext(object):
 
             # only the lowermost level's condition should apply
             if level == last_level:
-                level_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or level_condition
+                level_condition = self.condition_for_level(level) or level_condition
 
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
@@ -1021,7 +1021,7 @@ class QueryContext(object):
             conditions.append(column == value)
 
             if first and last_level == level:
-                ptd_condition = self.condition_for_level(level, dim.hierarchy(hierarchy)) or ptd_condition
+                ptd_condition = self.condition_for_level(level) or ptd_condition
 
             for attr in level.attributes:
                 attributes.add(attr)
