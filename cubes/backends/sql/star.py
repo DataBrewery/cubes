@@ -330,6 +330,15 @@ class SnowflakeBrowser(AggregationBrowser):
                                                          attributes=attributes,
                                                          drilldown=drilldown)
 
+            # TODO: introduce option to disable this
+
+            if include_cell_count or \
+                    include_cell_count is None and self.include_cell_count:
+                count_statement = statement.alias().count()
+                row_count = self.connectable.execute(count_statement).fetchone()
+                total_cell_count = row_count[0]
+                result.total_cell_count = total_cell_count
+
             statement = self.context.paginated_statement(statement, page, page_size)
             statement = self.context.ordered_statement(statement, order,
                                                                     drilldown)
@@ -342,14 +351,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
             result.cells = ResultIterator(dd_result, labels)
 
-            # TODO: introduce option to disable this
-
-            if include_cell_count or \
-                    include_cell_count is None and self.include_cell_count:
-                count_statement = statement.alias().count()
-                row_count = self.connectable.execute(count_statement).fetchone()
-                total_cell_count = row_count[0]
-                result.total_cell_count = total_cell_count
 
         return result
 
