@@ -315,7 +315,6 @@ class SnowflakeMapper(Mapper):
                     joined_tables.add(detail)
                     break
 
-        # FIXME: is join order important? if yes, we should sort them here
         self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
 
         # Sort joins according to original order specified in the model
