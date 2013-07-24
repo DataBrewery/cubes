@@ -32,14 +32,16 @@ def get_backend(backend_name):
     backend = sys.modules.get("cubes.backends."+backend_name)
 
     if not backend:
-        # Then try to find a module with full module path name
-        try:
+        if sys.modules.has_key(backend_name):
             backend = sys.modules[backend_name]
-        except KeyError as e:
-            raise Exception("Unable to find backend module %s (%s)" % (backend_name, e))
+        else:
+            try:
+                backend = __import__(backend_name)
+            except ImportError as e:
+                raise Exception("Unable to find backend module %s (%s)" % (backend_name, e))
 
     if not hasattr(backend, "create_workspace"):
-        raise NotImplementedError("Backend %s does not implement create_workspace" % backend_name)
+        raise NotImplementedError("Backend module %s does not implement create_workspace" % backend_name)
 
     return backend
 
