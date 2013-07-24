@@ -15,7 +15,7 @@ import datetime
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
-API_VERSION = "1"
+API_VERSION = "2"
 
 def str_to_bool(string):
     """Convert a `string` to bool value. Returns ``True`` if `string` is
