@@ -2126,11 +2126,12 @@ class Attribute(object):
                 "full_name": self.ref(),
                 "ref": self.ref()
             }
-        if self.label is not None:
-            if options.get("create_label"):
-                d["label"] = self.label or to_label(self.name)
-            else:
-                d["label"] = self.label
+
+        if options.get("create_label"):
+            d["label"] = self.label or to_label(self.name)
+        else:
+            d["label"] = self.label
+
         if self.locales:
             d["locales"] = self.locales
         if self.order is not None:
