@@ -8,7 +8,7 @@ import datetime
 
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
-from cubes.mapper import coalesce_physical
+from cubes.backends.sql.mapper import coalesce_physical
 from cubes.backends.sql.star import *
 from cubes.errors import *
 

@@ -3,8 +3,7 @@
 
 from cubes.browser import *
 from cubes.common import get_logger
-from cubes.mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical
-from cubes.mapper import DEFAULT_KEY_FIELD
+from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical, DEFAULT_KEY_FIELD
 import logging
 import collections
 import re
