@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
 from .star import SnowflakeBrowser, QueryContext
-from cubes.mapper import SnowflakeMapper, DenormalizedMapper
+from .mapper import SnowflakeMapper, DenormalizedMapper
 from ...common import get_logger, coalesce_options
 from cubes.errors import *
 from cubes.browser import *

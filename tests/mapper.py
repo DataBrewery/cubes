@@ -1,5 +1,6 @@
 import unittest
 import cubes
+from cubes.backends.sql.mapper import SnowflakeMapper
 
 
 class MapperTestCase(unittest.TestCase):
@@ -66,7 +67,7 @@ class MapperTestCase(unittest.TestCase):
 
         self.model = cubes.create_model(model_desc)
         self.cube = self.model.cube("sales")
-        self.mapper = cubes.SnowflakeMapper(self.cube,dimension_prefix='dim_')
+        self.mapper = SnowflakeMapper(self.cube,dimension_prefix='dim_')
 
         self.mapper.mappings = {
                     "product.name": "product.product_name",
