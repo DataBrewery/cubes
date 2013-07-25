@@ -7,7 +7,6 @@ from cubes import statutils
 from .mapper import MongoCollectionMapper, coalesce_physical
 
 import collections
-import itertools
 import copy
 import pymongo
 import bson
@@ -108,22 +107,23 @@ class MongoBrowser(AggregationBrowser):
                 dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
             result.levels = dim_levels
 
-            result.calculators = itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ])
+            calc_aggs = []
+            for c in [ self.calculated_aggregations_for_measure(measure, drilldown_levels, split) for measure in measures ]:
+                calc_aggs += c
+            result.calculators = calc_aggs
 
         summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, split=split, order=order, page=page, page_size=page_size)
         result.cells = iter(items)
         result.summary = { "record_count": summary }
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
-            for calc in itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]):
-                calc(result.summary)
+            for calcs in [ self.calculated_aggregations_for_measure(measure, drilldown_levels, split) for measure in measures ]:
+                for calc in calcs:
+                    calc(result.summary)
 
         return result
 
     def calculated_aggregations_for_measure(self, measure, drilldown_levels, split):
-        if not drilldown_levels and not split:
-            return []
-
         calc_aggs = [ agg for agg in measure.aggregations if agg in CALCULATED_AGGREGATIONS ]
 
         if not calc_aggs:

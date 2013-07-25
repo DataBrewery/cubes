@@ -42,7 +42,7 @@ def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggrega
         else:
             num_units = these_num_units
 
-    if num_units is None or not isinstance(num_units, int) or num_units < 2:
+    if num_units is None or not isinstance(num_units, int) or num_units < 1:
         num_units = 1
 
     # if no key_drilldown_paths, the key is always the empty tuple.
