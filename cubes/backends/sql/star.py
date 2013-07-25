@@ -8,6 +8,7 @@ import logging
 import collections
 import re
 import datetime
+import itertools
 from cubes.errors import *
 from cubes.computation import *
 from cubes.backends.sql import extensions
@@ -385,11 +386,8 @@ class SnowflakeBrowser(AggregationBrowser):
             labels = self.context.logical_labels(statement.columns)
 
             # decorate with calculated measures if applicable
-            measures_for_calc_agg = []
-            if measures:
-                measures_for_calc_agg += measures
             result.calculators = []
-            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures_for_calc_agg ]:
+            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
                 result.calculators += calc_aggs
             result.cells = ResultIterator(dd_result, labels)
 
@@ -402,13 +400,19 @@ class SnowflakeBrowser(AggregationBrowser):
                 total_cell_count = row_count[0]
                 result.total_cell_count = total_cell_count
 
+        elif result.summary is not None:
+            # do calculated measures on summary if no drilldown or split
+            import pdb; pdb.set_trace()
+            for calc in itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]):
+                calc(result.summary)
+
         return result
 
     def calculated_aggregations_for_measure(self, measure, drilldown_levels=None, split=None):
         """Returns a list of calculator objects that implement aggregations by calculating
         on retrieved results, given a particular drilldown.
         """
-        if not measure.aggregations or ((not drilldown_levels or len(drilldown_levels) < 1) and not split):
+        if not measure.aggregations:
             return []
 
         # Each calculated aggregation calculates on every non-calculated aggregation.

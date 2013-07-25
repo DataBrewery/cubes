@@ -73,65 +73,69 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
     """
     raise NotImplementedError
 
-def create_workspace(model, **options):
-    """Create workspace for `model` with configuration in dictionary
-    `options`. This method is used by the slicer server.
+def _create_workspace_builder(workspace_class):
 
-    The options are:
+    def create_workspace(model, **options):
+        """Create workspace for `model` with configuration in dictionary
+        `options`. This method is used by the slicer server.
 
-    Required (one of the two, `engine` takes precedence):
+        The options are:
 
-    * `url` - database URL in form of:
-      ``backend://user:password@host:port/database``
-    * `sqlalchemy_options` - this backend accepts options for SQLAlchemy in the form:
-      ``option1=value1[&option2=value2]...``
-    * `engine` - SQLAlchemy engine - either this or URL should be provided
+        Required (one of the two, `engine` takes precedence):
 
-    Optional:
+        * `url` - database URL in form of:
+          ``backend://user:password@host:port/database``
+        * `sqlalchemy_options` - this backend accepts options for SQLAlchemy in the form:
+          ``option1=value1[&option2=value2]...``
+        * `engine` - SQLAlchemy engine - either this or URL should be provided
 
-    * `schema` - default schema, where all tables are located (if not
-      explicitly stated otherwise)
-    * `fact_prefix` - used by the snowflake mapper to find fact table for a
-      cube, when no explicit fact table name is specified
-    * `dimension_prefix` - used by snowflake mapper to find dimension tables
-      when no explicit mapping is specified
-    * `dimension_schema` – schema where dimension tables are stored, if
-      different than common schema.
+        Optional:
 
-    Options for denormalized views:
+        * `schema` - default schema, where all tables are located (if not
+          explicitly stated otherwise)
+        * `fact_prefix` - used by the snowflake mapper to find fact table for a
+          cube, when no explicit fact table name is specified
+        * `dimension_prefix` - used by snowflake mapper to find dimension tables
+          when no explicit mapping is specified
+        * `dimension_schema` – schema where dimension tables are stored, if
+          different than common schema.
 
-    * `use_denormalization` - browser will use dernormalized view instead of
-      snowflake
-    * `denormalized_view_prefix` - if denormalization is used, then this
-      prefix is added for cube name to find corresponding cube view
-    * `denormalized_view_schema` - schema wehere denormalized views are
-      located (use this if the views are in different schema than fact tables,
-      otherwise default schema is going to be used)
-    """
-    engine = options.get("engine")
+        Options for denormalized views:
 
-    if engine:
-        del options["engine"]
-    else:
-        try:
-            db_url = options["url"]
-        except KeyError:
-            raise ArgumentError("No URL or engine specified in options, "
-                                "provide at least one")
+        * `use_denormalization` - browser will use dernormalized view instead of
+          snowflake
+        * `denormalized_view_prefix` - if denormalization is used, then this
+          prefix is added for cube name to find corresponding cube view
+        * `denormalized_view_schema` - schema wehere denormalized views are
+          located (use this if the views are in different schema than fact tables,
+          otherwise default schema is going to be used)
+        """
+        engine = options.get("engine")
 
-        # Process SQLAlchemy options
-        sqlalchemy_options = {}
-        sqlalchemy_options_str = options.get("sqlalchemy_options")
-        if (sqlalchemy_options_str):
-            for option in sqlalchemy_options_str.split('&'):
-                option_parts = option.split("=")
-                sqlalchemy_options[option_parts[0]] = interpret_config_value(option_parts[1])
+        if engine:
+            del options["engine"]
+        else:
+            try:
+                db_url = options["url"]
+            except KeyError:
+                raise ArgumentError("No URL or engine specified in options, "
+                                    "provide at least one")
 
-        engine = sqlalchemy.create_engine(db_url, **sqlalchemy_options)
+            # Process SQLAlchemy options
+            sqlalchemy_options = {}
+            sqlalchemy_options_str = options.get("sqlalchemy_options")
+            if (sqlalchemy_options_str):
+                for option in sqlalchemy_options_str.split('&'):
+                    option_parts = option.split("=")
+                    sqlalchemy_options[option_parts[0]] = interpret_config_value(option_parts[1])
 
-    workspace = SQLStarWorkspace(model, engine, **options)
+            engine = sqlalchemy.create_engine(db_url, **sqlalchemy_options)
 
-    return workspace
+        workspace = workspace_class(model, engine, **options)
+
+        return workspace
+
+    return create_workspace
 
 class SQLStarWorkspace(Workspace):
     """Factory for browsers"""
@@ -519,3 +523,6 @@ class SQLStarWorkspace(Workspace):
             insert = InsertIntoAsSelect(table, statement,
                                   columns=statement.columns)
             connection.execute(str(insert))
+
+create_workspace = _create_workspace_builder(SQLStarWorkspace)
+
