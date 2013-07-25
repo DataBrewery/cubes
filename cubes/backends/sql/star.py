@@ -386,9 +386,7 @@ class SnowflakeBrowser(AggregationBrowser):
             labels = self.context.logical_labels(statement.columns)
 
             # decorate with calculated measures if applicable
-            result.calculators = []
-            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
-                result.calculators += calc_aggs
+            result.calculators = itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ])
             result.cells = ResultIterator(dd_result, labels)
 
 
@@ -402,7 +400,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         elif result.summary is not None:
             # do calculated measures on summary if no drilldown or split
-            import pdb; pdb.set_trace()
             for calc in itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]):
                 calc(result.summary)
 
