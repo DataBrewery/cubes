@@ -7,6 +7,7 @@ from cubes import statutils
 from .mapper import MongoCollectionMapper, coalesce_physical
 
 import collections
+import itertools
 import copy
 import pymongo
 import bson
