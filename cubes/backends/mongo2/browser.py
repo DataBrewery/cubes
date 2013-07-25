@@ -107,15 +107,15 @@ class MongoBrowser(AggregationBrowser):
                 dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
             result.levels = dim_levels
 
-            calc_aggs = []
-            for measure in measures:
-                calc_aggs += self.calculated_aggregations_for_measure(measure, drilldown_levels, split)
-            if calc_aggs:
-                result.calculators = calc_aggs
+            result.calculators = itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ])
 
         summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, split=split, order=order, page=page, page_size=page_size)
         result.cells = iter(items)
         result.summary = { "record_count": summary }
+        # add calculated measures w/o drilldown or split if no drilldown or split
+        if not (drilldown or split):
+            for calc in itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]):
+                calc(result.summary)
 
         return result
 
