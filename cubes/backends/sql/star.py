@@ -8,7 +8,6 @@ import logging
 import collections
 import re
 import datetime
-import itertools
 from cubes.errors import *
 from cubes.computation import *
 from cubes.backends.sql import extensions
@@ -360,7 +359,9 @@ class SnowflakeBrowser(AggregationBrowser):
                 if dim.info.get('high_cardinality') and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
                 if [ l for l in levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
+                    raise BrowserError(("Cannot drilldown on high-cardinality levels (%s) " +
+                                       "without including both page_size and page arguments") 
+                                       % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
 
                 dim_levels[str(dim)] = [str(level) for level in levels]
 
@@ -386,7 +387,10 @@ class SnowflakeBrowser(AggregationBrowser):
             labels = self.context.logical_labels(statement.columns)
 
             # decorate with calculated measures if applicable
-            result.calculators = itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ])
+            calc_aggs = []
+            for c in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
+                calc_aggs += c
+            result.calculators = calc_aggs
             result.cells = ResultIterator(dd_result, labels)
 
 
@@ -400,8 +404,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
         elif result.summary is not None:
             # do calculated measures on summary if no drilldown or split
-            for calc in itertools.chain(*[ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]):
-                calc(result.summary)
+            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
+                for calc in calc_aggs:
+                    calc(result.summary)
 
         return result
 
