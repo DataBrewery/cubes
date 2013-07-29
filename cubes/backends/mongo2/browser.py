@@ -104,7 +104,7 @@ class MongoBrowser(AggregationBrowser):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
                 if [ l for l in levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
-                dim_levels["%s@%s" % (dim, dim.hierarchy(hier))] = [str(level) for level in levels]
+                dim_levels[str(dim)] = [str(level) for level in levels]
             result.levels = dim_levels
 
             calc_aggs = []
