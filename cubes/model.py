@@ -252,7 +252,7 @@ def create_dimension(obj, dimensions=None):
         for hier in template.hierarchies.values():
             hier_levels = [level_dict[level.name] for level in hier.levels]
             hier_copy = Hierarchy(hier.name, hier_levels,
-                                  label=hier.label, info=hier.info)
+                                  label=hier.label, info=copy.deepcopy(hier.info))
             hierarchies.append(hier_copy)
 
         default_hierarchy_name = template.default_hierarchy_name
@@ -558,7 +558,7 @@ def simple_model(cube_name, dimensions, measures):
 
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
-                 label=None, description=None, info={}, mappings=None,
+                 label=None, description=None, info=None, mappings=None,
                  **kwargs):
         """
         Logical Model represents analysts point of view on data.
@@ -596,7 +596,7 @@ class Model(object):
         self.label = label
         self.description = description
         self.locale = locale
-        self.info = info
+        self.info = info or {}
 
         self.mappings = mappings
 
@@ -936,7 +936,7 @@ class Cube(object):
     def __init__(self, name, dimensions=None, measures=None, model=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, options={},
-                 info={}, **kwargs):
+                 info=None, **kwargs):
         """Create a new Cube model.
 
         Attributes:
@@ -987,7 +987,7 @@ class Cube(object):
         self.options = options
 
         self.model = model
-        self.info = info
+        self.info = info or {}
 
         self._dimensions = OrderedDict()
 
@@ -1225,7 +1225,7 @@ class Dimension(object):
 
     """
     def __init__(self, name, levels, hierarchies=None, default_hierarchy_name=None,
-                 label=None, description=None, info={}, **desc):
+                 label=None, description=None, info=None, **desc):
 
         """Create a new dimension
 
@@ -1254,7 +1254,7 @@ class Dimension(object):
 
         self.label = label
         self.description = description
-        self.info = info
+        self.info = info or {}
 
         logger = get_logger()
 
@@ -1606,10 +1606,10 @@ class Hierarchy(object):
     hierarchy name.
 
     """
-    def __init__(self, name, levels, dimension=None, label=None, info={}):
+    def __init__(self, name, levels, dimension=None, label=None, info=None):
         self.name = name
         self.label = label
-        self.info = info
+        self.info = info or {}
 
         # if not dimension:
         #     raise ModelInconsistencyError("No dimension specified for "
@@ -1838,12 +1838,12 @@ class Level(object):
 
     def __init__(self, name, attributes, dimension = None, key=None,
                  order_attribute=None, order=None, label_attribute=None, label=None,
-                 info={}):
+                 info=None):
 
         self.name = name
         self.dimension = dimension
         self.label = label
-        self.info = info
+        self.info = info or {}
 
         if not attributes:
             raise ModelError("Attribute list should not be empty")
@@ -2038,7 +2038,7 @@ class Attribute(object):
 
     def __init__(self, name, label=None, locales=None, order=None,
                 description=None,dimension=None, aggregations=None,
-                info={}, format=None, **kwargs):
+                info=None, format=None, **kwargs):
         """Cube attribute - represents any fact field/column
 
         Attributes:
@@ -2070,7 +2070,7 @@ class Attribute(object):
         self.description = description
         self.dimension = dimension
         self.aggregations = aggregations
-        self.info = info
+        self.info = info or {}
         self.format = format
 
         if order:
