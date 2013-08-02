@@ -257,7 +257,7 @@ class MongoBrowser(AggregationBrowser):
 
                 # Special Mongo Date Hack for TZ Support
                 if dim and is_date_dimension(dim):
-                    is_utc = (self.timezone == pytz.utc)
+                    is_utc = (self.timezone == tz_utc)
                     phys = self.mapper.physical(levels[0].key)
                     date_idx = phys.project_expression()
 
@@ -433,7 +433,7 @@ class MongoBrowser(AggregationBrowser):
         return (None, result_items)
 
     def _build_date_for_cut(self, hier, path):
-        date_dict = {'month': 1, 'day': 1, 'hour':0 }
+        date_dict = {'month': 1, 'day': 1, 'hour': 0 }
         min_part = None
 
         for val, dp in zip(path, hier.levels[:len(path)]):
