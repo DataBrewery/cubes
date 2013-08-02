@@ -7,6 +7,7 @@ from cubes.common import get_logger
 from cubes.errors import *
 from cubes.mapper import Mapper
 from bson.objectid import ObjectId
+import datetime
 
 __all__ = (
     "MongoCollectionMapper"
@@ -16,12 +17,17 @@ DEFAULT_KEY_FIELD = "_id"
 
 MONGO_TYPES = {
     'string': str,
+    'str': str,
     'objectid': ObjectId,
     'oid': ObjectId,
     'integer': int,
     'int': int,
     'float': float,
     'double': float
+}
+
+MONGO_EVAL_NS = {
+    'datetime': datetime
 }
 
 """Physical reference to a mongo document field."""
@@ -37,10 +43,10 @@ class MongoDocumentField(object):
             self.group = copy.deepcopy(group)
         self.encode = lambda x: x
         if encode:
-            self.encode = eval(compile(encode, '__encode__', 'eval'), {})
+            self.encode = eval(compile(encode, '__encode__', 'eval'), copy.copy(MONGO_EVAL_NS))
         self.decode = lambda x: x
         if decode:
-            self.decode = eval(compile(decode, '__decode__', 'eval'), {})
+            self.decode = eval(compile(decode, '__decode__', 'eval'), copy.copy(MONGO_EVAL_NS))
 
         self.type = MONGO_TYPES.get(str('string' if type is None else type).lower(), str)
 
