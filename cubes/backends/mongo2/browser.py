@@ -11,6 +11,7 @@ import copy
 import pymongo
 import bson
 import re
+import time
 
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
@@ -59,7 +60,10 @@ class MongoBrowser(AggregationBrowser):
 
         self.logger = get_logger()
 
+        t = time.time()
+        self.logger.debug("Attempting MongoClient connection to %s" % (url))
         mongo_client = pymongo.MongoClient(url, read_preference=pymongo.read_preferences.ReadPreference.SECONDARY)
+        self.logger.debug("Connected to %s in %f s" % (mongo_client, time.time() - t))
 
         db = cube.options.get('database')
         if db is None:
