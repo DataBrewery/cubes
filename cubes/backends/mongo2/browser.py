@@ -386,7 +386,7 @@ class MongoBrowser(AggregationBrowser):
 
 
             if filter_so_far:
-                filt = so_far_filter(datetime.utcnow(), dategrouping[-1], key=lambda x:x['_id'][date_field])
+                filt = so_far_filter(self.logger, datetime.utcnow(), dategrouping[-1], key=lambda x:x['_id'][date_field])
                 results = filter(filt, results)
 
 
