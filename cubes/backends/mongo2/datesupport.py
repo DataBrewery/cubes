@@ -78,8 +78,7 @@ def get_date_for_week(year, week):
     return dt
 
 def calc_week(dt):
-    dt = get_next_weekdate(dt, direction='up')
-    return dt.strftime('%Y-%m-%d')
+    return get_week_end_date(dt).strftime('%Y-%m-%d')
 
 def calc_dow(dt):
     return WEEK_DAY_NAMES[ dt.weekday() ]
@@ -96,14 +95,17 @@ def clear(dt, parts=TIME_PARTS):
     return dt.replace(**replace_dict)
 
 
-def get_next_weekdate(dt, direction='up'):
+def get_week_end_date(dt):
     dr = clear(dt)
     while dr.weekday() != WEEK_DAY.FRIDAY:
-        if direction in set(['up', 'asc', '1', 1]):
-            dr += timedelta(1)
-        else:
-            dr -= timedelta(1)
+        dr += timedelta(1)
 
+    return dr
+
+def get_week_start_date(dt):
+    dr = clear(dt)
+    while dr.weekday() != WEEK_DAY.SATURDAY:
+            dr -= timedelta(1)
     return dr
 
 
