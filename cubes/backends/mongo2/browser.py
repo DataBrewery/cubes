@@ -5,6 +5,7 @@ from cubes.browser import *
 from cubes.computation import *
 from cubes import statutils
 from .mapper import MongoCollectionMapper, coalesce_physical
+from .datesupport import DateSupport
 
 import collections
 import copy
@@ -18,9 +19,6 @@ from datetime import datetime, timedelta
 from itertools import groupby
 from functools import partial
 import pytz
-from datesupport import get_date_for_week, calc_week, get_week_start_date, get_week_end_date,\
-                        datepart_functions, date_norm_map, date_as_utc, so_far_filter
-
 
 tz_utc = pytz.timezone('UTC')
 
@@ -82,6 +80,9 @@ class MongoBrowser(AggregationBrowser):
         self.mapper = MongoCollectionMapper(cube, db, coll, locale)
 
         self.timezone = pytz.timezone(cube.info.get('timezone')) if cube.info.get('timezone') else pytz.timezone('UTC')
+
+        self.datesupport = DateSupport(self.logger, self.timezone, options.get('week_start_weekday'))
+
 
     def set_locale(self, locale):
         self.mapper.set_locale(locale)
@@ -373,7 +374,7 @@ class MongoBrowser(AggregationBrowser):
             def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
                 # sort group on date
                 dt = item['_id'][date_field]
-                key = [datepart_functions.get(dp)(dt) for dp in dategrouping]
+                key = [self.datesupport.datepart_functions.get(dp)(dt) for dp in dategrouping]
                 
                 # add remainder elements to sort and group
                 for k, v in sorted(item['_id'].items(), key=lambda x:x[0]):
@@ -386,7 +387,7 @@ class MongoBrowser(AggregationBrowser):
 
 
             if filter_so_far:
-                filt = so_far_filter(self.logger, datetime.utcnow(), dategrouping[-1], key=lambda x:x['_id'][date_field])
+                filt = self.datesupport.so_far_filter(datetime.utcnow(), dategrouping[-1], key=lambda x:x['_id'][date_field])
                 results = filter(filt, results)
 
 
@@ -398,10 +399,10 @@ class MongoBrowser(AggregationBrowser):
                 dt = item['_id'].pop(date_field)
 
                 if dategrouping[-1] == 'week':
-                    dt= get_week_end_date(dt)
+                    dt= self.datesupport.get_week_end_date(dt)
 
                 for dp in dategrouping:
-                    item['_id']['%s.%s' % (date_field, dp)] = datepart_functions.get(dp)(dt)
+                    item['_id']['%s.%s' % (date_field, dp)] = self.datesupport.datepart_functions.get(dp)(dt)
 
                 return item
 
@@ -454,7 +455,7 @@ class MongoBrowser(AggregationBrowser):
                 return dt, min_part
             else:
                 dt = datetime.strptime(date_dict['week'], '%Y-%m-%d')
-                dt = (get_week_end_date if is_end else get_week_start_date)(dt)
+                dt = (self.datesupport.get_week_end_date if is_end else self.datesupport.get_week_start_date)(dt)
         else:
             dt = datetime(**date_dict)
 
