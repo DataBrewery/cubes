@@ -11,7 +11,8 @@ tz_utc = pytz.timezone('UTC')
 DATE_PARTS = ['year', 'month', 'day']
 TIME_PARTS = ['hour', 'minute', 'second', 'microsecond']
 
-ALL_PARTS = ['year', 'week', 'month', 'day'] + TIME_PARTS
+ALL_NONWEEK_PARTS = ['year', 'month', 'day'] + TIME_PARTS
+ALL_WEEK_PARTS = ['week', 'dow_sort'] + TIME_PARTS
 
 
 def enum(**enums):
@@ -23,20 +24,17 @@ WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
 
 WEEK_DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
 
+# filter, given a datepart, determines a datetime object for the current data
 def so_far_filter(logger, initial, datepart, key=lambda x:x):
     def _so_far_filter(dt, initial, datepart):
-        dateparts = list(ALL_PARTS)
-        if datepart == 'week':
-            dateparts.pop(dateparts.index('month'))
-            dateparts.pop(dateparts.index('day'))
-        else:
-            dateparts.pop(dateparts.index('week'))
+        dateparts = list(ALL_WEEK_PARTS if datepart == 'week' else ALL_NONWEEK_PARTS)
 
         dt = key(dt)
 
         def _print(header):
             logger.debug("%s %s %s %s %s", header, dp, str(dp_fn(dt)) + ':' + str(dp_fn(initial)),dt.isoformat(), initial.isoformat())
 
+        # for dateparts at greater granularity, if value is > than initial, discard.
         for dp in dateparts[dateparts.index(datepart) + 1:]:
             dp_fn = datepart_functions.get(dp)
             if dp_fn(dt) > dp_fn(initial):
