@@ -1363,7 +1363,7 @@ class SnapshotQueryContext(QueryContext):
         super(SnapshotQueryContext, self).__init__(cube, mapper, metadata, **options)
 
         snap_info = { 'dimension': 'daily_date', 'level_attribute': 'daily_datetime', 'aggregation': 'max' }
-        snap_info = snap_info.update(cube.info.get('snapshot', {}))
+        snap_info.update(cube.info.get('snapshot', {}))
         self.snapshot_dimension = cube.dimension(snap_info['dimension'])
         self.snapshot_level_attrname = snap_info['level_attribute']
         self.snapshot_aggregation = snap_info['aggregation']
