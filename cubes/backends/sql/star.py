@@ -1449,7 +1449,10 @@ class SnapshotQueryContext(QueryContext):
 
             level_expr = getattr(sql.expression.func, self.snapshot_aggregation)(self.column(snapshot_level_attribute)).label('the_snapshot_level')
             subq_selection.append(level_expr)
-            subquery = sql.expression.select(subq_selection, from_obj=subq_join_expression, use_labels=True, group_by=subq_group_by).alias('the_snapshot_subquery')
+            subquery = sql.expression.select(subq_selection, from_obj=subq_join_expression, use_labels=True, group_by=subq_group_by)
+            if subq_conditions:
+                subquery = subquery.where(sql.expression.and_(*subq_conditions) if len(subq_conditions) > 1 else subq_conditions[0])
+            subquery = subquery.alias('the_snapshot_subquery')
             subq_joins = []
             for a, b in zip(selection, [ sql.expression.literal_column("%s.col%d" % (subquery.name, i)) for i, s in enumerate(subq_selection[:-1]) ]):
                 subq_joins.append(a == b) 
