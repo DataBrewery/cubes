@@ -1373,10 +1373,10 @@ class SnapshotQueryContext(QueryContext):
             for dim, hier, levels in drilldown:
                 if dim.name == self.snapshot_dimension.name:
                     if len(hier.levels) > len(levels):
-                        return hier.levels[-1].attribute(self.snapshot_level_attrname), False
+                        return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
                     elif len(hier.levels) == len(levels):
                         return None, False
-        return self.snapshot_dimension.hierarchy(None).levels[-1].attribute(self.snapshot_level_attrname), True
+        return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
     def aggregation_statement(self, cell, measures=None, attributes=None, drilldown=None, split=None):
         """Prototype of 'snapshot cube' aggregation style."""
@@ -1440,6 +1440,7 @@ class SnapshotQueryContext(QueryContext):
 
         snapshot_level_attribute, needs_join_added = self.snapshot_level_attribute(drilldown)
         if snapshot_level_attribute:
+            import pdb; pdb.set_trace()
             if needs_join_added:
                 join_expression = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
             subq_join_expression = join_expression
