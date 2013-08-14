@@ -1362,10 +1362,11 @@ class SnapshotQueryContext(QueryContext):
     def __init__(self, cube, mapper, metadata, **options):
         super(SnapshotQueryContext, self).__init__(cube, mapper, metadata, **options)
 
-        # FIXME get from options
-        self.snapshot_dimension = cube.dimension('daily_date')
-        self.snapshot_level_attrname = 'daily_datetime'
-        self.snapshot_aggregation = 'max'
+        snap_info = { 'dimension': 'daily_date', 'level_attribute': 'daily_datetime', 'aggregation': 'max' }
+        snap_info = snap_info.update(cube.info.get('snapshot', {}))
+        self.snapshot_dimension = cube.dimension(snap_info['dimension'])
+        self.snapshot_level_attrname = snap_info['level_attribute']
+        self.snapshot_aggregation = snap_info['aggregation']
 
     def snapshot_level_attribute(self, drilldown):
         if drilldown:
