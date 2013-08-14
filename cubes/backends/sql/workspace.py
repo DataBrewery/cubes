@@ -1,5 +1,5 @@
 # -*- coding=utf -*-
-from .star import SnowflakeBrowser, QueryContext
+from .star import SnowflakeBrowser, SnapshotBrowser,QueryContext
 from .mapper import SnowflakeMapper, DenormalizedMapper
 from ...common import get_logger, coalesce_options
 from cubes.errors import *
@@ -155,10 +155,10 @@ class SQLStarWorkspace(Workspace):
         """Returns a browser for a `cube`."""
         model = self.localized_model(locale)
         cube = model.cube(cube)
-        browser = SnowflakeBrowser(cube, self.engine, locale=locale,
-                              metadata=self.metadata,
-                              **self.options)
-        return browser
+        browser_class = SnapshotBrowser if cube.info.get('browser') == 'snapshot' else SnowflakeBrowser
+        return browser_class(cube, self.engine, locale=locale,
+                             metadata=self.metadata,
+                             **self.options)
 
     def _drop_table(self, table, schema, force=False):
         """Drops `table` in `schema`. If table exists, exception is raised
