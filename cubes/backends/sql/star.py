@@ -41,6 +41,7 @@ except ImportError:
 
 __all__ = [
     "SnowflakeBrowser",
+    "SnapshotBrowser",
     "QueryContext"
 ]
 
@@ -512,6 +513,7 @@ class SnowflakeBrowser(AggregationBrowser):
                     issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
 
         return issues
+
 
 """A Condition representation. `attributes` - list of attributes involved in
 the conditions, `conditions` - SQL conditions"""
@@ -1354,4 +1356,122 @@ class ResultIterator(object):
         row = self.batch.popleft()
 
         return dict(zip(self.labels, row))
+
+class SnapshotQueryContext(QueryContext):
+
+    def __init__(self, cube, mapper, metadata, **options):
+        super(SnapshotQueryContext, self).__init__(cube, mapper, metadata, **options)
+
+        # FIXME get from options
+        self.snapshot_dimension = cube.dimension('daily_date')
+        self.snapshot_level_attrname = 'daily_datetime'
+        self.snapshot_aggregation = 'max'
+
+    def snapshot_level_attribute(self, drilldown):
+        if drilldown:
+            for dim, hier, levels in drilldown:
+                if dim.name == self.snapshot_dimension.name:
+                    if len(hier.levels) > len(levels):
+                        return hier.levels[-1].attribute(self.snapshot_level_attrname), False
+                    elif len(hier.levels) == len(levels):
+                        return None, False
+        return self.snapshot_dimension.hierarchy(None).levels[-1].attribute(self.snapshot_level_attrname), True
+
+    def aggregation_statement(self, cell, measures=None, attributes=None, drilldown=None, split=None):
+        """Prototype of 'snapshot cube' aggregation style."""
+
+        cell_cond = self.condition_for_cell(cell)
+        split_dim_cond = None
+        if split:
+            split_dim_cond = self.condition_for_cell(split)
+
+        if not attributes:
+            attributes = set()
+
+            if drilldown:
+                for dim, hier, levels in drilldown:
+                    for level in levels:
+                        attributes |= set(level.attributes)
+
+        attributes = set(attributes) | set(cell_cond.attributes)
+        if split_dim_cond:
+            attributes |= set(split_dim_cond.attributes)
+
+        join_expression = self.join_expression_for_attributes(attributes)
+
+        selection = []
+
+        group_by = None
+        drilldown_ptd_condition = None
+        if split_dim_cond or drilldown:
+            group_by = []
+            if split_dim_cond:
+                group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
+                selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
+            for dim, hier, levels in drilldown:
+                last_level = levels[-1] if len(levels) else None
+                for level in levels:
+                    columns = [self.column(attr) for attr in level.attributes
+                                                        if attr in attributes]
+                    group_by.extend(columns)
+                    selection.extend(columns)
+                    if last_level == level:
+                        drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
+
+        conditions = []
+        if cell_cond.condition is not None:
+            conditions.append(cell_cond.condition)
+        if drilldown_ptd_condition is not None:
+            conditions.append(drilldown_ptd_condition.condition)
+
+        # Measures
+        if measures is None:
+             measures = self.cube.measures
+
+        # We must produce, under certain conditions, a subquery:
+        #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy.
+        #   - If the drilldown does not contain the date dimension.
+        #
+        # We create a select() with special alias 'snapshot_browser_subquery', using the joins, conditions, and group_by
+        # of the main query. We append to the select columns not the measure aggregations, but instead the min() or max()
+        # of the specified dimension level attribute. Then we add the subquery to join_expression with a join clause of the existing
+        # drilldown levels, plus dim.lowest_level == snapshot_browser_subquery.snapshot_level.
+
+        snapshot_level_attribute, needs_join_added = self.snapshot_level_attribute(drilldown)
+        if snapshot_level_attribute:
+            if needs_join_added:
+                join_expression = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
+            subq_join_expression = join_expression
+            subq_selection = [ s.label('col%d' % i) for i, s in enumerate(selection) ]
+            subq_group_by = group_by[:] if group_by else None
+            subq_conditions = conditions[:]
+
+            level_expr = getattr(sql.expression.func, self.snapshot_aggregation)(self.column(snapshot_level_attribute)).label('the_snapshot_level')
+            subq_selection.append(level_expr)
+            subquery = sql.expression.select(subq_selection, from_obj=subq_join_expression, use_labels=True, group_by=subq_group_by).alias('the_snapshot_subquery')
+            subq_joins = []
+            for a, b in zip(selection, [ sql.expression.literal_column("%s.col%d" % (subquery.name, i)) for i, s in enumerate(subq_selection[:-1]) ]):
+                subq_joins.append(a == b) 
+            subq_joins.append(self.column(snapshot_level_attribute) == sql.expression.literal_column("%s.%s" % (subquery.name, 'the_snapshot_level')))
+            join_expression = join_expression.join(subquery, sql.expression.and_(*subq_joins))
+
+
+        # Collect "columns" for measure aggregations
+        for measure in measures:
+            selection.extend(self.aggregations_for_measure(measure))
+
+        select = sql.expression.select(selection,
+                                    from_obj=join_expression,
+                                    use_labels=True,
+                                    group_by=group_by)
+
+        if conditions:
+            select = select.where(sql.expression.and_(*conditions) if len(conditions) > 1 else conditions[0])
+
+        return select
+
+class SnapshotBrowser(SnowflakeBrowser):
+    def __init__(self, cube, connectable=None, locale=None, metadata=None, debug=False, **options):
+       super(SnapshotBrowser, self).__init__(cube, connectable, locale, metadata, debug, **options)
+       self.context = SnapshotQueryContext(self.cube, self.mapper, metadata=self.metadata, **self.options)
 
