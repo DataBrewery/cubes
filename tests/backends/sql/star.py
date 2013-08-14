@@ -6,7 +6,8 @@ import cubes
 import sqlalchemy
 import datetime
 
-from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
+from sqlalchemy import Table, Column, Integer, Float, String, Date
+from sqlalchemy import MetaData, ForeignKey
 from sqlalchemy import create_engine
 from cubes.mapper import coalesce_physical
 from cubes.backends.sql.star import *
@@ -93,6 +94,7 @@ class StarSQLTestCase(unittest.TestCase):
 
         table = Table('dim_date', metadata,
                         Column('id', Integer, primary_key=True),
+                        Column('sale_date', Date),
                         Column('day', Integer),
                         Column('month', Integer),
                         Column('month_name', String),
@@ -251,6 +253,47 @@ class JoinsTestCase(StarSQLTestCase):
         test = sorted([r.detail.table for r in relevant])
         self.assertEqual(["category", "product","subcategory"], test)
         self.assertEqual([None, None, None], [r.alias for r in relevant])
+
+class ExtractTestCase(StarSQLTestCase):
+    def setUp(self):
+        desc = {
+            "cubes": [
+                {
+                    "name": "test",
+                    "dimensions": ["date"],
+                    "mappings": {
+                        "date.day": {"column": "test_date", "extract":"day"},
+                        "date.month": {"column": "test_date", "extract":"month"},
+                        "date.year": {"column": "test_date", "extract":"year"},
+                        }
+                }
+            ],
+            "dimensions": [
+                {
+                    "name": "date",
+                    "levels": ["month", "year", "day"]
+                }
+            ]
+        }
+        self.model = cubes.create_model(desc)
+
+        engine = sqlalchemy.create_engine('sqlite://')
+        connection = engine.connect()
+        metadata = sqlalchemy.MetaData(bind=engine)
+
+        table = Table('test', metadata,
+                        Column('test_date', Date),
+                    )
+        table.create()
+        self.cube = self.model.cube("test")
+        self.browser = SnowflakeBrowser(self.cube,connectable=connection)
+
+    def test_foo(self):
+        dim = self.cube.dimension("date")
+        attr = dim.attribute("year")
+        col = self.browser.context.column(attr)
+        labels = self.browser.context.logical_labels([col])
+        self.assertEqual(["date.year"], labels)
 
 
 class StarValidationTestCase(StarSQLTestCase):
