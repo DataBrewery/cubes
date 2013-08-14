@@ -1440,7 +1440,6 @@ class SnapshotQueryContext(QueryContext):
 
         snapshot_level_attribute, needs_join_added = self.snapshot_level_attribute(drilldown)
         if snapshot_level_attribute:
-            import pdb; pdb.set_trace()
             if needs_join_added:
                 join_expression = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
             subq_join_expression = join_expression
