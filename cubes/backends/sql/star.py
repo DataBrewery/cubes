@@ -273,6 +273,25 @@ class SnowflakeBrowser(AggregationBrowser):
         return record
 
 
+    def _level_in_low_cardinality_cell(self, dim, hier, level, cell):
+        """
+        Tests whether the given (dim, hier, level) is present in a point
+        or set cut in the given cell. If so, a level that is normally high-cardinality
+        will produce a very low amount of distinct values if used in a drilldown.
+        """
+        for cut in cell.cuts:
+            cut_dim = self.cube.dimension(cut.dimension)
+            cut_hier = cut_dim.hierarchy(cut.hierarchy)
+            if cut_dim != dim or cut_hier != hier:
+                continue
+            if isinstance(cut, PointCut):
+                if level in hier.levels_for_path(cut.path):
+                    return True
+            if isinstance(cut, SetCut):
+                if len([ p for p in cut.paths if level in hier.levels_for_path(p) ]):
+                    return True
+        return False
+
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
                   include_summary=None, include_cell_count=None, **options):
@@ -359,10 +378,13 @@ class SnowflakeBrowser(AggregationBrowser):
             for dim, hier, levels in drilldown:
                 if dim.info.get('high_cardinality') and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
-                if [ l for l in levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
-                    raise BrowserError(("Cannot drilldown on high-cardinality levels (%s) " +
-                                       "without including both page_size and page arguments") 
-                                       % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
+                hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
+                if len(hc_levels) and not (page_size and page is not None):
+                    # allow this drilldown if all high-card levels are present in the cut cell as a PointCut or SetCut (not RangeCut)
+                    if len( [ l for l in hc_levels if not self._level_in_low_cardinality_cell(dim, hier, l, cell) ] ):
+                        raise BrowserError(("Cannot drilldown on high-cardinality levels (%s) " +
+                                           "without including both page_size and page arguments") 
+                                           % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
 
                 dim_levels[str(dim)] = [str(level) for level in levels]
 
