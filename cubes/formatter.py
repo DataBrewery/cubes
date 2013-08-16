@@ -280,43 +280,8 @@ class SimpleDataTableFormatter(Formatter):
                 }
         return data_table;
 
-class TextTableFormatter(Formatter):
-    parameters = [
-                {
-                    "name": "measure_format",
-                    "type": "string",
-                    "label": "Measure format"
-                },
-                {
-                    "name": "dimension",
-                    "type": "string",
-                    "label": "dimension to consider"
-                },
-                {
-                    "name": "measures",
-                    "type": "list",
-                    "label": "list of measures"
-                }
-            ]
-
-    mime_type = "text/plain"
-
-    def __init__(self, measure_format=None):
-        super(TextTableFormatter, self).__init__()
-        self.format = measure_format or {}
-
-    def format(self, result, dimension, measures):
-        cube = result.cube
-        dimension = cube.dimension(dimension)
-
-        if not result.has_dimension(dimension):
-            raise CubesError("Result was not drilled down by dimension "
-                             "'%s'" % str(dimension))
-
-        raise NotImplementedError
-        table_formatter = SimpleDataTableFormatter()
-
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
+
 
 class CrossTableFormatter(Formatter):
     parameters = [
