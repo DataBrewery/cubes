@@ -389,7 +389,7 @@ class SnowflakeBrowser(AggregationBrowser):
                 dim_levels[str(dim)] = [str(level) for level in levels]
 
             if split:
-                dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
+                dim_levels[SPLIT_DIMENSION_NAME] = [ SPLIT_DIMENSION_NAME ]
 
             result.levels = dim_levels
 
