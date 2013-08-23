@@ -6,6 +6,7 @@ import cStringIO
 import csv
 import codecs
 import cubes
+import itertools
 
 from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
 from .common import RequestError, ServerError, NotFoundError
@@ -62,6 +63,10 @@ class ApplicationController(object):
         # Override server settings
         if "prettyprint" in self.args:
             self.prettyprint = str_to_bool(self.args.get("prettyprint"))
+
+        self.jsonp_callback = None
+        if "callback" in self.args:
+            self.jsonp_callback = self.args.get("callback")
 
         # Read common parameters
 
@@ -138,9 +143,13 @@ class ApplicationController(object):
         else:
             indent = None
 
-        encoder = SlicerJSONEncoder(indent = indent)
+        encoder = SlicerJSONEncoder(indent=indent)
         encoder.iterator_limit = self.json_record_limit
         reply = encoder.iterencode(obj)
+
+        if self.jsonp_callback is not None:
+            fcall = '%s && %s(' % (self.jsonp_callback, self.jsonp_callback)
+            reply = itertools.chain((fcall), reply, (')'))
 
         return Response(reply, mimetype='application/json')
 
