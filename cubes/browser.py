@@ -364,12 +364,12 @@ class AggregationBrowser(object):
 
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
-    def __init__(self, cube=None, cuts=[]):
+    def __init__(self, cube=None, cuts=None):
         if not isinstance(cube, Cube):
             raise ArgumentError("Cell cube should be sublcass of Cube, "
                                           "provided: %s" % type(cube).__name__)
         self.cube = cube
-        self.cuts = cuts
+        self.cuts = cuts if cuts is not None else []
 
     def to_dict(self):
         """Returns a dictionary representation of the cell"""
