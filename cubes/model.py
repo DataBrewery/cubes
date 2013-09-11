@@ -19,6 +19,12 @@ try:
 except ImportError:
     import simplejson as json
 __all__ = [
+
+    # TODO: new methods
+    "read_model_description",
+    "read_model_description_bundle",
+
+    # FIXME: depreciated
     "load_model",
     "model_from_path",
     "merge_models",
@@ -26,8 +32,10 @@ __all__ = [
     "create_cube",
     "create_dimension",
     "create_level",
+
     "attribute_list",
     "coalesce_attribute",
+
     "Model",
     "Cube",
     "Dimension",
@@ -41,18 +49,96 @@ __all__ = [
 
 RECORD_COUNT_MEASURE = { 'name': 'record', 'label': 'Count', 'aggregations': [ 'count', 'sma' ] }
 
-def _open_url_resource(resource):
+def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
     `urllib2.urlopen()`. Returns opened handle. """
 
-    parts = urlparse.urlparse(resource)
-    should_close = True
+    parts = urlparse.urlparse(url)
     if parts.scheme in ('', 'file'):
-        handle = open(resource)
+        handle = open(parts.path)
     else:
-        handle = urllib2.urlopen(resource)
-    return handle
+        handle = urllib2.urlopen(url)
 
+    try:
+        desc = json.load(handle)
+    except ValueError as e:
+        raise SyntaxError("Syntax error in %s: %s" % (url, e.args))
+    finally:
+        handle.close()
+
+    return desc
+
+def read_model_description(source):
+    """Reads a model description from `source` which can be a filename, URL,
+    file-like object or a path to a directory. Returns a model description
+    dictionary."""
+
+    if isinstance(source, basestring):
+        parts = urlparse.urlparse(source)
+        if parts.scheme in ('', 'file') and os.path.isdir(parts.path):
+            source = parts.path
+            return read_model_description_bundle(source)
+        else:
+            return _json_from_url(source)
+    else:
+        return json.load(source)
+
+def read_model_description_bundle(path):
+    """Load logical model a directory specified by `path`.  Returns a model
+    description dictionary."""
+
+    if not os.path.isdir(path):
+        raise ArgumentError("Path '%s' is not a directory.")
+
+    info_path = os.path.join(path, 'model.json')
+
+    if not os.path.exists(info_path):
+        raise ModelError('main model info %s does not exist' % info_path)
+
+    model = _json_from_url(info_path)
+
+    # Find model object files and load them
+
+    if not "dimensions" in model:
+        model["dimensions"] = []
+
+    if not "cubes" in model:
+        model["cubes"] = []
+
+    for dirname, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            if os.path.splitext(filename)[1] != '.json':
+                continue
+
+            split = re.split('_', filename)
+            prefix = split[0]
+            obj_path = os.path.join(dirname, filename)
+
+            if prefix in ('dim', 'dimension'):
+                desc = _json_from_url(obj_path)
+                try:
+                    name = desc["name"]
+                except KeyError:
+                    raise ModelError("Dimension file '%s' has no name key" %
+                                                                     obj_path)
+                if name in model["dimensions"]:
+                    raise ModelError("Dimension '%s' defined multiple times " %
+                                        "(in '%s')" % (name, obj_path) )
+                model["dimensions"].append(desc)
+
+            elif prefix == 'cube':
+                desc = _json_from_url(obj_path)
+                try:
+                    name = desc["name"]
+                except KeyError:
+                    raise ModelError("Cube file '%s' has no name key" %
+                                                                     obj_path)
+                if name in model["cubes"]:
+                    raise ModelError("Cube '%s' defined multiple times "
+                                        "(in '%s')" % (name, obj_path) )
+                model["cubes"].append(desc)
+
+    return model
 
 def load_model(resource, translations=None):
     """Load logical model from object reference. `resource` can be an URL,
@@ -127,7 +213,8 @@ def create_model(model, cubes=None, dimensions=None, translations=None):
     # print "creating model from %s" % model_desc["dimensions"]
     if "dimensions" in model_desc:
         all_dimensions = _fix_dict_list(model_desc.pop("dimensions", None),
-                warning="'dimensions' in model description should be a list not a dictionary")
+                warning="'dimensions' in model description should be a list "
+                "not a dictionary", error=True)
     else:
         all_dimensions = []
 
@@ -146,7 +233,8 @@ def create_model(model, cubes=None, dimensions=None, translations=None):
 
     if "cubes" in model_desc:
         all_cubes = _fix_dict_list(model_desc.pop("cubes", None),
-                warning="'cubes' in model description should be a list not a dictionary")
+                warning="'cubes' in model description should be a list "
+                "not a dictionary")
     else:
         all_cubes = []
 
@@ -171,12 +259,15 @@ def create_model(model, cubes=None, dimensions=None, translations=None):
 
     return model
 
-def _fix_dict_list(obj, key_name="name", warning=None):
+def _fix_dict_list(obj, key_name="name", warning=None, error=False):
     """Returns a list of dictionaries instead of dictionary of dictionaries"""
     if isinstance(obj, dict):
         logger = get_logger()
         if warning:
-            logger.warn(warning)
+            if error:
+                raise ModelError(warning)
+            else:
+                logger.warn(warning)
 
         array = []
         for key, value in obj.items():
@@ -278,7 +369,8 @@ def create_dimension(obj, dimensions=None):
 
     if levels_desc:
         levels = _fix_dict_list(levels_desc, warning="Levels in a dimension (%s) "
-                                    "should be a list, not a dictionary" % name)
+                                    "should be a list, not a dictionary" %
+                                    name, error=True)
 
         levels = [create_level(level) for level in levels_desc]
     elif not levels:
@@ -572,32 +664,18 @@ class Model(object):
         * `label` - human readable name - can be used in an application
         * `description` - longer human-readable description of the model
         * `info` - custom information dictionary
-        * `mappings` – model-wide mappings of logical-to-physical attributes
 
-        The `mappings` is a dictiononary of form::
-
-            {
-                "cubes": {
-                    "cube_name" : { ... }
-                },
-                "dimensions": {
-                    "dimension_name" : {
-                        "dimension_attribute": "physical_attribute"
-                    }
-                }
-            }
-
-        The mappings in `cubes` are the same as mappings in the `Cube`
-        definition. The logical name (keys) of dimension mappings is just
-        dimension attribute name without the dimension prefix.
         """
+        # * `mappings` – model-wide mappings of logical-to-physical attributes
 
+        # Basic information
         self.name = name
         self.label = label
         self.description = description
         self.locale = locale
         self.info = info or {}
 
+        # Physical information
         self.mappings = mappings
 
         self._dimensions = OrderedDict()
