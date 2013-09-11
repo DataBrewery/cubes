@@ -5,7 +5,7 @@ import re
 import cubes
 from cubes.errors import *
 
-from common import DATA_PATH
+from common import TESTS_PATH, DATA_PATH
 
 DIM_DATE_DESC = {
             "name": "date",
@@ -31,6 +31,12 @@ DIM_PRODUCT_DESC = {
             ]
         }
 
+class ModelTestCaseBase(unittest.TestCase):
+    def setUp(self):
+        self.models_path = os.path.join(TESTS_PATH, 'models')
+
+    def model_path(self, model):
+        return os.path.join(self.models_path, model)
 
 class AttributeTestCase(unittest.TestCase):
     """docstring for AttributeTestCase"""
@@ -461,8 +467,10 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(self.cube.measures, cube.measures)
         self.assertEqual(self.cube, cube)
 
-class ModelTestCase(unittest.TestCase):
+class ModelTestCase(ModelTestCaseBase):
     def setUp(self):
+        super(ModelTestCase, self).setUp()
+
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
         self.measures = cubes.attribute_list(["amount", "discount"])
         self.dimensions = [cubes.create_dimension(desc) for desc in a]
@@ -471,7 +479,8 @@ class ModelTestCase(unittest.TestCase):
                                 measures=self.measures)
         self.model = cubes.Model(cubes=[self.cube],
                                  dimensions=self.dimensions)
-        self.model_path = os.path.join(DATA_PATH, 'model.json')
+
+        self.model_file = "model.json"
 
     def test_creation(self):
         desc = { "dimensions": ["date", "product", "flag"] }
@@ -521,7 +530,7 @@ class ModelTestCase(unittest.TestCase):
         self.assertEqual(desc, desc2)
 
     def test_model_from_path(self):
-        model = cubes.model_from_path(self.model_path)
+        model = cubes.model_from_path(self.model_path(self.model_file))
 
         self.assertEqual(model.name, "public_procurements")
         self.assertEqual(len(model.dimensions), 6)
@@ -554,22 +563,6 @@ class ModelTestCase(unittest.TestCase):
         self.assertEqual("Datum", dim.label)
         self.assertEqual("mesiac", dim.attribute("month").label)
 
-        # FIXME: this is depreciated
-        translation = {
-                "locale": "sk",
-                "dimensions": {
-                    "date": {
-                            "label": "Datum",
-                            "levels": { "month":
-                                { "attributes": {"month":"mesiac"} }
-                            }
-                        }
-                    }
-                }
-        localized = self.model.localize(translation)
-        dim = localized.dimension("date")
-        self.assertEqual("Datum", dim.label)
-        self.assertEqual("mesiac", dim.attribute("month").label)
 
 class OldModelValidatorTestCase(unittest.TestCase):
 
@@ -578,12 +571,16 @@ class OldModelValidatorTestCase(unittest.TestCase):
         self.date_levels = [ {"name":"year", "key": "year" }, {"name":"month", "key": "month" } ]
         self.date_levels2 = [ { "name":"year", "key": "year" }, {"name":"month", "key": "month" }, {"name":"day", "key":"day"} ]
         self.date_hiers = [ { "name":"ym", "levels": ["year", "month"] } ]
-        self.date_hiers2 = [ {"name":"ym", "levels": ["year", "month"] }, 
+        self.date_hiers2 = [ {"name":"ym", "levels": ["year", "month"] },
                              {"name":"ymd", "levels": ["year", "month", "day"] } ]
         self.date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers }
 
     def test_dimension_validation(self):
-        date_desc = { "name": "date", "levels": {"year": {"attributes": ["year"]}}}
+        date_desc = { "name": "date",
+                      "levels": [
+                            {"name": "year", "attributes": ["year"]}
+                         ]
+                    }
         dim = cubes.create_dimension(date_desc)
         self.assertEqual(1, len(dim.levels))
         results = dim.validate()
@@ -617,10 +614,6 @@ class OldModelValidatorTestCase(unittest.TestCase):
         results = dim.validate()
         self.assertValidation(results, "Default hierarchy .* does not")
 
-        # date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers2 }
-        # # cubes.Dimension('date', date_desc)
-        # self.assertRaisesRegexp(KeyError, 'No level day in dimension', cubes.create_dimension, date_desc)
-
         date_desc = { "name": "date", "levels": self.date_levels2 , "hierarchies": self.date_hiers2 }
         dim = cubes.create_dimension(date_desc)
         results = dim.validate()
@@ -635,7 +628,6 @@ class OldModelValidatorTestCase(unittest.TestCase):
                 self.fail(message)
 
     def assertValidationError(self, results, expected, message = None, expected_type = None):
-        # print "TEST: %s:%s" % (expected_type, expected)
         if not message:
             if expected_type:
                 message = "Validation %s expected (match: '%s')" % (expected_type, expected)
@@ -643,11 +635,38 @@ class OldModelValidatorTestCase(unittest.TestCase):
                 message = "Validation fail expected (match: '%s')" % expected
 
         for result in results:
-            # print "VALIDATE: %s IN %s:%s" % (expected, result[0], result[1])
             if re.match(expected, result[1]):
                 if not expected_type or (expected_type and expected_type == result[0]):
                     return
         self.fail(message)
+
+class ReadModelDescriptionTestCase(ModelTestCaseBase):
+    def setUp(self):
+        super(ReadModelDescriptionTestCase, self).setUp()
+
+    def test_from_file(self):
+        path = self.model_path("model.json")
+        desc = cubes.read_model_description(path)
+
+        self.assertIsInstance(desc, dict)
+        self.assertTrue("cubes" in desc)
+        self.assertTrue("dimensions" in desc)
+        self.assertEqual(1, len(desc["cubes"]))
+        self.assertEqual(6, len(desc["dimensions"]))
+
+    def test_from_bundle(self):
+        path = self.model_path("test.cubesmodel")
+        desc = cubes.read_model_description(path)
+
+        self.assertIsInstance(desc, dict)
+        self.assertTrue("cubes" in desc)
+        self.assertTrue("dimensions" in desc)
+        self.assertEqual(1, len(desc["cubes"]))
+        self.assertEqual(6, len(desc["dimensions"]))
+
+        with self.assertRaises(ArgumentError):
+            path = self.model_path("model.json")
+            desc = cubes.read_model_description_bundle(path)
 
 def test_suite():
     suite = unittest.TestSuite()
