@@ -11,8 +11,26 @@ class ModelError(CubesError):
 class ModelInconsistencyError(ModelError):
     """Raised when there is incosistency in model structure."""
 
-class NoSuchDimensionError(ModelError):
+class MissingObjectError(ModelError):
+    def __init__(self, name, reason=None):
+        self.name = name
+        self.reason = reason
+
+    def __str__(self):
+        return self.name
+
+class NoSuchDimensionError(MissingObjectError):
     """Raised when an unknown dimension is requested."""
+
+class TemplateRequired(ModelError):
+    """Raised by a model provider which can provide a dimension, but requires
+    a template. Signals to the caller that the creation of a dimension should
+    be retried when the template is available."""
+
+    def __init__(self, template):
+        self.template = template
+    def __str__(self):
+        return self.template
 
 class NoSuchAttributeError(ModelError):
     """Raised when an unknown attribute, measure or detail requested."""
