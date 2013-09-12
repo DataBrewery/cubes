@@ -1,0 +1,15 @@
+
+{
+    "cubes": [
+        {
+            "name": "more_events",
+            "dimensions": ["another_date"]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "another_date",
+            "template": "date"
+        }
+    ]
+}
