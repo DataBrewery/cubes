@@ -1,153 +1,27 @@
 # -*- coding=utf -*-
 import sys
-from .model import load_model
+from .model import read_model_metadata, create_model_provider
+from .model import Model
 from .common import get_logger
 from .errors import *
 import ConfigParser
 
 __all__ = [
-    "backend_aliases",
+    "Workspace",
+
+    # Depreciated
     "get_backend",
     "create_workspace",
     "create_workspace_from_config",
     "create_slicer_context",
     "config_items_to_dict",
-    "Workspace"
 ]
-
-backend_aliases = {
-    "sql": "sql.workspace",
-    "composite": "composite",
-    "mongo": "mongo.workspace",
-    "mongo2": "mongo2.workspace"
-}
-
-DEFAULT_BACKEND = "sql"
-
-def get_backend(backend_name):
-    """Finds the backend with name `backend_name`. First try to find backend
-    relative to the cubes.backends.* then search full path. """
-
-    backend_name = backend_aliases.get(backend_name, backend_name)
-    backend = sys.modules.get("cubes.backends."+backend_name)
-
-    if not backend:
-        if sys.modules.has_key(backend_name):
-            backend = sys.modules[backend_name]
-        else:
-            try:
-                backend = __import__(backend_name)
-            except ImportError as e:
-                raise Exception("Unable to find backend module %s (%s)" % (backend_name, e))
-
-    if not hasattr(backend, "create_workspace"):
-        raise NotImplementedError("Backend module %s does not implement create_workspace" % backend_name)
-
-    return backend
-
-def create_slicer_context(config):
-    """
-    Create a context for slicer tool commands. This method is meant to be
-    used not only by the slicer server, but can be reaused by any slicer
-    command that requires similar context as the server. For example:
-    validation of model against database, schema creation various helpers...
-
-    Returns a dictionary with keys:
-
-    * `model` - loaded model (with applied translations)
-    * `translations` – model translations
-    * `locales` - list of model locales
-    * `backend_name` - backend name
-    * `backend` - backend module
-    * `backend_config` - backend configuration dictionary
-
-    """
-
-    logger = get_logger()
-
-    context = {}
-
-    #
-    # Locales
-    # 
-
-    if config.has_section("translations"):
-        context["locales"] = config.options("translations")
-        context["translations"] = config_items_to_dict(config.items("translations"))
-        logger.debug("Model translations: %s" % ", ".join(context["locales"]))
-    else:
-        context["locales"] = []
-        context["translations"] = None
-
-    model_path = config.get("model", "path")
-    try:
-        logger.debug("Loading model from %s")
-        model = load_model(model_path, context["translations"])
-    except Exception as e:
-        if not model_path:
-            model_path = 'unknown path'
-        raise CubesError("Unable to load model from %s, reason: %s (%s)" %
-                                                    (model_path, e,
-                                                        e.__class__.__name__))
-
-    context["model"] = model
-
-    if model.locale:
-        context["locales"].append(model.locale)
-    #
-    # Backend
-    # 
-
-    if config.has_option("server","backend"):
-        backend_name = config.get("server","backend")
-    else:
-        logger.warn("no backend specified, using '%s'" % DEFAULT_BACKEND)
-        backend_name = DEFAULT_BACKEND
-
-    backend = get_backend(backend_name)
-
-    if hasattr(backend, 'config_section'):
-        logger.warn("backend %s: config_section in backend is depreciated. All backend "
-                    "options are now in [workspace] section" % backend_name)
-        section = backend.config_section
-    else:
-        section = None
-
-    if section and section != "workspace":
-        logger.warn("config section [backend] or [db] is depreciated. All backend "
-                    "options are now in [workspace] section")
-
-    context["backend_name"] = backend_name
-    context["backend"] = backend
-
-    section = section or "workspace"
-
-    if section:
-        try:
-            config_dict = config_items_to_dict(config.items(section))
-        except ConfigParser.NoSectionError:
-            try:
-                config_dict = config_items_to_dict(config.items("backend"))
-                logger.warn("slicer config [backend] section is depreciated, rename to [workspace]")
-            except ConfigParser.NoSectionError:
-                try:
-                    config_dict = config_items_to_dict(config.items("db"))
-                    logger.warn("slicer config [db] section is depreciated, rename to [workspace]")
-                except ConfigParser.NoSectionError:
-                    logger.warn("no section [workspace] found in slicer config, using empty options")
-                    config_dict = {}
-    else:
-        config_dict = {}
-
-    context["workspace_options"] = config_dict
-
-    return context
 
 def config_items_to_dict(items):
     return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
 
 def interpret_config_value(value):
-    if value is None: 
+    if value is None:
         return value
     if isinstance(value, basestring):
         if value.lower() in ('yes', 'true', 'on'):
@@ -156,109 +30,372 @@ def interpret_config_value(value):
             return False
     return value
 
-def create_workspace(backend_name, model, **options):
-    """Designated function to create a backend-specific workspace that holds
-    all relevant data and metadata for aggregated browsing.
+def _get_name(obj, object_type="Object"):
+    if isinstance(obj, basestring):
+        name = obj
+    else:
+        try:
+            name = obj["name"]
+        except KeyError:
+            raise ModelError("%s has no name" % object_type)
 
-    Use:
+    return name
 
-    >>> workspace = cubes.create_workspace("sql", model, url="postgres://localhost/database")
-
-    Most frequently used method of workspace is browser creation:
-
-    >>> browser = workspace.browser(cube)
-
-    `create_workspace` finds the backend with name `backend_name` and creates
-    a workspace instance. The workspace is responsible for database
-    connections and for creation of aggregation browser. You can get a browser
-    with method ``browser()``. The browser returned might be either created or
-    reused, it depends on the backend.
-
-    *Implementing Backend*
-
-    The backend should provide a method `create_workspace(model, **options)`
-    which returns an initialized workspace object.
-
-    The workspace object should implement `browser(cube)`.
-    """
-
-    backend = get_backend(backend_name)
-
-    return backend.create_workspace(model, **options)
-
-def create_workspace_from_config(config):
-    """Creates a workspace from configuration `config` which should be a
-    `ConfigParser` object."""
-
-    context = create_slicer_context(config)
-    backend = context["backend"]
-    workspace = backend.create_workspace(context["model"], config=config,
-                                         **context["workspace_options"])
-
-    return workspace
 
 class Workspace(object):
-    def __init__(self, model, **options):
-        """Initializes the base class for cubes workspace. Prepares all
-        model's translations. Provides attributes:
-
-        * `model`
-        * `logger`
-
+    def __init__(self, config=None, stores=None):
+        """Creates a workspace. `config` should be a `ConfigParser` or a
+        path to a config file. `stores` should be a dictionary of store
+        configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
         """
+        if isinstance(config, basestring):
+            cp = ConfigParser.SafeConfigParser()
+            try:
+                cp.read(config)
+            except Exception as e:
+                raise Exception("Unable to load config %s. "
+                                "Reason: %s" % (config, str(e)))
 
-        self.model = model
-        if model.translations:
-            self.locales = model.translations.keys()
-            # Small usability treatment for debugging readability
+            self.config = cp
         else:
-            self.locales = []
+            self.config = config
 
-        if model.locale:
-            self.locales.append(model.locale)
+        self.store_infos = {}
 
-        self.locales.sort()
-        self.localized_models = {}
         self.logger = get_logger()
 
-        self.options = options
+        self.locales = []
+        self.translations = []
+        self.model = None
 
-    def __str__(self):
-        return 'Workspace(%s)' % str(self.model)
+        if self.config:
+            self._configure(self.config)
+
+        # Register stores from external stores.ini file or a dictionary
+        if isinstance(stores, basestring):
+            store_config = ConfigParser.SafeConfigParser()
+            try:
+                store_config.read(stores)
+            except Exception as e:
+                raise Exception("Unable to read stores from %s. "
+                                "Reason: %s" % (stores, str(e) ))
+
+            for store in store_config.sections():
+                self._register_store_dict(store,
+                                          dict(store_config.items(store)))
+
+        elif isinstance(stores, dict):
+            for name, store in stores.items():
+                self._register_store_dict(name, store)
+
+        elif stores is not None:
+            raise CubesError("Unknown stores description object: %s" %
+                                                    (type(stores)))
+        #
+        # Model objects
+
+        # Object ownership – model providers will be asked for the objects
+        self.cube_models = {}
+        self.dimension_models = {}
+
+        # Cache of created global objects
+        self._cubes = {}
+        self._dimensions = {}
+        # Note: providers are responsible for their own caching
+
+    def _configure(self, config):
+        """Configure the workspace from config file"""
+        if config.has_option("main", "stores"):
+            stores = config.get("main", "stores")
+
+        # Register stores
+        #
+        # * Default store is [store] in main config file
+        # * Stores are also loaded from main config file from sections with
+        #   name [store_*] (not documented feature)
+
+        if config.has_section("store"):
+            self._register_store_dict("default", dict(config.items("store")))
+
+        # Register [store_*] from main config (not documented)
+        for section in config.sections():
+            if section.startswith("store_"):
+                name = section[6:]
+                self._register_store_dict(name, dict(config.items(section)))
+
+        if config.has_section("browser"):
+            self.browser_options = dict(config.items("browser"))
+        else:
+            self.browser_options = {}
+
+    def _register_store_dict(self, name, info):
+        info = dict(info)
+        try:
+            type_ = info.pop("type")
+        except KeyError:
+            raise CubesError("Store '%s' has no type" % name)
+
+        self.register_store(name, type_, **info)
+
+    def register_store(self, name, type_, **config):
+        """Adds a store configuration."""
+
+        if name in self.store_infos:
+            raise CubesError("Store %s already registered" % name)
+
+        self.store_infos[name] = config
+
+    def add_model(self, model, translations=None):
+        """Appends objects from `model`."""
+
+        if isinstance(model, basestring):
+            metadata = read_model_metadata(model)
+            source = model
+        elif isinstance(model, dict):
+            metadata = model
+            source = None
+        else:
+            raise CubesError("Unknown model source reference '%s'" % model)
+
+        provider_name = metadata.get("provider", "default")
+        provider_source = metadata.get("source", source)
+        provider = create_model_provider(provider_name, provider_source, metadata)
+
+        model_object = Model(metadata=metadata,
+                             provider=provider,
+                             translations=translations)
+
+        # Get list of static or known cubes
+        # "cubes" might be a list or a dictionary, depending on the provider
+        for cube in metadata.get("cubes", []):
+            name = _get_name(cube, "Cube")
+            self._register_public_cube(name, model_object)
+
+        # Get list of exported dimensions
+        # By default all explicitly mentioned dimensions are exported.
+        # 
+        if "public_dimensions" in metadata:
+            for dim in metadata["public_dimensions"]:
+                self._register_public_dimension(dim, model_object)
+        else:
+            for dim in metadata.get("dimensions", []):
+                name = _get_name(dim, "Dimension")
+                self._register_public_dimension(name, model_object)
+
+    def _register_public_dimension(self, name, model):
+        if name in self.dimension_models:
+            model_name = model.name or "(unknown)"
+            previous_name = self.dimension_models[name].name or "(unknown)"
+
+            raise ModelError("Duplicate public dimension '%s' in model %s, "
+                             "previous model: %s" %
+                                        (name, model_name, previous_name))
+
+        self.dimension_models[name] = model
+
+    def _register_public_cube(self, name, model):
+        if name in self.cube_models:
+            model_name = model.name or "(unknown)"
+            previous_name = self.cube_models[name].name or "(unknown)"
+
+            raise ModelError("Duplicate public cube '%s' in model %s, "
+                             "previous model: %s" %
+                                        (name, model_name, previous_name))
+
+        self.cube_models[name] = model
+
+    def cube(self, name):
+        """Returns a cube with `name`"""
+        if name in self._cubes:
+            return self._cubes[name]
+
+        # Requirements:
+        #    all dimensions in the cube should exist in the model
+        #    if not they will be created
+
+        try:
+            model = self.cube_models[name]
+        except KeyError:
+            # TODO: give a chance to get 'unknown cube'
+            # Use "dynamic_cubes" flag to determine searchable models
+            # flag can be provided by provider first, then model can
+            # disable it
+            raise ModelError("No model providing cube '%s'" % name)
+
+        provider = model.provider
+        cube = provider.cube(name)
+
+        self.link_cube(cube, model, provider)
+
+        self._cubes[name] = cube
+        return cube
+
+    def link_cube(self, cube, model, provider):
+        """Links dimensions to the cube in the context of `model` with help of
+        `provider`."""
+
+        # Assumption: empty cube
+
+        # Algorithm:
+        #     1. Give a chance to get the dimension from cube's provider
+        #     2. If provider does not have the dimension, then use a public
+        #        dimension
+        #
+        # Note: Provider should not raise `TemplateRequired` for public
+        # dimensions
+        #
+
+        for dim_name in cube.required_dimensions:
+            try:
+                dim = provider.dimension(dim_name)
+            except NoSuchDimensionError:
+                dim = self.dimension(dim_name)
+            except TemplateRequired as e:
+                # FIXME: handle this special case
+                raise ModelError("Template required in non-public dimension "
+                                 "'%s'" % dim_name)
+
+            cube.add_dimension(dim)
+
+    def dimension(self, name):
+        """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
+        no model published the dimension. Raises `RequiresTemplate` error when
+        model provider requires a template to be able to provide the
+        dimension, but such template is not a public dimension."""
+
+        if name in self._dimensions:
+            return self._dimensions[name]
+
+        # Assumption: all dimensions that are to be used as templates should
+        # be public dimensions. If it is a private dimension, then the
+        # provider should handle the case by itself.
+        missing = set( (name, ) )
+        while missing:
+            dimension = None
+            deferred = set()
+
+            name = missing.pop()
+
+            # Get a model that provides the public dimension. If no model
+            # advertises the dimension as public, then we fail.
+            try:
+                model = self.dimension_models[name]
+            except KeyError:
+                raise NoSuchDimensionError(name,
+                                           reason="No public dimension '%s'" % name)
+
+            try:
+                dimension = model.provider.dimension(name, self._dimensions)
+            except TemplateRequired as e:
+                missing.add(name)
+                if e.template in missing:
+                    raise ModelError("Dimension templates cycle in '%s'" %
+                                        e.template)
+                missing.add(e.template)
+                continue
+            except NoSuchDimensionError:
+                dimension = self._dimensions.get("name")
+            else:
+                # We store the newly created public dimension
+                self._dimensions[name] = dimension
+
+
+            if not dimension:
+                raise NoSuchDimensionError(name, "Missing dimension: %s" % name)
+
+        return dimension
+
+    def _browser_options(self, cube):
+        """Returns browser configuration options for `cube`. The options are
+        taken from the configuration file and then overriden by cube's
+        `browser_options` attribute."""
+
+        options = dict(self.browser_options)
+        if cube.browser_options:
+            options.update(cube.browser_options)
+
+        return options
 
     def browser(self, cube, locale=None):
-        """Creates new or provides a shared browser instance. `cube` is the
-        browsed cube and `locale` is optional specification of locale to be
-        used for browsing.
+        model = self.localized_model(locale)
+        cube = model.cube(cube)
 
-        Subclasses should implement this method and should ask for a model
-        instance with `self.localized_model(locale)`
-        """
-        raise NotImplementedError("Subclasses should override browser()")
+        store_name = cube.store or "default"
+        store = self.get_store(cube.store)
 
-    def localized_model(self, locale):
-        """Tries to translate the model. Looks for language in configuration
-        file under ``[translations]``, if no translation is provided, then
-        model remains untouched."""
+        schema = cube.schema
 
-        self.logger.debug("preparing model localization '%s' (current: '%s') "
-                            "(has: %s)" % (locale, self.model.locale,
-                                           self.locales))
+        options = self._browser_options(cube)
 
-        if not locale:
-            return self.model
+        browser_factory = get_browser_factory(store_name, schema)
+        browser = browser_factory(cube, store=store, locale=locale, **options)
 
-        if locale in self.localized_models:
-            self.logger.debug("localization '%s' found" % locale)
-            return self.localized_models[locale]
+        # TODO: Construct options for the browser from cube's options dictionary and
+        # workspece default configuration
+        # 
 
-        elif locale == self.model.locale:
-            self.localized_models[locale] = self.model
-            return self.model
+        return browser
 
-        else:
-            model = self.model.localize(locale)
+    def get_store(self, name):
+        """Opens a store `name`. If the store is already open, returns the
+        existing store."""
 
-            self.localized_models[locale] = model
-            return model
+        if name in self.open_stores:
+            return self.open_stores[name]
+
+        options = self.store_options.get(name, {})
+        store = open_store(store, **options)
+        self.open_stores[name] = store
+        return store
+
+    def close(self):
+        """Closes the workspace with all open stores and other associated
+        resources."""
+
+        for store in self.open_stores:
+            store.close()
+
+
+# TODO: Remove following depreciated functions
+
+def get_backend(name):
+    raise NotImplementedError("get_backend() is depreciated. "
+                              "Use Workspace instead." )
+
+
+def create_slicer_context(config):
+    raise NotImplementedError("create_slicer_context() is depreciated. "
+                              "Use Workspace instead." )
+
+
+def create_workspace(backend_name, model, **options):
+    """Depreciated. Use the following instead:
+
+    .. code-block:: python
+
+        ws = Workspace()
+        ws.add_model(model)
+        ws.register_store("default", backend_name, **options)
+    """
+
+    workspace = Workspace()
+    workspace.add_model(model)
+    workspace.register_store("default", backend_name, **options)
+    workspace.logger.warn("create_workspace() is depreciated, "
+                          "use Workspace(config) instead")
+    return workspace
+
+
+def create_workspace_from_config(config):
+    """Depreciated. Use the following instead:
+
+    .. code-block:: python
+
+        ws = Workspace(config)
+    """
+
+    workspace = Workspace(config=config)
+    workspace.logger.warn("create_workspace_from_config() is depreciated, "
+                          "use Workspace(config) instead")
+    return workspace
 
