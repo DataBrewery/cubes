@@ -1,0 +1,15 @@
+{
+    "cubes": [
+        {
+            "name": "lonely_yearly_events",
+            "dimensions": ["date"]
+        }
+    ],
+    "public_dimensions": [],
+    "dimensions": [
+        {
+            "name": "date",
+            "levels": ["lonely_year"]
+        }
+    ]
+}

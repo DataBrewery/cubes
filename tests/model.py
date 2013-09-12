@@ -640,6 +640,7 @@ class OldModelValidatorTestCase(unittest.TestCase):
                     return
         self.fail(message)
 
+
 class ReadModelDescriptionTestCase(ModelTestCaseBase):
     def setUp(self):
         super(ReadModelDescriptionTestCase, self).setUp()

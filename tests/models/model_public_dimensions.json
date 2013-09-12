@@ -1,0 +1,14 @@
+{
+    "cubes": [
+        {
+            "name": "events",
+            "dimensions": ["date"]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "date",
+            "levels": ["year", "month", "day"]
+        }
+    ]
+}

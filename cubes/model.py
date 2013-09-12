@@ -11,27 +11,18 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-from cubes.common import IgnoringDictionary, get_logger, to_label
-from cubes.errors import *
+from .common import IgnoringDictionary, get_logger, to_label
+from .errors import *
+from .extensions import get_namespace, initialize_namespace
 
 try:
     import json
 except ImportError:
     import simplejson as json
 __all__ = [
-
-    # TODO: new methods
-    "read_model_description",
-    "read_model_description_bundle",
-
-    # FIXME: depreciated
-    "load_model",
-    "model_from_path",
-    "merge_models",
-    "create_model",
-    "create_cube",
-    "create_dimension",
-    "create_level",
+    "read_model_metadata",
+    "read_model_metadata_bundle",
+    "create_model_provider",
 
     "attribute_list",
     "coalesce_attribute",
@@ -44,10 +35,49 @@ __all__ = [
     "Attribute",
     "simple_model",
     "split_aggregate_ref",
-    "aggregate_ref"
+    "aggregate_ref",
+
+    # FIXME: Depreciated
+    "load_model",
+    "model_from_path",
+    "create_model",
+    "merge_models",
 ]
 
+# Model object:
+#
+# name
+# description
+# info
+# 
+# dimensions
+# cubes
+# public_dimensions (list of names)
+#
+# joins
+# mappings
+# browser_options
+# store
+# provider
+# 
+
 RECORD_COUNT_MEASURE = { 'name': 'record', 'label': 'Count', 'aggregations': [ 'count', 'sma' ] }
+
+
+def create_model_provider(name, source, metadata):
+    """Gets a new instance of a model provider with name `name`."""
+
+    ns = get_namespace("model_providers")
+    if not ns:
+        ns = initialize_namespace("model_providers", root_class=ModelProvider,
+                                  suffix="_model_provider")
+
+    try:
+        factory = ns[name]
+    except KeyError:
+        raise CubesError("Unable to find model provider of type '%s'" % name)
+
+    return factory(source, metadata)
 
 def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
@@ -68,7 +98,8 @@ def _json_from_url(url):
 
     return desc
 
-def read_model_description(source):
+
+def read_model_metadata(source):
     """Reads a model description from `source` which can be a filename, URL,
     file-like object or a path to a directory. Returns a model description
     dictionary."""
@@ -77,13 +108,14 @@ def read_model_description(source):
         parts = urlparse.urlparse(source)
         if parts.scheme in ('', 'file') and os.path.isdir(parts.path):
             source = parts.path
-            return read_model_description_bundle(source)
+            return read_model_metadata_bundle(source)
         else:
             return _json_from_url(source)
     else:
         return json.load(source)
 
-def read_model_description_bundle(path):
+
+def read_model_metadata_bundle(path):
     """Load logical model a directory specified by `path`.  Returns a model
     description dictionary."""
 
@@ -140,375 +172,313 @@ def read_model_description_bundle(path):
 
     return model
 
+
 def load_model(resource, translations=None):
-    """Load logical model from object reference. `resource` can be an URL,
-    local file path or file-like object.
+    raise Exception("load_model() was replaced by Workspace.add_model(), "
+                    "please refer to the documentation for more information")
 
-    The ``path`` might be:
 
-    * JSON file with a dictionary describing model
-    * URL with a JSON dictionary
 
-    `translations` is a dictionary where keys are locale names and values are
-    paths to translation dictionaries (json files).
+def fix_dimension_metadata(metadata):
+    """Returns a dimension description as a dictionary. If provided as string,
+    then it is going to be used as a name and as a single level."""
 
-    Raises `ModelError` when model description file does not contain a
-    dictionary.
-    """
-
-    handle = None
-    if isinstance(resource, basestring):
-        handle = _open_url_resource(resource)
-        should_close = True
+    if isinstance(metadata, basestring):
+        return {"name":metadata, "levels": [metadata]}
     else:
-        handle = resource
-        should_close = False
+        return metadata
 
-    try:
-        model_desc = json.load(handle)
-    finally:
-        if should_close:
-            handle.close()
 
-    if type(model_desc) != dict:
-        raise ModelError("Model description file should contain a dictionary")
-
-    model = create_model(model_desc)
-
-    if translations:
-        for lang, path in translations.items():
-            handle = _open_url_resource(path)
+def fix_level_metadata(metadata):
+    """Returns a level description as a dictionary. If provided as string,
+    then it is going to be used as level name and as its only attribute. If a
+    dictionary is provided and has no attributes, then level will contain only
+    attribute with the same name as the level name."""
+    if isinstance(metadata, basestring):
+        return {"name":metadata, "attributes": [metadata]}
+    else:
+        if "attributes" not in metadata:
+            metadata = dict(metadata)
             try:
-                trans = json.load(handle)
-            finally:
-                handle.close()
-            model._add_translation(lang, trans)
+                metadata["attributes"] = [metadata["name"]]
+            except KeyError:
+                raise ModelError("Level has no name.")
 
-    return model
+        return metadata
 
-def create_model(model, cubes=None, dimensions=None, translations=None):
-    """Create a model from a model description dictionary in `model`. This is
-    designated way of creating the model from a dictionary.
+class ModelProvider(object):
+    """Abstract class. Currently empty and used only to find other model
+    providers."""
 
-    `cubes` or `dimensions` are list of their respective dictionary
-    definitions. If definition of a cube in `cubes` or dimension in
-    `dimensions` already exists in the `model`, then `ModelError` is raised.
+    def __init__(self, source=None, metadata=None):
+        """Initializes a model provider and sets two instance variables
+        `source` and `metadata`. The `source` is arbitrary structure
+        interpreted by the custom subclass. `metadata` is a model metadata
+        dictionary.
 
-    The `model` dictionary contains main model description. The structure
-    is::
+        Subclasses should call this method when they are implementing custom
+        `__init__()`.
+        """
+        self.source = source
+        self.metadata = metadata
 
-        {
-        	"name": "public_procurements",
-        	"label": "Procurements",
-        	"description": "Procurement Contracts of an Organisation"
-        	"cubes": [...]
-        	"dimensions": [...]
-        }
+    def cube(self, name):
+        """Returns a cube with `name` provided by the receiver. If receiver
+        does not have the cube `ModelError` exception is raised.
 
-    `translations` is a dictionary where keys are locale names and values are
-    translation dictionaries. See `Model.localize()` for more information.
-    """
+        Returned cube has no dimensions assigned. You should assign the
+        dimensions according to the cubes `required_dimensions` list of
+        dimension names."""
+        raise NotImplementedError("Subclasses should implement cube() method")
 
-    model_desc = dict(model)
-    # print "creating model from %s" % model_desc["dimensions"]
-    if "dimensions" in model_desc:
-        all_dimensions = _fix_dict_list(model_desc.pop("dimensions", None),
-                warning="'dimensions' in model description should be a list "
-                "not a dictionary", error=True)
-    else:
-        all_dimensions = []
+    def dimension(self, name, dimensions=[]):
+        """Returns a dimension with `name` provided by the receiver.
+        `dimensions` is a dictionary of dimension objects where the receiver
+        can look for templates. If the dimension requires a template and the
+        template is missing, the subclasses should raise
+        `TemplateRequired(template)` error with a template name as an
+        argument.
 
-    if all_dimensions and dimensions:
-        all_dimensions = all_dimensions[:] + dimensions
-    elif not all_dimensions:
-        all_dimensions = dimensions if dimensions else []
+        If the receiver does not provide the dimension `NoSuchDimension`
+        exception is raised."""
+        raise NotImplementedError("Subclasses are required to implement this")
 
-    model_dimensions = OrderedDict()
-    for desc in all_dimensions:
-        dimension = create_dimension(desc, model_dimensions)
-        if dimension.name in model_dimensions:
-            raise ModelError("Duplicate dimension '%s'" % dimension.name)
 
-        model_dimensions[dimension.name] = dimension
+class DefaultModelProvider(ModelProvider):
 
-    if "cubes" in model_desc:
-        all_cubes = _fix_dict_list(model_desc.pop("cubes", None),
-                warning="'cubes' in model description should be a list "
-                "not a dictionary")
-    else:
-        all_cubes = []
+    dynamic_cubes = False
+    dynamic_dimensions = False
 
-    if all_cubes and cubes:
-        all_cubes = all_cubes[:] + cubes
-    elif not all_cubes:
-        all_cubes = cubes if cubes else []
+    def __init__(self, source, metadata):
+        super(DefaultModelProvider, self).__init__(source, metadata)
 
-    model_cubes = OrderedDict()
-    for desc in all_cubes:
-        cube = create_cube(desc, model_dimensions, model_desc.get('mappings'), model_desc.get('joins'))
-        if cube.name in model_cubes:
-            raise ModelError("Duplicate cube '%s'" % cube.name)
-        model_cubes[cube.name] = cube
+        # TODO: check for duplicates
+        self.dimensions_metadata = {}
+        for dim in metadata.get("dimensions", []):
+            self.dimensions_metadata[dim["name"]] = dim
 
-    model = Model(dimensions=model_dimensions.values(),
-            cubes=model_cubes.values(), **model_desc)
+        self.cubes_metadata = {}
+        for cube in metadata.get("cubes", []):
+            self.cubes_metadata[cube["name"]] = cube
 
-    if translations:
-        for lang, trans in translations.items():
-            model._add_translation(lang, trans)
+    def cube(self, name):
+        """
+        Creates a cube `name` in context of `workspace` from provider's
+        metadata. Cube has no dimensions. You should link the dimensions from
+        list of `required_dimensions`.
+        """
 
-    return model
-
-def _fix_dict_list(obj, key_name="name", warning=None, error=False):
-    """Returns a list of dictionaries instead of dictionary of dictionaries"""
-    if isinstance(obj, dict):
-        logger = get_logger()
-        if warning:
-            if error:
-                raise ModelError(warning)
-            else:
-                logger.warn(warning)
-
-        array = []
-        for key, value in obj.items():
-            value = dict(value)
-            value[key_name] = key
-            array.append(value)
-        return array
-    else:
-        return obj
-
-def create_dimension(obj, dimensions=None):
-    """Creates a `Dimension` instance from `obj` which can be a `Dimension`
-    instance or a string or a dictionary. If it is a string, then it
-    represents dimension name, the only level name and the only attribute.
-
-    Keys of a dictionary representation:
-
-    * `name`: dimension name
-    * `levels`: list of dimension levels (see: :class:`cubes.Level`)
-    * `hierarchies` or `hierarchy`: list of dimension hierarchies or
-       list of level names of a single hierarchy. Only one of the two
-       should be specified, otherwise an exception is raised.
-    * `default_hierarchy_name`: name of a hierarchy that will be used when
-      no hierarchy is explicitly specified
-    * `label`: dimension name that will be displayed (human readable)
-    * `description`: human readable dimension description
-    * `info` - custom information dictionary, might be used to store
-      application/front-end specific information (icon, color, ...)
-    * `template` – name of a dimension to be used as template. The dimension
-      is taken from `dimensions` argument which should be a dictionary
-      of already created dimensions.
-
-    **Defaults**
-
-    * If no levels are specified during initialization, then dimension
-      name is considered flat, with single attribute.
-    * If no hierarchy is specified and levels are specified, then default
-      hierarchy will be created from order of levels
-    * If no levels are specified, then one level is created, with name
-      `default` and dimension will be considered flat
-
-    String representation of a dimension ``str(dimension)`` is equal to
-    dimension name.
-
-    Class is not meant to be mutable.
-
-    Raises `ModelInconsistencyError` when both `hierarchy` and
-    `hierarchies` is specified.
-
-    """
-
-    if isinstance(obj, Dimension):
-        return obj
-    elif isinstance(obj, basestring):
-        return Dimension(name=obj, levels=[create_level(obj)])
-
-    name = obj.get("name")
-
-    if "template" in obj:
         try:
-            template = dimensions[obj["template"]]
+            metadata = dict(self.cubes_metadata[name])
         except KeyError:
-            raise NoSuchDimensionError("Could not find template dimension %s"
-                                                            % obj["template"])
+            raise ModelError("Unknown cube %s" % name)
 
-        levels = copy.deepcopy(template.levels)
+        # Merge model and cube mappings
+        #
+        model_mappings = self.metadata.get("mappings")
+        cube_mappings = metadata.pop("mappings", None)
 
-        # Create copy of template's hierarchies, but reference newly created
-        # copies of level objects
-        hierarchies = []
-        level_dict = dict((level.name, level) for level in levels)
+        if model_mappings:
+            mappings = copy.deepcopy(model_mappings)
+            mappings.update(cube_mappings)
+        else:
+            mappings = cube_mappings
 
-        for hier in template.hierarchies.values():
-            hier_levels = [level_dict[level.name] for level in hier.levels]
-            hier_copy = Hierarchy(hier.name, hier_levels,
-                                  label=hier.label, info=copy.deepcopy(hier.info))
-            hierarchies.append(hier_copy)
+        # Merge model and cube joins
+        #
+        model_joins = self.metadata.get("joins")
+        cube_joins = metadata.pop("joins", None)
 
-        default_hierarchy_name = template.default_hierarchy_name
-        label = template.label
-        description = template.description
-        info = template.info
-    else:
-        levels = None
-        hierarchies = None
-        default_hierarchy_name = None
-        label = None
-        description = None
-        info = {}
+        # model joins, if present, should be merged with cube's overrides.
+        # joins are matched by the "name" key.
+        if cube_joins and model_joins:
+            model_join_map = {}
+            for join in model_joins:
+                try:
+                    name = join['name']
+                except KeyError:
+                    raise ModelError("Missing required 'name' key in "
+                                     "model-level joins.")
 
-    label = obj.get("label") or label
-    description = obj.get("description") or description
-    info = obj.get("info") or info
+                if name in model_join_map:
+                    raise ModelError("Duplicate model-level join 'name': %s" %
+                                     name)
 
-    # Levels
-    # ------
+                model_join_map[name] = copy.deepcopy(join)
 
-    levels_desc = obj.get("levels")
+            # Merge cube's joins with model joins by their names.
+            merged_joins = []
 
-    if levels_desc:
-        levels = _fix_dict_list(levels_desc, warning="Levels in a dimension (%s) "
-                                    "should be a list, not a dictionary" %
-                                    name, error=True)
+            for join in cube_joins:
+                model_join = model_join_map.get(join.get('name'), {})
+                model_join.update(join)
+                merged_joins.append(model_join)
 
-        levels = [create_level(level) for level in levels_desc]
-    elif not levels:
-        # Attributes of level model
-        level_attributes = ["attributes", "key", "order_attribute", "order",
-                            "label_attribute"]
-        level_args = {}
-        for attr in level_attributes:
-            if attr in obj:
-                level_args[attr] = obj[attr]
+            cube_joins = merged_joins
 
-        # Default: if no attributes, then there is single flat attribute whith same name
-        # as the dimension
-        if not "attributes" in level_args:
-            level_args["attributes"] = attribute_list([name])
+        dimensions = metadata.pop("dimensions", [])
 
-        levels = [Level(name=name, label=label, **level_args)]
+        return Cube(required_dimensions=dimensions,
+                    mappings=mappings,
+                    joins=cube_joins,
+                    **metadata)
 
-    # Hierarchies
-    # -----------
+    def dimension(self, name, dimensions=None):
+        """Create a dimension `name` from provider's metadata within
+        `context` (usualy a `Workspace` object)."""
 
-    if "hierarchy" in obj and "hierarchies" in obj:
-        raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies' specified. "
-                         "Use only one")
+        # Old documentation
+        """Creates a `Dimension` instance from `obj` which can be a `Dimension`
+        instance or a string or a dictionary. If it is a string, then it
+        represents dimension name, the only level name and the only attribute.
 
-    hierarchy = obj.get("hierarchy")
+        Keys of a dictionary representation:
 
-    if hierarchy:
-        # We consider it to be a list of level names
-        if not isinstance(hierarchy, Hierarchy):
-            hierarchy = Hierarchy("default", levels=hierarchy)
+        * `name`: dimension name
+        * `levels`: list of dimension levels (see: :class:`cubes.Level`)
+        * `hierarchies` or `hierarchy`: list of dimension hierarchies or
+           list of level names of a single hierarchy. Only one of the two
+           should be specified, otherwise an exception is raised.
+        * `default_hierarchy_name`: name of a hierarchy that will be used when
+          no hierarchy is explicitly specified
+        * `label`: dimension name that will be displayed (human readable)
+        * `description`: human readable dimension description
+        * `info` - custom information dictionary, might be used to store
+          application/front-end specific information (icon, color, ...)
+        * `template` – name of a dimension to be used as template. The dimension
+          is taken from `dimensions` argument which should be a dictionary
+          of already created dimensions.
 
-        hierarchies = [hierarchy]
+        **Defaults**
 
-    elif "hierarchies" in obj:
-        hierarchies = _fix_dict_list(obj.get("hierarchies"),
-                                     warning="Hierarchies in a dimension (%s) should"
-                                             "be a list, not a dictionary" % name)
-        if hierarchies:
-            hierarchies = [Hierarchy(**h) for h in hierarchies]
+        * If no levels are specified during initialization, then dimension
+          name is considered flat, with single attribute.
+        * If no hierarchy is specified and levels are specified, then default
+          hierarchy will be created from order of levels
+        * If no levels are specified, then one level is created, with name
+          `default` and dimension will be considered flat
 
-    default_hierarchy_name = obj.get("default_hierarchy_name") or default_hierarchy_name
+        String representation of a dimension ``str(dimension)`` is equal to
+        dimension name.
 
-    # Merge with template:
-    return Dimension(name=name,
-                     levels=levels,
-                     hierarchies=hierarchies,
-                     default_hierarchy_name=default_hierarchy_name,
-                     label=label,
-                     description=description,
-                     info=info
-                     )
+        Class is not meant to be mutable.
 
-def create_level(obj):
-    """Creates a level from `obj` which can be a `Level` instance, string or
-    a dictionary. If it is a string, then the string represents level name and
-    the only one attribute of the level. If `obj` is a dictionary, then the
-    keys are:
+        Raises `ModelInconsistencyError` when both `hierarchy` and
+        `hierarchies` is specified.
 
-    * `name` – level name
-    * `attributes` – list of level attributes
-    * `key` – name of key attribute
-    * `label_attribute` – name of label attribute
+        """
 
-    Defaults:
+        dimensions = dimensions or {}
 
-    * if no attributes are specified, then one is created with the same name
-      as the level name.
-
-    """
-
-    if isinstance(obj, Level):
-        return obj
-    elif isinstance(obj, basestring):
-        return Level(name=obj, attributes=[obj])
-    else:
-        # We expect dictionary here
-        if "attributes" not in obj:
-            obj = dict(obj)
-            obj["attributes"] = [obj.get("name")]
-
-        return Level(**obj)
-
-def create_cube(desc, dimensions, model_mappings=None, model_joins=None):
-    """Creates a `Cube` instance from dictionary description `desc` with
-    dimension dictionary in `dimensions`
-
-    In file based model representation, the cube descriptions are stored
-    in json files with prefix ``cube_`` like ``cube_contracts``, or as a
-    dictionary for key ``cubes`` in the model description dictionary.
-
-    JSON example::
-
-        {
-            "name": "contracts",
-            "measures": ["amount"],
-            "dimensions": [ "date", "contractor", "type"]
-            "details": ["contract_name"],
-        }
-    """
-
-    if "dimensions" in desc:
         try:
-            cube_dims = [dimensions[name] for name in desc["dimensions"]]
-        except KeyError as e:
-            raise NoSuchDimensionError("No such dimension '%s'" % str(e))
+            metadata = dict(self.dimensions_metadata[name])
+        except KeyError:
+            raise NoSuchDimensionError(name)
 
-        desc = dict(desc)
-        del desc["dimensions"]
-    else:
-        cube_dims = None
+        if "template" in metadata:
+            template_name = metadata["template"]
+            try:
+                template = dimensions[template_name]
+            except KeyError:
+                raise TemplateRequired(template_name)
 
-    if model_mappings:
-        merged_mappings = copy.deepcopy(model_mappings)
-        merged_mappings.update(desc.get("mappings", {}))
-        desc['mappings'] = merged_mappings
+            levels = copy.deepcopy(template.levels)
 
-    # model joins, if present, should be merged with cube's overrides.
-    # joins are matched by the "name" key.
-    if desc.get('joins') and model_joins:
-        model_join_map = {}
-        for mj in model_joins:
-            mj_name = mj.get('name')
-            if mj_name is None:
-                raise ModelError("Cannot define a join in model without 'name' key.")
-            if model_join_map.has_key(mj_name):
-                raise ModelError("Cannot define a join in model with a duplicate 'name' of %s." % mj_name)
-            model_join_map[mj_name] = copy.deepcopy(mj)
-        merged_joins = []
-        for j in desc.get('joins'):
-            model_j = model_join_map.get(j.get('name'), {})
-            model_j.update(j)
-            merged_joins.append(model_j)
-        desc['joins'] = merged_joins
+            # Create copy of template's hierarchies, but reference newly
+            # created copies of level objects
+            hierarchies = []
+            level_dict = dict((level.name, level) for level in levels)
 
-    return Cube(dimensions=cube_dims, **desc)
+            for hier in template.hierarchies.values():
+                hier_levels = [level_dict[level.name] for level in hier.levels]
+                hier_copy = Hierarchy(hier.name,
+                                      hier_levels,
+                                      label=hier.label,
+                                      info=copy.deepcopy(hier.info))
+                hierarchies.append(hier_copy)
+
+            default_hierarchy_name = template.default_hierarchy_name
+            label = template.label
+            description = template.description
+            info = template.info
+        else:
+            levels = None
+            hierarchies = None
+            default_hierarchy_name = None
+            label = None
+            description = None
+            info = {}
+
+        label = metadata.get("label") or label
+        description = metadata.get("description") or description
+        info = metadata.get("info") or info
+
+        # Levels
+        # ------
+
+        levels_metadata = metadata.get("levels")
+
+        if levels_metadata:
+            levels = []
+
+            for md in levels_metadata:
+                level = Level(**fix_level_metadata(md))
+                levels.append(level)
+
+        if not levels:
+            # Create a single level with same properties as the dimension.
+            attributes = ["attributes", "key", "order_attribute", "order",
+                          "label_attribute"]
+            level_md = {}
+            for attr in attributes:
+                if attr in metadata:
+                    level_md[attr] = metadata[attr]
+
+            # Default: if no attributes, then there is single flat attribute
+            # whith same name as the dimension
+            level_md["name"] = name
+            level_md["label"] = label
+            level_md = fix_level_metadata(level_md)
+
+            levels = [Level(**level_md)]
+
+        # Hierarchies
+        # -----------
+
+        if "hierarchy" in metadata and "hierarchies" in metadata:
+            raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies'"
+                                          " specified. Use only one")
+
+        hierarchy = metadata.get("hierarchy")
+
+        if hierarchy:
+            # We consider it to be a list of level names
+            if not isinstance(hierarchy, Hierarchy):
+                hierarchy = Hierarchy("default", levels=hierarchy)
+
+            hierarchies = [hierarchy]
+
+        elif "hierarchies" in metadata:
+            hierarchies = [Hierarchy(**md) for md in metadata["hierarchies"]]
+
+        default_hierarchy_name = metadata.get("default_hierarchy_name",
+                                              default_hierarchy_name)
+
+        # Merge with template:
+        return Dimension(name=name,
+                         levels=levels,
+                         hierarchies=hierarchies,
+                         default_hierarchy_name=default_hierarchy_name,
+                         label=label,
+                         description=description,
+                         info=info
+                         )
+
+# TODO: is this still necessary?
 
 def merge_models(models):
+    """Merge multiple models into one."""
+
     dimensions = {}
     all_cubes = {}
     name = None
@@ -516,6 +486,7 @@ def merge_models(models):
     description = None
     info = {}
     locale = None
+
     for model in models:
         if name is None and model.name:
             name = model.name
@@ -533,6 +504,7 @@ def merge_models(models):
             if dimensions.has_key(dim.name):
                 raise ModelError("Found duplicate dimension named '%s', cannot merge models" % dim.name)
             dimensions[dim.name] = dim
+
         # cubes, fail on conflicting names
         for cube in model.cubes.values():
             if all_cubes.has_key(cube.name):
@@ -543,77 +515,20 @@ def merge_models(models):
             cube.info.update(model.info if model.info else {})
             all_cubes[cube.name] = cube
 
-    return Model(name=name, label=label, description=description, info=info, dimensions=dimensions.values(), cubes=all_cubes.values())
+    return Model(name=name,
+                 label=label,
+                 description=description,
+                 info=info,
+                 dimensions=dimensions.values(),
+                 cubes=all_cubes.values())
+
+def create_model(*args, **kwargs):
+    raise NotImplementedError("create_model() is depreciated, use Workspace.add_model()")
 
 def model_from_path(path):
     """Load logical model from a file or a directory specified by `path`.
     Returs instance of `Model`. """
-
-    # FIXME: refactor this/merge with load_model
-
-    if not os.path.isdir(path):
-        a_file = open(path)
-        model_desc = json.load(a_file)
-        a_file.close()
-        return create_model(model_desc)
-
-    info_path = os.path.join(path, 'model.json')
-
-    if not os.path.exists(info_path):
-        raise ModelError('main model info %s does not exist' % info_path)
-
-    a_file = open(info_path)
-    model_desc = json.load(a_file)
-    a_file.close()
-
-    if not "name" in model_desc:
-        raise ModelError("model has no name")
-
-    # Find model object files and load them
-
-    dimensions_to_load = []
-    cubes_to_load = []
-
-    if not "dimensions" in model_desc:
-        model_desc["dimensions"] = []
-
-    if not "cubes" in model_desc:
-        model_desc["cubes"] = []
-
-    for dirname, dirnames, filenames in os.walk(path):
-        for filename in filenames:
-            if os.path.splitext(filename)[1] != '.json':
-                continue
-            split = re.split('_', filename)
-            prefix = split[0]
-
-            obj_path = os.path.join(dirname, filename)
-            if prefix == 'dim' or prefix == 'dimension':
-                desc = _model_desc_from_json_file(obj_path)
-                if "name" not in desc:
-                    raise ModelError("Dimension file '%s' has no name key" % obj_path)
-                model_desc["dimensions"].append(desc)
-            elif prefix == 'cube':
-                desc = _model_desc_from_json_file(obj_path)
-                if "name" not in desc:
-                    raise ModelError("Cube file '%s' has no name key" % obj_path)
-                model_desc["cubes"].append(desc)
-
-    return create_model(model_desc)
-
-def _model_desc_from_json_file(object_path):
-    """Get a dictionary from reading model json file at `object_path`.
-    Returs a dictionary from the file.
-    """
-    a_file = open(object_path)
-    try:
-        desc = json.load(a_file)
-    except ValueError as e:
-        raise SyntaxError("Syntaxt error in %s: %s" % (object_path, e.args))
-    finally:
-        a_file.close()
-
-    return desc
+    raise NotImplementedError("model_from_path is depreciated. use Workspace.add_model()")
 
 def _assert_instance(obj, class_, label):
     """Raises ModelInconsistencyError when `obj` is not instance of `cls`"""
@@ -623,6 +538,7 @@ def _assert_instance(obj, class_, label):
                                                         class_.__name__,
                                                         type(obj).__name__))
 
+# TODO: modernize
 def simple_model(cube_name, dimensions, measures):
     """Create a simple model with only one cube with name `cube_name`and flat
     dimensions. `dimensions` is a list of dimension names as strings and
@@ -648,12 +564,14 @@ def simple_model(cube_name, dimensions, measures):
 
     return Model(cubes=[cube])
 
+
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
                  label=None, description=None, info=None, mappings=None,
-                 **kwargs):
+                 provider=None, metadata=None, translations=None):
         """
-        Logical Model represents analysts point of view on data.
+        Logical representation of data. Base container for cubes and
+        dimensions.
 
         Attributes:
 
@@ -665,6 +583,9 @@ class Model(object):
         * `description` - longer human-readable description of the model
         * `info` - custom information dictionary
 
+        * `metadata` – a dictionary describing the model
+        * `provider` – an object that creates model objects
+
         """
         # * `mappings` – model-wide mappings of logical-to-physical attributes
 
@@ -674,6 +595,8 @@ class Model(object):
         self.description = description
         self.locale = locale
         self.info = info or {}
+        self.provider = provider
+        self.metadata = metadata
 
         # Physical information
         self.mappings = mappings
@@ -688,7 +611,7 @@ class Model(object):
             for cube in cubes:
                 self.add_cube(cube)
 
-        self.translations = {}
+        self.translations = translations or {}
 
     def __str__(self):
         return 'Model(%s)' % self.name
@@ -1014,7 +937,7 @@ class Cube(object):
     def __init__(self, name, dimensions=None, measures=None, model=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, options={},
-                 info=None, **kwargs):
+                 info=None, required_dimensions=None, **kwargs):
         """Create a new Cube model.
 
         Attributes:
@@ -1031,6 +954,7 @@ class Cube(object):
           databases)
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
+        * `required_dimensions` – dimensions to be linked to the cube
 
         Attributes used by backends:
 
@@ -1066,7 +990,7 @@ class Cube(object):
 
         self.model = model
         self.info = info or {}
-
+        self.required_dimensions = required_dimensions or []
         self._dimensions = OrderedDict()
 
         # FIXME: remove depreciated code
@@ -1089,23 +1013,15 @@ class Cube(object):
         `ModelInconsistencyError` when dimension with same name already exists
         in the receiver. """
 
-        # logger = get_logger()
-        # logger.warn("Dimension instance is immutable. add_dimension is "
-        #             "depreciated. use create_model instead")
-
-        # FIXME: Do not allow to add dimension if one already exists
         if dimension.name in self._dimensions:
-            raise ModelInconsistencyError("Dimension with name %s already exits in cube %s" % (dimension.name, self.name))
+            raise ModelError("Dimension with name %s already exits "
+                             "in cube %s" % (dimension.name, self.name))
 
         self._dimensions[dimension.name] = dimension
 
     def remove_dimension(self, dimension):
         """Remove a dimension from receiver. `dimension` can be either
         dimension name or dimension object."""
-
-        # logger = get_logger()
-        # logger.warn("Dimension instance is immutable. remove_dimension is"
-        #             "depreciated. use create_model instead")
 
         dim = self.dimension(dimension)
         del self._dimensions[dim.name]
@@ -1121,6 +1037,9 @@ class Cube(object):
 
         Raises `NoSuchDimensionError` when there is no such dimension.
         """
+
+        # FIXME: raise better exception if dimension does not exist, but is in
+        # the list of required dimensions
 
         if not obj:
             raise NoSuchDimensionError("Requested dimension should not be none (cube '%s')" % \
