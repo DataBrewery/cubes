@@ -1,7 +1,8 @@
 # -*- coding=utf -*-
-from .star import SnowflakeBrowser, SnapshotBrowser,QueryContext
+from .star import SnowflakeBrowser, SnapshotBrowser, QueryContext
 from .mapper import SnowflakeMapper, DenormalizedMapper
 from ...common import get_logger, coalesce_options
+from ...stores import Store
 from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
@@ -73,12 +74,12 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
     """
     raise NotImplementedError
 
-def _create_workspace_builder(workspace_class):
+class SQLStore(Store):
 
-    def create_workspace(model, **options):
-        """Create workspace for `model` with configuration in dictionary
-        `options`. This method is used by the slicer server.
+    default_browser_name = "snowflake"
 
+    def __init__(self, url=None, engine=None, schema=None, **options):
+        """
         The options are:
 
         Required (one of the two, `engine` takes precedence):
@@ -110,46 +111,44 @@ def _create_workspace_builder(workspace_class):
           located (use this if the views are in different schema than fact tables,
           otherwise default schema is going to be used)
         """
-        engine = options.get("engine")
+        if not engine and not url:
+            raise ArgumentError("No URL or engine specified in options, "
+                                "provide at least one")
+        if engine and url:
+            raise ArgumentError("Both engine and URL specified. Use only one.")
 
-        if engine:
-            del options["engine"]
-        else:
-            try:
-                db_url = options["url"]
-            except KeyError:
-                raise ArgumentError("No URL or engine specified in options, "
-                                    "provide at least one")
+        # Create a copy of options, because we will be popping from it
+        options = dict(options)
 
+        if not engine:
             # Process SQLAlchemy options
-            sqlalchemy_options = {}
-            sqlalchemy_options_str = options.get("sqlalchemy_options")
-            if (sqlalchemy_options_str):
-                for option in sqlalchemy_options_str.split('&'):
-                    option_parts = option.split("=")
-                    sqlalchemy_options[option_parts[0]] = interpret_config_value(option_parts[1])
+            sa_keys = [key for key in options.keys() if key.startswith("sqlalchemy_")]
+            sa_options = {}
+            for key in sa_keys:
+                sa_key = key[11:]
+                sa_options[sa_key] = options.pop(key)
 
-            engine = sqlalchemy.create_engine(db_url, **sqlalchemy_options)
+            sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
+            sa_options = {}
 
-        workspace = workspace_class(model, engine, **options)
+            engine = sqlalchemy.create_engine(url, **sa_options)
 
-        return workspace
-
-    return create_workspace
-
-class SQLStarWorkspace(Workspace):
-    """Factory for browsers"""
-    def __init__(self, model, engine, **options):
-        """Create a workspace. For description of options see
-        `create_workspace()` """
-
-        super(SQLStarWorkspace, self).__init__(model, **options)
-
+        # TODO: get logger from workspace that opens this store
         self.logger = get_logger()
 
-        self.engine = engine
-        self.schema = options.get("schema")
-        self.metadata = sqlalchemy.MetaData(bind=self.engine,schema=self.schema)
+        self.connectable = engine
+        self.schema = schema
+
+        # Load metadata here. This might be too expensive operation to be
+        # performed on every request, therefore it is recommended to have one
+        # shared open store per process. SQLAlchemy will take care about
+        # necessary connections.
+
+        self.metadata = sqlalchemy.MetaData(bind=self.connectable,
+                                            schema=self.schema)
+
+        # TODO: coalesce options
+        self.options = options
 
     def browser(self, cube, locale=None):
         """Returns a browser for a `cube`."""
@@ -524,5 +523,4 @@ class SQLStarWorkspace(Workspace):
                                   columns=statement.columns)
             connection.execute(str(insert))
 
-create_workspace = _create_workspace_builder(SQLStarWorkspace)
 

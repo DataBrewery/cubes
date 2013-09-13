@@ -58,7 +58,7 @@ _EXPR_EVAL_NS = {
 class SnowflakeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
 
-    def __init__(self, cube, connectable=None, locale=None, metadata=None,
+    def __init__(self, cube, store, locale=None, metadata=None,
                  debug=False, **options):
         """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
         can aggregate star and snowflake schemas without need of having
@@ -96,12 +96,11 @@ class SnowflakeBrowser(AggregationBrowser):
         self.logger = get_logger()
 
         self.cube = cube
-        self.locale = locale or cube.model.locale
+        self.locale = locale or cube.locale
         self.debug = debug
 
-        if connectable is not None:
-            self.connectable = connectable
-            self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
+        self.connectable = store.connectable
+        self.metadata = store.metadata or sqlalchemy.MetaData(bind=self.connectable)
 
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
@@ -1311,7 +1310,7 @@ class AggregatedCubeBrowser(AggregationBrowser):
         self.logger = get_logger()
 
         self.cube = cube
-        self.locale = locale or cube.model.locale
+        self.locale = locale or cube.locale
         self.debug = debug
 
         if connectable is not None:
