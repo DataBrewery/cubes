@@ -628,10 +628,6 @@ class Model(object):
 
         _assert_instance(cube, Cube, "cube")
 
-        if cube.model and cube.model != self:
-            raise ModelInconsistencyError("Trying to assign a cube with different model (%s) to model %s" %
-                (cube.model.name, self.name))
-
         # Collect dimensions from cube
         my_dimensions = set(self.dimensions)
         my_dimension_names = set([dim.name for dim in self.dimensions])
@@ -644,13 +640,10 @@ class Model(object):
                     raise ModelInconsistencyError("Dimension %s of cube %s has different specification as model's dimension"
                                             % (dimension.name, cube.name) )
 
-        cube.model = self
-
         self.cubes[cube.name] = cube
 
     def remove_cube(self, cube):
         """Removes cube from the model"""
-        cube.model = None
         del self.cubes[cube.name]
 
     def cube(self, cube):
@@ -934,10 +927,11 @@ class Model(object):
 
 
 class Cube(object):
-    def __init__(self, name, dimensions=None, measures=None, model=None,
+    def __init__(self, name, dimensions=None, measures=None,
                  label=None, details=None, mappings=None, joins=None,
-                 fact=None, key=None, description=None, options={},
-                 info=None, required_dimensions=None, **kwargs):
+                 fact=None, key=None, description=None, browser_options=None,
+                 info=None, required_dimensions=None,
+                 locale=None, **options):
         """Create a new Cube model.
 
         Attributes:
@@ -945,7 +939,6 @@ class Cube(object):
         * `name`: cube name
         * `measures`: list of measure attributes
         * `dimensions`: list of dimensions (should be `Dimension` instances)
-        * `model`: model the cube belongs to
         * `label`: human readable cube label
         * `details`: list of detail attributes
         * `description` - human readable description of the cube
@@ -955,6 +948,7 @@ class Cube(object):
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
         * `required_dimensions` – dimensions to be linked to the cube
+        * `locale`: cube's locale
 
         Attributes used by backends:
 
@@ -986,27 +980,23 @@ class Cube(object):
         self.fact = fact
         self.joins = joins
         self.key = key
-        self.options = options
+        self.browser_options = browser_options or {}
+        # TODO: make this nicer
+        self.store = options.get("store")
+        self.browser = options.get("browser")
 
-        self.model = model
         self.info = info or {}
         self.required_dimensions = required_dimensions or []
+        self.locale = locale
         self._dimensions = OrderedDict()
 
-        # FIXME: remove depreciated code
-        # This is the new way - expected all Dimension instances
         if dimensions:
             if all([isinstance(dim, Dimension) for dim in dimensions]):
                 for dim in dimensions:
                     self.add_dimension(dim)
             else:
-                logger.warn("dimensions for cube initialization should be "
-                            "a list of Dimension instances. Use create_cube() "
-                            "for more flexibility")
-
-                for obj in dimensions:
-                    dimension = self.model.dimension(obj)
-                    self.add_dimension(dimension)
+                raise ModelError("dimensions for cube initialization should be "
+                                 "a list of Dimension instances.")
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name. Raises
