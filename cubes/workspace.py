@@ -4,6 +4,7 @@ from .model import read_model_metadata, create_model_provider
 from .model import Model
 from .common import get_logger
 from .errors import *
+from .stores import open_store, create_browser
 import ConfigParser
 
 __all__ = [
@@ -56,11 +57,13 @@ class Workspace(object):
                 raise Exception("Unable to load config %s. "
                                 "Reason: %s" % (config, str(e)))
 
-            self.config = cp
-        else:
-            self.config = config
+            config = cp
+        elif not config:
+            # Read ./slicer.ini
+            config = ConfigParser.ConfigParser()
 
         self.store_infos = {}
+        self.stores = {}
 
         self.logger = get_logger()
 
@@ -68,8 +71,7 @@ class Workspace(object):
         self.translations = []
         self.model = None
 
-        if self.config:
-            self._configure(self.config)
+        self._configure(config)
 
         # Register stores from external stores.ini file or a dictionary
         if isinstance(stores, basestring):
@@ -143,7 +145,7 @@ class Workspace(object):
         if name in self.store_infos:
             raise CubesError("Store %s already registered" % name)
 
-        self.store_infos[name] = config
+        self.store_infos[name] = (type_, config)
 
     def add_model(self, model, translations=None):
         """Appends objects from `model`."""
@@ -317,22 +319,25 @@ class Workspace(object):
         return options
 
     def browser(self, cube, locale=None):
-        model = self.localized_model(locale)
-        cube = model.cube(cube)
+        """Returns a browser for `cube`."""
+
+        # TODO: bring back the localization
+        # model = self.localized_model(locale)
+
+        cube = self.cube(cube)
 
         store_name = cube.store or "default"
-        store = self.get_store(cube.store)
-
-        schema = cube.schema
+        store = self.get_store(store_name)
 
         options = self._browser_options(cube)
-
-        browser_factory = get_browser_factory(store_name, schema)
-        browser = browser_factory(cube, store=store, locale=locale, **options)
 
         # TODO: Construct options for the browser from cube's options dictionary and
         # workspece default configuration
         # 
+
+        browser_name = cube.browser or store.default_browser_name
+        browser = create_browser(browser_name, cube, store=store,
+                                 locale=locale, **options)
 
         return browser
 
@@ -340,12 +345,16 @@ class Workspace(object):
         """Opens a store `name`. If the store is already open, returns the
         existing store."""
 
-        if name in self.open_stores:
-            return self.open_stores[name]
+        if name in self.stores:
+            return self.stores[name]
 
-        options = self.store_options.get(name, {})
-        store = open_store(store, **options)
-        self.open_stores[name] = store
+        try:
+            type_, options = self.store_infos[name]
+        except KeyError:
+            raise CubesError("No info for store %s" % name)
+
+        store = open_store(type_, **options)
+        self.stores[name] = store
         return store
 
     def close(self):
