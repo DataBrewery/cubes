@@ -13,98 +13,91 @@ try:
     from werkzeug.exceptions import HTTPException, NotFound
     import werkzeug.serving
 except:
-    from cubes.common import MissingPackage
+    from ..common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Map = Rule = Request = ClosingIterator = HTTPException = _missing
     NotFound = Response = werkzeug = _missing
 
-from cubes.workspace import create_slicer_context
+from ..workspace import Workspace
+from ..common import *
 
-import common
-# Local imports
-import controllers
-from utils import local_manager
-import utils
+from .common import *
+from .controllers import *
+from .utils import local_manager
 
 # TODO: this deserves Flask!
 
 rules = Map([
-    Rule('/', endpoint = (controllers.ApplicationController, 'index')),
+    Rule('/', endpoint = (ApplicationController, 'index')),
     Rule('/version',
-                        endpoint = (controllers.ApplicationController, 'version')),
+                        endpoint = (ApplicationController, 'version')),
     Rule('/locales',
-                        endpoint = (controllers.ApplicationController, 'get_locales')),
+                        endpoint = (ApplicationController, 'get_locales')),
     #
     # Model requests
     #
     Rule('/model',
-                        endpoint = (controllers.ModelController, 'show')),
+                        endpoint = (ModelController, 'show')),
 
     Rule('/model/cubes',
-                        endpoint = (controllers.ModelController, 'list_cubes')),
+                        endpoint = (ModelController, 'list_cubes')),
     Rule('/model/cube',
-                        endpoint = (controllers.ModelController, 'get_default_cube')),
+                        endpoint = (ModelController, 'get_default_cube')),
     Rule('/model/cube/<string:cube_name>',
-                        endpoint = (controllers.ModelController, 'get_cube')),
-    Rule('/model/cube/<string:cube_name>/dimensions',
-                        endpoint = (controllers.ModelController, 'list_cube_dimensions')),
+                        endpoint = (ModelController, 'get_cube')),
 
     Rule('/model/dimension/<string:dim_name>',
-                        endpoint = (controllers.ModelController, 'dimension')),
-    Rule('/model/dimension/<string:dim_name>/levels',
-                        endpoint = (controllers.ModelController, 'dimension_levels')),
-    Rule('/model/dimension/<string:dim_name>/level_names',
-                        endpoint = (controllers.ModelController, 'dimension_level_names')),
+                        endpoint = (ModelController, 'dimension')),
 
     #
     # Aggregation browser requests
     #
     Rule('/cube/<string:cube>/aggregate',
-                        endpoint = (controllers.CubesController, 'aggregate')),
+                        endpoint = (CubesController, 'aggregate')),
     Rule('/cube/<string:cube>/facts',
-                        endpoint = (controllers.CubesController, 'facts')),
+                        endpoint = (CubesController, 'facts')),
     Rule('/cube/<string:cube>/fact/<string:fact_id>',
-                        endpoint = (controllers.CubesController, 'fact')),
+                        endpoint = (CubesController, 'fact')),
     Rule('/cube/<string:cube>/dimension/<string:dimension_name>',
-                        endpoint = (controllers.CubesController, 'values')),
+                        endpoint = (CubesController, 'values')),
     Rule('/cube/<string:cube>/report', methods = ['POST'],
-                        endpoint = (controllers.CubesController, 'report')),
+                        endpoint = (CubesController, 'report')),
     Rule('/cube/<string:cube>/cell',
-                        endpoint = (controllers.CubesController, 'cell_details')),
+                        endpoint = (CubesController, 'cell_details')),
     Rule('/cube/<string:cube>/details',
-                        endpoint = (controllers.CubesController, 'details')),
+                        endpoint = (CubesController, 'details')),
     Rule('/cube/<string:cube>/build',
-                        endpoint = (controllers.CubesController, 'build')),
+                        endpoint = (CubesController, 'build')),
     # Use default cube (specified in config as: [model] cube = ... )
     Rule('/aggregate',
-                        endpoint = (controllers.CubesController, 'aggregate'),
+                        endpoint = (CubesController, 'aggregate'),
                         defaults={"cube":None}),
     Rule('/facts',
-                        endpoint = (controllers.CubesController, 'facts'),
+                        endpoint = (CubesController, 'facts'),
                         defaults={"cube":None}),
     Rule('/fact/<string:fact_id>',
-                        endpoint = (controllers.CubesController, 'fact'),
+                        endpoint = (CubesController, 'fact'),
                         defaults={"cube":None}),
     Rule('/dimension/<string:dimension_name>',
-                        endpoint=(controllers.CubesController, 'values'),
+                        endpoint=(CubesController, 'values'),
                         defaults={"cube":None}),
     Rule('/report', methods = ['POST'],
-                        endpoint = (controllers.CubesController, 'report'),
+                        endpoint = (CubesController, 'report'),
                         defaults={"cube":None}),
     Rule('/cell',
-                        endpoint = (controllers.CubesController, 'cell_details'),
+                        endpoint = (CubesController, 'cell_details'),
                         defaults={"cube":None}),
     Rule('/details',
-                        endpoint = (controllers.CubesController, 'details'),
+                        endpoint = (CubesController, 'details'),
                         defaults={"cube":None}),
     #
     # Other utility requests
     #
     Rule('/cube/<string:cube>/search',
-                        endpoint = (controllers.SearchController, 'search')),
+                        endpoint = (SearchController, 'search')),
 
     Rule('/search',
-                        endpoint = (controllers.SearchController, 'search'),
+                        endpoint = (SearchController, 'search'),
                         defaults={"cube":None}),
 ])
 
@@ -118,20 +111,12 @@ class Slicer(object):
         self.config = config
         self.initialize_logger()
 
-        self.context = create_slicer_context(config)
-
-        self.model = self.context["model"]
-        self.locales = self.context["locales"]
-        self.backend = self.context["backend"]
-
-        ## Create workspace
-        self.logger.info("using backend '%s'" % self.context["backend_name"])
-        self.workspace = self.backend.create_workspace(self.model, config=self.config,
-                                                       **self.context["workspace_options"])
+        self.workspace = Workspace(config=config)
+        self.locales = self.workspace.locales
 
     def initialize_logger(self):
         # Configure logger
-        self.logger = cubes.common.get_logger()
+        self.logger = get_logger()
 
         if self.config.has_option("server", "log"):
             formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
@@ -149,8 +134,6 @@ class Slicer(object):
                 self.logger.warn("Unknown logging level '%s', keeping default" % level_str)
             else:
                 self.logger.setLevel(levels[level_str])
-
-        self.logger.debug("loading model")
 
     def wsgi_app(self, environ, start_response):
         request = Request(environ)
@@ -182,7 +165,7 @@ class Slicer(object):
             response = action(**params)
             response.headers.add("Access-Control-Allow-Origin", "*")
         except cubes.CubesError as e:
-            raise common.RequestError(str(e))
+            raise RequestError(str(e))
 
         return response
 
@@ -227,5 +210,7 @@ def run_server(config):
         processes = 1
 
     application = Slicer(config)
-    werkzeug.serving.run_simple(host, port, application, processes=processes, use_reloader=use_reloader)
+    werkzeug.serving.run_simple(host, port, application,
+                                processes=processes,
+                                use_reloader=use_reloader)
 
