@@ -54,10 +54,11 @@ class Workspace(object):
             try:
                 cp.read(config)
             except Exception as e:
-                raise Exception("Unable to load config %s. "
+                raise ConfigurationError("Unable to load config %s. "
                                 "Reason: %s" % (config, str(e)))
 
             config = cp
+
         elif not config:
             # Read ./slicer.ini
             config = ConfigParser.ConfigParser()
@@ -69,9 +70,19 @@ class Workspace(object):
 
         self.locales = []
         self.translations = []
-        self.model = None
 
-        self._configure(config)
+        #
+        # Model objects
+        self._models = []
+
+        # Object ownership – model providers will be asked for the objects
+        self.cube_models = {}
+        self.dimension_models = {}
+
+        # Cache of created global objects
+        self._cubes = {}
+        self._dimensions = {}
+        # Note: providers are responsible for their own caching
 
         # Register stores from external stores.ini file or a dictionary
         if isinstance(stores, basestring):
@@ -79,7 +90,7 @@ class Workspace(object):
             try:
                 store_config.read(stores)
             except Exception as e:
-                raise Exception("Unable to read stores from %s. "
+                raise ConfigurationError("Unable to read stores from %s. "
                                 "Reason: %s" % (stores, str(e) ))
 
             for store in store_config.sections():
@@ -91,22 +102,13 @@ class Workspace(object):
                 self._register_store_dict(name, store)
 
         elif stores is not None:
-            raise CubesError("Unknown stores description object: %s" %
+            raise ConfigurationError("Unknown stores description object: %s" %
                                                     (type(stores)))
+
         #
-        # Model objects
+        # Configure the workspace
+        #
 
-        # Object ownership – model providers will be asked for the objects
-        self.cube_models = {}
-        self.dimension_models = {}
-
-        # Cache of created global objects
-        self._cubes = {}
-        self._dimensions = {}
-        # Note: providers are responsible for their own caching
-
-    def _configure(self, config):
-        """Configure the workspace from config file"""
         if config.has_option("main", "stores"):
             stores = config.get("main", "stores")
 
@@ -116,8 +118,22 @@ class Workspace(object):
         # * Stores are also loaded from main config file from sections with
         #   name [store_*] (not documented feature)
 
+        default = None
         if config.has_section("store"):
-            self._register_store_dict("default", dict(config.items("store")))
+            default = dict(config.items("store"))
+        else:
+            self.logger.warn("No [store] configuration found, using old "
+                             "backend & [workspace]. Update you config file.")
+            default = {}
+            default = dict(config.items("workspace"))
+            default["type"] = config.get("server", "backend")
+
+            if not default.get("type"):
+                self.logger.warn("No store type specified, assuming 'sql'")
+                default["type"] = "sql"
+
+        if default:
+            self._register_store_dict("default",default)
 
         # Register [store_*] from main config (not documented)
         for section in config.sections():
@@ -130,47 +146,87 @@ class Workspace(object):
         else:
             self.browser_options = {}
 
+        if config.has_section("main"):
+            self.options = dict(config.items("main"))
+        else:
+            self.options = {}
+
+        if config.has_section("model"):
+            if config.has_option("model", "path"):
+                source = config.get("model", "path")
+                self.logger.debug("Loading model from %s" % source)
+                self.add_model(source)
+
+
     def _register_store_dict(self, name, info):
         info = dict(info)
         try:
             type_ = info.pop("type")
         except KeyError:
-            raise CubesError("Store '%s' has no type" % name)
+            raise ConfigurationError("Store '%s' has no type" % name)
 
         self.register_store(name, type_, **info)
+
+    def register_default_store(self, type_, **config):
+        """Convenience function for registering the default store. For more
+        information see `register_store()`"""
+        self.register_store("default", type_, **config)
 
     def register_store(self, name, type_, **config):
         """Adds a store configuration."""
 
         if name in self.store_infos:
-            raise CubesError("Store %s already registered" % name)
+            raise ConfigurationError("Store %s already registered" % name)
 
         self.store_infos[name] = (type_, config)
 
-    def add_model(self, model, translations=None):
+    def add_model(self, model, store=None, translations=None):
         """Appends objects from `model`."""
+
+        # Model -> Store -> Provider
 
         if isinstance(model, basestring):
             metadata = read_model_metadata(model)
-            source = model
         elif isinstance(model, dict):
             metadata = model
-            source = None
         else:
-            raise CubesError("Unknown model source reference '%s'" % model)
+            raise ConfigurationError("Unknown model source reference '%s'" % model)
 
-        provider_name = metadata.get("provider", "default")
-        provider_source = metadata.get("source", source)
-        provider = create_model_provider(provider_name, provider_source, metadata)
+        # Get the model's store name:
+        #   specified as argument
+        #   specified in the model as "store"
+
+        store_name = store or metadata.get("store")
+        if store_name:
+            store = self.get_store(store_name)
+        else:
+            store = None
+
+        # Provider is specified in:
+        #   model's "provider"
+        #   or store's model_provider_name
+        #   or "default"
+        provider_name = metadata.get("provider")
+        if not provider_name:
+            if store:
+                provider_name = store.model_provider_name()
+            else:
+                provider_name = "default"
+
+
+        provider = create_model_provider(provider_name, metadata, store)
 
         model_object = Model(metadata=metadata,
                              provider=provider,
                              translations=translations)
 
+        self._models.append(model_object)
+
         # Get list of static or known cubes
         # "cubes" might be a list or a dictionary, depending on the provider
-        for cube in metadata.get("cubes", []):
+        for cube in provider.list_cubes():
             name = _get_name(cube, "Cube")
+            self.logger.debug("registering public cube '%s'" % name)
             self._register_public_cube(name, model_object)
 
         # Get list of exported dimensions
@@ -178,10 +234,12 @@ class Workspace(object):
         # 
         if "public_dimensions" in metadata:
             for dim in metadata["public_dimensions"]:
+                self.logger.debug("registering public dimension '%s' (by ref.)" % name)
                 self._register_public_dimension(dim, model_object)
         else:
             for dim in metadata.get("dimensions", []):
                 name = _get_name(dim, "Dimension")
+                self.logger.debug("registering public dimension '%s'" % name)
                 self._register_public_dimension(name, model_object)
 
     def _register_public_dimension(self, name, model):
@@ -206,8 +264,34 @@ class Workspace(object):
 
         self.cube_models[name] = model
 
+    def model(self):
+        """Return a combined model"""
+        model = Model()
+
+        for cube in self.cube_list():
+            model.add_cube(self.cube(cube["name"]))
+
+        return model
+
+    def list_cubes(self):
+        """Get a list of metadata for cubes in the workspace. Result is a list
+        of dictionaries with keys: `name`, `label`, `category`, `info`.
+
+        The list is fetched from the model providers on the call of this
+        method.
+        """
+        all_cubes = []
+        for model in self._models:
+            all_cubes += model.provider.list_cubes()
+
+        return all_cubes
+
     def cube(self, name):
         """Returns a cube with `name`"""
+
+        if not isinstance(name, basestring):
+            raise TypeError("Name is not a string, is %s" % type(name))
+
         if name in self._cubes:
             return self._cubes[name]
 
@@ -218,19 +302,38 @@ class Workspace(object):
         try:
             model = self.cube_models[name]
         except KeyError:
-            # TODO: give a chance to get 'unknown cube'
-            # Use "dynamic_cubes" flag to determine searchable models
-            # flag can be provided by provider first, then model can
-            # disable it
-            raise ModelError("No model providing cube '%s'" % name)
+            model = self._model_for_cube(name)
 
         provider = model.provider
         cube = provider.cube(name)
+
+        if not cube:
+            raise NoSuchCubeError(name, "No cube '%s' returned from "
+                                     "provider." % name)
 
         self.link_cube(cube, model, provider)
 
         self._cubes[name] = cube
         return cube
+
+    def _model_for_cube(self, name):
+        """Discovers the first model that can provide cube with `name`"""
+
+        # Note: this will go through all model providers and gets a list of
+        # provider's cubes. Might be a bit slow, if the providers get the
+        # models remotely.
+
+        model = None
+        for model in self._models:
+            cubes = model.provider.list_cubes()
+            names = [cube["name"] for cube in cubes]
+            if name in names:
+                break
+
+        if not model:
+            raise ModelError("No model for cube '%s'" % name)
+
+        return model
 
     def link_cube(self, cube, model, provider):
         """Links dimensions to the cube in the context of `model` with help of
@@ -324,7 +427,10 @@ class Workspace(object):
         # TODO: bring back the localization
         # model = self.localized_model(locale)
 
-        cube = self.cube(cube)
+        if isinstance(cube, basestring):
+            cube = self.cube(cube)
+
+        # TODO: check if the cube is "our" cube
 
         store_name = cube.store or "default"
         store = self.get_store(store_name)
@@ -341,7 +447,7 @@ class Workspace(object):
 
         return browser
 
-    def get_store(self, name):
+    def get_store(self, name="default"):
         """Opens a store `name`. If the store is already open, returns the
         existing store."""
 
@@ -351,7 +457,7 @@ class Workspace(object):
         try:
             type_, options = self.store_infos[name]
         except KeyError:
-            raise CubesError("No info for store %s" % name)
+            raise ConfigurationError("No info for store %s" % name)
 
         store = open_store(type_, **options)
         self.stores[name] = store
