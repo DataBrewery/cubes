@@ -19,7 +19,7 @@ def open_store(name, **options):
     try:
         factory = ns[name]
     except KeyError:
-        raise CubesError("Unable to find store '%s'" % name)
+        raise ConfigurationError("Unknown store '%s'" % name)
 
     return factory(**options)
 
@@ -35,7 +35,7 @@ def create_browser(type_, cube, store, locale, **options):
     try:
         factory = ns[type_]
     except KeyError:
-        raise CubesError("Unable to find browser of type '%s'" % type_)
+        raise ConfigurationError("Unable to find browser of type '%s'" % type_)
 
     return factory(cube=cube, store=store, locale=locale, **options)
 
