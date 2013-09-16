@@ -2,6 +2,9 @@
 
 The base exception calss is :class:`.CubesError`."""
 
+class ConfigurationError(Exception):
+    """Raised when there is a problem with workspace configuration assumed."""
+
 class CubesError(Exception):
     """Generic error class."""
 
@@ -21,6 +24,9 @@ class MissingObjectError(ModelError):
 
 class NoSuchDimensionError(MissingObjectError):
     """Raised when an unknown dimension is requested."""
+
+class NoSuchCubeError(MissingObjectError):
+    """Raised when an unknown cube is requested."""
 
 class TemplateRequired(ModelError):
     """Raised by a model provider which can provide a dimension, but requires
