@@ -14,6 +14,9 @@ syn match Keyword "\"cubes\"" display
 syn match Keyword "\"dimensions\"" display
 syn match Keyword "\"details\"" display
 syn match Keyword "\"locale\"" display
+syn match Keyword "\"public_dimensions\"" display
+syn match Keyword "\"provider\"" display
+syn match Keyword "\"source\"" display
 
 syn match Keyword "\"levels\"" display
 syn match Keyword "\"hierarchies\"" display
@@ -33,6 +36,12 @@ syn match Keyword "\"info\"" display
 syn match Keyword "\"options\"" display
 syn match Keyword "\"order\"" display
 syn match Keyword "\"aggregations\"" display
+
+" Physical properties
+syn match Keyword "\"store\"" display
+syn match Keyword "\"browser\"" display
+syn match Keyword "\"browser_options\"" display
+syn match Keyword "\"fact\"" display
 
 " Mappings
 syn match Keyword "\"joins\"" display
