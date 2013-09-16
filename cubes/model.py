@@ -23,6 +23,7 @@ __all__ = [
     "read_model_metadata",
     "read_model_metadata_bundle",
     "create_model_provider",
+    "ModelProvider",
 
     "attribute_list",
     "coalesce_attribute",
@@ -64,7 +65,7 @@ __all__ = [
 RECORD_COUNT_MEASURE = { 'name': 'record', 'label': 'Count', 'aggregations': [ 'count', 'sma' ] }
 
 
-def create_model_provider(name, source, metadata):
+def create_model_provider(name, metadata, store):
     """Gets a new instance of a model provider with name `name`."""
 
     ns = get_namespace("model_providers")
@@ -77,7 +78,7 @@ def create_model_provider(name, source, metadata):
     except KeyError:
         raise CubesError("Unable to find model provider of type '%s'" % name)
 
-    return factory(source, metadata)
+    return factory(metadata, store)
 
 def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
@@ -210,17 +211,37 @@ class ModelProvider(object):
     """Abstract class. Currently empty and used only to find other model
     providers."""
 
-    def __init__(self, source=None, metadata=None):
-        """Initializes a model provider and sets two instance variables
-        `source` and `metadata`. The `source` is arbitrary structure
-        interpreted by the custom subclass. `metadata` is a model metadata
+    def __init__(self, metadata=None, store=None):
+        """Initializes a model provider and sets `metadata` – a model metadata
         dictionary.
+
+        Instance variable `store` might be populated after the
+        initialization. If the model provider requires an open store, it
+        should advertise it through `True` value returned by provider's
+        `requires_store()` method.  Otherwise no store is opened for the model
+        provider. `store_name` is also set.
 
         Subclasses should call this method when they are implementing custom
         `__init__()`.
+
         """
-        self.source = source
         self.metadata = metadata
+        self.store = None
+
+    def model_provider_name(self):
+        """Returns a name of a model provider for this store."""
+        return "default"
+
+
+    def list_cubes(self):
+        """Get a list of metadata for cubes in the workspace. Result is a list
+        of dictionaries with keys: `name`, `label`, `category`, `info`.
+
+        The list is fetched from the model providers on the call of this
+        method.
+        """
+        raise NotImplementedError("Subclasses should implement list_cubes()")
+        return []
 
     def cube(self, name):
         """Returns a cube with `name` provided by the receiver. If receiver
@@ -249,8 +270,8 @@ class DefaultModelProvider(ModelProvider):
     dynamic_cubes = False
     dynamic_dimensions = False
 
-    def __init__(self, source, metadata):
-        super(DefaultModelProvider, self).__init__(source, metadata)
+    def __init__(self, metadata, store):
+        super(DefaultModelProvider, self).__init__(metadata, store)
 
         # TODO: check for duplicates
         self.dimensions_metadata = {}
@@ -261,6 +282,20 @@ class DefaultModelProvider(ModelProvider):
         for cube in metadata.get("cubes", []):
             self.cubes_metadata[cube["name"]] = cube
 
+    def list_cubes(self):
+        cubes = []
+
+        for cube in self.metadata.get("cubes", []):
+            info = {
+                    "name": cube["name"],
+                    "label": cube.get("label", cube["name"]),
+                    "category": cube.get("category"),
+                    "info": cube.get("info")
+                }
+            cubes.append(info)
+
+        return cubes
+
     def cube(self, name):
         """
         Creates a cube `name` in context of `workspace` from provider's
@@ -268,10 +303,10 @@ class DefaultModelProvider(ModelProvider):
         list of `required_dimensions`.
         """
 
-        try:
+        if name in self.cubes_metadata:
             metadata = dict(self.cubes_metadata[name])
-        except KeyError:
-            raise ModelError("Unknown cube %s" % name)
+        else:
+            raise ModelError("Unknown cube --- %s" % name)
 
         # Merge model and cube mappings
         #
@@ -522,8 +557,9 @@ def merge_models(models):
                  dimensions=dimensions.values(),
                  cubes=all_cubes.values())
 
-def create_model(*args, **kwargs):
+def create_model(source):
     raise NotImplementedError("create_model() is depreciated, use Workspace.add_model()")
+
 
 def model_from_path(path):
     """Load logical model from a file or a directory specified by `path`.
@@ -931,7 +967,7 @@ class Cube(object):
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, required_dimensions=None,
-                 locale=None, **options):
+                 locale=None, category=None, **options):
         """Create a new Cube model.
 
         Attributes:
@@ -964,30 +1000,30 @@ class Cube(object):
         """
 
         self.name = name
+        self.locale = locale
 
+        # User-oriented metadata
         self.label = label
         self.description = description
+        self.category = category
+        self.info = info or {}
 
-        logger = get_logger()
-
+        # TODO: put this into the model provider
         if not measures:
             measures = [ copy.deepcopy(RECORD_COUNT_MEASURE) ]
         self.measures = attribute_list(measures)
         self.details = attribute_list(details)
 
-        # TODO: put this in a separate dictionary - this is backend-specific
+        # Physical properties
         self.mappings = mappings
         self.fact = fact
         self.joins = joins
         self.key = key
         self.browser_options = browser_options or {}
-        # TODO: make this nicer
         self.store = options.get("store")
         self.browser = options.get("browser")
 
-        self.info = info or {}
         self.required_dimensions = required_dimensions or []
-        self.locale = locale
         self._dimensions = OrderedDict()
 
         if dimensions:
@@ -995,7 +1031,7 @@ class Cube(object):
                 for dim in dimensions:
                     self.add_dimension(dim)
             else:
-                raise ModelError("dimensions for cube initialization should be "
+                raise ModelError("Dimensions for cube initialization should be "
                                  "a list of Dimension instances.")
 
     def add_dimension(self, dimension):
