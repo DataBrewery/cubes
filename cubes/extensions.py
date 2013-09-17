@@ -5,13 +5,16 @@ _default_modules = {
         "stores": {
                 "sql":"cubes.backends.sql.store",
                 "mongo":"cubes.backends.mongo",
-                "mongo2":"cubes.backends.mongo2"
+                "mongo2":"cubes.backends.mongo2",
+                "mixpanel":"cubes.backends.mixpanel.store",
             },
         "browsers": {
                 "snowflake":"cubes.backends.sql.star",
                 "snapshot": "cubes.backends.sql.star",
+                "mixpanel":"cubes.backends.mixpanel.browser",
             },
         "model_providers": {
+                "mixpanel":"cubes.backends.mixpanel.store",
             }
 }
 
