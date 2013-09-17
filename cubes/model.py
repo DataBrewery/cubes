@@ -25,6 +25,8 @@ __all__ = [
     "create_model_provider",
     "ModelProvider",
 
+    "create_dimension",
+
     "attribute_list",
     "coalesce_attribute",
 
@@ -65,7 +67,7 @@ __all__ = [
 RECORD_COUNT_MEASURE = { 'name': 'record', 'label': 'Count', 'aggregations': [ 'count', 'sma' ] }
 
 
-def create_model_provider(name, metadata, store):
+def create_model_provider(name, metadata, store, store_name):
     """Gets a new instance of a model provider with name `name`."""
 
     ns = get_namespace("model_providers")
@@ -78,7 +80,7 @@ def create_model_provider(name, metadata, store):
     except KeyError:
         raise CubesError("Unable to find model provider of type '%s'" % name)
 
-    return factory(metadata, store)
+    return factory(metadata, store, store_name)
 
 def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
@@ -211,7 +213,7 @@ class ModelProvider(object):
     """Abstract class. Currently empty and used only to find other model
     providers."""
 
-    def __init__(self, metadata=None, store=None):
+    def __init__(self, metadata=None, store=None, store_name=None):
         """Initializes a model provider and sets `metadata` – a model metadata
         dictionary.
 
@@ -226,7 +228,8 @@ class ModelProvider(object):
 
         """
         self.metadata = metadata
-        self.store = None
+        self.store = store
+        self.store_name = store_name
 
     def model_provider_name(self):
         """Returns a name of a model provider for this store."""
@@ -402,112 +405,117 @@ class DefaultModelProvider(ModelProvider):
         `hierarchies` is specified.
 
         """
-
-        dimensions = dimensions or {}
-
         try:
             metadata = dict(self.dimensions_metadata[name])
         except KeyError:
             raise NoSuchDimensionError(name)
 
-        if "template" in metadata:
-            template_name = metadata["template"]
-            try:
-                template = dimensions[template_name]
-            except KeyError:
-                raise TemplateRequired(template_name)
+        return create_dimension(metadata, dimensions)
 
-            levels = copy.deepcopy(template.levels)
+def create_dimension(metadata, dimensions=None, name=None):
+    """Create a dimension from a `metadata` dictionary."""
 
-            # Create copy of template's hierarchies, but reference newly
-            # created copies of level objects
-            hierarchies = []
-            level_dict = dict((level.name, level) for level in levels)
+    dimensions = dimensions or {}
 
-            for hier in template.hierarchies.values():
-                hier_levels = [level_dict[level.name] for level in hier.levels]
-                hier_copy = Hierarchy(hier.name,
-                                      hier_levels,
-                                      label=hier.label,
-                                      info=copy.deepcopy(hier.info))
-                hierarchies.append(hier_copy)
+    if "template" in metadata:
+        template_name = metadata["template"]
+        try:
+            template = dimensions[template_name]
+        except KeyError:
+            raise TemplateRequired(template_name)
 
-            default_hierarchy_name = template.default_hierarchy_name
-            label = template.label
-            description = template.description
-            info = template.info
-        else:
-            levels = None
-            hierarchies = None
-            default_hierarchy_name = None
-            label = None
-            description = None
-            info = {}
+        levels = copy.deepcopy(template.levels)
 
-        label = metadata.get("label") or label
-        description = metadata.get("description") or description
-        info = metadata.get("info") or info
+        # Create copy of template's hierarchies, but reference newly
+        # created copies of level objects
+        hierarchies = []
+        level_dict = dict((level.name, level) for level in levels)
 
-        # Levels
-        # ------
+        for hier in template.hierarchies.values():
+            hier_levels = [level_dict[level.name] for level in hier.levels]
+            hier_copy = Hierarchy(hier.name,
+                                  hier_levels,
+                                  label=hier.label,
+                                  info=copy.deepcopy(hier.info))
+            hierarchies.append(hier_copy)
 
-        levels_metadata = metadata.get("levels")
+        default_hierarchy_name = template.default_hierarchy_name
+        label = template.label
+        description = template.description
+        info = template.info
+    else:
+        levels = None
+        hierarchies = None
+        default_hierarchy_name = None
+        label = None
+        description = None
+        info = {}
 
-        if levels_metadata:
-            levels = []
+    label = metadata.get("label") or label
+    description = metadata.get("description") or description
+    info = metadata.get("info") or info
 
-            for md in levels_metadata:
-                level = Level(**fix_level_metadata(md))
-                levels.append(level)
+    # Levels
+    # ------
 
-        if not levels:
-            # Create a single level with same properties as the dimension.
-            attributes = ["attributes", "key", "order_attribute", "order",
-                          "label_attribute"]
-            level_md = {}
-            for attr in attributes:
-                if attr in metadata:
-                    level_md[attr] = metadata[attr]
+    levels_metadata = metadata.get("levels")
 
-            # Default: if no attributes, then there is single flat attribute
-            # whith same name as the dimension
-            level_md["name"] = name
-            level_md["label"] = label
-            level_md = fix_level_metadata(level_md)
+    if levels_metadata:
+        levels = []
 
-            levels = [Level(**level_md)]
+        for md in levels_metadata:
+            level = Level(**fix_level_metadata(md))
+            levels.append(level)
 
-        # Hierarchies
-        # -----------
+    if not levels:
+        # Create a single level with same properties as the dimension.
+        attributes = ["attributes", "key", "order_attribute", "order",
+                      "label_attribute"]
+        level_md = {}
+        for attr in attributes:
+            if attr in metadata:
+                level_md[attr] = metadata[attr]
 
-        if "hierarchy" in metadata and "hierarchies" in metadata:
-            raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies'"
-                                          " specified. Use only one")
+        # Default: if no attributes, then there is single flat attribute
+        # whith same name as the dimension
+        level_md["name"] = name
+        level_md["label"] = label
+        level_md = fix_level_metadata(level_md)
 
-        hierarchy = metadata.get("hierarchy")
+        levels = [Level(**level_md)]
 
-        if hierarchy:
-            # We consider it to be a list of level names
-            if not isinstance(hierarchy, Hierarchy):
-                hierarchy = Hierarchy("default", levels=hierarchy)
+    # Hierarchies
+    # -----------
 
-            hierarchies = [hierarchy]
+    if "hierarchy" in metadata and "hierarchies" in metadata:
+        raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies'"
+                                      " specified. Use only one")
 
-        elif "hierarchies" in metadata:
-            hierarchies = [Hierarchy(**md) for md in metadata["hierarchies"]]
+    hierarchy = metadata.get("hierarchy")
 
-        default_hierarchy_name = metadata.get("default_hierarchy_name",
-                                              default_hierarchy_name)
+    if hierarchy:
+        # We consider it to be a list of level names
+        if not isinstance(hierarchy, Hierarchy):
+            hierarchy = Hierarchy("default", levels=hierarchy)
 
-        # Merge with template:
-        return Dimension(name=name,
-                         levels=levels,
-                         hierarchies=hierarchies,
-                         default_hierarchy_name=default_hierarchy_name,
-                         label=label,
-                         description=description,
-                         info=info
-                         )
+        hierarchies = [hierarchy]
+
+    elif "hierarchies" in metadata:
+        hierarchies = [Hierarchy(**md) for md in metadata["hierarchies"]]
+
+    default_hierarchy_name = metadata.get("default_hierarchy_name",
+                                          default_hierarchy_name)
+
+    name = name or metadata["name"]
+
+    return Dimension(name=name,
+                     levels=levels,
+                     hierarchies=hierarchies,
+                     default_hierarchy_name=default_hierarchy_name,
+                     label=label,
+                     description=description,
+                     info=info
+                     )
 
 # TODO: is this still necessary?
 
@@ -1039,9 +1047,14 @@ class Cube(object):
         `ModelInconsistencyError` when dimension with same name already exists
         in the receiver. """
 
+        if not isinstance(dimension, Dimension):
+            raise ArgumentError("Dimension added to cube '%s' is not a "
+                                "Dimension instance." % self.name)
+
         if dimension.name in self._dimensions:
             raise ModelError("Dimension with name %s already exits "
                              "in cube %s" % (dimension.name, self.name))
+
 
         self._dimensions[dimension.name] = dimension
 
@@ -1109,6 +1122,17 @@ class Cube(object):
             raise NoSuchAttributeError("Invalid measure or measure reference '%s' for cube '%s'" %
                                     (obj, self.name))
 
+    def get_measures(self, measures):
+        """Get a list of measures as `Attribute` objects. If `measures` is
+        `None` then all cube's measures are returned."""
+
+        array = []
+
+        for measure in measures or self.measures:
+            array.append(self.measure[measure])
+
+        return array
+
     def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is default) then `joins`,
         `mappings`, `fact` and `options` are included. Should be set to
@@ -1142,7 +1166,7 @@ class Cube(object):
             out.setnoempty("mappings", self.mappings)
             out.setnoempty("fact", self.fact)
             out.setnoempty("joins", self.joins)
-            out.setnoempty("options", self.options)
+            out.setnoempty("browser_options", self.browser_options)
 
         out.setnoempty("key", self.key)
 
