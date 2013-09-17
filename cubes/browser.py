@@ -54,7 +54,7 @@ class AggregationBrowser(object):
     features = []
     """List of browser features as strings."""
 
-    def __init__(self, cube):
+    def __init__(self, cube, store, locale=None, metadata=None, **options):
         super(AggregationBrowser, self).__init__()
 
         if not cube:
@@ -1081,7 +1081,7 @@ TableRow = namedtuple("TableRow", ["key", "label", "path", "is_base", "record"])
 
 class CalculatedResultIterator(object):
     """
-    Iterator that decorates data items 
+    Iterator that decorates data items
     """
     def __init__(self, calculators, iterator):
         self.calculators = calculators
@@ -1135,7 +1135,7 @@ class AggregationResult(object):
     @property
     def cells(self):
         return self._cells
-    
+
     @cells.setter
     def cells(self, val):
         # decorate iterable with calcs if needed
@@ -1365,6 +1365,12 @@ def string_to_drilldown(astring):
         raise ArgumentError("String '%s' does not match drilldown level "
                             "pattern 'dim@hier:level'" % astring)
 
+
+DrilldownItem = namedtuple("DrilldownItem",
+                           ["dimension", "hierarchy", "levels"])
+
+# TODO: rename this (back to) coalesce_drilldown or something like that
+
 def levels_from_drilldown(cell, drilldown):
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
@@ -1380,16 +1386,13 @@ def levels_from_drilldown(cell, drilldown):
     For other types of cuts, such as range or set, "next" level is the first
     level of hierarachy.
 
-    Returns a list of tuples: (`dimension`, `levels`) where `levels` is a list
-    of levels to be drilled down.
-
-    .. note::
-
-        For backward compatibility the function accepts a dictionary where
-        keys are dimension names and values are level names to drill up to.
-        This is argument format is depreciated.
-
+    Returns a list of drilldown items with attributes: `dimension`,
+    `hierarchy` and `levels` where `levels` is a list of levels to be drilled
+    down.
     """
+
+    if not drilldown:
+        return []
 
     result = []
 
@@ -1443,7 +1446,7 @@ def levels_from_drilldown(cell, drilldown):
 
             levels = hier[:depth+1]
 
-        result.append( (dim, hier, levels) )
+        result.append( DrilldownItem(dim, hier, levels) )
 
     return result
 
