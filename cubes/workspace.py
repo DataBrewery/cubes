@@ -198,24 +198,30 @@ class Workspace(object):
 
         store_name = store or metadata.get("store")
         if store_name:
+            self.logger.debug("using store '%s'" % store_name)
             store = self.get_store(store_name)
         else:
+            self.logger.debug("no store")
             store = None
 
         # Provider is specified in:
         #   model's "provider"
-        #   or store's model_provider_name
+        #   or store's model_provider_name (explicitly specified as "store")
         #   or "default"
         provider_name = metadata.get("provider")
-        if not provider_name:
+
+        if provider_name == "store":
+            provider_name = store.model_provider_name()
+        elif not provider_name:
             if store:
                 provider_name = store.model_provider_name()
             else:
                 provider_name = "default"
 
+        self.logger.debug("using provider %s" % provider_name)
 
-        provider = create_model_provider(provider_name, metadata, store)
-
+        provider = create_model_provider(provider_name, metadata, store,
+                                         store_name)
         model_object = Model(metadata=metadata,
                              provider=provider,
                              translations=translations)
@@ -226,7 +232,7 @@ class Workspace(object):
         # "cubes" might be a list or a dictionary, depending on the provider
         for cube in provider.list_cubes():
             name = _get_name(cube, "Cube")
-            self.logger.debug("registering public cube '%s'" % name)
+            # self.logger.debug("registering public cube '%s'" % name)
             self._register_public_cube(name, model_object)
 
         # Get list of exported dimensions
@@ -234,12 +240,12 @@ class Workspace(object):
         # 
         if "public_dimensions" in metadata:
             for dim in metadata["public_dimensions"]:
-                self.logger.debug("registering public dimension '%s' (by ref.)" % name)
+                # self.logger.debug("registering public dimension '%s' (by ref.)" % name)
                 self._register_public_dimension(dim, model_object)
         else:
             for dim in metadata.get("dimensions", []):
                 name = _get_name(dim, "Dimension")
-                self.logger.debug("registering public dimension '%s'" % name)
+                # self.logger.debug("registering public dimension '%s'" % name)
                 self._register_public_dimension(name, model_object)
 
     def _register_public_dimension(self, name, model):
@@ -434,6 +440,7 @@ class Workspace(object):
 
         store_name = cube.store or "default"
         store = self.get_store(store_name)
+        store_type = self.store_infos[store_name][0]
 
         options = self._browser_options(cube)
 
@@ -441,7 +448,14 @@ class Workspace(object):
         # workspece default configuration
         # 
 
-        browser_name = cube.browser or store.default_browser_name
+        browser_name = cube.browser
+        if not browser_name and hasattr(store, "default_browser_name"):
+            browser_name = store.default_browser_name
+        if not browser_name:
+            browser_name = store_type
+        if not browser_name:
+            raise ConfigurationError("No store specified for cube '%s'" % cube)
+
         browser = create_browser(browser_name, cube, store=store,
                                  locale=locale, **options)
 
