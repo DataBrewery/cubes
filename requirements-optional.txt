@@ -5,4 +5,4 @@ werkzeug
 jinja2
 python-dateutil
 whoosh>=2.4.1
-
+mixpanel-py
