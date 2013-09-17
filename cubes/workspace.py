@@ -163,7 +163,13 @@ class Workspace(object):
         try:
             type_ = info.pop("type")
         except KeyError:
-            raise ConfigurationError("Store '%s' has no type" % name)
+            try:
+                type_ = info.pop("backend")
+            except KeyError:
+                raise ConfigurationError("Datastore '%s' has no type specified" % name)
+            else:
+                self.logger.warn("'backend' is depreciated, use 'type' for "
+                                 "datastore (in %s)." % str(name))
 
         self.register_store(name, type_, **info)
 
@@ -180,8 +186,8 @@ class Workspace(object):
 
         self.store_infos[name] = (type_, config)
 
-    def add_model(self, model, store=None, translations=None):
-        """Appends objects from `model`."""
+    def add_model(self, model, name=None, store=None, translations=None):
+        """Appends objects from the `model`."""
 
         # Model -> Store -> Provider
 
@@ -192,17 +198,32 @@ class Workspace(object):
         else:
             raise ConfigurationError("Unknown model source reference '%s'" % model)
 
+        # Master model?
+        if metadata.get("__is_master"):
+            # Other places using this format:
+            #     Workspace.model()
+            #     slicer tool merge_model
+
+            parts = metadata["parts"]
+            self.logger.debug("loading master model parts (%s)" % len(parts))
+            for part in parts:
+                self.add_model(part)
+            return
+
+        model_name = name or metadata.get("name")
+
         # Get the model's store name:
         #   specified as argument
         #   specified in the model as "store"
 
-        store_name = store or metadata.get("store")
+        store_name = store or metadata.get("datastore")
         if store_name:
             self.logger.debug("using store '%s'" % store_name)
             store = self.get_store(store_name)
         else:
-            self.logger.debug("no store")
-            store = None
+            # TODO: Backward compatible
+            if "info" in metadata:
+                store = metadata["info"].get("datastore")
 
         # Provider is specified in:
         #   model's "provider"
@@ -210,7 +231,7 @@ class Workspace(object):
         #   or "default"
         provider_name = metadata.get("provider")
 
-        if provider_name == "store":
+        if provider_name == "datastore":
             provider_name = store.model_provider_name()
         elif not provider_name:
             if store:
@@ -219,12 +240,14 @@ class Workspace(object):
                 provider_name = "default"
 
         self.logger.debug("using provider %s" % provider_name)
-
         provider = create_model_provider(provider_name, metadata, store,
                                          store_name)
+
+
         model_object = Model(metadata=metadata,
                              provider=provider,
                              translations=translations)
+        model_object.name = metadata.get("name")
 
         self._models.append(model_object)
 
@@ -271,13 +294,23 @@ class Workspace(object):
         self.cube_models[name] = model
 
     def model(self):
-        """Return a combined model"""
-        model = Model()
+        """Return a master model. Master model can be used to reconstruct the
+        workspace.
 
-        for cube in self.cube_list():
-            model.add_cube(self.cube(cube["name"]))
+        .. note::
 
-        return model
+            Master model should not be edited by hand for now.
+        """
+
+        master_model = {}
+
+        master_model["__comment"] = "This is a master model. Do not edit."
+        master_model["__is_master"] = True
+
+        models = [model.metadata for model in self._models]
+        master_model["parts"] = models
+
+        return master_model
 
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
