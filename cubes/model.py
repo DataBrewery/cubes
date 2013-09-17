@@ -273,8 +273,8 @@ class DefaultModelProvider(ModelProvider):
     dynamic_cubes = False
     dynamic_dimensions = False
 
-    def __init__(self, metadata, store):
-        super(DefaultModelProvider, self).__init__(metadata, store)
+    def __init__(self, metadata, store, store_name):
+        super(DefaultModelProvider, self).__init__(metadata, store, store_name)
 
         # TODO: check for duplicates
         self.dimensions_metadata = {}
@@ -830,39 +830,6 @@ class Model(object):
 
         return True
 
-    # def mappings_for_cube(self, cube):
-    #     """Returns consolidated mappings for `cube`."""
-    #     cube = self.cube(cube)
-    #     if cube.name in self._cube_mappings:
-    #         return self._cube_mappings[cube.name]
-
-    #     try:
-    #         mappings = self.mappings["cubes"][cube.name].copy()
-    #     except KeyError:
-    #         mappings = None
-
-    #     if mappings and cube.mappings():
-    #         raise ModelError("Both old-style mapping (in cube definition) "
-    #                 "and new-style mapping (in model) provided for "
-    #                 "cube %s. It is recommended to provide mapping at "
-    #                 "the model level." %  cube.name)
-
-    #     if cube.mappings():
-    #         mappings = cube.mappings().copy()
-    #     else:
-    #         mappings = mappings or {}
-
-    #     try:
-    #         all_dims = self.mappings["dimensions"]
-    #     except KeyError:
-    #         all_dims = {}
-
-    #     raise NotImplementedError("Continue here")
-
-    #     for dim in cube.dimensions():
-    #         if dim.name in all_dims:
-    #             for key, value in all_dims[dim.name]
-
     def _add_translation(self, lang, translation):
         self.translations[lang] = translation
 
@@ -976,7 +943,7 @@ class Cube(object):
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, required_dimensions=None,
                  locale=None, category=None, **options):
-        """Create a new Cube model.
+        """Create a new Cube model object.
 
         Attributes:
 
@@ -991,8 +958,8 @@ class Cube(object):
           databases)
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
-        * `required_dimensions` – dimensions to be linked to the cube
         * `locale`: cube's locale
+        * `required_dimensions` – dimensions to be linked to the cube
 
         Attributes used by backends:
 
