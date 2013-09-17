@@ -17,6 +17,8 @@ import ConfigParser
 import shlex
 from cubes.common import MissingPackageError, create_logger
 from cubes.errors import CubesError
+from cubes.model import read_model_metadata
+from collections import OrderedDict
 
 def validate_model(args):
     """docstring for validate_model"""
@@ -123,6 +125,26 @@ def convert_model(args):
         else:
             with open(path, "w") as f:
                 json.dump(info, f)
+
+def merge_model(args):
+    # For more information, read Workspace.add_model() and Workspace.model()
+
+    master_model = OrderedDict()
+    master_model["__comment"] = "This is a master model. Do not edit."
+    master_model["__is_master"] = True
+
+    models = []
+    for model in args.models:
+        models.append(read_model_metadata(model))
+
+    master_model["parts"] = models
+
+    if not args.target:
+        print json.dumps(master_model)
+    else:
+        with open(args.target, "w") as f:
+            json.dump(master_model, f)
+
 def model_to_json(args):
     raise NotImplementedError("Temporarily disabled.")
 
@@ -279,6 +301,14 @@ subparser.set_defaults(func=translate_model)
 subparser = model_subparsers.add_parser('json')
 subparser.add_argument('models', nargs='+', help='one or more model references - can be local file paths or URL')
 subparser.set_defaults(func=model_to_json)
+
+################################################################################
+# Command: merge
+
+subparser = model_subparsers.add_parser('merge')
+subparser.add_argument('models', nargs='+', help='one or more model references - can be local file paths or URL')
+subparser.add_argument('target', help='target output path', nargs='?', default=None)
+subparser.set_defaults(func=merge_model)
 
 ################################################################################
 # Command: extract_locale
