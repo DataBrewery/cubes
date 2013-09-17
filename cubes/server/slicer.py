@@ -12,18 +12,23 @@ try:
     from werkzeug.wsgi import ClosingIterator
     from werkzeug.exceptions import HTTPException, NotFound
     import werkzeug.serving
-except:
+except ImportError:
     from ..common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Map = Rule = Request = ClosingIterator = HTTPException = _missing
     NotFound = Response = werkzeug = _missing
+try:
+    import pytz
+except ImportError:
+    from ..common import MissingPackage
+    _missing = MissingPackage("pytz", "Time zone support in the server")
 
 from ..workspace import Workspace
 from ..common import *
 
 from .common import *
 from .controllers import *
-from .utils import local_manager
+from .utils import local_manager, set_default_tz
 
 # TODO: this deserves Flask!
 
@@ -190,9 +195,7 @@ def run_server(config):
         host = "localhost"
 
     if config.has_option('server', 'tz'):
-        import pytz
-        utils.default_tz = pytz.timezone(config.get("server", "tz"))
-        print 'Loaded TZ', utils.default_tz
+        set_default_tz(pytz.timezone(config.get("server", "tz")))
 
     if config.has_option("server", "port"):
         port = config.getint("server", "port")
