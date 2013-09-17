@@ -1129,7 +1129,7 @@ class Cube(object):
         array = []
 
         for measure in measures or self.measures:
-            array.append(self.measure[measure])
+            array.append(self.measure(measure))
 
         return array
 
