@@ -65,8 +65,8 @@ class MixpanelBrowser(AggregationBrowser):
                                 "of type %s" % type(time_cut))
 
         # Defaults:
-        #     from date – first day of current month
-        #     to date – today
+        #     from date - first day of current month
+        #     to date - today
 
         today = datetime.datetime.today()
 
