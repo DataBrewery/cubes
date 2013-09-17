@@ -5,6 +5,11 @@ from datetime import datetime, timedelta
 tz_utc = pytz.timezone('UTC')
 default_tz = pytz.timezone(strftime("%Z", gmtime()))
 
+def set_default_tz(tz):
+    default_tz = tz
+
+def get_default_tz():
+    return default_tz
 
 def now(tzinfo=default_tz):
     n = datetime.utcnow()
