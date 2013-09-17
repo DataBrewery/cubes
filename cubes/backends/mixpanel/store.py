@@ -5,12 +5,12 @@ from .mixpanel import *
 
 DIMENSION_COUNT_LIMIT = 100
 
-date_dimension_md = {
-    "name": "date",
+time_dimension_md = {
+    "name": "time",
     "levels": ["month", "week", "day","hour"],
 }
 
-_date_dimension = create_dimension(date_dimension_md)
+_time_dimension = create_dimension(time_dimension_md)
 
 class MixpanelModelProvider(ModelProvider):
     def cube(self, name):
@@ -20,7 +20,7 @@ class MixpanelModelProvider(ModelProvider):
             raise NoSuchCubeError(name)
 
         dims = result.keys()
-        dims.append("date")
+        dims.append("time")
 
         measures = attribute_list(["total", "uniques"])
 
@@ -29,11 +29,20 @@ class MixpanelModelProvider(ModelProvider):
                     required_dimensions=dims,
                     store=self.store_name)
 
+        # TODO: this is new (remove this comment)
+        cube.category = self.store.category
+
+        # TODO: required_drilldown might be a cube's attribute (fixed_dd?)
+        cube.info = {
+                    "required_drilldown": "date",
+                    "category": cube.category
+                }
+
         return cube
 
     def dimension(self, name):
-        if name == "date":
-            return _date_dimension
+        if name == "time":
+            return _time_dimension
 
         level = Level(name, attribute_list([name]))
         dim = Dimension(name,
@@ -55,8 +64,9 @@ class MixpanelModelProvider(ModelProvider):
         return cubes
 
 class MixpanelStore(Store):
-    def __init__(self, api_key, api_secret):
+    def __init__(self, api_key, api_secret, category=None):
         self.mixpanel = Mixpanel(api_key, api_secret)
+        self.category = category or "Mixpanel"
 
     def model_provider_name(self):
         return "mixpanel"
