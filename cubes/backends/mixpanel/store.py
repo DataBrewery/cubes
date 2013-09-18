@@ -25,7 +25,9 @@ class MixpanelModelProvider(ModelProvider):
         if not result:
             raise NoSuchCubeError(name)
 
-        dims = result.keys()
+        names = result.keys()
+        # Replace $ with underscore _
+        dims = [dim_name.replace("$", "_") for dim_name in names]
         dims.append("time")
 
         measures = attribute_list(["total", "uniques"])
