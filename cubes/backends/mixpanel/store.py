@@ -20,6 +20,17 @@ _time_dimension = create_dimension(time_dimension_md)
 
 class MixpanelModelProvider(ModelProvider):
     def cube(self, name):
+        """Creates a mixpanel cube with following variables:
+
+        * `name` – cube name
+        * `measures` – cube measures: `total` and `uniques`
+        * `required_dimensions` – list of required dimension names
+        * `mappings` – mapping of corrected dimension names
+
+        Dimensions are Mixpanel's properties where ``$`` character is replaced
+        by the underscore ``_`` character.
+        """
+
         result = self.store.request(["events", "properties", "top"],
                             {"event":name, "limit":DIMENSION_COUNT_LIMIT})
         if not result:
@@ -27,15 +38,22 @@ class MixpanelModelProvider(ModelProvider):
 
         names = result.keys()
         # Replace $ with underscore _
-        dims = [dim_name.replace("$", "_") for dim_name in names]
-        dims.append("time")
+        dims = ["time"]
+        mappings = {}
+
+        for dim_name in result.keys():
+            fixed_name = dim_name.replace("$", "_")
+            if fixed_name != dim_name:
+                mappings[fixed_name] = dim_name
+            dims.append(fixed_name)
 
         measures = attribute_list(["total", "uniques"])
 
         cube = Cube(name=name,
                     measures=measures,
                     required_dimensions=dims,
-                    store=self.store_name)
+                    store=self.store_name,
+                    mappings=mappings)
 
         # TODO: this is new (remove this comment)
         cube.category = self.store.category
