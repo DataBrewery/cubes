@@ -1356,7 +1356,12 @@ def string_to_drilldown(astring):
     Raises `ArgumentError` when `astring` does not match expected pattern.
     """
 
-    pattern = r"(?P<dim>\w+)(@(?P<hier>\w+))?(:(?P<level>\w+))?"
+    if not astring:
+        raise ArgumentError("Drilldown string should not be empty")
+
+    ident = r"[\w\d_]"
+    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % \
+                                                        (ident, ident, ident)
     match = re.match(pattern, astring)
 
     if match:
@@ -1364,7 +1369,7 @@ def string_to_drilldown(astring):
         return (d["dim"], d["hier"], d["level"])
     else:
         raise ArgumentError("String '%s' does not match drilldown level "
-                            "pattern 'dim@hier:level'" % astring)
+                            "pattern 'dimension@hierarchy:level'" % astring)
 
 
 class Drilldown(object):
