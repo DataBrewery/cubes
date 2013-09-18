@@ -14,10 +14,10 @@ _NOOP = lambda x: '||%s||' % x
 # obtained through args.getlist() (such as "?drilldown=x&drilldown=y")
 def proc_wildcards(args):
     copy = args.copy()
-    for k, v in args.items():
+    for k, v in args.iterlists():
         k = op(k)
-        v = op(v)
-        copy[k] = v
+        v = [ op(ve) for ve in v ]
+        copy.setlist(k, v)
     return copy
 
 
