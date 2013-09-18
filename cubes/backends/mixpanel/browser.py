@@ -211,7 +211,6 @@ class MixpanelBrowser(AggregationBrowser):
         responses = {}
         for measure in measure_names:
             params["type"] = _measure_param[measure]
-            print "--- measure: %s -> %s" % (measure, params["type"])
             response = self.store.request(["segmentation"],
                                             params)
             # print "=== response:", response
@@ -239,8 +238,11 @@ class MixpanelBrowser(AggregationBrowser):
         time_series = responses[measure_names[0]]["data"]["series"]
         time_series = [(key, time_to_path(key)) for key in time_series]
 
+        time_levels = ["time."+level.name for level in drilldown["time"].levels]
+
         for time_key, time_path in time_series:
-            cells[time_key] = { "time": time_path }
+            cell = dict(zip(time_levels, time_path))
+            cells[time_key] = cell
 
         if not drilldown_on:
             measure_values = {}
@@ -266,10 +268,10 @@ class MixpanelBrowser(AggregationBrowser):
                 for dim_key, dim_values in measure_values.items():
                     for time_key, time_path in time_series:
                         cell = cells[time_key]
-                        cell[drilldown_dim]= [dim_key]
+                        cell[drilldown_dim]= dim_key
                         cell[measure]= dim_values[time_key]
 
-        result.cells = cells.items()
+        result.cells = cells.values()
         result.levels = drilldown.levels_dictionary()
 
         return result
