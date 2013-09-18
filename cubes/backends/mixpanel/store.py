@@ -13,7 +13,8 @@ time_dimension_md = {
     "levels": ["year", "month", "day", "hour"],
     "hierarchies": [
         {"name":"mdh", "levels": ["year", "month", "day", "hour"]}
-    ]
+    ],
+    "info": { "is_date": True }
 }
 
 _time_dimension = create_dimension(time_dimension_md)
