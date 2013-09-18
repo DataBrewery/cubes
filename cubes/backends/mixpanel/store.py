@@ -1,13 +1,19 @@
+# -*- coding=utf -*-
 from ...model import *
 from ...browser import *
 from ...stores import Store
+from ...errors import *
 from .mixpanel import *
+from string import capwords
 
 DIMENSION_COUNT_LIMIT = 100
 
 time_dimension_md = {
     "name": "time",
-    "levels": ["month", "week", "day","hour"],
+    "levels": ["year", "month", "day", "hour"],
+    "hierarchies": [
+        {"name":"mdh", "levels": ["year", "month", "day", "hour"]}
+    ]
 }
 
 _time_dimension = create_dimension(time_dimension_md)
@@ -54,10 +60,12 @@ class MixpanelModelProvider(ModelProvider):
         result = self.store.request(["events", "names"],
                                     {"type":"general", })
         cubes = []
+
         for name in result:
+            label = capwords(name.replace("_", " "))
             cube = {
                     "name": name,
-                    "label": name
+                    "label": label
                     }
             cubes.append(cube)
 
@@ -72,4 +80,12 @@ class MixpanelStore(Store):
         return "mixpanel"
 
     def request(self, *args, **kwargs):
-        return self.mixpanel.request(*args, **kwargs)
+        """Performs a mixpanel HTTP request. Raises a BackendError when
+        mixpanel returns `error` in the response."""
+
+        response = self.mixpanel.request(*args, **kwargs)
+
+        if "error" in response:
+            raise BackendError("Mixpanel request error: %s" % response["error"])
+
+        return response
