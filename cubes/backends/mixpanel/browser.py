@@ -74,6 +74,15 @@ def time_to_path(time_string):
 
 class MixpanelBrowser(AggregationBrowser):
     def __init__(self, cube, store, locale=None, metadata=None, **options):
+        """Creates a Mixpanel aggregation browser.
+
+        Requirements and limitations:
+
+        * `time` dimension should always be present in the drilldown
+        * only one other dimension is allowd for drilldown
+        * range cuts assume numeric dimensions
+        * unable to drill-down on `year` level, will default to `month`
+        """
         self.store = store
         self.cube = cube
         self.options = options
@@ -118,6 +127,7 @@ class MixpanelBrowser(AggregationBrowser):
         else:
             raise ArgumentError("Mixpanel does not know how to handle cuts "
                                 "of type %s" % type(time_cut))
+
         path_time_from = coalesce_date_path(path_time_from, 0)
         path_time_to = coalesce_date_path(path_time_to, 1)
 
@@ -145,7 +155,8 @@ class MixpanelBrowser(AggregationBrowser):
                 drilldown_on = obj
 
         if drilldown_on:
-            params["on"] = 'properties["%s"]' % str(drilldown_on.dimension)
+            params["on"] = 'properties["%s"]' % \
+                                    self._property(drilldown_on.dimension)
 
         cuts = [cut for cut in cell.cuts if str(cut.dimension) != "time"]
 
@@ -155,16 +166,20 @@ class MixpanelBrowser(AggregationBrowser):
         conditions = []
         for cut in cuts:
             if isinstance(cut, PointCut):
-                condition = self._point_condition(cut.dim, cut.path[0])
+                condition = self._point_condition(cut.dimension, cut.path[0])
                 conditions.append(condition)
             elif isinstance(cut, RangeCut):
-                condition = self._range_condition(cut.dim, cut.from_path[0],
-                                                                cut.to_path[0])
+                condition = self._range_condition(cut.dimension,
+                                                  cut.from_path[0],
+                                                  cut.to_path[0])
                 conditions.append(condition)
             elif isinstance(cut, SetCut):
+                set_conditions = []
                 for path in cut.paths:
-                    condition = self._point_condition(cut.dim, path[0])
-                    conditions.append(condition)
+                    condition = self._point_condition(cut.dimension, path[0])
+                    set_conditions.append(condition)
+                condition = " or ".join(set_conditions)
+                conditions.append(condition)
 
         if len(conditions) > 1:
             conditions = ["(%s)" % cond for cond in conditions]
@@ -220,12 +235,24 @@ class MixpanelBrowser(AggregationBrowser):
 
         return result
 
-    def _point_cut(self, dim, value):
+    def _property(self, dim):
+        """Return correct property name from dimension."""
+        dim = str(dim)
+        return self.cube.mappings.get(dim, dim)
+
+    def _point_condition(self, dim, value):
         """Returns a point cut for flat dimension `dim`"""
-        condition = 'string(properties["%s"]) == "%s"' % \
-                        (str(dimension), str(value))
+
+        condition = '(string(properties["%s"]) == "%s")' % \
+                        (self._property(dim), str(value))
         return condition
-    def _range_cut(self, dim, from_value, to_value):
-        """Returns a point cut for flat dimension `dim`"""
-        raise NotImplementedError
+
+    def _range_condition(self, dim, from_value, to_value):
+        """Returns a point cut for flat dimension `dim`. Assumes number."""
+
+        condition = '(number(properties["%s"]) >= %s and ' \
+                    'number(properties["%s"]) <= %s)' % \
+                        (self._property(dim), from_value,
+                        self._property(dim), to_value)
+        return condition
 
