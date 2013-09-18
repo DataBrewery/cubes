@@ -474,7 +474,6 @@ class CubesController(ApplicationController):
         return self.json_response(result)
 
     def cell_details(self, cube):
-        print self.request
         self.create_browser(cube)
         self.prepare_cell()
 

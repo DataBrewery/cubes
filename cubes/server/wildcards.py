@@ -1,7 +1,7 @@
 import re
 from functools import partial
 import pytz
-from datetime import datetime, timedelta 
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta, SA
 from utils import now
 import logging
@@ -9,6 +9,9 @@ import logging
 
 _NOOP = lambda x: '||%s||' % x
 
+# FIXME: Warning: this kills all multiple argument occurences
+# This function removes all duplicates of query parameters that can be
+# obtained through args.getlist() (such as "?drilldown=x&drilldown=y")
 def proc_wildcards(args):
     copy = args.copy()
     for k, v in args.items():

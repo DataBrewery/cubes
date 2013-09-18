@@ -1,3 +1,4 @@
+# -*- coding=utf -*-
 from .common import decamelize, to_identifier
 from collections import defaultdict
 
