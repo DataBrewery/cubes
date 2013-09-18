@@ -17,9 +17,7 @@ except ImportError:
     from cubes.common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
-__all__ = [
-    "create_workspace"
-]
+__all__ = []
 
 # Data types of options passed to sqlalchemy.create_engine 
 # This is used to coalesce configuration string values into appropriate types
