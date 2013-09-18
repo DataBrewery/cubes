@@ -119,8 +119,8 @@ class Workspace(object):
         #   name [store_*] (not documented feature)
 
         default = None
-        if config.has_section("store"):
-            default = dict(config.items("store"))
+        if config.has_section("datastore"):
+            default = dict(config.items("datastore"))
         else:
             self.logger.warn("No [store] configuration found, using old "
                              "backend & [workspace]. Update you config file.")
@@ -217,13 +217,13 @@ class Workspace(object):
         #   specified in the model as "store"
 
         store_name = store or metadata.get("datastore")
-        if store_name:
-            self.logger.debug("using store '%s'" % store_name)
-            store = self.get_store(store_name)
-        else:
-            # TODO: Backward compatible
-            if "info" in metadata:
-                store = metadata["info"].get("datastore")
+        if not store_name and "info" in metadata:
+            store_name = metadata["info"].get("datastore")
+
+        store_name = store_name or "default"
+
+        self.logger.debug("Using store '%s'" % store_name)
+        store = self.get_store(store_name)
 
         # Provider is specified in:
         #   model's "provider"
