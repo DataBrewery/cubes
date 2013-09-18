@@ -47,7 +47,7 @@ class MixpanelModelProvider(ModelProvider):
                 mappings[fixed_name] = dim_name
             dims.append(fixed_name)
 
-        measures = attribute_list(["total", "uniques"])
+        measures = attribute_list(["total", "unique"])
 
         cube = Cube(name=name,
                     measures=measures,

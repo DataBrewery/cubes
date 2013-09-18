@@ -5,6 +5,13 @@ from ...model import *
 
 import datetime
 import calendar
+from collections import OrderedDict
+
+_measure_param = {
+        "total": "general",
+        "unique": "unique",
+        "average": "average"
+    }
 
 def coalesce_date_path(path, bound):
     # Bound: 0: lower, 1:upper
@@ -96,6 +103,7 @@ class MixpanelBrowser(AggregationBrowser):
         # TODO: this is incosistent with "if nothing explicit, then all"
         measures = measures or ["total"]
         measures = self.cube.get_measures(measures)
+        measure_names = [m.name for m in measures]
 
         # Get the cell and prepare cut parameters
         cell = cell or Cell(self.cube)
@@ -160,6 +168,10 @@ class MixpanelBrowser(AggregationBrowser):
 
         cuts = [cut for cut in cell.cuts if str(cut.dimension) != "time"]
 
+        #
+        # The Conditions
+        # ==============
+        #
         # Create 'where' condition from cuts
         # Assumption: all dimensions are flat dimensions
 
@@ -190,47 +202,74 @@ class MixpanelBrowser(AggregationBrowser):
         if "limit" in options:
             params["limit"] = options["limit"]
 
-        response = self.store.request(["segmentation"],
-                                    params)
+        #
+        # The request
+        # ===========
+        # Perform one request per measure.
+        #
 
-        result = AggregationResult(cell, measures)
+        responses = {}
+        for measure in measure_names:
+            params["type"] = _measure_param[measure]
+            print "--- measure: %s -> %s" % (measure, params["type"])
+            response = self.store.request(["segmentation"],
+                                            params)
+            # print "=== response:", response
+            responses[measure] = response
 
-        # TODO: get this
-        # result.total_cell_count = None
+
+        # TODO: get this: result.total_cell_count = None
         # TODO: compute summary
 
-        # print "=== response:", response
+        #
+        # The Result
+        # ==========
+        #
 
-        cells = []
+        result = AggregationResult(cell, measures)
+        result.cell = cell
 
-        time_series = response["data"]["series"]
+        # Assumption:
+        #   mixpanel returns same time series structure for every request with
+        #   same parameters => we can take one (any) response and share the
+        #   series with other responses
+
+        cells = OrderedDict()
+
+        time_series = responses[measure_names[0]]["data"]["series"]
         time_series = [(key, time_to_path(key)) for key in time_series]
 
+        for time_key, time_path in time_series:
+            cells[time_key] = { "time": time_path }
+
         if not drilldown_on:
-            values = response["data"]["values"][self.cube.name]
-            for time_key, time_path in time_series:
-                value_cell = {
-                        "time": time_path,
-                        "total_sum": values[time_key]
-                    }
-                cells.append(value_cell)
+            measure_values = {}
+
+            for measure in measure_names:
+                measure_response_values = responses[measure]["data"]["values"]
+                measure_values = measure_response_values[self.cube.name]
+
+                for time_key, time_path in time_series:
+                    cell = cells[time_key]
+                    cell[measure] = measure_values[time_key]
 
         else: # if drilldown_on
+            # TODO: order keys
+
             # values: { city_A: {time:value, ...}, city_B: {time:value, ...} }
             drilldown_values = response["data"]["values"]
-            dd_name = drilldown_on.dimension.name
-            # TODO: order keys
-            for dim_key, values in drilldown_values.items():
-                for time_key, time_path in time_series:
-                    value_cell = {
-                            "time": time_path,
-                            dd_name: [dim_key],
-                            "total_sum": values[time_key]
-                        }
-                    cells.append(value_cell)
+            drilldown_dim = drilldown_on.dimension.name
 
-        result.cells = cells
-        result.cell = cell
+            for measure in measure_names:
+                measure_values = responses[measure]["data"]["values"]
+
+                for dim_key, dim_values in measure_values.items():
+                    for time_key, time_path in time_series:
+                        cell = cells[time_key]
+                        cell[drilldown_dim]= [dim_key]
+                        cell[measure]= dim_values[time_key]
+
+        result.cells = cells.items()
         result.levels = drilldown.levels_dictionary()
 
         return result
