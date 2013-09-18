@@ -18,6 +18,7 @@ from .common import get_logger, to_unicode_string
 
 __all__ = [
     "AggregationBrowser",
+    "Drilldown",
     "Cell",
     "Cut",
     "PointCut",
@@ -1365,6 +1366,57 @@ def string_to_drilldown(astring):
         raise ArgumentError("String '%s' does not match drilldown level "
                             "pattern 'dim@hier:level'" % astring)
 
+
+class Drilldown(object):
+    def __init__(self, drilldown, cell):
+        self.drilldown = levels_from_drilldown(cell, drilldown)
+        self.dimensions = []
+        self._last_level = {}
+        self._by_dimension = {}
+
+        # TODO: check for dim. cardinality and whether it sohuld be allowrd
+        for dd in self.drilldown:
+            self.dimensions.append(dd.dimension)
+            if dd.dimension.name in self._by_dimension:
+                raise ArgumentError("Drilldown dimension '%s' used multiple "
+                                    "times")
+            self._by_dimension[dd.dimension.name] = dd
+            self._last_level[dd.dimension.name] = dd.levels[-1]
+
+    def drilldown_for_dimension(self, dim):
+        return self._by_dimension[str(dim)]
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self.drilldown[key]
+        else:
+            return self._by_dimension[str(key)]
+
+    def last_level(self, dim):
+        return self._last_level[str(dim)]
+
+    def levels_dictionary(self):
+        """Returns a dictionary with list of levels for each dimensions. Keys
+        are dimension names, values are list of level names. This method is
+        intended to be used for `AggregationResult.levels`"""
+
+        # TODO: find a better name for this method
+
+        dim_levels = {}
+
+        for dim, hier, levels in self.drilldown:
+            dim_levels[str(dim)] = [str(level) for level in levels]
+
+        return dim_levels
+
+    def __contains__(self, key):
+        return str(key) in self._by_dimension
+
+    def __len__(self):
+        return len(self.drilldown)
+
+    def __iter__(self):
+        return self.drilldown.__iter__()
 
 DrilldownItem = namedtuple("DrilldownItem",
                            ["dimension", "hierarchy", "levels"])
