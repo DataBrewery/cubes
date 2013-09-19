@@ -74,6 +74,9 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
 
 class SQLStore(Store):
 
+    def model_provider_name(self):
+        return 'default'
+
     default_browser_name = "snowflake"
 
     def __init__(self, url=None, engine=None, schema=None, **options):

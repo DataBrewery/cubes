@@ -148,13 +148,6 @@ def merge_model(args):
 def model_to_json(args):
     raise NotImplementedError("Temporarily disabled.")
 
-    models = []
-    for path in args.models:
-        model = cubes.model_from_path(path)
-        models.append(model)
-    merged_model = cubes.merge_models(models)
-    dump_model(merged_model)
-
 def update_locale(args):
     raise NotImplementedError("update of localizable dictionary is not yet implemented")
 
@@ -300,7 +293,8 @@ subparser.set_defaults(func=translate_model)
 
 subparser = model_subparsers.add_parser('json')
 subparser.add_argument('models', nargs='+', help='one or more model references - can be local file paths or URL')
-subparser.set_defaults(func=model_to_json)
+subparser.add_argument('target', nargs='?', help='optional target path to write json model to')
+subparser.set_defaults(func=merge_model)
 
 ################################################################################
 # Command: merge

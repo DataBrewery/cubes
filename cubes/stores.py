@@ -42,4 +42,5 @@ def create_browser(type_, cube, store, locale, **options):
 
 class Store(object):
     """Abstract class to find other stores through the class hierarchy."""
-    pass
+    def model_provider_name(self):
+        raise NotImplementedError("Subclasses must implement")
