@@ -61,9 +61,9 @@ class MixpanelModelProvider(ModelProvider):
         # TODO: this is new (remove this comment)
         cube.category = self.store.category
 
-        # TODO: required_drilldown might be a cube's attribute (fixed_dd?)
+        # TODO: required_drilldowns might be a cube's attribute (fixed_dd?)
         cube.info = {
-                    "required_drilldown": "time",
+                    "required_drilldowns": ["time"],
                     "category": cube.category
                 }
 
