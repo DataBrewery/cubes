@@ -87,6 +87,7 @@ class MixpanelModelProvider(ModelProvider):
             cube = {
                     "name": name,
                     "label": label,
+                    "category":  self.store.category,
                     "info":  { "category": self.store.category }
                     }
             cubes.append(cube)
