@@ -65,6 +65,6 @@ class MongoWorkspace(Workspace):
 
         database = self.mongo[db]
 
-        builder = MongoSimpleCubeBuilder(cube, database, coll, cube_collection=coll, required_dimensions = ['t',])
+        builder = MongoSimpleCubeBuilder(cube, database, coll, cube_collection=coll, linked_dimensions = ['t',])
         return builder
 

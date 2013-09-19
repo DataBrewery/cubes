@@ -389,7 +389,7 @@ class Workspace(object):
         # dimensions
         #
 
-        for dim_name in cube.required_dimensions:
+        for dim_name in cube.linked_dimensions:
             try:
                 dim = provider.dimension(dim_name)
             except NoSuchDimensionError:
