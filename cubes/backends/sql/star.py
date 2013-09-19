@@ -88,7 +88,7 @@ class SnowflakeBrowser(AggregationBrowser):
         * locale is implemented as denormalized: one column for each language
 
         """
-        super(SnowflakeBrowser, self).__init__(cube)
+        super(SnowflakeBrowser, self).__init__(cube, store)
 
         if cube == None:
             raise ArgumentError("Cube for browser should not be None.")

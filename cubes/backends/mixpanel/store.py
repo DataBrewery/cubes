@@ -56,16 +56,13 @@ class MixpanelModelProvider(ModelProvider):
                     measures=measures,
                     required_dimensions=dims,
                     store=self.store_name,
-                    mappings=mappings)
-
-        # TODO: this is new (remove this comment)
-        cube.category = self.store.category
+                    mappings=mappings,
+                    category=self.store.category)
 
         # TODO: required_drilldowns might be a cube's attribute (fixed_dd?)
         cube.info = {
-                    "required_drilldowns": ["time"],
-                    "category": cube.category
-                }
+            "required_drilldowns": ["time"]
+        }
 
         return cube
 
@@ -89,8 +86,7 @@ class MixpanelModelProvider(ModelProvider):
             cube = {
                     "name": name,
                     "label": label,
-                    "category":  self.store.category,
-                    "info":  { "category": self.store.category }
+                    "category":  self.store.category
                     }
             cubes.append(cube)
 
