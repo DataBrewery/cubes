@@ -63,7 +63,7 @@ class MixpanelModelProvider(ModelProvider):
 
         # TODO: required_drilldown might be a cube's attribute (fixed_dd?)
         cube.info = {
-                    "required_drilldown": "date",
+                    "required_drilldown": "time",
                     "category": cube.category
                 }
 
