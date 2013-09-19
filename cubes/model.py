@@ -251,7 +251,7 @@ class ModelProvider(object):
         does not have the cube `ModelError` exception is raised.
 
         Returned cube has no dimensions assigned. You should assign the
-        dimensions according to the cubes `required_dimensions` list of
+        dimensions according to the cubes `linked_dimensions` list of
         dimension names."""
         raise NotImplementedError("Subclasses should implement cube() method")
 
@@ -303,7 +303,7 @@ class DefaultModelProvider(ModelProvider):
         """
         Creates a cube `name` in context of `workspace` from provider's
         metadata. Cube has no dimensions. You should link the dimensions from
-        list of `required_dimensions`.
+        list of `linked_dimensions`.
         """
 
         if name in self.cubes_metadata:
@@ -356,7 +356,7 @@ class DefaultModelProvider(ModelProvider):
 
         dimensions = metadata.pop("dimensions", [])
 
-        return Cube(required_dimensions=dimensions,
+        return Cube(linked_dimensions=dimensions,
                     mappings=mappings,
                     joins=cube_joins,
                     **metadata)
@@ -942,7 +942,7 @@ class Cube(object):
     def __init__(self, name, dimensions=None, measures=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
-                 info=None, required_dimensions=None,
+                 info=None, linked_dimensions=None,
                  locale=None, category=None, **options):
         """Create a new Cube model object.
 
@@ -960,7 +960,7 @@ class Cube(object):
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
         * `locale`: cube's locale
-        * `required_dimensions` – dimensions to be linked to the cube
+        * `linked_dimensions` – dimensions to be linked to the cube
 
         Attributes used by backends:
 
@@ -999,7 +999,7 @@ class Cube(object):
         self.store = options.get("store")
         self.browser = options.get("browser")
 
-        self.required_dimensions = required_dimensions or []
+        self.linked_dimensions = linked_dimensions or []
         self._dimensions = OrderedDict()
 
         if dimensions:
