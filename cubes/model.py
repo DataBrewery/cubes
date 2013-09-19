@@ -984,8 +984,6 @@ class Cube(object):
         self.info = info or {}
         # backward compatibility
         self.category = category or self.info.get("category")
-        if not self.category:
-            import pdb; pdb.set_trace()
 
         # TODO: put this into the model provider
         if not measures:
