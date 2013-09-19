@@ -292,8 +292,8 @@ class DefaultModelProvider(ModelProvider):
             info = {
                     "name": cube["name"],
                     "label": cube.get("label", cube["name"]),
-                    "category": cube.get("category"),
-                    "info": cube.get("info")
+                    "category": (cube.get("category") or cube.get("info", {}).get("category")),
+                    "info": cube.get("info", {})
                 }
             cubes.append(info)
 
@@ -981,8 +981,11 @@ class Cube(object):
         # User-oriented metadata
         self.label = label
         self.description = description
-        self.category = category
         self.info = info or {}
+        # backward compatibility
+        self.category = category or self.info.get("category")
+        if not self.category:
+            import pdb; pdb.set_trace()
 
         # TODO: put this into the model provider
         if not measures:
@@ -1111,6 +1114,7 @@ class Cube(object):
         out = IgnoringDictionary()
         out.setnoempty("name", self.name)
         out.setnoempty("info", self.info)
+        out.setnoempty("category", self.category)
 
         if options.get("create_label"):
             out.setnoempty("label", self.label or to_label(self.name))
