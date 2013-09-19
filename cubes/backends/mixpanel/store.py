@@ -86,7 +86,8 @@ class MixpanelModelProvider(ModelProvider):
             label = capwords(name.replace("_", " "))
             cube = {
                     "name": name,
-                    "label": label
+                    "label": label,
+                    "info":  { "category": self.store.category }
                     }
             cubes.append(cube)
 
