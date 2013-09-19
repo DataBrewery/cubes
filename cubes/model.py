@@ -410,7 +410,7 @@ class DefaultModelProvider(ModelProvider):
         except KeyError:
             raise NoSuchDimensionError(name)
 
-        return create_dimension(metadata, dimensions)
+        return create_dimension(metadata, dimensions, name)
 
 def create_dimension(metadata, dimensions=None, name=None):
     """Create a dimension from a `metadata` dictionary."""
@@ -479,6 +479,7 @@ def create_dimension(metadata, dimensions=None, name=None):
         # Default: if no attributes, then there is single flat attribute
         # whith same name as the dimension
         level_md["name"] = name
+        level_md["key"] = name
         level_md["label"] = label
         level_md = fix_level_metadata(level_md)
 
