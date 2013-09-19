@@ -216,7 +216,6 @@ class Workspace(object):
         #   specified as argument
         #   specified in the model as "datastore"
 
-        import pdb; pdb.set_trace()
         store_name = store or metadata.get("datastore")
         if not store_name and "info" in metadata:
             store_name = metadata["info"].get("datastore")
