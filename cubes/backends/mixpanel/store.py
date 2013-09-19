@@ -49,6 +49,8 @@ class MixpanelModelProvider(ModelProvider):
             dims.append(fixed_name)
 
         measures = attribute_list(["total", "unique"])
+        for m in measures:
+            m.aggregations = ['identity']
 
         cube = Cube(name=name,
                     measures=measures,
