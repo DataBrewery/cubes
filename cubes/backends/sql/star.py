@@ -116,7 +116,8 @@ class SnowflakeBrowser(AggregationBrowser):
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
                             (str(mapper_class.__name__), cube.name, locale))
 
-        self.mapper = mapper_class(cube, locale=self.locale, **options)
+        import pdb; pdb.set_trace()
+        self.mapper = mapper_class(cube, locale=self.locale, schema=store.schema, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
@@ -594,7 +595,7 @@ class QueryContext(object):
             self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
                                            autoload=True, schema=self.schema)
         except sqlalchemy.exc.NoSuchTableError:
-            in_schema = " in schema '%s'" if self.schema else ""
+            in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
             msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
             raise WorkspaceError(msg)
 
