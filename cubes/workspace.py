@@ -214,8 +214,9 @@ class Workspace(object):
 
         # Get the model's store name:
         #   specified as argument
-        #   specified in the model as "store"
+        #   specified in the model as "datastore"
 
+        import pdb; pdb.set_trace()
         store_name = store or metadata.get("datastore")
         if not store_name and "info" in metadata:
             store_name = metadata["info"].get("datastore")
@@ -471,7 +472,7 @@ class Workspace(object):
 
         # TODO: check if the cube is "our" cube
 
-        store_name = cube.store or "default"
+        store_name = cube.datastore or "default"
         store = self.get_store(store_name)
         store_type = self.store_infos[store_name][0]
 
