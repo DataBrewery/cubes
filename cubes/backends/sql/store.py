@@ -212,8 +212,8 @@ class SQLStore(Store):
 
         cube = self.model.cube(cube)
 
-        mapper = SnowflakeMapper(cube, cube.mappings, **self.options)
-        context = QueryContext(cube, mapper, metadata=self.metadata)
+        mapper = SnowflakeMapper(cube, cube.mappings, schema=schema, **self.options)
+        context = QueryContext(cube, mapper, schema=schema, metadata=self.metadata)
 
         key_attributes = []
         for dim in cube.dimensions:
@@ -340,8 +340,8 @@ class SQLStore(Store):
         * `replace` – if ``True`` then existing table will be replaced,
           otherwise an exception is raised if table already exists.
         """
-        mapper = SnowflakeMapper(cube, cube.mappings, **self.options)
-        context = QueryContext(cube, mapper, metadata=self.metadata)
+        mapper = SnowflakeMapper(cube, cube.mappings, schema=schema, **self.options)
+        context = QueryContext(cube, mapper, schema=schema, etadata=self.metadata)
 
         dimension = cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
@@ -465,8 +465,8 @@ class SQLStore(Store):
         for dimension in dimensions:
             keys += [level.key for level in dimension.hierarchy().levels]
 
-        mapper = SnowflakeMapper(cube, cube.mappings, **self.options)
-        context = QueryContext(cube, mapper, metadata=self.metadata)
+        mapper = SnowflakeMapper(cube, cube.mappings, schema=schema, **self.options)
+        context = QueryContext(cube, mapper, schema=schema, metadata=self.metadata)
 
         if mapper.fact_name == table_name and schema == mapper.schema:
             raise WorkspaceError("target is the same as source fact table")

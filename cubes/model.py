@@ -327,6 +327,10 @@ class DefaultModelProvider(ModelProvider):
         model_joins = self.metadata.get("joins")
         cube_joins = metadata.pop("joins", None)
 
+        # merge datastore from model if datastore not present
+        if not metadata.get("datastore"):
+            metadata['datastore'] = self.metadata.get("datastore")
+
         # model joins, if present, should be merged with cube's overrides.
         # joins are matched by the "name" key.
         if cube_joins and model_joins:
@@ -943,7 +947,7 @@ class Cube(object):
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, linked_dimensions=None,
-                 locale=None, category=None, **options):
+                 locale=None, category=None, datastore=None, **options):
         """Create a new Cube model object.
 
         Attributes:
@@ -969,6 +973,7 @@ class Cube(object):
         * `joins` - backend-specific join specification (used in SQL
           backend)
         * `fact` - fact dataset (table) name (physical reference)
+        * `datastore` - name of datastore to use
         * `options` - dictionary of other options used by the backend - refer
           to the backend documentation to see what options are used (for
           example SQL browser might look here for ``denormalized_view`` in
@@ -997,7 +1002,7 @@ class Cube(object):
         self.joins = joins
         self.key = key
         self.browser_options = browser_options or {}
-        self.store = options.get("store")
+        self.datastore = datastore or options.get("datastore")
         self.browser = options.get("browser")
 
         self.linked_dimensions = linked_dimensions or []
