@@ -436,7 +436,7 @@ class SQLStore(Store):
         return table
 
     def create_cube_aggregate(self, cube, table_name=None, dimensions=None,
-                                required_dimensions=None, schema=None,
+                                linked_dimensions=None, schema=None,
                                 replace=False):
         """Creates an aggregate table. If dimensions is `None` then all cube's
         dimensions are considered.
@@ -445,7 +445,7 @@ class SQLStore(Store):
 
         * `dimensions`: list of dimensions to use in the aggregated cuboid, if
           `None` then all cube dimensions are used
-        * `required_dimensions`: list of dimensions that are required for each
+        * `linked_dimensions`: list of dimensions that are required for each
           aggregation (for example a date dimension in most of the cases). The
           list should be a subsed of `dimensions`.
         * `aggregates_prefix`: aggregated table prefix
@@ -496,7 +496,7 @@ class SQLStore(Store):
         connection = self.engine.connect()
 
         cuboids = hierarchical_cuboids(dimensions,
-                                        required=required_dimensions)
+                                        required=linked_dimensions)
 
         for cuboid in cuboids:
 

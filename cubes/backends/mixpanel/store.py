@@ -25,7 +25,7 @@ class MixpanelModelProvider(ModelProvider):
 
         * `name` – cube name
         * `measures` – cube measures: `total` and `uniques`
-        * `required_dimensions` – list of required dimension names
+        * `linked_dimensions` – list of linked dimension names
         * `mappings` – mapping of corrected dimension names
 
         Dimensions are Mixpanel's properties where ``$`` character is replaced
@@ -54,7 +54,7 @@ class MixpanelModelProvider(ModelProvider):
 
         cube = Cube(name=name,
                     measures=measures,
-                    required_dimensions=dims,
+                    linked_dimensions=dims,
                     store=self.store_name,
                     mappings=mappings,
                     category=self.store.category)
