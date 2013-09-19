@@ -114,7 +114,7 @@ class Workspace(object):
 
         # Register stores
         #
-        # * Default store is [store] in main config file
+        # * Default store is [datastore] in main config file
         # * Stores are also loaded from main config file from sections with
         #   name [store_*] (not documented feature)
 
@@ -122,11 +122,11 @@ class Workspace(object):
         if config.has_section("datastore"):
             default = dict(config.items("datastore"))
         else:
-            self.logger.warn("No [store] configuration found, using old "
+            self.logger.warn("No [datastore] configuration found, using old "
                              "backend & [workspace]. Update you config file.")
             default = {}
             default = dict(config.items("workspace"))
-            default["type"] = config.get("server", "backend")
+            default["type"] = config.get("server", "backend") if config.has_option("server", "backend") else None
 
             if not default.get("type"):
                 self.logger.warn("No store type specified, assuming 'sql'")

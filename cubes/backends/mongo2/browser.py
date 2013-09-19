@@ -53,15 +53,10 @@ def is_date_dimension(dim):
         return False
 
 class MongoBrowser(AggregationBrowser):
-    def __init__(self, cube, locale=None, metadata={}, url=None, database=None, collection=None, **options):
+    def __init__(self, cube, store, locale=None, metadata={}, url=None, database=None, collection=None, **options):
         super(MongoBrowser, self).__init__(cube)
 
         self.logger = get_logger()
-
-        t = time.time()
-        self.logger.debug("Attempting MongoClient connection to %s" % (url))
-        mongo_client = pymongo.MongoClient(url, read_preference=pymongo.read_preferences.ReadPreference.SECONDARY)
-        self.logger.debug("Connected to %s in %f s" % (mongo_client, time.time() - t))
 
         db = cube.options.get('database')
         if db is None:
@@ -75,7 +70,7 @@ class MongoBrowser(AggregationBrowser):
         if coll is None:
             raise ArgumentError("'collection' must be defined in argument to MongoBrowser or in cube.options")
 
-        self.data_store = mongo_client[db][coll]
+        self.data_store = store.client[db][coll]
 
         self.mapper = MongoCollectionMapper(cube, db, coll, locale)
 
