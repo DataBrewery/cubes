@@ -55,7 +55,7 @@ class MixpanelModelProvider(ModelProvider):
         cube = Cube(name=name,
                     measures=measures,
                     linked_dimensions=dims,
-                    store=self.store_name,
+                    datastore=self.store_name,
                     mappings=mappings,
                     category=self.store.category)
 
