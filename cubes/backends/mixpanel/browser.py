@@ -343,6 +343,7 @@ class MixpanelBrowser(AggregationBrowser):
                     result_cells += cell_list
 
 
+        labels += [ str(m) for m in measures ]
         result.cells = result_cells
         result.levels = drilldown.levels_dictionary()
         result.labels = labels
