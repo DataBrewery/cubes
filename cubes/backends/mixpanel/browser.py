@@ -2,7 +2,9 @@
 from ...browser import *
 from ...errors import *
 from ...model import *
-from cubes.common import get_logger
+from ...common import get_logger
+
+from .store import DEFAULT_TIME_HIERARCHY
 
 import datetime
 import calendar
@@ -14,33 +16,65 @@ _measure_param = {
         "average": "average"
     }
 
-_no_cut_time_paths= {
-    'from': [2000, 1, 1],
-    'to': [2199, 12, 31]
-}
+def _week_value(dt, as_string=False):
+    """
+    Mixpanel weeks start on Monday. Given a datetime object or a date string of format YYYY-MM-DD,
+    returns a YYYY-MM-DD string for the Monday of that week.
+    """
+    dt = datetime.datetime.strptime(dt, '%Y-%m-%d') if isinstance(dt, basestring) else dt
+    dt = ( dt - datetime.timedelta(days=dt.weekday()) )
+    return ( dt.strftime("%Y-%m-%d") if as_string else dt )
 
-def coalesce_date_path(path, bound):
+_week_path_readers = ( lambda v: datetime.datetime.strptime(v, '%Y-%m-%d'), lambda v: datetime.datetime.strptime(v, '%Y-%m-%d'), int )
+
+_lower_date = datetime.datetime(2000, 1, 1)
+
+def coalesce_date_path(path, bound, hier='ymdh'):
+    if hier == 'wdh':
+        return _coalesce_date_wdh(path, bound)
+    else:
+        return _coalesce_date_ymdh(path, bound)
+
+def _coalesce_date_wdh(path, bound):
+    path = [ _week_path_readers[i](path[i]) for i, v in enumerate(list(path or [])) ]
+    effective_dt = path[1] if len(path) > 1 else ( path[0] if len(path) else ( _lower_date if bound == 0 else datetime.datetime.today() ) )
+
+    if bound == 0:
+        # at week level, first monday
+        if len(path) < 1:
+            return _week_value(effective_dt)
+        else:
+            return effective_dt.replace(hour=0)
+    else:
+        # end of this week, sunday
+        result = ( _week_value(effective_dt) + datetime.timedelta(days=6) ) if len(path) < 2 else effective_dt
+        return min(result, datetime.datetime.today())
+
+
+def _coalesce_date_ymdh(path, bound):
     # Bound: 0: lower, 1:upper
-    # Convert items to integers
-    path = [int(v) for v in list(path or [])]
+
+    # Convert path elements
+    path = [ int(v) for v in list(path or []) ]
 
     length = len(path)
 
     # Lower bound:
     if bound == 0:
-        lower = [2000, 1, 1]
-        result = tuple(path + lower[len(path):])
-        return result
+        lower = [_lower_date.year, _lower_date.month, _lower_date.day]
+        result = path + lower[len(path):]
+        return datetime.datetime(**(dict(zip(['year', 'month', 'day'], result))))
 
-    # Upper bound:
+    # Upper bound requires special handling
     today = datetime.datetime.today()
-    upper = [today.year, today.month, today.day]
+
     delta = datetime.timedelta(1)
     # Make path of length 3
     (year, month, day) = tuple(path + [None]*(3-len(path)))
 
     if not year:
-        return tuple(upper)
+        return today
+
     elif year and month and day:
         date = datetime.date(year, month, day)
 
@@ -62,9 +96,9 @@ def coalesce_date_path(path, bound):
     else:
         date = today
 
-    return (date.year, date.month, date.day)
+    return date
 
-def time_to_path(time_string):
+def time_to_path(time_string, last_level, hier='ymdh'):
     """Converts `time_string` into a time path. `time_string` can have format:
         ``yyyy-mm-dd`` or ``yyyy-mm-dd hh:mm:ss``. Only hour is considered
         from the time."""
@@ -76,7 +110,13 @@ def time_to_path(time_string):
         date = split[0]
         time = None
 
-    time_path = [int(v) for v in date.split("-")]
+    if hier == 'wdh':
+        if last_level == 'week':
+            time_path = [ _week_value(date, True) ]
+        else:
+            time_path = [ _week_value(date, True), date ]
+    else:
+        time_path = [int(v) for v in date.split("-")]
     # Only hour is assumed
     if time:
         hour = time.split(":")[0]
@@ -129,8 +169,8 @@ class MixpanelBrowser(AggregationBrowser):
         #
         time_cut = cell.cut_for_dimension("time")
         if not time_cut:
-            path_time_from = _no_cut_time_paths['from']
-            path_time_to = _no_cut_time_paths['to']
+            path_time_from = []
+            path_time_to = []
         elif isinstance(time_cut, PointCut):
             path_time_from = time_cut.path or []
             path_time_to = time_cut.path or []
@@ -141,26 +181,44 @@ class MixpanelBrowser(AggregationBrowser):
             raise ArgumentError("Mixpanel does not know how to handle cuts "
                                 "of type %s" % type(time_cut))
 
-        path_time_from = coalesce_date_path(path_time_from, 0)
-        path_time_to = coalesce_date_path(path_time_to, 1)
+        path_time_from = coalesce_date_path(path_time_from, 0, time_cut.hierarchy)
+        path_time_to = coalesce_date_path(path_time_to, 1, time_cut.hierarchy)
 
         params = {
                 "event": self.cube.name,
-                "from_date": ("%s-%s-%s" % path_time_from),
-                "to_date": ("%s-%s-%s" % path_time_to)
+                "from_date": path_time_from.strftime("%Y-%m-%d"),
+                "to_date": path_time_to.strftime("%Y-%m-%d")
             }
 
         time_level = drilldown.last_level("time")
-        if not time_level or str(time_level) == "year":
-            actual_time_level = "month"
+        if time_level:
+            time_level = str(time_level)
+            time_hier = str(drilldown['time'].hierarchy)
         else:
-            actual_time_level = str(time_level)
+            time_hier = DEFAULT_TIME_HIERARCHY
+
+        # time_level - as requested by the caller
+        # actual_time_level - time level in the result (dim.hierarchy
+        #                     labeling)
+        # mixpanel_unit - mixpanel request parameter
+
+        if not time_level or time_level == "year":
+            mixpanel_unit = actual_time_level = "month"
+            # Get the default hierarchy
+        elif time_level == "date":
+            mixpanel_unit = "day"
+            actual_time_level = "date"
+        else:
+            mixpanel_unit = actual_time_level = str(time_level)
 
         if time_level != actual_time_level:
             self.logger.debug("Time drilldown coalesced from %s to %s" % \
                                     (time_level, actual_time_level))
 
-        params["unit"] = actual_time_level
+        if time_level not in self.cube.dimension("time").level_names:
+            raise ArgumentError("Can not drill down time to '%s'" % time_level)
+
+        params["unit"] = mixpanel_unit
 
         # Get drill-down dimension (mixpanel "by" segmentation menu)
         # Assumption: first non-time
@@ -202,7 +260,7 @@ class MixpanelBrowser(AggregationBrowser):
                 conditions.append(condition)
 
         if len(conditions) > 1:
-            conditions = ["(%s)" % cond for cond in conditions]
+            conditions = [ "(%s)" % cond for cond in conditions ]
         if conditions:
             condition = " and ".join(conditions)
             params["where"] = condition
@@ -244,18 +302,6 @@ class MixpanelBrowser(AggregationBrowser):
         result.levels = drilldown.levels_dictionary()
 
         return result
-
-    def _collect_measure_series(self, cells, time_series, measure, values,
-                                    group):
-        """Collects cells from `values`. Adds `common` dictionary
-        to every cell. """
-
-        # We assume time_series to be ordered
-
-        for time_key, time_path in time_series:
-            cell = cells[time_key]
-            cell.merge(group)
-            cell[measure]= dim_values[time_key]
 
     def _property(self, dim):
         """Return correct property name from dimension."""
@@ -299,8 +345,6 @@ class _MixpanelResponseAggregator(object):
         Object attributes:
 
         * `measure_names` – list of measure names from the response
-        * `time_series` – list of tuples (`key`, `path`) where `key` is
-          mixpanel's time key, `path` is dimension value path (full).
         * `measure_data` – a dictionary where keys are measure names and
           values are actual data points.
 
@@ -314,11 +358,6 @@ class _MixpanelResponseAggregator(object):
         self.measure_names = measure_names
         self.actual_time_level = actual_time_level
 
-        # Prepare time series:
-        time_series = responses[measure_names[0]]["data"]["series"]
-        time_series = [(key, time_to_path(key)) for key in time_series]
-        self.time_series = time_series
-
         # Extract the data
         self.measure_data = {}
         for measure in measure_names:
@@ -329,13 +368,17 @@ class _MixpanelResponseAggregator(object):
             time_drilldown = drilldown["time"]
         except KeyError:
             time_drilldown = None
-            last_time_level = None
+            self.last_time_level = None
             self.time_levels = []
+            self.time_herarchy = DEFAULT_TIME_HIERARCHY
         else:
-            self.browser.logger.debug("Drilldown: %s " % (time_drilldown, ))
-            last_time_level = str(time_drilldown.levels[-1])
+            self.last_time_level = str(time_drilldown.levels[-1])
             self.time_levels = ["time."+str(l) for l in time_drilldown.levels]
-            self.browser.logger.debug("Time levels: %s " % (self.time_levels, ))
+            self.time_hierarchy = str(time_drilldown.hierarchy)
+
+        self.logger.debug("Time: hier:%s last:%s all:%s" % \
+                            (self.time_hierarchy, self.last_time_level,
+                            self.time_levels) )
 
         self.drilldown_on = None
         for obj in drilldown:
@@ -358,9 +401,9 @@ class _MixpanelResponseAggregator(object):
 
         self._collect_cells()
         # TODO: handle week
-        if actual_time_level != last_time_level:
+        if actual_time_level != self.last_time_level:
             self._reduce_cells()
-        self._order_cells()
+        self._finalize_cells()
 
         # Result is stored in the `cells` instance variable.
 
@@ -383,7 +426,11 @@ class _MixpanelResponseAggregator(object):
         for group_key, group_series in self.measure_data.items():
 
             for time_key, value in group_series.items():
-                key = (time_to_path(time_key), group_key)
+                time_path = time_to_path(time_key, self.last_time_level,
+                                                        self.time_hierarchy)
+                key = (time_path, group_key)
+
+                self.logger.debug("adding cell %s" % (key, ))
                 cell = self.time_cells.setdefault(key, {})
                 cell[measure] = value
 
@@ -411,6 +458,8 @@ class _MixpanelResponseAggregator(object):
             reduced_path = time_path[0:reduced_len]
 
             reduced_key = (reduced_path, key[1])
+
+            self.logger.debug("reducing %s -> %s" % (key, reduced_key))
             reduced_map[reduced_key].append(cell)
 
         self.browser.logger.debug("response cell count: %s reduced to: %s" %
@@ -425,18 +474,14 @@ class _MixpanelResponseAggregator(object):
             # self.browser.logger.debug("Reducing: %s -> %s" % (key, cells))
             cell = reduce(reduce_cell, cells, {})
 
-            # If we are aggregating at finer granularity than "all":
-            time_key = key[0]
-            if time_key:
-                cell.update(zip(self.time_levels, time_key))
-
             reduced_cells[key] = cell
 
         self.time_cells = reduced_cells
 
-    def _order_cells(self):
+    def _finalize_cells(self):
         """Orders the `time_cells` according to the time and "the other"
-        dimension and puts the result into the `cells` instance variable."""
+        dimension and puts the result into the `cells` instance variable.
+        This method also adds the time dimension keys."""
         # Order by time (as path) and then drilldown dimension value (group)
         # The key[0] is a list of paths: time, another_drilldown
 
@@ -446,5 +491,10 @@ class _MixpanelResponseAggregator(object):
 
         self.cells = []
         for key, cell in cells:
+            # If we are aggregating at finer granularity than "all":
+            time_key = key[0]
+            if time_key:
+                cell.update(zip(self.time_levels, time_key))
+
             self.cells.append(cell)
 
