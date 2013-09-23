@@ -304,6 +304,7 @@ class MixpanelBrowser(AggregationBrowser):
         labels = aggregator.time_levels[:]
         if drilldown_on:
             labels.append(drilldown_on.dimension.name)
+        labels += measure_names
         result.labels = labels
 
         return result
