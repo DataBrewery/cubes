@@ -2,6 +2,7 @@
 from ...browser import *
 from ...errors import *
 from ...model import *
+from cubes.common import get_logger
 
 import datetime
 import calendar
@@ -93,6 +94,7 @@ class MixpanelBrowser(AggregationBrowser):
         self.store = store
         self.cube = cube
         self.options = options
+        self.logger = get_logger()
 
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                     **options):
@@ -213,7 +215,7 @@ class MixpanelBrowser(AggregationBrowser):
             params["type"] = _measure_param[measure]
             response = self.store.request(["segmentation"],
                                             params)
-            # print "=== response:", response
+            self.logger.debug(response['data']) 
             responses[measure] = response
 
 
@@ -259,12 +261,12 @@ class MixpanelBrowser(AggregationBrowser):
             # TODO: order keys
 
             # values: { city_A: {time:value, ...}, city_B: {time:value, ...} }
-            drilldown_values = response["data"]["values"]
             drilldown_dim = drilldown_on.dimension.name
 
             for measure in measure_names:
                 measure_values = responses[measure]["data"]["values"]
 
+                # FIXME each cell in cells needs to become N cells where N == number of dim values for that time key
                 for dim_key, dim_values in measure_values.items():
                     for time_key, time_path in time_series:
                         cell = cells[time_key]
