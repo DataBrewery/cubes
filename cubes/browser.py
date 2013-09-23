@@ -1398,7 +1398,9 @@ class Drilldown(object):
             return self._by_dimension[str(key)]
 
     def last_level(self, dim):
-        return self._last_level[str(dim)]
+        """Returns last level of drilldown by a dimension `dim`. Returns
+        `None` if there is no drilldown by the specified dimension."""
+        return self._last_level.get(str(dim), None)
 
     def levels_dictionary(self):
         """Returns a dictionary with list of levels for each dimensions. Keys
