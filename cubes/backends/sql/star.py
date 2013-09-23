@@ -415,6 +415,7 @@ class SnowflakeBrowser(AggregationBrowser):
                 calc_aggs += c
             result.calculators = calc_aggs
             result.cells = ResultIterator(dd_result, labels)
+            result.labels = labels
 
 
             # TODO: introduce option to disable this
