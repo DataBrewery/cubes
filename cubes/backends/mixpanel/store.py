@@ -49,6 +49,7 @@ class MixpanelModelProvider(ModelProvider):
 
         for dim_name in result.keys():
             fixed_name = dim_name.replace("$", "_")
+            fixed_name = dim_name.replace(" ", "_")
             if fixed_name != dim_name:
                 mappings[fixed_name] = dim_name
             dims.append(fixed_name)
