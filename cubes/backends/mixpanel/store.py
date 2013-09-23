@@ -10,10 +10,12 @@ DIMENSION_COUNT_LIMIT = 100
 
 time_dimension_md = {
     "name": "time",
-    "levels": ["year", "month", "day", "hour"],
+    "levels": ["year", "month", "week", "date", "day", "hour"],
     "hierarchies": [
-        {"name":"mdh", "levels": ["year", "month", "day", "hour"]}
+        {"name":"ymdh", "levels": ["year", "month", "day", "hour"]},
+        {"name":"wdh", "levels": ["week", "date", "hour"]}
     ],
+    "default_hierarchy_name": "ymdh",
     "info": { "is_date": True }
 }
 
