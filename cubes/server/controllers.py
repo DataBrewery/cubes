@@ -369,6 +369,15 @@ class CubesController(ApplicationController):
         self.create_browser(cube)
         self.prepare_cell()
 
+        format = self.args.get("format")
+        format = format.lower() if format else "json"
+
+        fields_str = self.args.get("fields")
+        if fields_str:
+            fields = fields_str.lower().split(',')
+        else:
+            fields = None
+
         ddlist = self.args.getlist("drilldown")
 
         measures = []
@@ -396,7 +405,16 @@ class CubesController(ApplicationController):
                                         page_size=self.page_size,
                                         order=self.order)
 
-        return self.json_response(result)
+        if format == "json":
+            return self.json_response(result)
+        elif format == "csv":
+            if not fields:
+                fields = result.labels
+            generator = CSVGenerator(result, fields)
+            return Response(generator.csvrows(),
+                            mimetype='text/csv')
+        else:
+            raise RequestError("unknown response format '%s'" % format)
 
     @cacheable
     def facts(self, cube):
