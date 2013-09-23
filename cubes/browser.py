@@ -1411,8 +1411,8 @@ class Drilldown(object):
 
         dim_levels = {}
 
-        for dim, hier, levels in self.drilldown:
-            dim_levels[str(dim)] = [str(level) for level in levels]
+        for dd in self.drilldown:
+            dim_levels[str(dd.dimension)] = [str(level) for level in dd.levels]
 
         return dim_levels
 
@@ -1426,17 +1426,18 @@ class Drilldown(object):
         return self.drilldown.__iter__()
 
 DrilldownItem = namedtuple("DrilldownItem",
-                           ["dimension", "hierarchy", "levels"])
+                           ["dimension", "hierarchy", "levels", "keys"])
 
 # TODO: rename this (back to) coalesce_drilldown or something like that
 
-def levels_from_drilldown(cell, drilldown):
+def levels_from_drilldown(cell, drilldown, simplify=True):
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
 
     * list of dimensions
-    * list of dimension level specifier strings (``dimension@hierarchy:level``)
-    * list of tuples in form (`dimension`, `hierarchy`, `level`).
+    * list of dimension level specifier strings
+    * (``dimension@hierarchy:level``) list of tuples in form (`dimension`,
+      `hierarchy`, `levels`, `keys`).
 
     If `drilldown is a list of dimensions or if the level is not specified,
     then next level in the cell is considered. The implicit next level is
@@ -1444,6 +1445,10 @@ def levels_from_drilldown(cell, drilldown):
 
     For other types of cuts, such as range or set, "next" level is the first
     level of hierarachy.
+
+    If `simplify` is `True` then dimension references are simplified for flat
+    dimensions without details. Otherwise full dimension attribute reference
+    will be used as `level_key`.
 
     Returns a list of drilldown items with attributes: `dimension`,
     `hierarchy` and `levels` where `levels` is a list of levels to be drilled
@@ -1505,7 +1510,9 @@ def levels_from_drilldown(cell, drilldown):
 
             levels = hier[:depth+1]
 
-        result.append( DrilldownItem(dim, hier, levels) )
+        levels = tuple(levels)
+        keys = [level.key.ref(simplify=simplify) for level in levels]
+        result.append( DrilldownItem(dim, hier, levels, keys) )
 
     return result
 
