@@ -46,10 +46,8 @@ def _coalesce_date_wdh(path, bound):
             return effective_dt.replace(hour=0)
     else:
         # end of this week, sunday
-        if len(path) < 2:
-            return _week_value(effective_dt) + datetime.timedelta(days=6)
-        else:
-            return effective_dt
+        result = ( _week_value(effective_dt) + datetime.timedelta(days=6) ) if len(path) < 2 else effective_dt
+        return min(result, datetime.datetime.today())
 
 
 def _coalesce_date_ymdh(path, bound):
