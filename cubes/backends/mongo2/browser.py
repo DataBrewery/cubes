@@ -1,4 +1,3 @@
-import logging
 from cubes.common import get_logger
 from cubes.errors import *
 from cubes.browser import *
@@ -98,6 +97,8 @@ class MongoBrowser(AggregationBrowser):
 
         drilldown_levels = None
 
+        labels = []
+
         if drilldown or split:
             drilldown_levels = levels_from_drilldown(cell, drilldown) if drilldown else []
             dim_levels = {}
@@ -109,6 +110,7 @@ class MongoBrowser(AggregationBrowser):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
                 if [ l for l in levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
+                labels += [ level.key.ref() for level in levels ]
                 dim_levels[str(dim)] = [str(level) for level in levels]
             result.levels = dim_levels
 
@@ -119,13 +121,19 @@ class MongoBrowser(AggregationBrowser):
 
         summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, split=split, order=order, page=page, page_size=page_size)
         result.cells = iter(items)
-        result.summary = { "record_count": summary }
+        if summary is not None:
+            result.summary = { "record_count": summary }
+        else:
+            result.summary = {}
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
             for calcs in [ self.calculated_aggregations_for_measure(measure, drilldown_levels, split) for measure in measures ]:
                 for calc in calcs:
                     calc(result.summary)
 
+
+        labels += [ str(m) for m in measures ]
+        result.labels = labels
         return result
 
     def calculated_aggregations_for_measure(self, measure, drilldown_levels, split):
