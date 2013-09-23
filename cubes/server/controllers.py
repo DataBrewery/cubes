@@ -139,15 +139,23 @@ class ApplicationController(object):
         """Return list of available model locales"""
         return self.json_response(self.locales)
 
-    def json_response(self, obj):
+    def get_json(self, obj):
+        """Returns a json from `obj` using custom encoder. Take `prettyprint`
+        setting into account."""
+
         if self.prettyprint:
             indent = 4
         else:
             indent = None
 
-        encoder = SlicerJSONEncoder(indent = indent)
+        encoder = SlicerJSONEncoder(indent=indent)
         encoder.iterator_limit = self.json_record_limit
         reply = encoder.iterencode(obj)
+
+        return reply
+
+    def json_response(self, obj):
+        reply = self.get_json(obj)
 
         return Response(reply, mimetype='application/json')
 
@@ -207,7 +215,7 @@ class ModelController(ApplicationController):
         resp = self._cached_cubes_list
         if resp is None:
             cubes = self.workspace.list_cubes()
-            resp = json.dumps(cubes)
+            resp = self.get_json(cubes)
             self._cached_cubes_list = resp
 
         return Response(resp, mimetype='application/json')
@@ -316,7 +324,7 @@ class CubesController(ApplicationController):
                 self.logger.debug("using first cube from model")
                 cubes = self.workspace.list_cubes()
                 cube_name = cubes[0]["name"]
-                self.cube = self.workspace.cube(name)
+                self.cube = self.workspace.cube(cube_name)
 
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
         self.browser = self.workspace.browser(self.cube, self.locale)
