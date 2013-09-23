@@ -288,6 +288,7 @@ class MixpanelBrowser(AggregationBrowser):
         time_levels = ["time."+level.name for level in drilldown["time"].levels]
 
         result_cells = []
+        labels = time_levels[:]
 
         if not drilldown_on:
             measure_values = {}
@@ -314,6 +315,8 @@ class MixpanelBrowser(AggregationBrowser):
 
             # values: { city_A: {time:value, ...}, city_B: {time:value, ...} }
             drilldown_dim = drilldown_on.dimension.name
+
+            labels.append(drilldown_dim)
 
             # cells are ordered by time drill, then non-time drill
 
@@ -342,6 +345,7 @@ class MixpanelBrowser(AggregationBrowser):
 
         result.cells = result_cells
         result.levels = drilldown.levels_dictionary()
+        result.labels = labels
 
         return result
 
