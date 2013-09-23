@@ -62,7 +62,9 @@ def _coalesce_date_ymdh(path, bound):
 
     # Lower bound:
     if bound == 0:
-        return _lower_date
+        lower = [_lower_date.year, _lower_date.month, _lower_date.day]
+        result = path + lower[len(path):]
+        return datetime.datetime(**(dict(zip(['year', 'month', 'day'], result))))
 
     # Upper bound requires special handling
     today = datetime.datetime.today()
