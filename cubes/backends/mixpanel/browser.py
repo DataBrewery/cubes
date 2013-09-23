@@ -6,7 +6,7 @@ from cubes.common import get_logger
 
 import datetime
 import calendar
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 _measure_param = {
         "total": "general",
@@ -14,7 +14,7 @@ _measure_param = {
         "average": "average"
     }
 
-_no_cut_time_= {
+_no_cut_time_paths= {
     'from': [2000, 1, 1],
     'to': [2199, 12, 31]
 }
@@ -82,7 +82,7 @@ def time_to_path(time_string):
         hour = time.split(":")[0]
         time_path.append(int(hour))
 
-    return time_path
+    return tuple(time_path)
 
 
 class MixpanelBrowser(AggregationBrowser):
@@ -120,9 +120,7 @@ class MixpanelBrowser(AggregationBrowser):
         #
         drilldown = Drilldown(drilldown, cell)
 
-        if not "time" in drilldown:
-            raise ArgumentError("Time dimension drilldown is required for mixpanel")
-        elif len(drilldown) > 2:
+        if "time" in drilldown and len(drilldown) > 2:
             raise ArgumentError("Can not drill down with more than one "
                                 "non-time dimension in mixpanel")
 
@@ -152,14 +150,17 @@ class MixpanelBrowser(AggregationBrowser):
                 "to_date": ("%s-%s-%s" % path_time_to)
             }
 
-        time_level = str(drilldown.last_level("time"))
+        time_level = drilldown.last_level("time")
+        if not time_level or str(time_level) == "year":
+            actual_time_level = "month"
+        else:
+            actual_time_level = str(time_level)
 
-        if time_level == "year":
-            time_level = "month"
-        elif time_level not in ["hour", "day", "month"]:
-            raise ArgumentError("Can not drill down time to '%s'" % time_level)
+        if time_level != actual_time_level:
+            self.logger.debug("Time drilldown coalesced from %s to %s" % \
+                                    (time_level, actual_time_level))
 
-        params["unit"] = time_level
+        params["unit"] = actual_time_level
 
         # Get drill-down dimension (mixpanel "by" segmentation menu)
         # Assumption: first non-time
@@ -220,7 +221,7 @@ class MixpanelBrowser(AggregationBrowser):
             params["type"] = _measure_param[measure]
             response = self.store.request(["segmentation"],
                                             params)
-            self.logger.debug(response['data']) 
+            self.logger.debug(response['data'])
             responses[measure] = response
 
 
@@ -235,73 +236,26 @@ class MixpanelBrowser(AggregationBrowser):
         result = AggregationResult(cell, measures)
         result.cell = cell
 
-        # Assumption:
-        #   mixpanel returns same time series structure for every request with
-        #   same parameters => we can take one (any) response and share the
-        #   series with other responses
+        aggregator = _MixpanelResponseAggregator(self, responses,
+                        measure_names, drilldown, actual_time_level)
 
-        time_series = responses[measure_names[0]]["data"]["series"]
-        time_series = [(key, time_to_path(key)) for key in time_series]
+        result.cells = aggregator.cells
 
-        time_levels = ["time."+level.name for level in drilldown["time"].levels]
-
-        result_cells = []
-
-        if not drilldown_on:
-            measure_values = {}
-
-            cells = {}
-
-            for time_key, time_path in time_series:
-                cells[time_key] = dict(zip(time_levels, time_path))
-
-            for measure in measure_names:
-                measure_response_values = responses[measure]["data"]["values"]
-                measure_values = measure_response_values[self.cube.name]
-
-                for time_key, time_path in time_series:
-                    cell = cells[time_key]
-                    cell[measure] = measure_values[time_key]
-            
-            items = cells.items()
-            items.sort(lambda a, b: cmp(a[0], b[0]))
-            result_cells = [ v for k, v in items ]
-
-        else: # if drilldown_on
-            # TODO: order keys
-
-            # values: { city_A: {time:value, ...}, city_B: {time:value, ...} }
-            drilldown_dim = drilldown_on.dimension.name
-
-            # cells are ordered by time drill, then non-time drill
-
-            for time_key, time_path in time_series:
-                cells = {}
-
-                cells[time_key] = {}
-                time_cells = {}
-                cells[time_key] = time_cells
-
-                for measure in measure_names:
-                    measure_values = responses[measure]["data"]["values"]
-
-                    for dim_key, dim_values in measure_values.items():
-                        cell = time_cells.setdefault(dim_key, dict(zip(time_levels, time_path)))
-                        cell[drilldown_dim] = dim_key
-                        if dim_values.has_key(time_key):
-                            cell[measure]= dim_values[time_key]
-
-                items = cells.items()
-                items.sort(lambda a, b: cmp(a[0], b[0]))
-                for cell_list in [ v.values() for k, v in items ]:
-                    cell_list.sort(lambda a,b: cmp(a[drilldown_dim], b[drilldown_dim]))
-                    result_cells += cell_list
-
-
-        result.cells = result_cells
         result.levels = drilldown.levels_dictionary()
 
         return result
+
+    def _collect_measure_series(self, cells, time_series, measure, values,
+                                    group):
+        """Collects cells from `values`. Adds `common` dictionary
+        to every cell. """
+
+        # We assume time_series to be ordered
+
+        for time_key, time_path in time_series:
+            cell = cells[time_key]
+            cell.merge(group)
+            cell[measure]= dim_values[time_key]
 
     def _property(self, dim):
         """Return correct property name from dimension."""
@@ -326,4 +280,171 @@ class MixpanelBrowser(AggregationBrowser):
 
         condition = condition_tmpl % (self._property(dim), from_value, self._property(dim), to_value)
         return condition
+
+# Separated aggregation for better maintainability
+class _MixpanelResponseAggregator(object):
+    def __init__(self, browser, responses, measure_names, drilldown,
+                    actual_time_level):
+        """Aggregator for multiple mixpanel responses (multiple dimensions)
+        with drill-down post-aggregation.
+
+        Arguments:
+
+        * `browser` – owning browser
+        * `reposnes` – mixpanel responses by `measure_names`
+        * `measure_names` – list of collected measures
+        * `drilldown` – a `Drilldown` object from the browser aggregation
+          query
+
+        Object attributes:
+
+        * `measure_names` – list of measure names from the response
+        * `time_series` – list of tuples (`key`, `path`) where `key` is
+          mixpanel's time key, `path` is dimension value path (full).
+        * `measure_data` – a dictionary where keys are measure names and
+          values are actual data points.
+
+        * `time_cells` – an ordered dictionary of collected cells from the
+          response. Key is time path, value is cell contents without the time
+          dimension.
+        """
+        self.browser = browser
+        self.logger = browser.logger
+        self.drilldown = drilldown
+        self.measure_names = measure_names
+        self.actual_time_level = actual_time_level
+
+        # Prepare time series:
+        time_series = responses[measure_names[0]]["data"]["series"]
+        time_series = [(key, time_to_path(key)) for key in time_series]
+        self.time_series = time_series
+
+        # Extract the data
+        self.measure_data = {}
+        for measure in measure_names:
+            self.measure_data = responses[measure]["data"]["values"]
+
+        # Get time drilldown levels, if we are drilling through time
+        try:
+            time_drilldown = drilldown["time"]
+        except KeyError:
+            time_drilldown = None
+            last_time_level = None
+            self.time_levels = []
+        else:
+            self.browser.logger.debug("Drilldown: %s " % (time_drilldown, ))
+            last_time_level = str(time_drilldown.levels[-1])
+            self.time_levels = ["time."+str(l) for l in time_drilldown.levels]
+            self.browser.logger.debug("Time levels: %s " % (self.time_levels, ))
+
+        self.drilldown_on = None
+        for obj in drilldown:
+            if obj.dimension.name != "time":
+                self.drilldown_on = obj
+
+        # Time-keyed cells:
+        #    (time_path, group) -> dictionary
+
+        self.time_cells = {}
+        self.cells = []
+
+        # Do it:
+        #
+        # Collect, Map&Reduce, Order
+        # ==========================
+        #
+        # Process the response. The methods are operating on the instance
+        # variable `time_cells`
+
+        self._collect_cells()
+        # TODO: handle week
+        if actual_time_level != last_time_level:
+            self._reduce_cells()
+        self._order_cells()
+
+        # Result is stored in the `cells` instance variable.
+
+    def _collect_cells(self):
+
+        for measure in self.measure_names:
+            self._collect_measure_cells(measure)
+
+    def _collect_measure_cells(self, measure):
+        """Collects the cells from the response in a time series dictionary
+        `time_cells` where keys are tuples: `(time_path, group)`. `group` is
+        drill-down key value for the cell, such as `New York` for `city`."""
+
+        # Note: For no-drilldown this would be only one pass and group will be
+        # a cube name
+
+        # TODO: To add multiple drill-down dimensions in the future, add them
+        # to the `group` part of the key tuple
+
+        for group_key, group_series in self.measure_data.items():
+
+            for time_key, value in group_series.items():
+                key = (time_to_path(time_key), group_key)
+                cell = self.time_cells.setdefault(key, {})
+                cell[measure] = value
+
+                # FIXME: do this only on drilldown
+                if self.drilldown_on:
+                    cell[self.drilldown_on] = group_key
+
+    def _reduce_cells(self):
+        """Reduce the cells according to the time dimensions."""
+
+        def reduce_cell(result, cell):
+            # We assume only _sum aggergation
+            # All measures should be prepared so we can to this
+            for measure in self.measure_names:
+                result[measure] = result.get(measure, 0) + cell.get(measure, 0)
+            return result
+
+        # 1. Map cells to reduced time path
+        #
+        reduced_map = defaultdict(list)
+        reduced_len = len(self.time_levels)
+
+        for key, cell in self.time_cells.items():
+            time_path = key[0]
+            reduced_path = time_path[0:reduced_len]
+
+            reduced_key = (reduced_path, key[1])
+            reduced_map[reduced_key].append(cell)
+
+        self.browser.logger.debug("response cell count: %s reduced to: %s" %
+                                    (len(self.time_cells), len(reduced_map)))
+
+        # 2. Reduce the cells
+        # 
+        # See the function reduce_cell() above for aggregation:
+        # 
+        reduced_cells = {}
+        for key, cells in reduced_map.items():
+            # self.browser.logger.debug("Reducing: %s -> %s" % (key, cells))
+            cell = reduce(reduce_cell, cells, {})
+
+            # If we are aggregating at finer granularity than "all":
+            time_key = key[0]
+            if time_key:
+                cell.update(zip(self.time_levels, time_key))
+
+            reduced_cells[key] = cell
+
+        self.time_cells = reduced_cells
+
+    def _order_cells(self):
+        """Orders the `time_cells` according to the time and "the other"
+        dimension and puts the result into the `cells` instance variable."""
+        # Order by time (as path) and then drilldown dimension value (group)
+        # The key[0] is a list of paths: time, another_drilldown
+
+        order = lambda left, right: cmp(left[0], right[0])
+        cells = self.time_cells.items()
+        cells.sort(order)
+
+        self.cells = []
+        for key, cell in cells:
+            self.cells.append(cell)
 
