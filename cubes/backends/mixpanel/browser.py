@@ -14,33 +14,66 @@ _measure_param = {
         "average": "average"
     }
 
-_no_cut_time_= {
-    'from': [2000, 1, 1],
-    'to': [2199, 12, 31]
-}
 
-def coalesce_date_path(path, bound):
+def _week_value(dt, as_string=False):
+    """
+    Mixpanel weeks start on Monday. Given a datetime object or a date string of format YYYY-MM-DD,
+    returns a YYYY-MM-DD string for the Monday of that week.
+    """
+    dt = datetime.datetime.strptime(dt, '%Y-%m-%d') if isinstance(dt, basestring) else dt
+    dt = ( dt - datetime.timedelta(days=dt.weekday()) )
+    return ( dt.strftime("%Y-%m-%d") if as_string else dt )
+
+_week_path_readers = ( lambda v: datetime.datetime.strptime(v, '%Y-%m-%d'), lambda v: datetime.datetime.strptime(v, '%Y-%m-%d'), int )
+
+_lower_date = datetime.datetime(2000, 1, 1)
+
+def coalesce_date_path(path, bound, hier='ymdh'):
+    if hier == 'wdh':
+        return _coalesce_date_wdh(path, bound)
+    else:
+        return _coalesce_date_ymdh(path, bound)
+
+def _coalesce_date_wdh(path, bound):
+    path = [ _week_path_readers[i](path[i]) for i, v in enumerate(list(path or [])) ]
+    effective_dt = path[1] if len(path) > 1 else ( path[0] if len(path) else ( _lower_date if bound == 0 else datetime.datetime.today() ) )
+    
+    if bound == 0:
+        # at week level, first monday
+        if len(path) < 1:
+            return _week_value(effective_dt)
+        else:
+            return effective_dt.replace(hour=0)
+    else:
+        # end of this week, sunday
+        if len(path) < 1:
+            return _week_value(effective_dt) + datetime.timedelta(days=6)
+        else:
+            return effective_dt
+
+
+def _coalesce_date_ymdh(path, bound):
     # Bound: 0: lower, 1:upper
-    # Convert items to integers
-    path = [int(v) for v in list(path or [])]
+
+    # Convert path elements
+    path = [ int(v) for v in list(path or []) ]
 
     length = len(path)
 
     # Lower bound:
     if bound == 0:
-        lower = [2000, 1, 1]
-        result = tuple(path + lower[len(path):])
-        return result
+        return _lower_date
 
-    # Upper bound:
+    # Upper bound requires special handling
     today = datetime.datetime.today()
-    upper = [today.year, today.month, today.day]
+
     delta = datetime.timedelta(1)
     # Make path of length 3
     (year, month, day) = tuple(path + [None]*(3-len(path)))
 
     if not year:
-        return tuple(upper)
+        return today
+
     elif year and month and day:
         date = datetime.date(year, month, day)
 
@@ -62,9 +95,9 @@ def coalesce_date_path(path, bound):
     else:
         date = today
 
-    return (date.year, date.month, date.day)
+    return date
 
-def time_to_path(time_string):
+def time_to_path(time_string, last_level, hier='ymdh'):
     """Converts `time_string` into a time path. `time_string` can have format:
         ``yyyy-mm-dd`` or ``yyyy-mm-dd hh:mm:ss``. Only hour is considered
         from the time."""
@@ -76,7 +109,13 @@ def time_to_path(time_string):
         date = split[0]
         time = None
 
-    time_path = [int(v) for v in date.split("-")]
+    if hier == 'wdh':
+        if last_level == 'week':
+            time_path = [ _week_value(date, True) ]
+        else:
+            time_path = [ _week_value(date, True), date ]
+    else:
+        time_path = [int(v) for v in date.split("-")]
     # Only hour is assumed
     if time:
         hour = time.split(":")[0]
@@ -131,8 +170,8 @@ class MixpanelBrowser(AggregationBrowser):
         #
         time_cut = cell.cut_for_dimension("time")
         if not time_cut:
-            path_time_from = _no_cut_time_paths['from']
-            path_time_to = _no_cut_time_paths['to']
+            path_time_from = []
+            path_time_to = []
         elif isinstance(time_cut, PointCut):
             path_time_from = time_cut.path or []
             path_time_to = time_cut.path or []
@@ -143,20 +182,23 @@ class MixpanelBrowser(AggregationBrowser):
             raise ArgumentError("Mixpanel does not know how to handle cuts "
                                 "of type %s" % type(time_cut))
 
-        path_time_from = coalesce_date_path(path_time_from, 0)
-        path_time_to = coalesce_date_path(path_time_to, 1)
+        path_time_from = coalesce_date_path(path_time_from, 0, time_cut.hierarchy)
+        path_time_to = coalesce_date_path(path_time_to, 1, time_cut.hierarchy)
 
         params = {
                 "event": self.cube.name,
-                "from_date": ("%s-%s-%s" % path_time_from),
-                "to_date": ("%s-%s-%s" % path_time_to)
+                "from_date": path_time_from.strftime("%Y-%m-%d"),
+                "to_date": path_time_to.strftime("%Y-%m-%d")
             }
 
         time_level = str(drilldown.last_level("time"))
+        time_hier = str(drilldown['time'].hierarchy)
 
         if time_level == "year":
             time_level = "month"
-        elif time_level not in ["hour", "day", "month"]:
+        elif time_level == 'date':
+            time_level = 'day'
+        elif time_level not in ["hour", "week", "day", "month"]:
             raise ArgumentError("Can not drill down time to '%s'" % time_level)
 
         params["unit"] = time_level
@@ -201,7 +243,7 @@ class MixpanelBrowser(AggregationBrowser):
                 conditions.append(condition)
 
         if len(conditions) > 1:
-            conditions = ["(%s)" % cond for cond in conditions]
+            conditions = [ "(%s)" % cond for cond in conditions ]
         if conditions:
             condition = " and ".join(conditions)
             params["where"] = condition
@@ -241,7 +283,7 @@ class MixpanelBrowser(AggregationBrowser):
         #   series with other responses
 
         time_series = responses[measure_names[0]]["data"]["series"]
-        time_series = [(key, time_to_path(key)) for key in time_series]
+        time_series = [(key, time_to_path(key, time_level, time_hier)) for key in time_series]
 
         time_levels = ["time."+level.name for level in drilldown["time"].levels]
 
