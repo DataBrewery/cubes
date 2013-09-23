@@ -215,7 +215,7 @@ class MixpanelBrowser(AggregationBrowser):
             self.logger.debug("Time drilldown coalesced from %s to %s" % \
                                     (time_level, actual_time_level))
 
-        if time_level not in self.cube.dimension("time").level_names:
+        if time_level and time_level not in self.cube.dimension("time").level_names:
             raise ArgumentError("Can not drill down time to '%s'" % time_level)
 
         params["unit"] = mixpanel_unit
@@ -376,7 +376,7 @@ class _MixpanelResponseAggregator(object):
             time_drilldown = None
             self.last_time_level = None
             self.time_levels = []
-            self.time_herarchy = DEFAULT_TIME_HIERARCHY
+            self.time_hierarchy = DEFAULT_TIME_HIERARCHY
         else:
             self.last_time_level = str(time_drilldown.levels[-1])
             self.time_levels = ["time."+str(l) for l in time_drilldown.levels]
@@ -503,5 +503,7 @@ class _MixpanelResponseAggregator(object):
             if time_key:
                 cell.update(zip(self.time_levels, time_key))
 
+            # append the drilldown_on attribute ref
+            cell[self.drilldown_on] = key[1]
             self.cells.append(cell)
 
