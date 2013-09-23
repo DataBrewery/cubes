@@ -389,7 +389,8 @@ class _MixpanelResponseAggregator(object):
         self.drilldown_on = None
         for obj in drilldown:
             if obj.dimension.name != "time":
-                self.drilldown_on = obj
+                # this is a DrilldownItem object. represent it as 'dim.level' or just 'dim' if flat
+                self.drilldown_on = ( "%s.%s" % (obj.dimension.name, obj.levels[-1].name) ) if ( not obj.dimension.is_flat ) else obj.dimension.name
 
         # Time-keyed cells:
         #    (time_path, group) -> dictionary
