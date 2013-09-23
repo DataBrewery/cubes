@@ -185,12 +185,12 @@ class MixpanelBrowser(AggregationBrowser):
         conditions = []
         for cut in cuts:
             if isinstance(cut, PointCut):
-                condition = self._point_condition(cut.dimension, cut.path[0])
+                condition = self._point_condition(cut.dimension, cut.path[0], cut.invert)
                 conditions.append(condition)
             elif isinstance(cut, RangeCut):
                 condition = self._range_condition(cut.dimension,
                                                   cut.from_path[0],
-                                                  cut.to_path[0])
+                                                  cut.to_path[0], cut.invert)
                 conditions.append(condition)
             elif isinstance(cut, SetCut):
                 set_conditions = []
@@ -308,19 +308,22 @@ class MixpanelBrowser(AggregationBrowser):
         dim = str(dim)
         return self.cube.mappings.get(dim, dim)
 
-    def _point_condition(self, dim, value):
+    def _point_condition(self, dim, value, invert):
         """Returns a point cut for flat dimension `dim`"""
 
-        condition = '(string(properties["%s"]) == "%s")' % \
-                        (self._property(dim), str(value))
+        op = '!=' if invert else '=='
+        condition = '(string(properties["%s"]) %s "%s")' % \
+                        (self._property(dim), op, str(value))
         return condition
 
-    def _range_condition(self, dim, from_value, to_value):
+    def _range_condition(self, dim, from_value, to_value, invert):
         """Returns a point cut for flat dimension `dim`. Assumes number."""
 
-        condition = '(number(properties["%s"]) >= %s and ' \
-                    'number(properties["%s"]) <= %s)' % \
-                        (self._property(dim), from_value,
-                        self._property(dim), to_value)
+        condition_tmpl = (
+            '(number(properties["%s"]) >= %s and number(properties["%s"]) <= %s)' if not invert else
+            '(number(properties["%s"]) < %s or number(properties["%s"]) > %s)' 
+            )
+
+        condition = condition_tmpl % (self._property(dim), from_value, self._property(dim), to_value)
         return condition
 
