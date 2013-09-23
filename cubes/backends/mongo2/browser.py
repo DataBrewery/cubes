@@ -52,27 +52,23 @@ def is_date_dimension(dim):
     else:
         return False
 
-class MongoBrowser(AggregationBrowser):
-    def __init__(self, cube, store, locale=None, metadata={}, url=None, database=None, collection=None, **options):
-        super(MongoBrowser, self).__init__(cube)
+class Mongo2Browser(AggregationBrowser):
+    def __init__(self, cube, store, locale=None, metadata={}, url=None, **options):
+        super(Mongo2Browser, self).__init__(cube, store)
 
         self.logger = get_logger()
 
-        db = cube.options.get('database')
-        if db is None:
-            db = database
-        if db is None:
-            raise ArgumentError("'database' must be defined in argument to MongoBrowser or in cube.options")
+        database = store.database
+        if cube.browser_options.get('database'):
+            database = cube.browser_options.get('database')
 
-        coll = cube.options.get('collection')
-        if coll is None:
-            coll = collection
-        if coll is None:
-            raise ArgumentError("'collection' must be defined in argument to MongoBrowser or in cube.options")
+        collection = store.collection
+        if cube.browser_options.get('collection'):
+            collection = cube.browser_options.get('collection')
 
-        self.data_store = store.client[db][coll]
+        self.data_store = store.client[database][collection]
 
-        self.mapper = MongoCollectionMapper(cube, db, coll, locale)
+        self.mapper = MongoCollectionMapper(cube, database, collection, locale)
 
         self.timezone = pytz.timezone(cube.info.get('timezone')) if cube.info.get('timezone') else pytz.timezone('UTC')
 
