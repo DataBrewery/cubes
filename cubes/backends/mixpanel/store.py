@@ -5,6 +5,7 @@ from ...stores import Store
 from ...errors import *
 from .mixpanel import *
 from string import capwords
+from cubes.common import get_logger
 
 DIMENSION_COUNT_LIMIT = 100
 
@@ -98,6 +99,7 @@ class MixpanelStore(Store):
     def __init__(self, api_key, api_secret, category=None):
         self.mixpanel = Mixpanel(api_key, api_secret)
         self.category = category or "Mixpanel Events"
+        self.logger = get_logger()
 
     def model_provider_name(self):
         return "mixpanel"
@@ -105,6 +107,8 @@ class MixpanelStore(Store):
     def request(self, *args, **kwargs):
         """Performs a mixpanel HTTP request. Raises a BackendError when
         mixpanel returns `error` in the response."""
+
+        self.logger.debug("Mixpanel request: %s" % (args,))
 
         response = self.mixpanel.request(*args, **kwargs)
 
