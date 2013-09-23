@@ -301,6 +301,11 @@ class MixpanelBrowser(AggregationBrowser):
 
         result.levels = drilldown.levels_dictionary()
 
+        labels = aggregator.time_levels[:]
+        if drilldown_on:
+            labels.append(drilldown_on.dimension.name)
+        result.labels = labels
+
         return result
 
     def _property(self, dim):
