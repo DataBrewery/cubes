@@ -2,6 +2,7 @@
 from ...browser import *
 from ...errors import *
 from ...model import *
+from cubes.common import get_logger
 
 import datetime
 import calendar
@@ -12,6 +13,11 @@ _measure_param = {
         "unique": "unique",
         "average": "average"
     }
+
+_no_cut_time_= {
+    'from': [2000, 1, 1],
+    'to': [2199, 12, 31]
+}
 
 def coalesce_date_path(path, bound):
     # Bound: 0: lower, 1:upper
@@ -93,6 +99,7 @@ class MixpanelBrowser(AggregationBrowser):
         self.store = store
         self.cube = cube
         self.options = options
+        self.logger = get_logger()
 
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                     **options):
@@ -124,8 +131,8 @@ class MixpanelBrowser(AggregationBrowser):
         #
         time_cut = cell.cut_for_dimension("time")
         if not time_cut:
-            path_time_from = []
-            path_time_to = []
+            path_time_from = _no_cut_time_paths['from']
+            path_time_to = _no_cut_time_paths['to']
         elif isinstance(time_cut, PointCut):
             path_time_from = time_cut.path or []
             path_time_to = time_cut.path or []
@@ -178,12 +185,12 @@ class MixpanelBrowser(AggregationBrowser):
         conditions = []
         for cut in cuts:
             if isinstance(cut, PointCut):
-                condition = self._point_condition(cut.dimension, cut.path[0])
+                condition = self._point_condition(cut.dimension, cut.path[0], cut.invert)
                 conditions.append(condition)
             elif isinstance(cut, RangeCut):
                 condition = self._range_condition(cut.dimension,
                                                   cut.from_path[0],
-                                                  cut.to_path[0])
+                                                  cut.to_path[0], cut.invert)
                 conditions.append(condition)
             elif isinstance(cut, SetCut):
                 set_conditions = []
@@ -213,7 +220,7 @@ class MixpanelBrowser(AggregationBrowser):
             params["type"] = _measure_param[measure]
             response = self.store.request(["segmentation"],
                                             params)
-            # print "=== response:", response
+            self.logger.debug(response['data']) 
             responses[measure] = response
 
 
@@ -233,19 +240,20 @@ class MixpanelBrowser(AggregationBrowser):
         #   same parameters => we can take one (any) response and share the
         #   series with other responses
 
-        cells = OrderedDict()
-
         time_series = responses[measure_names[0]]["data"]["series"]
         time_series = [(key, time_to_path(key)) for key in time_series]
 
         time_levels = ["time."+level.name for level in drilldown["time"].levels]
 
-        for time_key, time_path in time_series:
-            cell = dict(zip(time_levels, time_path))
-            cells[time_key] = cell
+        result_cells = []
 
         if not drilldown_on:
             measure_values = {}
+
+            cells = {}
+
+            for time_key, time_path in time_series:
+                cells[time_key] = dict(zip(time_levels, time_path))
 
             for measure in measure_names:
                 measure_response_values = responses[measure]["data"]["values"]
@@ -254,24 +262,43 @@ class MixpanelBrowser(AggregationBrowser):
                 for time_key, time_path in time_series:
                     cell = cells[time_key]
                     cell[measure] = measure_values[time_key]
+            
+            items = cells.items()
+            items.sort(lambda a, b: cmp(a[0], b[0]))
+            result_cells = [ v for k, v in items ]
 
         else: # if drilldown_on
             # TODO: order keys
 
             # values: { city_A: {time:value, ...}, city_B: {time:value, ...} }
-            drilldown_values = response["data"]["values"]
             drilldown_dim = drilldown_on.dimension.name
 
-            for measure in measure_names:
-                measure_values = responses[measure]["data"]["values"]
+            # cells are ordered by time drill, then non-time drill
 
-                for dim_key, dim_values in measure_values.items():
-                    for time_key, time_path in time_series:
-                        cell = cells[time_key]
-                        cell[drilldown_dim]= dim_key
-                        cell[measure]= dim_values[time_key]
+            for time_key, time_path in time_series:
+                cells = {}
 
-        result.cells = cells.values()
+                cells[time_key] = {}
+                time_cells = {}
+                cells[time_key] = time_cells
+
+                for measure in measure_names:
+                    measure_values = responses[measure]["data"]["values"]
+
+                    for dim_key, dim_values in measure_values.items():
+                        cell = time_cells.setdefault(dim_key, dict(zip(time_levels, time_path)))
+                        cell[drilldown_dim] = dim_key
+                        if dim_values.has_key(time_key):
+                            cell[measure]= dim_values[time_key]
+
+                items = cells.items()
+                items.sort(lambda a, b: cmp(a[0], b[0]))
+                for cell_list in [ v.values() for k, v in items ]:
+                    cell_list.sort(lambda a,b: cmp(a[drilldown_dim], b[drilldown_dim]))
+                    result_cells += cell_list
+
+
+        result.cells = result_cells
         result.levels = drilldown.levels_dictionary()
 
         return result
@@ -281,19 +308,22 @@ class MixpanelBrowser(AggregationBrowser):
         dim = str(dim)
         return self.cube.mappings.get(dim, dim)
 
-    def _point_condition(self, dim, value):
+    def _point_condition(self, dim, value, invert):
         """Returns a point cut for flat dimension `dim`"""
 
-        condition = '(string(properties["%s"]) == "%s")' % \
-                        (self._property(dim), str(value))
+        op = '!=' if invert else '=='
+        condition = '(string(properties["%s"]) %s "%s")' % \
+                        (self._property(dim), op, str(value))
         return condition
 
-    def _range_condition(self, dim, from_value, to_value):
+    def _range_condition(self, dim, from_value, to_value, invert):
         """Returns a point cut for flat dimension `dim`. Assumes number."""
 
-        condition = '(number(properties["%s"]) >= %s and ' \
-                    'number(properties["%s"]) <= %s)' % \
-                        (self._property(dim), from_value,
-                        self._property(dim), to_value)
+        condition_tmpl = (
+            '(number(properties["%s"]) >= %s and number(properties["%s"]) <= %s)' if not invert else
+            '(number(properties["%s"]) < %s or number(properties["%s"]) > %s)' 
+            )
+
+        condition = condition_tmpl % (self._property(dim), from_value, self._property(dim), to_value)
         return condition
 

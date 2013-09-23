@@ -55,7 +55,7 @@ class MixpanelModelProvider(ModelProvider):
         cube = Cube(name=name,
                     measures=measures,
                     linked_dimensions=dims,
-                    store=self.store_name,
+                    datastore=self.store_name,
                     mappings=mappings,
                     category=self.store.category)
 
@@ -95,7 +95,7 @@ class MixpanelModelProvider(ModelProvider):
 class MixpanelStore(Store):
     def __init__(self, api_key, api_secret, category=None):
         self.mixpanel = Mixpanel(api_key, api_secret)
-        self.category = category or "Mixpanel"
+        self.category = category or "Mixpanel Events"
 
     def model_provider_name(self):
         return "mixpanel"

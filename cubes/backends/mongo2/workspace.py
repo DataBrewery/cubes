@@ -1,7 +1,7 @@
 import logging
 from cubes.common import get_logger
 from cubes.workspace import Workspace
-from .browser import MongoBrowser
+from .browser import Mongo2Browser
 
 __all__ = [
     "create_workspace"
@@ -23,7 +23,7 @@ class MongoWorkspace(Workspace):
         model = self.localized_model(locale)
         cube = model.cube(cube)
 
-        browser = MongoBrowser(
+        browser = Mongo2Browser(
             cube,
             locale=locale,
             metadata=self.metadata,
