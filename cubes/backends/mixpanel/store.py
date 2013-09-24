@@ -53,6 +53,7 @@ class MixpanelModelProvider(ModelProvider):
             except ValueError:
                 pass
 
+
         # Replace $ with underscore _
         dims = ["time"]
         mappings = {}
