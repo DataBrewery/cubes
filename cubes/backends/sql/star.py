@@ -1493,7 +1493,7 @@ class SnapshotQueryContext(QueryContext):
         return select
 
 class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, connectable=None, locale=None, metadata=None, debug=False, **options):
-       super(SnapshotBrowser, self).__init__(cube, connectable, locale, metadata, debug, **options)
+    def __init__(self, cube, store, connectable=None, locale=None, metadata=None, debug=False, **options):
+       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata, debug=debug, **options)
        self.context = SnapshotQueryContext(self.cube, self.mapper, metadata=self.metadata, **self.options)
 
