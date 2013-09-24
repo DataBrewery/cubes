@@ -505,6 +505,8 @@ class _MixpanelResponseAggregator(object):
                 cell.update(zip(self.time_levels, time_key))
 
             # append the drilldown_on attribute ref
-            cell[self.drilldown_on] = key[1]
+            if self.drilldown_on:
+                cell[self.drilldown_on] = key[1]
+
             self.cells.append(cell)
 
