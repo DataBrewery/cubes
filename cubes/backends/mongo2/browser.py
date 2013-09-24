@@ -94,13 +94,13 @@ class Mongo2Browser(AggregationBrowser):
             dim_levels = {}
             if split:
                 dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
-            for dim, hier, levels in drilldown_levels:
+            for dditem in drilldown_levels:
                 # if dim or one of its levels is high_cardinality, and there is no page_size and page, raise BrowserError
-                if dim.info.get('high_cardinality') and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
-                if [ l for l in levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
-                dim_levels[str(dim)] = [str(level) for level in levels]
+                if dditem.dimension.info.get('high_cardinality') and not (page_size and page is not None):
+                    raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dditem.dimension.name))
+                if [ l for l in dditem.levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
+                    raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in dditem.levels if l.info.get('high_cardinality')])))
+                dim_levels[str(dditem.dimension)] = [str(level) for level in dditem.levels]
             result.levels = dim_levels
 
             calc_aggs = []
@@ -249,7 +249,8 @@ class Mongo2Browser(AggregationBrowser):
         sort_obj = bson.son.SON()
 
         if drilldown:
-            for dim, hier, levels in drilldown:
+            for dditem in drilldown:
+                dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
 
                 # Special Mongo Date Hack for TZ Support
                 if dim and is_date_dimension(dim):
@@ -350,15 +351,15 @@ class Mongo2Browser(AggregationBrowser):
             date_field = None
             filter_so_far = False
             # calculate correct date:level
-            for dim, hier, levels in drilldown:
-                if dim and is_date_dimension(dim):
-                    date_field = dim.name
-                    dategrouping = [str(l).lower() for l in levels]
+            for dditem in drilldown:
+                if dditem.dimension and is_date_dimension(dditem.dimension):
+                    date_field = dditem.dimension.name
+                    dategrouping = [str(l).lower() for l in dditem.levels]
                     for dg in dategrouping:
                         datenormalize.remove(dg)
 
                     # TODO don't use magic _sf string for sofar
-                    if SO_FAR_DIMENSION_REGEX.match(dim.name):
+                    if SO_FAR_DIMENSION_REGEX.match(dditem.dimension.name):
                         filter_so_far = True
                     break
 
