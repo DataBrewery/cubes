@@ -3,6 +3,7 @@ from ...browser import *
 from ...errors import *
 from ...model import *
 from ...common import get_logger
+from ...statutils import *
 from .aggregator import _MixpanelResponseAggregator
 from .utils import *
 
@@ -190,8 +191,6 @@ class MixpanelBrowser(AggregationBrowser):
         aggregator = _MixpanelResponseAggregator(self, responses,
                         measure_names, drilldown, actual_time_level)
 
-        result.cells = aggregator.cells
-
         result.levels = drilldown.levels_dictionary()
 
         labels = aggregator.time_levels[:]
@@ -200,7 +199,32 @@ class MixpanelBrowser(AggregationBrowser):
         labels += measure_names
         result.labels = labels
 
+        if drilldown or split:
+            self.logger.debug("CALCULATED AGGS because drilldown or split")
+            calc_aggs = []
+            for c in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
+                calc_aggs += c
+            result.calculators = calc_aggs
+            result.cells = aggregator.cells
+
+        # add calculated measures w/o drilldown or split if no drilldown or split
+        else:
+            self.logger.debug("CALCULATED AGGS ON SUMMARY")
+            result.summary = aggregator.cells[0]
+            result.cells = []
+            for calcs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
+                for calc in calcs:
+                    calc(result.summary)
+
         return result
+
+    def calculated_aggregations_for_measure(self, measure, drilldown_levels, split):
+        calc_aggs = [ agg for agg in measure.aggregations if agg in CALCULATED_AGGREGATIONS ]
+
+        if not calc_aggs:
+            return []
+
+        return [ CALCULATED_AGGREGATIONS.get(c)(measure, drilldown_levels, split, ['identity']) for c in calc_aggs ]
 
     def _property(self, dim):
         """Return correct property name from dimension."""
