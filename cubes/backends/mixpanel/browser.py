@@ -27,7 +27,7 @@ def _week_value(dt, as_string=False):
 
 _week_path_readers = ( lambda v: datetime.datetime.strptime(v, '%Y-%m-%d'), lambda v: datetime.datetime.strptime(v, '%Y-%m-%d'), int )
 
-_lower_date = datetime.datetime(2000, 1, 1)
+_lower_date = datetime.datetime(2008, 1, 1)
 
 def coalesce_date_path(path, bound, hier='ymdh'):
     if hier == 'wdh':
@@ -181,9 +181,10 @@ class MixpanelBrowser(AggregationBrowser):
             raise ArgumentError("Mixpanel does not know how to handle cuts "
                                 "of type %s" % type(time_cut))
 
-        path_time_from = coalesce_date_path(path_time_from, 0, time_cut.hierarchy)
-        path_time_to = coalesce_date_path(path_time_to, 1, time_cut.hierarchy)
+        path_time_from = coalesce_date_path(path_time_from, 0, (time_cut.hierarchy if time_cut else None))
+        path_time_to = coalesce_date_path(path_time_to, 1, (time_cut.hierarchy if time_cut else None))
 
+        self.logger.debug(self.cube.__dict__)
         params = {
                 "event": self.cube.name,
                 "from_date": path_time_from.strftime("%Y-%m-%d"),
