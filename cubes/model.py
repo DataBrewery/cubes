@@ -231,10 +231,29 @@ class ModelProvider(object):
         self.store = store
         self.store_name = store_name
 
-    def model_provider_name(self):
-        """Returns a name of a model provider for this store."""
-        return "default"
+        # TODO: check for duplicates
+        self.dimensions_metadata = {}
+        for dim in metadata.get("dimensions", []):
+            self.dimensions_metadata[dim["name"]] = dim
 
+        self.cubes_metadata = {}
+        for cube in metadata.get("cubes", []):
+            self.cubes_metadata[cube["name"]] = cube
+
+        self.options = metadata.get("options", {})
+
+    def cube_options(self, cube_name):
+        """Returns an options dictionary for cube `name`. The options
+        dictoinary is merged model `options` metadata with cube's `options`
+        metadata if exists. Cube overrides model's global (default)
+        options."""
+
+        options = dict(self.options)
+        if cube_name in self.cubes_metadata:
+            cube = self.cubes_metadata[cube_name]
+            options.update(cube.get("options", {}))
+
+        return options
 
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
@@ -276,14 +295,6 @@ class DefaultModelProvider(ModelProvider):
     def __init__(self, metadata, store, store_name):
         super(DefaultModelProvider, self).__init__(metadata, store, store_name)
 
-        # TODO: check for duplicates
-        self.dimensions_metadata = {}
-        for dim in metadata.get("dimensions", []):
-            self.dimensions_metadata[dim["name"]] = dim
-
-        self.cubes_metadata = {}
-        for cube in metadata.get("cubes", []):
-            self.cubes_metadata[cube["name"]] = cube
 
     def list_cubes(self):
         cubes = []
