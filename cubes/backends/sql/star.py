@@ -3,6 +3,7 @@
 
 from cubes.browser import *
 from cubes.common import get_logger
+from cubes.statutils import *
 from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical, DEFAULT_KEY_FIELD
 import logging
 import collections
@@ -11,7 +12,6 @@ import datetime
 from cubes.errors import *
 from cubes.computation import *
 from cubes.backends.sql import extensions
-from cubes import statutils
 from cubes.model import Attribute
 
 try:
@@ -27,11 +27,6 @@ try:
         "stddev": extensions.stddev,
         "variance": extensions.variance,
         "identity": lambda c: c
-    }
-
-    calculated_aggregation_functions = {
-        "sma": statutils.simple_moving_average_factory,
-        "wma": statutils.weighted_moving_average_factory
     }
 
 except ImportError:
@@ -447,7 +442,7 @@ class SnowflakeBrowser(AggregationBrowser):
         if not non_calculated_aggs:
             return []
 
-        return [ func(measure, drilldown_levels, split, non_calculated_aggs) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
+        return [ func(measure, drilldown_levels, split, non_calculated_aggs) for func in filter(lambda f: f is not None, [ CALCULATED_AGGREGATIONS.get(a) for a in measure.aggregations]) ]
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -722,7 +717,7 @@ class QueryContext(object):
         result = []
         for agg_name in aggregations:
             if not agg_name in aggregation_functions:
-                if not agg_name in calculated_aggregation_functions:
+                if not agg_name in CALCULATED_AGGREGATIONS:
                     raise ArgumentError("Unknown aggregation type %s for measure %s" % \
                                         (agg_name, measure))
 
@@ -1498,7 +1493,7 @@ class SnapshotQueryContext(QueryContext):
         return select
 
 class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, connectable=None, locale=None, metadata=None, debug=False, **options):
-       super(SnapshotBrowser, self).__init__(cube, connectable, locale, metadata, debug, **options)
+    def __init__(self, cube, store, connectable=None, locale=None, metadata=None, debug=False, **options):
+       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata, debug=debug, **options)
        self.context = SnapshotQueryContext(self.cube, self.mapper, metadata=self.metadata, **self.options)
 

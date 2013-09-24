@@ -3,6 +3,7 @@ from cubes.common import get_logger
 from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
+from cubes.statutils import *
 from cubes import statutils
 from .mapper import MongoCollectionMapper, coalesce_physical
 from .datesupport import DateSupport
@@ -35,11 +36,6 @@ AGGREGATIONS = {
         'group_by' : (lambda field: { '$sum': 1 }),
         'aggregate_fn': len
     }
-}
-
-CALCULATED_AGGREGATIONS = {
-    "sma": statutils.simple_moving_average_factory,
-    "wma": statutils.weighted_moving_average_factory
 }
 
 SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
