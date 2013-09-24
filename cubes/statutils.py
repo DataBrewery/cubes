@@ -2,6 +2,10 @@ from collections import deque
 from cubes.model import Attribute
 from cubes.browser import SPLIT_DIMENSION_NAME
 
+__all__ = [
+    "CALCULATED_AGGREGATIONS"
+]
+
 def _wma(values):
     n = len(values)
     denom = n * (n + 1) / 2
@@ -91,4 +95,9 @@ def _calc_func(field_name, measure_ref, avg_func, key_extractor, num_units):
             item[field_name] = avg_func(val_list)
 
     return f
+
+CALCULATED_AGGREGATIONS = {
+    "sma": simple_moving_average_factory,
+    "wma": weighted_moving_average_factory
+}
 

@@ -13,7 +13,14 @@ DEFAULT_TIME_HIERARCHY = "ymdh"
 
 time_dimension_md = {
     "name": "time",
-    "levels": ["year", "month", "week", "date", "day", "hour"],
+    "levels": [
+        { "name": "year", "label": "Year" }, 
+        { "name": "month", "label": "Month", "info": { "aggregation_units": 3 }},
+        { "name": "day", "label": "Day", "info": { "aggregation_units": 7 } },
+        { "name": "hour", "label": "Hour", "info": { "aggregation_units": 6 } },
+        { "name": "week", "label": "Week", "info": { "aggregation_units": 4 } },
+        { "name": "date", "label": "Date", "info": { "aggregation_units": 7 } }
+    ],
     "hierarchies": [
         {"name":"ymdh", "levels": ["year", "month", "day", "hour"]},
         {"name":"wdh", "levels": ["week", "date", "hour"]}
@@ -70,7 +77,7 @@ class MixpanelModelProvider(ModelProvider):
 
         measures = attribute_list(["total", "unique"])
         for m in measures:
-            m.aggregations = ['identity']
+            m.aggregations = ['identity', 'sma']
 
         cube = Cube(name=name,
                     measures=measures,
