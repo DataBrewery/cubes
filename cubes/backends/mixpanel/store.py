@@ -45,13 +45,16 @@ class MixpanelModelProvider(ModelProvider):
         dim_names = result.keys()
 
         options = self.cube_options(name)
-        ignore = options.get("ignore_properties", [])
+        allowed_dims = options.get("allowed_dimensions", [])
+        denied_dims = options.get("denied_dimensions", [])
 
-        for prop in ignore:
-            try:
-                dim_names.remove(prop)
-            except ValueError:
-                pass
+        dim_names = []
+        for name in result.keys():
+            if not allowed_dims and not denied_dims:
+                dim_names.append(name)
+            elif (allowed_dims and name in allowed_dims) or \
+                    (denied_dims and name not in denied_dims):
+                dim_names.append(name)
 
         # Replace $ with underscore _
         dims = ["time"]
