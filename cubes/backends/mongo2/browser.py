@@ -70,7 +70,7 @@ class Mongo2Browser(AggregationBrowser):
 
         self.mapper = MongoCollectionMapper(cube, database, collection, locale)
 
-        self.timezone = pytz.timezone(cube.info.get('timezone')) if cube.info.get('timezone') else pytz.timezone('UTC')
+        self.timezone = pytz.timezone(cube.browser_options.get('timezone') or options.get('timezone') or 'UTC')
 
         self.datesupport = DateSupport(self.logger, self.timezone, options.get('week_start_weekday'))
 
@@ -267,7 +267,8 @@ class Mongo2Browser(AggregationBrowser):
                             'year': {'$year': date_idx},
                             'month': {'$month': date_idx},
                             'day': {'$dayOfMonth': date_idx},
-                            'hour': {'$hour': date_idx}
+                            'hour': {'$hour': date_idx},
+                            'minute': {'$minute': date_idx}
                         }
                         for lvl in levels:
                             group_id[escape_level(lvl.key.ref())] = possible_groups[lvl.name]
@@ -279,12 +280,14 @@ class Mongo2Browser(AggregationBrowser):
                             'year': {'$year': date_idx},
                             'month': {'$month': date_idx},
                             'day': {'$dayOfMonth': date_idx},
-                            'hour': {'$hour': date_idx},
+                            'hour': {'$hour': date_idx}
                         })
+                        if levels[-1] == 'minute':
+                            group_id['minute'] = { '$minute': date_idx }
 
                         def _date_transform(item, date_field):
                             date_dict = {}
-                            for k in ['year', 'month', 'day', 'hour']:
+                            for k in ['year', 'month', 'day', 'hour', 'minute']:
                                 if item['_id'].has_key(k):
                                     date_dict[k] = item['_id'].pop(k)
 
@@ -345,8 +348,8 @@ class Mongo2Browser(AggregationBrowser):
         results = [date_transform(r) for r in results]
 
         if timezone_shift_processing:
-            dategrouping = ['year', 'month', 'week', 'day', 'hour',]
-            datenormalize = ['year', 'month', 'week', 'dow', 'day', 'hour',]
+            dategrouping = ['year', 'month', 'week', 'day', 'hour', 'minute']
+            datenormalize = ['year', 'month', 'week', 'dow', 'day', 'hour', 'minute']
 
             date_field = None
             filter_so_far = False
@@ -363,7 +366,7 @@ class Mongo2Browser(AggregationBrowser):
                         filter_so_far = True
                     break
 
-            def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
+            def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour', 'minute']):
                 # sort group on date
                 dt = item['_id'][date_field]
                 key = [self.datesupport.datepart_functions.get(dp)(dt) for dp in dategrouping]
@@ -430,15 +433,13 @@ class Mongo2Browser(AggregationBrowser):
         return (None, result_items)
 
     def _build_date_for_cut(self, hier, path, is_end=False):
-        date_dict = {'month': 1, 'day': 1, 'hour': 0 }
+        date_dict = {'month': 1, 'day': 1, 'hour': 0, 'minute': 0 }
         min_part = None
 
         for val, dp in zip(path, hier.levels[:len(path)]):
             # TODO saner type conversion based on mapping field
             date_dict[dp.key.name] = self.mapper.physical(dp.key).type(val)
             min_part = dp
-
-        self.logger.debug('=datedict: %s', date_dict)
 
 
         dt = None
