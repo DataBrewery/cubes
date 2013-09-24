@@ -56,6 +56,7 @@ class MixpanelModelProvider(ModelProvider):
                     (denied_dims and name not in denied_dims):
                 dim_names.append(name)
 
+
         # Replace $ with underscore _
         dims = ["time"]
         mappings = {}
