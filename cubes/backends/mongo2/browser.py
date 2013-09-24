@@ -110,7 +110,7 @@ class Mongo2Browser(AggregationBrowser):
 
         summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, split=split, order=order, page=page, page_size=page_size)
         result.cells = iter(items)
-        result.summary = { "record_count": summary }
+        result.summary = summary
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
             for calcs in [ self.calculated_aggregations_for_measure(measure, drilldown_levels, split) for measure in measures ]:
@@ -262,7 +262,7 @@ class Mongo2Browser(AggregationBrowser):
                     query_obj.update(phys.match_expression(1, op='$exists'))
                     fields_obj[date_idx[1:]] = 1
 
-                    if is_utc:
+                    if is_utc and not ([l for l in levels if l.name == 'week']):
                         possible_groups = {
                             'year': {'$year': date_idx},
                             'month': {'$month': date_idx},
@@ -430,14 +430,14 @@ class Mongo2Browser(AggregationBrowser):
             for agg_fn_pair in aggregate_fn_pairs:
                 new_item[ unescape_level(agg_fn_pair[0]) ] = item [ agg_fn_pair[0] ]
             result_items.append(new_item)
-        return (None, result_items)
+
+        return (None, result_items) if (drilldown or split) else (result_items[0], [])
 
     def _build_date_for_cut(self, hier, path, is_end=False):
         date_dict = {'month': 1, 'day': 1, 'hour': 0, 'minute': 0 }
         min_part = None
 
         for val, dp in zip(path, hier.levels[:len(path)]):
-            # TODO saner type conversion based on mapping field
             date_dict[dp.key.name] = self.mapper.physical(dp.key).type(val)
             min_part = dp
 
