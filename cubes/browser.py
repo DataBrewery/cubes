@@ -1141,7 +1141,7 @@ class AggregationResult(object):
     def cells(self, val):
         # decorate iterable with calcs if needed
         if self.calculators:
-            val = CalculatedResultIterator(self.calculators, val)
+            val = CalculatedResultIterator(self.calculators, iter(val))
         self._cells = val
 
     @property
