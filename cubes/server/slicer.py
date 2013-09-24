@@ -57,6 +57,8 @@ rules = Map([
     #
     # Aggregation browser requests
     #
+    Rule('/cube/<string:cube_name>/model',
+                        endpoint = (ModelController, 'get_cube')),
     Rule('/cube/<string:cube>/aggregate',
                         endpoint = (CubesController, 'aggregate')),
     Rule('/cube/<string:cube>/facts',
