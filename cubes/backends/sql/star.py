@@ -374,7 +374,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
            
             dim_levels = {}
-            for dim, hier, levels in drilldown:
+            self.logger.debug("Drilldown: %s", drilldown)
+            for dditem in drilldown:
+                dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
                 if dim.info.get('high_cardinality') and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
                 hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
@@ -648,8 +650,8 @@ class QueryContext(object):
             attributes = set()
 
             if drilldown:
-                for dim, hier, levels in drilldown:
-                    for level in levels:
+                for dditem in drilldown:
+                    for level in dditem.levels:
                         attributes |= set(level.attributes)
 
         attributes = set(attributes) | set(cell_cond.attributes)
@@ -667,9 +669,9 @@ class QueryContext(object):
             if split_dim_cond:
                 group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
                 selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-            for dim, hier, levels in drilldown:
-                last_level = levels[-1] if len(levels) else None
-                for level in levels:
+            for dditem in drilldown:
+                last_level = dditem.levels[-1] if len(dditem.levels) else None
+                for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
                     group_by.extend(columns)
@@ -1119,9 +1121,9 @@ class QueryContext(object):
             order.append( SPLIT_DIMENSION_NAME )
 
         if dimension_levels:
-            for dim, hier, levels in dimension_levels:
-                dim = self.cube.dimension(dim)
-                for level in levels:
+            for dditem in dimension_levels:
+                dim = dditem.dimension
+                for level in dditem.levels:
                     level = dim.level(level)
                     if level.order:
                         order.append( (level.order_attribute.ref(), level.order) )
@@ -1391,11 +1393,11 @@ class SnapshotQueryContext(QueryContext):
 
     def snapshot_level_attribute(self, drilldown):
         if drilldown:
-            for dim, hier, levels in drilldown:
-                if dim.name == self.snapshot_dimension.name:
-                    if len(hier.levels) > len(levels):
+            for dditem in drilldown:
+                if dditem.dimension.name == self.snapshot_dimension.name:
+                    if len(dditem.hierarchy.levels) > len(dditem.levels):
                         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
-                    elif len(hier.levels) == len(levels):
+                    elif len(dditem.hierarchy.levels) == len(dditem.levels):
                         return None, False
         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
@@ -1411,8 +1413,8 @@ class SnapshotQueryContext(QueryContext):
             attributes = set()
 
             if drilldown:
-                for dim, hier, levels in drilldown:
-                    for level in levels:
+                for dditem in drilldown:
+                    for level in dditem.levels:
                         attributes |= set(level.attributes)
 
         attributes = set(attributes) | set(cell_cond.attributes)
@@ -1430,9 +1432,9 @@ class SnapshotQueryContext(QueryContext):
             if split_dim_cond:
                 group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
                 selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-            for dim, hier, levels in drilldown:
-                last_level = levels[-1] if len(levels) else None
-                for level in levels:
+            for dditem in drilldown:
+                last_level = dditem.levels[-1] if len(dditem.levels) else None
+                for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
                     group_by.extend(columns)
