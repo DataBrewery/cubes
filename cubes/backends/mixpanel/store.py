@@ -42,12 +42,22 @@ class MixpanelModelProvider(ModelProvider):
         if not result:
             raise NoSuchCubeError(name)
 
-        names = result.keys()
+        dim_names = result.keys()
+
+        options = self.cube_options(name)
+        ignore = options.get("ignore_properties", [])
+
+        for prop in ignore:
+            try:
+                dim_names.remove(prop)
+            except ValueError:
+                pass
+
         # Replace $ with underscore _
         dims = ["time"]
         mappings = {}
 
-        for dim_name in result.keys():
+        for dim_name in dim_names:
             fixed_name = dim_name.replace("$", "_")
             fixed_name = fixed_name.replace(" ", "_")
             if fixed_name != dim_name:
