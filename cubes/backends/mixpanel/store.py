@@ -49,12 +49,12 @@ class MixpanelModelProvider(ModelProvider):
         denied_dims = options.get("denied_dimensions", [])
 
         dim_names = []
-        for name in result.keys():
+        for dim_name in result.keys():
             if not allowed_dims and not denied_dims:
-                dim_names.append(name)
-            elif (allowed_dims and name in allowed_dims) or \
-                    (denied_dims and name not in denied_dims):
-                dim_names.append(name)
+                dim_names.append(dim_name)
+            elif (allowed_dims and dim_name in allowed_dims) or \
+                    (denied_dims and dim_name not in denied_dims):
+                dim_names.append(dim_name)
 
 
         # Replace $ with underscore _
