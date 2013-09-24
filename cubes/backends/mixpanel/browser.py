@@ -40,7 +40,7 @@ class MixpanelBrowser(AggregationBrowser):
         if split:
             raise BrowserError("split in mixpanel is not supported")
 
-        measures = measures or cube.measures 
+        measures = measures or cube.measures
         measures = self.cube.get_measures(measures)
         measure_names = [m.name for m in measures]
 
@@ -60,6 +60,8 @@ class MixpanelBrowser(AggregationBrowser):
         # Create from-to date range from time dimension cut
         #
         time_cut = cell.cut_for_dimension("time")
+        time_hierarchy = time_cut.hierarchy if time_cut else DEFAULT_TIME_HIERARCHY
+
         if not time_cut:
             path_time_from = []
             path_time_to = []
@@ -73,12 +75,10 @@ class MixpanelBrowser(AggregationBrowser):
             raise ArgumentError("Mixpanel does not know how to handle cuts "
                                 "of type %s" % type(time_cut))
 
-        path_time_from = coalesce_date_path(path_time_from, 0, (time_cut.hierarchy if time_cut else None))
-        path_time_to = coalesce_date_path(path_time_to, 1, (time_cut.hierarchy if time_cut else None))
+        path_time_from = coalesce_date_path(path_time_from, 0, time_hierarchy)
+        path_time_to = coalesce_date_path(path_time_to, 1, time_hierarchy)
 
-        self.logger.debug(self.cube.__dict__)
         params = {
-                "event": self.cube.name,
                 "from_date": path_time_from.strftime("%Y-%m-%d"),
                 "to_date": path_time_to.strftime("%Y-%m-%d")
             }
@@ -86,9 +86,6 @@ class MixpanelBrowser(AggregationBrowser):
         time_level = drilldown.last_level("time")
         if time_level:
             time_level = str(time_level)
-            time_hier = str(drilldown['time'].hierarchy)
-        else:
-            time_hier = DEFAULT_TIME_HIERARCHY
 
         # time_level - as requested by the caller
         # actual_time_level - time level in the result (dim.hierarchy
@@ -110,8 +107,6 @@ class MixpanelBrowser(AggregationBrowser):
 
         if time_level and time_level not in self.cube.dimension("time").level_names:
             raise ArgumentError("Can not drill down time to '%s'" % time_level)
-
-        params["unit"] = mixpanel_unit
 
         # Get drill-down dimension (mixpanel "by" segmentation menu)
         # Assumption: first non-time
@@ -158,6 +153,8 @@ class MixpanelBrowser(AggregationBrowser):
             condition = " and ".join(conditions)
             params["where"] = condition
 
+            self.logger.debug("condition: %s" % condition)
+
         if "limit" in options:
             params["limit"] = options["limit"]
 
@@ -166,15 +163,25 @@ class MixpanelBrowser(AggregationBrowser):
         # ===========
         # Perform one request per measure.
         #
+        # TODO: use mapper
+        event_name = self.cube.name
 
+        # Collect responses for each measure
+        #
+        # Note: we are using `segmentation` MXP request by default except for
+        # the `unique` measure at the `all` or `year` aggregation level.
         responses = {}
+
         for measure in measure_names:
             params["type"] = _measure_param[measure]
-            response = self.store.request(["segmentation"],
-                                            params)
-            self.logger.debug(response['data'])
-            responses[measure] = response
 
+            if measure == "unique" and not time_level or time_level == "year":
+                response = self._arb_funnels_request(event_name, params)
+            else:
+                response = self._segmentation_request(event_name, params,
+                                                    mixpanel_unit)
+
+            responses[measure] = response
 
         # TODO: get this: result.total_cell_count = None
         # TODO: compute summary
@@ -202,6 +209,51 @@ class MixpanelBrowser(AggregationBrowser):
 
         return result
 
+    def _segmentation_request(self, event_name, params, unit):
+        """Perform Mixpanel request ``segmentation`` – this is the default
+        request."""
+        params = dict(params)
+        params["event"] = event_name
+        params["unit"] = unit
+
+        response = self.store.request(["segmentation"], params)
+
+        self.logger.debug(response['data'])
+        return response
+
+    def _arb_funnels_request(self, event_name, params):
+        """Perform Mixpanel request ``arb_funnels`` for measure `unique` with
+        granularity of whole cube (all) or year."""
+        params = dict(params)
+
+        params["events"] = [{"event":event_name}]
+        params["interval"] = 90
+        params["type"] = _measure_param["unique"]
+
+        response = self.store.request(["arb_funnels"], params)
+
+        # TODO: remove this debug once satisfied (and below)
+        # from json import dumps
+        # txt = dumps(response, indent=4)
+        # self.logger.info("MXP response: \n%s" % (txt, ))
+
+        # Convert the arb_funnels Mixpanel response to segmentation kind of
+        # response.
+
+        # Prepare the structure – only geys processed by the aggregator are
+        # needed
+        group = event_name
+        result = { "data": {"values": {group:{}}} }
+        values = result["data"]["values"][group]
+
+        for date_key, data_point in response["data"].items():
+            values[date_key] = data_point["steps"][0]["count"]
+
+        # txt = dumps(result, indent=4)
+        # self.logger.info("Converted response: \n%s" % (txt, ))
+
+        return result
+
     def _property(self, dim):
         """Return correct property name from dimension."""
         dim = str(dim)
@@ -225,3 +277,4 @@ class MixpanelBrowser(AggregationBrowser):
 
         condition = condition_tmpl % (self._property(dim), from_value, self._property(dim), to_value)
         return condition
+
