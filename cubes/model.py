@@ -342,6 +342,12 @@ class DefaultModelProvider(ModelProvider):
         if not metadata.get("datastore"):
             metadata['datastore'] = self.metadata.get("datastore")
 
+        # merge browser_options
+        browser_options = self.metadata.get('browser_options', {})
+        if metadata.get('browser_options'):
+            browser_options.update(metadata.get('browser_options'))
+        metadata['browser_options'] = browser_options
+
         # model joins, if present, should be merged with cube's overrides.
         # joins are matched by the "name" key.
         if cube_joins and model_joins:
