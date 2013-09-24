@@ -176,7 +176,7 @@ class MixpanelBrowser(AggregationBrowser):
         for measure in measure_names:
             params["type"] = _measure_param[measure]
 
-            if measure == "unique" and not time_level or time_level == "year":
+            if measure == "unique" and (not time_level or time_level == "year"):
                 response = self._arb_funnels_request(event_name, params)
             else:
                 response = self._segmentation_request(event_name, params,
