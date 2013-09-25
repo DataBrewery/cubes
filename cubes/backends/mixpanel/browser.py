@@ -41,7 +41,7 @@ class MixpanelBrowser(AggregationBrowser):
         if split:
             raise BrowserError("split in mixpanel is not supported")
 
-        measures = measures or cube.measures
+        measures = measures or self.cube.measures
         measures = self.cube.get_measures(measures)
         measure_names = [m.name for m in measures]
 
