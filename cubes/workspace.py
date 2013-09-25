@@ -121,7 +121,7 @@ class Workspace(object):
         default = None
         if config.has_section("datastore"):
             default = dict(config.items("datastore"))
-        else:
+        elif config.has_section("workspace"):
             self.logger.warn("No [datastore] configuration found, using old "
                              "backend & [workspace]. Update you config file.")
             default = {}
@@ -474,8 +474,12 @@ class Workspace(object):
         store_name = cube.datastore or "default"
         store = self.get_store(store_name)
         store_type = self.store_infos[store_name][0]
+        store_info = self.store_infos[store_name][1]
 
         options = self._browser_options(cube)
+
+        # TODO: merge only keys that are relevant to the browser!
+        options.update(store_info)
 
         # TODO: Construct options for the browser from cube's options dictionary and
         # workspece default configuration
