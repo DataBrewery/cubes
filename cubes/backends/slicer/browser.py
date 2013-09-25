@@ -5,11 +5,12 @@ import urllib2
 import json
 import logging
 import urllib
+from ...common import get_logger
 
 class SlicerBrowser(cubes.browser.AggregationBrowser):
     """Aggregation browser for Cubes Slicer OLAP server."""
     
-    def __init__(self, cube, url, locale = None):
+    def __init__(self, cube, store, locale = None, **options):
         """Demo backend browser. This backend is serves just as example of a 
         backend. Uses another Slicer server instance for doing all the work. 
         You might use it as a template for your own browser.
@@ -20,9 +21,9 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         * `url` - base url of Cubes Slicer OLAP server
 
         """
-        super(SlicerBrowser, self).__init__(cube)
+        super(SlicerBrowser, self).__init__(cube, store)
 
-        self.logger = logging.getLogger("brewery.cubes")
+        self.logger = get_logger()
 
         self.baseurl = url
         self.cube = cube

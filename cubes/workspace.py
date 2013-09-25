@@ -14,6 +14,7 @@ __all__ = [
     "get_backend",
     "create_workspace",
     "create_workspace_from_config",
+    "create_slicer_workspace",
     "create_slicer_context",
     "config_items_to_dict",
 ]
@@ -42,6 +43,15 @@ def _get_name(obj, object_type="Object"):
 
     return name
 
+
+def create_slicer_workspace(server_url):
+    cp = ConfigParser.SafeConfigParser()
+    cp.add_section("datastore")
+    cp.set("datastore", "type", "slicer")
+    cp.set("datastore", "url", server_url)
+    w = Workspace(cp)
+    w.add_model("%s/model" % server_url)
+    return w
 
 class Workspace(object):
     def __init__(self, config=None, stores=None):

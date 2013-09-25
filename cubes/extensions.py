@@ -8,14 +8,17 @@ _default_modules = {
                 "mongo":"cubes.backends.mongo",
                 "mongo2":"cubes.backends.mongo2",
                 "mixpanel":"cubes.backends.mixpanel.store",
+                "slicer":"cubes.backends.slicer.store",
             },
         "browsers": {
                 "snowflake":"cubes.backends.sql.star",
                 "snapshot": "cubes.backends.sql.star",
                 "mixpanel":"cubes.backends.mixpanel.browser",
+                "slicer":"cubes.backends.slicer.browser",
             },
         "model_providers": {
                 "mixpanel":"cubes.backends.mixpanel.store",
+                "slicer":"cubes.backends.slicer.store",
             }
 }
 
