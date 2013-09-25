@@ -24,7 +24,7 @@
                 {
                     "master": "facts.id_date",
                     "detail": "dim_date.id",
-                    "members": "master"
+                    "method": "master"
                 }
             ],
             "fact": "facts"
@@ -39,7 +39,7 @@
                 {
                     "master": "facts.id_date",
                     "detail": "dim_date.id",
-                    "members": "detail"
+                    "method": "detail"
                 }
             ],
             "fact": "facts"
