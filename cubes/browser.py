@@ -435,7 +435,7 @@ class Cell(object):
         """
 
         dimension = self.cube.dimension(dimension)
-        cuts = self._filter_dimension_cuts(dimension, exclude=True)
+        cuts = self.dimension_cuts(dimension, exclude=True)
         if path:
             cut = PointCut(dimension, path)
             cuts.append(cut)
@@ -655,7 +655,29 @@ class Cell(object):
         else:
             return False
 
-    def _filter_dimension_cuts(self, dimension, exclude=False):
+    def contains_level(self, dim, level, hierarchy=None):
+        """Returns `True` if one of the cuts contains `level` of dimension
+        `dim`. If `hierarchy` is not specified, then dimension's default
+        hierarchy is used."""
+
+        dim = self.cube.dimension(dim)
+        hierarchy = dim.hierarchy(hierarchy)
+
+        for cut in self.dimension_cuts(dim):
+            if str(cut.hierarchy) != str(hierarchy):
+                continue
+            if isinstance(cut, PointCut):
+                if level in hierarchy.levels_for_path(cut.path):
+                    return True
+            if isinstance(cut, SetCut):
+                for path in cut.paths:
+                    if level in hierarchy.levels_for_path(path):
+                        return True
+        return False
+
+     def dimension_cuts(self, dimension, exclude=False):
+        """Returns cuts for `dimension`. If `exclude` is `True` then the
+        effect is reversed: return all cuts except those with `dimension`."""
         dimension = self.cube.dimension(dimension)
         cuts = []
         for cut in self.cuts:
