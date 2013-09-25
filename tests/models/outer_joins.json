@@ -1,0 +1,59 @@
+{
+    "cubes": [
+        {
+            "name":"facts",
+            "dimensions": ["date"],
+            "measures": [
+                    "amount"
+                ],
+            "joins": [
+                {
+                    "master": "facts.id_date",
+                    "detail": "dim_date.id",
+                    "members": "match"
+                }
+            ]
+        },
+        {
+            "name":"facts_master",
+            "dimensions": ["date"],
+            "measures": [
+                    "amount"
+                ],
+            "joins": [
+                {
+                    "master": "facts.id_date",
+                    "detail": "dim_date.id",
+                    "members": "master"
+                }
+            ],
+            "fact": "facts"
+        },
+        {
+            "name":"facts_detail",
+            "dimensions": ["date"],
+            "measures": [
+                    "amount"
+                ],
+            "joins": [
+                {
+                    "master": "facts.id_date",
+                    "detail": "dim_date.id",
+                    "members": "detail"
+                }
+            ],
+            "fact": "facts"
+        }
+    ],
+    "dimensions": [
+        {
+            "name":"date",
+            "levels": [
+                    {"name":"year"},
+                    {"name":"month"},
+                    {"name":"day"}
+                ]
+        }
+    ]
+
+}
