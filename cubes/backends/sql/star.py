@@ -3,6 +3,7 @@
 
 from cubes.browser import *
 from cubes.common import get_logger
+from cubes.statutils import *
 from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical, DEFAULT_KEY_FIELD
 import logging
 import collections
@@ -11,7 +12,6 @@ import datetime
 from cubes.errors import *
 from cubes.computation import *
 from cubes.backends.sql import extensions
-from cubes import statutils
 from cubes.model import Attribute
 
 try:
@@ -27,11 +27,6 @@ try:
         "stddev": extensions.stddev,
         "variance": extensions.variance,
         "identity": lambda c: c
-    }
-
-    calculated_aggregation_functions = {
-        "sma": statutils.simple_moving_average_factory,
-        "wma": statutils.weighted_moving_average_factory
     }
 
 except ImportError:
@@ -58,7 +53,7 @@ _EXPR_EVAL_NS = {
 class SnowflakeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
 
-    def __init__(self, cube, connectable=None, locale=None, metadata=None,
+    def __init__(self, cube, store, locale=None, metadata=None,
                  debug=False, **options):
         """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
         can aggregate star and snowflake schemas without need of having
@@ -88,7 +83,7 @@ class SnowflakeBrowser(AggregationBrowser):
         * locale is implemented as denormalized: one column for each language
 
         """
-        super(SnowflakeBrowser, self).__init__(cube)
+        super(SnowflakeBrowser, self).__init__(cube, store)
 
         if cube == None:
             raise ArgumentError("Cube for browser should not be None.")
@@ -96,12 +91,11 @@ class SnowflakeBrowser(AggregationBrowser):
         self.logger = get_logger()
 
         self.cube = cube
-        self.locale = locale or cube.model.locale
+        self.locale = locale or cube.locale
         self.debug = debug
 
-        if connectable is not None:
-            self.connectable = connectable
-            self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
+        self.connectable = store.connectable
+        self.metadata = store.metadata or sqlalchemy.MetaData(bind=self.connectable)
 
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
@@ -117,7 +111,7 @@ class SnowflakeBrowser(AggregationBrowser):
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
                             (str(mapper_class.__name__), cube.name, locale))
 
-        self.mapper = mapper_class(cube, locale=self.locale, **options)
+        self.mapper = mapper_class(cube, locale=self.locale, schema=store.schema, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
@@ -375,7 +369,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
            
             dim_levels = {}
-            for dim, hier, levels in drilldown:
+            self.logger.debug("Drilldown: %s", drilldown)
+            for dditem in drilldown:
+                dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
                 if dim.info.get('high_cardinality') and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
                 hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
@@ -447,7 +443,7 @@ class SnowflakeBrowser(AggregationBrowser):
         if not non_calculated_aggs:
             return []
 
-        return [ func(measure, drilldown_levels, split, non_calculated_aggs) for func in filter(lambda f: f is not None, [ calculated_aggregation_functions.get(a) for a in measure.aggregations]) ]
+        return [ func(measure, drilldown_levels, split, non_calculated_aggs) for func in filter(lambda f: f is not None, [ CALCULATED_AGGREGATIONS.get(a) for a in measure.aggregations]) ]
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -596,7 +592,7 @@ class QueryContext(object):
             self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
                                            autoload=True, schema=self.schema)
         except sqlalchemy.exc.NoSuchTableError:
-            in_schema = " in schema '%s'" if self.schema else ""
+            in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
             msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
             raise WorkspaceError(msg)
 
@@ -650,8 +646,8 @@ class QueryContext(object):
             attributes = set()
 
             if drilldown:
-                for dim, hier, levels in drilldown:
-                    for level in levels:
+                for dditem in drilldown:
+                    for level in dditem.levels:
                         attributes |= set(level.attributes)
 
         attributes = set(attributes) | set(cell_cond.attributes)
@@ -669,9 +665,9 @@ class QueryContext(object):
             if split_dim_cond:
                 group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
                 selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-            for dim, hier, levels in drilldown:
-                last_level = levels[-1] if len(levels) else None
-                for level in levels:
+            for dditem in drilldown:
+                last_level = dditem.levels[-1] if len(dditem.levels) else None
+                for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
                     group_by.extend(columns)
@@ -722,7 +718,7 @@ class QueryContext(object):
         result = []
         for agg_name in aggregations:
             if not agg_name in aggregation_functions:
-                if not agg_name in calculated_aggregation_functions:
+                if not agg_name in CALCULATED_AGGREGATIONS:
                     raise ArgumentError("Unknown aggregation type %s for measure %s" % \
                                         (agg_name, measure))
 
@@ -1121,9 +1117,9 @@ class QueryContext(object):
             order.append( SPLIT_DIMENSION_NAME )
 
         if dimension_levels:
-            for dim, hier, levels in dimension_levels:
-                dim = self.cube.dimension(dim)
-                for level in levels:
+            for dditem in dimension_levels:
+                dim = dditem.dimension
+                for level in dditem.levels:
                     level = dim.level(level)
                     if level.order:
                         order.append( (level.order_attribute.ref(), level.order) )
@@ -1312,7 +1308,7 @@ class AggregatedCubeBrowser(AggregationBrowser):
         self.logger = get_logger()
 
         self.cube = cube
-        self.locale = locale or cube.model.locale
+        self.locale = locale or cube.locale
         self.debug = debug
 
         if connectable is not None:
@@ -1393,11 +1389,11 @@ class SnapshotQueryContext(QueryContext):
 
     def snapshot_level_attribute(self, drilldown):
         if drilldown:
-            for dim, hier, levels in drilldown:
-                if dim.name == self.snapshot_dimension.name:
-                    if len(hier.levels) > len(levels):
+            for dditem in drilldown:
+                if dditem.dimension.name == self.snapshot_dimension.name:
+                    if len(dditem.hierarchy.levels) > len(dditem.levels):
                         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
-                    elif len(hier.levels) == len(levels):
+                    elif len(dditem.hierarchy.levels) == len(dditem.levels):
                         return None, False
         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
@@ -1413,8 +1409,8 @@ class SnapshotQueryContext(QueryContext):
             attributes = set()
 
             if drilldown:
-                for dim, hier, levels in drilldown:
-                    for level in levels:
+                for dditem in drilldown:
+                    for level in dditem.levels:
                         attributes |= set(level.attributes)
 
         attributes = set(attributes) | set(cell_cond.attributes)
@@ -1432,9 +1428,9 @@ class SnapshotQueryContext(QueryContext):
             if split_dim_cond:
                 group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
                 selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-            for dim, hier, levels in drilldown:
-                last_level = levels[-1] if len(levels) else None
-                for level in levels:
+            for dditem in drilldown:
+                last_level = dditem.levels[-1] if len(dditem.levels) else None
+                for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
                     group_by.extend(columns)
@@ -1498,7 +1494,7 @@ class SnapshotQueryContext(QueryContext):
         return select
 
 class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, connectable=None, locale=None, metadata=None, debug=False, **options):
-       super(SnapshotBrowser, self).__init__(cube, connectable, locale, metadata, debug, **options)
+    def __init__(self, cube, store, connectable=None, locale=None, metadata=None, debug=False, **options):
+       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata, debug=debug, **options)
        self.context = SnapshotQueryContext(self.cube, self.mapper, metadata=self.metadata, **self.options)
 

@@ -5,10 +5,10 @@ import json
 import cStringIO
 import csv
 import codecs
-import cubes
 import wildcards
 from caching import cacheable
 
+import cubes
 from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
 from .common import RequestError, ServerError, NotFoundError
 from .common import SlicerJSONEncoder
@@ -49,7 +49,6 @@ class ApplicationController(object):
 
         self.locale = self.args.get("lang")
         self.locales = self.workspace.locales
-        self.model = self.workspace.localized_model(self.locale)
 
         if config.has_option("server","json_record_limit"):
             self.json_record_limit = config.getint("server","json_record_limit")
@@ -120,14 +119,6 @@ class ApplicationController(object):
         context = {}
         context.update(self.server_info())
 
-        context["model"] = self.model.name
-        array = [cube.name for cube in self.model.cubes.values()]
-
-        if array:
-            context["cubes"] = ", ".join(array)
-        else:
-            context["cubes"] = "<none>"
-
         doc = template.format(**context)
 
         return Response(doc, mimetype = 'text/html')
@@ -148,15 +139,23 @@ class ApplicationController(object):
         """Return list of available model locales"""
         return self.json_response(self.locales)
 
-    def json_response(self, obj):
+    def get_json(self, obj):
+        """Returns a json from `obj` using custom encoder. Take `prettyprint`
+        setting into account."""
+
         if self.prettyprint:
             indent = 4
         else:
             indent = None
 
-        encoder = SlicerJSONEncoder(indent = indent)
+        encoder = SlicerJSONEncoder(indent=indent)
         encoder.iterator_limit = self.json_record_limit
         reply = encoder.iterencode(obj)
+
+        return reply
+
+    def json_response(self, obj):
+        reply = self.get_json(obj)
 
         return Response(reply, mimetype='application/json')
 
@@ -179,18 +178,21 @@ class ModelController(ApplicationController):
 
     def show(self):
         d = self._cached_model_reply
-        if d is None:
-            d = self.model.to_dict(with_mappings=False,create_label=True)
-            # Add available model locales based on server configuration
-            d["locales"] = self.locales
-            d = json.dumps(d)
-            self._cached_model_reply = d
+        if d:
+            return Response(d, mimetype='application/json')
+
+        d = {}
+        d["cubes"] = self.workspace.list_cubes()
+        d["message"] = "this end-point is depreciated"
+        d["locales"] = self.locales
+        d = json.dumps(d)
+        self._cached_model_reply = d
 
         return Response(d, mimetype='application/json')
 
     def dimension(self, dim_name):
-        dim = self.model.dimension(dim_name)
-        return self.json_response(dim.to_dict(create_label=True))
+        # TODO: better message
+        raise RequestError("Depreciated")
 
     def _cube_dict(self, cube):
         d = cube.to_dict(expand_dimensions=True,
@@ -202,44 +204,21 @@ class ModelController(ApplicationController):
         return d
 
     def get_default_cube(self):
-        return self.json_response(self._cube_dict(self.cube))
+        raise RequestError("Depreciated")
 
     def get_cube(self, cube_name):
-        cube = self.model.cube(cube_name)
+        cube = self.workspace.cube(cube_name)
         return self.json_response(self._cube_dict(cube))
 
     _cached_cubes_list = None
     def list_cubes(self):
         resp = self._cached_cubes_list
         if resp is None:
-            cubes = [self._cube_dict(cube) for cube in self.model.cubes.values()]
-            resp = json.dumps(cubes)
+            cubes = self.workspace.list_cubes()
+            resp = self.get_json(cubes)
             self._cached_cubes_list = resp
 
         return Response(resp, mimetype='application/json')
-
-    def list_cube_dimensions(self, cube_name):
-        cube = self.model.cube(cube_name)
-        dimensions = [dim.to_dict(create_label=True) for dim in cube.dimensions]
-        return self.json_response(dimensions)
-
-    def dimension_levels(self, dim_name):
-        # FIXME: remove this method
-        self.logger.warn("/dimension/.../levels is depreciated")
-
-        dim = self.model.dimension(dim_name)
-        levels = [l.to_dict() for l in dim.hierarchy().levels]
-
-        string = json.dumps(levels)
-
-        return Response(string)
-
-    def dimension_level_names(self, dim_name):
-        # FIXME: remove this method
-        self.logger.warn("/dimension/.../level_names is depreciated")
-        dim = self.model.dimension(dim_name)
-
-        return self.json_response(dim.default_hierarchy.level_names)
 
 
 class CSVGenerator(object):
@@ -335,16 +314,17 @@ class CubesController(ApplicationController):
 
         # FIXME: keep or remove default cube?
         if cube_name:
-            self.cube = self.model.cube(cube_name)
+            self.cube = self.workspace.cube(cube_name)
         else:
             if self.config.has_option("model", "cube"):
                 self.logger.debug("using default cube specified in cofiguration")
                 cube_name = self.config.get("model", "cube")
-                self.cube = self.model.cube(cube_name)
+                self.cube = self.workspace.cube(cube_name)
             else:
                 self.logger.debug("using first cube from model")
-                self.cube = self.model.cubes.values()[0]
-                cube_name = self.cube.name
+                cubes = self.workspace.list_cubes()
+                cube_name = cubes[0]["name"]
+                self.cube = self.workspace.cube(cube_name)
 
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
         self.browser = self.workspace.browser(self.cube, self.locale)
@@ -385,7 +365,6 @@ class CubesController(ApplicationController):
         if mlist:
             for mstring in mlist:
                 measures += mstring.split("|")
-            
 
         drilldown = []
 
@@ -398,8 +377,8 @@ class CubesController(ApplicationController):
         if split_cuts:
             split = cubes.Cell(self.cube, split_cuts)
 
-        result = self.browser.aggregate(self.cell, 
-                                        measures=measures, 
+        result = self.browser.aggregate(self.cell,
+                                        measures=measures,
                                         drilldown=drilldown, split=split,
                                         page=self.page,
                                         page_size=self.page_size,
@@ -521,7 +500,6 @@ class CubesController(ApplicationController):
         return self.json_response(result)
 
     def cell_details(self, cube):
-        print self.request
         self.create_browser(cube)
         self.prepare_cell()
 
@@ -535,19 +513,6 @@ class CubesController(ApplicationController):
 
     def details(self, cube):
         raise RequestError("'details' request is depreciated, use 'cell' request")
-
-    def build(self, cube):
-
-        print "BUILDER, I'M IN THE BUILDER YEA"
-
-        cube = self.model.cube(cube)
-
-        print '=Workspace', self.workspace
-        print '=Workspace dir', dir(self.workspace)
-
-        b = self.workspace.builder(cube)
-        b.compute()
-        return self.json_response({'status': 'building'})
 
 
 class SearchController(ApplicationController):
@@ -565,16 +530,16 @@ class SearchController(ApplicationController):
     def create_browser(self, cube_name):
         # FIXME: reuse? 
         if cube_name:
-            self.cube = self.model.cube(cube_name)
+            self.cube = self.workspace.cube(cube_name)
         else:
             if self.config.has_option("model", "cube"):
                 self.logger.debug("using default cube specified in cofiguration")
                 cube_name = self.config.get("model", "cube")
-                self.cube = self.model.cube(cube_name)
+                self.cube = self.workspace.cube(cube_name)
             else:
                 self.logger.debug("using first cube from model")
-                self.cube = self.model.cubes.values()[0]
-                cube_name = self.cube.name
+                cube_name = self.workspace.list_cubes()[0]["name"]
+                self.cube = self.workspace.cube(cube_name)
 
         self.browser = self.workspace.browser(self.cube,
                                                   locale=self.locale)

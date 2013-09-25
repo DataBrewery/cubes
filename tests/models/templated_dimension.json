@@ -1,0 +1,22 @@
+{
+    "cubes": [
+        {
+            "name": "events",
+            "dimensions": ["start_date", "end_date"]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "date",
+            "levels": ["year", "month", "day"]
+        },
+        {
+            "name": "start_date",
+            "template": "date"
+        },
+        {
+            "name": "end_date",
+            "template": "date"
+        }
+    ]
+}

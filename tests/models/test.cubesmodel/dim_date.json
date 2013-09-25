@@ -1,24 +1,27 @@
 {
     "name": "date",
     "label": "Dátum",
-    "levels": {
-        "year": {
+    "levels": [
+        {
+            "name": "year",
             "label": "Rok",
             "key": "year",
             "attributes": ["year"]
         },
-        "month": {
+        {
+            "name": "month",
             "label": "Mesiac",
             "key": "month",
             "label_attribute": "month_name",
             "attributes": ["month", "month_name", "month_sname"]
         },
-        "day": {
+        {
+            "name": "day",
             "label": "Deň",
             "key": "day",
             "attributes": ["day", "weekday_name", "weekday_number"]
         }
-    },
+    ],
     "attributes": {
         "year": { "label" : "Rok" },
         "month": { "label" : "Mesiac" },
