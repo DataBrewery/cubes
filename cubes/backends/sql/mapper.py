@@ -23,13 +23,13 @@ TableColumnReference = collections.namedtuple("TableColumnReference",
                                     ["schema", "table", "column", "extract", "func", "expr", "condition"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
-(4-item) tuples. `members` denotes which table members should be considered in
+(4-item) tuples. `method` denotes which table members should be considered in
 the join: *master* – all master members (left outer join), *detail* – all detail
 members (right outer join) and *match* – members must match (inner join)."""
 TableJoin = collections.namedtuple("TableJoin",
-                                    ["master", "detail", "alias", "members"])
+                                    ["master", "detail", "alias", "method"])
 
-_join_order = {"detail":0, "master":1, "match": 2}
+_join_method_order = {"detail":0, "master":1, "match": 2}
 
 def coalesce_physical(ref, default_table=None, schema=None):
     """Coalesce physical reference `ref` which might be:
@@ -151,11 +151,11 @@ class SnowflakeMapper(Mapper):
         for join in joins:
             master = coalesce_physical(join["master"],self.fact_name,schema=self.schema)
             detail = coalesce_physical(join["detail"],schema=self.schema)
-            self.logger.debug("collecting join %s - %s" % (tuple(master), tuple(detail)))
-            members = join.get("members", "match").lower()
+            self.logger.debug("collecting join %s -> %s" % (tuple(master), tuple(detail)))
+            method = join.get("method", "match").lower()
 
             self.joins.append(TableJoin(master, detail, join.get("alias"),
-                                        members))
+                                        method))
 
     def physical(self, attribute, locale=None):
         """Returns physical reference as tuple for `attribute`, which should
@@ -297,7 +297,7 @@ class SnowflakeMapper(Mapper):
         joined_tables.add( (self.schema, self.fact_name) )
 
         joins = []
-        self.logger.debug("tables to join: %s" % tables_to_join)
+        self.logger.debug("tables to join: %s" % list(tables_to_join))
 
         while tables_to_join:
             table = tables_to_join.pop()
@@ -314,8 +314,8 @@ class SnowflakeMapper(Mapper):
                     # self.logger.debug("detail matches")
                     # Preserve join order
                     # TODO: temporary way of ordering according to match
-                    members_order = _join_order.get(join.members, 99)
-                    joins.append( (members_order, order, join) )
+                    method_order = _join_method_order.get(join.method, 99)
+                    joins.append( (method_order, order, join) )
 
                     if master not in joined_tables:
                         self.logger.debug("adding master %s to be joined" % (master, ))
