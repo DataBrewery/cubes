@@ -298,7 +298,7 @@ class SnowflakeBrowser(AggregationBrowser):
         * `drilldown`: list of dimensions or list of tuples: (`dimension`,
           `hierarchy`, `level`)
         * `split`: an optional cell that becomes an extra drilldown segmenting
-          the data into those within split cell and those not within 
+          the data into those within split cell and those not within
         * `attributes`: list of attributes from drilled-down dimensions to be
           returned in the result
 
@@ -367,14 +367,18 @@ class SnowflakeBrowser(AggregationBrowser):
         if drilldown or split:
             drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else [])
 
-           
             dim_levels = {}
+
             self.logger.debug("Drilldown: %s", drilldown)
+
             for dditem in drilldown:
                 dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
+
                 if dim.info.get('high_cardinality') and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
+
                 hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
+
                 if len(hc_levels) and not (page_size and page is not None):
                     # allow this drilldown if all high-card levels are present in the cut cell as a PointCut or SetCut (not RangeCut)
                     if len( [ l for l in hc_levels if not self._level_in_low_cardinality_cell(dim, hier, l, cell) ] ):
@@ -659,11 +663,14 @@ class QueryContext(object):
 
         group_by = None
         drilldown_ptd_condition = None
+
         if split_dim_cond or drilldown:
             group_by = []
+
             if split_dim_cond:
                 group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
                 selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
+
             for dditem in drilldown:
                 last_level = dditem.levels[-1] if len(dditem.levels) else None
                 for level in dditem.levels:
@@ -834,6 +841,7 @@ class QueryContext(object):
                 raise MappingError("Detail table name should be present and "
                                    "should not be a fact table unless aliased.")
 
+            self.logger.debug("--- %s -- %s" % (join.master.table, join.alias or join.detail.table))
             master_table = self.table(join.master.schema, join.master.table)
             detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
 
@@ -851,10 +859,11 @@ class QueryContext(object):
             onclause = master_column == detail_column
 
             if expression is not None:
-                expression = sql.expression.join(expression, 
-                                                 detail_table, 
+                is_left_outer = (join.members == "master" and include_fact)
+                expression = sql.expression.join(expression,
+                                                 detail_table,
                                                  onclause=onclause,
-                                                 isouter=(include_fact and join.outer))
+                                                 isouter=is_left_outer)
             else:
                 self.logger.debug("join: starting with detail table '%s'" %
                                                                 detail_table)
@@ -1211,6 +1220,7 @@ class QueryContext(object):
             return self.logical_to_column[logical]
 
         ref = self.mapper.physical(attribute, locale)
+        self.logger.info("--- MAPPING: %s -> %s" % (attribute, ref))
         table = self.table(ref.schema, ref.table)
         try:
             column = table.c[ref.column]

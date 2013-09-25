@@ -23,9 +23,13 @@ TableColumnReference = collections.namedtuple("TableColumnReference",
                                     ["schema", "table", "column", "extract", "func", "expr", "condition"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
-(3-item) tuples"""
+(4-item) tuples. `members` denotes which table members should be considered in
+the join: *master* – all master members (left outer join), *detail* – all detail
+members (right outer join) and *match* – members must match (inner join)."""
 TableJoin = collections.namedtuple("TableJoin",
-                                    ["master", "detail", "alias", "outer"])
+                                    ["master", "detail", "alias", "members"])
+
+_join_order = {"detail":0, "master":1, "match": 2}
 
 def coalesce_physical(ref, default_table=None, schema=None):
     """Coalesce physical reference `ref` which might be:
@@ -148,7 +152,10 @@ class SnowflakeMapper(Mapper):
             master = coalesce_physical(join["master"],self.fact_name,schema=self.schema)
             detail = coalesce_physical(join["detail"],schema=self.schema)
             self.logger.debug("collecting join %s - %s" % (tuple(master), tuple(detail)))
-            self.joins.append(TableJoin(master, detail, join.get("alias"), join.get("outer")))
+            members = join.get("members", "match").lower()
+
+            self.joins.append(TableJoin(master, detail, join.get("alias"),
+                                        members))
 
     def physical(self, attribute, locale=None):
         """Returns physical reference as tuple for `attribute`, which should
@@ -296,8 +303,9 @@ class SnowflakeMapper(Mapper):
             table = tables_to_join.pop()
             # self.logger.debug("joining table %s" % (table, ))
 
+            joined = False
             for order, join in enumerate(self.joins):
-                # self.logger.debug("testing join: %s" % (join, ))
+                # self.logger.debug("testing join: %s" % (join,e))
                 # print "--- testing join: %s" % (join, )
                 master = (join.master.schema, join.master.table)
                 detail = (join.detail.schema, join.alias or join.detail.table)
@@ -305,7 +313,9 @@ class SnowflakeMapper(Mapper):
                 if table == detail:
                     # self.logger.debug("detail matches")
                     # Preserve join order
-                    joins.append( ((1 if join.outer else 0), order, join) )
+                    # TODO: temporary way of ordering according to match
+                    members_order = _join_order.get(join.members, 99)
+                    joins.append( (members_order, order, join) )
 
                     if master not in joined_tables:
                         self.logger.debug("adding master %s to be joined" % (master, ))
@@ -313,7 +323,11 @@ class SnowflakeMapper(Mapper):
 
                     self.logger.debug("joined detail %s" % (detail, ) )
                     joined_tables.add(detail)
+                    joined = True
                     break
+
+            if not joined:
+                self.logger.warn("No table joined for %s" % (table, ))
 
         self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
 
