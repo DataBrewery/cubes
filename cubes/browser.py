@@ -18,6 +18,7 @@ from .common import get_logger, to_unicode_string
 
 __all__ = [
     "AggregationBrowser",
+    "Drilldown",
     "Cell",
     "Cut",
     "PointCut",
@@ -54,7 +55,7 @@ class AggregationBrowser(object):
     features = []
     """List of browser features as strings."""
 
-    def __init__(self, cube):
+    def __init__(self, cube, store, locale=None, metadata=None, **options):
         super(AggregationBrowser, self).__init__()
 
         if not cube:
@@ -1081,7 +1082,7 @@ TableRow = namedtuple("TableRow", ["key", "label", "path", "is_base", "record"])
 
 class CalculatedResultIterator(object):
     """
-    Iterator that decorates data items 
+    Iterator that decorates data items
     """
     def __init__(self, calculators, iterator):
         self.calculators = calculators
@@ -1135,12 +1136,12 @@ class AggregationResult(object):
     @property
     def cells(self):
         return self._cells
-    
+
     @cells.setter
     def cells(self, val):
         # decorate iterable with calcs if needed
         if self.calculators:
-            val = CalculatedResultIterator(self.calculators, val)
+            val = CalculatedResultIterator(self.calculators, iter(val))
         self._cells = val
 
     @property
@@ -1355,7 +1356,12 @@ def string_to_drilldown(astring):
     Raises `ArgumentError` when `astring` does not match expected pattern.
     """
 
-    pattern = r"(?P<dim>\w+)(@(?P<hier>\w+))?(:(?P<level>\w+))?"
+    if not astring:
+        raise ArgumentError("Drilldown string should not be empty")
+
+    ident = r"[\w\d_]"
+    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % \
+                                                        (ident, ident, ident)
     match = re.match(pattern, astring)
 
     if match:
@@ -1363,15 +1369,75 @@ def string_to_drilldown(astring):
         return (d["dim"], d["hier"], d["level"])
     else:
         raise ArgumentError("String '%s' does not match drilldown level "
-                            "pattern 'dim@hier:level'" % astring)
+                            "pattern 'dimension@hierarchy:level'" % astring)
 
-def levels_from_drilldown(cell, drilldown):
+
+class Drilldown(object):
+    def __init__(self, drilldown, cell):
+        self.drilldown = levels_from_drilldown(cell, drilldown)
+        self.dimensions = []
+        self._last_level = {}
+        self._by_dimension = {}
+
+        # TODO: check for dim. cardinality and whether it sohuld be allowrd
+        for dd in self.drilldown:
+            self.dimensions.append(dd.dimension)
+            if dd.dimension.name in self._by_dimension:
+                raise ArgumentError("Drilldown dimension '%s' used multiple "
+                                    "times")
+            self._by_dimension[dd.dimension.name] = dd
+            self._last_level[dd.dimension.name] = dd.levels[-1]
+
+    def drilldown_for_dimension(self, dim):
+        return self._by_dimension[str(dim)]
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self.drilldown[key]
+        else:
+            return self._by_dimension[str(key)]
+
+    def last_level(self, dim):
+        """Returns last level of drilldown by a dimension `dim`. Returns
+        `None` if there is no drilldown by the specified dimension."""
+        return self._last_level.get(str(dim), None)
+
+    def levels_dictionary(self):
+        """Returns a dictionary with list of levels for each dimensions. Keys
+        are dimension names, values are list of level names. This method is
+        intended to be used for `AggregationResult.levels`"""
+
+        # TODO: find a better name for this method
+
+        dim_levels = {}
+
+        for dd in self.drilldown:
+            dim_levels[str(dd.dimension)] = [str(level) for level in dd.levels]
+
+        return dim_levels
+
+    def __contains__(self, key):
+        return str(key) in self._by_dimension
+
+    def __len__(self):
+        return len(self.drilldown)
+
+    def __iter__(self):
+        return self.drilldown.__iter__()
+
+DrilldownItem = namedtuple("DrilldownItem",
+                           ["dimension", "hierarchy", "levels", "keys"])
+
+# TODO: rename this (back to) coalesce_drilldown or something like that
+
+def levels_from_drilldown(cell, drilldown, simplify=True):
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
 
     * list of dimensions
-    * list of dimension level specifier strings (``dimension@hierarchy:level``)
-    * list of tuples in form (`dimension`, `hierarchy`, `level`).
+    * list of dimension level specifier strings
+    * (``dimension@hierarchy:level``) list of tuples in form (`dimension`,
+      `hierarchy`, `levels`, `keys`).
 
     If `drilldown is a list of dimensions or if the level is not specified,
     then next level in the cell is considered. The implicit next level is
@@ -1380,16 +1446,17 @@ def levels_from_drilldown(cell, drilldown):
     For other types of cuts, such as range or set, "next" level is the first
     level of hierarachy.
 
-    Returns a list of tuples: (`dimension`, `levels`) where `levels` is a list
-    of levels to be drilled down.
+    If `simplify` is `True` then dimension references are simplified for flat
+    dimensions without details. Otherwise full dimension attribute reference
+    will be used as `level_key`.
 
-    .. note::
-
-        For backward compatibility the function accepts a dictionary where
-        keys are dimension names and values are level names to drill up to.
-        This is argument format is depreciated.
-
+    Returns a list of drilldown items with attributes: `dimension`,
+    `hierarchy` and `levels` where `levels` is a list of levels to be drilled
+    down.
     """
+
+    if not drilldown:
+        return []
 
     result = []
 
@@ -1443,7 +1510,9 @@ def levels_from_drilldown(cell, drilldown):
 
             levels = hier[:depth+1]
 
-        result.append( (dim, hier, levels) )
+        levels = tuple(levels)
+        keys = [level.key.ref(simplify=simplify) for level in levels]
+        result.append( DrilldownItem(dim, hier, levels, keys) )
 
     return result
 

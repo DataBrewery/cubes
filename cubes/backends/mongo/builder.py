@@ -22,7 +22,7 @@ class MongoSimpleCubeBuilder(object):
                     cube_collection = None,
                     measures = None,
                     aggregate_flag_field = "_is_aggregate",
-                    required_dimensions = ["date"]):
+                    linked_dimensions = ["date"]):
         """Creates simple cube builder in mongo. See :meth:`MongoSimpleCubeBuilder.compute` for more 
         information about computation algorithm
         
@@ -38,7 +38,7 @@ class MongoSimpleCubeBuilder(object):
             * `aggregate_flag_field` - name of field (key) that distincts fact fields from aggregated
               records. Should be used when fact collection and cube collection is the same. By default
               it is ``_is_aggregate``.
-            * `required_dimensions` - dimensions that are required for all cells. By default: 
+            * `linked_dimensions` - dimensions that are required for all cells. By default: 
               ``[date]``
         """
                     
@@ -60,12 +60,12 @@ class MongoSimpleCubeBuilder(object):
             print 'MONGOFICATION OF FACT'
             self.cube_collection = self.database[self.cube_collection]
             
-        if required_dimensions:
+        if linked_dimensions:
             dims = []
-            for dim in required_dimensions:
+            for dim in linked_dimensions:
                 dims.append(self.cube.dimension(dim))
 
-        self.required_dimensions = dims
+        self.linked_dimensions = dims
         self.measure_agg = None
         self.selectors = None
         
@@ -104,7 +104,7 @@ class MongoSimpleCubeBuilder(object):
         self.cube_collection.remove({self.aggregate_flag_field: True})
 
         selectors = compute_dimension_cell_selectors(self.cube.dimensions,
-                                                     self.required_dimensions)
+                                                     self.linked_dimensions)
 
         self.log.info("got %d dimension level selectors ", len(selectors))
 

@@ -2,6 +2,7 @@ from cubes.common import get_logger
 from cubes.errors import *
 from cubes.browser import *
 from cubes.computation import *
+from cubes.statutils import *
 from cubes import statutils
 from .mapper import MongoCollectionMapper, coalesce_physical
 from .datesupport import DateSupport
@@ -36,11 +37,6 @@ AGGREGATIONS = {
     }
 }
 
-CALCULATED_AGGREGATIONS = {
-    "sma": statutils.simple_moving_average_factory,
-    "wma": statutils.weighted_moving_average_factory
-}
-
 SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
 
 def is_date_dimension(dim):
@@ -51,34 +47,25 @@ def is_date_dimension(dim):
     else:
         return False
 
-class MongoBrowser(AggregationBrowser):
-    def __init__(self, cube, locale=None, metadata={}, url=None, database=None, collection=None, **options):
-        super(MongoBrowser, self).__init__(cube)
+class Mongo2Browser(AggregationBrowser):
+    def __init__(self, cube, store, locale=None, metadata={}, url=None, **options):
+        super(Mongo2Browser, self).__init__(cube, store)
 
         self.logger = get_logger()
 
-        t = time.time()
-        self.logger.debug("Attempting MongoClient connection to %s" % (url))
-        mongo_client = pymongo.MongoClient(url, read_preference=pymongo.read_preferences.ReadPreference.SECONDARY)
-        self.logger.debug("Connected to %s in %f s" % (mongo_client, time.time() - t))
+        database = store.database
+        if cube.browser_options.get('database'):
+            database = cube.browser_options.get('database')
 
-        db = cube.options.get('database')
-        if db is None:
-            db = database
-        if db is None:
-            raise ArgumentError("'database' must be defined in argument to MongoBrowser or in cube.options")
+        collection = store.collection
+        if cube.browser_options.get('collection'):
+            collection = cube.browser_options.get('collection')
 
-        coll = cube.options.get('collection')
-        if coll is None:
-            coll = collection
-        if coll is None:
-            raise ArgumentError("'collection' must be defined in argument to MongoBrowser or in cube.options")
+        self.data_store = store.client[database][collection]
 
-        self.data_store = mongo_client[db][coll]
+        self.mapper = MongoCollectionMapper(cube, database, collection, locale)
 
-        self.mapper = MongoCollectionMapper(cube, db, coll, locale)
-
-        self.timezone = pytz.timezone(cube.info.get('timezone')) if cube.info.get('timezone') else pytz.timezone('UTC')
+        self.timezone = pytz.timezone(cube.browser_options.get('timezone') or options.get('timezone') or 'UTC')
 
         self.datesupport = DateSupport(self.logger, self.timezone, options.get('week_start_weekday'))
 
@@ -104,14 +91,13 @@ class MongoBrowser(AggregationBrowser):
             dim_levels = {}
             if split:
                 dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
-            for dim, hier, levels in drilldown_levels:
+            for dditem in drilldown_levels:
                 # if dim or one of its levels is high_cardinality, and there is no page_size and page, raise BrowserError
-                if dim.info.get('high_cardinality') and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
-                if [ l for l in levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
-                labels += [ level.key.ref() for level in levels ]
-                dim_levels[str(dim)] = [str(level) for level in levels]
+                if dditem.dimension.info.get('high_cardinality') and not (page_size and page is not None):
+                    raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dditem.dimension.name))
+                if [ l for l in dditem.levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
+                    raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in dditem.levels if l.info.get('high_cardinality')])))
+                dim_levels[str(dditem.dimension)] = [str(level) for level in dditem.levels]
             result.levels = dim_levels
 
             calc_aggs = []
@@ -121,10 +107,7 @@ class MongoBrowser(AggregationBrowser):
 
         summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, split=split, order=order, page=page, page_size=page_size)
         result.cells = iter(items)
-        if summary is not None:
-            result.summary = { "record_count": summary }
-        else:
-            result.summary = {}
+        result.summary = summary
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
             for calcs in [ self.calculated_aggregations_for_measure(measure, drilldown_levels, split) for measure in measures ]:
@@ -266,7 +249,8 @@ class MongoBrowser(AggregationBrowser):
         sort_obj = bson.son.SON()
 
         if drilldown:
-            for dim, hier, levels in drilldown:
+            for dditem in drilldown:
+                dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
 
                 # Special Mongo Date Hack for TZ Support
                 if dim and is_date_dimension(dim):
@@ -278,12 +262,13 @@ class MongoBrowser(AggregationBrowser):
                     query_obj.update(phys.match_expression(1, op='$exists'))
                     fields_obj[date_idx[1:]] = 1
 
-                    if is_utc:
+                    if is_utc and not ([l for l in levels if l.name == 'week']):
                         possible_groups = {
                             'year': {'$year': date_idx},
                             'month': {'$month': date_idx},
                             'day': {'$dayOfMonth': date_idx},
-                            'hour': {'$hour': date_idx}
+                            'hour': {'$hour': date_idx},
+                            'minute': {'$minute': date_idx}
                         }
                         for lvl in levels:
                             group_id[escape_level(lvl.key.ref())] = possible_groups[lvl.name]
@@ -295,12 +280,14 @@ class MongoBrowser(AggregationBrowser):
                             'year': {'$year': date_idx},
                             'month': {'$month': date_idx},
                             'day': {'$dayOfMonth': date_idx},
-                            'hour': {'$hour': date_idx},
+                            'hour': {'$hour': date_idx}
                         })
+                        if levels[-1] == 'minute':
+                            group_id['minute'] = { '$minute': date_idx }
 
                         def _date_transform(item, date_field):
                             date_dict = {}
-                            for k in ['year', 'month', 'day', 'hour']:
+                            for k in ['year', 'month', 'day', 'hour', 'minute']:
                                 if item['_id'].has_key(k):
                                     date_dict[k] = item['_id'].pop(k)
 
@@ -361,25 +348,25 @@ class MongoBrowser(AggregationBrowser):
         results = [date_transform(r) for r in results]
 
         if timezone_shift_processing:
-            dategrouping = ['year', 'month', 'week', 'day', 'hour',]
-            datenormalize = ['year', 'month', 'week', 'dow', 'day', 'hour',]
+            dategrouping = ['year', 'month', 'week', 'day', 'hour', 'minute']
+            datenormalize = ['year', 'month', 'week', 'dow', 'day', 'hour', 'minute']
 
             date_field = None
             filter_so_far = False
             # calculate correct date:level
-            for dim, hier, levels in drilldown:
-                if dim and is_date_dimension(dim):
-                    date_field = dim.name
-                    dategrouping = [str(l).lower() for l in levels]
+            for dditem in drilldown:
+                if dditem.dimension and is_date_dimension(dditem.dimension):
+                    date_field = dditem.dimension.name
+                    dategrouping = [str(l).lower() for l in dditem.levels]
                     for dg in dategrouping:
                         datenormalize.remove(dg)
 
                     # TODO don't use magic _sf string for sofar
-                    if SO_FAR_DIMENSION_REGEX.match(dim.name):
+                    if SO_FAR_DIMENSION_REGEX.match(dditem.dimension.name):
                         filter_so_far = True
                     break
 
-            def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour',]):
+            def _date_key(item, dategrouping=['year', 'month', 'week', 'day', 'hour', 'minute']):
                 # sort group on date
                 dt = item['_id'][date_field]
                 key = [self.datesupport.datepart_functions.get(dp)(dt) for dp in dategrouping]
@@ -443,18 +430,16 @@ class MongoBrowser(AggregationBrowser):
             for agg_fn_pair in aggregate_fn_pairs:
                 new_item[ unescape_level(agg_fn_pair[0]) ] = item [ agg_fn_pair[0] ]
             result_items.append(new_item)
-        return (None, result_items)
+
+        return (None, result_items) if (drilldown or split) else (result_items[0], [])
 
     def _build_date_for_cut(self, hier, path, is_end=False):
-        date_dict = {'month': 1, 'day': 1, 'hour': 0 }
+        date_dict = {'month': 1, 'day': 1, 'hour': 0, 'minute': 0 }
         min_part = None
 
         for val, dp in zip(path, hier.levels[:len(path)]):
-            # TODO saner type conversion based on mapping field
             date_dict[dp.key.name] = self.mapper.physical(dp.key).type(val)
             min_part = dp
-
-        self.logger.debug('=datedict: %s', date_dict)
 
 
         dt = None
