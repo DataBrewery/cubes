@@ -1472,7 +1472,7 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
             obj = string_to_drilldown(obj)
         elif len(obj) != 3:
             raise ArgumentError("Drilldown item should be either a string "
-                            " or a tuple of three elements. Is: %s" (obj, ))
+                            " or a tuple of three elements. Is: %s" % (obj, ))
 
         dim, hier, level = obj
         dim = cell.cube.dimension(dim)
