@@ -339,6 +339,7 @@ class SnowflakeBrowser(AggregationBrowser):
         if include_summary or \
                 ( include_summary is None and self.include_summary ) or \
                 not drilldown:
+
             summary_statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures)
 
@@ -369,8 +370,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
             dim_levels = {}
 
-            self.logger.debug("Drilldown: %s", drilldown)
-
             for dditem in drilldown:
                 dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
 
@@ -392,6 +391,8 @@ class SnowflakeBrowser(AggregationBrowser):
                 dim_levels[SPLIT_DIMENSION_NAME] = [ SPLIT_DIMENSION_NAME ]
 
             result.levels = dim_levels
+
+            self.logger.debug("preparing drilldown statement")
 
             statement = self.context.aggregation_statement(cell=cell,
                                                          measures=measures,
@@ -561,7 +562,7 @@ class QueryContext(object):
         Object attributes:
 
         * `fact_table` – the physical fact table - `sqlalchemy.Table` instance
-        * `tables` – a dictionary where keys are table references (schema,
+        * `tables` – a dictionar keys are table references (schema,
           table) or (shchema, alias) to real tables - `sqlalchemy.Table`
           instances
 
@@ -645,6 +646,10 @@ class QueryContext(object):
         if split:
             split_dim_cond = self.condition_for_cell(split)
 
+        self.logger.debug("=== create aggregation statement")
+        self.logger.debug("---     attributes: %s" % (attributes, ))
+        self.logger.debug("---     drilldown: %s" % (drilldown, ))
+
         if not attributes:
             attributes = set()
 
@@ -657,6 +662,7 @@ class QueryContext(object):
         if split_dim_cond:
             attributes |= set(split_dim_cond.attributes)
 
+        self.logger.debug("---     fixed attributes: %s" % (attributes, ))
         join_expression = self.join_expression_for_attributes(attributes)
 
         selection = []
@@ -693,6 +699,8 @@ class QueryContext(object):
                                     from_obj=join_expression,
                                     use_labels=True,
                                     group_by=group_by)
+
+        self._log_statement(select, "aggregate select")
 
         conditions = []
         if cell_cond.condition is not None:
@@ -826,50 +834,120 @@ class QueryContext(object):
         getting values of a dimension without cell restrictions.
         """
 
-        self.logger.debug("create basic expression with %d joins" % len(joins))
+        self.logger.debug("create expression with %d joins. Fact: %s" %\
+                                    (len(joins), include_fact) )
+
+        # Dictionary of raw tables and their joined products
+        joined_products = {}
 
         if include_fact:
-            self.logger.debug("join: starting with fact table")
-            expression = self.fact_table
-        else:
-            self.logger.debug("join: ignoring fact table")
-            expression = None
+            key = (self.schema, self.fact_name)
+            joined_products[key] = self.fact_table
 
+        # Collect all the tables first:
         for join in joins:
-
             if not join.detail.table or (join.detail.table == self.fact_name and not join.alias):
                 raise MappingError("Detail table name should be present and "
                                    "should not be a fact table unless aliased.")
 
-            self.logger.debug("--- %s -- %s" % (join.master.table, join.alias or join.detail.table))
-            master_table = self.table(join.master.schema, join.master.table)
-            detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
+            # Add master table to the list
+            table = self.table(join.master.schema, join.master.table)
+            joined_products[(join.master.schema, join.master.table)] = table
 
+            # Add (aliased) detail table to the rist
+            table = self.table(join.detail.schema, join.detail.table)
+            key = (join.detail.schema, join.alias or join.detail.table)
+            joined_products[key] = table
+
+        self.logger.debug("collected %d tables for joining" %
+                                                    len(joined_products))
+
+        # product_list = ["%s: %s" % item for item in joined_products.items()]
+        # product_list = "\n".join(product_list)
+        # self.logger.debug("products:\n%s" % product_list)
+
+        # Perform the joins
+        # =================
+        #
+        # Algorithm:
+        #
+        # FOR ALL JOINS:
+        #   1. get a join (order does not matter)
+        #   2. get a table or joined table from joined products 
+        #   3. perform join:
+        #      * match: left inner join
+        #      * master: left outer join
+        #      * detail: right outer join – swap master and detail tables and
+        #                do the left outer join
+        #   4. remove detail table from the joined_products
+        # 
+        # IF there is more than one join product left then some joins are
+        # missing
+        #
+        # RESULT: join products should contain only one item which is the
+        #         final product of the joins
+
+        for join in joins:
+            master = join.master
+            detail = join.detail
+
+            master_key = (master.schema, master.table)
+            master_table = joined_products[master_key]
+
+            detail_key = (detail.schema, join.alias or detail.table)
+            detail_table = joined_products[detail_key]
+
+            self.logger.debug("joining (%s): %s -> %s" % (join.method, master_key,
+                                                            detail_key))
+
+            self.logger.debug("    tables: %s -> %s" % (master_table,
+                                                                detail_table))
             try:
-                master_column = master_table.c[join.master.column]
+                master_column = master_table.c[master.column]
             except:
-                raise MappingError('Unable to find master key (schema %s) "%s"."%s" ' \
+                raise ModelError('Unable to find master key (schema %s) "%s"."%s" ' \
                                     % join.master[0:3])
             try:
-                detail_column = detail_table.c[join.detail.column]
+                detail_column = detail_table.c[detail.column]
             except:
-                raise MappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
+                raise ErrorMappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
                                     % join.detail[0:3])
+
+            if join.method == "match":
+                is_outer = False
+            elif join.method == "master":
+                is_outer = True
+            elif join.method == "detail":
+                # Swap the master and detail tables to perform RIGHT OUTER JOIN
+                master_table, detail_table = (detail_table, master_table)
+                is_outer = True
+            else:
+                raise ModelError("Unknown join method '%s'" % join.method)
 
             onclause = master_column == detail_column
 
-            if expression is not None:
-                is_left_outer = (join.members == "master" and include_fact)
-                expression = sql.expression.join(expression,
-                                                 detail_table,
-                                                 onclause=onclause,
-                                                 isouter=is_left_outer)
-            else:
-                self.logger.debug("join: starting with detail table '%s'" %
-                                                                detail_table)
-                expression = detail_table
+            product = sql.expression.join(master_table,
+                                             detail_table,
+                                             onclause=onclause,
+                                             isouter=is_outer)
 
-        return expression
+            # Remove the already joined detail
+            del joined_products[detail_key]
+            joined_products[master_key] = product
+
+        if not joined_products:
+            # This should not happen
+            raise InternalError("No joined products left.")
+
+        if len(joined_products) > 1:
+            raise ModelError("Some tables are not joined: %s" %
+                    (joined_products.keys()))
+
+        # Return the remaining joined product
+        result = joined_products.values()[0]
+        self._log_statement(result, "join result")
+
+        return result
 
     def condition_for_cell(self, cell):
         """Constructs conditions for all cuts in the `cell`. Returns a named
@@ -1016,7 +1094,7 @@ class QueryContext(object):
         if upper.condition is not None:
             conditions.append(upper.condition)
             attributes |= upper.attributes
-        
+
         if ptd_condition and ptd_condition.condition is not None:
             conditions.append(ptd_condition.condition)
             attributes |= ptd_condition.attributes
@@ -1220,8 +1298,8 @@ class QueryContext(object):
             return self.logical_to_column[logical]
 
         ref = self.mapper.physical(attribute, locale)
-        self.logger.info("--- MAPPING: %s -> %s" % (attribute, ref))
         table = self.table(ref.schema, ref.table)
+
         try:
             column = table.c[ref.column]
         except:
@@ -1289,6 +1367,10 @@ class QueryContext(object):
                                                          column.name))
 
         return attributes
+
+    def _log_statement(self, statement, label=None):
+        label = "SQL(%s):" % label if label else "SQL:"
+        self.logger.debug("%s\n%s" % (label, str(statement)))
 
 class AggregatedCubeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
