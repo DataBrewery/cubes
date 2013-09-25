@@ -2,6 +2,10 @@ from collections import deque
 from cubes.model import Attribute
 from cubes.browser import SPLIT_DIMENSION_NAME
 
+__all__ = [
+    "CALCULATED_AGGREGATIONS"
+]
+
 def _wma(values):
     n = len(values)
     denom = n * (n + 1) / 2
@@ -33,7 +37,7 @@ def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggrega
     num_units = None
     drilldown_paths = drilldown_paths or []
     for path in drilldown_paths:
-        relevant_level = path[2][-1]
+        relevant_level = path.levels[-1]
         these_num_units = None
         if relevant_level.info:
             these_num_units = relevant_level.info.get('aggregation_units', None)
@@ -50,8 +54,8 @@ def _moving_average_factory(measure, drilldown_paths, split_cell, source_aggrega
         vals = []
         if split_cell:
             vals.append( item.get(SPLIT_DIMENSION_NAME) )
-        for dim, hier, levels in key_drilldown_paths:
-            for level in levels:
+        for dditem in key_drilldown_paths:
+            for level in dditem.levels:
                 vals.append( item.get(level.key.ref()) )
         return tuple(vals)
 
@@ -91,4 +95,9 @@ def _calc_func(field_name, measure_ref, avg_func, key_extractor, num_units):
             item[field_name] = avg_func(val_list)
 
     return f
+
+CALCULATED_AGGREGATIONS = {
+    "sma": simple_moving_average_factory,
+    "wma": weighted_moving_average_factory
+}
 
