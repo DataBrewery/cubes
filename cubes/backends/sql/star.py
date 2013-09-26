@@ -1,33 +1,23 @@
 # -*i coding=utf -*-
 # Actually, this is a furry snowflake, not a nice star
 
-from cubes.browser import *
-from cubes.common import get_logger
-from cubes.statutils import *
-from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical, DEFAULT_KEY_FIELD
+from ...browser import *
+from ...common import get_logger
+from ...statutils import *
+from ...errors import *
+from ...model import Attribute
+from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical
+from .mapper import DEFAULT_KEY_FIELD
+from . import extensions
+
 import logging
 import collections
 import re
 import datetime
-from cubes.errors import *
-from cubes.computation import *
-from cubes.backends.sql import extensions
-from cubes.model import Attribute
 
 try:
     import sqlalchemy
     import sqlalchemy.sql as sql
-
-    aggregation_functions = {
-        "sum": sql.functions.sum,
-        "min": sql.functions.min,
-        "max": sql.functions.max,
-        "count": sql.functions.count,
-        "avg": extensions.avg,
-        "stddev": extensions.stddev,
-        "variance": extensions.variance,
-        "identity": lambda c: c
-    }
 
 except ImportError:
     from cubes.common import MissingPackage
@@ -48,6 +38,19 @@ _EXPR_EVAL_NS = {
     "text": sql.expression.text,
     "datetime" : datetime,
     "re": re
+}
+
+# TODO: add the "missing import" guard
+aggregation_functions = {
+    "sum": sql.functions.sum,
+    "min": sql.functions.min,
+    "max": sql.functions.max,
+    "nonepmty_count": sql.functions.count,
+    "count": lambda c: sql.functions.count(1),
+    "avg": extensions.avg,
+    "stddev": extensions.stddev,
+    "variance": extensions.variance,
+    "identity": lambda c: c
 }
 
 class SnowflakeBrowser(AggregationBrowser):
@@ -312,7 +315,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # Coalesce measures - make sure that they are Attribute objects, not
         # strings. Strings are converted to corresponding Cube measure
         # attributes
-        measures = measures or cubes.measures
+        measures = measures or self.cube.measures
         measures = [self.cube.measure(measure) for measure in measures]
 
         result = AggregationResult(cell=cell, measures=measures)
@@ -346,6 +349,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # Note that a split cell if present prepends a drilldown
         ##
 
+        # TODO: Use Drilldown class
         if drilldown or split:
             drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else [])
 
@@ -395,12 +399,16 @@ class SnowflakeBrowser(AggregationBrowser):
 
             # decorate with calculated measures if applicable
             calc_aggs = []
-            for c in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
-                calc_aggs += c
+
+            for measure in measures:
+                aggs = self.calculated_aggregations_for_measure(measure,
+                                                            drilldown, split)
+                for aggregate in aggs:
+                    calc_aggs += aggregate
+
             result.calculators = calc_aggs
             result.cells = ResultIterator(dd_result, labels)
             result.labels = labels
-
 
             # TODO: introduce option to disable this
 
@@ -630,10 +638,6 @@ class QueryContext(object):
         if split:
             split_dim_cond = self.condition_for_cell(split)
 
-        self.logger.debug("=== create aggregation statement")
-        self.logger.debug("---     attributes: %s" % (attributes, ))
-        self.logger.debug("---     drilldown: %s" % (drilldown, ))
-
         if not attributes:
             attributes = set()
 
@@ -646,7 +650,6 @@ class QueryContext(object):
         if split_dim_cond:
             attributes |= set(split_dim_cond.attributes)
 
-        self.logger.debug("---     fixed attributes: %s" % (attributes, ))
         join_expression = self.join_expression_for_attributes(attributes)
 
         selection = []
@@ -654,12 +657,18 @@ class QueryContext(object):
         group_by = None
         drilldown_ptd_condition = None
 
+        # TODO: flatten this
         if split_dim_cond or drilldown:
             group_by = []
 
+            # Prepare split expression for selection and group-by
             if split_dim_cond:
-                group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-                selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
+                expr = sql.expression.case([(split_dim_cond.condition, True)],
+                                                            else_=False)
+                expr = expr.label(SPLIT_DIMENSION_NAME)
+
+                group_by.append(expr)
+                selection.append(expr)
 
             for dditem in drilldown:
                 last_level = dditem.levels[-1] if len(dditem.levels) else None
@@ -668,6 +677,8 @@ class QueryContext(object):
                                                         if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
+
+                    # Prepare period-to-date condition
                     if last_level == level:
                         drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
@@ -679,6 +690,9 @@ class QueryContext(object):
         for measure in measures:
             selection.extend(self.aggregations_for_measure(measure))
 
+        # Drill-down statement
+        # --------------------
+        #
         select = sql.expression.select(selection,
                                     from_obj=join_expression,
                                     use_labels=True,
@@ -722,8 +736,16 @@ class QueryContext(object):
 
             else:
                 func = aggregation_functions[agg_name]
-                label = "%s%s" % (str(measure), ("_" + agg_name if agg_name != "identity" else "") )
-                aggregation = func(self.column(measure)).label(label)
+
+                # FIXME: temporary workaround for record_count:
+                # FIXME: this workaround should go away as soon as possible
+                if agg_name == "count":
+                    label = "%s_count" % str(measure)
+                    aggregation = func(1).label(label)
+                else:
+                    label = "%s%s" % (str(measure), ("_" + agg_name if agg_name != "identity" else "") )
+                    aggregation = func(self.column(measure)).label(label)
+
                 result.append(aggregation)
 
         return result
@@ -816,6 +838,29 @@ class QueryContext(object):
         as starting point. If it is ``False`` The first detail table is
         considered as starting point for joins. This might be useful when
         getting values of a dimension without cell restrictions.
+
+        **Requirement:** joins should be ordered from the "tentacles" towards
+        the center of the star/snowflake schema.
+
+        **Algorithm:**
+
+        * FOR ALL JOINS:
+          1. get a join (order does not matter)
+          2. get master and detail TABLES (raw, not joined)
+          3. prepare the join condition on columns from the tables
+          4. find join PRODUCTS based on the table keys (schema, table)
+          5. perform join on the master/detail PRODUCTS:
+             * match: left inner join
+             * master: left outer join
+             * detail: right outer join – swap master and detail tables and
+                       do the left outer join
+          6. remove the detail PRODUCT
+          7. replace the master PRODUCT with the new one
+
+        * IF there is more than one join product left then some joins are
+          missing
+        * Result: join products should contain only one item which is the
+          final product of the joins
         """
 
         self.logger.debug("create expression with %d joins. Fact: %s" %\
@@ -853,50 +898,49 @@ class QueryContext(object):
         # Perform the joins
         # =================
         #
-        # Algorithm:
-        #
-        # FOR ALL JOINS:
-        #   1. get a join (order does not matter)
-        #   2. get a table or joined table from joined products 
-        #   3. perform join:
-        #      * match: left inner join
-        #      * master: left outer join
-        #      * detail: right outer join – swap master and detail tables and
-        #                do the left outer join
-        #   4. remove detail table from the joined_products
-        # 
-        # IF there is more than one join product left then some joins are
-        # missing
-        #
-        # RESULT: join products should contain only one item which is the
-        #         final product of the joins
 
         for join in joins:
+            # Prepare the table keys:
+            # Key is a tuple of (schema, table) and is used to get a joined
+            # product object
             master = join.master
-            detail = join.detail
-
             master_key = (master.schema, master.table)
-            master_table = joined_products[master_key]
-
+            detail = join.detail
             detail_key = (detail.schema, join.alias or detail.table)
-            detail_table = joined_products[detail_key]
 
             self.logger.debug("joining (%s): %s -> %s" % (join.method, master_key,
                                                             detail_key))
 
-            self.logger.debug("    tables: %s -> %s" % (master_table,
-                                                                detail_table))
+            # We need plain tables to get columns for prepare the join
+            # condition
+            master_table = self.table(join.master.schema, join.master.table)
+            detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
+
             try:
                 master_column = master_table.c[master.column]
-            except:
+            except KeyError:
+                self.logger.error("No master column '%s'. Available: %s" % \
+                                   (master.column, str(master_table.columns)))
                 raise ModelError('Unable to find master key (schema %s) "%s"."%s" ' \
                                     % join.master[0:3])
             try:
                 detail_column = detail_table.c[detail.column]
-            except:
+            except KeyError:
                 raise ErrorMappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
                                     % join.detail[0:3])
 
+            # The join condition:
+            onclause = master_column == detail_column
+
+            # Get the joined products – might be plain tables or already
+            # joined tables
+            master_table = joined_products[master_key]
+            detail_table = joined_products[detail_key]
+
+            # Determine the join type based on the join method. If the method
+            # is "detail" then we need to swap the order of the tables
+            # (products), because SQLAlchemy provides inteface only for
+            # left-outer join.
             if join.method == "match":
                 is_outer = False
             elif join.method == "master":
@@ -908,15 +952,15 @@ class QueryContext(object):
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
-            onclause = master_column == detail_column
 
             product = sql.expression.join(master_table,
                                              detail_table,
                                              onclause=onclause,
                                              isouter=is_outer)
 
-            # Remove the already joined detail
             del joined_products[detail_key]
+            self.logger.debug("- removing detail product '%s'" % (detail_key,))
+            self.logger.debug("+ storing join product '%s'" % (master_key,))
             joined_products[master_key] = product
 
         if not joined_products:
@@ -1356,64 +1400,6 @@ class QueryContext(object):
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s" % (label, str(statement)))
 
-class AggregatedCubeBrowser(AggregationBrowser):
-    """docstring for SnowflakeBrowser"""
-
-    def __init__(self, cube, connectable=None, locale=None, metadata=None,
-                 debug=False, **options):
-        """AggregatedCubeBrowser is a SQL-based AggregationBrowser
-        implementation that uses pre-aggregated table.
-
-        Attributes:
-
-        * `cube` - browsed cube
-        * `connectable` - SQLAlchemy connectable object (engine or connection)
-        * `locale` - locale used for browsing
-        * `metadata` - SQLAlchemy MetaData object
-        * `debug` - output SQL to the logger at INFO level
-        * `options` - passed to the mapper and context (see their respective
-          documentation)
-
-        """
-        super(AggregatedCubeBrowser, self).__init__(cube)
-
-        if cube == None:
-            raise ArgumentError("Cube for browser should not be None.")
-
-        self.logger = get_logger()
-
-        self.cube = cube
-        self.locale = locale or cube.locale
-        self.debug = debug
-
-        if connectable is not None:
-            self.connectable = connectable
-            self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
-
-        # Mapper is responsible for finding corresponding physical columns to
-        # dimension attributes and fact measures. It also provides information
-        # about relevant joins to be able to retrieve certain attributes.
-
-        if options.get("use_denormalization"):
-            mapper_class = DenormalizedMapper
-        else:
-            mapper_class = SnowflakeMapper
-
-        self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
-                            (str(mapper_class.__name__), cube.name, locale))
-
-        self.mapper = mapper_class(cube, locale=self.locale, **options)
-        self.logger.debug("mapper schema: %s" % self.mapper.schema)
-
-        # QueryContext is creating SQL statements (using SQLAlchemy). It
-        # also caches information about tables retrieved from metadata.
-
-        self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata)
-
-        # Map: logical attribute --> 
-        self.attribute_columns = {}
-        self.alias_columns
 
 def order_column(column, order):
     """Orders a `column` according to `order` specified as string."""

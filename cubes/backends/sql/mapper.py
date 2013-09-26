@@ -23,9 +23,9 @@ TableColumnReference = collections.namedtuple("TableColumnReference",
                                     ["schema", "table", "column", "extract", "func", "expr", "condition"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
-(4-item) tuples. `method` denotes which table members should be considered in
-the join: *master* – all master members (left outer join), *detail* – all detail
-members (right outer join) and *match* – members must match (inner join)."""
+tuples. `method` denotes which table members should be considered in the join:
+*master* – all master members (left outer join), *detail* – all detail members
+(right outer join) and *match* – members must match (inner join)."""
 TableJoin = collections.namedtuple("TableJoin",
                                     ["master", "detail", "alias", "method"])
 
