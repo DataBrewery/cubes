@@ -32,6 +32,8 @@ time_dimension_md = {
 _time_dimension = create_dimension(time_dimension_md)
 
 class MixpanelModelProvider(ModelProvider):
+    requires_store = True
+
     def cube(self, name):
         """Creates a mixpanel cube with following variables:
 
