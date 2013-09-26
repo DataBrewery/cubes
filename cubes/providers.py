@@ -454,7 +454,6 @@ def create_dimension(metadata, dimensions=None, name=None):
         # Default: if no attributes, then there is single flat attribute
         # whith same name as the dimension
         level_md["name"] = name
-        level_md["key"] = name
         level_md["label"] = label
 
         levels = [create_level(level_md)]
