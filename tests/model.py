@@ -4,8 +4,12 @@ import json
 import re
 import cubes
 from cubes.errors import *
+from cubes import get_logger
 
 from common import TESTS_PATH, DATA_PATH
+
+# FIXME: remove this once satisfied
+get_logger().setLevel("DEBUG")
 
 DIM_DATE_DESC = {
             "name": "date",
@@ -84,23 +88,23 @@ class AttributeTestCase(unittest.TestCase):
         self.assertEqual("group.name", attr.ref(simplify=False))
         self.assertEqual("group.name", attr.ref(simplify=True))
 
-    def test_coalesce_attribute(self):
+    def test_create_attribute(self):
         """Coalesce attribute object (string or Attribute instance)"""
 
         level = cubes.Level("name", attributes=["key", "name"])
         dim = cubes.Dimension("group", levels=[level])
 
-        obj = cubes.coalesce_attribute("name")
+        obj = cubes.create_attribute("name")
         self.assertIsInstance(obj, cubes.Attribute)
         self.assertEqual("name", obj.name)
 
-        obj = cubes.coalesce_attribute({"name":"key"}, dim)
+        obj = cubes.create_attribute({"name":"key"}, dim)
         self.assertIsInstance(obj, cubes.Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(dim, obj.dimension)
 
         attr = dim.attribute("key")
-        obj = cubes.coalesce_attribute(attr)
+        obj = cubes.create_attribute(attr)
         self.assertIsInstance(obj, cubes.Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(obj, attr)
@@ -459,6 +463,7 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual("discount", self.cube.measure("discount").name)
         self.assertRaises(NoSuchAttributeError, self.cube.measure, "xxx")
 
+    @unittest.skip("deferred (needs workspace)")
     def test_to_dict(self):
         desc = self.cube.to_dict()
         dims = dict((dim.name, dim) for dim in self.dimensions)
@@ -482,64 +487,12 @@ class ModelTestCase(ModelTestCaseBase):
 
         self.model_file = "model.json"
 
-    def test_creation(self):
-        desc = { "dimensions": ["date", "product", "flag"] }
-        model = cubes.create_model(desc)
-        self.assertEqual(3, len(model.dimensions))
-        self.assertEqual(0, len(model.cubes))
-
-        desc = {
-                    "dimensions": ["date", "product", "flag"],
-                    "cubes": [
-                        {
-                            "name": "contracts",
-                            "dimensions": ["date", "product", "flag"]
-                        }
-                    ]
-                }
-        model = cubes.create_model(desc)
-        self.assertEqual(3, len(model.dimensions))
-        self.assertEqual(1, len(model.cubes))
-        self.assertIs(model.dimension("date"), model.cube("contracts").dimension("date"))
-
-        # Test duplicate dimensions
-        dup = dict(desc)
-        desc["cubes"].append(desc["cubes"][0])
-        self.assertRaises(cubes.ModelError, cubes.create_model, dup)
-
-        dup = dict(desc)
-        desc["dimensions"].append(desc["dimensions"][0])
-        self.assertRaises(cubes.ModelError, cubes.create_model, dup)
-
     def test_extraction(self):
         self.assertEqual(self.dimensions[0], self.model.dimension("date"))
         self.assertRaises(NoSuchDimensionError, self.model.dimension, "xxx")
 
         self.assertEqual(self.cube, self.model.cube("contracts"))
         self.assertRaises(ModelError, self.model.cube, "xxx")
-
-    def test_to_dict(self):
-        desc = self.model.to_dict()
-        model = cubes.create_model(desc)
-
-        self.assertEqual(self.model.dimensions, model.dimensions)
-        self.assertEqual(self.model.cubes, model.cubes)
-        self.assertEqual(self.model, model)
-
-        desc2 = model.to_dict()
-        self.assertEqual(desc, desc2)
-
-    def test_model_from_path(self):
-        model = cubes.model_from_path(self.model_path(self.model_file))
-
-        self.assertEqual(model.name, "public_procurements")
-        self.assertEqual(len(model.dimensions), 6)
-        self.assertEqual('cpv', model.dimension('cpv').name)
-        self.assertEqual(len(model.cubes), 1)
-
-        cube = model.cube("contracts")
-        self.assertNotEqual(None, cube)
-        self.assertEqual(cube.name, "contracts")
 
     def test_localize(self):
         translation = {
@@ -647,7 +600,7 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
 
     def test_from_file(self):
         path = self.model_path("model.json")
-        desc = cubes.read_model_description(path)
+        desc = cubes.read_model_metadata(path)
 
         self.assertIsInstance(desc, dict)
         self.assertTrue("cubes" in desc)
@@ -657,7 +610,7 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
 
     def test_from_bundle(self):
         path = self.model_path("test.cubesmodel")
-        desc = cubes.read_model_description(path)
+        desc = cubes.read_model_metadata(path)
 
         self.assertIsInstance(desc, dict)
         self.assertTrue("cubes" in desc)
@@ -667,7 +620,7 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
 
         with self.assertRaises(ArgumentError):
             path = self.model_path("model.json")
-            desc = cubes.read_model_description_bundle(path)
+            desc = cubes.read_model_metadata_bundle(path)
 
 def test_suite():
     suite = unittest.TestSuite()
