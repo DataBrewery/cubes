@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
 import sys
-from .model import read_model_metadata, create_model_provider
+from .providers import read_model_metadata, create_model_provider
 from .model import Model
 from .common import get_logger
 from .errors import *
@@ -137,7 +137,10 @@ class Workspace(object):
 
         # Register [store_*] from main config (not documented)
         for section in config.sections():
-            if section.startswith("store_"):
+            if section.startswith("datastore_"):
+                name = section[10:]
+                self._register_store_dict(name, dict(config.items(section)))
+            elif section.startswith("store_"):
                 name = section[6:]
                 self._register_store_dict(name, dict(config.items(section)))
 
@@ -212,18 +215,19 @@ class Workspace(object):
 
         model_name = name or metadata.get("name")
 
-        # Get the model's store name:
-        #   specified as argument
-        #   specified in the model as "datastore"
+        if store or "datastore" in metadata:
+            # Get the model's store name:
+            #   specified as argument
+            #   specified in the model as "datastore"
 
-        store_name = store or metadata.get("datastore")
-        if not store_name and "info" in metadata:
-            store_name = metadata["info"].get("datastore")
+            store_name = store or metadata.get("datastore")
+            if not store_name and "info" in metadata:
+                store_name = metadata["info"].get("datastore")
 
-        store_name = store_name or "default"
+            store_name = store_name or "default"
 
-        self.logger.debug("Using store '%s'" % store_name)
-        store = self.get_store(store_name)
+            self.logger.debug("Using store '%s'" % store_name)
+            store = self.get_store(store_name)
 
         # Provider is specified in:
         #   model's "provider"
@@ -240,8 +244,10 @@ class Workspace(object):
                 provider_name = "default"
 
         self.logger.debug("using provider %s" % provider_name)
-        provider = create_model_provider(provider_name, metadata, store,
-                                         store_name)
+        provider = create_model_provider(provider_name, metadata)
+
+        if provider.requires_store:
+            provider.init_store(store, store_name)
 
 
         model_object = Model(metadata=metadata,
