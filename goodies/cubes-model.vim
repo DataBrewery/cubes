@@ -49,6 +49,8 @@ syn match Keyword "\"mappings\"" display
 syn match Keyword "\"master\"" display
 syn match Keyword "\"detail\"" display
 syn match Keyword "\"alias\"" display
+syn match Keyword "\"method\"" display
+syn match Keyword "\"match\"" display
 
 syn match Keyword "\"column\"" display
 syn match Keyword "\"table\"" display
