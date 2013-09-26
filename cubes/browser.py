@@ -18,14 +18,15 @@ from .common import get_logger, to_unicode_string
 
 __all__ = [
     "AggregationBrowser",
-    "Drilldown",
+    "AggregationResult",
+    "CalculatedResultIterator",
+
     "Cell",
     "Cut",
     "PointCut",
     "RangeCut",
     "SetCut",
-    "AggregationResult",
-    "CalculatedResultIterator",
+
     "cuts_from_string",
     "string_from_cuts",
     "string_from_path",
@@ -34,10 +35,14 @@ __all__ = [
     "path_from_string",
     "cut_from_string",
     "cut_from_dict",
+
+    "Drilldown",
+    "DrilldownItem",
+    "levels_from_drilldown",
+
     "TableRow",
     "CrossTable",
     "cross_table",
-    "levels_from_drilldown",
     "SPLIT_DIMENSION_NAME"
 ]
 
@@ -110,16 +115,17 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def values(self, cell, dimension, depth=None, paths=None,
+    def members(self, cell, dimension, depth=None, paths=None,
                hierarchy=None, **options):
-        """Return values for `dimension` with level depth `depth`. If `depth`
-        is ``None``, all levels are returned.
-
-        .. note::
-
-            Some backends might support only default hierarchy.
+        """Return members of `dimension` with level depth `depth`. If `depth`
+        is ``None``, all levels are returned. If no `hierarchy` is specified,
+        then default dimension hierarchy is used.
         """
         raise NotImplementedError
+
+    def values(self, *args, **kwargs):
+        # TODO: depreciated
+        self.members(*args, **kwargs)
 
     def report(self, cell, queries):
         """Bundle multiple requests from `queries` into a single one.

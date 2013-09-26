@@ -194,7 +194,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
-    def values(self, cell, dimension, depth=None, hierarchy=None, page=None,
+    def members(self, cell, dimension, depth=None, hierarchy=None, page=None,
                page_size=None, order=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
@@ -237,7 +237,7 @@ class SnowflakeBrowser(AggregationBrowser):
         statement = statement.group_by(*group_by)
 
         if self.debug:
-            self.logger.info("dimension values SQL:\n%s" % statement)
+            self.logger.info("dimension members SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
         labels = self.context.logical_labels(statement.columns)
@@ -1206,7 +1206,8 @@ class QueryContext(object):
         the natural order is used, if not overriden in the `order`.
 
         `dimension_levels` is list of considered dimension levels in form of
-        tuples (`dimension`, `levels`). For each level it's sort key is used.
+        tuples (`dimension`, `hierarchy`, `levels`). For each level it's sort
+        key is used.
         """
 
         # Each attribute mentioned in the order should be present in the selection
@@ -1232,8 +1233,8 @@ class QueryContext(object):
 
         if dimension_levels:
             for dditem in dimension_levels:
-                dim = dditem.dimension
-                for level in dditem.levels:
+                dim, hier, levels = dditem[0:3]
+                for level in levels:
                     level = dim.level(level)
                     if level.order:
                         order.append( (level.order_attribute.ref(), level.order) )
