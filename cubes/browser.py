@@ -675,7 +675,7 @@ class Cell(object):
                         return True
         return False
 
-     def dimension_cuts(self, dimension, exclude=False):
+    def dimension_cuts(self, dimension, exclude=False):
         """Returns cuts for `dimension`. If `exclude` is `True` then the
         effect is reversed: return all cuts except those with `dimension`."""
         dimension = self.cube.dimension(dimension)
