@@ -6,7 +6,7 @@ import itertools
 import logging
 import sys
 import re
-import collections
+from collections import OrderedDict
 import exceptions
 
 __all__ = [
@@ -59,13 +59,16 @@ def create_logger(level=None):
 
     return logger
 
-class IgnoringDictionary(dict):
+class IgnoringDictionary(OrderedDict):
     """Simple dictionary extension that will ignore any keys of which values
     are empty (None/False)"""
-    def setnoempty(self, key, value):
-        """Set value in a dictionary if value is not null"""
-        if value:
-            self[key] = value
+    def __setitem__(self, key, value):
+        if value is not None:
+            super(IgnoringDictionary, self).__setitem__(key, value)
+
+    def set(self, key, value):
+        """Sets `value` for `key` even if value is null."""
+        super(IgnoringDictionary, self).__setitem__(key, value)
 
 class MissingPackageError(Exception):
     """Exception raised when encountered a missing package."""
