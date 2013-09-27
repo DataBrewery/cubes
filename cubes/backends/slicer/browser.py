@@ -25,10 +25,11 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
 
         self.logger = get_logger()
 
-        self.baseurl = url
+        self.baseurl = "%s/cube/%s" % (store.url, cube.name)
         self.cube = cube
         
     def request(self, url):
+        self.logger.debug("Request: %s" % url)
         handle = urllib2.urlopen(url)
         try:
             reply = json.load(handle)
@@ -39,18 +40,37 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         
         return reply            
                 
-    def aggregate(self, cell, measures = None, drilldown = None, **kwargs):
-        result = cubes.AggregationResult()
+    def aggregate(self, cell, measures = None, drilldown = None, split=None, **kwargs):
+        import pdb; pdb.set_trace()
         
         cut_string = cubes.browser.string_from_cuts(cell.cuts)
-        params = [ ("cut", cut_string) ]
+        params = [ ('cut', cut_string) ]
+
+        levels = {}
+
         if drilldown:
             for dd in drilldown:
-                params.append( ("drilldown", dd) )
+                params.append( ("drilldown", str(dd)) )
+                levels[str(dd.dimension)] = [ str(l) for l in dd.levels ]
                 
+        if split:
+            params.append( ('split', str(split)) ) 
+            levels[cubes.browser.SPLIT_DIMENSION_NAME] = cubes.browser.SPLIT_DIMENSION_NAME
+
+        if measures:
+            for m in measures:
+                params.append( ("measure", str(m)) )
+                    
         url = self.baseurl + "/aggregate?" + urllib.urlencode(params)
         
-        return self.request(url)
+        reply = self.request(url)
+        result = cubes.browser.AggregationResult()
+        result.cells = reply.get('cells', [])
+        if ( reply.get('summary') ):
+            result.summary = reply.get('summary')
+        # TODO other things like levels, etc.
+
+        return result
         
     def facts(self, cell, **options):
         raise NotImplementedError
