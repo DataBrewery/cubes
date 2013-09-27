@@ -74,7 +74,9 @@ class AggregationBrowser(object):
         logger.warn("browser.full_cube() is depreciated, use Cell(cube)")
         return Cell(self.cube)
 
-    def aggregate(self, cell=None, measures=None, drilldown=None, split=None, **options):
+    def aggregate(self, cell=None, aggregates=None, drilldown=None,
+                  split=None, measures=None, **options):
+
         """Return aggregate of a cell.
 
         Subclasses of aggregation browser should implement this method.
@@ -83,8 +85,8 @@ class AggregationBrowser(object):
 
         * `drilldown` - dimensions and levels through which to drill-down,
           default `None`
-        * `measures` - list of measures to be aggregated. By default all
-          measures are aggregated.
+        * `aggregates` - list of aggregate measures. By default all
+          cube's aggregates are included in the result.
 
         Drill down can be specified in two ways: as a list of dimensions or as
         a dictionary. If it is specified as list of dimensions, then cell is
@@ -1135,11 +1137,10 @@ class AggregationResult(object):
     * `cells` - list of cells that were drilled-down
     * `total_cell_count` - number of total cells in drill-down (after limit,
       before pagination)
-    * `measures` – measures that were selected in aggregation
+    * `aggregates` – aggregate measures that were selected in aggregation
     * `remainder` - summary of remaining cells (not yet implemented)
     * `levels` – aggregation levels for dimensions that were used to drill-
       down
-
 
     .. note::
 
@@ -1147,10 +1148,10 @@ class AggregationResult(object):
         `measures` and `levels` from the aggregate query.
 
     """
-    def __init__(self, cell=None, measures=None):
+    def __init__(self, cell=None, aggregates=None):
         super(AggregationResult, self).__init__()
         self.cell = cell
-        self.measures = measures
+        self.aggregates = aggregates
         self.levels = None
 
         self.summary = {}
@@ -1173,36 +1174,32 @@ class AggregationResult(object):
         self._cells = val
 
     @property
-    def drilldown(self):
-        logger = get_logger()
-        logger.warn("AggregationResult.drilldown is depreciated, use '.cells' instead")
-        return self.cells
+    def measures(self):
+        return self.aggregates
 
-    @drilldown.setter
-    def drilldown(self, val):
+    @measures.setter
+    def measures(self, val):
         logger = get_logger()
-        logger.warn("AggregationResult.drilldown is depreciated, use '.cells' instead")
-        self.cells = val
+        logger.warn("AggregationResult.measures is depreciated. Use "
+                    "`aggregates`")
+        return self.aggregates
+        # decorate iterable with calcs if needed
 
     def to_dict(self):
         """Return dictionary representation of the aggregation result. Can be
         used for JSON serialisation."""
 
-        d = {}
+        d = IgnoringDictionary()
 
         d["summary"] = self.summary
         d["remainder"] = self.remainder
         d["cells"] = self.cells
         d["total_cell_count"] = self.total_cell_count
-        if self.measures is not None:
-            d["measures"] = [str(m) for m in self.measures]
-        else:
-            d["measures"] = None
 
-        if self.cell:
-            d["cell"] = [cut.to_dict() for cut in self.cell.cuts]
-        else:
-            d["cell"] = None
+        d["aggregates"] = [str(m) for m in self.aggregates]
+
+        # We want to set None
+        d.set("cell", [cut.to_dict() for cut in self.cell.cuts])
 
         d["levels"] = self.levels
 
@@ -1276,32 +1273,6 @@ class AggregationResult(object):
                                record)
             yield row
 
-    def cross_table(self, onrows, oncolumns, measures=None):
-        """
-        Creates a cross table from result's cells. `onrows` contains list of
-        attribute names to be placed at rows and `oncolumns` contains list of
-        attribute names to be placet at columns. `measures` is a list of
-        measures to be put into cells. If measures are not specified, then
-        only ``record_count`` is used.
-
-        Returns a named tuble with attributes:
-
-        * `columns` - labels of columns. The tuples correspond to values of
-          attributes in `oncolumns`.
-        * `rows` - labels of rows as list of tuples. The tuples correspond to
-          values of attributes in `onrows`.
-        * `data` - list of measure data per row. Each row is a list of measure
-          tuples as specified in `measures`.
-
-        .. warning::
-
-            Experimental implementation. Interface might change - either
-            arguments or result object.
-
-        """
-
-        return cross_table(self.cells, onrows, oncolumns, measures)
-
     def __iter__(self):
         """Return cells as iterator"""
         return iter(self.cells)
@@ -1309,10 +1280,16 @@ class AggregationResult(object):
 
     def cached(self):
         """Return shallow copy of the receiver with cached cells. If cells are
-        an iterator, they are all fetched in a list."""
+        an iterator, they are all fetched in a list.
+
+        .. warning::
+
+            This might be expensive for large results.
+        """
+
         result = AggregationResult()
         result.cell = self.cell
-        result.measures = self.measures
+        result.aggregates = self.aggregates
         result.levels = self.levels
         result.summary = self.summary
         result.total_cell_count = self.total_cell_count
@@ -1324,13 +1301,13 @@ class AggregationResult(object):
 
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 
-def cross_table(drilldown, onrows, oncolumns, measures=None):
+def cross_table(drilldown, onrows, oncolumns, aggregates):
     """
     Creates a cross table from a drilldown (might be any list of records).
     `onrows` contains list of attribute names to be placed at rows and
     `oncolumns` contains list of attribute names to be placet at columns.
-    `measures` is a list of measures to be put into cells. If measures are not
-    specified, then only ``record_count`` is used.
+    `aggregates` is a list of aggregate measures to be put into cells. If
+    measures are not specified, then only ``record_count`` is used.
 
     Returns a named tuble with attributes:
 
@@ -1338,8 +1315,8 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
       attributes in `oncolumns`.
     * `rows` - labels of rows as list of tuples. The tuples correspond to
       values of attributes in `onrows`.
-    * `data` - list of measure data per row. Each row is a list of measure
-      tuples.
+    * `data` - list of aggregated measure data per row. Each row is a list of
+      aggregate measure tuples.
 
     .. warning::
 
@@ -1355,8 +1332,6 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
     row_hdrs = []
     column_hdrs = []
 
-    measures = measures or ["record_count"]
-
     for record in drilldown:
         hrow = tuple(record[f] for f in onrows)
         hcol = tuple(record[f] for f in oncolumns)
@@ -1366,7 +1341,7 @@ def cross_table(drilldown, onrows, oncolumns, measures=None):
         if not hcol in column_hdrs:
             column_hdrs.append(hcol)
 
-        matrix[(hrow, hcol)] = tuple(record[m] for m in measures)
+        matrix[(hrow, hcol)] = tuple(record[m] for m in aggregates)
 
     data = []
     for hrow in row_hdrs:
