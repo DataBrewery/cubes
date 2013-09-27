@@ -3,8 +3,44 @@ from cubes.model import Attribute
 from cubes.browser import SPLIT_DIMENSION_NAME
 
 __all__ = [
-    "CALCULATED_AGGREGATIONS"
+        "CALCULATED_AGGREGATIONS",
+        "calculators_for_aggregates"
 ]
+
+def calculators_for_aggregates(aggregates, drilldown_levels=None, split=None,
+                               backend_functions=None):
+    """Returns a list of calculator function objects that implements
+    aggregations by calculating on retrieved results, given a particular
+    drilldown. Only post-aggregation calculators are returned.
+
+    Might return an empty list if there is no post-aggregation witin
+    aggregate functions.
+
+    `backend_functions` is a list of backend-specific functions.
+    """
+    backend_functions = backend_functions or []
+
+    # If we have an aggregation function, then we consider the aggregate
+    # already processed
+    functions = []
+
+    for aggregate in aggregates:
+        # Ignore function if the backend already handles it
+        if aggregate.function in backend_functions:
+            continue
+
+        try:
+            func = CALCULATED_AGGREGATIONS[aggregate.function]
+        except KeyError:
+            raise ArgumentError("Unknown post-calculation function '%s' for "
+                                "aggregate '%s'" % (aggregate.function,
+                                                    aggregate.name))
+
+        func = (measure, drilldown_levels, split, non_calculated_aggs)
+        functions.append(func)
+
+    return functions
+
 
 def _wma(values):
     n = len(values)
@@ -96,6 +132,8 @@ def _calc_func(field_name, measure_ref, avg_func, key_extractor, num_units):
 
     return f
 
+
+# TODO: make CALCULATED_AGGREGATIONS a namespace (see extensions.py)
 CALCULATED_AGGREGATIONS = {
     "sma": simple_moving_average_factory,
     "wma": weighted_moving_average_factory
