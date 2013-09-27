@@ -12,6 +12,7 @@ from .errors import *
 from .extensions import get_namespace, initialize_namespace
 from .model import *
 
+
 __all__ = [
     "read_model_metadata",
     "read_model_metadata_bundle",
@@ -27,6 +28,14 @@ __all__ = [
     "create_model",
     "merge_models",
 ]
+
+
+DEFAULT_RECORD_COUNT_AGGREGATE = {
+    "name": "record_count",
+    "label": "Count",
+    "function": "count"
+}
+
 
 def create_model_provider(name, metadata):
     """Gets a new instance of a model provider with name `name`."""
@@ -527,7 +536,11 @@ def create_level(metadata, name=None, dimension=None):
     except KeyError:
         raise ModelError("No name specified in level metadata")
 
-    attributes = attribute_list(metadata.pop("attributes"), dimension=dimension)
+    attributes = attribute_list(metadata.pop("attributes"))
+
+    # TODO: this should be depreciated
+    for attribute in attributes:
+        attribute.dimension = dimension
 
     return Level(name=name,
                  attributes=attributes,
@@ -582,6 +595,7 @@ def merge_models(models):
                  dimensions=dimensions.values(),
                  cubes=all_cubes.values())
 
+
 def create_cube(metadata):
     """Create a cube object from `metadata` dictionary. The cube has no
     dimensions attached after creation. You should link the dimensions to the
@@ -593,6 +607,9 @@ def create_cube(metadata):
 
     metadata = dict(metadata)
     dimensions = metadata.pop("dimensions", [])
+
+    if "measures" not in metadata and "aggregates" not in metadata:
+        metadata["aggregates"] = [DEFAULT_RECORD_COUNT_AGGREGATE]
 
     return Cube(linked_dimensions=dimensions,
                 **metadata)

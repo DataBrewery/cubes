@@ -16,7 +16,7 @@ __all__ = [
     "Level",
     "AttributeBase",
     "Attribute",
-    "MeasureAttribute",
+    "Measure",
     "MeasureAggregate",
 
     "create_attribute",
@@ -29,12 +29,6 @@ __all__ = [
     "aggregate_ref",
 
 ]
-
-RECORD_COUNT_MEASURE = {
-    'name': 'record',
-    'label': 'Count',
-    'aggregations': ['count', 'sma']
-}
 
 
 def assert_instance(obj, class_, label):
@@ -392,7 +386,7 @@ class ModelObject(object):
         self.info = info
 
 class Cube(object):
-    def __init__(self, name, dimensions=None, measures=None,
+    def __init__(self, name, dimensions=None, measures=None, aggregates=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, linked_dimensions=None,
@@ -404,6 +398,8 @@ class Cube(object):
 
         * `name`: cube name
         * `measures`: list of measure attributes
+        * `aggregates`: list of measure aggregates (`MeasureAggregate`
+          objects)
         * `dimensions`: list of dimensions (should be `Dimension` instances)
         * `label`: human readable cube label
         * `details`: list of detail attributes
@@ -440,14 +436,6 @@ class Cube(object):
         # backward compatibility
         self.category = category or self.info.get("category")
 
-        # TODO: put this into the model provider
-        if not measures:
-            measures = [ copy.deepcopy(RECORD_COUNT_MEASURE) ]
-
-        # FIXME: change this to MeasureAttribute
-        self.measures = attribute_list(measures, Attribute)
-        self.details = attribute_list(details, Attribute)
-
         # Physical properties
         self.mappings = mappings
         self.fact = fact
@@ -467,6 +455,28 @@ class Cube(object):
             else:
                 raise ModelError("Dimensions for cube initialization should be "
                                  "a list of Dimension instances.")
+        #
+        # Prepare measures and aggregates
+        #
+        self.measures = attribute_list(measures, Measure)
+
+        self.aggregates = []
+        if aggregates is not None:
+            # Get explicit aggregates
+            aggregates = attribute_list(aggregates, MeasureAggregate)
+
+            for aggregate in aggregates:
+                if aggregate.measure:
+                    self.measure(aggregate.measure)
+                self.aggregates.append(aggregate)
+
+        else:
+            # Create default aggregates from the list of measures
+            for measure in self.measures:
+                self.aggregates += measure.default_aggregates()
+
+        self.details = attribute_list(details, Attribute)
+
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name. Raises
@@ -542,7 +552,7 @@ class Cube(object):
             else:
                 raise NoSuchAttributeError("cube '%s' has no measure '%s'" %
                                     (self.name, obj))
-        elif isinstance(obj, Attribute):
+        elif isinstance(obj, Measure):
              return obj
         else:
             raise NoSuchAttributeError("Invalid measure or measure reference '%s' for cube '%s'" %
@@ -1521,6 +1531,9 @@ class AttributeBase(object):
         self.description = description
         self.info = info or {}
         self.format = format
+        # TODO: temporarily preserved, this should be present only in
+        # Attribute object, not all kinds of attributes 
+        self.dimension = None
 
         if order:
             self.order = order.lower()
@@ -1699,14 +1712,14 @@ def create_measure(md):
     if not "name" in md:
         raise ModelError("Measure has no name.")
 
-    return MeasureAttribute(**md)
+    return Measure(**md)
 
 # TODO: give it a proper name
-class MeasureAttribute(AttributeBase):
+class Measure(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                 info=None, format=None, aggregates=None, formula=None,
-                **kwargs):
+                expression=None, **kwargs):
         """Fact measure attribute.
 
         Properties:
@@ -1724,34 +1737,34 @@ class MeasureAttribute(AttributeBase):
 
         String representation of a `Measure` returns its `name`.
         """
-        super(MeasureAttribute, self).__init__(name=name, label=label,
+        super(Measure, self).__init__(name=name, label=label,
                                                description=description,
                                                order=order, info=info,
-                                               format=format, formula=None,
-                                               aggregates=None)
+                                               format=format)
 
+        self.expression = expression
         self.formula = formula
         self.aggregates = aggregates
 
     def __deepcopy__(self, memo):
-        return MeasureAttribute(self.name,
+        return Measure(self.name,
                          self.label,
-                         aggregation=self.aggregation,
                          order=copy.deepcopy(self.order, memo),
                          description=self.description,
                          info=copy.deepcopy(self.info, memo),
                          format=self.format, formula=None,
-                         aggregates=aggregates)
+                         aggregates=self.aggregates,
+                         expression=self.expression)
 
     def __eq__(self, other):
-        if not super(Attribute, self).__eq__(other):
+        if not super(Measure, self).__eq__(other):
             return False
 
         return self.aggregates == other.aggregates \
                     and self.formula == other.formula
 
     def to_dict(self, **options):
-        d = super(Attribute, self).to_dict(**options)
+        d = super(Measure, self).to_dict(**options)
         d["formula"] = self.formula
         d["aggergates"] = self.aggregates
 
@@ -1798,14 +1811,16 @@ class MeasureAggregate(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                 info=None, format=None, measure=None, function=None,
-                formula=None, **kwargs):
+                formula=None, expression=None, **kwargs):
         """Masure aggregate
 
         Attributes:
 
         * `function` – aggregation function for the measure
-        * `formula` – arithmetic expression
+        * `formula` – name of a formula that contains the arithemtic
+          expression (optional)
         * `measure` – measure for this aggregate (optional)
+        * `expression` – arithmetic expression
         """
 
         super(MeasureAggregate, self).__init__(name=name, label=label,
@@ -1814,6 +1829,7 @@ class MeasureAggregate(AttributeBase):
 
         self.function = function
         self.formula = formula
+        self.expression = expression
         self.measure = measure
 
     def __deepcopy__(self, memo):
@@ -1825,111 +1841,79 @@ class MeasureAggregate(AttributeBase):
                          format=self.format,
                          measure=self.measure,
                          function=self.function,
-                         formula=self.formula)
+                         formula=self.formula,
+                         expression=self.expression)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
             return False
 
-        return str(self.aggregation) == str(other.aggregation) \
-                and self.formula == other.formula
+        return str(self.function) == str(other.function) \
+                and self.measure == other.measure \
+                and self.formula == other.formula \
+                and self.expression == other.expression
 
     def to_dict(self, **options):
         d = super(Attribute, self).to_dict(**options)
-        d["aggregation"] = self.aggregation
+        d["function"] = self.aggregation
         d["formula"] = self.formula
-        d["ref"] = self.ref()
+        d["expression"] = self.formula
+        d["measure"] = self.formula
 
         return d
 
-    def ref(self, simplify=None, locale=None):
-        return self.name
 
-def create_attribute(obj, dimension=None, class_=None):
+def create_attribute(obj, class_=None):
     """Makes sure that the `obj` is an ``Attribute`` instance. If `obj` is a
     string, then new instance is returned. If it is a dictionary, then the
     dictionary values are used for ``Attribute``instance initialization."""
 
-    attribute_class = class_ or Attribute
+    class_ = class_ or Attribute
 
     if isinstance(obj, basestring):
-        return attribute_class(obj,dimension=dimension)
+        return class_(obj)
     elif isinstance(obj, dict):
-        return attribute_class(dimension=dimension,**obj)
+        return class_(**obj)
     else:
         return obj
 
-def attribute_list(attributes, dimension=None, class_=None):
+def attribute_list(attributes, class_=None):
     """Create a list of attributes from a list of strings or dictionaries.
     see :func:`cubes.coalesce_attribute` for more information."""
 
     if not attributes:
         return []
 
-    result = [create_attribute(attr, dimension, class_) for attr in attributes]
+    result = [create_attribute(attr, class_) for attr in attributes]
 
     return result
 
-# FIXME: rewrite this
-def measure_list(measures, default_aggregation="sum"):
-    """Creates a list of measures from `measures` which should be a list of
-    measure names or a list of dictionaries. `default_aggregation` is the default
-    aggregation for the measures if no aggregation is specified.
-
-    The measure metadata dictionary contains:
-    * `name` – measure name
-    * `label` – measure label
-    * `aggregation` – aggregation of the measure
-
-    If the dictionary specifies `aggregations` (plural), then for every
-    aggregation one measure with the same other properties is created. For
-    example for ``{"name":"amount", "aggregations": ["sum", "avg"]}`` two
-    measures will be created: ``amount_sum`` and ``amount_avg``.
-    """
+def measure_list(measures):
+    if not measures:
+        return []
 
     result = []
+    for attr in measures:
+        if isinstance(attr, basestring):
+            measure = Measure(name=attr)
+        elif isinstance(attr, dict):
 
-    # Prepare metadata for each aggregation if multiple are specified
-    for desc in measures:
-        # Accept strings as well
-        if isinstance(desc, basestring):
-            desc = {"name": desc}
-        elif isinstance(desc, Measure):
-            result.append(desc)
-            continue
+            if "aggregations" in attr:
+                logger = get_logger()
+                logger.warn("'aggregations' is depreciated, use 'aggregates'")
+                attr = dict(attr)
+                attr["aggergates"] = attr.pop("aggregations")
 
-        try:
-            name = desc["name"]
-        except KeyError:
-            raise ModelError("Measure has no name.")
+            measure = Measure(**attr)
 
-        label = desc.get("label")
-        description = desc.get("description")
-        order = desc.get("order")
-        info = desc.get("info")
-        format = desc.get("format")
-
-        if "aggregations" in desc:
-            if "aggregation" in desc:
-                raise ModelError("Both 'aggregations' and 'aggregation' "
-                                 "specified in measure '%s'" % name)
-            for aggregation in desc["aggregations"]:
-                agg_name = "%s_%s" % (name, aggregation)
-                measure = Measure(name=agg_name, label=label,
-                                  description=description, order=order,
-                                  info=info, format=format,
-                                  aggregation=aggregation)
-                result.append(measure)
+        elif isinstance(attr, Measure):
+            measure = measure
         else:
-            aggregation = desc.get("aggregation", default_aggregation)
-            measure = Measure(name=name, label=label,
-                              description=description, order=order,
-                              info=info, format=format,
-                              aggregation=aggregation)
-            result.append(measure)
+            raise ModelError("Unknown object type %s for a measure" %
+                                type(attr))
+        result.append(measure)
 
     return result
-
 
 def localize_common(obj, trans):
     """Localize common attributes: label and description. `trans` should be a

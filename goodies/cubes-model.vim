@@ -36,6 +36,11 @@ syn match Keyword "\"info\"" display
 syn match Keyword "\"options\"" display
 syn match Keyword "\"order\"" display
 syn match Keyword "\"aggregations\"" display
+syn match Keyword "\"aggregates\"" display
+syn match Keyword "\"measure\"" display
+syn match Keyword "\"function\"" display
+syn match Keyword "\"expression\"" display
+syn match Keyword "\"formula\"" display
 
 " Physical properties
 syn match Keyword "\"store\"" display
