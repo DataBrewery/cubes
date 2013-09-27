@@ -389,6 +389,7 @@ class ModelObject(object):
         self.description = description
         self.info = info
 
+
 class Cube(object):
     def __init__(self, name, dimensions=None, measures=None, aggregates=None,
                  label=None, details=None, mappings=None, joins=None,
@@ -511,6 +512,17 @@ class Cube(object):
     @aggregates.setter
     def aggregates(self, aggregates):
         self._aggregates = OrderedDict((m.name, m) for m in aggregates)
+
+    def aggregates_for_measure(self, name):
+        """Returns aggregtates for measure with `name`. Only direct function
+        aggregates are returned. If the measure is specified in an expression,
+        the aggregate is not included in the returned list"""
+
+        return [agg for agg in self.aggregates if agg.name == name]
+
+    def get_aggregates(self, names):
+        """Get a list of aggregates with `names`"""
+        return [self._aggregates[name] for name in names]
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name. Raises
