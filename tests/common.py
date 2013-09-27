@@ -2,6 +2,7 @@ import os
 import unittest
 from cubes import Workspace
 from sqlalchemy import create_engine, MetaData
+import json
 
 TESTS_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(TESTS_PATH, 'data')
@@ -23,6 +24,12 @@ class CubesTestCaseBase(unittest.TestCase):
 
     def model_path(self, model):
         return os.path.join(self._models_path, model)
+
+    def model_metadata(self, model):
+        path = self.model_path(model)
+        with open(path) as f:
+            md = json.load(f)
+        return md
 
     def data_path(self, file):
         return os.path.join(self._data_path, file)
