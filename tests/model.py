@@ -5,6 +5,7 @@ import re
 import cubes
 from cubes.errors import *
 from cubes import get_logger
+from cubes.model import *
 
 from common import TESTS_PATH, DATA_PATH
 
@@ -119,6 +120,62 @@ class AttributeTestCase(unittest.TestCase):
         for name, attr in zip(names, attrs):
             self.assertIsInstance(attr, cubes.Attribute)
             self.assertEqual(name, attr.name)
+
+class MeasuresTestsCase(unittest.TestCase):
+    def test_basic(self):
+        md = {}
+        with self.assertRaises(ModelError):
+            measure = create_measure(md)
+
+        measure = create_measure("amount")
+        self.assertIsInstance(measure, MeasureAttribute)
+        self.assertEqual("amount", measure.name)
+
+        md = {"name": "amount"}
+        measure = create_measure(md)
+        self.assertEqual("amount", measure.name)
+
+    def test_aggregate(self):
+        md = {}
+        with self.assertRaises(ModelError):
+            measure = create_measure_aggregate(md)
+
+        measure = create_measure_aggregate("amount_sum")
+        self.assertIsInstance(measure, MeasureAggregate)
+        self.assertEqual("amount_sum", measure.name)
+
+    def test_create_default_aggregates(self):
+        measure = create_measure("amount")
+        aggs = measure.default_aggregates()
+        self.assertEqual(1, len(aggs))
+        agg = aggs[0]
+        self.assertEqual("amount_sum", agg.name)
+        self.assertEqual("amount", agg.measure)
+        self.assertEqual("sum", agg.function)
+        self.assertIsNone(agg.formula)
+
+        md = {"name":"amount", "aggregates": ["sum", "min"]}
+        measure = create_measure(md)
+        aggs = measure.default_aggregates()
+        self.assertEqual(2, len(aggs))
+        self.assertEqual("amount_sum", aggs[0].name)
+        self.assertEqual("amount", aggs[0].measure)
+        self.assertEqual("sum", aggs[0].function)
+        self.assertIsNone(aggs[0].formula)
+
+        self.assertEqual("amount_min", aggs[1].name)
+        self.assertEqual("amount", aggs[1].measure)
+        self.assertEqual("min", aggs[1].function)
+        self.assertIsNone(aggs[1].formula)
+
+    def test_fact_count(self):
+        md = {"name":"count", "function":"count"}
+        agg = create_measure_aggregate(md)
+
+        self.assertEqual("count", agg.name)
+        self.assertIsNone(agg.measure)
+        self.assertEqual("count", agg.function)
+        self.assertIsNone(agg.formula)
 
 class LevelTestCase(unittest.TestCase):
     """docstring for LevelTestCase"""
@@ -518,7 +575,6 @@ class ModelTestCase(ModelTestCaseBase):
 
 
 class OldModelValidatorTestCase(unittest.TestCase):
-
     def setUp(self):
         self.model = cubes.Model('test')
         self.date_levels = [ {"name":"year", "key": "year" }, {"name":"month", "key": "month" } ]

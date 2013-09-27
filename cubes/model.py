@@ -1,19 +1,12 @@
 # -*- coding=utf -*-
 """Logical model."""
 
-import os
-import re
-import urllib2
-import urlparse
 import copy
 
 from collections import OrderedDict
 
 from .common import IgnoringDictionary, get_logger, to_label
 from .errors import *
-from .extensions import get_namespace, initialize_namespace
-
-import json
 
 __all__ = [
     "Model",
@@ -27,6 +20,8 @@ __all__ = [
     "MeasureAggregate",
 
     "create_attribute",
+    "create_measure",
+    "create_measure_aggregate",
     "attribute_list",
 
     # FIXME: depreciated. affected: formatter.py
@@ -35,7 +30,12 @@ __all__ = [
 
 ]
 
-RECORD_COUNT_MEASURE = { 'name': 'record', 'label': 'Count', 'aggregations': [ 'count', 'sma' ] }
+RECORD_COUNT_MEASURE = {
+    'name': 'record',
+    'label': 'Count',
+    'aggregations': ['count', 'sma']
+}
+
 
 def assert_instance(obj, class_, label):
     """Raises ArgumentError when `obj` is not instance of `cls`"""
@@ -51,6 +51,7 @@ def assert_all_instances(list_, class_, label):
     `cls`"""
     for obj in list_:
         assert_instance(obj, class_, label)
+
 
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
@@ -124,8 +125,9 @@ class Model(object):
                 if dimension.name not in my_dimension_names:
                     self.add_dimension(dimension)
                 else:
-                    raise ModelInconsistencyError("Dimension %s of cube %s has different specification as model's dimension"
-                                            % (dimension.name, cube.name) )
+                    raise ModelError("Dimension %s of cube %s has different "
+                                     "specification as model's dimension"
+                                     % (dimension.name, cube.name))
 
         self.cubes[cube.name] = cube
 
@@ -205,7 +207,7 @@ class Model(object):
         if other is None or type(other) != type(self):
             return False
         if self.name != other.name or self.label != other.label \
-            or self.description != other.description:
+                or self.description != other.description:
             return False
         elif self.dimensions != other.dimensions:
             return False
@@ -380,15 +382,25 @@ class Model(object):
         return locale
 
 
+class ModelObject(object):
+    """Base classs for all model objects."""
+
+    def __init__(self, name=None, label=None, description=None, info=None):
+        self.name = name
+        self.label = label
+        self.description = description
+        self.info = info
+
 class Cube(object):
     def __init__(self, name, dimensions=None, measures=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, linked_dimensions=None,
                  locale=None, category=None, datastore=None, **options):
+
         """Create a new Cube model object.
 
-        Attributes:
+        Properties:
 
         * `name`: cube name
         * `measures`: list of measure attributes
@@ -584,7 +596,6 @@ class Cube(object):
             out.setnoempty("browser_options", self.browser_options)
 
         out.setnoempty("key", self.key)
-
         return out
 
     def __eq__(self, other):
@@ -620,10 +631,14 @@ class Cube(object):
 
         for measure in self.measures:
             if not isinstance(measure, Attribute):
-                results.append( ('error', "Measure '%s' in cube '%s' is not instance of Attribute" % (measure, self.name)) )
+                results.append(('error',
+                                 "Measure '%s' in cube '%s' is not instance"
+                                 "of Attribute" % (measure, self.name)))
+
             if str(measure) in measures:
-                results.append( ('error', "Duplicate measure '%s' in cube '%s'"\
-                                            % (measure, self.name)) )
+                results.append(('error', "Duplicate measure '%s' in cube "
+                                 "'%s'" % (measure, self.name)))
+
             else:
                 measures.add(str(measure))
 
@@ -1676,48 +1691,109 @@ class Attribute(AttributeBase):
         return bool(self.locales)
 
 
+def create_measure(md):
+    """Create a measure object from metadata."""
+    if isinstance(md, basestring):
+        md = {"name":md}
+
+    if not "name" in md:
+        raise ModelError("Measure has no name.")
+
+    return MeasureAttribute(**md)
+
+# TODO: give it a proper name
 class MeasureAttribute(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
-                info=None, format=None, aggregates=None, **kwargs):
+                info=None, format=None, aggregates=None, formula=None,
+                **kwargs):
         """Fact measure attribute.
 
         Properties:
 
+        * `formula` – name of a formula for the measure
         * `aggregates` – list of default (relevant) aggregate functions that
           can be applied to this measure attribute.
+
+        Note that if the `formula` is specified, it should not refer to any
+        other measure that refers to this one (no circular reference).
+
+        The `aggregates` is an optional property and is used for:
+        * measure aggergate object preparation
+        * optional validation
 
         String representation of a `Measure` returns its `name`.
         """
         super(MeasureAttribute, self).__init__(name=name, label=label,
-                            description=description, order=order, info=info,
-                            format=format)
+                                               description=description,
+                                               order=order, info=info,
+                                               format=format, formula=None,
+                                               aggregates=None)
 
+        self.formula = formula
         self.aggregates = aggregates
 
     def __deepcopy__(self, memo):
         return MeasureAttribute(self.name,
                          self.label,
                          aggregation=self.aggregation,
-                         formula=self.formula,
                          order=copy.deepcopy(self.order, memo),
                          description=self.description,
                          info=copy.deepcopy(self.info, memo),
-                         format=self.format, aggregates=aggregates)
+                         format=self.format, formula=None,
+                         aggregates=aggregates)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
             return False
 
-        return self.aggregates == other.aggregates
+        return self.aggregates == other.aggregates \
+                    and self.formula == other.formula
 
     def to_dict(self, **options):
         d = super(Attribute, self).to_dict(**options)
+        d["formula"] = self.formula
         d["aggergates"] = self.aggregates
 
         return d
 
+    def default_aggregates(self):
+        """Creates default measure aggregates from a list of receiver's
+        aggregates. This is just a convenience function, correct models should
+        contain explicit list of aggregates. If no aggregates are specified,
+        then the only aggregate `sum` is assumed."""
 
+        aggregates = []
+
+        for agg in (self.aggregates or ["sum"]):
+            name = "%s_%s" % (self.name, agg)
+            if self.label:
+                label = "%s – %s" % (self.label, agg)
+            else:
+                label = None
+
+            aggregate = MeasureAggregate(name=name,
+                                         label=label,
+                                         description=self.description,
+                                         order=self.order,
+                                         info=self.info,
+                                         format=self.format,
+                                         measure=self.name,
+                                         function=agg)
+            aggregates.append(aggregate)
+
+        return aggregates
+
+def create_measure_aggregate(md):
+    if isinstance(md, basestring):
+        md = {"name":md}
+
+    if not "name" in md:
+        raise ModelError("Measure aggregate has no name.")
+
+    return MeasureAggregate(**md)
+
+# TODO: alternative names: MeasureAggregate, AggregatedMeasure, Aggregate
 class MeasureAggregate(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
@@ -1727,29 +1803,18 @@ class MeasureAggregate(AttributeBase):
 
         Attributes:
 
-        * `name` - measure name, used as identifier, for example `total`,
-          `amount_sum`, `amount_max`
-        * `aggregation` – aggregation performed for the measure
-        * `label` - measure label displayed to a user (localizable)
-        * `info` - custom information dictionary, might be used to store
-          application/front-end specific information
-        * `format` - application-specific display format information, useful
-          for formatting numeric values of measure attributes
-        * `measure` – measure for this aggregate (optional)
         * `function` – aggregation function for the measure
         * `formula` – arithmetic expression
-
-        String representation of a `Measure` returns its `name`.
+        * `measure` – measure for this aggregate (optional)
         """
-        # TODO: document `formula` once implemented
 
-        super(Aggregate, self).__init__(name=name, label=label,
+        super(MeasureAggregate, self).__init__(name=name, label=label,
                             description=description, order=order, info=info,
                             format=format)
 
-        self.measure = measure
         self.function = function
         self.formula = formula
+        self.measure = measure
 
     def __deepcopy__(self, memo):
         return MeasureAggregate(self.name,
