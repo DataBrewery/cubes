@@ -6,8 +6,10 @@ import cubes
 from cubes.errors import *
 from cubes import get_logger
 from cubes.model import *
+from cubes.providers import create_cube
 
-from common import TESTS_PATH, DATA_PATH
+import copy
+from common import TESTS_PATH, DATA_PATH, CubesTestCaseBase
 
 # FIXME: remove this once satisfied
 get_logger().setLevel("DEBUG")
@@ -99,13 +101,15 @@ class AttributeTestCase(unittest.TestCase):
         self.assertIsInstance(obj, cubes.Attribute)
         self.assertEqual("name", obj.name)
 
-        obj = cubes.create_attribute({"name":"key"}, dim)
+        obj = cubes.create_attribute({"name":"key"})
+        obj.dimension = dim
         self.assertIsInstance(obj, cubes.Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(dim, obj.dimension)
 
         attr = dim.attribute("key")
         obj = cubes.create_attribute(attr)
+        obj.dimension = dim
         self.assertIsInstance(obj, cubes.Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(obj, attr)
@@ -121,19 +125,38 @@ class AttributeTestCase(unittest.TestCase):
             self.assertIsInstance(attr, cubes.Attribute)
             self.assertEqual(name, attr.name)
 
-class MeasuresTestsCase(unittest.TestCase):
+class MeasuresTestsCase(CubesTestCaseBase):
+    def setUp(self):
+        super(MeasuresTestsCase, self).setUp()
+        self.metadata = self.model_metadata("measures.json")
+
+        self.cubes_md = {}
+
+        for cube in self.metadata["cubes"]:
+            self.cubes_md[cube["name"]] = cube
+
+    def cube(self, name):
+        """Create a cube object `name` from measures test model."""
+        return create_cube(self.cubes_md[name])
+
     def test_basic(self):
         md = {}
         with self.assertRaises(ModelError):
             measure = create_measure(md)
 
         measure = create_measure("amount")
-        self.assertIsInstance(measure, MeasureAttribute)
+        self.assertIsInstance(measure, Measure)
         self.assertEqual("amount", measure.name)
 
         md = {"name": "amount"}
         measure = create_measure(md)
         self.assertEqual("amount", measure.name)
+
+    def test_copy(self):
+        md = {"name": "amount"}
+        measure = create_measure(md)
+        measure2 = copy.deepcopy(measure)
+        self.assertEqual(measure, measure2)
 
     def test_aggregate(self):
         md = {}
@@ -176,6 +199,112 @@ class MeasuresTestsCase(unittest.TestCase):
         self.assertIsNone(agg.measure)
         self.assertEqual("count", agg.function)
         self.assertIsNone(agg.formula)
+
+    def test_empty2(self):
+        """No measures in metadata should yield count measure with record
+        count"""
+        cube = self.cube("empty")
+        self.assertIsInstance(cube, Cube)
+        self.assertEqual(0, len(cube.measures))
+        self.assertEqual(1, len(cube.aggregates))
+
+        aggregate = cube.aggregates[0]
+        self.assertEqual("record_count", aggregate.name)
+        self.assertEqual("count", aggregate.function)
+        self.assertIsNone(aggregate.measure)
+
+    def test_amount_default(self):
+        """Plain measure definition should yield measure_sum aggregate"""
+        cube = self.cube("amount_default")
+        measures = cube.measures
+        self.assertEqual(1, len(measures))
+        self.assertEqual("amount", measures[0].name)
+        self.assertIsNone(measures[0].expression)
+
+        aggregates = cube.aggregates
+        self.assertEqual(1, len(aggregates))
+        self.assertEqual("amount_sum", aggregates[0].name)
+        self.assertEqual("amount", aggregates[0].measure)
+        self.assertIsNone(aggregates[0].expression)
+
+    def test_fact_count2(self):
+        cube = self.cube("fact_count")
+        measures = cube.measures
+        self.assertEqual(0, len(measures))
+
+        aggregates = cube.aggregates
+        self.assertEqual(1, len(aggregates))
+        self.assertEqual("total_events", aggregates[0].name)
+        self.assertIsNone(aggregates[0].measure)
+        self.assertIsNone(aggregates[0].expression)
+
+    def test_aggregate_missing_measure(self):
+        with self.assertRaisesRegexp(NoSuchAttributeError, "amount"):
+            cube = self.cube("aggregate_missing_measure")
+
+    def test_amount_sum(self):
+        cube = self.cube("amount_sum")
+        measures = cube.measures
+        self.assertEqual(1, len(measures))
+        self.assertEqual("amount", measures[0].name)
+        self.assertIsNone(measures[0].expression)
+
+        aggregates = cube.aggregates
+        self.assertEqual(1, len(aggregates))
+        self.assertEqual("amount_sum", aggregates[0].name)
+        self.assertEqual("sum", aggregates[0].function)
+        self.assertEqual("amount", aggregates[0].measure)
+        self.assertIsNone(aggregates[0].expression)
+
+        # Test explicit aggregates
+        #
+        cube = self.cube("amount_sum_explicit")
+        measures = cube.measures
+        self.assertEqual(1, len(measures))
+        self.assertEqual("amount", measures[0].name)
+        self.assertIsNone(measures[0].expression)
+
+        aggregates = cube.aggregates
+        self.assertEqual(1, len(aggregates))
+        self.assertEqual("total", aggregates[0].name)
+        self.assertEqual("amount", aggregates[0].measure)
+        self.assertIsNone(aggregates[0].expression)
+
+    def test_backend_provided(self):
+        cube = self.cube("backend_provided_aggregate")
+        measures = cube.measures
+        self.assertEqual(0, len(measures))
+
+        aggregates = cube.aggregates
+        self.assertEqual(1, len(aggregates))
+        self.assertEqual("total", aggregates[0].name)
+        self.assertIsNone(aggregates[0].measure)
+        self.assertIsNone(aggregates[0].expression)
+
+    def measure_expression(self):
+        cube = self.cube("measure_expression")
+        measures = cube.measures
+        self.assertEqual(3, len(measures))
+
+        self.assertEqual("price", measures[0].name)
+        self.assertIsNone(measures[0].expression)
+        self.assertEqual("costs", measures[1].name)
+        self.assertIsNone(measures[2].expression)
+
+        self.assertEqual("revenue", measures[2].name)
+        self.assertEqual("price - costs", measures[2].expression)
+
+        aggregates = cube.aggregates
+        self.assertEqual(3, len(aggregates))
+        self.assertEqual("price_sum", aggregates[0].name)
+        self.assertEqual("price", aggregates[0].measure)
+        self.assertEqual("costs_sum", aggregates[0].name)
+        self.assertEqual("costs", aggregates[0].measure)
+        self.assertEqual("revenue_sum", aggregates[0].name)
+        self.assertEqual("revenue", aggregates[0].measure)
+
+    # TODO: aggregate_expression, aggregate_expression_error
+    # TODO: measure_expression, invalid_expression
 
 class LevelTestCase(unittest.TestCase):
     """docstring for LevelTestCase"""
@@ -499,7 +628,7 @@ class DimensionTestCase(unittest.TestCase):
 class CubeTestCase(unittest.TestCase):
     def setUp(self):
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
-        self.measures = cubes.attribute_list(["amount", "discount"])
+        self.measures = cubes.attribute_list(["amount", "discount"], Measure)
         self.dimensions = [cubes.create_dimension(desc) for desc in a]
         self.cube = cubes.Cube("contracts",
                                 dimensions=self.dimensions,
@@ -534,7 +663,7 @@ class ModelTestCase(ModelTestCaseBase):
         super(ModelTestCase, self).setUp()
 
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
-        self.measures = cubes.attribute_list(["amount", "discount"])
+        self.measures = cubes.attribute_list(["amount", "discount"], Measure)
         self.dimensions = [cubes.create_dimension(desc) for desc in a]
         self.cube = cubes.Cube("contracts",
                                 dimensions=self.dimensions,

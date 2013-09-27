@@ -1,0 +1,114 @@
+{
+    "cubes": [
+        {
+            "name": "empty"
+        },
+        {
+            "name": "amount_default",
+            "measures": ["amount"]
+        },
+        {
+            "name": "default_aggregates",
+            "measures": [
+                    {"name": "amount", "aggregates": ["sum", "min", "max"]}
+                ]
+        },
+        {
+            "name": "explicit_aggregates",
+            "measures": [
+                    {"name": "amount", "aggregates": ["sum", "min", "max"]}
+                ],
+            "aggregates": [
+                    {"name": "count", "function": "count"},
+                    {"name": "amount_sum", "function": "sum"}
+                ]
+        },
+        {
+            "name": "measure_expression",
+            "measures": [
+                    {"name": "price"},
+                    {"name": "costs"},
+                    {"name": "revenue", "expression": "price - costs"}
+                ]
+        },
+        {
+            "name": "invalid_expression",
+            "measures": [
+                    {"name": "price"},
+                    {"name": "revenue", "expression": "price - costs"}
+                ]
+        },
+
+
+        {
+            "name": "fact_count",
+            "aggregates": [
+                    {"name": "total_events", "function": "count"}
+                ]
+        },
+        {
+            "name": "aggregate_missing_measure",
+            "aggregates": [
+                    {
+                        "name": "amount_sum",
+                        "measure":"amount",
+                        "function":"sum"
+                    }
+                ]
+        },
+        {
+            "name": "amount_sum",
+            "measures": ["amount"],
+            "aggregates": [
+                    {
+                        "name": "amount_sum",
+                        "measure":"amount",
+                        "function":"sum"
+                    }
+                ]
+        },
+        {
+            "name": "amount_sum_explicit",
+            "measures": [
+                {
+                    "name":"amount",
+                    "aggregates": ["sum", "min", "max"]
+                }
+            ],
+            "aggregates": [
+                    {
+                        "name": "total",
+                        "measure":"amount",
+                        "function":"sum"
+                    }
+                ]
+        },
+        {
+            "name": "backend_provided_aggregate",
+            "aggregates": [
+                    {
+                        "name": "total"
+                    }
+                ]
+        },
+        {
+            "name": "aggregate_expression",
+            "measures": ["amount"],
+            "aggregates": [
+                    {
+                        "name": "converted_avg",
+                        "expression":"SUM(amount) / COUNT(1) * 1.2"
+                    }
+                ]
+        },
+        {
+            "name": "aggregate_expression_error",
+            "aggregates": [
+                    {
+                        "name": "converted_avg",
+                        "expression":"SUM(amount) / COUNT(1) * 1.2"
+                    }
+                ]
+        }
+    ] 
+}
