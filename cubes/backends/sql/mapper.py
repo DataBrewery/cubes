@@ -201,7 +201,6 @@ class SnowflakeMapper(Mapper):
         """
 
         reference = None
-        dimension = attribute.dimension
 
         # Fix locale: if attribute is not localized, use none, if it is
         # localized, then use specified if exists otherwise use default
@@ -209,7 +208,7 @@ class SnowflakeMapper(Mapper):
 
         locale = locale or self.locale
 
-        if attribute.locales:
+        if attribute.is_localizable():
             locale = locale if locale in attribute.locales \
                                 else attribute.locales[0]
         else:
@@ -234,6 +233,8 @@ class SnowflakeMapper(Mapper):
             if locale:
                 column_name += "_" + locale
 
+            # TODO: temporarily preserved. it should be attribute.owner
+            dimension = attribute.dimension
             if dimension and not (self.simplify_dimension_references \
                                    and (dimension.is_flat
                                         and not dimension.has_details)):
@@ -401,90 +402,3 @@ class DenormalizedMapper(Mapper):
 
         return []
 
-class StarMapper(Mapper):
-    def __init__(self, cube, locale=None, schema=None, fact_name=None,
-                 dimension_prefix=None, joins=None, dimension_schema=None,
-                 **options):
-
-        """A snowflake schema mapper for a cube. The mapper creates required
-        joins, resolves table names and maps logical references to tables and
-        respective columns.
-
-        Attributes:
-
-        * `cube` - mapped cube
-        * `simplify_dimension_references` – references for flat dimensions
-          (with one level and no details) will be just dimension names, no
-          attribute name. Might be useful when using single-table schema, for
-          example, with couple of one-column dimensions.
-        * `dimension_prefix` – default prefix of dimension tables, if
-          default table name is used in physical reference construction
-        * `fact_name` – fact name, if not specified then `cube.name` is used
-        * `schema` – default database schema
-        * `dimension_schema` – schema whre dimension tables are stored (if
-          different than fact table schema)
-
-        """
-
-        super(SnowflakeMapper, self).__init__(cube, locale=locale,
-                                        schema=schema, fact_name=fact_name,
-                                        **options)
-
-        self.dimension_prefix = dimension_prefix
-        self.dimension_schema = dimension_schema
-
-    def physical(self, attribute, locale=None, iskey=False):
-        """Returns same name as localized logical reference.
-        """
-
-        reference = None
-        dimension = attribute.dimension
-
-        # Fix locale: if attribute is not localized, use none, if it is
-        # localized, then use specified if exists otherwise use default
-        # locale of the attribute (first one specified in the list)
-
-        locale = locale or self.locale
-
-        if attribute.locales:
-            locale = locale if locale in attribute.locales \
-                                else attribute.locales[0]
-        else:
-            locale = None
-
-        column_name = attribute.name
-
-        if locale:
-            column_name += "_" + locale
-
-        if dimension and not iskey \
-                and not (self.simplify_dimension_references \
-                            and (dimension.is_flat
-                            and not dimension.has_details)):
-            table_name = str(dimension)
-            if self.dimension_prefix:
-                table_name = self.dimension_prefix + table_name
-
-        else:
-            table_name = self.fact_name
-
-        if dimension and not iskey:
-            schema = self.dimension_schema or self.schema
-        else:
-            schema = self.schema
-
-        reference = TableColumnReference(schema, table_name, column_name, None, None, None, None)
-
-        return reference
-
-    def relevant_joins(self, attributes):
-        """Returns a list of joins for requested attributes."""
-
-        for attribute in attributes:
-            if attribute.dimension:
-                schema = self.dimension_schema or self.schema
-                table = self
-            else:
-                schema = self.schema
-
-        return []
