@@ -3,7 +3,7 @@
 
 from ...browser import *
 from ...common import get_logger
-from ...statutils import *
+from ...statutils import calculators_for_aggregates, CALCULATED_AGGREGATIONS
 from ...errors import *
 from ...model import Attribute
 from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical
@@ -271,13 +271,15 @@ class SnowflakeBrowser(AggregationBrowser):
 
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
-                  include_summary=None, include_cell_count=None, **options):
+                  include_summary=None, include_cell_count=None,
+                  aggregates=None, **options):
         """Return aggregated result.
 
         Arguments:
 
         * `cell`: cell to be aggregated
-        * `measures`: list of measures to be considered in aggregation
+        * `measures`: aggregates of these measures will be considered
+        * `aggregates`: aggregates to be considered
         * `drilldown`: list of dimensions or list of tuples: (`dimension`,
           `hierarchy`, `level`)
         * `split`: an optional cell that becomes an extra drilldown segmenting
@@ -315,17 +317,25 @@ class SnowflakeBrowser(AggregationBrowser):
         # Coalesce measures - make sure that they are Attribute objects, not
         # strings. Strings are converted to corresponding Cube measure
         # attributes
-        measures = measures or self.cube.measures
-        measures = [self.cube.measure(measure) for measure in measures]
+        if aggregates and measures:
+            raise ArgumentError("Only aggregates or measures can be "
+                                "specified, not both")
+        if aggregates:
+            aggregates = self.cube.get_aggregates(aggregates)
+        elif measures:
+            aggregates = self.cube.aggregates_for_measures(measures)
+        else:
+            # If no aggregate is specified, then all are used
+            aggregates = self.cube.aggregates
 
-        result = AggregationResult(cell=cell, measures=measures)
+        result = AggregationResult(cell=cell, aggregates=aggregates)
 
         if include_summary or \
                 ( include_summary is None and self.include_summary ) or \
                 not drilldown:
 
             summary_statement = self.context.aggregation_statement(cell=cell,
-                                                         measures=measures)
+                                                         aggregates=aggregates)
 
             if self.debug:
                 self.logger.info("aggregation SQL:\n%s" % summary_statement)
@@ -369,7 +379,7 @@ class SnowflakeBrowser(AggregationBrowser):
                     # in the cut cell as a PointCut or SetCut (not RangeCut)
                     if not all(cell.contains_level(dim, l, hier) for l in hc_levels):
                         raise BrowserError(("Cannot drilldown on high-cardinality levels (%s) " +
-                                           "without including both page_size and page arguments") 
+                                           "without including both page_size and page arguments")
                                            % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
 
                 dim_levels[str(dim)] = [str(level) for level in levels]
@@ -382,7 +392,7 @@ class SnowflakeBrowser(AggregationBrowser):
             self.logger.debug("preparing drilldown statement")
 
             statement = self.context.aggregation_statement(cell=cell,
-                                                         measures=measures,
+                                                         aggregates=aggregates,
                                                          attributes=attributes,
                                                          drilldown=drilldown,
                                                          split=split)
@@ -397,20 +407,17 @@ class SnowflakeBrowser(AggregationBrowser):
             dd_result = self.connectable.execute(statement)
             labels = self.context.logical_labels(statement.columns)
 
-            # decorate with calculated measures if applicable
-            calc_aggs = []
-
-            for measure in measures:
-                aggs = self.calculated_aggregations_for_measure(measure,
-                                                            drilldown, split)
-                for aggregate in aggs:
-                    calc_aggs += aggregate
-
-            result.calculators = calc_aggs
+            #
+            # Find post-aggregation calculations and decorate the result 
+            #
+            result.calculators = calculators_for_aggregates(aggregates,
+                                                            drilldown,
+                                                            split,
+                                                            aggregation_functions)
             result.cells = ResultIterator(dd_result, labels)
             result.labels = labels
 
-            # TODO: introduce option to disable this
+            # TODO: Introduce option to disable this
 
             if include_cell_count or include_cell_count is None and self.include_cell_count:
                 count_statement = statement.alias().count()
@@ -419,27 +426,18 @@ class SnowflakeBrowser(AggregationBrowser):
                 result.total_cell_count = total_cell_count
 
         elif result.summary is not None:
-            # do calculated measures on summary if no drilldown or split
-            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
-                for calc in calc_aggs:
-                    calc(result.summary)
+            # Do calculated measures on summary if no drilldown or split
+            # TODO: should not we do this anyway regardless of
+            # drilldown/split?
+            calculators = calculators_for_aggregates(aggregates,
+                                                    drilldown,
+                                                    split,
+                                                    aggregation_functions)
+            for calc in calculators:
+                calc(result.summary)
 
         return result
 
-    def calculated_aggregations_for_measure(self, measure, drilldown_levels=None, split=None):
-        """Returns a list of calculator objects that implement aggregations by calculating
-        on retrieved results, given a particular drilldown.
-        """
-        if not measure.aggregations:
-            return []
-
-        # Each calculated aggregation calculates on every non-calculated aggregation.
-        non_calculated_aggs = [ agg for agg in measure.aggregations if aggregation_functions.get(agg) is not None ]
-
-        if not non_calculated_aggs:
-            return []
-
-        return [ func(measure, drilldown_levels, split, non_calculated_aggs) for func in filter(lambda f: f is not None, [ CALCULATED_AGGREGATIONS.get(a) for a in measure.aggregations]) ]
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -466,7 +464,7 @@ class SnowflakeBrowser(AggregationBrowser):
         tables = set()
         aliases = set()
         alias_map = {}
-        # 
+        #
         for join in self.mapper.joins:
             self.logger.debug("join: %s" % (join, ))
 
@@ -600,7 +598,7 @@ class QueryContext(object):
         #
         # table_aliases contains mapping between aliased table name and real
         # table name with alias:
-        # 
+        #
         #       (schema, aliased_name) --> (schema, real_name, alias)
         #
         self.table_aliases = {
@@ -624,7 +622,7 @@ class QueryContext(object):
         self.safe_labels = options.get("safe_labels", False)
         self.label_counter = 1
 
-    def aggregation_statement(self, cell, measures=None,
+    def aggregation_statement(self, cell, aggregates=None,
                               attributes=None, drilldown=None, split=None):
         """Return a statement for summarized aggregation. `whereclause` is
         same as SQLAlchemy `whereclause` for
@@ -682,21 +680,20 @@ class QueryContext(object):
                     if last_level == level:
                         drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
-        # Measures
-        if measures is None:
-             measures = self.cube.measures
+        if aggregates is None:
+            raise ArgumentError("List of aggregates sohuld not be None")
 
         # Collect "columns" for measure aggregations
-        for measure in measures:
-            selection.extend(self.aggregations_for_measure(measure))
+        for aggregate in aggregates:
+            selection.append(self.aggregate_expression(aggregate))
 
         # Drill-down statement
         # --------------------
         #
         select = sql.expression.select(selection,
-                                    from_obj=join_expression,
-                                    use_labels=True,
-                                    group_by=group_by)
+                                       from_obj=join_expression,
+                                       use_labels=True,
+                                       group_by=group_by)
 
         self._log_statement(select, "aggregate select")
 
@@ -711,47 +708,50 @@ class QueryContext(object):
 
         return select
 
-    def aggregations_for_measure(self, measure):
-        """Returns list of aggregation functions (sqlalchemy) on measure
-        columns.  The result columns are labeled as `measure` + ``_`` =
-        `aggregation`, for example: ``amount_sum`` or ``discount_min``.
+    def aggregate_expression(self, aggregate):
+        """Returns an expression that performs the aggregation of measure
+        `aggregate`. The result's label is the aggregate's name.  `aggregate`
+        has to be `MeasureAggregate` instance.
 
-        `measure` has to be `Attribute` instance.
+        If aggregate function is post-aggregation calculation, then `None` is
+        returned.
 
-        If measure has no explicit aggregations associated, then ``sum`` is
-        assumed.
+        Aggregation function names are case in-sensitive.
         """
+        # TODO: support aggregate.expression
 
-        if not measure.aggregations:
-            aggregations = ["sum"]
-        else:
-            aggregations = [agg.lower() for agg in measure.aggregations]
+        if aggregate.expression:
+            raise NotImplementedError("Expressions are not yet implemented")
+        if not aggregate.function:
+            raise ModelError("Aggregate '%s' has no function specified"
+                             % str(aggregate))
 
-        result = []
-        for agg_name in aggregations:
-            if not agg_name in aggregation_functions:
-                if not agg_name in CALCULATED_AGGREGATIONS:
-                    raise ArgumentError("Unknown aggregation type %s for measure %s" % \
-                                        (agg_name, measure))
+        function_name = aggregate.function.lower()
 
+        try:
+            function = aggregation_functions[function_name]
+        except KeyError:
+            if not function_name in CALCULATED_AGGREGATIONS:
+                raise ArgumentError("Unknown aggregate function %s "
+                                    "for aggregate %s" % \
+                                    (function_name, str(aggregate)))
             else:
-                func = aggregation_functions[agg_name]
+                # The function is post-aggregation calculation
+                return None
 
-                # FIXME: temporary workaround for record_count:
-                # FIXME: this workaround should go away as soon as possible
-                if agg_name == "count":
-                    label = "%s_count" % str(measure)
-                    aggregation = func(1).label(label)
-                else:
-                    label = "%s%s" % (str(measure), ("_" + agg_name if agg_name != "identity" else "") )
-                    aggregation = func(self.column(measure)).label(label)
+        if not aggregate.measure:
+            raise ModelError("No measure specified for aggregate %s"
+                             % str(aggregate))
 
-                result.append(aggregation)
+        measure = self.cube.measure(aggregate.measure)
+        expression = function(self.column(measure))
+        expression = expression.label(aggregate.name)
 
-        return result
+        return expression
 
     def denormalized_statement(self, attributes=None, expand_locales=False,
-                               include_fact_key=True, condition_attributes=None):
+                               include_fact_key=True,
+                               condition_attributes=None):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
@@ -1459,6 +1459,7 @@ class SnapshotQueryContext(QueryContext):
                         return None, False
         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
+    # FIXME: this is broken with new model changes
     def aggregation_statement(self, cell, measures=None, attributes=None, drilldown=None, split=None):
         """Prototype of 'snapshot cube' aggregation style."""
 
@@ -1536,7 +1537,7 @@ class SnapshotQueryContext(QueryContext):
             subquery = subquery.alias('the_snapshot_subquery')
             subq_joins = []
             for a, b in zip(selection, [ sql.expression.literal_column("%s.col%d" % (subquery.name, i)) for i, s in enumerate(subq_selection[:-1]) ]):
-                subq_joins.append(a == b) 
+                subq_joins.append(a == b)
             subq_joins.append(self.column(snapshot_level_attribute) == sql.expression.literal_column("%s.%s" % (subquery.name, 'the_snapshot_level')))
             join_expression = join_expression.join(subquery, sql.expression.and_(*subq_joins))
 
