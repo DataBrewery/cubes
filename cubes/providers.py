@@ -197,6 +197,73 @@ class ModelProvider(object):
 
         return options
 
+    def cube_metadata(self, name):
+        """Returns a cube metadata by combining model's global metadata and
+        cube's metadata. Merged metadata dictionaries: `browser_options`,
+        `mappings`, `joins`.
+        """
+
+        if name in self.cubes_metadata:
+            metadata = dict(self.cubes_metadata[name])
+        else:
+            raise ModelError("Unknown cube --- %s" % name)
+        return metadata
+
+        # merge datastore from model if datastore not present
+        if not metadata.get("datastore"):
+            metadata['datastore'] = self.metadata.get("datastore")
+
+        # merge browser_options
+        browser_options = self.metadata.get('browser_options', {})
+        if metadata.get('browser_options'):
+            browser_options.update(metadata.get('browser_options'))
+        metadata['browser_options'] = browser_options
+
+        # Merge model and cube mappings
+        #
+        model_mappings = self.metadata.get("mappings")
+        cube_mappings = metadata.pop("mappings", None)
+
+        if model_mappings:
+            mappings = copy.deepcopy(model_mappings)
+            mappings.update(cube_mappings)
+        else:
+            mappings = cube_mappings
+
+        metadata["mappings"] = mappings
+
+        # Merge model and cube joins
+        #
+        model_joins = self.metadata.get("joins")
+        cube_joins = metadata.pop("joins", None)
+
+        # model joins, if present, should be merged with cube's overrides.
+        # joins are matched by the "name" key.
+        if cube_joins and model_joins:
+            model_join_map = {}
+            for join in model_joins:
+                try:
+                    name = join['name']
+                except KeyError:
+                    raise ModelError("Missing required 'name' key in "
+                                     "model-level joins.")
+
+                if name in model_join_map:
+                    raise ModelError("Duplicate model-level join 'name': %s" %
+                                     name)
+
+                model_join_map[name] = copy.deepcopy(join)
+
+            # Merge cube's joins with model joins by their names.
+            merged_joins = []
+
+            for join in cube_joins:
+                model_join = model_join_map.get(join.get('name'), {})
+                model_join.update(join)
+                merged_joins.append(model_join)
+
+        metadata["joins"] = merged_joins
+
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
@@ -251,74 +318,13 @@ class DefaultModelProvider(ModelProvider):
     def cube(self, name):
         """
         Creates a cube `name` in context of `workspace` from provider's
-        metadata. Cube has no dimensions. You should link the dimensions from
-        list of `linked_dimensions`.
+        metadata. The created cube has no dimensions attached. You sohuld link
+        the dimensions afterwards according to the `linked_dimensions`
+        property of the cube.
         """
 
-        if name in self.cubes_metadata:
-            metadata = dict(self.cubes_metadata[name])
-        else:
-            raise ModelError("Unknown cube --- %s" % name)
-
-        # Merge model and cube mappings
-        #
-        model_mappings = self.metadata.get("mappings")
-        cube_mappings = metadata.pop("mappings", None)
-
-        if model_mappings:
-            mappings = copy.deepcopy(model_mappings)
-            mappings.update(cube_mappings)
-        else:
-            mappings = cube_mappings
-
-        # Merge model and cube joins
-        #
-        model_joins = self.metadata.get("joins")
-        cube_joins = metadata.pop("joins", None)
-
-        # merge datastore from model if datastore not present
-        if not metadata.get("datastore"):
-            metadata['datastore'] = self.metadata.get("datastore")
-
-        # merge browser_options
-        browser_options = self.metadata.get('browser_options', {})
-        if metadata.get('browser_options'):
-            browser_options.update(metadata.get('browser_options'))
-        metadata['browser_options'] = browser_options
-
-        # model joins, if present, should be merged with cube's overrides.
-        # joins are matched by the "name" key.
-        if cube_joins and model_joins:
-            model_join_map = {}
-            for join in model_joins:
-                try:
-                    name = join['name']
-                except KeyError:
-                    raise ModelError("Missing required 'name' key in "
-                                     "model-level joins.")
-
-                if name in model_join_map:
-                    raise ModelError("Duplicate model-level join 'name': %s" %
-                                     name)
-
-                model_join_map[name] = copy.deepcopy(join)
-
-            # Merge cube's joins with model joins by their names.
-            merged_joins = []
-
-            for join in cube_joins:
-                model_join = model_join_map.get(join.get('name'), {})
-                model_join.update(join)
-                merged_joins.append(model_join)
-
-            cube_joins = merged_joins
-
-        dimensions = metadata.pop("dimensions", [])
-
-        return Cube(linked_dimensions=dimensions,
-                    mappings=mappings,
-                    joins=cube_joins,
-                    **metadata)
+        metadata = self.cube_metadata(name)
+        return create_cube(metadata)
 
     def dimension(self, name, dimensions=None):
         """Create a dimension `name` from provider's metadata within
@@ -575,6 +581,21 @@ def merge_models(models):
                  info=info,
                  dimensions=dimensions.values(),
                  cubes=all_cubes.values())
+
+def create_cube(metadata):
+    """Create a cube object from `metadata` dictionary. The cube has no
+    dimensions attached after creation. You should link the dimensions to the
+    cube according to the `Cube.linked_dimensions` property using
+    `Cube.add_dimension()`"""
+
+    if "name" not in metadata:
+        raise ModelError("Cube has no name")
+
+    metadata = dict(metadata)
+    dimensions = metadata.pop("dimensions", [])
+
+    return Cube(linked_dimensions=dimensions,
+                **metadata)
 
 def create_model(source):
     raise NotImplementedError("create_model() is depreciated, use Workspace.add_model()")
