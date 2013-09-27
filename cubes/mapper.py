@@ -2,8 +2,9 @@
 """Logical to Physical Mappers"""
 
 import collections
-from cubes.common import get_logger
-from cubes.errors import *
+
+from .common import get_logger
+from .errors import *
 
 __all__ = (
     "Mapper",
@@ -117,15 +118,7 @@ class Mapper(object):
         browsing.
         """
 
-        dimension = attribute.dimension
-
-        if dimension:
-            simplify = self.simplify_dimension_references and \
-                               (dimension.is_flat and not dimension.has_details)
-        else:
-            simplify = False
-
-        reference = attribute.ref(simplify, locale)
+        reference = attribute.ref(self.simplify_dimension_references, locale)
 
         return reference
 
