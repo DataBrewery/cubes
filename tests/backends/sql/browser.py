@@ -9,7 +9,7 @@ from ...common import CubesTestCaseBase
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
 from cubes.backends.sql.mapper import coalesce_physical
-from cubes.backends.sql.star import *
+from cubes.backends.sql.browser import *
 
 from cubes import *
 from cubes.errors import *

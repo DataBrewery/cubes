@@ -10,8 +10,8 @@ _default_modules = {
                 "mixpanel":"cubes.backends.mixpanel.store",
             },
         "browsers": {
-                "snowflake":"cubes.backends.sql.star",
-                "snapshot": "cubes.backends.sql.star",
+                "snowflake":"cubes.backends.sql.browser",
+                "snapshot": "cubes.backends.sql.browser",
                 "mixpanel":"cubes.backends.mixpanel.browser",
             },
         "model_providers": {
