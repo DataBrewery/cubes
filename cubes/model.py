@@ -1847,9 +1847,9 @@ class Measure(AttributeBase):
         aggregates = []
 
         for agg in (self.aggregates or ["sum"]):
-            name = "%s_%s" % (self.name, agg)
+            name = u"%s_%s" % (self.name, agg)
             if self.label:
-                label = "%s – %s" % (self.label, agg)
+                label = u"%s – %s" % (self.label, agg)
             else:
                 label = None
 

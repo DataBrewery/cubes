@@ -1265,12 +1265,10 @@ class AggregationResult(object):
             levels = hierarchy.levels_for_path(path, drilldown=True)
             current_level = levels[-1]
 
-        print current_level
         level_key = current_level.key.ref()
         level_label = current_level.label_attribute.ref()
 
         for record in self.cells:
-            print record
             drill_path = path[:] + [record[level_key]]
 
             row = TableRow(record[level_key],
