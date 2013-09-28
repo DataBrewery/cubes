@@ -469,7 +469,7 @@ class Cube(object):
         #
         # Prepare measures and aggregates
         #
-        self.measures = attribute_list(measures, Measure)
+        self.measures = measure_list(measures)
 
         # Set aggregates:
         # IF aggregate list is provided, then use the list
@@ -518,7 +518,7 @@ class Cube(object):
         aggregates are returned. If the measure is specified in an expression,
         the aggregate is not included in the returned list"""
 
-        return [agg for agg in self.aggregates if agg.name == name]
+        return [agg for agg in self.aggregates if agg.measure == name]
 
     def get_aggregates(self, names):
         """Get a list of aggregates with `names`"""
@@ -1962,29 +1962,36 @@ def attribute_list(attributes, class_=None):
 
 
 def measure_list(measures):
-    if not measures:
-        return []
+    """Create a list of measures from list of measure metadata (dictionaries
+    or strings). The function tries to maintain cetrain level of backward
+    compatibility with older models."""
 
     result = []
-    for attr in measures:
-        if isinstance(attr, basestring):
-            measure = Measure(name=attr)
-        elif isinstance(attr, dict):
 
-            if "aggregations" in attr:
-                logger = get_logger()
-                logger.warn("'aggregations' is depreciated, use 'aggregates'")
-                attr = dict(attr)
-                attr["aggergates"] = attr.pop("aggregations")
+    for md in measures or []:
+        if isinstance(md, Measure):
+            result.append(md)
+            continue
 
-            measure = Measure(**attr)
-
-        elif isinstance(attr, Measure):
-            measure = measure
+        if isinstance(md, basestring):
+            md = {"name": md}
         else:
-            raise ModelError("Unknown object type %s for a measure" %
-                             type(attr))
-        result.append(measure)
+            md = dict(md)
+
+        if "aggregations" in md and "aggregates" in md:
+            raise ModelError("Both 'aggregations' and 'aggregates' specified "
+                             "in a measure. Use only 'aggregates'")
+
+        if "aggregations" in md:
+            logger = get_logger()
+            logger.warn("'aggregations' is depreciated, use 'aggregates'")
+            md["aggergates"] = md.pop("aggregations")
+
+        # Add default aggregation for 'sum' (backward compatibility)
+        if not "aggregates" in md:
+            md["aggregates"] = ["sum"]
+
+        result.append(Measure(**md))
 
     return result
 
