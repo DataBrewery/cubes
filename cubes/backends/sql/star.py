@@ -8,7 +8,7 @@ from ...errors import *
 from ...model import Attribute
 from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical
 from .mapper import DEFAULT_KEY_FIELD
-from . import extensions
+from .functions import get_aggregate_function, available_aggregate_functions
 
 import logging
 import collections
@@ -22,7 +22,6 @@ try:
 except ImportError:
     from cubes.common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
-    aggregation_functions = {}
 
 __all__ = [
     "SnowflakeBrowser",
@@ -41,17 +40,6 @@ _EXPR_EVAL_NS = {
 }
 
 # TODO: add the "missing import" guard
-aggregation_functions = {
-    "sum": sql.functions.sum,
-    "min": sql.functions.min,
-    "max": sql.functions.max,
-    "nonepmty_count": sql.functions.count,
-    "count": lambda c: sql.functions.count(1),
-    "avg": extensions.avg,
-    "stddev": extensions.stddev,
-    "variance": extensions.variance,
-    "identity": lambda c: c
-}
 
 class SnowflakeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
@@ -323,10 +311,16 @@ class SnowflakeBrowser(AggregationBrowser):
         if aggregates:
             aggregates = self.cube.get_aggregates(aggregates)
         elif measures:
-            aggregates = self.cube.aggregates_for_measures(measures)
+            aggregates = []
+            for measure in measures:
+                aggregates += self.cube.aggregates_for_measure(measure)
         else:
             # If no aggregate is specified, then all are used
             aggregates = self.cube.aggregates
+
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty. If "
+                                "you used measures, check their aggregates.")
 
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
@@ -413,7 +407,7 @@ class SnowflakeBrowser(AggregationBrowser):
             result.calculators = calculators_for_aggregates(aggregates,
                                                             drilldown,
                                                             split,
-                                                            aggregation_functions)
+                                                            available_aggregate_functions())
             result.cells = ResultIterator(dd_result, labels)
             result.labels = labels
 
@@ -432,7 +426,7 @@ class SnowflakeBrowser(AggregationBrowser):
             calculators = calculators_for_aggregates(aggregates,
                                                     drilldown,
                                                     split,
-                                                    aggregation_functions)
+                                                    available_aggregate_functions())
             for calc in calculators:
                 calc(result.summary)
 
@@ -680,8 +674,8 @@ class QueryContext(object):
                     if last_level == level:
                         drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
-        if aggregates is None:
-            raise ArgumentError("List of aggregates sohuld not be None")
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty")
 
         # Collect "columns" for measure aggregations
         for aggregate in aggregates:
@@ -729,7 +723,7 @@ class QueryContext(object):
         function_name = aggregate.function.lower()
 
         try:
-            function = aggregation_functions[function_name]
+            function = get_aggregate_function(function_name)
         except KeyError:
             if not function_name in CALCULATED_AGGREGATIONS:
                 raise ArgumentError("Unknown aggregate function %s "
@@ -739,13 +733,7 @@ class QueryContext(object):
                 # The function is post-aggregation calculation
                 return None
 
-        if not aggregate.measure:
-            raise ModelError("No measure specified for aggregate %s"
-                             % str(aggregate))
-
-        measure = self.cube.measure(aggregate.measure)
-        expression = function(self.column(measure))
-        expression = expression.label(aggregate.name)
+        expression = function(aggregate, self)
 
         return expression
 
@@ -1370,7 +1358,7 @@ class QueryContext(object):
         if expand_locales:
             columns = []
             for attr in attributes:
-                if attr.locales:
+                if attr.is_localizable():
                     columns += [self.column(attr, locale) for locale in attr.locales]
                 else: # if not attr.locales
                     columns.append(self.column(attr))
