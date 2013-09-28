@@ -155,7 +155,7 @@ class Mapper(object):
             physical_attrs = []
 
             for attr in attributes:
-                if attr.locales:
+                if attr.is_localizable():
                     refs = [self.physical(attr, locale) for locale in attr.locales]
                 else:
                     refs = [self.physical(attr)]
