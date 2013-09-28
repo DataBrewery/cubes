@@ -5,12 +5,10 @@ from ...browser import *
 from ...common import get_logger
 from ...statutils import calculators_for_aggregates, CALCULATED_AGGREGATIONS
 from ...errors import *
-from ...model import Attribute
-from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical
+from .mapper import SnowflakeMapper, DenormalizedMapper
 from .mapper import DEFAULT_KEY_FIELD
 from .functions import get_aggregate_function, available_aggregate_functions
 
-import logging
 import collections
 import re
 import datetime
@@ -35,11 +33,10 @@ _EXPR_EVAL_NS = {
     "func": sql.expression.func,
     "case": sql.expression.case,
     "text": sql.expression.text,
-    "datetime" : datetime,
+    "datetime": datetime,
     "re": re
 }
 
-# TODO: add the "missing import" guard
 
 class SnowflakeBrowser(AggregationBrowser):
     """docstring for SnowflakeBrowser"""
@@ -76,7 +73,7 @@ class SnowflakeBrowser(AggregationBrowser):
         """
         super(SnowflakeBrowser, self).__init__(cube, store)
 
-        if cube == None:
+        if not cube:
             raise ArgumentError("Cube for browser should not be None.")
 
         self.logger = get_logger()
@@ -99,8 +96,8 @@ class SnowflakeBrowser(AggregationBrowser):
         else:
             mapper_class = SnowflakeMapper
 
-        self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
-                            (str(mapper_class.__name__), cube.name, locale))
+        self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
+                          (str(mapper_class.__name__), cube.name, locale))
 
         self.mapper = mapper_class(cube, locale=self.locale, schema=store.schema, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
@@ -110,7 +107,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # FIXME: new context is created also when locale changes in set_locale
         self.options = options
         self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata, **self.options)
+                                    metadata=self.metadata, **self.options)
 
     def set_locale(self, locale):
         """Change the browser's locale"""
@@ -119,7 +116,7 @@ class SnowflakeBrowser(AggregationBrowser):
         self.locale = locale
         # Reset context
         self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata, **self.options)
+                                    metadata=self.metadata, **self.options)
 
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube.
@@ -183,7 +180,7 @@ class SnowflakeBrowser(AggregationBrowser):
         return ResultIterator(result, labels)
 
     def members(self, cell, dimension, depth=None, hierarchy=None, page=None,
-               page_size=None, order=None, **options):
+                page_size=None, order=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
@@ -212,14 +209,14 @@ class SnowflakeBrowser(AggregationBrowser):
         statement = self.context.denormalized_statement(attributes=attributes,
                                                         include_fact_key=False,
                                                         condition_attributes=
-                                                              cond.attributes)
+                                                        cond.attributes)
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
         statement = self.context.paginated_statement(statement, page, page_size)
         order_levels = [(dimension, hierarchy, levels)]
         statement = self.context.ordered_statement(statement, order,
-                                                        order_levels)
+                                                   order_levels)
 
         group_by = [self.context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
@@ -325,11 +322,11 @@ class SnowflakeBrowser(AggregationBrowser):
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
         if include_summary or \
-                ( include_summary is None and self.include_summary ) or \
+                (include_summary is None and self.include_summary) or \
                 not drilldown:
 
             summary_statement = self.context.aggregation_statement(cell=cell,
-                                                         aggregates=aggregates)
+                                                                   aggregates=aggregates)
 
             if self.debug:
                 self.logger.info("aggregation SQL:\n%s" % summary_statement)
@@ -402,7 +399,7 @@ class SnowflakeBrowser(AggregationBrowser):
             labels = self.context.logical_labels(statement.columns)
 
             #
-            # Find post-aggregation calculations and decorate the result 
+            # Find post-aggregation calculations and decorate the result
             #
             result.calculators = calculators_for_aggregates(aggregates,
                                                             drilldown,
@@ -616,8 +613,8 @@ class QueryContext(object):
         self.safe_labels = options.get("safe_labels", False)
         self.label_counter = 1
 
-    def aggregation_statement(self, cell, aggregates=None,
-                              attributes=None, drilldown=None, split=None):
+    def aggregation_statement(self, cell, aggregates=None, attributes=None,
+                              drilldown=None, split=None):
         """Return a statement for summarized aggregation. `whereclause` is
         same as SQLAlchemy `whereclause` for
         `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
@@ -698,7 +695,8 @@ class QueryContext(object):
             conditions.append(drilldown_ptd_condition.condition)
 
         if conditions:
-            select = select.where(sql.expression.and_(*conditions) if len(conditions) > 1 else conditions[0])
+            select = select.where(sql.expression.and_(*conditions) if
+                                  len(conditions) > 1 else conditions[0])
 
         return select
 
@@ -1431,7 +1429,8 @@ class SnapshotQueryContext(QueryContext):
     def __init__(self, cube, mapper, metadata, **options):
         super(SnapshotQueryContext, self).__init__(cube, mapper, metadata, **options)
 
-        snap_info = { 'dimension': 'daily_date', 'level_attribute': 'daily_datetime', 'aggregation': 'max' }
+        snap_info = { 'dimension': 'daily_date', 'level_attribute':
+                     'daily_datetime', 'aggregation': 'max' }
         snap_info.update(cube.info.get('snapshot', {}))
         self.snapshot_dimension = cube.dimension(snap_info['dimension'])
         self.snapshot_level_attrname = snap_info['level_attribute']
@@ -1447,8 +1446,8 @@ class SnapshotQueryContext(QueryContext):
                         return None, False
         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
-    # FIXME: this is broken with new model changes
-    def aggregation_statement(self, cell, measures=None, attributes=None, drilldown=None, split=None):
+    def aggregation_statement(self, cell, aggregates=None, attributes=None,
+                              drilldown=None, split=None):
         """Prototype of 'snapshot cube' aggregation style."""
 
         cell_cond = self.condition_for_cell(cell)
@@ -1483,7 +1482,7 @@ class SnapshotQueryContext(QueryContext):
                 last_level = dditem.levels[-1] if len(dditem.levels) else None
                 for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
-                                                        if attr in attributes]
+                               if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
                     if last_level == level:
@@ -1494,10 +1493,6 @@ class SnapshotQueryContext(QueryContext):
             conditions.append(cell_cond.condition)
         if drilldown_ptd_condition is not None:
             conditions.append(drilldown_ptd_condition.condition)
-
-        # Measures
-        if measures is None:
-             measures = self.cube.measures
 
         # We must produce, under certain conditions, a subquery:
         #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy.
@@ -1524,28 +1519,38 @@ class SnapshotQueryContext(QueryContext):
                 subquery = subquery.where(sql.expression.and_(*subq_conditions) if len(subq_conditions) > 1 else subq_conditions[0])
             subquery = subquery.alias('the_snapshot_subquery')
             subq_joins = []
+
             for a, b in zip(selection, [ sql.expression.literal_column("%s.col%d" % (subquery.name, i)) for i, s in enumerate(subq_selection[:-1]) ]):
                 subq_joins.append(a == b)
+
             subq_joins.append(self.column(snapshot_level_attribute) == sql.expression.literal_column("%s.%s" % (subquery.name, 'the_snapshot_level')))
             join_expression = join_expression.join(subquery, sql.expression.and_(*subq_joins))
 
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty")
 
         # Collect "columns" for measure aggregations
-        for measure in measures:
-            selection.extend(self.aggregations_for_measure(measure))
+        for aggregate in aggregates:
+            selection.append(self.aggregate_expression(aggregate))
 
         select = sql.expression.select(selection,
-                                    from_obj=join_expression,
-                                    use_labels=True,
-                                    group_by=group_by)
+                                       from_obj=join_expression,
+                                       use_labels=True,
+                                       group_by=group_by)
 
         if conditions:
-            select = select.where(sql.expression.and_(*conditions) if len(conditions) > 1 else conditions[0])
+            select = select.where(sql.expression.and_(*conditions) if
+                                  len(conditions) > 1 else conditions[0])
 
         return select
 
 class SnapshotBrowser(SnowflakeBrowser):
     def __init__(self, cube, store, connectable=None, locale=None, metadata=None, debug=False, **options):
-       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata, debug=debug, **options)
-       self.context = SnapshotQueryContext(self.cube, self.mapper, metadata=self.metadata, **self.options)
+
+       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata,
+                                             debug=debug, **options)
+
+       self.context = SnapshotQueryContext(self.cube, self.mapper,
+                                           metadata=self.metadata,
+                                           **self.options)
 
