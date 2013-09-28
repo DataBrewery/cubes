@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 
 """Slicer tool
 
@@ -17,7 +17,7 @@ import ConfigParser
 import shlex
 from cubes.common import MissingPackageError, create_logger
 from cubes.errors import CubesError
-from cubes.model import read_model_metadata
+from cubes.providers import read_model_metadata
 from collections import OrderedDict
 
 def validate_model(args):
@@ -190,7 +190,7 @@ def generate_ddl(args):
     else:
         backend = cubes.backends.sql.browser
 
-    ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix, 
+    ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix,
                         dimension_prefix=args.dimension_prefix)
 
     print ddl
