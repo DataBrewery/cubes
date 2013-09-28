@@ -575,7 +575,8 @@ class QueryContext(object):
         self.fact_name = mapper.fact_name
         try:
             self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
-                                           autoload=True, schema=self.schema)
+                                               autoload=True,
+                                               schema=self.schema)
         except sqlalchemy.exc.NoSuchTableError:
             in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
             msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
