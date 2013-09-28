@@ -634,11 +634,11 @@ class Cube(object):
         else:
             out["label"] = self.label
 
-        measures = [m.to_dict(**options) for m in self.measures]
-        out["measures"] = measures
-
         aggregates = [m.to_dict(**options) for m in self.aggregates]
         out["aggregates"] = aggregates
+
+        measures = [m.to_dict(**options) for m in self.measures]
+        out["measures"] = measures
 
         details = [a.to_dict(**options) for a in self.details]
         out["details"] = details
@@ -1653,7 +1653,6 @@ class AttributeBase(object):
         d["format"] = self.format
         d["order"] = self.order
 
-        d["full_name"] = self.ref()
         d["ref"] = self.ref()
 
         return d
@@ -1925,8 +1924,8 @@ class MeasureAggregate(AttributeBase):
             and self.expression == other.expression
 
     def to_dict(self, **options):
-        d = super(Attribute, self).to_dict(**options)
-        d["function"] = self.aggregation
+        d = super(MeasureAggregate, self).to_dict(**options)
+        d["function"] = self.function
         d["formula"] = self.formula
         d["expression"] = self.expression
         d["measure"] = self.formula
