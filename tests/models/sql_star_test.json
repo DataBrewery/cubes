@@ -3,10 +3,30 @@
         {
             "name": "sales",
             "measures": [
-                    {"name":"amount", "aggregations":["sum", "min"]},
-                    "discount",
-                    {"name":"record", "aggregations": ["count"] }
-                    ],
+                {"name":"amount", "aggregations":["sum", "min"]},
+                "discount"
+            ],
+            "aggregates": [
+                {
+                    "name": "amount_sum",
+                    "measure": "amount",
+                    "function": "sum"
+                },
+                {
+                    "name":"amount_min",
+                    "measure":"amount",
+                    "function": "min"
+                },
+                {
+                    "name":"discount_sum",
+                    "measure":"discount",
+                    "function": "sum"
+                },
+                {
+                    "name":"record_count",
+                    "function": "count"
+                }
+            ],
             "dimensions" : ["date", "flag", "product"],
             "details": ["fact_detail1", "fact_detail2"],
             "joins": [

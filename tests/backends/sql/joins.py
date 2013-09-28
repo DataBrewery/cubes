@@ -142,3 +142,4 @@ class JoinsTestCase(CubesTestCaseBase):
                                     self.city_drilldown+self.year_drilldown)
         cells = list(result.cells)
         self.assertEqual(20400, result.summary["amount_sum"])
+

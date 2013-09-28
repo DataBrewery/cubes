@@ -60,7 +60,8 @@ class StarSQLTestCase(CubesTestCaseBase):
         self.metadata = metadata
         self.metadata.create_all(self.engine)
 
-        self.workspace = self.create_workspace({"engine":self.engine}, "sql_star_test.json")
+        self.workspace = self.create_workspace({"engine":self.engine},
+                                               "sql_star_test.json")
         # self.workspace = Workspace()
         # self.workspace.register_default_store("sql", engine=self.engine)
         # self.workspace.add_model()
@@ -161,10 +162,8 @@ class QueryContextTestCase(StarSQLTestCase):
         self.assertEqual(["date.year", "date.month", "date.id"], dd.keys)
 
         drilldown = ["date"]
-        result = levels_from_drilldown(cell, drilldown)
-        dd = result[0]
-        self.assertSequenceEqual([l_year, l_month], dd.levels)
-        self.assertEqual(["date.year", "date.month"], dd.keys)
+        with self.assertRaisesRegexp(HierarchyError, "has only 3 levels"):
+            levels_from_drilldown(cell, drilldown)
 
 
 class JoinsTestCase(StarSQLTestCase):
@@ -332,15 +331,6 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         cell = Cell(self.cube, [PointCut("product", [10])])
         details = self.browser.cell_details(cell)
         self.assertEqual(1, len(details))
-
-    def test_aggregation_for_measures(self):
-        context = self.browser.context
-
-        aggs = context.aggregations_for_measure(self.cube.measure("amount"))
-        self.assertEqual(2, len(aggs))
-
-        aggs = context.aggregations_for_measure(self.cube.measure("discount"))
-        self.assertEqual(1, len(aggs))
 
     def test_aggregate(self):
         result = self.browser.aggregate()
