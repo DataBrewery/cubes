@@ -6,6 +6,7 @@
       {
           "name" : "contracts",
           "label" : "Uzatvorené zmluvy verejného obstarávania",
+          "measures": ["amount"],
           "dimensions" : [
              "date",
              "cpv",
