@@ -72,7 +72,6 @@ class StarSQLTestCase(CubesTestCaseBase):
                                         dimension_prefix="dim_")
         self.browser.debug = True
         self.mapper = self.browser.mapper
-        self.browser.logger.setLevel("DEBUG")
 
 
 class QueryContextTestCase(StarSQLTestCase):
@@ -217,6 +216,33 @@ class StarValidationTestCase(StarSQLTestCase):
     def test_validate(self):
         result = self.browser.validate_model()
         self.assertEqual(0, len(result))
+
+
+class MapperTestCase(unittest.TestCase):
+    def test_coalesce_physical(self):
+        def assertPhysical(expected, actual, default=None):
+            ref = coalesce_physical(actual, default)
+            self.assertEqual(expected, ref)
+
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       "table.column")
+        assertPhysical((None, "table", "column.foo", None, None, None, None),
+                       "table.column.foo")
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       ["table", "column"])
+        assertPhysical(("schema", "table", "column", None, None, None, None),
+                       ["schema", "table", "column"])
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       {"column": "column"}, "table")
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       {"table": "table", "column": "column"})
+        assertPhysical(("schema", "table", "column", None, None, None, None),
+                       {"schema": "schema", "table": "table", "column":
+                        "column"})
+        assertPhysical(("schema", "table", "column", "day", None, None, None),
+                       {"schema": "schema", "table": "table", "column":
+                        "column", "extract": "day"})
+
 
 class StarSQLBrowserTestCase(StarSQLTestCase):
     def setUp(self):

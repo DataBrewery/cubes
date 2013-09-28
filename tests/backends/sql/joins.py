@@ -81,11 +81,6 @@ class JoinsTestCase(CubesTestCaseBase):
         self.cube_master = self.workspace.cube("facts_master")
         self.cube_detail = self.workspace.cube("facts_detail")
 
-        # FIXME: remove this once we are happy
-        self.workspace.logger.setLevel("DEBUG")
-        self.workspace.logger.info("=== test setup")
-
-        self.logger = self.workspace.logger
         self.day_drilldown = [("date", "default", "day")]
         self.month_drilldown = [("date", "default", "month")]
         self.year_drilldown = [("date", "default", "year")]
