@@ -10,7 +10,7 @@ from caching import cacheable
 
 import cubes
 from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
-from .common import RequestError, ServerError, NotFoundError
+from .common import RequestError, NotFoundError
 from .common import SlicerJSONEncoder
 from ..errors import *
 
@@ -26,11 +26,8 @@ except ImportError:
 try:
     import cubes_search
 except ImportError:
-    from cubes.common import MissingPackage
     cubes_search = None
-    # SphinxSearcher = MissingPackage("cubes_search", "Sphinx search ", 
-    #                         source = "https://github.com/Stiivi/cubes")
-    # Get cubes sphinx search backend from: https://github.com/Stiivi/cubes
+
 
 __all__ = (
     "ApplicationController",
@@ -38,6 +35,7 @@ __all__ = (
     "CubesController",
     "SearchController"
 )
+
 
 class ApplicationController(object):
     def __init__(self, args, workspace, logger, config):
@@ -360,11 +358,18 @@ class CubesController(ApplicationController):
 
         ddlist = self.args.getlist("drilldown")
 
+        # Collect measures or aggregates
+        # Note that the framework will raise an exception when both are
+        # specified. Use only one.
+        # If the measures are used, then all aggregates derived from thise
+        # measures are considered.
         measures = []
-        mlist = self.args.getlist("measure")
-        if mlist:
-            for mstring in mlist:
-                measures += mstring.split("|")
+        for mstring in self.args.getlist("measure") or []:
+            measures += mstring.split("|")
+
+        aggregates = []
+        for agg in self.args.getlist("aggregates") or []:
+            aggregates += agg.split("|")
 
         drilldown = []
 
@@ -528,7 +533,7 @@ class SearchController(ApplicationController):
     """
 
     def create_browser(self, cube_name):
-        # FIXME: reuse? 
+        # FIXME: reuse?
         if cube_name:
             self.cube = self.workspace.cube(cube_name)
         else:
