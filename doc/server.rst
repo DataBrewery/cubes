@@ -2,7 +2,6 @@
 OLAP Server
 +++++++++++
 
-
 Cubes framework provides easy to install web service WSGI server with API that 
 covers most of the Cubes logical model metadata and aggregation browsing 
 functionality.
@@ -815,76 +814,4 @@ Reply::
         }
     }
 
-Configuration
--------------
 
-Server configuration is stored in .ini files with sections:
-
-* ``[server]`` - server related configuration, such as host, port
-    * ``backend`` - backend name, use ``sql`` for relational database backend
-    * ``log`` - path to a log file
-    * ``log_level`` - level of log details, from least to most: ``error``, 
-      ``warn``, ``info``, ``debug``
-    * ``json_record_limit`` - number of rows to limit when generating JSON 
-      output with iterable objects, such as facts. Default is 1000. It is 
-      recommended to use alternate response format, such as CSV, to get more 
-      records.
-    * ``modules`` - space separated list of modules to be loaded (only used if 
-      run by the ``slicer`` command)
-    * ``prettyprint`` - default value of ``prettyprint`` parameter. Set to 
-      ``true`` for demonstration purposes.
-    * ``host`` - host where the server runs, defaults to ``localhost``
-    * ``port`` - port on which the server listens, defaults to ``5000``
-* ``[model]`` - model and cube configuration
-    * ``path`` - path to model .json file
-    * ``locales`` - comma separated list of locales the model is provided in. 
-      Currently this variable is optional and it is used only by experimental 
-      sphinx search backend.
-* ``[translations]`` - model translation files, option keys in this section
-  are locale names and values are paths to model translation files. See
-  :doc:`localization` for more information.
-
-
-Backend workspace configuration should be in the ``[workspace]``. See
-:doc:`/api/backends` for more information.
-
-Workspace with SQL backend (``backend=sql`` in ``[server]``) options:
-
-* ``url`` *(required)* – database URL in form: 
-  ``adapter://user:password@host:port/database``
-* ``schema`` *(optional)* – schema containing denormalized views for
-  relational DB cubes
-* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
-  dimension tables when no explicit mapping is specified
-* ``dimension_schema`` – use this option when dimension tables are stored in
-  different schema than the fact tables
-* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact
-  table for a cube, when no explicit fact table name is specified
-* ``use_denormalization`` *(optional)* – browser will use dernormalized view
-  instead of snowflake
-* ``denormalized_view_prefix`` *(optional, advanced)* – if denormalization is
-  used, then this prefix is added for cube name to find corresponding cube
-  view
-* ``denormalized_view_schema`` *(optional, advanced)* – schema wehere
-  denormalized views are located (use this if the views are in different
-  schema than fact tables, otherwise default schema is going to be used)
-
-
-Example configuration file::
-
-    [server]
-    reload: yes
-    log: /var/log/cubes.log
-    log_level: info
-    backend: sql
-
-    [workspace]
-    url: postgresql://localhost/data
-    schema: cubes
-
-    [model]
-    path: ~/models/contracts_model.json
-    locales: en,sk
-
-    [translations]
-    sk: ~/models/contracts_model-sk.json

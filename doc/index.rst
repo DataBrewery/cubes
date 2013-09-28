@@ -23,6 +23,7 @@ Contents:
    computing
    localization
    formatters
+   configuration
    server
    slicer
    api/index
