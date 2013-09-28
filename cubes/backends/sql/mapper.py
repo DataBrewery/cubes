@@ -218,7 +218,7 @@ class SnowflakeMapper(Mapper):
         if self.cube.mappings:
             logical = self.logical(attribute, locale)
 
-            # TODO: should default to non-localized reference if no mapping 
+            # TODO: should default to non-localized reference if no mapping
             # was found?
             mapped_ref = self.cube.mappings.get(logical)
 
@@ -327,7 +327,7 @@ class SnowflakeMapper(Mapper):
                     joined = True
                     break
 
-            if not joined:
+            if joins and not joined:
                 self.logger.warn("No table joined for %s" % (table, ))
 
         self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
