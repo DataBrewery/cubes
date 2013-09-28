@@ -2,9 +2,6 @@
     "cubes": [
         {
             "name":"cube",
-            "measures": [
-                {"name":"record", "aggregations": ["count"] }
-            ],
             "dimensions": ["date"],
             "joins": [
                 {"master":"date_id", "detail":"dim_date.id"}
