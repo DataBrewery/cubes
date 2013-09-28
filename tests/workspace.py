@@ -6,11 +6,9 @@ from cubes.errors import *
 from cubes.workspace import *
 from cubes.model import *
 from cubes.extensions import get_namespace
-from cubes.common import get_logger
 
 from common import CubesTestCaseBase
 # FIXME: remove this once satisfied
-get_logger().setLevel("DEBUG")
 
 class WorkspaceTestCaseBase(CubesTestCaseBase):
     def default_workspace(self, model_name=None):

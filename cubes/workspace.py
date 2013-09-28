@@ -243,7 +243,6 @@ class Workspace(object):
             else:
                 provider_name = "default"
 
-        self.logger.debug("using provider %s" % provider_name)
         provider = create_model_provider(provider_name, metadata)
 
         if provider.requires_store:
@@ -266,7 +265,7 @@ class Workspace(object):
 
         # Get list of exported dimensions
         # By default all explicitly mentioned dimensions are exported.
-        # 
+        #
         if "public_dimensions" in metadata:
             for dim in metadata["public_dimensions"]:
                 # self.logger.debug("registering public dimension '%s' (by ref.)" % name)
@@ -489,7 +488,7 @@ class Workspace(object):
 
         # TODO: Construct options for the browser from cube's options dictionary and
         # workspece default configuration
-        # 
+        #
 
         browser_name = cube.browser
         if not browser_name and hasattr(store, "default_browser_name"):
