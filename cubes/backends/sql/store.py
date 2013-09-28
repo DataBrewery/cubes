@@ -1,5 +1,5 @@
 # -*- coding=utf -*-
-from .star import SnowflakeBrowser, SnapshotBrowser, QueryContext
+from .browser import SnowflakeBrowser, SnapshotBrowser, QueryContext
 from .mapper import SnowflakeMapper, DenormalizedMapper
 from ...common import get_logger, coalesce_options
 from ...stores import Store
@@ -19,7 +19,7 @@ except ImportError:
 
 __all__ = []
 
-# Data types of options passed to sqlalchemy.create_engine 
+# Data types of options passed to sqlalchemy.create_engine
 # This is used to coalesce configuration string values into appropriate types
 SQLALCHEMY_OPTION_TYPES = {
         "case_sensitive":"bool",
