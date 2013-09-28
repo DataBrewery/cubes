@@ -3,15 +3,11 @@ import os
 import re
 import cubes
 from cubes.errors import *
-from cubes import get_logger
 from cubes.model import *
 from cubes.providers import create_cube
 
 import copy
 from common import TESTS_PATH, CubesTestCaseBase
-
-# FIXME: remove this once satisfied
-get_logger().setLevel("DEBUG")
 
 DIM_DATE_DESC = {
     "name": "date",
