@@ -722,9 +722,16 @@ class QueryContext(object):
 
         if aggregate.expression:
             raise NotImplementedError("Expressions are not yet implemented")
+
+        # If there is no function specified, we consider the aggregate to be
+        # computed in the mapping
         if not aggregate.function:
-            raise ModelError("Aggregate '%s' has no function specified"
-                             % str(aggregate))
+            # TODO: this should be depreciated in favor of aggreate.expression
+            # TODO: Following expression should be raised instead:
+            # raise ModelError("Aggregate '%s' has no function specified"
+            #                 % str(aggregate))
+            column = self.column(aggregate)
+            return column
 
         function_name = aggregate.function.lower()
 

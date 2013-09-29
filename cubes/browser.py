@@ -1129,6 +1129,7 @@ class CalculatedResultIterator(object):
         return self
 
     def next(self):
+        # Apply calculators to the result record
         item = self.iterator.next()
         for calc in self.calculators:
             calc(item)
