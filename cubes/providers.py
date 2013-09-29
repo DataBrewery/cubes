@@ -27,13 +27,6 @@ __all__ = [
 ]
 
 
-DEFAULT_RECORD_COUNT_AGGREGATE = {
-    "name": "record_count",
-    "label": "Count",
-    "function": "count"
-}
-
-
 def create_model_provider(name, metadata):
     """Gets a new instance of a model provider with name `name`."""
 
@@ -431,24 +424,6 @@ def merge_models(models):
                  dimensions=dimensions.values(),
                  cubes=all_cubes.values())
 
-
-def create_cube(metadata):
-    """Create a cube object from `metadata` dictionary. The cube has no
-    dimensions attached after creation. You should link the dimensions to the
-    cube according to the `Cube.linked_dimensions` property using
-    `Cube.add_dimension()`"""
-
-    if "name" not in metadata:
-        raise ModelError("Cube has no name")
-
-    metadata = dict(metadata)
-    dimensions = metadata.pop("dimensions", [])
-
-    if "measures" not in metadata and "aggregates" not in metadata:
-        metadata["aggregates"] = [DEFAULT_RECORD_COUNT_AGGREGATE]
-
-    return Cube(linked_dimensions=dimensions,
-                **metadata)
 
 def create_model(source):
     raise NotImplementedError("create_model() is depreciated, use Workspace.add_model()")

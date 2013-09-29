@@ -6,6 +6,7 @@ import copy
 from collections import OrderedDict
 
 from .common import IgnoringDictionary, get_logger, to_label
+from .common import assert_instance, assert_all_instances
 from .errors import *
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "Measure",
     "MeasureAggregate",
 
+    "create_cube",
     "create_dimension",
     "create_level",
     "create_attribute",
@@ -29,24 +31,14 @@ __all__ = [
     # FIXME: depreciated. affected: formatter.py
     "split_aggregate_ref",
     "aggregate_ref",
-
 ]
 
 
-def assert_instance(obj, class_, label):
-    """Raises ArgumentError when `obj` is not instance of `cls`"""
-    if not isinstance(obj, class_):
-        raise ModelInconsistencyError("%s should be sublcass of %s, "
-                                      "provided: %s" % (label,
-                                                        class_.__name__,
-                                                        type(obj).__name__))
-
-
-def assert_all_instances(list_, class_, label):
-    """Raises ArgumentError when objects in `list_` are not instances of
-    `cls`"""
-    for obj in list_:
-        assert_instance(obj, class_, label)
+DEFAULT_RECORD_COUNT_AGGREGATE = {
+    "name": "record_count",
+    "label": "Count",
+    "function": "count"
+}
 
 
 class Model(object):
@@ -471,17 +463,19 @@ class Cube(object):
         #
         # Prepare measures and aggregates
         #
+        assert_all_instances(measures, Measure, "Measure")
+        assert_all_instances(aggregates, MeasureAggregate, "Aggregate")
+
         self.measures = measure_list(measures)
+        aggregates = attribute_list(aggregates, MeasureAggregate)
 
         # Set aggregates:
         # IF aggregate list is provided, then use the list
         # IF no aggregate list is provided, then derive default aggregates
         # from the measures
 
+        # Aggregate list takes precedence
         if aggregates is not None:
-            # Get explicit aggregates
-            aggregates = attribute_list(aggregates, MeasureAggregate)
-
             # Check existence of measures
             for aggregate in aggregates:
                 if aggregate.measure \
@@ -505,7 +499,12 @@ class Cube(object):
 
     @measures.setter
     def measures(self, measures):
-        self._measures = OrderedDict((m.name, m) for m in measures)
+        self._measures = OrderedDict()
+        for measure in measures:
+            if measure.name in self._measures:
+                raise ModelError("Duplicate measure %s in cube %s" %
+                                 (measure.name, self.name))
+            self._measures[measure.name] = measure
 
     @property
     def aggregates(self):
@@ -513,7 +512,14 @@ class Cube(object):
 
     @aggregates.setter
     def aggregates(self, aggregates):
-        self._aggregates = OrderedDict((m.name, m) for m in aggregates)
+        self._aggregates = OrderedDict()
+        for agg in aggregates:
+            if agg.name in self._aggregates:
+                raise ModelError("Duplicate aggregate %s in cube %s" %
+                                 (aggregate.name, self.name))
+
+            # TODO: check for conflicts
+            self._aggregates[agg.name] = agg
 
     def aggregates_for_measure(self, name):
         """Returns aggregtates for measure with `name`. Only direct function
@@ -2001,6 +2007,50 @@ def measure_list(measures):
 
     return result
 
+
+def create_cube(metadata):
+    """Create a cube object from `metadata` dictionary. The cube has no
+    dimensions attached after creation. You should link the dimensions to the
+    cube according to the `Cube.linked_dimensions` property using
+    `Cube.add_dimension()`"""
+
+    if "name" not in metadata:
+        raise ModelError("Cube has no name")
+
+    metadata = dict(metadata)
+    dimensions = metadata.pop("dimensions", [])
+
+    if "measures" not in metadata and "aggregates" not in metadata:
+        metadata["aggregates"] = [DEFAULT_RECORD_COUNT_AGGREGATE]
+
+    # Prepare aggregate and measure lists, do implicit merging
+
+    measures = measure_list(metadata.pop("measures", []))
+    aggregates = metadata.pop("aggregates", [])
+    aggregates = attribute_list(aggregates, MeasureAggregate)
+    aggregate_dict = dict((a.name, a) for a in aggregates)
+
+    # TODO: change this to False in the future?
+    if metadata.get("implicit_aggregates", True):
+        implicit_aggregates = []
+        for measure in measures:
+            implicit_aggregates += measure.default_aggregates()
+
+        for aggregate in implicit_aggregates:
+            existing = aggregate_dict.get(aggregate.name)
+            if existing:
+                if existing.function != aggregate.function:
+                    raise ModelError("Aggregate '%s' function mismatch. "
+                                     "Implicit function %s, explicit function:"
+                                     " %s." % (aggregate.name,
+                                               aggregate.function,
+                                               existing.function))
+            else:
+                aggregates.append(aggregate)
+                aggregate_dict[aggregate.name] = aggregate
+
+    return Cube(measures=measures, aggregates=aggregates,
+                linked_dimensions=dimensions, **metadata)
 
 def fix_dimension_metadata(metadata):
     """Returns a dimension description as a dictionary. If provided as string,
