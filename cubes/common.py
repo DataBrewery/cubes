@@ -9,6 +9,8 @@ import re
 from collections import OrderedDict
 import exceptions
 
+from .errors import *
+
 __all__ = [
     "logger_name",
     "get_logger",
