@@ -2,6 +2,7 @@
 # -*- coding=utf -*-
 
 from collections import namedtuple
+from ...errors import *
 
 try:
     import sqlalchemy
