@@ -88,7 +88,7 @@ def cacheable(fn):
                 cache_impl.set(key, v)
             finally:
                 return v
-        
+
     return update_wrapper(_cache, fn)
 
 
