@@ -254,6 +254,7 @@ class MeasuresTestsCase(CubesTestCaseBase):
         self.assertEqual("amount", aggregates[0].measure)
         self.assertIsNone(aggregates[0].expression)
 
+    def test_explicit_implicit_combined(self):
         # Test explicit aggregates
         #
         cube = self.cube("amount_sum_explicit")
@@ -267,6 +268,20 @@ class MeasuresTestsCase(CubesTestCaseBase):
         self.assertEqual("total", aggregates[0].name)
         self.assertEqual("amount", aggregates[0].measure)
         self.assertIsNone(aggregates[0].expression)
+
+        cube = self.cube("amount_sum_combined")
+        measures = cube.measures
+        self.assertEqual(1, len(measures))
+        self.assertEqual("amount", measures[0].name)
+        self.assertIsNone(measures[0].expression)
+
+        aggregates = cube.aggregates
+        self.assertEqual(4, len(aggregates))
+        names = [a.name for a in aggregates]
+        self.assertSequenceEqual(["total",
+                                  "amount_sum",
+                                  "amount_min",
+                                  "amount_max"], names)
 
     def test_backend_provided(self):
         cube = self.cube("backend_provided_aggregate")
@@ -303,6 +318,29 @@ class MeasuresTestsCase(CubesTestCaseBase):
 
     # TODO: aggregate_expression, aggregate_expression_error
     # TODO: measure_expression, invalid_expression
+
+    def test_implicit(self):
+        # TODO: this should be in model.py tests
+        cube = self.cube("default_aggregates")
+        aggregates = [a.name for a in cube.aggregates]
+        self.assertSequenceEqual(["amount_sum",
+                                  "amount_min",
+                                  "amount_max"
+                                  ],
+                                  aggregates)
+
+    def test_explicit(self):
+        cube = self.cube("explicit_aggregates")
+        aggregates = [a.name for a in cube.aggregates]
+        self.assertSequenceEqual(["amount_sum",
+                                  "amount_wma",
+                                  "count",
+                                  ],
+                                  aggregates)
+
+    def test_explicit_conflict(self):
+        with self.assertRaisesRegexp(ModelError, "function mismatch"):
+            cube = self.cube("explicit_aggregates_conflict")
 
 
 class LevelTestCase(unittest.TestCase):
@@ -680,6 +718,7 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(self.cube.dimensions, cube.dimensions)
         self.assertEqual(self.cube.measures, cube.measures)
         self.assertEqual(self.cube, cube)
+
 
 class ModelTestCase(ModelTestCaseBase):
     def setUp(self):

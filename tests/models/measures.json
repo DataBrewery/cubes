@@ -16,11 +16,22 @@
         {
             "name": "explicit_aggregates",
             "measures": [
+                    {"name": "amount"}
+                ],
+            "aggregates": [
+                    {"name": "amount_sum", "function": "sum"},
+                    {"name": "amount_wma", "function": "wma"},
+                    {"name": "count", "function": "count"}
+                ]
+        },
+        {
+            "name": "explicit_aggregates_conflict",
+            "measures": [
                     {"name": "amount", "aggregates": ["sum", "min", "max"]}
                 ],
             "aggregates": [
                     {"name": "count", "function": "count"},
-                    {"name": "amount_sum", "function": "sum"}
+                    {"name": "amount_min", "function": "sum"}
                 ]
         },
         {
@@ -68,7 +79,24 @@
                 ]
         },
         {
+            "name": "amount_sum_combined",
+            "measures": [
+                {
+                    "name":"amount",
+                    "aggregates": ["sum", "min", "max"]
+                }
+            ],
+            "aggregates": [
+                    {
+                        "name": "total",
+                        "measure":"amount",
+                        "function":"sum"
+                    }
+                ]
+        },
+        {
             "name": "amount_sum_explicit",
+            "implicit_aggregates": false,
             "measures": [
                 {
                     "name":"amount",
