@@ -20,7 +20,9 @@ __all__ = [
     "get_localizable_attributes",
     "decamelize",
     "to_identifier",
-    "collect_subclasses"
+    "collect_subclasses",
+    "assert_instance",
+    "assert_all_instances"
 ]
 
 logger_name = "cubes"
@@ -69,6 +71,22 @@ class IgnoringDictionary(OrderedDict):
     def set(self, key, value):
         """Sets `value` for `key` even if value is null."""
         super(IgnoringDictionary, self).__setitem__(key, value)
+
+def assert_instance(obj, class_, label):
+    """Raises ArgumentError when `obj` is not instance of `cls`"""
+    if not isinstance(obj, class_):
+        raise ModelInconsistencyError("%s should be sublcass of %s, "
+                                      "provided: %s" % (label,
+                                                        class_.__name__,
+                                                        type(obj).__name__))
+
+
+def assert_all_instances(list_, class_, label="object"):
+    """Raises ArgumentError when objects in `list_` are not instances of
+    `cls`"""
+    for obj in list_ or []:
+        assert_instance(obj, class_, label="object")
+
 
 class MissingPackageError(Exception):
     """Exception raised when encountered a missing package."""
