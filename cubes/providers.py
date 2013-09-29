@@ -220,7 +220,7 @@ class ModelProvider(object):
         # Merge model and cube mappings
         #
         model_mappings = self.metadata.get("mappings")
-        cube_mappings = metadata.pop("mappings", None)
+        cube_mappings = metadata.pop("mappings", {})
 
         if model_mappings:
             mappings = copy.deepcopy(model_mappings)
