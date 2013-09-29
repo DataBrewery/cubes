@@ -19,11 +19,6 @@
             ],
             "aggregates": [
                 {
-                    "name": "amount_sum",
-                    "measure": "amount",
-                    "function": "sum"
-                },
-                {
                     "name": "count",
                     "function": "count"
                 }    
@@ -36,7 +31,7 @@
             "measures": [
                 {
                     "name": "amount",
-                    "aggregates": ["sum", "min", "max", "wma"]
+                    "aggregates": ["sum", "min", "max", "sma"]
                 },
                 {
                     "name": "price",
@@ -68,6 +63,16 @@
                 {
                     "name": "count",
                     "function": "count"
+                }    
+            ],
+            "fact": "facts"
+        },
+        {
+            "name": "unknown_function",
+            "aggregates": [
+                {
+                    "name": "count",
+                    "function": "iamunknown"
                 }    
             ],
             "fact": "facts"
