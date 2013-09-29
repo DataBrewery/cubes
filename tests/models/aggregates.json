@@ -1,0 +1,79 @@
+{
+    "cubes": [
+        {
+            "name": "explicit_aggregates",
+            "dimensions": ["year"],
+            "measures": [
+                {
+                    "name": "amount",
+                    "aggregates": ["sum", "min", "max"]
+                },
+                {
+                    "name": "price",
+                    "aggregates": ["sum", "min", "max"]
+                },
+                {
+                    "name": "discount",
+                    "aggregates": ["sum", "min", "max"]
+                }
+            ],
+            "aggregates": [
+                {
+                    "name": "amount_sum",
+                    "measure": "amount",
+                    "function": "sum"
+                },
+                {
+                    "name": "count",
+                    "function": "count"
+                }    
+            ],
+            "fact": "facts"
+        },
+        {
+            "name": "implicit_aggregates",
+            "dimensions": ["year"],
+            "measures": [
+                {
+                    "name": "amount",
+                    "aggregates": ["sum", "min", "max", "wma"]
+                },
+                {
+                    "name": "price",
+                    "aggregates": ["sum"]
+                },
+                {
+                    "name": "discount"
+                }
+            ],
+            "fact": "facts"
+        },
+        {
+            "name": "mixed_aggregates",
+            "dimensions": ["year"],
+            "measures": [
+                {
+                    "name": "amount",
+                    "aggregates": ["sum", "min", "max", "wma"]
+                },
+                {
+                    "name": "price",
+                    "aggregates": ["sum"]
+                },
+                {
+                    "name": "discount"
+                }
+            ],
+            "aggregates": [
+                {
+                    "name": "count",
+                    "function": "count"
+                }    
+            ],
+            "fact": "facts"
+        }
+    ],
+    "dimensions": [
+        { "name": "year" }
+    ]
+}
