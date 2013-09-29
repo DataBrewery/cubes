@@ -2001,7 +2001,7 @@ def measure_list(measures):
         if not "aggregates" in md:
             md["aggregates"] = ["sum"]
 
-        result.append(Measure(**md))
+        result.append(create_measure(md))
 
     return result
 
