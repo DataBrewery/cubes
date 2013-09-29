@@ -205,8 +205,7 @@ class ModelProvider(object):
         if name in self.cubes_metadata:
             metadata = dict(self.cubes_metadata[name])
         else:
-            raise ModelError("Unknown cube --- %s" % name)
-        return metadata
+            raise ModelError("Unknown cube '%s'" % name)
 
         # merge datastore from model if datastore not present
         if not metadata.get("datastore"):
@@ -261,7 +260,18 @@ class ModelProvider(object):
                 model_join.update(join)
                 merged_joins.append(model_join)
 
+        # Validate joins:
+        for join in merged_joins:
+            if "master" not in join:
+                raise ModelError("No master in join for cube '%s' "
+                                 "(join name: %s)" % (name, join.get("name")))
+            if "detail" not in join:
+                raise ModelError("No detail in join for cube '%s' "
+                                 "(join name: %s)" % (name, join.get("name")))
+
         metadata["joins"] = merged_joins
+
+        return metadata
 
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
