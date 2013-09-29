@@ -25,6 +25,7 @@ def calculators_for_aggregates(aggregates, drilldown_levels=None, split=None,
     # already processed
     functions = []
 
+    names = [a.name for a in aggregates]
     for aggregate in aggregates:
         # Ignore function if the backend already handles it
         if not aggregate.function or aggregate.function in backend_functions:
@@ -36,6 +37,10 @@ def calculators_for_aggregates(aggregates, drilldown_levels=None, split=None,
             raise ArgumentError("Unknown post-calculation function '%s' for "
                                 "aggregate '%s'" % (aggregate.function,
                                                     aggregate.name))
+
+        if aggregate.measure not in names:
+            raise ModelError("Unknown aggregate measure '%s'"
+                             % str(aggregate.measure))
 
         func = factory(aggregate, drilldown_levels, split)
         functions.append(func)
