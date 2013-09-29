@@ -151,6 +151,7 @@ class SnowflakeMapper(Mapper):
         for join in joins:
             master = coalesce_physical(join["master"],self.fact_name,schema=self.schema)
             detail = coalesce_physical(join["detail"],schema=self.schema)
+
             self.logger.debug("collecting join %s -> %s" % (tuple(master), tuple(detail)))
             method = join.get("method", "match").lower()
 

@@ -99,7 +99,7 @@ class SnowflakeBrowser(AggregationBrowser):
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
                           (str(mapper_class.__name__), cube.name, locale))
 
-        self.mapper = mapper_class(cube, locale=self.locale, schema=store.schema, **options)
+        self.mapper = mapper_class(cube, locale=self.locale, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
@@ -302,6 +302,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # Coalesce measures - make sure that they are Attribute objects, not
         # strings. Strings are converted to corresponding Cube measure
         # attributes
+        # TODO: perhaps we might merge (without duplicates)
         if aggregates and measures:
             raise ArgumentError("Only aggregates or measures can be "
                                 "specified, not both")
