@@ -1,6 +1,7 @@
 from collections import deque
-from cubes.model import Attribute
-from cubes.browser import SPLIT_DIMENSION_NAME
+from .model import Attribute
+from .browser import SPLIT_DIMENSION_NAME
+from .errors import *
 
 __all__ = [
         "CALCULATED_AGGREGATIONS",
@@ -26,7 +27,7 @@ def calculators_for_aggregates(aggregates, drilldown_levels=None, split=None,
 
     for aggregate in aggregates:
         # Ignore function if the backend already handles it
-        if aggregate.function in backend_functions:
+        if not aggregate.function or aggregate.function in backend_functions:
             continue
 
         try:
@@ -111,8 +112,8 @@ def _moving_average_factory(aggregate, drilldown_paths, split_cell, avg_func):
 
     source = aggregate.measure
     function = WindowFunction(avg_func, window_key,
-                              source_attribute=source,
                               target_attribute=aggregate.name,
+                              source_attribute=source,
                               window_size=num_units)
     return function
 
@@ -121,8 +122,8 @@ def get_key(record, composite_key):
     return tuple(record.get(key) for key in composite_key)
 
 class WindowFunction(object):
-    def __init__(self, function, window_key, source_attribute,
-                 target_attribute, window_size):
+    def __init__(self, function, window_key, target_attribute,
+                 source_attribute, window_size):
         """Creates a window function."""
 
         if not function:
