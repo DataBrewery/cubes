@@ -466,30 +466,12 @@ class Cube(object):
         assert_all_instances(measures, Measure, "Measure")
         assert_all_instances(aggregates, MeasureAggregate, "Aggregate")
 
+        # Note: we do not generate aggregates from measure defaults here. We
+        # are expected to receive them. They should be generated in the
+        # provider.
+
         self.measures = measure_list(measures)
-        aggregates = attribute_list(aggregates, MeasureAggregate)
-
-        # Set aggregates:
-        # IF aggregate list is provided, then use the list
-        # IF no aggregate list is provided, then derive default aggregates
-        # from the measures
-
-        # Aggregate list takes precedence
-        if aggregates is not None:
-            # Check existence of measures
-            for aggregate in aggregates:
-                if aggregate.measure \
-                        and aggregate.measure not in self._measures:
-                    raise NoSuchAttributeError("No measure %s for aggregate"
-                                                "%s" % (aggregate.measure,
-                                                        str(aggregate)))
-        else:
-            # Create default aggregates from the list of measures
-            aggregates = []
-            for measure in self.measures:
-                aggregates += measure.default_aggregates()
-
-        self.aggregates = aggregates
+        self.aggregates = attribute_list(aggregates, MeasureAggregate)
 
         self.details = attribute_list(details, Attribute)
 
