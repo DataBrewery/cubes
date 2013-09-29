@@ -58,7 +58,8 @@ class CubesTestCaseBase(unittest.TestCase):
         return workspace
 
     def load_data(self, table, data):
+        self.engine.execute(table.delete())
         for row in data:
-            insert = table.insert().values(data)
+            insert = table.insert().values(row)
             self.engine.execute(insert)
 
