@@ -676,9 +676,8 @@ class QueryContext(object):
         if not aggregates:
             raise ArgumentError("List of aggregates sohuld not be empty")
 
-        # Collect "columns" for measure aggregations
-        for aggregate in aggregates:
-            selection.append(self.aggregate_expression(aggregate))
+        # Collect expressions of aggregate functions
+        selection += self.builtin_aggregate_expressions(aggregates)
 
         # Drill-down statement
         # --------------------
@@ -701,6 +700,13 @@ class QueryContext(object):
                                   len(conditions) > 1 else conditions[0])
 
         return select
+
+    def builtin_aggregate_expressions(self, aggregates):
+        """Returns list of expressions for aggregates from `aggregates` that
+        are computed using the SQL statement.
+        """
+        expressions = [self.aggregate_expression(agg) for agg in aggregates]
+        return [exp for exp in expressions if exp is not None]
 
     def aggregate_expression(self, aggregate):
         """Returns an expression that performs the aggregation of measure
@@ -1532,8 +1538,7 @@ class SnapshotQueryContext(QueryContext):
             raise ArgumentError("List of aggregates sohuld not be empty")
 
         # Collect "columns" for measure aggregations
-        for aggregate in aggregates:
-            selection.append(self.aggregate_expression(aggregate))
+        selection += self.builtin_aggregate_expressions(aggregates)
 
         select = sql.expression.select(selection,
                                        from_obj=join_expression,
