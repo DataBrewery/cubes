@@ -189,6 +189,18 @@ class Workspace(object):
 
         self.store_infos[name] = (type_, config)
 
+    def _store_for_model(self, metadata):
+        """Returns a store for model specified in `metadata`. """
+        store_name = metadata.get("datastore")
+        if not store_name and "info" in metadata:
+            store_name = metadata["info"].get("datastore")
+
+        store_name = store_name or "default"
+
+        self.logger.debug("Using store '%s'" % store_name)
+
+        return store_name
+
     def add_model(self, model, name=None, store=None, translations=None):
         """Appends objects from the `model`."""
 
@@ -215,39 +227,15 @@ class Workspace(object):
 
         model_name = name or metadata.get("name")
 
-        if store or "datastore" in metadata:
-            # Get the model's store name:
-            #   specified as argument
-            #   specified in the model as "datastore"
-
-            store_name = store or metadata.get("datastore")
-            if not store_name and "info" in metadata:
-                store_name = metadata["info"].get("datastore")
-
-            store_name = store_name or "default"
-
-            self.logger.debug("Using store '%s'" % store_name)
-            store = self.get_store(store_name)
-
-        # Provider is specified in:
-        #   model's "provider"
-        #   or store's model_provider_name (explicitly specified as "store")
-        #   or "default"
-        provider_name = metadata.get("provider")
-
-        if provider_name == "datastore":
-            provider_name = store.model_provider_name()
-        elif not provider_name:
-            if store:
-                provider_name = store.model_provider_name()
-            else:
-                provider_name = "default"
-
+        # Get a provider as specified in the model by "provider" or get the
+        # "default provider"
+        provider_name = metadata.get("provider", "default")
         provider = create_model_provider(provider_name, metadata)
 
-        if provider.requires_store:
-            provider.init_store(store, store_name)
-
+        if provider.requires_store():
+            store_name = store or self._store_for_model(metadata)
+            store = self.get_store(store_name)
+            provider.set_store(store, store_name)
 
         model_object = Model(metadata=metadata,
                              provider=provider,

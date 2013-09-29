@@ -146,8 +146,6 @@ class ModelProvider(object):
     """Abstract class. Currently empty and used only to find other model
     providers."""
 
-    requires_store = False
-
     def __init__(self, metadata=None):
         """Initializes a model provider and sets `metadata` – a model metadata
         dictionary.
@@ -160,8 +158,8 @@ class ModelProvider(object):
 
         Subclasses should call this method when they are implementing custom
         `__init__()`.
-
         """
+
         self.metadata = metadata
         self.store = None
         self.store_name = None
@@ -177,11 +175,26 @@ class ModelProvider(object):
 
         self.options = metadata.get("options", {})
 
-    def init_store(self, store, store_name):
-        """Sets provider's store and store name. Override this method if you
-        would like to perform post-initialization from the store."""
+    def requires_store(self):
+        """Return `True` if the provider requires a store. Subclasses might
+        override this method. Default implementation returns `False`"""
+        return False
+
+    def set_store(self, store, store_name):
+        """Set's the provider's `store` and `store_name`. The store can be used
+        to retrieve model's metadata. The store name is a handle that can be
+        passed to the Cube objects for workspace to know where to find cube's
+        data."""
+
         self.store = store
         self.store_name = store_name
+        self.initialize_from_store()
+
+    def initialize_from_store(self):
+        """Sets provider's store and store name. This method is called after
+        the provider's `store` and `store_name` were set. Override this method
+        if you would like to perform post-initialization from the store."""
+        pass
 
     def cube_options(self, cube_name):
         """Returns an options dictionary for cube `name`. The options
