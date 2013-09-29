@@ -245,8 +245,8 @@ class ModelProvider(object):
 
         # Merge model and cube joins
         #
-        model_joins = self.metadata.get("joins")
-        cube_joins = metadata.pop("joins", None)
+        model_joins = self.metadata.get("joins", [])
+        cube_joins = metadata.pop("joins", [])
 
         # model joins, if present, should be merged with cube's overrides.
         # joins are matched by the "name" key.
@@ -272,6 +272,8 @@ class ModelProvider(object):
                 model_join = model_join_map.get(join.get('name'), {})
                 model_join.update(join)
                 merged_joins.append(model_join)
+        else:
+            merged_joins = cube_joins
 
         # Validate joins:
         for join in merged_joins:
