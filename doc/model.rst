@@ -153,6 +153,7 @@ Key            Description
 **name**       cube name
 **measures**   list of cube measures (recommended, but might be
                empty for measure-less, record count only cubes)
+**aggregates** list of aggregated measures
 **dimensions** list of cube dimension names (recommended, but might
                be empty for dimension-less cubes)
 label          human readable name - can be used in an application
@@ -166,7 +167,7 @@ joins          specification of physical table joins (required for
                star/snowflake schema)
 mappings       :doc:`mapping<mapping>` of logical attributes to
                physical attributes
-options        backend/workspace options
+options        browser options
 info           custom info, such as formatting. Not used by cubes 
                framework.
 ============== ====================================================
@@ -198,6 +199,12 @@ Example:
         Create cube from a description dictionary.
 
    :doc:`mapping`
+
+Advanced cube options:
+
+* `implicit_aggergates`: generate aggregates from measures. Default is `True`.
+  Set this property to `False` if you want to keep only explicit list of
+  aggregates.
 
 Dimensions
 ----------
