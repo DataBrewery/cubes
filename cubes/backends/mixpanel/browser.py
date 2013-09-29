@@ -7,13 +7,15 @@ from ...statutils import *
 from .aggregator import _MixpanelResponseAggregator
 from .utils import *
 
+from ...statutils import calculators_for_aggregates, CALCULATED_AGGREGATIONS
+
 from .store import DEFAULT_TIME_HIERARCHY
 
 import datetime
 import calendar
 from collections import OrderedDict, defaultdict
 
-_measure_param = {
+_aggregate_param = {
         "total": "general",
         "unique": "unique",
         "average": "average"
@@ -35,15 +37,27 @@ class MixpanelBrowser(AggregationBrowser):
         self.options = options
         self.logger = get_logger()
 
-    def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
-                    **options):
+    def aggregate(self, cell=None, measures=None, aggregates=None,
+                  drilldown=None, split=None, **options):
 
         if split:
             raise BrowserError("split in mixpanel is not supported")
 
-        measures = measures or self.cube.measures
-        measures = self.cube.get_measures(measures)
-        measure_names = [m.name for m in measures]
+        if measures:
+            raise ArgumentError("Mixpanel does not provide non-aggregated "
+                                "measures")
+        if aggregates:
+            aggregates = self.cube.get_aggregates(aggregates)
+        else:
+            aggregates = self.cube.aggregates
+
+        # All aggregates without a function can be considered as "native" as
+        # they are handled specially.
+        # If there is an explicit aggregate fucntion it is a post-aggregate
+        # computation
+        aggregate_names = [a.name for a in aggregates]
+        native_aggregates = [a for a in aggregates if not a.function]
+        native_aggregate_names = [a.name for a in native_aggregates]
 
         # Get the cell and prepare cut parameters
         cell = cell or Cell(self.cube)
@@ -162,27 +176,27 @@ class MixpanelBrowser(AggregationBrowser):
         #
         # The request
         # ===========
-        # Perform one request per measure.
+        # Perform one request per measure aggregate.
         #
         # TODO: use mapper
         event_name = self.cube.name
 
-        # Collect responses for each measure
+        # Collect responses for each measure aggregate
         #
         # Note: we are using `segmentation` MXP request by default except for
         # the `unique` measure at the `all` or `year` aggregation level.
         responses = {}
 
-        for measure in measure_names:
-            params["type"] = _measure_param[measure]
+        for aggregate in native_aggregate_names:
+            params["type"] = _aggregate_param[aggregate]
 
-            if measure == "unique" and (not time_level or time_level == "year"):
+            if aggregate == "unique" and (not time_level or time_level == "year"):
                 response = self._arb_funnels_request(event_name, params)
             else:
                 response = self._segmentation_request(event_name, params,
-                                                    mixpanel_unit)
+                                                      mixpanel_unit)
 
-            responses[measure] = response
+            responses[aggregate] = response
 
         # TODO: get this: result.total_cell_count = None
         # TODO: compute summary
@@ -192,26 +206,28 @@ class MixpanelBrowser(AggregationBrowser):
         # ==========
         #
 
-        result = AggregationResult(cell, measures)
+        result = AggregationResult(cell, aggregates)
         result.cell = cell
 
         aggregator = _MixpanelResponseAggregator(self, responses,
-                        measure_names, drilldown, actual_time_level)
+                                                 native_aggregate_names,
+                                                 drilldown, actual_time_level)
 
         result.levels = drilldown.levels_dictionary()
 
         labels = aggregator.time_levels[:]
         if drilldown_on:
             labels.append(drilldown_on.dimension.name)
-        labels += measure_names
+
+        labels += aggregate_names
         result.labels = labels
 
         if drilldown or split:
             self.logger.debug("CALCULATED AGGS because drilldown or split")
-            calc_aggs = []
-            for c in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
-                calc_aggs += c
-            result.calculators = calc_aggs
+            result.calculators = calculators_for_aggregates(aggregates,
+                                                            drilldown,
+                                                            split,
+                                                            None)
             result.cells = aggregator.cells
 
         # add calculated measures w/o drilldown or split if no drilldown or split
@@ -219,9 +235,12 @@ class MixpanelBrowser(AggregationBrowser):
             self.logger.debug("CALCULATED AGGS ON SUMMARY")
             result.summary = aggregator.cells[0]
             result.cells = []
-            for calcs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
-                for calc in calcs:
-                    calc(result.summary)
+            calculators = calculators_for_aggregates(aggregates,
+                                                     drilldown,
+                                                     split,
+                                                     None)
+            for calc in calculators:
+                calc(result.summary)
 
         return result
 
@@ -244,7 +263,7 @@ class MixpanelBrowser(AggregationBrowser):
 
         params["events"] = [{"event":event_name}]
         params["interval"] = 90
-        params["type"] = _measure_param["unique"]
+        params["type"] = _aggregate_param["unique"]
 
         response = self.store.request(["arb_funnels"], params)
 
@@ -270,14 +289,6 @@ class MixpanelBrowser(AggregationBrowser):
 
         return result
 
-    def calculated_aggregations_for_measure(self, measure, drilldown_levels, split):
-        calc_aggs = [ agg for agg in measure.aggregations if agg in CALCULATED_AGGREGATIONS ]
-
-        if not calc_aggs:
-            return []
-
-        return [ CALCULATED_AGGREGATIONS.get(c)(measure, drilldown_levels, split, ['identity']) for c in calc_aggs ]
-
     def _property(self, dim):
         """Return correct property name from dimension."""
         dim = str(dim)
@@ -296,7 +307,7 @@ class MixpanelBrowser(AggregationBrowser):
 
         condition_tmpl = (
             '(number(properties["%s"]) >= %s and number(properties["%s"]) <= %s)' if not invert else
-            '(number(properties["%s"]) < %s or number(properties["%s"]) > %s)' 
+            '(number(properties["%s"]) < %s or number(properties["%s"]) > %s)'
             )
 
         condition = condition_tmpl % (self._property(dim), from_value, self._property(dim), to_value)
