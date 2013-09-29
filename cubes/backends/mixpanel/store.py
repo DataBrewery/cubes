@@ -1,8 +1,10 @@
 # -*- coding=utf -*-
-from ...model import *
+from ...model import Cube, create_dimension
+from ...model import aggregate_list
 from ...browser import *
 from ...stores import Store
 from ...errors import *
+from ...providers import ModelProvider
 from .mixpanel import *
 from string import capwords
 from cubes.common import get_logger
@@ -11,10 +13,10 @@ DIMENSION_COUNT_LIMIT = 100
 
 DEFAULT_TIME_HIERARCHY = "ymdh"
 
-time_dimension_md = {
+MXP_TIME_DIM_METADATA = {
     "name": "time",
     "levels": [
-        { "name": "year", "label": "Year" }, 
+        { "name": "year", "label": "Year" },
         { "name": "month", "label": "Month", "info": { "aggregation_units": 3 }},
         { "name": "day", "label": "Day", "info": { "aggregation_units": 7 } },
         { "name": "hour", "label": "Hour", "info": { "aggregation_units": 6 } },
@@ -22,17 +24,43 @@ time_dimension_md = {
         { "name": "date", "label": "Date", "info": { "aggregation_units": 7 } }
     ],
     "hierarchies": [
-        {"name":"ymdh", "levels": ["year", "month", "day", "hour"]},
-        {"name":"wdh", "levels": ["week", "date", "hour"]}
+        {"name": "ymdh", "levels": ["year", "month", "day", "hour"]},
+        {"name": "wdh", "levels": ["week", "date", "hour"]}
     ],
     "default_hierarchy_name": "ymdh",
-    "info": { "is_date": True }
+    "info": {"is_date": True}
 }
 
-_time_dimension = create_dimension(time_dimension_md)
+MXP_AGGREGATES_METADATA = [
+    {
+        "name": "total",
+        "label": "Total"
+    },
+    {
+        "name": "total_sma",
+        "label": "Total Moving Average",
+        "function": "sma",
+        "measure": "total"
+    },
+    {
+        "name": "unique",
+        "label": "Unique"
+    },
+    {
+        "name": "unique_sma",
+        "label": "Unique Moving Average",
+        "function": "sma",
+        "measure": "unique"
+    },
+]
+
+
+_time_dimension = create_dimension(MXP_TIME_DIM_METADATA)
+
 
 class MixpanelModelProvider(ModelProvider):
-    requires_store = True
+    def requires_store(self):
+        return True
 
     def cube(self, name):
         """Creates a mixpanel cube with following variables:
@@ -47,7 +75,8 @@ class MixpanelModelProvider(ModelProvider):
         """
 
         result = self.store.request(["events", "properties", "top"],
-                            {"event":name, "limit":DIMENSION_COUNT_LIMIT})
+                                    {"event": name,
+                                     "limit": DIMENSION_COUNT_LIMIT})
         if not result:
             raise NoSuchCubeError(name)
 
@@ -65,7 +94,6 @@ class MixpanelModelProvider(ModelProvider):
                     (denied_dims and dim_name not in denied_dims):
                 dim_names.append(dim_name)
 
-
         # Replace $ with underscore _
         dims = ["time"]
         mappings = {}
@@ -77,17 +105,16 @@ class MixpanelModelProvider(ModelProvider):
                 mappings[fixed_name] = dim_name
             dims.append(fixed_name)
 
-        measures = attribute_list(["total", "unique"])
-        for m in measures:
-            m.aggregations = ['identity', 'sma']
+        aggregates = aggregate_list(MXP_AGGREGATES_METADATA)
 
         cube = Cube(name=name,
-                    measures=measures,
+                    aggregates=aggregates,
                     linked_dimensions=dims,
                     datastore=self.store_name,
                     mappings=mappings,
                     category=self.store.category)
 
+        self.store.logger.debug("-- cube aggs: %s" % (cube.aggregates, ))
         # TODO: required_drilldowns might be a cube's attribute (fixed_dd?)
         cube.info = {
             "required_drilldowns": ["time"]
@@ -99,36 +126,31 @@ class MixpanelModelProvider(ModelProvider):
         if name == "time":
             return _time_dimension
 
-        level = Level(name, attribute_list([name]))
-        dim = Dimension(name,
-                         levels=[level])
+        metadata = {"name": name}
 
-        return dim
+        return create_dimension(metadata)
 
     def list_cubes(self):
-        result = self.store.request(["events", "names"],
-                                    {"type":"general", })
+        result = self.store.request(["events", "names"], {"type": "general", })
         cubes = []
 
         for name in result:
             label = capwords(name.replace("_", " "))
             cube = {
-                    "name": name,
-                    "label": label,
-                    "category":  self.store.category
-                    }
+                "name": name,
+                "label": label,
+                "category":  self.store.category
+            }
             cubes.append(cube)
 
         return cubes
+
 
 class MixpanelStore(Store):
     def __init__(self, api_key, api_secret, category=None):
         self.mixpanel = Mixpanel(api_key, api_secret)
         self.category = category or "Mixpanel Events"
         self.logger = get_logger()
-
-    def model_provider_name(self):
-        return "mixpanel"
 
     def request(self, *args, **kwargs):
         """Performs a mixpanel HTTP request. Raises a BackendError when
