@@ -498,7 +498,7 @@ class Cube(object):
         for agg in aggregates:
             if agg.name in self._aggregates:
                 raise ModelError("Duplicate aggregate %s in cube %s" %
-                                 (aggregate.name, self.name))
+                                 (agg.name, self.name))
 
             # TODO: check for conflicts
             self._aggregates[agg.name] = agg
@@ -1768,6 +1768,10 @@ def create_measure(md):
     if not "name" in md:
         raise ModelError("Measure has no name.")
 
+    md = dict(md)
+    if "aggregations" in md:
+        md["aggregates"] = md.pop("aggregations")
+
     return Measure(**md)
 
 
@@ -1829,16 +1833,27 @@ class Measure(AttributeBase):
 
     def default_aggregates(self):
         """Creates default measure aggregates from a list of receiver's
-        aggregates. This is just a convenience function, correct models should
+        measures. This is just a convenience function, correct models should
         contain explicit list of aggregates. If no aggregates are specified,
         then the only aggregate `sum` is assumed."""
 
         aggregates = []
 
         for agg in (self.aggregates or ["sum"]):
-            name = u"%s_%s" % (self.name, agg)
+            if agg == "identity":
+                name = u"%s" % self.name
+                measure = None
+                function = None
+            else:
+                name = u"%s_%s" % (self.name, agg)
+                measure = self.name
+                function = agg
+
             if self.label:
-                label = u"%s – %s" % (self.label, agg)
+                if agg == "identity":
+                    label = u"%s" % self.label
+                else:
+                    label = u"%s – %s" % (self.label, agg)
             else:
                 label = None
 
@@ -1848,8 +1863,8 @@ class Measure(AttributeBase):
                                          order=self.order,
                                          info=self.info,
                                          format=self.format,
-                                         measure=self.name,
-                                         function=agg)
+                                         measure=measure,
+                                         function=function)
             aggregates.append(aggregate)
 
         return aggregates
@@ -1980,7 +1995,7 @@ def measure_list(measures):
         if "aggregations" in md:
             logger = get_logger()
             logger.warn("'aggregations' is depreciated, use 'aggregates'")
-            md["aggergates"] = md.pop("aggregations")
+            md["aggregates"] = md.pop("aggregations")
 
         # Add default aggregation for 'sum' (backward compatibility)
         if not "aggregates" in md:
