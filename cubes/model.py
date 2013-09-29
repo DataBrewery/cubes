@@ -471,7 +471,7 @@ class Cube(object):
         # provider.
 
         self.measures = measure_list(measures)
-        self.aggregates = attribute_list(aggregates, MeasureAggregate)
+        self.aggregates = aggregate_list(aggregates)
 
         self.details = attribute_list(details, Attribute)
 
@@ -1955,6 +1955,7 @@ def aggregate_list(aggregates):
     list of names)"""
     return attribute_list(aggregates, class_=MeasureAggregate)
 
+
 def measure_list(measures):
     """Create a list of measures from list of measure metadata (dictionaries
     or strings). The function tries to maintain cetrain level of backward
@@ -2009,7 +2010,7 @@ def create_cube(metadata):
 
     measures = measure_list(metadata.pop("measures", []))
     aggregates = metadata.pop("aggregates", [])
-    aggregates = attribute_list(aggregates, MeasureAggregate)
+    aggregates = aggregate_list(aggregates)
     aggregate_dict = dict((a.name, a) for a in aggregates)
 
     # TODO: change this to False in the future?
