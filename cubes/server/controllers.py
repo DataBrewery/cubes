@@ -364,7 +364,13 @@ class CubesController(ApplicationController):
         # If the measures are used, then all aggregates derived from thise
         # measures are considered.
         measures = []
+
+        # TODO: this should be depreciated (backward compatibility)
+        # TODO: raise error later (invalid argument)
         for mstring in self.args.getlist("measure") or []:
+            measures += mstring.split("|")
+
+        for mstring in self.args.getlist("measures") or []:
             measures += mstring.split("|")
 
         aggregates = []
