@@ -58,16 +58,6 @@
                 ]
         },
         {
-            "name": "aggregate_missing_measure",
-            "aggregates": [
-                    {
-                        "name": "amount_sum",
-                        "measure":"amount",
-                        "function":"sum"
-                    }
-                ]
-        },
-        {
             "name": "amount_sum",
             "measures": ["amount"],
             "aggregates": [

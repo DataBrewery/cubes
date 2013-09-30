@@ -56,10 +56,17 @@ class AggregatesTestCase(CubesTestCaseBase):
             browser.aggregate()
 
     def test_explicit(self):
-        browser = self.workspace.browser("explicit_aggregates")
+        browser = self.workspace.browser("default")
         result = browser.aggregate()
         summary = result.summary
         self.assertEqual(60, summary["amount_sum"])
         self.assertEqual(16, summary["count"])
 
+    def test_post_calculation(self):
+        browser = self.workspace.browser("postcalc_in_measure")
 
+        result = browser.aggregate(drilldown=["year"])
+        cells = list(result.cells)
+        aggregates = sorted(cells[0].keys())
+        self.assertSequenceEqual(['amount_sma', 'amount_sum', 'count', 'year'],
+                                 aggregates)
