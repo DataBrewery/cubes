@@ -17,7 +17,7 @@ import ConfigParser
 import shlex
 from cubes.common import MissingPackageError, create_logger
 from cubes.errors import CubesError
-from cubes.providers import read_model_metadata
+from cubes.providers import read_model_metadata, write_model_metadata_bundle
 from collections import OrderedDict
 
 def validate_model(args):
@@ -251,6 +251,19 @@ def denormalize(args):
                                             keys_only=False,
                                             schema=view_schema)
 
+def convert_model(args):
+    path = args.target
+    model = read_model_metadata(args.model)
+
+    if args.format == "json":
+        if not path:
+            print json.dumps(model, indent=4)
+        else:
+            with open(path, "w") as f:
+                json.dump(model, f, indent=4)
+    elif args.format == "bundle":
+        write_model_metadata_bundle(path, model, replace=args.force)
+
 ################################################################################
 # Main code
 
@@ -303,6 +316,22 @@ subparser = model_subparsers.add_parser('merge')
 subparser.add_argument('models', nargs='+', help='one or more model references - can be local file paths or URL')
 subparser.add_argument('target', help='target output path', nargs='?', default=None)
 subparser.set_defaults(func=merge_model)
+
+################################################################################
+# Command: convert
+
+subparser = model_subparsers.add_parser('convert')
+subparser.add_argument('--format',
+                            dest='format',
+                            choices=('json', 'bundle'),
+                            default='json',
+                            help='output model format')
+subparser.add_argument('--force',
+                            dest='force', action='store_true', default=False,
+                            help='replace existing model bundle')
+subparser.add_argument('model', help='model reference - can be a path or URL')
+subparser.add_argument('target', help='target output path', nargs='?', default=None)
+subparser.set_defaults(func=convert_model)
 
 ################################################################################
 # Command: extract_locale

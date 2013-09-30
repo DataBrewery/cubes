@@ -6,6 +6,7 @@ import re
 import urllib2
 import urlparse
 import copy
+import shutil
 
 from .common import IgnoringDictionary, get_logger, to_label
 from .errors import *
@@ -135,6 +136,47 @@ def read_model_metadata_bundle(path):
                 model["cubes"].append(desc)
 
     return model
+
+
+def write_model_metadata_bundle(path, metadata, replace=False):
+    """Writes a model metadata bundle into new directory `target` from
+    `metadata`. Directory should not exist."""
+
+    if os.path.exists(path):
+        if not os.path.isdir(path):
+            raise CubesError("Target exists and is a file, "
+                                "can not replace")
+        elif not os.path.exists(os.path.join(path, "model.json")):
+            raise CubesError("Target is not a model directory, "
+                                "can not replace.")
+        if replace:
+            shutil.rmtree(path)
+        else:
+            raise CubesError("Target already exists. "
+                                "Remove it or force replacement.")
+
+    os.makedirs(path)
+
+    metadata = dict(metadata)
+
+    dimensions = metadata.pop("dimensions", [])
+    cubes = metadata.pop("cubes", [])
+
+    for dim in dimensions:
+        name = dim["name"]
+        filename = os.path.join(path, "dim_%s.json" % name)
+        with open(filename, "w") as f:
+            json.dump(dim, f, indent=4)
+
+    for cube in cubes:
+        name = cube["name"]
+        filename = os.path.join(path, "cube_%s.json" % name)
+        with open(filename, "w") as f:
+            json.dump(cube, f, indent=4)
+
+    filename = os.path.join(path, "model.json")
+    with open(filename, "w") as f:
+        json.dump(metadata, f, indent=4)
 
 
 def load_model(resource, translations=None):
