@@ -523,12 +523,14 @@ class SnowflakeBrowser(AggregationBrowser):
 """A Condition representation. `attributes` - list of attributes involved in
 the conditions, `conditions` - SQL conditions"""
 Condition = collections.namedtuple("Condition",
-                                    ["attributes", "condition"])
+                                   ["attributes", "condition"])
 
 """Aliased table information"""
 AliasedTable = collections.namedtuple("AliasedTable",
-                                    ["schema", "table", "alias"])
+                                     ["schema", "table", "alias"])
 
+JoinProduct = collections.namedtuple("JoinProduct",
+                                        ["expression", "outer_detail"])
 # FIXME: Remove/dissolve this class, it is just historical remnant
 # NOTE: the class was meant to contain reusable code by different SQL
 #       backends
@@ -641,7 +643,8 @@ class QueryContext(object):
         if split_dim_cond:
             attributes |= set(split_dim_cond.attributes)
 
-        join_expression = self.join_expression_for_attributes(attributes)
+        join_product = self.join_expression_for_attributes(attributes)
+        join_expression = join_product.expression
 
         selection = []
 
@@ -677,7 +680,8 @@ class QueryContext(object):
             raise ArgumentError("List of aggregates sohuld not be empty")
 
         # Collect expressions of aggregate functions
-        selection += self.builtin_aggregate_expressions(aggregates)
+        selection += self.builtin_aggregate_expressions(aggregates,
+                                                        coalesce_measures=join_product.outer_detail)
 
         # Drill-down statement
         # --------------------
@@ -701,14 +705,21 @@ class QueryContext(object):
 
         return select
 
-    def builtin_aggregate_expressions(self, aggregates):
+    def builtin_aggregate_expressions(self, aggregates,
+                                      coalesce_measures=False):
         """Returns list of expressions for aggregates from `aggregates` that
         are computed using the SQL statement.
         """
-        expressions = [self.aggregate_expression(agg) for agg in aggregates]
-        return [exp for exp in expressions if exp is not None]
 
-    def aggregate_expression(self, aggregate):
+        expressions = []
+        for agg in aggregates:
+            exp = self.aggregate_expression(agg, coalesce_measures)
+            if exp is not None:
+                expressions.append(exp)
+
+        return expressions
+
+    def aggregate_expression(self, aggregate, coalesce_measure=False):
         """Returns an expression that performs the aggregation of measure
         `aggregate`. The result's label is the aggregate's name.  `aggregate`
         has to be `MeasureAggregate` instance.
@@ -717,6 +728,9 @@ class QueryContext(object):
         returned.
 
         Aggregation function names are case in-sensitive.
+
+        If `coalesce_measure` is `True` then selected measure column is wrapped
+        in ``COALESCE(column, 0)``.
         """
         # TODO: support aggregate.expression
 
@@ -731,6 +745,7 @@ class QueryContext(object):
             # raise ModelError("Aggregate '%s' has no function specified"
             #                 % str(aggregate))
             column = self.column(aggregate)
+            # TODO: add COALESCE()
             return column
 
         function_name = aggregate.function.lower()
@@ -746,7 +761,7 @@ class QueryContext(object):
                 # The function is post-aggregation calculation
                 return None
 
-        expression = function(aggregate, self)
+        expression = function(aggregate, self, coalesce_measure)
 
         return expression
 
@@ -772,8 +787,9 @@ class QueryContext(object):
         else:
             join_attributes = set(attributes)
 
-        join_expression = self.join_expression_for_attributes(join_attributes,
+        join_product = self.join_expression_for_attributes(join_attributes,
                                                 expand_locales=expand_locales)
+        join_expression = join_product.expression
 
         columns = self.columns(attributes, expand_locales=expand_locales)
 
@@ -796,8 +812,10 @@ class QueryContext(object):
         hierarchy = dimension.hierarchy(hierarchy)
         attributes = hierarchy.all_attributes()
 
-        expression = self.join_expression_for_attributes(attributes,
+        product = self.join_expression_for_attributes(attributes,
                                                         include_fact=False)
+        expression = product.expression
+
         columns = self.columns(attributes)
         select = sql.expression.select(columns,
                                        from_obj=expression,
@@ -805,8 +823,6 @@ class QueryContext(object):
 
         cond = self.condition_for_point(dimension, path, hierarchy)
         select = select.where(cond.condition)
-
-        self.logger.debug("\n\nSQL:\n%s \n\n" % select)
 
         return select
 
@@ -821,7 +837,6 @@ class QueryContext(object):
 
         return statement
 
-
     def join_expression_for_attributes(self, attributes, expand_locales=False,
                                         include_fact=True):
         """Returns a join expression for `attributes`"""
@@ -834,6 +849,10 @@ class QueryContext(object):
         """Create partial expression on a fact table with `joins` that can be
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
+
+        Returns a tuple with attributes: `expression` with a SQLAlchemy
+        expression object, and a flag `outer_detail` which is set to `True` if at
+        least one join was done using ``detail`` method (RIGHT OUTER JOIN).
 
         If `include_fact` is ``True`` (default) then fact table is considered
         as starting point. If it is ``False`` The first detail table is
@@ -899,6 +918,7 @@ class QueryContext(object):
         # Perform the joins
         # =================
         #
+        outer_detail = False
 
         for join in joins:
             # Prepare the table keys:
@@ -950,6 +970,7 @@ class QueryContext(object):
                 # Swap the master and detail tables to perform RIGHT OUTER JOIN
                 master_table, detail_table = (detail_table, master_table)
                 is_outer = True
+                outer_detail = True
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
@@ -960,8 +981,6 @@ class QueryContext(object):
                                              isouter=is_outer)
 
             del joined_products[detail_key]
-            self.logger.debug("- removing detail product '%s'" % (detail_key,))
-            self.logger.debug("+ storing join product '%s'" % (master_key,))
             joined_products[master_key] = product
 
         if not joined_products:
@@ -976,7 +995,8 @@ class QueryContext(object):
         result = joined_products.values()[0]
         self._log_statement(result, "join result")
 
-        return result
+        # TODO: avoid returning named tuples
+        return JoinProduct(result, outer_detail)
 
     def condition_for_cell(self, cell):
         """Constructs conditions for all cuts in the `cell`. Returns a named
@@ -1482,7 +1502,8 @@ class SnapshotQueryContext(QueryContext):
         if split_dim_cond:
             attributes |= set(split_dim_cond.attributes)
 
-        join_expression = self.join_expression_for_attributes(attributes)
+        join_product = self.join_expression_for_attributes(attributes)
+        join_expression = join_product.expression
 
         selection = []
 
@@ -1519,9 +1540,15 @@ class SnapshotQueryContext(QueryContext):
         # drilldown levels, plus dim.lowest_level == snapshot_browser_subquery.snapshot_level.
 
         snapshot_level_attribute, needs_join_added = self.snapshot_level_attribute(drilldown)
+
+        outer_detail_join = False
         if snapshot_level_attribute:
             if needs_join_added:
-                join_expression = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
+                # TODO: check if this works with product.outer_detail = True
+                product = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
+                join_expression = product.expression
+                outer_detail_join = product.outer_detail
+
             subq_join_expression = join_expression
             subq_selection = [ s.label('col%d' % i) for i, s in enumerate(selection) ]
             subq_group_by = group_by[:] if group_by else None
@@ -1530,13 +1557,22 @@ class SnapshotQueryContext(QueryContext):
             level_expr = getattr(sql.expression.func, self.snapshot_aggregation)(self.column(snapshot_level_attribute)).label('the_snapshot_level')
             subq_selection.append(level_expr)
             subquery = sql.expression.select(subq_selection, from_obj=subq_join_expression, use_labels=True, group_by=subq_group_by)
+
             if subq_conditions:
                 subquery = subquery.where(sql.expression.and_(*subq_conditions) if len(subq_conditions) > 1 else subq_conditions[0])
+
+            # Prepare the snapshot subquery
             subquery = subquery.alias('the_snapshot_subquery')
             subq_joins = []
 
-            for a, b in zip(selection, [ sql.expression.literal_column("%s.col%d" % (subquery.name, i)) for i, s in enumerate(subq_selection[:-1]) ]):
-                subq_joins.append(a == b)
+            cols = []
+            for i, s in enumerate(subq_selection[:-1]):
+                col = sql.expression.literal_column("%s.col%d" %
+                                                    (subquery.name, i))
+                cols.append(col)
+
+            for left, right in zip(selection, cols):
+                subq_joins.append(left == right)
 
             subq_joins.append(self.column(snapshot_level_attribute) == sql.expression.literal_column("%s.%s" % (subquery.name, 'the_snapshot_level')))
             join_expression = join_expression.join(subquery, sql.expression.and_(*subq_joins))
@@ -1545,7 +1581,8 @@ class SnapshotQueryContext(QueryContext):
             raise ArgumentError("List of aggregates sohuld not be empty")
 
         # Collect "columns" for measure aggregations
-        selection += self.builtin_aggregate_expressions(aggregates)
+        selection += self.builtin_aggregate_expressions(aggregates,
+                                                        coalesce_measures=outer_detail_join)
 
         select = sql.expression.select(selection,
                                        from_obj=join_expression,
