@@ -106,6 +106,41 @@ class AggregationBrowser(object):
         """
         raise NotImplementedError
 
+    def prepare_aggregates(self, aggregates=None, measures=None):
+        """Prepares the aggregate list for aggregatios. `aggregates` might be a
+        list of aggregate names or `MeasureAggregate` objects.
+
+        If `measures` are specified, then aggregates that refer tho the
+        measures in the list are returned.
+
+        If no aggregates are specified then all cube's aggregates are returned.
+
+        Either specify `aggregates` or `measures`, not both. """
+
+        # Coalesce measures - make sure that they are Attribute objects, not
+        # strings. Strings are converted to corresponding Cube measure
+        # attributes
+        # TODO: perhaps we might merge (without duplicates)
+
+        if aggregates and measures:
+            raise ArgumentError("Only aggregates or measures can be "
+                                "specified, not both")
+        if aggregates:
+            aggregates = self.cube.get_aggregates(aggregates)
+        elif measures:
+            aggregates = []
+            for measure in measures:
+                aggregates += self.cube.aggregates_for_measure(measure)
+        else:
+            # If no aggregate is specified, then all are used
+            aggregates = self.cube.aggregates
+
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty. If "
+                                "you used measures, check their aggregates.")
+
+        return aggregates
+
     def facts(self, cell=None, **options):
         """Return an iterable object with of all facts within cell"""
 
