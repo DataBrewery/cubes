@@ -56,10 +56,6 @@ class _MixpanelResponseAggregator(object):
             self.time_levels = ["time."+str(l) for l in time_drilldown.levels]
             self.time_hierarchy = str(time_drilldown.hierarchy)
 
-        self.logger.debug("Time: hier:%s last:%s all:%s" % \
-                            (self.time_hierarchy, self.last_time_level,
-                            self.time_levels) )
-
         self.drilldown_on = None
         for obj in drilldown:
             if obj.dimension.name != "time":
@@ -111,7 +107,7 @@ class _MixpanelResponseAggregator(object):
                                                         self.time_hierarchy)
                 key = (time_path, group_key)
 
-                self.logger.debug("adding cell %s" % (key, ))
+                # self.logger.debug("adding cell %s" % (key, ))
                 cell = self.time_cells.setdefault(key, {})
                 cell[aggregate] = value
 
@@ -141,7 +137,7 @@ class _MixpanelResponseAggregator(object):
 
             reduced_key = (reduced_path, key[1])
 
-            self.logger.debug("reducing %s -> %s" % (key, reduced_key))
+            # self.logger.debug("reducing %s -> %s" % (key, reduced_key))
             reduced_map[reduced_key].append(cell)
 
         self.browser.logger.debug("response cell count: %s reduced to: %s" %

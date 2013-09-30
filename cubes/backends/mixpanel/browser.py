@@ -37,6 +37,8 @@ class MixpanelBrowser(AggregationBrowser):
         self.options = options
         self.logger = get_logger()
 
+        self.mapper = MixpanelMapper(cube)
+
     def aggregate(self, cell=None, measures=None, aggregates=None,
                   drilldown=None, split=None, **options):
 
@@ -191,7 +193,8 @@ class MixpanelBrowser(AggregationBrowser):
             params["type"] = _aggregate_param[aggregate]
 
             if aggregate == "unique" and (not time_level or time_level == "year"):
-                response = self._arb_funnels_request(event_name, params)
+                response = self._arb_funnels_request(event_name, params,
+                                                     drilldown_on)
             else:
                 response = self._segmentation_request(event_name, params,
                                                       mixpanel_unit)
@@ -256,7 +259,7 @@ class MixpanelBrowser(AggregationBrowser):
         self.logger.debug(response['data'])
         return response
 
-    def _arb_funnels_request(self, event_name, params):
+    def _arb_funnels_request(self, event_name, params, drilldown_on):
         """Perform Mixpanel request ``arb_funnels`` for measure `unique` with
         granularity of whole cube (all) or year."""
         params = dict(params)
@@ -268,7 +271,6 @@ class MixpanelBrowser(AggregationBrowser):
         response = self.store.request(["arb_funnels"], params)
 
         # TODO: remove this debug once satisfied (and below)
-        # from json import dumps
         # txt = dumps(response, indent=4)
         # self.logger.info("MXP response: \n%s" % (txt, ))
 
@@ -277,12 +279,23 @@ class MixpanelBrowser(AggregationBrowser):
 
         # Prepare the structure – only geys processed by the aggregator are
         # needed
-        group = event_name
-        result = { "data": {"values": {group:{}}} }
-        values = result["data"]["values"][group]
 
-        for date_key, data_point in response["data"].items():
-            values[date_key] = data_point["steps"][0]["count"]
+        try:
+            groups = response["meta"]["property_values"]
+            is_drilldown = True
+        except KeyError:
+            groups = event_name
+            is_drilldown = False
+
+        result = { "data": {"values": {} } }
+
+        for group in groups:
+            values = result["data"]["values"].setdefault(group, {})
+
+            point_key = group if is_drilldown else "steps"
+
+            for date_key, data_point in response["data"].items():
+                values[date_key] = data_point[point_key][0]["count"]
 
         # txt = dumps(result, indent=4)
         # self.logger.info("Converted response: \n%s" % (txt, ))
