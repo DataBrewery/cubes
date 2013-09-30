@@ -251,6 +251,10 @@ class ModelProvider(object):
 
         return options
 
+    def dimension_metadata(self, name):
+        """Returns a metadata dictionary for dimension `name`."""
+        return self.dimensions_metadata[name]
+
     def cube_metadata(self, name):
         """Returns a cube metadata by combining model's global metadata and
         cube's metadata. Merged metadata dictionaries: `browser_options`,
