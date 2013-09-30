@@ -236,10 +236,6 @@ class MeasuresTestsCase(CubesTestCaseBase):
         self.assertIsNone(aggregates[0].measure)
         self.assertIsNone(aggregates[0].expression)
 
-    def test_aggregate_missing_measure(self):
-        with self.assertRaisesRegexp(NoSuchAttributeError, "amount"):
-            self.cube("aggregate_missing_measure")
-
     def test_amount_sum(self):
         cube = self.cube("amount_sum")
         measures = cube.measures

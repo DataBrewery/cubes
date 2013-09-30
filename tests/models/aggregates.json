@@ -1,7 +1,7 @@
 {
     "cubes": [
         {
-            "name": "explicit_aggregates",
+            "name": "default",
             "dimensions": ["year"],
             "measures": [
                 {
@@ -26,43 +26,23 @@
             "fact": "facts"
         },
         {
-            "name": "implicit_aggregates",
+            "name": "postcalc_in_measure",
             "dimensions": ["year"],
             "measures": [
                 {
                     "name": "amount",
-                    "aggregates": ["sum", "min", "max", "sma"]
-                },
-                {
-                    "name": "price",
                     "aggregates": ["sum"]
-                },
-                {
-                    "name": "discount"
-                }
-            ],
-            "fact": "facts"
-        },
-        {
-            "name": "mixed_aggregates",
-            "dimensions": ["year"],
-            "measures": [
-                {
-                    "name": "amount",
-                    "aggregates": ["sum", "min", "max", "wma"]
-                },
-                {
-                    "name": "price",
-                    "aggregates": ["sum"]
-                },
-                {
-                    "name": "discount"
                 }
             ],
             "aggregates": [
                 {
                     "name": "count",
                     "function": "count"
+                },    
+                {
+                    "name": "amount_sma",
+                    "function": "sma",
+                    "measure": "amount_sum"
                 }    
             ],
             "fact": "facts"
@@ -79,6 +59,11 @@
         }
     ],
     "dimensions": [
-        { "name": "year" }
+        {
+            "name": "year",
+            "levels": [
+            {"name": "year", "info": {"aggregation_units": 4}}
+            ]
+        }
     ]
 }
