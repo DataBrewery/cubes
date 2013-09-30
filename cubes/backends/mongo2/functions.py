@@ -56,6 +56,7 @@ def get_aggregate_function(name):
     arguments: `aggregate` and `context`. When called returns a labelled
     SQL expression."""
 
+    name = name or "identity"
     return _aggregate_functions[name]
 
 def available_aggregate_functions():
