@@ -1566,7 +1566,7 @@ class AttributeBase(object):
     DESC = 'desc'
 
     def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, **kwargs):
+                 info=None, format=None, missing_value=None, **kwargs):
         """Base class for dimension attributes and measures.
 
         Attributes:
@@ -1592,6 +1592,7 @@ class AttributeBase(object):
         self.description = description
         self.info = info or {}
         self.format = format
+        self.missing_value = missing_value
         # TODO: temporarily preserved, this should be present only in
         # Attribute object, not all kinds of attributes
         self.dimension = None
@@ -1612,7 +1613,7 @@ class AttributeBase(object):
         return self.name
 
     def __repr__(self):
-        return str(self.to_dict())
+        return repr(self.to_dict())
 
     def __eq__(self, other):
         if not isinstance(other, AttributeBase):
@@ -1623,7 +1624,8 @@ class AttributeBase(object):
             and self.label == other.label \
             and self.info == other.info \
             and self.description == other.description \
-            and self.format == other.format
+            and self.format == other.format \
+            and self.missing_value == other.missing_value
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1642,6 +1644,7 @@ class AttributeBase(object):
         d["info"] = self.info
         d["format"] = self.format
         d["order"] = self.order
+        d["missing_value"] = self.missing_value
 
         d["ref"] = self.ref()
 
