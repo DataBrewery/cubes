@@ -74,6 +74,14 @@ class IgnoringDictionary(OrderedDict):
         """Sets `value` for `key` even if value is null."""
         super(IgnoringDictionary, self).__setitem__(key, value)
 
+    def __repr__(self):
+        items = []
+        for key, value in self.items():
+            item = '%s: %s' % (repr(key), repr(value))
+            items.append(item)
+
+        return "{%s}" % ", ".join(items)
+
 def assert_instance(obj, class_, label):
     """Raises ArgumentError when `obj` is not instance of `cls`"""
     if not isinstance(obj, class_):
