@@ -86,7 +86,7 @@ class AggregateFunction(object):
         expression = self.function(column, *self.args, **self.kwargs)
 
         if coalesce:
-            column = self.coalesce_aggregate(aggregate, expression)
+            expression = self.coalesce_aggregate(aggregate, expression)
 
         return expression
 
@@ -107,6 +107,7 @@ class SummaryCoalescingFunction(AggregateFunction):
         SQLAlchemy expression.  Default implementation does nothing."""
         # TODO: use aggregates's missing value
         return sql.functions.coalesce(value, 0)
+
 
 class GenerativeFunction(AggregateFunction):
     def __init__(self, name, function=None, *args, **kwargs):
