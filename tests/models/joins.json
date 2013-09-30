@@ -2,35 +2,50 @@
     "cubes": [
         {
             "name":"facts",
-            "dimensions": ["date"],
+            "dimensions": ["city"],
             "measures": [
                     "amount"
                 ],
             "joins": [
                 {
-                    "master": "facts.id_date",
-                    "detail": "dim_date.id",
+                    "master": "facts.id_city",
+                    "detail": "dim_city.id",
                     "method": "match"
                 }
             ]
         },
         {
             "name":"facts_master",
-            "dimensions": ["date"],
+            "dimensions": ["city"],
             "measures": [
                     "amount"
                 ],
             "joins": [
                 {
-                    "master": "facts.id_date",
-                    "detail": "dim_date.id",
+                    "master": "facts.id_city",
+                    "detail": "dim_city.id",
                     "method": "master"
                 }
             ],
             "fact": "facts"
         },
         {
-            "name":"facts_detail",
+            "name":"facts_detail_city",
+            "dimensions": ["city"],
+            "measures": [
+                    "amount"
+                ],
+            "joins": [
+                {
+                    "master": "facts.id_city",
+                    "detail": "dim_city.id",
+                    "method": "detail"
+                }
+            ],
+            "fact": "facts"
+        },
+        {
+            "name":"facts_detail_date",
             "dimensions": ["date"],
             "measures": [
                     "amount"
