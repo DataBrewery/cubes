@@ -117,7 +117,7 @@ _time_dimension = create_dimension(MXP_TIME_DIM_METADATA)
 _mxp_special_by_prop = dict((p["mxp_property"], p) for p in _mxp_special_list)
 _mxp_special_by_name = dict((p["name"], p) for p in _mxp_special_list)
 
-def _dimension_name(name):
+def _mangle_dimension_name(name):
     """Return a dimension name from a mixpanel property name."""
     # Try to find a special property and use prescribed name
     if name in _mxp_special_by_prop:
@@ -131,6 +131,20 @@ def _dimension_name(name):
     return fixed_name
 
 class MixpanelModelProvider(ModelProvider):
+    def __init__(self, *args, **kwargs):
+        super(MixpanelModelProvider, self).__init__(*args, **kwargs)
+
+        # Map properties to dimension (reverse mapping)
+        self.property_to_dimension = {}
+        mappings = self.metadata.get("mappings", {})
+        for dim_name in self.dimensions_metadata.keys():
+            try:
+                prop = mappings[dim_name]
+            except KeyError:
+                pass
+            else:
+                self.property_to_dimension[prop] = dim_name
+
     def requires_store(self):
         return True
 
@@ -152,29 +166,33 @@ class MixpanelModelProvider(ModelProvider):
         if not result:
             raise NoSuchCubeError(name)
 
-        dim_names = result.keys()
-
         options = self.cube_options(name)
         allowed_dims = options.get("allowed_dimensions", [])
         denied_dims = options.get("denied_dimensions", [])
 
-        dim_names = []
-        for dim_name in result.keys():
+        properties = []
+        for prop in result.keys():
             if not allowed_dims and not denied_dims:
-                dim_names.append(dim_name)
-            elif (allowed_dims and dim_name in allowed_dims) or \
-                    (denied_dims and dim_name not in denied_dims):
-                dim_names.append(dim_name)
+                properties.append(prop)
+            elif (allowed_dims and prop in allowed_dims) or \
+                    (denied_dims and prop not in denied_dims):
+                properties.append(prop)
 
         # Replace $ with underscore _
         dims = ["time"]
+
         mappings = {}
 
-        for dim_name in dim_names:
-            fixed_name = _dimension_name(dim_name)
-            if fixed_name != dim_name:
-                mappings[fixed_name] = dim_name
-            dims.append(fixed_name)
+        for prop in properties:
+            try:
+                dim_name = self.property_to_dimension[prop]
+            except KeyError:
+                dim_name = _mangle_dimension_name(prop)
+
+            if dim_name != prop:
+                mappings[dim_name] = prop
+
+            dims.append(dim_name)
 
         aggregates = aggregate_list(MXP_AGGREGATES_METADATA)
 
@@ -185,7 +203,6 @@ class MixpanelModelProvider(ModelProvider):
                     mappings=mappings,
                     category=self.store.category)
 
-        self.store.logger.debug("-- cube aggs: %s" % (cube.aggregates, ))
         # TODO: required_drilldowns might be a cube's attribute (fixed_dd?)
         cube.info = {
             "required_drilldowns": ["time"]
@@ -197,11 +214,14 @@ class MixpanelModelProvider(ModelProvider):
         if name == "time":
             return _time_dimension
 
-        # Try to get a special dimension
         try:
-            metadata = _mxp_special_by_name[name]
+            metadata = self.dimension_metadata(name)
         except KeyError:
-            metadata = {"name": name}
+            # Try to get default version of a special dimension
+            try:
+                metadata = _mxp_special_by_name[name]
+            except KeyError:
+                metadata = {"name": name}
 
         return create_dimension(metadata)
 
