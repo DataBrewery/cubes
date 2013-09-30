@@ -297,29 +297,7 @@ class SnowflakeBrowser(AggregationBrowser):
         if not cell:
             cell = Cell(self.cube)
 
-        # TODO: add documentation
-
-        # Coalesce measures - make sure that they are Attribute objects, not
-        # strings. Strings are converted to corresponding Cube measure
-        # attributes
-        # TODO: perhaps we might merge (without duplicates)
-        if aggregates and measures:
-            raise ArgumentError("Only aggregates or measures can be "
-                                "specified, not both")
-        if aggregates:
-            aggregates = self.cube.get_aggregates(aggregates)
-        elif measures:
-            aggregates = []
-            for measure in measures:
-                aggregates += self.cube.aggregates_for_measure(measure)
-        else:
-            # If no aggregate is specified, then all are used
-            aggregates = self.cube.aggregates
-
-        if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty. If "
-                                "you used measures, check their aggregates.")
-
+        aggregates = self.prepare_aggregates(aggregates, measures)
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
         if include_summary or \
