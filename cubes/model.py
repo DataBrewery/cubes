@@ -413,7 +413,7 @@ class Cube(object):
         during cube initialization in `dimensions` by providing a list of
         `Dimension` objects. Alternatively you can set `linked_dimensions`
         list with dimension names and the link the dimension using
-        :meth:`Cube.add_dimension()`.
+        :meth:`cubes.Cube.add_dimension()`.
 
         Physical properties of the cube are described in the following
         attributes. They are used by the backends:
@@ -426,9 +426,9 @@ class Cube(object):
         * `fact` - fact table (collection, dataset, ...) name
         * `datastore` - name of datastore where the cube belongs
         * `browser_options` - dictionary of other options used by the backend
-          - refer to the backend documentation to see what options are used
-            (for example SQL browser might look here for ``denormalized_view``
-            in case of denormalized browsing)
+           - refer to the backend documentation to see what options are used
+           (for example SQL browser might look here for ``denormalized_view``
+           in case of denormalized browsing)
         """
 
         self.name = name
@@ -901,21 +901,6 @@ class Dimension(object):
     def attribute(self, reference):
         """Get dimension attribute from `reference`."""
         return self._attributes[str(reference)]
-
-    @property
-    def default_hierarchy(self):
-        """Get default hierarchy specified by ``default_hierarchy_name``, if
-        the variable is not set then get a hierarchy with name *default*
-
-        .. warning::
-
-            Depreciated. Use `Dimension.hierarchy()` instead.
-
-        """
-        logger = get_logger()
-        logger.warn("Dimension.default_hierarchy is depreciated, use "
-                    "hierarchy() instead")
-        return self._default_hierarchy()
 
     def _default_hierarchy(self):
         """Get default hierarchy specified by ``default_hierarchy_name``, if
@@ -1567,7 +1552,8 @@ class AttributeBase(object):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, **kwargs):
-        """Base class for dimension attributes and measures.
+        """Base class for dimension attributes, measures and measure
+        aggregates.
 
         Attributes:
 
@@ -1581,6 +1567,10 @@ class AttributeBase(object):
           application/front-end specific information
         * `format` - application-specific display format information, useful
           for formatting numeric values of measure attributes
+        * `missing_value` – value to be used when there is no value (``NULL``)
+          in the data source. Support of this attribute property depends on the
+          backend. Please consult the backend documentation for more
+          information.
 
         String representation of the `AttributeBase` returns its `name`.
 
@@ -1668,7 +1658,7 @@ class Attribute(AttributeBase):
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, dimension=None, locales=None,
                  **kwargs):
-        """Dimension attribute.
+        """Dimension attribute object. Also used as fact detail.
 
         Attributes:
 
@@ -1728,11 +1718,6 @@ class Attribute(AttributeBase):
         attribute's locales, otherwise raise `cubes.ArgumentError`. If
         `simplify` is ``True``, then reference to an attribute of flat
         dimension without details will be just the dimension name.
-
-        .. warning::
-
-            This method might be renamed.
-
         """
         if locale:
             if not self.locales:
@@ -1838,7 +1823,8 @@ class Measure(AttributeBase):
         """Creates default measure aggregates from a list of receiver's
         measures. This is just a convenience function, correct models should
         contain explicit list of aggregates. If no aggregates are specified,
-        then the only aggregate `sum` is assumed."""
+        then the only aggregate `sum` is assumed.
+        """
 
         aggregates = []
 
@@ -1896,8 +1882,8 @@ class MeasureAggregate(AttributeBase):
         * `function` – aggregation function for the measure
         * `formula` – name of a formula that contains the arithemtic
           expression (optional)
-        * `measure` – measure for this aggregate (optional)
-        * `expression` – arithmetic expression
+        * `measure` – measure name for this aggregate (optional)
+        * `expression` – arithmetic expression (only if bacend supported)
         """
 
         super(MeasureAggregate, self).__init__(name=name, label=label,

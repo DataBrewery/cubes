@@ -68,6 +68,8 @@ Get model of a cube `name`. Returned structure is a dictionary with keys:
 * ``info`` – a dictionary with additional metadata that can be used in the
     front-end. The contents of this dictionary is defined by the model
     creator and interpretation of values is left to the consumer.
+* ``features`` (advanced) – a dictionary with features of the browser, such as
+  available actions for the cube ("is fact listing possible?")
 
 Aggregate is the key numerical property of the cube from reporting
 perspective. It is described as a dictionary with keys:

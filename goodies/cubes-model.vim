@@ -28,6 +28,7 @@ syn match Keyword "\"template\"" display
 syn match Keyword "\"name\"" display
 syn match Keyword "\"label\"" display
 syn match Keyword "\"description\"" display
+syn match Keyword "\"category\"" display
 syn match Keyword "\"key\"" display
 syn match Keyword "\"label_attribute\"" display
 syn match Keyword "\"order_attribute\"" display
