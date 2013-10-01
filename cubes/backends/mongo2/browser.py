@@ -2,7 +2,7 @@ from ...common import get_logger
 from ...errors import *
 from ...browser import *
 from ...computation import *
-from ...statutils import *
+from ...statutils import calculators_for_aggregates, available_calculators
 from cubes import statutils
 from .mapper import MongoCollectionMapper, coalesce_physical
 from .datesupport import DateSupport
@@ -57,6 +57,18 @@ class Mongo2Browser(AggregationBrowser):
 
         self.datesupport = DateSupport(self.logger, self.timezone, options.get('week_start_weekday'))
 
+
+    def features(self):
+        """Return SQL features."""
+
+        features = {
+            # TODO: missing "cell"
+            "actions": ["aggregate", "members", "fact", "facts"],
+            "aggregate_functions": available_aggregate_functions(),
+            "post_aggregate_functions": available_calculators()
+        }
+
+        return features
 
     def set_locale(self, locale):
         self.mapper.set_locale(locale)

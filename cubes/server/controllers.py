@@ -206,7 +206,12 @@ class ModelController(ApplicationController):
 
     def get_cube(self, cube_name):
         cube = self.workspace.cube(cube_name)
-        return self.json_response(self._cube_dict(cube))
+
+        # Attach cube features
+        response = self._cube_dict(cube)
+        response["features"] = self.workspace.cube_features(cube)
+
+        return self.json_response(response)
 
     _cached_cubes_list = None
     def list_cubes(self):

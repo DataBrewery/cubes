@@ -1,4 +1,3 @@
-
 # -*- coding=utf -*-
 
 from collections import namedtuple

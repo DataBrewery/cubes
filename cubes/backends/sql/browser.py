@@ -3,7 +3,7 @@
 
 from ...browser import *
 from ...common import get_logger
-from ...statutils import calculators_for_aggregates, CALCULATED_AGGREGATIONS
+from ...statutils import calculators_for_aggregates, available_calculators
 from ...errors import *
 from .mapper import SnowflakeMapper, DenormalizedMapper
 from .mapper import DEFAULT_KEY_FIELD
@@ -108,6 +108,19 @@ class SnowflakeBrowser(AggregationBrowser):
         self.options = options
         self.context = QueryContext(self.cube, self.mapper,
                                     metadata=self.metadata, **self.options)
+
+    def features(self):
+        """Return SQL features. Currently they are all the same for every
+        cube, however in the future they might depend on the SQL engine or
+        other factors."""
+
+        features = {
+            "actions": ["aggregate", "members", "fact", "facts", "cell"],
+            "aggregate_functions": available_aggregate_functions(),
+            "post_aggregate_functions": available_calculators()
+        }
+
+        return features
 
     def set_locale(self, locale):
         """Change the browser's locale"""
@@ -329,6 +342,8 @@ class SnowflakeBrowser(AggregationBrowser):
         # Note that a split cell if present prepends a drilldown
         ##
 
+        # FIXME: this is the exact code as in the Mongo browser - put it into a
+        # separate method and share
         # TODO: Use Drilldown class
         if drilldown or split:
             drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else [])
@@ -731,7 +746,7 @@ class QueryContext(object):
         try:
             function = get_aggregate_function(function_name)
         except KeyError:
-            if not function_name in CALCULATED_AGGREGATIONS:
+            if not function_name in available_calculators():
                 raise ArgumentError("Unknown aggregate function %s "
                                     "for aggregate %s" % \
                                     (function_name, str(aggregate)))
