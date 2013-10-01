@@ -5,7 +5,8 @@ from .errors import *
 
 __all__ = [
         "CALCULATED_AGGREGATIONS",
-        "calculators_for_aggregates"
+        "calculators_for_aggregates",
+        "available_calculators"
 ]
 
 def calculators_for_aggregates(aggregates, drilldown_levels=None, split=None,
@@ -182,4 +183,8 @@ CALCULATED_AGGREGATIONS = {
     "sma": simple_moving_average_factory,
     "wma": weighted_moving_average_factory
 }
+
+def available_calculators():
+    """Returns a list of available calculators."""
+    return CALCULATED_AGGREGATIONS.keys()
 
