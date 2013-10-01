@@ -40,7 +40,8 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         
         return reply            
                 
-    def aggregate(self, cell, measures = None, drilldown = None, split=None, **kwargs):
+    def aggregate(self, cell, measures = None, drilldown = None, split=None, 
+	          page=None, page_size=None, order=None, **kwargs):
         import pdb; pdb.set_trace()
         
         cut_string = cubes.browser.string_from_cuts(cell.cuts)
@@ -55,20 +56,29 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
                 
         if split:
             params.append( ('split', str(split)) ) 
-            levels[cubes.browser.SPLIT_DIMENSION_NAME] = cubes.browser.SPLIT_DIMENSION_NAME
 
         if measures:
             for m in measures:
                 params.append( ("measure", str(m)) )
                     
+	if order is not None:
+	    params.append( ("order", str(order)) )
+	if page is not None:
+	    params.append( ("page", str(page)) )
+	if page_size is not None:
+	    params.append( ("page_size", str(page_size)) )
+
+
         url = self.baseurl + "/aggregate?" + urllib.urlencode(params)
         
         reply = self.request(url)
         result = cubes.browser.AggregationResult()
         result.cells = reply.get('cells', [])
+	result.levels = reply.get('levels', {})
+	result.cell = cell.to_dict()
+	result.measures = reply.get('measures', [])
         if ( reply.get('summary') ):
             result.summary = reply.get('summary')
-        # TODO other things like levels, etc.
 
         return result
         
