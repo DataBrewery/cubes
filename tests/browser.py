@@ -164,7 +164,7 @@ class AggregationBrowserTestCase(BrowserTestCase):
         self.browser = AggregationBrowser(self.cube)
 
     def test_cutting(self):
-        full_cube = self.browser.full_cube()
+        full_cube = Cell(self.cube)
         self.assertEqual(self.cube, full_cube.cube)
         self.assertEqual(0, len(full_cube.cuts))
 
@@ -181,7 +181,7 @@ class AggregationBrowserTestCase(BrowserTestCase):
         self.assertEqual(3, len(cell.cuts))
 
     def test_multi_slice(self):
-        full_cube = self.browser.full_cube()
+        full_cube = Cell(self.cube)
 
         cuts_list = (
             PointCut("date", [2010]),
@@ -194,7 +194,7 @@ class AggregationBrowserTestCase(BrowserTestCase):
         self.assertRaises(CubesError, full_cube.multi_slice, {})
 
     def test_get_cell_dimension_cut(self):
-        full_cube = self.browser.full_cube()
+        full_cube = Cell(self.cube)
         cell = full_cube.slice(PointCut("date", [2010]))
         cell = cell.slice(PointCut("supplier", [1234]))
 
