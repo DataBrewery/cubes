@@ -39,6 +39,19 @@ class MixpanelBrowser(AggregationBrowser):
 
         self.mapper = MixpanelMapper(cube)
 
+    def features(self):
+        """Return SQL features. Currently they are all the same for every
+        cube, however in the future they might depend on the SQL engine or
+        other factors."""
+
+        features = {
+            "actions": ["aggregate"],
+            "aggregate_functions": [],
+            "post_aggregate_functions": available_calculators()
+        }
+
+        return features
+
     def aggregate(self, cell=None, measures=None, aggregates=None,
                   drilldown=None, split=None, **options):
 

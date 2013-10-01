@@ -242,7 +242,24 @@ class Workspace(object):
         return store_name
 
     def add_model(self, model, name=None, store=None, translations=None):
-        """Appends objects from the `model`."""
+        """Registers the `model` in the workspace. `model` can be a metadata
+        dictionary, filename, path to a model bundle directory or a URL.
+
+        If `name` is specified, then it is used instead of name in the
+        model. `store` is an optional name of data store associated with the
+        model.
+
+        Model is added to the list of workspace models. Model provider is
+        determined and associated with the model. Provider is then asked to
+        list public cubes and public dimensions which are registered in the
+        workspace.
+
+        No actual cubes or dimensions are created at the time of calling this
+        method. The creation is deffered until :meth:`cubes.Workspace.cube` or
+        :meth:`cubes.Workspace.dimension` is called.
+
+        """
+
 
         # Model -> Store -> Provider
 
@@ -325,6 +342,10 @@ class Workspace(object):
         .. note::
 
             Master model should not be edited by hand for now.
+
+        .. note::
+
+            Avoid using this method.
         """
 
         master_model = {}
@@ -378,6 +399,7 @@ class Workspace(object):
         self.link_cube(cube, model, provider)
 
         self._cubes[name] = cube
+
         return cube
 
     def _model_for_cube(self, name):
@@ -522,6 +544,13 @@ class Workspace(object):
                                  locale=locale, **options)
 
         return browser
+
+    def cube_features(self, cube):
+        """Returns browser features for `cube`"""
+        # TODO: this might be expensive, make it a bit cheaper
+        # recycle the feature-providing browser or something. Maybe use class
+        # method for that
+        return self.browser(cube).features()
 
     def get_store(self, name="default"):
         """Opens a store `name`. If the store is already open, returns the
