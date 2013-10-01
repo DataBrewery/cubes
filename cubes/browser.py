@@ -55,16 +55,32 @@ class AggregationBrowser(object):
 
     """
 
-    features = []
     """List of browser features as strings."""
 
     def __init__(self, cube, store=None, locale=None, metadata=None, **options):
+        """Creates and initializes the aggregation browser. Subclasses should
+        override this method. """
         super(AggregationBrowser, self).__init__()
 
         if not cube:
             raise ArgumentError("No cube given for aggregation browser")
 
         self.cube = cube
+
+    def features(self):
+        """Returns a dictionary of available features for the browsed cube.
+        Default implementation returns an empty dictionary.
+
+        Standard keys that might be present:
+
+        * `actions` – list of actions that can be done with the cube, such as
+          ``facts``, ``aggregate``, ``members``, ...
+        * `post_processed_aggregates` – list of aggregates that are computed
+          after the result is fetched from the source (not natively).
+
+        Subclasses are advised to override this method.
+        """
+        return {}
 
     def aggregate(self, cell=None, aggregates=None, drilldown=None,
                   split=None, measures=None, **options):
