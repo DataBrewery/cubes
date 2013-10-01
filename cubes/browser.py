@@ -66,12 +66,6 @@ class AggregationBrowser(object):
 
         self.cube = cube
 
-    def full_cube(self):
-        # FIXME: Depreciate this method in favor of Cell(cube)
-        logger = get_logger()
-        logger.warn("browser.full_cube() is depreciated, use Cell(cube)")
-        return Cell(self.cube)
-
     def aggregate(self, cell=None, aggregates=None, drilldown=None,
                   split=None, measures=None, **options):
 
