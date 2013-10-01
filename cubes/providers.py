@@ -19,6 +19,7 @@ __all__ = [
     "read_model_metadata_bundle",
     "create_model_provider",
     "ModelProvider",
+    "StaticModelProvider",
 
     # FIXME: Depreciated
     "load_model",
@@ -36,6 +37,7 @@ def create_model_provider(name, metadata):
     # FIXME: depreciated. affected: formatter.py
         ns = initialize_namespace("model_providers", root_class=ModelProvider,
                                   suffix="_model_provider")
+        ns["default"] = StaticModelProvider
 
     try:
         factory = ns[name]
@@ -82,7 +84,16 @@ def read_model_metadata(source):
 
 def read_model_metadata_bundle(path):
     """Load logical model a directory specified by `path`.  Returns a model
-    description dictionary."""
+    description dictionary. Model directory bundle has structure:
+
+    * ``model.cubesmodel/``
+        * ``model.json``
+        * ``dim_*.json``
+        * ``cube_*.json``
+
+    The dimensions and cubes lists in the ``model.json`` are concatenated with
+    dimensions and cubes from the separate files.
+    """
 
     if not os.path.isdir(path):
         raise ArgumentError("Path '%s' is not a directory.")
@@ -189,8 +200,8 @@ class ModelProvider(object):
     providers."""
 
     def __init__(self, metadata=None):
-        """Initializes a model provider and sets `metadata` – a model metadata
-        dictionary.
+        """Base class for model providers. Initializes a model provider and
+        sets `metadata` – a model metadata dictionary.
 
         Instance variable `store` might be populated after the
         initialization. If the model provider requires an open store, it
@@ -201,10 +212,13 @@ class ModelProvider(object):
         Subclasses should call this method at the beginning of the custom
         `__init__()`.
 
-
         If a model provider subclass has a metadata that should be pre-pended
         to the user-provided metadta, it should return it in
         `default_metadata()`.
+
+        Subclasses should implement at least: :meth:`cubes.ModelProvider.cube`,
+        :meth:`cubes.ModelProvider.dimension` and
+        :meth:`cubes.ModelProvider.list_cubes`
         """
 
         self.store = None
@@ -415,6 +429,8 @@ class ModelProvider(object):
 
         The list is fetched from the model providers on the call of this
         method.
+
+        Subclassees should implement this method.
         """
         raise NotImplementedError("Subclasses should implement list_cubes()")
         return []
@@ -425,7 +441,10 @@ class ModelProvider(object):
 
         Returned cube has no dimensions assigned. You should assign the
         dimensions according to the cubes `linked_dimensions` list of
-        dimension names."""
+        dimension names.
+
+        Subclassees should implement this method.
+        """
         raise NotImplementedError("Subclasses should implement cube() method")
 
     def dimension(self, name, dimensions=[]):
@@ -437,16 +456,23 @@ class ModelProvider(object):
         argument.
 
         If the receiver does not provide the dimension `NoSuchDimension`
-        exception is raised."""
+        exception is raised.
+
+        Subclassees should implement this method.
+        """
         raise NotImplementedError("Subclasses are required to implement this")
 
 
-class DefaultModelProvider(ModelProvider):
+class StaticModelProvider(ModelProvider):
 
     dynamic_cubes = False
     dynamic_dimensions = False
 
+    def __init__(self, *args, **kwargs):
+        super(StaticModelProvider, self).__init__(*args, **kwargs)
+
     def list_cubes(self):
+        """Returns a list of cubes from the metadata."""
         cubes = []
 
         for cube in self.metadata.get("cubes", []):
