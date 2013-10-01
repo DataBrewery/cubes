@@ -6,11 +6,12 @@ Cubes workspace configuration is stored in a ``.ini`` file with sections:
 
 * ``[workspace]`` – Cubes workspace configuration
 * ``[server]`` - server related configuration, such as host, port
-* ``[model]`` - model and cube configuration
+* ``[models]`` - list of models to be loaded 
 * ``[datastore]`` – default datastore configuration
 * ``[translations]`` - model translation files, option keys in this section
   are locale names and values are paths to model translation files. See
   :doc:`localization` for more information.
+* ``[model]`` (depreciated) - model and cube configuration
 
 .. note::
 
@@ -22,6 +23,36 @@ Workspace
 =========
 
 * ``stores`` – path to a file containing store descriptions
+* ``models_path`` – path to a directory containing models. If this is set to
+  non-empty value, then all model paths specified in ``[models]`` are prefixed
+  with this path
+
+Models
+======
+
+Section ``[models]`` contains list of models. The property names are model
+identifiers within the configuration (see ``[translations]`` for example) and
+the values are paths to model files.
+
+Example::
+
+    [models]
+    main: model.json
+    mixpanel: mixpanel.json
+
+If root ``models_path`` is specified in ``[workspace]`` then the relative
+model paths are combined with the root. Example::
+
+    [workspace]
+    models_path: /dwh/cubes/models
+
+    [models]
+    main: model.json
+    events: events.json
+
+The models are loaded from ``/dwh/cubes/models/model.json`` and
+``/dwh/cubes/models/events.json``.
+
 
 Server
 ======
