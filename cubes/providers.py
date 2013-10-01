@@ -215,7 +215,9 @@ class ModelProvider(object):
         for cube in metadata.get("cubes", []):
             self.cubes_metadata[cube["name"]] = cube
 
+        # TODO: decide which one to use
         self.options = metadata.get("options", {})
+        self.options.update(metadata.get("browser_options", {}))
 
     def requires_store(self):
         """Return `True` if the provider requires a store. Subclasses might
@@ -247,7 +249,9 @@ class ModelProvider(object):
         options = dict(self.options)
         if cube_name in self.cubes_metadata:
             cube = self.cubes_metadata[cube_name]
+            # TODO: decide which one to use
             options.update(cube.get("options", {}))
+            options.update(cube.get("browser_options", {}))
 
         return options
 
