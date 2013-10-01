@@ -200,15 +200,18 @@ class MixpanelModelProvider(ModelProvider):
 
         aggregates = aggregate_list(MXP_AGGREGATES_METADATA)
 
+        label = metadata.get("label", capwords(name.replace("_", " ")))
+        category = metadata.get("category", self.store.category)
+
         cube = Cube(name=name,
                     aggregates=aggregates,
-                    label=metadata.get("label"),
-                    description=metadata.get("description"),
+                    label=label,
+                    description=category,
                     info=metadata.get("info"),
                     linked_dimensions=dims,
                     datastore=self.store_name,
                     mappings=mappings,
-                    category=self.store.category)
+                    category=category)
 
         # TODO: required_drilldowns might be a cube's attribute (fixed_dd?)
         cube.info = {
@@ -237,11 +240,18 @@ class MixpanelModelProvider(ModelProvider):
         cubes = []
 
         for name in result:
-            label = capwords(name.replace("_", " "))
+            try:
+                metadata = self.cube_metadata(name)
+            except ModelError:
+                metadata = {}
+
+            label = metadata.get("label", capwords(name.replace("_", " ")))
+            category = metadata.get("category", self.store.category)
+
             cube = {
                 "name": name,
                 "label": label,
-                "category":  self.store.category
+                "category": category
             }
             cubes.append(cube)
 
