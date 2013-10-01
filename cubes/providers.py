@@ -198,26 +198,79 @@ class ModelProvider(object):
         `requires_store()` method.  Otherwise no store is opened for the model
         provider. `store_name` is also set.
 
-        Subclasses should call this method when they are implementing custom
+        Subclasses should call this method at the beginning of the custom
         `__init__()`.
+
+
+        If a model provider subclass has a metadata that should be pre-pended
+        to the user-provided metadta, it should return it in
+        `default_metadata()`.
         """
 
-        self.metadata = metadata
         self.store = None
         self.store_name = None
 
+        # Get provider's defaults and pre-pend it to the user provided
+        # metadtata.
+        defaults = self.default_metadata()
+        self.metadata = self._merge_metadata(defaults, metadata)
+
         # TODO: check for duplicates
         self.dimensions_metadata = {}
-        for dim in metadata.get("dimensions", []):
+        for dim in self.metadata.get("dimensions", []):
             self.dimensions_metadata[dim["name"]] = dim
 
         self.cubes_metadata = {}
-        for cube in metadata.get("cubes", []):
+        for cube in self.metadata.get("cubes", []):
             self.cubes_metadata[cube["name"]] = cube
 
         # TODO: decide which one to use
-        self.options = metadata.get("options", {})
-        self.options.update(metadata.get("browser_options", {}))
+        self.options = self.metadata.get("options", {})
+        self.options.update(self.metadata.get("browser_options", {}))
+
+    def _merge_metadata(self, metadata, other):
+        """See `default_metadata()` for more information."""
+
+        metadata = dict(metadata)
+        other = dict(other)
+
+        cubes = metadata.pop("cubes", []) + other.pop("cubes", [])
+        if cubes:
+            metadata["cubes"] = cubes
+
+        dims = metadata.pop("dimensions", []) + other.pop("dimensions", [])
+        if dims:
+            metadata["dimensions"] = dims
+
+        joins = metadata.pop("joins", []) + other.pop("joins",[])
+        if joins:
+            metadata["joins"] = joins
+
+        mappings = metadata.pop("mappings", {})
+        mappings.update(other.pop("mappings", {}))
+        if mappings:
+            metadata["mappings"] = mappings
+
+        metadata.update(other)
+
+        return metadata
+
+    def default_metadata(self, metadata=None):
+        """Returns metadata that are prepended to the provided model metadata.
+        `metadata` is user-provided metadata and might be used to decide what
+        kind of default metadata are returned.
+
+        The metadata are merged as follows:
+
+        * cube lists are concatenated (no duplicity checking)
+        * dimension lists are concatenated (no duplicity checking)
+        * joins are concatenated
+        * default mappings are updated with the model's mappings
+
+        Default implementation returns empty metadata.
+        """
+
+        return {}
 
     def requires_store(self):
         """Return `True` if the provider requires a store. Subclasses might
