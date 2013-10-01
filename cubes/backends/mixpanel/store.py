@@ -8,6 +8,7 @@ from ...providers import ModelProvider
 from .mixpanel import *
 from string import capwords
 from cubes.common import get_logger
+import pkgutil
 
 DIMENSION_COUNT_LIMIT = 100
 
@@ -55,78 +56,12 @@ MXP_AGGREGATES_METADATA = [
 ]
 
 
-_mxp_special_list = [
-    {
-        "name": "initial_referrer",
-        "mxp_property": "$initial_referrer",
-        "label": "Initial Referrer",
-        "description": "The first referrer the user came from ever"
-    },
-    {
-        "name": "initial_referring_domain",
-        "mxp_property": "$initial_referring_domain",
-        "label": "Initial Referring domain",
-        "description": "The first referring domain the user came from ever"
-    },
-    {
-        "name": "search_engine",
-        "mxp_property": "$search_engine",
-        "label": "Search Engine",
-        "description": "The search engine a user came from"
-    },
-    {
-        "name": "mp_keyword",
-        "mxp_property": "mp_keyword",
-        "label": "Search Keyword",
-        "description": "The search keyword the user used to get to your website"
-    },
-    {
-        "name": "os",
-        "mxp_property": "$os",
-        "label": "Operating System",
-        "description": "The operating system of the user"
-    },
-    {
-        "name": "browser",
-        "mxp_property": "$browser",
-        "label": "Browser",
-        "description": "The browser of the user"
-    },
-    {
-        "name": "referrer",
-        "mxp_property": "$referrer",
-        "label": "Referrer",
-        "description": "The current referrer of the user"
-    },
-    {
-        "name": "referring_domain",
-        "mxp_property": "$referring_domain",
-        "label": "Referring Domain",
-        "description": "The current referring domain of the user"
-    },
-    {
-        "name": "mp_country_code",
-        "mxp_property": "mp_country_code",
-        "label": "Country Code",
-        "description": "A two letter country code representing the geolocation of the user"
-    }
-]
-
 _time_dimension = create_dimension(MXP_TIME_DIM_METADATA)
-
-_mxp_special_by_prop = dict((p["mxp_property"], p) for p in _mxp_special_list)
-_mxp_special_by_name = dict((p["name"], p) for p in _mxp_special_list)
 
 def _mangle_dimension_name(name):
     """Return a dimension name from a mixpanel property name."""
-    # Try to find a special property and use prescribed name
-    if name in _mxp_special_by_prop:
-        fixed_name = _mxp_special_by_prop[name]["name"]
-    else:
-        # If there is no special property, then just replace all $ and spaces
-        # with an underscore
-        fixed_name = name.replace("$", "_")
-        fixed_name = fixed_name.replace(" ", "_")
+    fixed_name = name.replace("$", "_")
+    fixed_name = fixed_name.replace(" ", "_")
 
     return fixed_name
 
@@ -144,6 +79,14 @@ class MixpanelModelProvider(ModelProvider):
                 pass
             else:
                 self.property_to_dimension[prop] = dim_name
+
+    def default_metadata(self, metadata=None):
+        """Return Mixpanel's default metadata."""
+
+        model = pkgutil.get_data("cubes.backends.mixpanel", "mixpanel_model.json")
+        metadata = json.loads(model)
+
+        return metadata
 
     def requires_store(self):
         return True
@@ -227,11 +170,7 @@ class MixpanelModelProvider(ModelProvider):
         try:
             metadata = self.dimension_metadata(name)
         except KeyError:
-            # Try to get default version of a special dimension
-            try:
-                metadata = _mxp_special_by_name[name]
-            except KeyError:
-                metadata = {"name": name}
+            metadata = {"name": name}
 
         return create_dimension(metadata)
 
