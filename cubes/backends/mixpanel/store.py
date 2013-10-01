@@ -170,28 +170,28 @@ class MixpanelModelProvider(ModelProvider):
         if not result:
             raise NoSuchCubeError(name)
 
+        try:
+            metadata = self.cube_metadata(name)
+        except ModelError:
+            metadata = {}
+
         options = self.cube_options(name)
         allowed_dims = options.get("allowed_dimensions", [])
         denied_dims = options.get("denied_dimensions", [])
 
-        properties = []
-        for prop in result.keys():
-            if not allowed_dims and not denied_dims:
-                properties.append(prop)
-            elif (allowed_dims and prop in allowed_dims) or \
-                    (denied_dims and prop not in denied_dims):
-                properties.append(prop)
-
-        # Replace $ with underscore _
         dims = ["time"]
-
         mappings = {}
 
-        for prop in properties:
+        for prop in result.keys():
             try:
                 dim_name = self.property_to_dimension[prop]
             except KeyError:
                 dim_name = _mangle_dimension_name(prop)
+
+            # Skip not allowed dimensions
+            if (allowed_dims and dim_name not in allowed_dims) or \
+                    (denied_dims and dim_name in denied_dims):
+                continue
 
             if dim_name != prop:
                 mappings[dim_name] = prop
@@ -202,6 +202,9 @@ class MixpanelModelProvider(ModelProvider):
 
         cube = Cube(name=name,
                     aggregates=aggregates,
+                    label=metadata.get("label"),
+                    description=metadata.get("description"),
+                    info=metadata.get("info"),
                     linked_dimensions=dims,
                     datastore=self.store_name,
                     mappings=mappings,
