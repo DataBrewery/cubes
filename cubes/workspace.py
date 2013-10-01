@@ -69,6 +69,15 @@ class Workspace(object):
 
         self.logger = get_logger()
 
+        if config.has_option("workspace", "log"):
+            formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
+            handler = logging.FileHandler(config.get("workspace", "log"))
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+
+        if config.has_option("workspace", "log_level"):
+            self.logger.setLevel(config.get("workspace", "log_level").upper())
+
         self.locales = []
         self.translations = []
 
@@ -229,8 +238,6 @@ class Workspace(object):
             store_name = metadata["info"].get("datastore")
 
         store_name = store_name or "default"
-
-        self.logger.debug("Using store '%s'" % store_name)
 
         return store_name
 
