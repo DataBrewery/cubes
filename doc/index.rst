@@ -26,7 +26,7 @@ Contents:
    configuration
    server
    slicer
-   api/index
+   reference/index
    backends
    develop
    notes

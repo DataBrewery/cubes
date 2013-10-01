@@ -328,7 +328,7 @@ New Features
 ------------
 
 * To address issue #8 create_model(dict) was added as replacement for
-  Model(**dict). Model() from now on will expect correctly constructed model
+  Model(dict). Model() from now on will expect correctly constructed model
   objects. `create_model()` will be able to handle various simplifications and
   defaults during the construction process.
 * added `info` attribute to all model objects. It can be used to store custom,
