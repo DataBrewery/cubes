@@ -17,8 +17,9 @@ setup(
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        'cubes': ['templates/*.html', 'templates/*.js'],
-        'cubes.server': ['templates/*.html']
+        'cubes': [ 'templates/*.html', 'templates/*.js' ],
+        'cubes.server': ['templates/*.html'],
+        'cubes.backends.mixpanel': ['*.json']
     },
 
     scripts = ['bin/slicer'],
