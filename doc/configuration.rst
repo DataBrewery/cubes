@@ -2,6 +2,7 @@
 Configuration
 +++++++++++++
 
+
 Cubes workspace configuration is stored in a ``.ini`` file with sections:
 
 * ``[workspace]`` – Cubes workspace configuration
@@ -18,6 +19,18 @@ Cubes workspace configuration is stored in a ``.ini`` file with sections:
     The configuration has changed. Since Cubes supports multiple data stores,
     their type (backend) is specifien in the datastore configuration as
     ``type`` property, for example ``type=sql``.
+
+Quick Start
+===========
+
+Simple configuration might look like this::
+
+    [workspace]
+    model: model.json
+
+    [datastore]
+    type: sql
+    url: postgresql://localhost/database
 
 Workspace
 =========
@@ -75,6 +88,11 @@ Server
 Model
 =====
 
+.. note::
+
+    This section is depreciated. Use `model` in ``[workspace]`` for single
+    model file or ``[models]`` for multiple models.
+
 * ``path`` - path to model .json file
 * ``locales`` - comma separated list of locales the model is provided in. 
     Currently this variable is optional and it is used only by experimental 
@@ -129,6 +147,9 @@ Example
 
 Example configuration file::
 
+    [workspace]
+    model: ~/models/contracts_model.json
+
     [server]
     reload: yes
     log: /var/log/cubes.log
@@ -138,10 +159,3 @@ Example configuration file::
     type: sql
     url: postgresql://localhost/data
     schema: cubes
-
-    [model]
-    path: ~/models/contracts_model.json
-    locales: en,sk
-
-    [translations]
-    sk: ~/models/contracts_model-sk.json
