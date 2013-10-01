@@ -1429,6 +1429,20 @@ def string_to_drilldown(astring):
 
 class Drilldown(object):
     def __init__(self, drilldown, cell):
+        """Creates a drilldown object for `drilldown` specifictation of `cell`.
+        The drilldown object can be used by browsers for convenient access to
+        various drilldown properties.
+
+        Attributes:
+
+        * `drilldown` – list of drilldown items (named tuples) with attributes:
+           `dimension`, `hierarchy`, `levels` and `keys`
+        * `dimensions` – list of dimensions used in this drilldown
+
+        The `Drilldown` object can be accessed by item index ``drilldown[0]``
+        or dimension name ``drilldown["date"]``. Iterating the object yields
+        all drilldown items.
+        """
         self.drilldown = levels_from_drilldown(cell, drilldown)
         self.dimensions = []
         self._last_level = {}
@@ -1444,6 +1458,7 @@ class Drilldown(object):
             self._last_level[dd.dimension.name] = dd.levels[-1]
 
     def drilldown_for_dimension(self, dim):
+        """Returns drilldown item for dimension `dim`."""
         return self._by_dimension[str(dim)]
 
     def __getitem__(self, key):
