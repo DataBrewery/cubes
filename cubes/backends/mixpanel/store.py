@@ -148,6 +148,10 @@ class MixpanelModelProvider(ModelProvider):
     def requires_store(self):
         return True
 
+    def public_dimensions(self):
+        """Return an empty list. Mixpanel does not export any dimensions."""
+        return []
+
     def cube(self, name):
         """Creates a mixpanel cube with following variables:
 
