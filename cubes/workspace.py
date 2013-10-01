@@ -5,6 +5,7 @@ from .model import Model
 from .common import get_logger
 from .errors import *
 from .stores import open_store, create_browser
+import os.path
 import ConfigParser
 
 __all__ = [
@@ -154,12 +155,44 @@ class Workspace(object):
         else:
             self.options = {}
 
+
+        # Load models
+
         if config.has_section("model"):
+            self.logger.warn("Section [model] is depreciated. Use 'model' in "
+                             "[workspace] for single default model or use "
+                             "section [models] to list multiple models.")
             if config.has_option("model", "path"):
                 source = config.get("model", "path")
                 self.logger.debug("Loading model from %s" % source)
                 self.add_model(source)
 
+        if config.has_option("workspace", "models_path"):
+            models_path = config.get("workspace", "models_path")
+        else:
+            models_path = None
+
+        models = []
+        if config.has_option("workspace", "model"):
+            models.append(config.get("workspace", "model"))
+        if config.has_section("models"):
+            models += [path for name, path in config.items("models")]
+
+        self._load_models(models_path, models)
+
+    def _load_models(self, root, paths):
+        """Load `models` with root path `models_path`."""
+
+        if root:
+            self.logger.debug("Models root: %s" % root)
+        else:
+            self.logger.debug("Models root set to current directory")
+
+        for path in paths:
+            self.logger.debug("Loading model %s" % path)
+            if root and not os.path.isabs(path):
+                path = os.path.join(root, path)
+            self.add_model(path)
 
     def _register_store_dict(self, name, info):
         info = dict(info)
@@ -251,18 +284,10 @@ class Workspace(object):
             # self.logger.debug("registering public cube '%s'" % name)
             self._register_public_cube(name, model_object)
 
-        # Get list of exported dimensions
-        # By default all explicitly mentioned dimensions are exported.
-        #
-        if "public_dimensions" in metadata:
-            for dim in metadata["public_dimensions"]:
-                # self.logger.debug("registering public dimension '%s' (by ref.)" % name)
+        # Register public dimensions
+        for dim in provider.public_dimensions():
+            if dim:
                 self._register_public_dimension(dim, model_object)
-        else:
-            for dim in metadata.get("dimensions", []):
-                name = _get_name(dim, "Dimension")
-                # self.logger.debug("registering public dimension '%s'" % name)
-                self._register_public_dimension(name, model_object)
 
     def _register_public_dimension(self, name, model):
         if name in self.dimension_models:

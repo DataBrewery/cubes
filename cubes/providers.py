@@ -334,6 +334,24 @@ class ModelProvider(object):
 
         return metadata
 
+    def public_dimensions(self):
+        """Returns a list of public dimension names. Default implementation
+        returs all dimensions defined in the model metadata. If
+        ``public_dimensions`` model property is set, then this list is used.
+
+        Subclasses might override this method for alternative behavior. For
+        example, if the backend uses dimension metadata from the model, but
+        does not publish any dimension it can return an empty list."""
+        # Get list of exported dimensions
+        # By default all explicitly mentioned dimensions are exported.
+        #
+        try:
+            return self.metadata["public_dimensions"]
+        except KeyError:
+            dimensions = self.metadata.get("dimensions", [])
+            names = [dim["name"] for dim in dimensions]
+            return names
+
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
