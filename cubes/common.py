@@ -253,18 +253,27 @@ def coalesce_option_value(value, value_type, label=None):
     value_type = value_type.lower()
 
     try:
-        if value_type == 'string':
+        if value_type in ('string', 'str'):
             return_value = str(value)
         elif value_type == 'list':
-            return_value = value.split(",")
+            if isinstance(value, basestring):
+                return_value = value.split(",")
+            else:
+                return_value = list(value)
         elif value_type == "float":
             return_value = float(value)
         elif value_type in ["integer", "int"]:
             return_value = int(value)
         elif value_type in ["bool", "boolean"]:
-            return_value = value.lower() in ["1", "true", "yes", "on"]
+            if not value:
+                return_value = False
+            elif isinstance(value, basestring):
+                return_value = value.lower() in ["1", "true", "yes", "on"]
+            else:
+                return_value = bool(value)
         else:
             raise ArgumentError("Unknown option value type %s" % value_type)
+
     except ValueError:
         if label:
             label = "parameter %s " % label
