@@ -10,6 +10,3 @@ class Mongo2Store(Store):
         self.database = database
         self.collection = collection
 
-    def model_provider_name(self):
-        return 'default'
-

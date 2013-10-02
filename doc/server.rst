@@ -2,297 +2,506 @@
 OLAP Server
 +++++++++++
 
-
 Cubes framework provides easy to install web service WSGI server with API that 
 covers most of the Cubes logical model metadata and aggregation browsing 
 functionality.
 
-.. note::
+For more information about how to run the server, please refer to the
+:mod:`server` module.
 
-    Server requires the Werkzeug_ framework.
+Server Requests
+===============
 
-.. _Werkzeug: http://werkzeug.pocoo.org/
+Version
+-------
 
-For more information about how to run the server programmatically, please
-refer to the :mod:`server` module.
+Request: ``GET /version``
 
-HTTP API
-========
+Return a serve  r version.
+
+.. code-block:: javascript
+
+    {
+        "version": "0.10.2"
+    }
 
 Model
------
+=====
 
-``GET /model``
-    Get model metadata as JSON. In addition to standard model attributes a 
-    ``locales`` key is added with list of available model locales.
+List of Cubes
+-------------
+
+Request: ``GET /cubes``
+
+Get list of basic informatiob about served cubes. The cube description
+dictionaries contain keys: `name`, `label`, `description` and `category`.
+
+.. code-block:: javascript
+
+    [
+        {
+            "name": "contracts",
+            "label": "Contracts",
+            "description": "...",
+            "category": "..."
+        }
+    ]
+
+Cube Model
+----------
+
+Request: ``GET /cube/<name>/model``
+
+Get model of a cube `name`. Returned structure is a dictionary with keys:
+
+* ``name`` – cube name – used as server-wide cube identifier
+* ``label`` – human readable name of the cube – to be displayed to the users
+  (localized)
+* ``description`` – optional textual cube description (localized)
+* ``dimensions`` – list of dimension description dictionaries (see below)
+* ``aggregates`` – list of measures aggregates (mostly computed values) that
+    can be computed. Each item is a dictionary. 
+* ``measures`` – list of measure attributes (properties of facts). Each
+    item is a dictionary. Example of a measure is: `amount`, `price`.
+* ``details`` – list of attributes that contain fact details. Those attributes
+  are provided only when getting a fact or a list of facts. 
+* ``info`` – a dictionary with additional metadata that can be used in the
+    front-end. The contents of this dictionary is defined by the model
+    creator and interpretation of values is left to the consumer.
+* ``features`` (advanced) – a dictionary with features of the browser, such as
+  available actions for the cube ("is fact listing possible?")
+
+Aggregate is the key numerical property of the cube from reporting
+perspective. It is described as a dictionary with keys:
+
+* ``name`` – aggregate identifier, such as: `amount_sum`, `price_avg`,
+  `total`, `record_count`
+* ``label`` – human readable label to be displayed (localized)
+* ``measure`` – measure the aggregate is derived from, if it exists or it is
+  known. Might be empty.
+* ``function`` - name of an aggregate function applied to the `measure`, if
+  known. For example: `sum`, `min`, `max`.
+* ``info`` – additional custom information (unspecified)
+
+Aggregate names are used in the ``aggregates`` parameter of the ``/aggregate``
+request.
+
+Measure dictionary contains:
+
+* ``name`` – measure identifier
+* ``label`` – human readable name to be displayed (localized)
+* ``aggregates`` – list of aggregate functions that are provided for this
+  measure
+* ``info`` – additional custom information (unspecified)
+
+
+.. note::
+
+    Compared to previous versions of Cubes, the clients do not have to
+    construct aggregate names (as it used to be ``amount``+``_sum``). Clients
+    just get the aggrergate ``name`` property and use it right away.
+
+See more information about measures and aggregates in the ``/aggregate``
+request description.
     
-``GET /model/cubes``
-    Get list of cubes.
+Example cube:
 
-``GET /model/cube/<name>/dimensions``
-    Get list of cube's dimensions.
+.. code-block:: javascript
 
-``GET /model/dimension/<name>``
-    Get dimension metadata as JSON
+    {
+        "name": "contracts", 
+        "info": {}, 
+        "label": "Contracts", 
+        "aggregates": [
+            {
+                "name": "amount_sum", 
+                "label": "Amount sum", 
+                "info": {}, 
+                "function": "sum"
+            }, 
+            {
+                "name": "record_count", 
+                "label": "Record count", 
+                "info": {}, 
+                "function": "count"
+            }
+        ], 
 
-``GET /locales``
-    Get list of model locales
+        "measures": [
+            {
+                "name": "amount", 
+                "label": "Amount", 
+                "info": {}, 
+                "aggregates": [ "sum" ]
+            }
+        ], 
+        
+        "details": [...],
 
-Browsing and Aggregation
-------------------------
+        "dimensions": [...]
+    }
 
-Cube API calls have format: ``/cube/<cube_name>/<browser_action>`` where the 
-browser action might be ``aggregate``, ``facts``, ``fact``, ``dimension`` and 
-``report``.
+The dimension description dictionary:
+
+* ``name`` – dimension identifier
+* ``label`` – human readable dimension name (localized)
+* ``is_flat`` – `True` if the dimension has only one level, otherwise `False`
+* ``has_details`` – `True` if the dimension has more than one attribute
+* ``default_hierarchy_name`` - name of default dimension hierarchy
+* ``levels`` – list of level descriptions
+* ``hierarchies`` – list of dimension hierarchies
+* ``info`` – additional custom information (unspecified)
+
+The level description:
+
+* ``name`` – level identifier (within dimension context)
+* ``label`` – human readable level name (localized)
+* ``attributes`` – list of level's attributes
+* ``key`` – name of level's key attribute (mostly the first attribute)
+* ``label_attribute`` – name of an attribute that contains label for the
+  level's members (mostly the second attribute, if present)
+* ``order_attribute`` – name of an attribute that the level should be ordered
+  by (optional)
+* ``order`` – order direction ``asc``, ``desc`` or none.
+* ``info`` – additional custom information (unspecified)
+
+.. note::
+
+    Use ``attribute["ref"]`` to access aggreegation result records.  Each
+    level (dimension) attribute description contains two properties: `name`
+    and `ref`.  `name` is identifier within the dimension context. The key
+    reference `ref` is used for retrieving aggregation or browing results. 
+
+    It is not recommended to create any dependency by parsing or constructing
+    the `ref` property at the client's side.
+
+
+Aggregation and Browsing
+========================
+
+The core data and analytical functionality is accessed through the following
+requests:
+
+* ``/cube/<name>/aggregate`` – aggregate measures, provide summary, generate
+  drill-down, slice&dice, ...
+* ``/cube/<name>/dimension/<dim>`` – list dimension members
+* ``/cube/<name>/facts`` – list facts within a cell
+* ``/cube/<name>/fact`` – return a single fact
+* ``/cube/<name>/cell`` – describe the cell
 
 If the model contains only one cube or default cube name is specified in the
-configuration, then the ``/cube/<cube>`` part might be omitted and you can
+configuration, then the ``/cube/<name>`` part might be omitted and you can
 write only requests like ``/aggregate``.
+
+
+Aggregate
+---------
 
 .. _serveraggregate:
 
-``GET /cube/<cube>/aggregate``
-    Return aggregation result as JSON. The result will contain keys: `summary`
-    and `drilldown`. The summary contains one row and represents aggregation
-    of whole cell specified in the cut. The `drilldown` contains rows for each
-    value of drilled-down dimension.
-    
-    If no arguments are given, then whole cube is aggregated.
-    
-    **Parameters:**
+Request: ``GET /cube/<cube>/aggregate``
 
-    * `cut` - specification of cell, for example:
-      ``cut=date:2004,1|category:2|entity:12345``
-    * `drilldown` - dimension to be drilled down. For example 
-      ``drilldown=date`` will give rows for each value of next level of 
-      dimension date. You can explicitly specify level to drill down in 
-      form: ``dimension:level``, such as: ``drilldown=date:month``. To specify
-      a hierarchy use ``dimension@hierarchy`` as in ``drilldown=date@ywd`` for
-      implicit level or ``drilldown=date@ywd:week`` to explicitly specify
-      level.
-    * `page` - page number for paginated results
-    * `pagesize` - size of a page for paginated results
-    * `order` - list of attributes to be ordered by
+Return aggregation result as JSON. The result will contain keys: `summary`
+and `drilldown`. The summary contains one row and represents aggregation
+of whole cell specified in the cut. The `drilldown` contains rows for each
+value of drilled-down dimension.
+
+If no arguments are given, then whole cube is aggregated.
+
+Parameters:
+
+* `cut` - specification of cell, for example:
+  ``cut=date:2004,1|category:2|entity:12345``
+* `drilldown` - dimension to be drilled down. For example ``drilldown=date``
+  will give rows for each value of next level of dimension date. You can
+  explicitly specify level to drill down in form: ``dimension:level``, such
+  as: ``drilldown=date:month``. To specify a hierarchy use
+  ``dimension@hierarchy`` as in ``drilldown=date@ywd`` for implicit level or
+  ``drilldown=date@ywd:week`` to explicitly specify level.
+* `aggregates` – list of aggregates to be computed, separated by ``|``, for
+  example: ``aggergates=amount_sum|discount_avg|count``
+* `measures` – list of measures for which their respecive aggregates will be
+  computed (see below). Separated by ``|``, for
+  example: ``aggergates=proce|discount``
+* `page` - page number for paginated results
+* `pagesize` - size of a page for paginated results
+* `order` - list of attributes to be ordered by
+
+.. note::
+
+    You can specify either `aggregates` or `measures`. `aggregates` is a
+    concrete list of computed values. `measures` yields their respective
+    aggregates. For example: ``measures=amount`` might yield ``amount_sum``
+    and ``amount_avg`` if defined in the model.
+    
+    Use of `aggregates` is preferred, as it is more explicit and the result
+    is well defined.
+
+..
+    TODO: not implemented
     * `limit` - limit number of results in form
-      `limit`[,`measure`[,`order_direction`]]:
-      ``limit=5:received_amount_sum:asc`` (this might not be implemented in 
-      all backends)
+    `limit`[,`measure`[,`order_direction`]]: ``limit=5:received_amount_sum:asc``
+    (this might not be implemented in all backends)
 
-    **Reply:**
-    
-    A dictionary with keys:
-    
-    * ``summary`` - dictionary of fields/values for summary aggregation
-    * ``drilldown`` - list of drilled-down cells
-    * ``total_cell_count`` - number of total cells in drilldown (after
-      `limir`, before pagination)
-    * ``cell`` - dictionary representation of the query cell
+Response:
 
-    Example:
-    
-    .. code-block:: javascript
-    
-        {
-            "summary": {
-                "record_count": 32, 
-                "amount_sum": 558430
+A dictionary with keys:
+
+* ``summary`` - dictionary of fields/values for summary aggregation
+* ``cells`` - list of drilled-down cells with aggregated results
+* ``total_cell_count`` - number of total cells in drilldown (after `limit`,
+  before pagination). This value might not be present if it is disabled for
+  computation on the server side.
+* ``aggregates`` – list of aggregate names that were considered in the
+  aggragation query
+* ``cell`` - list of dictionaries describing the cell cuts
+* ``levels`` – a dictionary where keys are dimension names and values is a
+  list of levels the dimension was drilled-down to
+
+Example for request ``/aggregate?drilldown=date&cut=item:a``:
+
+.. code-block:: javascript
+
+    {
+        "summary": {
+            "count": 32, 
+            "amount_sum": 558430
+        }
+        "cells": [
+            {
+                "count": 16, 
+                "amount_sum": 275420, 
+                "date.year": 2009
+            }, 
+            {
+                "count": 16, 
+                "amount_sum": 283010, 
+                "date.year": 2010
             }
-            "drilldown": [
-                {
-                    "record_count": 16, 
-                    "amount_sum": 275420, 
-                    "year": 2009
-                }, 
-                {
-                    "record_count": 16, 
-                    "amount_sum": 283010, 
-                    "year": 2010
-                }
-            ], 
-            "total_cell_count": 2, 
-            "cell": [
-                {
-                    "path": [
-                        "a"
-                    ], 
-                    "type": "point", 
-                    "dimension": "item", 
-                    "level_depth": 1
-                }
-            ], 
-        }
+        ], 
+        "aggregates": [
+            "amount_sum", 
+            "count"
+        ], 
+        "total_cell_count": 2, 
+        "cell": [
+            {
+                "path": [ "a" ], 
+                "type": "point", 
+                "dimension": "item", 
+                "invert": false,
+                "level_depth": 1
+            }
+        ], 
+        "levels": { "date": [ "year" ] }
+    }
+
+
+If pagination is used, then ``drilldown`` will not contain more than
+``pagesize`` cells.
+
+Note that not all backengs might implement ``total_cell_count`` or
+providing this information can be configurable therefore might be disabled
+(for example for performance reasons).
     
 
-    If pagination is used, then ``drilldown`` will not contain more than
-    ``pagesize`` cells.
+Facts
+-----
+
+Request: ``GET /cube/<cube>/facts``
+
+Return all facts within a cell.
+
+Parameters:
+
+* `cut` - see ``/aggregate``
+* `page`, `pagesize` - paginate results
+* `order` - order results
+* `format` - result format: ``json`` (default; see note below), ``csv``
+* `fields` - comma separated list of fact fields, by default all fields are
+  returned
+* `header` – specify what kind of headers should be present in the ``csv``
+  output: ``names`` – raw field names (default), ``labels`` – human readable labels or
+  ``none``
+
+The JSON response is a list of dictionaries where keys are attribute
+references (`ref` property of an attribute).
+
+.. note::
+
+    Number of facts in JSON is limited to configuration value of
+    ``json_record_limit``, which is 1000 by default. To get more records,
+    either use pages with size less than record limit or use alternate
+    result format, such as ``csv``.
     
-    Note that not all backengs might implement ``total_cell_count`` or
-    providing this information can be configurable therefore might be disabled
-    (for example for performance reasons).
+Single Fact
+-----------
+
+Request: ``GET /cube/<cube>/fact/<id>``
+
+Get single fact with specified `id`. For example: ``/fact/1024``.
+
+The response is a dictionary where keys are attribute references (`ref`
+property of an attribute).
     
+Dimension members
+-----------------
 
-``GET /cube/<cube>/facts``
-    Return all facts within a cell.
+Request: ``GET /cube/<cube>/dimension/<dimension>``
 
-    **Parameters:**
+Get values for attributes of a `dimension`.
 
-    * `cut` - see ``/aggregate``
-    * `page`, `pagesize` - paginate results
-    * `order` - order results
-    * `format` - result format: ``json`` (default; see note below), ``csv``
-    * `fields` - comma separated list of fact fields, by default all
-      fields are returned
-    
-    .. note::
+**Parameters:**
 
-        Number of facts in JSON is limited to configuration value of
-        ``json_record_limit``, which is 1000 by default. To get more records,
-        either use pages with size less than record limit or use alternate
-        result format, such as ``csv``.
-    
-``GET /cube/<cube>/fact/<id>``
-    Get single fact with specified `id`. For example: ``/fact/1024``
-    
-``GET /cube/<cube>/dimension/<dimension>``
-    Get values for attributes of a `dimension`.
-    
-    **Parameters:**
+* `cut` - see ``/aggregate``
+* `depth` - specify depth (number of levels) to retrieve. If not
+    specified, then all levels are returned
+* `hierarchy` – name of hierarchy to be considered, if not specified, then
+    dimension's default hierarchy is used 
+* `page`, `pagesize` - paginate results
+* `order` - order results
 
-    * `cut` - see ``/aggregate``
-    * `depth` - specify depth (number of levels) to retrieve. If not
-      specified, then all levels are returned
-    * `hierarchy` – name of hierarchy to be considered, if not specified, then
-      dimension's default hierarchy is used 
-    * `page`, `pagesize` - paginate results
-    * `order` - order results
+**Response:** dictionary with keys ``dimension`` – dimension name,
+``depth`` – level depth and ``data`` – list of records.
 
-    **Response:** dictionary with keys ``dimension`` – dimension name,
-    ``depth`` – level depth and ``data`` – list of records.
-    
-    Example for ``/dimension/item?depth=1``:
-    
-    .. code-block:: javascript
-    
-        {
-            "dimension": "item"
-            "depth": 1, 
-            "data": [
-                {
-                    "item.category": "a", 
-                    "item.category_label": "Assets"
-                }, 
-                {
-                    "item.category": "e", 
-                    "item.category_label": "Equity"
-                }, 
-                {
-                    "item.category": "l", 
-                    "item.category_label": "Liabilities"
-                }
-            ], 
-        }
+Example for ``/dimension/item?depth=1``:
 
-``GET /cube/<cube>/cell``
-    Get details for a cell.
+.. code-block:: javascript
 
-    **Parameters:**
+    {
+        "dimension": "item"
+        "depth": 1, 
+        "data": [
+            {
+                "item.category": "a", 
+                "item.category_label": "Assets"
+            }, 
+            {
+                "item.category": "e", 
+                "item.category_label": "Equity"
+            }, 
+            {
+                "item.category": "l", 
+                "item.category_label": "Liabilities"
+            }
+        ], 
+    }
 
-    * `cut` - see ``/aggregate``
+Cell
+----
 
-    **Response:** a dictionary representation of a ``cell`` (see
-    :meth:`cubes.Cell.as_dict`) with keys ``cube`` and ``cuts``. `cube` is
-    cube name and ``cuts`` is a list of dictionary representations of cuts.
-    
-    Each cut is represented as:
-    
-    .. code-block:: javascript
+Get details for a cell.
 
-        {
-            // Cut type is one of: "point", "range" or "set"
-            "type": cut_type,
+Request: ``GET /cube/<cube>/cell``
 
-            "dimension": cut_dimension_name,
-            "level_depth": maximal_depth_of_the_cut,
 
-            // Cut type specific keys.
+**Parameters:**
 
-            // Point cut:
-            "path": [ ... ],
-            "details": [ ... ]
-            
-            // Range cut:
-            "from": [ ... ],
-            "to": [ ... ],
-            "details": { "from": [...], "to": [...] }
-            
-            // Set cut:
-            "paths": [ [...], [...], ... ],
-            "details": [ [...], [...], ... ]
-        }
+* `cut` - see ``/aggregate``
+
+**Response:** a dictionary representation of a ``cell`` (see
+:meth:`cubes.Cell.as_dict`) with keys ``cube`` and ``cuts``. `cube` is
+cube name and ``cuts`` is a list of dictionary representations of cuts.
+
+Each cut is represented as:
+
+.. code-block:: javascript
+
+    {
+        // Cut type is one of: "point", "range" or "set"
+        "type": cut_type,
+
+        "dimension": cut_dimension_name,
+        "level_depth": maximal_depth_of_the_cut,
+
+        // Cut type specific keys.
+
+        // Point cut:
+        "path": [ ... ],
+        "details": [ ... ]
         
-    Each element of the ``details`` path contains dimension attributes for the
-    corresponding level. In addition in contains two more keys: ``_key`` and
-    ``_label`` which (redundantly) contain values of key attribute and label
-    attribute respectively.
-
-    Example for ``/cell?cut=item:a`` in the ``hello_world`` example:
-    
-    .. code-block:: javascript
-    
-        {
-            "cube": "irbd_balance", 
-            "cuts": [
-                {
-                    "type": "point", 
-                    "dimension": "item", 
-                    "level_depth": 1
-                    "path": ["a"], 
-                    "details": [
-                        {
-                            "item.category": "a", 
-                            "item.category_label": "Assets", 
-                            "_key": "a", 
-                            "_label": "Assets"
-                        }
-                    ], 
-                }
-            ]
-        }
+        // Range cut:
+        "from": [ ... ],
+        "to": [ ... ],
+        "details": { "from": [...], "to": [...] }
         
-``GET /cube/<cube>/report``
-    Process multiple request within one API call. The data should be a JSON
-    containing report specification where keys are names of queries and values
-    are dictionaries describing the queries.
+        // Set cut:
+        "paths": [ [...], [...], ... ],
+        "details": [ [...], [...], ... ]
+    }
     
-    ``report`` expects ``Content-type`` header to be set to
-    ``application/json``.
-    
-    See :ref:`serverreport` for more information.
-    
-``GET /cube/<cube>/search/dimension/<dimension>/<query>``
-    Search values of `dimensions` for `query`. If `dimension` is ``_all`` then
-    all dimensions are searched. Returns search results as list of
-    dictionaries with attributes:
-    
-    :Search result:
-        * `dimension` - dimension name
-        * `level` - level name
-        * `depth` - level depth
-        * `level_key` - value of key attribute for level
-        * `attribute` - dimension attribute name where searched value was found
-        * `value` - value of dimension attribute that matches search query
-        * `path` - dimension hierarchy path to the found value
-        * `level_label` - label for dimension level (value of label_attribute
-          for level)
-        
-    .. warning::
-    
-        Not yet fully implemented, just proposal.
-        
-    .. note::
+Each element of the ``details`` path contains dimension attributes for the
+corresponding level. In addition in contains two more keys: ``_key`` and
+``_label`` which (redundantly) contain values of key attribute and label
+attribute respectively.
 
-        Requires a search backend to be installed.
+Example for ``/cell?cut=item:a`` in the ``hello_world`` example:
 
+.. code-block:: javascript
+
+    {
+        "cube": "irbd_balance", 
+        "cuts": [
+            {
+                "type": "point", 
+                "dimension": "item", 
+                "level_depth": 1
+                "path": ["a"], 
+                "details": [
+                    {
+                        "item.category": "a", 
+                        "item.category_label": "Assets", 
+                        "_key": "a", 
+                        "_label": "Assets"
+                    }
+                ], 
+            }
+        ]
+    }
+        
+
+Report
+------
+
+Request: ``GET /cube/<cube>/report``
+
+Process multiple request within one API call. The data should be a JSON
+containing report specification where keys are names of queries and values
+are dictionaries describing the queries.
+
+``report`` expects ``Content-type`` header to be set to
+``application/json``.
+
+See :ref:`serverreport` for more information.
+
+Search
+------
+
+.. warning::
+
+    Experimental feature.
+
+.. note::
+
+    Requires a search backend to be installed.
+
+Request: ``GET /cube/<cube>/search/dimension/<dimension>/<query>``
+
+Search values of `dimensions` for `query`. If `dimension` is ``_all`` then
+all dimensions are searched. Returns search results as list of
+dictionaries with attributes:
+
+:Search result:
+    * `dimension` - dimension name
+    * `level` - level name
+    * `depth` - level depth
+    * `level_key` - value of key attribute for level
+    * `attribute` - dimension attribute name where searched value was found
+    * `value` - value of dimension attribute that matches search query
+    * `path` - dimension hierarchy path to the found value
+    * `level_label` - label for dimension level (value of label_attribute
+        for level)
+    
 Parameters that can be used in any request:
 
     * `prettyprint` - if set to ``true``, space indentation is added to the
@@ -328,19 +537,13 @@ Set cuts::
 
 Dimension name is followed by colon ``:``, each dimension cut is separated by
 ``|``, and path for dimension levels is separated by a comma ``,``. Set cuts are
-separated by semicolons ``;``. Or in more formal way, here is the BNF for the cut::
-
-    <list>      ::= <cut> | <cut> '|' <list>
-    <cut>       ::= <dimension> ':' <path>
-    <dimension> ::= <identifier>
-    <path>      ::= <value> | <value> ',' <path>
+separated by semicolons ``;``. 
 
 .. note:: 
 
     Why dimension names are not URL parameters? This prevents conflict from
     other possible frequent URL parameters that might modify page content/API
     result, such as ``type``, ``form``, ``source``.
-
 
 To specify other than default hierarchy use format `dimension@hierarchy`, the
 path then should contain values for specified hierarchy levels::
@@ -616,76 +819,4 @@ Reply::
         }
     }
 
-Configuration
--------------
 
-Server configuration is stored in .ini files with sections:
-
-* ``[server]`` - server related configuration, such as host, port
-    * ``backend`` - backend name, use ``sql`` for relational database backend
-    * ``log`` - path to a log file
-    * ``log_level`` - level of log details, from least to most: ``error``, 
-      ``warn``, ``info``, ``debug``
-    * ``json_record_limit`` - number of rows to limit when generating JSON 
-      output with iterable objects, such as facts. Default is 1000. It is 
-      recommended to use alternate response format, such as CSV, to get more 
-      records.
-    * ``modules`` - space separated list of modules to be loaded (only used if 
-      run by the ``slicer`` command)
-    * ``prettyprint`` - default value of ``prettyprint`` parameter. Set to 
-      ``true`` for demonstration purposes.
-    * ``host`` - host where the server runs, defaults to ``localhost``
-    * ``port`` - port on which the server listens, defaults to ``5000``
-* ``[model]`` - model and cube configuration
-    * ``path`` - path to model .json file
-    * ``locales`` - comma separated list of locales the model is provided in. 
-      Currently this variable is optional and it is used only by experimental 
-      sphinx search backend.
-* ``[translations]`` - model translation files, option keys in this section
-  are locale names and values are paths to model translation files. See
-  :doc:`localization` for more information.
-
-
-Backend workspace configuration should be in the ``[workspace]``. See
-:doc:`/api/backends` for more information.
-
-Workspace with SQL backend (``backend=sql`` in ``[server]``) options:
-
-* ``url`` *(required)* – database URL in form: 
-  ``adapter://user:password@host:port/database``
-* ``schema`` *(optional)* – schema containing denormalized views for
-  relational DB cubes
-* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
-  dimension tables when no explicit mapping is specified
-* ``dimension_schema`` – use this option when dimension tables are stored in
-  different schema than the fact tables
-* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact
-  table for a cube, when no explicit fact table name is specified
-* ``use_denormalization`` *(optional)* – browser will use dernormalized view
-  instead of snowflake
-* ``denormalized_view_prefix`` *(optional, advanced)* – if denormalization is
-  used, then this prefix is added for cube name to find corresponding cube
-  view
-* ``denormalized_view_schema`` *(optional, advanced)* – schema wehere
-  denormalized views are located (use this if the views are in different
-  schema than fact tables, otherwise default schema is going to be used)
-
-
-Example configuration file::
-
-    [server]
-    reload: yes
-    log: /var/log/cubes.log
-    log_level: info
-    backend: sql
-
-    [workspace]
-    url: postgresql://localhost/data
-    schema: cubes
-
-    [model]
-    path: ~/models/contracts_model.json
-    locales: en,sk
-
-    [translations]
-    sk: ~/models/contracts_model-sk.json

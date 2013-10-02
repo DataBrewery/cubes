@@ -6,8 +6,10 @@ import itertools
 import logging
 import sys
 import re
-import collections
+from collections import OrderedDict
 import exceptions
+
+from .errors import *
 
 __all__ = [
     "logger_name",
@@ -20,7 +22,9 @@ __all__ = [
     "get_localizable_attributes",
     "decamelize",
     "to_identifier",
-    "collect_subclasses"
+    "collect_subclasses",
+    "assert_instance",
+    "assert_all_instances"
 ]
 
 logger_name = "cubes"
@@ -59,13 +63,40 @@ def create_logger(level=None):
 
     return logger
 
-class IgnoringDictionary(dict):
+class IgnoringDictionary(OrderedDict):
     """Simple dictionary extension that will ignore any keys of which values
     are empty (None/False)"""
-    def setnoempty(self, key, value):
-        """Set value in a dictionary if value is not null"""
-        if value:
-            self[key] = value
+    def __setitem__(self, key, value):
+        if value is not None:
+            super(IgnoringDictionary, self).__setitem__(key, value)
+
+    def set(self, key, value):
+        """Sets `value` for `key` even if value is null."""
+        super(IgnoringDictionary, self).__setitem__(key, value)
+
+    def __repr__(self):
+        items = []
+        for key, value in self.items():
+            item = '%s: %s' % (repr(key), repr(value))
+            items.append(item)
+
+        return "{%s}" % ", ".join(items)
+
+def assert_instance(obj, class_, label):
+    """Raises ArgumentError when `obj` is not instance of `cls`"""
+    if not isinstance(obj, class_):
+        raise ModelInconsistencyError("%s should be sublcass of %s, "
+                                      "provided: %s" % (label,
+                                                        class_.__name__,
+                                                        type(obj).__name__))
+
+
+def assert_all_instances(list_, class_, label="object"):
+    """Raises ArgumentError when objects in `list_` are not instances of
+    `cls`"""
+    for obj in list_ or []:
+        assert_instance(obj, class_, label="object")
+
 
 class MissingPackageError(Exception):
     """Exception raised when encountered a missing package."""
@@ -222,18 +253,27 @@ def coalesce_option_value(value, value_type, label=None):
     value_type = value_type.lower()
 
     try:
-        if value_type == 'string':
+        if value_type in ('string', 'str'):
             return_value = str(value)
         elif value_type == 'list':
-            return_value = value.split(",")
+            if isinstance(value, basestring):
+                return_value = value.split(",")
+            else:
+                return_value = list(value)
         elif value_type == "float":
             return_value = float(value)
         elif value_type in ["integer", "int"]:
             return_value = int(value)
         elif value_type in ["bool", "boolean"]:
-            return_value = value.lower() in ["1", "true", "yes", "on"]
+            if not value:
+                return_value = False
+            elif isinstance(value, basestring):
+                return_value = value.lower() in ["1", "true", "yes", "on"]
+            else:
+                return_value = bool(value)
         else:
             raise ArgumentError("Unknown option value type %s" % value_type)
+
     except ValueError:
         if label:
             label = "parameter %s " % label

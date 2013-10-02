@@ -28,6 +28,7 @@ syn match Keyword "\"template\"" display
 syn match Keyword "\"name\"" display
 syn match Keyword "\"label\"" display
 syn match Keyword "\"description\"" display
+syn match Keyword "\"category\"" display
 syn match Keyword "\"key\"" display
 syn match Keyword "\"label_attribute\"" display
 syn match Keyword "\"order_attribute\"" display
@@ -36,6 +37,11 @@ syn match Keyword "\"info\"" display
 syn match Keyword "\"options\"" display
 syn match Keyword "\"order\"" display
 syn match Keyword "\"aggregations\"" display
+syn match Keyword "\"aggregates\"" display
+syn match Keyword "\"measure\"" display
+syn match Keyword "\"function\"" display
+syn match Keyword "\"expression\"" display
+syn match Keyword "\"formula\"" display
 
 " Physical properties
 syn match Keyword "\"store\"" display
@@ -49,6 +55,8 @@ syn match Keyword "\"mappings\"" display
 syn match Keyword "\"master\"" display
 syn match Keyword "\"detail\"" display
 syn match Keyword "\"alias\"" display
+syn match Keyword "\"method\"" display
+syn match Keyword "\"match\"" display
 
 syn match Keyword "\"column\"" display
 syn match Keyword "\"table\"" display

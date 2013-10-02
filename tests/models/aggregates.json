@@ -1,0 +1,69 @@
+{
+    "cubes": [
+        {
+            "name": "default",
+            "dimensions": ["year"],
+            "measures": [
+                {
+                    "name": "amount",
+                    "aggregates": ["sum", "min", "max"]
+                },
+                {
+                    "name": "price",
+                    "aggregates": ["sum", "min", "max"]
+                },
+                {
+                    "name": "discount",
+                    "aggregates": ["sum", "min", "max"]
+                }
+            ],
+            "aggregates": [
+                {
+                    "name": "count",
+                    "function": "count"
+                }    
+            ],
+            "fact": "facts"
+        },
+        {
+            "name": "postcalc_in_measure",
+            "dimensions": ["year"],
+            "measures": [
+                {
+                    "name": "amount",
+                    "aggregates": ["sum"]
+                }
+            ],
+            "aggregates": [
+                {
+                    "name": "count",
+                    "function": "count"
+                },    
+                {
+                    "name": "amount_sma",
+                    "function": "sma",
+                    "measure": "amount_sum"
+                }    
+            ],
+            "fact": "facts"
+        },
+        {
+            "name": "unknown_function",
+            "aggregates": [
+                {
+                    "name": "count",
+                    "function": "iamunknown"
+                }    
+            ],
+            "fact": "facts"
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "year",
+            "levels": [
+            {"name": "year", "info": {"aggregation_units": 4}}
+            ]
+        }
+    ]
+}

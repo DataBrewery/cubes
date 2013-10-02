@@ -1,0 +1,80 @@
+{
+    "cubes": [
+        {
+            "name": "sales",
+            "measures": [
+                {"name":"amount", "aggregates":["sum", "min"]},
+                "discount"
+            ],
+            "aggregates": [
+                {
+                    "name": "amount_sum",
+                    "measure": "amount",
+                    "function": "sum"
+                },
+                {
+                    "name":"amount_min",
+                    "measure":"amount",
+                    "function": "min"
+                },
+                {
+                    "name":"discount_sum",
+                    "measure":"discount",
+                    "function": "sum"
+                },
+                {
+                    "name":"record_count",
+                    "function": "count"
+                }
+            ],
+            "dimensions" : ["date", "flag", "product"],
+            "details": ["fact_detail1", "fact_detail2"],
+            "joins": [
+                {"master": "sales.date_id", "detail":"dim_date.id"},
+                {"master": "sales.category_id", "detail":"dim_category.id"},
+                {"master": "sales.product_id", "detail":"dim_product.id"}
+            ],
+            "mappings":{
+                "product.name": "dim_product.product_name",
+                "product.category": "dim_product.category_id",
+                "product.category_name.en": "dim_category.category_name_en",
+                "product.category_name.sk": "dim_category.category_name_sk",
+                "product.subcategory": "dim_category.subcategory_id",
+                "product.subcategory_name.en": "dim_category.subcategory_name_en",
+                "product.subcategory_name.sk": "dim_category.subcategory_name_sk"
+            }
+        }
+    ],
+    "dimensions" : [
+        {
+            "name": "date",
+            "levels": [
+                { "name": "year", "attributes": ["year"] },
+                { "name": "month", "attributes":
+                            ["month", "month_name", "month_sname"] },
+                { "name": "day", "attributes": ["id", "day"] }
+            ],
+            "hierarchy": ["year", "month", "day"]
+        },
+        { "name": "flag" },
+        { "name": "product",
+            "levels": [
+                {"name": "category",
+                    "attributes": ["category",
+                                  {"name": "category_name", "locales": ["en", "sk"] }
+                                  ]
+                },
+                {"name": "subcategory",
+                    "attributes": ["subcategory",
+                                    {"name": "subcategory_name", "locales": ["en", "sk"] }
+                                ]
+                },
+                { "name": "product",
+                  "attributes": [ "id",
+                                  {"name": "name"}
+                                ]
+                }
+            ]
+        }
+    ]
+}

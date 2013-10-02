@@ -23,9 +23,13 @@ TableColumnReference = collections.namedtuple("TableColumnReference",
                                     ["schema", "table", "column", "extract", "func", "expr", "condition"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
-(3-item) tuples"""
+tuples. `method` denotes which table members should be considered in the join:
+*master* – all master members (left outer join), *detail* – all detail members
+(right outer join) and *match* – members must match (inner join)."""
 TableJoin = collections.namedtuple("TableJoin",
-                                    ["master", "detail", "alias", "outer"])
+                                    ["master", "detail", "alias", "method"])
+
+_join_method_order = {"detail":0, "master":1, "match": 2}
 
 def coalesce_physical(ref, default_table=None, schema=None):
     """Coalesce physical reference `ref` which might be:
@@ -147,8 +151,12 @@ class SnowflakeMapper(Mapper):
         for join in joins:
             master = coalesce_physical(join["master"],self.fact_name,schema=self.schema)
             detail = coalesce_physical(join["detail"],schema=self.schema)
-            self.logger.debug("collecting join %s - %s" % (tuple(master), tuple(detail)))
-            self.joins.append(TableJoin(master, detail, join.get("alias"), join.get("outer")))
+
+            self.logger.debug("collecting join %s -> %s" % (tuple(master), tuple(detail)))
+            method = join.get("method", "match").lower()
+
+            self.joins.append(TableJoin(master, detail, join.get("alias"),
+                                        method))
 
     def physical(self, attribute, locale=None):
         """Returns physical reference as tuple for `attribute`, which should
@@ -194,7 +202,6 @@ class SnowflakeMapper(Mapper):
         """
 
         reference = None
-        dimension = attribute.dimension
 
         # Fix locale: if attribute is not localized, use none, if it is
         # localized, then use specified if exists otherwise use default
@@ -202,7 +209,7 @@ class SnowflakeMapper(Mapper):
 
         locale = locale or self.locale
 
-        if attribute.locales:
+        if attribute.is_localizable():
             locale = locale if locale in attribute.locales \
                                 else attribute.locales[0]
         else:
@@ -212,7 +219,7 @@ class SnowflakeMapper(Mapper):
         if self.cube.mappings:
             logical = self.logical(attribute, locale)
 
-            # TODO: should default to non-localized reference if no mapping 
+            # TODO: should default to non-localized reference if no mapping
             # was found?
             mapped_ref = self.cube.mappings.get(logical)
 
@@ -227,6 +234,8 @@ class SnowflakeMapper(Mapper):
             if locale:
                 column_name += "_" + locale
 
+            # TODO: temporarily preserved. it should be attribute.owner
+            dimension = attribute.dimension
             if dimension and not (self.simplify_dimension_references \
                                    and (dimension.is_flat
                                         and not dimension.has_details)):
@@ -290,14 +299,15 @@ class SnowflakeMapper(Mapper):
         joined_tables.add( (self.schema, self.fact_name) )
 
         joins = []
-        self.logger.debug("tables to join: %s" % tables_to_join)
+        self.logger.debug("tables to join: %s" % list(tables_to_join))
 
         while tables_to_join:
             table = tables_to_join.pop()
             # self.logger.debug("joining table %s" % (table, ))
 
+            joined = False
             for order, join in enumerate(self.joins):
-                # self.logger.debug("testing join: %s" % (join, ))
+                # self.logger.debug("testing join: %s" % (join,e))
                 # print "--- testing join: %s" % (join, )
                 master = (join.master.schema, join.master.table)
                 detail = (join.detail.schema, join.alias or join.detail.table)
@@ -305,7 +315,9 @@ class SnowflakeMapper(Mapper):
                 if table == detail:
                     # self.logger.debug("detail matches")
                     # Preserve join order
-                    joins.append( ((1 if join.outer else 0), order, join) )
+                    # TODO: temporary way of ordering according to match
+                    method_order = _join_method_order.get(join.method, 99)
+                    joins.append( (method_order, order, join) )
 
                     if master not in joined_tables:
                         self.logger.debug("adding master %s to be joined" % (master, ))
@@ -313,7 +325,11 @@ class SnowflakeMapper(Mapper):
 
                     self.logger.debug("joined detail %s" % (detail, ) )
                     joined_tables.add(detail)
+                    joined = True
                     break
+
+            if joins and not joined:
+                self.logger.warn("No table joined for %s" % (table, ))
 
         self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
 
@@ -387,90 +403,3 @@ class DenormalizedMapper(Mapper):
 
         return []
 
-class StarMapper(Mapper):
-    def __init__(self, cube, locale=None, schema=None, fact_name=None,
-                 dimension_prefix=None, joins=None, dimension_schema=None,
-                 **options):
-
-        """A snowflake schema mapper for a cube. The mapper creates required
-        joins, resolves table names and maps logical references to tables and
-        respective columns.
-
-        Attributes:
-
-        * `cube` - mapped cube
-        * `simplify_dimension_references` – references for flat dimensions
-          (with one level and no details) will be just dimension names, no
-          attribute name. Might be useful when using single-table schema, for
-          example, with couple of one-column dimensions.
-        * `dimension_prefix` – default prefix of dimension tables, if
-          default table name is used in physical reference construction
-        * `fact_name` – fact name, if not specified then `cube.name` is used
-        * `schema` – default database schema
-        * `dimension_schema` – schema whre dimension tables are stored (if
-          different than fact table schema)
-
-        """
-
-        super(SnowflakeMapper, self).__init__(cube, locale=locale,
-                                        schema=schema, fact_name=fact_name,
-                                        **options)
-
-        self.dimension_prefix = dimension_prefix
-        self.dimension_schema = dimension_schema
-
-    def physical(self, attribute, locale=None, iskey=False):
-        """Returns same name as localized logical reference.
-        """
-
-        reference = None
-        dimension = attribute.dimension
-
-        # Fix locale: if attribute is not localized, use none, if it is
-        # localized, then use specified if exists otherwise use default
-        # locale of the attribute (first one specified in the list)
-
-        locale = locale or self.locale
-
-        if attribute.locales:
-            locale = locale if locale in attribute.locales \
-                                else attribute.locales[0]
-        else:
-            locale = None
-
-        column_name = attribute.name
-
-        if locale:
-            column_name += "_" + locale
-
-        if dimension and not iskey \
-                and not (self.simplify_dimension_references \
-                            and (dimension.is_flat
-                            and not dimension.has_details)):
-            table_name = str(dimension)
-            if self.dimension_prefix:
-                table_name = self.dimension_prefix + table_name
-
-        else:
-            table_name = self.fact_name
-
-        if dimension and not iskey:
-            schema = self.dimension_schema or self.schema
-        else:
-            schema = self.schema
-
-        reference = TableColumnReference(schema, table_name, column_name, None, None, None, None)
-
-        return reference
-
-    def relevant_joins(self, attributes):
-        """Returns a list of joins for requested attributes."""
-
-        for attribute in attributes:
-            if attribute.dimension:
-                schema = self.dimension_schema or self.schema
-                table = self
-            else:
-                schema = self.schema
-
-        return []

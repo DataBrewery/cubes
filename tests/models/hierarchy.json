@@ -1,0 +1,31 @@
+{
+    "cubes": [
+        {
+            "name":"cube",
+            "dimensions": ["date"],
+            "joins": [
+                {"master":"date_id", "detail":"dim_date.id"}
+            ]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "date",
+            "levels": [
+                {"name":"year"},
+                {"name":"quarter"},
+                {"name":"month"},
+                {"name":"week"},
+                {"name":"day"}
+            ],
+            "hierarchies": [
+                {"name": "ymd", "levels":["year", "month", "day"]},
+                {"name": "ym", "levels":["year", "month"]},
+                {"name": "yqmd", "levels":["year", "quarter", "month", "day"]},
+                {"name": "ywd", "levels":["year", "week", "day"]}
+            ],
+            "default_hierarchy_name": "ymd"
+        }
+    ]
+}
+

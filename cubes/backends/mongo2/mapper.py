@@ -8,6 +8,7 @@ from cubes.errors import *
 from cubes.mapper import Mapper
 from bson.objectid import ObjectId
 import datetime
+from datetime import datetime
 
 __all__ = (
     "MongoCollectionMapper"
@@ -30,25 +31,36 @@ MONGO_EVAL_NS = {
     'datetime': datetime
 }
 
+MONGO_DATE_PARTS = ["year", "month", "day", "week", "hour", "minute"]
+
 """Physical reference to a mongo document field."""
 class MongoDocumentField(object):
-    def __init__(self, database, collection, field, match, project, group, encode, decode, type=None):
+    def __init__(self, database, collection, field, match, project, group,
+                 encode, decode, type_name=None, extract=None):
+        """Creates a mongo document field."""
+
         self.database = database
         self.collection = collection
         self.field = field
         self.match = match
         self.project = project
         self.group = None
+        self.extract = extract
+        self.is_date_part = extract in MONGO_DATE_PARTS
+
         if group:
             self.group = copy.deepcopy(group)
+
         self.encode = lambda x: x
         if encode:
             self.encode = eval(compile(encode, '__encode__', 'eval'), copy.copy(MONGO_EVAL_NS))
+
         self.decode = lambda x: x
         if decode:
             self.decode = eval(compile(decode, '__decode__', 'eval'), copy.copy(MONGO_EVAL_NS))
 
-        self.type = MONGO_TYPES.get(str('string' if type is None else type).lower(), str)
+        type_name = str('string' if type_name is None else type_name)
+        self.value_type = MONGO_TYPES.get(type_name.lower(), str)
 
     def group_expression(self):
         return copy.deepcopy(self.group) if self.group else self.group
@@ -69,24 +81,32 @@ class MongoDocumentField(object):
         else:
             return "$%s" % self.field
 
+    def convert_value(self, value):
+        """Convert `value` according to field type"""
+        return self.value_type(value)
+
+
 def coalesce_physical(mapper, ref):
     if isinstance(ref, basestring):
-        return MongoDocumentField(mapper.database, mapper.collection, ref, None, None, None, None, None, None)
+        return MongoDocumentField(mapper.database, mapper.collection, ref,
+                                  None, None, None, None, None, None)
     elif isinstance(ref, dict):
         return MongoDocumentField(
-            ref.get('database', mapper.database), 
-            ref.get('collection', mapper.collection), 
-            ref.get('field'), 
-            ref.get('match'), 
-            ref.get('project'), 
-            ref.get('group'), 
-            ref.get("encode"), 
+            ref.get('database', mapper.database),
+            ref.get('collection', mapper.collection),
+            ref.get('field'),
+            ref.get('match'),
+            ref.get('project'),
+            ref.get('group'),
+            ref.get("encode"),
             ref.get("decode"),
-            ref.get("type")
+            ref.get("type"),
+            ref.get("extract")
             )
     else:
-        raise BackendError("Number of items in mongo document field reference should "\
-                               "be 1 (field name) or a dict of (field, match, project, encode, decode)")
+        raise BackendError("Number of items in mongo document field reference"
+                           " should be 1 (field name) or a dict of (field, "
+                           "match, project, encode, decode)")
 
 
 class MongoCollectionMapper(Mapper):
@@ -137,7 +157,7 @@ class MongoCollectionMapper(Mapper):
         if self.cube.mappings:
             logical = self.logical(attribute, locale)
 
-            # TODO: should default to non-localized reference if no mapping 
+            # TODO: should default to non-localized reference if no mapping
             # was found?
             mapped_ref = self.cube.mappings.get(logical)
 

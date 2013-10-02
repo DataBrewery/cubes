@@ -25,6 +25,9 @@ The result of aggregated browsing is returned as object:
 .. autoclass:: cubes.AggregationResult
     :members:
 
+.. autoclass:: cubes.CalculatedResultIterator
+    :members:
+
 Slicing and Dicing
 ==================
 
@@ -34,6 +37,9 @@ Slicing and Dicing
 Cuts
 ----
 
+.. autoclass:: cubes.Cut
+    :members:
+
 .. autoclass:: cubes.PointCut
     :members:
 
@@ -42,6 +48,14 @@ Cuts
 
 .. autoclass:: cubes.SetCut
     :members:
+
+Drilldown
+---------
+
+.. autoclass:: cubes.Drilldown
+
+.. autofunction:: cubes.levels_from_drilldown
+
 
 String conversions
 ------------------
@@ -55,8 +69,6 @@ In applications where slicing and dicing can be specified in form of a string, s
 .. autofunction:: cubes.string_from_path
 
 .. autofunction:: cubes.path_from_string
-
-.. autofunction:: cubes.levels_from_drilldown
 
 .. autofunction:: cubes.string_to_drilldown
 
