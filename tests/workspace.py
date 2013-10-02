@@ -8,11 +8,16 @@ from cubes.model import *
 from cubes.extensions import get_namespace
 
 from common import CubesTestCaseBase
+# FIXME: remove this once satisfied
 
-class WorkspaceTestCase(CubesTestCaseBase):
-    def setUp(self):
-        super(WorkspaceTestCase, self).setUp()
+class WorkspaceTestCaseBase(CubesTestCaseBase):
+    def default_workspace(self, model_name=None):
+        model_name = model_name or "model.json"
+        ws = Workspace(config=self.data_path("slicer.ini"))
+        ws.add_model(self.model_path("model.json"))
+        return ws
 
+class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
     def test_empty(self):
         """Just test whether we can create empty workspace"""
         ws = Workspace()
@@ -36,12 +41,8 @@ class WorkspaceTestCase(CubesTestCaseBase):
             ws = Workspace(config=self.data_path("slicer.ini"),
                            stores=self.data_path("stores.ini"))
 
-    def default_workspace(self, model_name=None):
-        model_name = model_name or "model.json"
-        ws = Workspace(config=self.data_path("slicer.ini"))
-        ws.add_model(self.model_path("model.json"))
-        return ws
 
+class WorkspaceModelTestCase(WorkspaceTestCaseBase):
     def test_get_cube(self):
         ws = self.default_workspace()
         cube = ws.cube("contracts")

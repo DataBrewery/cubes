@@ -1,6 +1,5 @@
 # -*- coding=utf -*-
 # Package imports
-import json
 import cubes
 import logging
 import ConfigParser
@@ -27,75 +26,78 @@ from ..workspace import Workspace
 from ..common import *
 
 from .common import *
+from .errors import *
 from .controllers import *
 from .utils import local_manager, set_default_tz
 
 # TODO: this deserves Flask!
 
 rules = Map([
-    Rule('/', endpoint = (ApplicationController, 'index')),
+    Rule('/', endpoint=(ApplicationController, 'index')),
     Rule('/version',
-                        endpoint = (ApplicationController, 'version')),
+                        endpoint=(ApplicationController, 'version')),
     Rule('/locales',
-                        endpoint = (ApplicationController, 'get_locales')),
+                        endpoint=(ApplicationController, 'get_locales')),
     #
     # Model requests
     #
     Rule('/model',
-                        endpoint = (ModelController, 'show')),
+                        endpoint=(ModelController, 'show')),
 
+    Rule('/cubes',
+                        endpoint=(ModelController, 'list_cubes')),
     Rule('/model/cubes',
-                        endpoint = (ModelController, 'list_cubes')),
+                        endpoint=(ModelController, 'list_cubes')),
     Rule('/model/cube',
-                        endpoint = (ModelController, 'get_default_cube')),
+                        endpoint=(ModelController, 'get_default_cube')),
     Rule('/model/cube/<string:cube_name>',
-                        endpoint = (ModelController, 'get_cube')),
+                        endpoint=(ModelController, 'get_cube')),
 
     Rule('/model/dimension/<string:dim_name>',
-                        endpoint = (ModelController, 'dimension')),
+                        endpoint=(ModelController, 'dimension')),
 
     #
     # Aggregation browser requests
     #
     Rule('/cube/<string:cube_name>/model',
-                        endpoint = (ModelController, 'get_cube')),
+                        endpoint=(ModelController, 'get_cube')),
     Rule('/cube/<string:cube>/aggregate',
-                        endpoint = (CubesController, 'aggregate')),
+                        endpoint=(CubesController, 'aggregate')),
     Rule('/cube/<string:cube>/facts',
-                        endpoint = (CubesController, 'facts')),
+                        endpoint=(CubesController, 'facts')),
     Rule('/cube/<string:cube>/fact/<string:fact_id>',
-                        endpoint = (CubesController, 'fact')),
+                        endpoint=(CubesController, 'fact')),
     Rule('/cube/<string:cube>/dimension/<string:dimension_name>',
-                        endpoint = (CubesController, 'values')),
+                        endpoint=(CubesController, 'values')),
     Rule('/cube/<string:cube>/report', methods = ['POST'],
-                        endpoint = (CubesController, 'report')),
+                        endpoint=(CubesController, 'report')),
     Rule('/cube/<string:cube>/cell',
-                        endpoint = (CubesController, 'cell_details')),
+                        endpoint=(CubesController, 'cell_details')),
     Rule('/cube/<string:cube>/details',
-                        endpoint = (CubesController, 'details')),
+                        endpoint=(CubesController, 'details')),
     Rule('/cube/<string:cube>/build',
-                        endpoint = (CubesController, 'build')),
+                        endpoint=(CubesController, 'build')),
     # Use default cube (specified in config as: [model] cube = ... )
     Rule('/aggregate',
-                        endpoint = (CubesController, 'aggregate'),
+                        endpoint=(CubesController, 'aggregate'),
                         defaults={"cube":None}),
     Rule('/facts',
-                        endpoint = (CubesController, 'facts'),
+                        endpoint=(CubesController, 'facts'),
                         defaults={"cube":None}),
     Rule('/fact/<string:fact_id>',
-                        endpoint = (CubesController, 'fact'),
+                        endpoint=(CubesController, 'fact'),
                         defaults={"cube":None}),
     Rule('/dimension/<string:dimension_name>',
                         endpoint=(CubesController, 'values'),
                         defaults={"cube":None}),
     Rule('/report', methods = ['POST'],
-                        endpoint = (CubesController, 'report'),
+                        endpoint=(CubesController, 'report'),
                         defaults={"cube":None}),
     Rule('/cell',
-                        endpoint = (CubesController, 'cell_details'),
+                        endpoint=(CubesController, 'cell_details'),
                         defaults={"cube":None}),
     Rule('/details',
-                        endpoint = (CubesController, 'details'),
+                        endpoint=(CubesController, 'details'),
                         defaults={"cube":None}),
     #
     # Other utility requests
@@ -107,6 +109,7 @@ rules = Map([
                         endpoint = (SearchController, 'search'),
                         defaults={"cube":None}),
 ])
+
 
 class Slicer(object):
 
@@ -171,7 +174,7 @@ class Slicer(object):
             action = getattr(controller, action_name)
             response = action(**params)
             response.headers.add("Access-Control-Allow-Origin", "*")
-        except cubes.CubesError as e:
+        except cubes.UserError as e:
             raise RequestError(str(e))
 
         return response

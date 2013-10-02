@@ -1,6 +1,6 @@
 """OLAP Cubes"""
 
-__version__ = "0.11.0"
+__version__ = "0.11.2"
 
 from common import *
 from browser import *
@@ -11,6 +11,7 @@ from server import *
 from formatter import *
 from computation import *
 from mapper import *
+from providers import *
 
 import backends
 import statutils
@@ -27,3 +28,4 @@ __all__ += server.__all__
 __all__ += formatter.__all__
 __all__ += computation.__all__
 __all__ += mapper.__all__
+__all__ += providers.__all__

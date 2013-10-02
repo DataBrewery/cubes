@@ -1,0 +1,66 @@
+{
+    "dimensions": [
+        {
+            "name": "initial_referrer",
+            "label": "Initial Referrer",
+            "description": "The first referrer the user came from ever"
+        },
+        {
+            "name": "initial_referring_domain",
+            "label": "Initial Referring domain",
+            "description": "The first referring domain the user came from ever"
+        },
+        {
+            "name": "search_engine",
+            "label": "Search Engine",
+            "description": "The search engine a user came from"
+        },
+        {
+            "name": "keyword",
+            "label": "Search Keyword",
+            "description": "The search keyword the user used to get to your website"
+        },
+        {
+            "name": "os",
+            "label": "Operating System",
+            "description": "The operating system of the user"
+        },
+        {
+            "name": "browser",
+            "label": "Browser",
+            "description": "The browser of the user"
+        },
+        {
+            "name": "referrer",
+            "label": "Referrer",
+            "description": "The current referrer of the user"
+        },
+        {
+            "name": "referring_domain",
+            "label": "Referring Domain",
+            "description": "The current referring domain of the user"
+        },
+        {
+            "name": "country_code",
+            "label": "Country Code",
+            "description": "A two letter country code representing the geolocation of the user"
+        },
+        {
+            "name": "city",
+            "label": "City"
+        }
+    ],
+
+    "mappings": {
+        "city": "$city",
+        "initial_referrer": "$initial_referrer",
+        "initial_referring_domain": "$initial_referring_domain",
+        "search_engine": "$search_engine",
+        "keyword": "mp_keyword",
+        "os": "$os",
+        "browser": "$browser",
+        "referrer": "$referrer",
+        "referring_domain": "$referring_domain",
+        "country_code": "mp_country_code"
+    }
+}
