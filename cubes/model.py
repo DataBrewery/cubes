@@ -607,6 +607,19 @@ class Cube(object):
 
         return array
 
+    @property
+    def all_attributes(self):
+        """All cube's attributes: attributes of dimensions, details and
+        measures."""
+        attributes = []
+        for dim in self.dimensions:
+            attributes += dim.all_attributes
+
+        attributes += self.details
+        attributes += self.measures
+
+        return attributes
+
     def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
         default) then `joins`, `mappings`, `fact` and `options` are included.
@@ -951,6 +964,7 @@ class Dimension(object):
 
         return [level.key for level in self._levels.values()]
 
+    @property
     def all_attributes(self):
         """Return all dimension attributes regardless of hierarchy. Order is
         not guaranteed, use :meth:`cubes.Hierarchy.all_attributes` to get
@@ -1086,7 +1100,7 @@ class Dimension(object):
 
         attr_locales = locale.get("attributes", {})
 
-        for attrib in self.all_attributes():
+        for attrib in self.all_attributes:
             if attrib.name in attr_locales:
                 localize_common(attrib, attr_locales[attrib.name])
 
@@ -1303,6 +1317,7 @@ class Hierarchy(object):
 
         return [level.key for level in self.levels]
 
+    @property
     def all_attributes(self):
         """Return all dimension attributes as a single list."""
 
