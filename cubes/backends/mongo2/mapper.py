@@ -8,6 +8,7 @@ from cubes.errors import *
 from cubes.mapper import Mapper
 from bson.objectid import ObjectId
 import datetime
+from datetime import datetime
 
 __all__ = (
     "MongoCollectionMapper"
@@ -30,10 +31,12 @@ MONGO_EVAL_NS = {
     'datetime': datetime
 }
 
+MONGO_DATE_PARTS = ["year", "month", "day", "week", "hour", "minute"]
+
 """Physical reference to a mongo document field."""
 class MongoDocumentField(object):
     def __init__(self, database, collection, field, match, project, group,
-                 encode, decode, type=None):
+                 encode, decode, type_name=None, extract=None):
         """Creates a mongo document field."""
 
         self.database = database
@@ -42,6 +45,8 @@ class MongoDocumentField(object):
         self.match = match
         self.project = project
         self.group = None
+        self.extract = extract
+        self.is_date_part = extract in MONGO_DATE_PARTS
 
         if group:
             self.group = copy.deepcopy(group)
@@ -54,7 +59,8 @@ class MongoDocumentField(object):
         if decode:
             self.decode = eval(compile(decode, '__decode__', 'eval'), copy.copy(MONGO_EVAL_NS))
 
-        self.type = MONGO_TYPES.get(str('string' if type is None else type).lower(), str)
+        type_name = str('string' if type_name is None else type_name)
+        self.value_type = MONGO_TYPES.get(type_name.lower(), str)
 
     def group_expression(self):
         return copy.deepcopy(self.group) if self.group else self.group
@@ -75,6 +81,10 @@ class MongoDocumentField(object):
         else:
             return "$%s" % self.field
 
+    def convert_value(self, value):
+        """Convert `value` according to field type"""
+        return self.value_type(value)
+
 
 def coalesce_physical(mapper, ref):
     if isinstance(ref, basestring):
@@ -90,7 +100,8 @@ def coalesce_physical(mapper, ref):
             ref.get('group'),
             ref.get("encode"),
             ref.get("decode"),
-            ref.get("type")
+            ref.get("type"),
+            ref.get("extract")
             )
     else:
         raise BackendError("Number of items in mongo document field reference"
