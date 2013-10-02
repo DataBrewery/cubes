@@ -130,8 +130,6 @@ class SQLStore(Store):
                 sa_options[sa_key] = options.pop(key)
 
             sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
-            sa_options = {}
-
             engine = sqlalchemy.create_engine(url, **sa_options)
 
         # TODO: get logger from workspace that opens this store
