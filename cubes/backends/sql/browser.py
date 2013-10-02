@@ -167,8 +167,10 @@ class SnowflakeBrowser(AggregationBrowser):
 
         if not fields:
             attributes = self.cube.all_attributes
+            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
         else:
             attributes = self.cube.get_attributes(fields)
+            self.logger.debug("facts: getting fields: %s" % fields)
 
         cond = self.context.condition_for_cell(cell)
         statement = self.context.denormalized_statement(attributes=attributes,
@@ -897,7 +899,7 @@ class QueryContext(object):
             joined_products[(join.master.schema, join.master.table)] = table
 
             # Add (aliased) detail table to the rist
-            table = self.table(join.detail.schema, join.detail.table)
+            table = self.table(join.detail.schema, join.alias or join.detail.table)
             key = (join.detail.schema, join.alias or join.detail.table)
             joined_products[key] = table
 
