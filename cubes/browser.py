@@ -153,7 +153,10 @@ class AggregationBrowser(object):
 
     def facts(self, cell=None, fields=None, **options):
         """Return an iterable object with of all facts within cell.
-        `fields` is list of fields to be considered in the output."""
+        `fields` is list of fields to be considered in the output.
+
+        Subclasses overriding this method sould return a :class:`Facts` object
+        and set it's `attributes` to the list of selected attributes."""
 
         raise NotImplementedError
 
@@ -410,6 +413,18 @@ class AggregationBrowser(object):
                 result.append(item)
 
         return result
+
+
+class Facts(object):
+    def __init__(self, facts, attributes):
+        """A facts iterator object returned by the browser's `facts()`
+        method."""
+
+        self.facts = facts
+        self.attributes = attributes
+
+    def __iter__(self):
+        return self.facts
 
 
 class Cell(object):
@@ -1486,6 +1501,36 @@ class Drilldown(object):
             dim_levels[str(dd.dimension)] = [str(level) for level in dd.levels]
 
         return dim_levels
+
+    def is_high_cardinality(self):
+        """Returns `True` if the drilldown is through a dimension or a
+        dimension level of high cardinality (as specified in the metadata.).
+        You can use this method as a hint to prevent retrieving and sending
+        huge results to the client."""
+
+        return bool(self.high_cardinality_dimensin_drilldown()) or \
+                bool(self.high_cardinality_level_drilldown())
+
+    def high_cardinality_dimensin_drilldown(self):
+        """Returns drilldown items with high cardinality dimensions."""
+        items = []
+        for item in self.drilldown:
+            dim = item.dimension
+
+            if dim.info.get("high_cardinality"):
+                items.append(item)
+
+        return items
+
+    def high_cardinality_level_drilldown(self):
+        """Returns drilldown items with high cardinality levels."""
+        items = []
+        for item in self.drilldown:
+            for level in item.levels:
+                if level.info.get("high_cardinality"):
+                    items.append(level)
+
+        return items
 
     def __contains__(self, key):
         return str(key) in self._by_dimension
