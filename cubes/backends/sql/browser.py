@@ -39,7 +39,25 @@ _EXPR_EVAL_NS = {
 
 
 class SnowflakeBrowser(AggregationBrowser):
-    """docstring for SnowflakeBrowser"""
+    __options__ = [
+        {
+            "name": "include_summary",
+            "type": "bool"
+        },
+        {
+            "name": "include_cell_count",
+            "type": "bool"
+        },
+        {
+            "name": "use_denormalization",
+            "type": "bool"
+        },
+        {
+            "name": "safe_labels",
+            "type": "bool"
+        }
+
+    ]
 
     def __init__(self, cube, store, locale=None, metadata=None,
                  debug=False, **options):
@@ -87,6 +105,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
+
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
@@ -338,6 +357,9 @@ class SnowflakeBrowser(AggregationBrowser):
             cursor.close()
             result.summary = record
 
+        if include_cell_count is None:
+            include_cell_count = self.include_cell_count
+
         ##
         # Drill-down
         #
@@ -406,7 +428,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             # TODO: Introduce option to disable this
 
-            if include_cell_count or include_cell_count is None and self.include_cell_count:
+            if include_cell_count:
                 count_statement = statement.alias().count()
                 row_count = self.connectable.execute(count_statement).fetchone()
                 total_cell_count = row_count[0]
