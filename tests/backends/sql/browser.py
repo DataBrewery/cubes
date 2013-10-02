@@ -317,6 +317,30 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertIsNotNone(fact)
         self.assertEqual(18, len(fact.keys()))
 
+    def test_get_facts(self):
+        """Get single fact"""
+        # TODO: remove this when happy
+        self.browser.logger.setLevel("DEBUG")
+
+        self.assertEqual(True, self.mapper.simplify_dimension_references)
+
+        facts = list(self.browser.facts())
+
+        result = self.engine.execute(self.table("sales").count())
+        count = result.fetchone()[0]
+        self.assertEqual(82, count)
+
+        self.assertIsNotNone(facts)
+        self.assertEqual(82, len(facts))
+        self.assertEqual(18, len(facts[0]))
+
+        attrs = ["date.year", "amount"]
+        facts = list(self.browser.facts(fields=attrs))
+        self.assertEqual(82, len(facts))
+
+        # We get 3: fact key + 2
+        self.assertEqual(3, len(facts[0]))
+
     def test_get_members(self):
         """Get dimension values"""
         members = list(self.browser.members(None,"product",1))

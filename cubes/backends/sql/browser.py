@@ -156,29 +156,30 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
-    def facts(self, cell, fields=None, order=None, page=None, page_size=None):
+    def facts(self, cell=None, fields=None, order=None, page=None,
+              page_size=None):
         """Return all facts from `cell`, might be ordered and paginated.
 
         Number of SQL queries: 1.
         """
 
+        cell = cell or Cell(self.cube)
+
         if not fields:
             attributes = self.cube.all_attributes
-
-        # all measures that fit the bill
-        attributes |= set([ m for m in self.cube.measures if 'identity' not in m.aggregations ])
+        else:
+            attributes = self.cube.get_attributes(fields)
 
         cond = self.context.condition_for_cell(cell)
-        statement = self.context.denormalized_statement(
-            attributes=attributes,
-            include_fact_key=True,
-            condition_attributes=cond.attributes
-        )
+        statement = self.context.denormalized_statement(attributes=attributes,
+                                                        include_fact_key=True,
+                                                        condition_attributes=cond.attributes)
 
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
         statement = self.context.paginated_statement(statement, page, page_size)
+
         # FIXME: use level based ordering here. What levels to consider? In
         # what order?
         statement = self.context.ordered_statement(statement, order)
