@@ -208,7 +208,7 @@ class AggregationBrowserTestCase(BrowserTestCase):
 
     def test_hierarchy_path(self):
         dim = self.cube.dimension("cpv")
-        hier = dim.default_hierarchy
+        hier = dim.hierarchy()
 
         levels = hier.levels_for_path([])
         self.assertEqual(len(levels), 0)
@@ -225,7 +225,7 @@ class AggregationBrowserTestCase(BrowserTestCase):
 
     def test_hierarchy_drilldown_levels(self):
         dim = self.cube.dimension("cpv")
-        hier = dim.default_hierarchy
+        hier = dim.hierarchy()
 
         levels = hier.levels_for_path([], drilldown=True)
         self.assertEqual(len(levels), 1)

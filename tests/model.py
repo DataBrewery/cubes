@@ -556,7 +556,7 @@ class HierarchyTestCase(unittest.TestCase):
         keys = [a.name for a in self.hierarchy.key_attributes()]
         self.assertEqual(["year", "month", "day"], keys)
 
-        attrs = [a.name for a in self.hierarchy.all_attributes()]
+        attrs = [a.name for a in self.hierarchy.all_attributes]
         self.assertEqual(["year", "month", "month_name", "month_sname", "day"],
                          attrs)
 
@@ -580,7 +580,7 @@ class DimensionTestCase(unittest.TestCase):
         dim = cubes.create_dimension("year")
         self.assertIsInstance(dim, cubes.Dimension)
         self.assertEqual("year", dim.name)
-        self.assertEqual(["year"], [str(a) for a in dim.all_attributes()])
+        self.assertEqual(["year"], [str(a) for a in dim.all_attributes])
 
         # Test default: explicit level attributes
         desc = {"name": "date", "levels": ["year"]}
@@ -589,13 +589,13 @@ class DimensionTestCase(unittest.TestCase):
         self.assertFalse(dim.has_details)
         self.assertIsInstance(dim, cubes.Dimension)
         self.assertEqual("date", dim.name)
-        self.assertEqual(["year"], [str(a) for a in dim.all_attributes()])
+        self.assertEqual(["year"], [str(a) for a in dim.all_attributes])
 
         desc = {"name": "date", "levels": ["year", "month", "day"]}
         dim = cubes.create_dimension(desc)
         self.assertIsInstance(dim, cubes.Dimension)
         self.assertEqual("date", dim.name)
-        names = [str(a) for a in dim.all_attributes()]
+        names = [str(a) for a in dim.all_attributes]
         self.assertEqual(["year", "month", "day"], names)
         self.assertFalse(dim.is_flat)
         self.assertFalse(dim.has_details)
@@ -608,7 +608,7 @@ class DimensionTestCase(unittest.TestCase):
         # Test default: implicit single level attributes
         desc = {"name": "product", "attributes": ["code", "name"]}
         dim = cubes.create_dimension(desc)
-        names = [str(a) for a in dim.all_attributes()]
+        names = [str(a) for a in dim.all_attributes]
         self.assertEqual(["code", "name"], names)
         self.assertEqual(1, len(dim.levels))
         self.assertEqual(1, len(dim.hierarchies))
