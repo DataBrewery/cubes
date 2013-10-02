@@ -442,6 +442,20 @@ class LevelTestCase(unittest.TestCase):
         self.assertIsInstance(level.label_attribute, cubes.Attribute)
         self.assertEqual("name", str(level.label_attribute))
 
+    def test_level_inherit(self):
+        desc = {
+            "name": "product_type",
+            "label": "Product Type"
+        }
+
+        level = cubes.create_level(desc)
+        self.assertEqual(1, len(level.attributes))
+
+        attr = level.attributes[0]
+        self.assertEqual("product_type", attr.name)
+        self.assertEqual("Product Type", attr.label)
+
+
     def test_comparison(self):
         """Comparison of level instances"""
 
