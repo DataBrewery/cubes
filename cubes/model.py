@@ -2207,9 +2207,15 @@ def fix_level_metadata(metadata):
         metadata = dict(metadata)
         if "attributes" not in metadata:
             try:
-                metadata["attributes"] = [metadata["name"]]
+                name = metadata["name"]
             except KeyError:
                 raise ModelError("Level has no name.")
+
+            attribute = {
+                "name": name,
+                "label": metadata.get("label")
+            }
+            metadata = {"name":name, "attributes": [attribute]}
 
         return metadata
 
