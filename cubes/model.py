@@ -620,12 +620,27 @@ class Cube(object):
 
         return attributes
 
-    def get_attributes(self, attributes):
+    def get_attributes(self, attributes, simplify=True):
         """Returns a list of cube's attributes (dimension attributes, details
-        and/or measures) according to the list `attributes`."""
+        and/or measures) according to the list `attributes`. If
+        `simplified_references` is `True` then dimension attribute references
+        in `attrubutes` are considered simplified, otherwise they are
+        considered as full (dim.attribute)."""
+
         names = [str(attr) for attr in attributes]
-        out = [attr for attr in self.all_attributes if str(attr) in names]
-        return out
+
+        attr_map = dict((a.ref(simplify), a) for a in self.all_attributes)
+
+        result = []
+        for name in names:
+            try:
+                attr = attr_map[name]
+            except KeyError:
+                raise NoSuchAttributeError("Unknown attribute '%s' in cube "
+                                           "'%s'" % (name, self.name))
+            result.append(attr)
+
+        return result
 
     def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is

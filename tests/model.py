@@ -706,6 +706,34 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual("discount", self.cube.measure("discount").name)
         self.assertRaises(NoSuchAttributeError, self.cube.measure, "xxx")
 
+    def test_attributes(self):
+        all_attributes = self.cube.all_attributes
+        refs = [a.ref() for a in all_attributes]
+        expected = [
+            'date.year',
+            'date.month',
+            'date.month_name',
+            'date.day',
+            'product.key',
+            'product.name',
+            'product.description',
+            'flag',
+            'amount',
+            'discount']
+        self.assertSequenceEqual(expected, refs)
+
+        attributes = self.cube.get_attributes(["date.year", "product.name"])
+        refs = [a.ref() for a in attributes]
+        expected = ['date.year', 'product.name']
+        self.assertSequenceEqual(expected, refs)
+
+        attributes = self.cube.get_attributes(["amount"])
+        refs = [a.ref() for a in attributes]
+        self.assertSequenceEqual(["amount"], refs)
+
+        with self.assertRaises(NoSuchAttributeError):
+            self.cube.get_attributes(["UNKNOWN"])
+
     @unittest.skip("deferred (needs workspace)")
     def test_to_dict(self):
         desc = self.cube.to_dict()
