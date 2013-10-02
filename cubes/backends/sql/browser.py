@@ -156,16 +156,15 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
-    def facts(self, cell, order=None, page=None, page_size=None):
+    def facts(self, cell, fields=None, order=None, page=None, page_size=None):
         """Return all facts from `cell`, might be ordered and paginated.
 
         Number of SQL queries: 1.
         """
 
-        attributes = set()
-        attributes |= set(self.cube.details)
-        for dim in self.cube.dimensions:
-            attributes |= set(dim.hierarchy().all_attributes())
+        if not fields:
+            attributes = self.cube.all_attributes
+
         # all measures that fit the bill
         attributes |= set([ m for m in self.cube.measures if 'identity' not in m.aggregations ])
 
@@ -803,7 +802,7 @@ class QueryContext(object):
 
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
-        attributes = hierarchy.all_attributes()
+        attributes = hierarchy.all_attributes
 
         product = self.join_expression_for_attributes(attributes,
                                                         include_fact=False)

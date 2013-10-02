@@ -80,7 +80,7 @@ class Mapper(object):
             self.attributes[self.logical(attr)] = attr
 
         for dim in self.cube.dimensions:
-            for attr in dim.all_attributes():
+            for attr in dim.all_attributes:
                 if not attr.dimension:
                     raise Exception("No dimension in attr %s" % attr)
                 self.attributes[self.logical(attr)] = attr
