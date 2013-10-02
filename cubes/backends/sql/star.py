@@ -97,6 +97,12 @@ class SnowflakeBrowser(AggregationBrowser):
         self.connectable = store.connectable
         self.metadata = store.metadata or sqlalchemy.MetaData(bind=self.connectable)
 
+	# merge options
+	the_options = {}
+	the_options.update(store.options)
+	the_options.update(options)
+	options = the_options
+
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
         # Mapper is responsible for finding corresponding physical columns to

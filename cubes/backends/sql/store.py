@@ -146,8 +146,7 @@ class SQLStore(Store):
         self.metadata = sqlalchemy.MetaData(bind=self.connectable,
                                             schema=self.schema)
 
-        # TODO: coalesce options
-        self.options = options
+        self.options = coalesce_options(options, OPTION_TYPES)
 
     def browser(self, cube, locale=None):
         """Returns a browser for a `cube`."""
