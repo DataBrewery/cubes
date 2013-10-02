@@ -320,7 +320,7 @@ Parameters:
 * `format` - result format: ``json`` (default; see note below), ``csv``
 * `fields` - comma separated list of fact fields, by default all fields are
   returned
-* `headers` – specify what kind of headers should be present in the ``csv``
+* `header` – specify what kind of headers should be present in the ``csv``
   output: ``names`` – raw field names (default), ``labels`` – human readable labels or
   ``none``
 
