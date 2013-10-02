@@ -17,6 +17,7 @@ __all__ = [
     "AggregationBrowser",
     "AggregationResult",
     "CalculatedResultIterator",
+    "Facts",
 
     "Cell",
     "Cut",
@@ -420,7 +421,7 @@ class Facts(object):
         """A facts iterator object returned by the browser's `facts()`
         method."""
 
-        self.facts = facts
+        self.facts = facts or []
         self.attributes = attributes
 
     def __iter__(self):

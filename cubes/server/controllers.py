@@ -394,13 +394,17 @@ class CubesController(ApplicationController):
         else:
             header = None
 
+        # Get the facts iterator. `result` is expected to be an iterable Facts
+        # object
+        facts = iter(result)
+
         if output_format == "json":
-            return self.json_response(result)
+            return self.json_response(facts)
         elif output_format == "csv":
             if not fields:
                 fields = result.labels
 
-            generator = CSVGenerator(result,
+            generator = CSVGenerator(facts,
                                      fields,
                                      include_header=bool(header),
                                      header=header)
