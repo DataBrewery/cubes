@@ -14,7 +14,8 @@ def open_store(name, **options):
     ns = get_namespace("stores")
     if not ns:
         ns = initialize_namespace("stores", root_class=Store,
-                                  suffix="_store")
+                                  suffix="_store",
+                                  option_checking=True)
 
     try:
         factory = ns[name]
@@ -30,7 +31,7 @@ def create_browser(type_, cube, store, locale, **options):
     ns = get_namespace("browsers")
     if not ns:
         ns = initialize_namespace("browsers", root_class=AggregationBrowser,
-                                  suffix="_browser")
+                                  suffix="_browser", option_checking=True)
 
     try:
         factory = ns[type_]
@@ -39,6 +40,10 @@ def create_browser(type_, cube, store, locale, **options):
 
     return factory(cube=cube, store=store, locale=locale, **options)
 
+
+def register_browser(type_, class_, options=None):
+    """Register a browser class `class_`. If no `options` are specified, then
+    `__cubes_options__` class attribute is used."""
 
 class Store(object):
     """Abstract class to find other stores through the class hierarchy."""

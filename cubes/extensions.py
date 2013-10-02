@@ -1,5 +1,5 @@
 # -*- coding=utf -*-
-from .common import decamelize, to_identifier
+from .common import decamelize, to_identifier, coalesce_options
 from collections import defaultdict
 
 _default_modules = {
@@ -20,10 +20,12 @@ _default_modules = {
 }
 
 class Namespace(dict):
-    def __init__(self, name, objects=None, root_class=None, suffix=None):
+    def __init__(self, name, objects=None, root_class=None, suffix=None,
+                 option_checking=False):
         self.name = name
         self.root_class = root_class
         self.suffix = suffix
+        self.option_checking = option_checking
 
         if objects:
             self.update(objects)
@@ -31,6 +33,12 @@ class Namespace(dict):
     def discover_objects(self):
         if self.root_class:
             objects = collect_subclasses(self.root_class, self.suffix)
+
+            if self.option_checking:
+                # Convert classes to factories
+                for name, class_ in objects.items():
+                    objects[name] = _FactoryOptionChecker(class_)
+
             self.update(objects)
 
     def __getattr__(self, value):
@@ -49,6 +57,39 @@ class Namespace(dict):
             # Retry after loading
             return super(Namespace, self).__getitem__(value)
 
+class _FactoryOptionChecker(object):
+    def __init__(self, class_, options=None):
+        """Creates a factory wrapper for `class_`. Calling the object createds
+        an instance of `class_` and configures it according to `options`. If
+        not options are specified, then the class variable `__options__` is used.
+
+        The options is a list of dictionaries with keys:
+
+        * `name` – option name
+        * `type` – option data type
+        * `description` – description (optional)
+        * `label` – human readable label (optional)
+        * `values` – valid values for the option."""
+
+        if not options and hasattr(class_, "__options__"):
+            options = class_.__options__
+
+        self.options = {}
+        self.option_types = {}
+        for option in options or []:
+            name = option["name"]
+            self.options[name] = option
+            self.option_types[name] = option.get("type", "string")
+
+        self.class_ = class_
+
+    def __call__(self, *args, **kwargs):
+        # TODO: move this to a metaclass
+        options = dict(kwargs)
+        options = coalesce_options(dict(kwargs), self.option_types)
+
+        return self.class_(*args, **options)
+
 _namespaces = {}
 
 def get_namespace(name):
@@ -56,12 +97,14 @@ def get_namespace(name):
 
     return _namespaces.get(name)
 
-def initialize_namespace(name, objects=None, root_class=None, suffix=None):
+def initialize_namespace(name, objects=None, root_class=None, suffix=None,
+                         option_checking=False):
     """Initializes the namespace `name` with `objects` dictionary and
     subclasses of `root_class` where the class name is decamelized, changet do
     an identifier and with `suffix` removed."""
 
-    ns = Namespace(name, objects, root_class, suffix)
+    ns = Namespace(name, objects, root_class, suffix,
+                   option_checking=option_checking)
     ns.discover_objects()
     _namespaces[name] = ns
 
