@@ -620,6 +620,13 @@ class Cube(object):
 
         return attributes
 
+    def get_attributes(self, attributes):
+        """Returns a list of cube's attributes (dimension attributes, details
+        and/or measures) according to the list `attributes`."""
+        names = [str(attr) for attr in attributes]
+        out = [attr for attr in self.all_attributes if str(attr) in names]
+        return out
+
     def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
         default) then `joins`, `mappings`, `fact` and `options` are included.
