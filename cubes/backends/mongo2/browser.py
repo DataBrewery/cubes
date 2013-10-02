@@ -185,7 +185,8 @@ class Mongo2Browser(AggregationBrowser):
         if page_size and page_size > 0:
             cursor = cursor.limit(page_size)
 
-        facts = MongoFactsIterator(cursor, None)
+        facts = MongoFactsIterator(cursor, attributes, self.mapper,
+                                   self.datesupport)
 
         return facts
 
@@ -501,13 +502,15 @@ class Mongo2Browser(AggregationBrowser):
         return (None, result_items) if (drilldown or split) else (result_items[0], [])
 
     def _build_date_for_cut(self, hier, path, is_end=False):
+        """Constructs a date from timestamp."""
         date_dict = {'month': 1, 'day': 1, 'hour': 0, 'minute': 0 }
         min_part = None
 
-        for val, dp in zip(path, hier.levels[:len(path)]):
-            date_dict[dp.key.name] = self.mapper.physical(dp.key).type(val)
-            min_part = dp
-
+        date_levels = hier.levels[:len(path)]
+        for val, date_part in zip(path, date_levels):
+            physical = self.mapper.physical(date_part.key)
+            date_dict[date_part.key.name] = physical.convert_value(val)
+            min_part = date_part
 
         dt = None
         if 'year' not in date_dict:
@@ -515,7 +518,10 @@ class Mongo2Browser(AggregationBrowser):
                 return dt, min_part
             else:
                 dt = datetime.strptime(date_dict['week'], '%Y-%m-%d')
-                dt = (self.datesupport.get_week_end_date if is_end else self.datesupport.get_week_start_date)(dt)
+                if is_end:
+                    dt = self.datesupport.get_week_end_date(dt)
+                else:
+                    dt = self.datesupport.get_week_start_date(dt)
         else:
             dt = datetime(**date_dict)
 
@@ -638,7 +644,27 @@ def unescape_level(ref):
 
 
 class MongoFactsIterator(Facts):
+    def __init__(self, facts, attributes, mapper, datesupport):
+        super(MongoFactsIterator, self).__init__(facts, attributes)
+        self.mapper = mapper
+        self.datesupport = datesupport
+
     def __iter__(self):
         for fact in self.facts:
             fact = to_json_safe(fact)
-            yield collapse_record(fact)
+            fact = collapse_record(fact)
+
+            record = {}
+            for attribute in self.attributes:
+                physical = self.mapper.physical(attribute)
+                value = fact.get(physical.field)
+
+                if value and physical.is_date_part:
+                    if physical.extract != "week":
+                        value = getattr(value, physical.extract)
+                    else:
+                        value = self.datesupport.calc_week(value)
+
+                record[attribute.ref()] = value
+
+            yield record
