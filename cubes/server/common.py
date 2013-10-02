@@ -1,17 +1,15 @@
+# -*- coding=utf -*-
 """Common objects for slicer server"""
-
-try:
-    from werkzeug.exceptions import HTTPException
-except:
-    # No need to bind objects here to dependency-sink, as the user
-    # will be notified when he tries to use Slicer or run_server about
-    # the missing package
-    HTTPException = object
 
 import json
 import os.path
 import decimal
 import datetime
+import csv
+import codecs
+import cStringIO
+
+from .errors import *
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -30,56 +28,26 @@ def str_to_bool(string):
 
     return None
 
-class ServerError(HTTPException):
-    code = 500
-    error_type = "default"
-    def __init__(self, message=None, exception=None, **details):
-        super(ServerError, self).__init__()
-        self.message = message
-        self.exception = exception
-        self.details = details
-        self.help = None
 
-    def get_body(self, environ):
-        error = {
-            "message": self.message,
-            "type": self.__class__.error_type
-        }
+def validated_parameter(args, name, values=None, default=None, case_sensitive=False):
+    """Return validated parameter `param` that has to be from the list of
+    `values` if provided."""
 
-        if self.exception:
-            error["reason"] = str(self.exception)
+    param = args.get(name)
+    if param:
+        param = param.lower()
+    else:
+        param = default
 
-        if self.details:
-            error.update(self.details)
+    if not values:
+        return param
+    else:
+        if values and param not in values:
+            list_str = ", ".join(values)
+            raise RequestError("Parameter '%s' should be one of: %s"
+                            % (name, list_str) )
+        return param
 
-        string = json.dumps({"error": error}, indent=4)
-        return string
-
-    def get_headers(self, environ):
-        """Get a list of headers."""
-        return [('Content-Type', 'application/json')]
-
-class RequestError(ServerError):
-    error_type = "request"
-    code = 400
-
-class NotFoundError(ServerError):
-    code = 404
-    error_type = "not_found"
-    def __init__(self, obj, objtype=None, message=None):
-        super(NotFoundError, self).__init__(message)
-        self.details = { "object": obj }
-
-        if objtype:
-            self.details["object_type"] = objtype
-
-        if not message:
-            self.message = "Object '%s' of type '%s' was not found" % (obj, objtype)
-        else:
-            self.message = message
-
-class AggregationError(ServerError):
-    code = 400
 
 class SlicerJSONEncoder(json.JSONEncoder):
     def __init__(self, *args, **kwargs):
@@ -120,3 +88,88 @@ class SlicerJSONEncoder(json.JSONEncoder):
                 return array
             else:
                 return json.JSONEncoder.default(self, o)
+
+
+class CSVGenerator(object):
+    def __init__(self, records, fields, include_header=True,
+                header=None, dialect=csv.excel, encoding="utf-8", **kwds):
+        # Redirect output to a queue
+        self.records = records
+
+        self.include_header = include_header
+        self.header = header
+
+        self.fields = fields
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def csvrows(self):
+        if self.include_header:
+            yield self._row_string(self.header or self.fields)
+
+        for record in self.records:
+            row = []
+            for field in self.fields:
+                value = record.get(field)
+                if type(value) == unicode or type(value) == str:
+                    row.append(value.encode("utf-8"))
+                elif value:
+                    row.append(unicode(value))
+                else:
+                    row.append(None)
+
+            yield self._row_string(row)
+
+    def _row_string(self, row):
+        self.writer.writerow(row)
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # empty queue
+        self.queue.truncate(0)
+
+        return data
+
+
+class UnicodeCSVWriter:
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which is encoded in the given encoding.
+
+    From: <http://docs.python.org/lib/csv-examples.html>
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        # Redirect output to a queue
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def writerow(self, row):
+        new_row = []
+        for value in row:
+            if type(value) == unicode or type(value) == str:
+                new_row.append(value.encode("utf-8"))
+            elif value:
+                new_row.append(unicode(value))
+            else:
+                new_row.append(None)
+
+        self.writer.writerow(new_row)
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # write to the target stream
+        self.stream.write(data)
+        # empty queue
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
