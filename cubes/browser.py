@@ -89,7 +89,7 @@ class AggregationBrowser(object):
 
         Subclasses of aggregation browser should implement this method.
 
-        :Attributes:
+        Attributes:
 
         * `drilldown` - dimensions and levels through which to drill-down,
           default `None`
@@ -151,8 +151,9 @@ class AggregationBrowser(object):
 
         return aggregates
 
-    def facts(self, cell=None, **options):
-        """Return an iterable object with of all facts within cell"""
+    def facts(self, cell=None, fields=None, **options):
+        """Return an iterable object with of all facts within cell.
+        `fields` is list of fields to be considered in the output."""
 
         raise NotImplementedError
 
@@ -393,7 +394,7 @@ class AggregationBrowser(object):
             return None
 
         if (dimension.is_flat and not dimension.has_details):
-            name = dimension.all_attributes()[0].name
+            name = dimension.all_attributes[0].name
             value = details.get(name)
             item = {name: value}
             item["_key"] = value
