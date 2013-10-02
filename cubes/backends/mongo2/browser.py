@@ -4,19 +4,19 @@ from ...browser import *
 from ...computation import *
 from ...statutils import calculators_for_aggregates, available_calculators
 from cubes import statutils
-from .mapper import MongoCollectionMapper, coalesce_physical
+from .mapper import MongoCollectionMapper
 from .datesupport import DateSupport
 from .functions import get_aggregate_function, available_aggregate_functions
+from .util import to_json_safe, collapse_record
 
 import collections
 import copy
 import pymongo
 import bson
 import re
-import time
 
 from dateutil.relativedelta import relativedelta
-from datetime import datetime, timedelta
+from datetime import datetime
 from itertools import groupby
 from functools import partial
 import pytz
@@ -156,30 +156,38 @@ class Mongo2Browser(AggregationBrowser):
         result.labels = labels
         return result
 
-    def _json_safe_item(self, item):
-        new_item = {}
-        for k,v in item.iteritems():
-            new_item[k] = str(v) if isinstance(v, bson.objectid.ObjectId) else v
-        return new_item
+    def facts(self, cell=None, fields=None, order=None, page=None, page_size=None,
+              **options):
+        """Return facts iterator."""
 
-    def facts(self, cell=None, order=None, page=None, page_size=None, **options):
+        cell = cell or Cell(self.cube)
+
+        if not fields:
+            attributes = self.cube.all_attributes
+            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
+        else:
+            attributes = self.cube.get_attributes(fields)
+            self.logger.debug("facts: getting fields: %s" % fields)
+
+        # Prepare the query
         query_obj, fields_obj = self._build_query_and_fields(cell, [])
+
         # TODO include fields_obj, fully populated
         cursor = self.data_store.find(query_obj)
         if order:
             order_obj = self._order_to_sort_object(order)
             k, v = order_obj.iteritems().next()
             cursor = cursor.sort(k, pymongo.DESCENDING if v == -1 else pymongo.ASCENDING)
+
         if page_size and page > 0:
             cursor = cursor.skip(page * page_size)
+
         if page_size and page_size > 0:
             cursor = cursor.limit(page_size)
 
-        # TODO map back to logical values
-        items = []
-        for item in cursor:
-            items.append(self._json_safe_item(item))
-        return items
+        facts = MongoFactsIterator(cursor, None)
+
+        return facts
 
     def fact(self, key):
         # TODO make it possible to have a fact key that is not an ObjectId
@@ -191,7 +199,7 @@ class Mongo2Browser(AggregationBrowser):
             pass
         item = self.data_store.find_one({key_field.field: key_value})
         if item is not None:
-            item = self._json_safe_item(item)
+            item = to_json_safe(item)
         return item
 
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, order=None, page=None, page_size=None, **options):
@@ -231,29 +239,29 @@ class Mongo2Browser(AggregationBrowser):
     def _in_same_collection(self, physical_ref):
         return (physical_ref.database == self.mapper.database) and (physical_ref.collection == self.mapper.collection)
 
-    def _measure_aggregation_field(self, logical_ref, aggregation_name):
-        if aggregation_name == 'identity':
-            return logical_ref
-        return "%s_%s" % (logical_ref, aggregation_name)
-
     def _build_query_and_fields(self, cell, attributes, for_project=False):
+        """Returns a tuple (`query`, `fields`)."""
         find_clauses = []
         query_obj = {}
-        if not for_project and self.cube.mappings and self.cube.mappings.get('__query__'):
+        if not for_project and self.cube.mappings and \
+                self.cube.mappings.get('__query__'):
             query_obj.update(copy.deepcopy(self.cube.mappings['__query__']))
 
-        find_clauses = reduce(lambda i, c: i + c, [self._query_conditions_for_cut(cut, for_project) for cut in cell.cuts], [])
+        find_clauses = []
+        for cut in cell.cuts:
+            find_clauses += self._query_conditions_for_cut(cut, for_project)
 
         if find_clauses:
-            query_obj.update({ "$and": find_clauses })
+            query_obj.update({"$and": find_clauses})
 
         fields_obj = {}
-        if attributes:
-            for attribute in attributes:
-                phys = self.mapper.physical(attribute)
-                if not self._in_same_collection(phys):
-                    raise ValueError("Cannot fetch field that is in different collection than this browser: %r" % phys)
-                fields_obj[ escape_level(attribute.ref()) ] = phys.project_expression()
+
+        for attribute in attributes or []:
+            phys = self.mapper.physical(attribute)
+            if not self._in_same_collection(phys):
+                raise ValueError("Cannot fetch field that is in different "
+                                 "collection than this browser: %r" % phys)
+            fields_obj[escape_level(attribute.ref())] = phys.project_expression()
 
         return query_obj, fields_obj
 
@@ -627,3 +635,10 @@ def escape_level(ref):
 
 def unescape_level(ref):
     return ref.replace('___', '.')
+
+
+class MongoFactsIterator(Facts):
+    def __iter__(self):
+        for fact in self.facts:
+            fact = to_json_safe(fact)
+            yield collapse_record(fact)
