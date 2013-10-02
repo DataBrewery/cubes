@@ -27,6 +27,17 @@
             "name": "irbd_balance",
             "dimensions": ["item", "year"],
             "measures": [{"name":"amount", "label":"Amount"}],
+            "aggregates": [
+                    {
+                        "name": "amount_sum",
+                        "function": "sum",
+                        "measure": "amount"
+                    },
+                    {
+                        "name": "record_count",
+                        "function": "count"
+                    }
+                ],
             "mappings": {
                           "item.line_item": "line_item",
                           "item.subcategory": "subcategory",

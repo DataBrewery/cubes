@@ -9,7 +9,7 @@ from .utils import *
 from collections import defaultdict
 
 class _MixpanelResponseAggregator(object):
-    def __init__(self, browser, responses, measure_names, drilldown,
+    def __init__(self, browser, responses, aggregate_names, drilldown,
                     actual_time_level):
         """Aggregator for multiple mixpanel responses (multiple dimensions)
         with drill-down post-aggregation.
@@ -18,14 +18,14 @@ class _MixpanelResponseAggregator(object):
 
         * `browser` – owning browser
         * `reposnes` – mixpanel responses by `measure_names`
-        * `measure_names` – list of collected measures
+        * `aggregate_names` – list of collected measures
         * `drilldown` – a `Drilldown` object from the browser aggregation
           query
 
         Object attributes:
 
-        * `measure_names` – list of measure names from the response
-        * `measure_data` – a dictionary where keys are measure names and
+        * `aggregate_names` – list of measure names from the response
+        * `aggregate_data` – a dictionary where keys are measure names and
           values are actual data points.
 
         * `time_cells` – an ordered dictionary of collected cells from the
@@ -35,13 +35,13 @@ class _MixpanelResponseAggregator(object):
         self.browser = browser
         self.logger = browser.logger
         self.drilldown = drilldown
-        self.measure_names = measure_names
+        self.aggregate_names = aggregate_names
         self.actual_time_level = actual_time_level
 
         # Extract the data
-        self.measure_data = {}
-        for measure in measure_names:
-            self.measure_data = responses[measure]["data"]["values"]
+        self.aggregate_data = {}
+        for aggregate in aggregate_names:
+            self.aggregate_data = responses[aggregate]["data"]["values"]
 
         # Get time drilldown levels, if we are drilling through time
         try:
@@ -55,10 +55,6 @@ class _MixpanelResponseAggregator(object):
             self.last_time_level = str(time_drilldown.levels[-1])
             self.time_levels = ["time."+str(l) for l in time_drilldown.levels]
             self.time_hierarchy = str(time_drilldown.hierarchy)
-
-        self.logger.debug("Time: hier:%s last:%s all:%s" % \
-                            (self.time_hierarchy, self.last_time_level,
-                            self.time_levels) )
 
         self.drilldown_on = None
         for obj in drilldown:
@@ -90,10 +86,10 @@ class _MixpanelResponseAggregator(object):
 
     def _collect_cells(self):
 
-        for measure in self.measure_names:
-            self._collect_measure_cells(measure)
+        for aggregate in self.aggregate_names:
+            self._collect_aggregate_cells(aggregate)
 
-    def _collect_measure_cells(self, measure):
+    def _collect_aggregate_cells(self, aggregate):
         """Collects the cells from the response in a time series dictionary
         `time_cells` where keys are tuples: `(time_path, group)`. `group` is
         drill-down key value for the cell, such as `New York` for `city`."""
@@ -104,16 +100,16 @@ class _MixpanelResponseAggregator(object):
         # TODO: To add multiple drill-down dimensions in the future, add them
         # to the `group` part of the key tuple
 
-        for group_key, group_series in self.measure_data.items():
+        for group_key, group_series in self.aggregate_data.items():
 
             for time_key, value in group_series.items():
                 time_path = time_to_path(time_key, self.last_time_level,
                                                         self.time_hierarchy)
                 key = (time_path, group_key)
 
-                self.logger.debug("adding cell %s" % (key, ))
+                # self.logger.debug("adding cell %s" % (key, ))
                 cell = self.time_cells.setdefault(key, {})
-                cell[measure] = value
+                cell[aggregate] = value
 
                 # FIXME: do this only on drilldown
                 if self.drilldown_on:
@@ -125,8 +121,9 @@ class _MixpanelResponseAggregator(object):
         def reduce_cell(result, cell):
             # We assume only _sum aggergation
             # All measures should be prepared so we can to this
-            for measure in self.measure_names:
-                result[measure] = result.get(measure, 0) + cell.get(measure, 0)
+            for aggregate in self.aggregate_names:
+                result[aggregate] = result.get(aggregate, 0) + \
+                                   cell.get(aggregate, 0)
             return result
 
         # 1. Map cells to reduced time path
@@ -140,16 +137,16 @@ class _MixpanelResponseAggregator(object):
 
             reduced_key = (reduced_path, key[1])
 
-            self.logger.debug("reducing %s -> %s" % (key, reduced_key))
+            # self.logger.debug("reducing %s -> %s" % (key, reduced_key))
             reduced_map[reduced_key].append(cell)
 
         self.browser.logger.debug("response cell count: %s reduced to: %s" %
                                     (len(self.time_cells), len(reduced_map)))
 
         # 2. Reduce the cells
-        # 
+        #
         # See the function reduce_cell() above for aggregation:
-        # 
+        #
         reduced_cells = {}
         for key, cells in reduced_map.items():
             # self.browser.logger.debug("Reducing: %s -> %s" % (key, cells))

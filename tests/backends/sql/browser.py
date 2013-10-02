@@ -2,82 +2,24 @@ import unittest
 import os
 import json
 import re
-import cubes
 import sqlalchemy
 import datetime
 
+from ...common import CubesTestCaseBase
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
 from cubes.backends.sql.mapper import coalesce_physical
-from cubes.backends.sql.star import *
+from cubes.backends.sql.browser import *
+
+from cubes import *
 from cubes.errors import *
 
-class StarSQLTestCase(unittest.TestCase):
+class StarSQLTestCase(CubesTestCaseBase):
     def setUp(self):
-        model_desc = {
-            "cubes": [
-                {
-                    "name": "sales",
-                    "measures": [
-                            {"name":"amount", "aggregations":["sum", "min"]},
-                            "discount"
-                            ],
-                    "dimensions" : ["date", "flag", "product"],
-                    "details": ["fact_detail1", "fact_detail2"],
-                    "joins": [
-                        {"master": "sales.date_id", "detail":"dim_date.id"},
-                        {"master": "sales.category_id", "detail":"dim_category.id"},
-                        {"master": "sales.product_id", "detail":"dim_product.id"},
-                    ],
-                    "mappings":{
-                        "product.name": "dim_product.product_name",
-                        "product.category": "dim_product.category_id",
-                        "product.category_name.en": "dim_category.category_name_en",
-                        "product.category_name.sk": "dim_category.category_name_sk",
-                        "product.subcategory": "dim_category.subcategory_id",
-                        "product.subcategory_name.en": "dim_category.subcategory_name_en",
-                        "product.subcategory_name.sk": "dim_category.subcategory_name_sk"
-                    }
-                }
-            ],
-            "dimensions" : [
-                {
-                    "name": "date",
-                    "levels": [
-                        { "name": "year", "attributes": ["year"] },
-                        { "name": "month", "attributes":
-                                    ["month", "month_name", "month_sname"] },
-                        { "name": "day", "attributes": ["id", "day"] }
-                    ],
-                    "hierarchy": ["year", "month", "day"]
-                },
-                { "name": "flag" },
-                { "name": "product",
-                    "levels": [
-                        {"name": "category",
-                            "attributes": ["category",
-                                          {"name": "category_name", "locales": ["en", "sk"] }
-                                          ]
-                        },
-                        {"name": "subcategory",
-                            "attributes": ["subcategory",
-                                            {"name": "subcategory_name", "locales": ["en", "sk"] }
-                                        ]
-                        },
-                        { "name": "product",
-                          "attributes": [ "id",
-                                          {"name": "name"}
-                                        ],
-                        }
-                    ]
-                }
-            ]
-        }
+        super(StarSQLTestCase, self).setUp()
 
-        engine = sqlalchemy.create_engine('sqlite://')
-        self.connection = engine.connect()
-        metadata = sqlalchemy.MetaData()
-        metadata.bind = engine
+        self.engine = sqlalchemy.create_engine('sqlite://')
+        metadata = sqlalchemy.MetaData(bind=self.engine)
 
         table = Table('sales', metadata,
                         Column('id', Integer, primary_key=True),
@@ -115,15 +57,20 @@ class StarSQLTestCase(unittest.TestCase):
                         Column('subcategory_name_sk', String)
                     )
 
-        metadata.create_all(engine)
         self.metadata = metadata
+        self.metadata.create_all(self.engine)
 
-        self.model = cubes.create_model(model_desc)
-        self.cube = self.model.cube("sales")
-        self.browser = SnowflakeBrowser(self.cube,connectable=self.connection,
-                                    dimension_prefix="dim_")
+        self.workspace = self.create_workspace({"engine":self.engine},
+                                               "sql_star_test.json")
+        # self.workspace = Workspace()
+        # self.workspace.register_default_store("sql", engine=self.engine)
+        # self.workspace.add_model()
+        self.cube = self.workspace.cube("sales")
+        store = self.workspace.get_store("default")
+
+        self.browser = SnowflakeBrowser(self.cube,store=store,
+                                        dimension_prefix="dim_")
         self.browser.debug = True
-        self.cube.fact = 'sales'
         self.mapper = self.browser.mapper
 
 
@@ -143,68 +90,79 @@ class QueryContextTestCase(StarSQLTestCase):
         self.assertEqual(20, len(cols))
 
     def test_levels_from_drilldown(self):
-        cell = cubes.Cell(self.cube)
+        cell = Cell(self.cube)
         dim = self.cube.dimension("date")
         l_year = dim.level("year")
         l_month = dim.level("month")
         l_day = dim.level("day")
 
         drilldown = [("date", None, "year")]
-        expected = [(dim, dim.hierarchy(), [l_year])]
-        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        result = levels_from_drilldown(cell, drilldown)
+        self.assertEqual(1, len(result))
 
-        drilldown = ["date"]
-        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
-
-        drilldown = [("date", None, "year")]
-        expected = [(dim, dim.hierarchy(), [l_year])]
-        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        dd = result[0]
+        self.assertEqual(dim, dd.dimension)
+        self.assertEqual(dim.hierarchy(), dd.hierarchy)
+        self.assertSequenceEqual([l_year], dd.levels)
+        self.assertEqual(["date.year"], dd.keys)
 
         # Try "next level"
 
-        cut = cubes.PointCut("date", [2010])
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2010])
+        cell = Cell(self.cube, [cut])
 
         drilldown = [("date", None, "year")]
-        expected = [(dim, dim.hierarchy(), [l_year])]
-        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        result = levels_from_drilldown(cell, drilldown)
+        self.assertEqual(1, len(result))
+        dd = result[0]
+        self.assertEqual(dim, dd.dimension)
+        self.assertEqual(dim.hierarchy(), dd.hierarchy)
+        self.assertSequenceEqual([l_year], dd.levels)
+        self.assertEqual(["date.year"], dd.keys)
 
         drilldown = ["date"]
-        expected = [(dim, dim.hierarchy(), [l_year, l_month])]
-        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        result = levels_from_drilldown(cell, drilldown)
+        self.assertEqual(1, len(result))
+        dd = result[0]
+        self.assertEqual(dim, dd.dimension)
+        self.assertEqual(dim.hierarchy(), dd.hierarchy)
+        self.assertSequenceEqual([l_year, l_month], dd.levels)
+        self.assertEqual(["date.year", "date.month"], dd.keys)
 
         # Try with range cell
 
-        # cut = cubes.RangeCut("date", [2009], [2010])
-        # cell = cubes.Cell(self.cube, [cut])
+        # cut = RangeCut("date", [2009], [2010])
+        # cell = Cell(self.cube, [cut])
 
         # drilldown = ["date"]
         # expected = [(dim, dim.hierarchy(), [l_year, l_month])]
-        # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        # self.assertEqual(expected, levels_from_drilldown(cell, drilldown))
 
         # drilldown = [("date", None, "year")]
         # expected = [(dim, dim.hierarchy(), [l_year])]
-        # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        # self.assertEqual(expected, levels_from_drilldown(cell, drilldown))
 
-        # cut = cubes.RangeCut("date", [2009], [2010, 1])
-        # cell = cubes.Cell(self.cube, [cut])
+        # cut = RangeCut("date", [2009], [2010, 1])
+        # cell = Cell(self.cube, [cut])
 
         # drilldown = ["date"]
         # expected = [(dim, dim.hierarchy(), [l_year, l_month, l_day])]
-        # self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        # self.assertEqual(expected, levels_from_drilldown(cell, drilldown))
 
         # Try "last level"
 
-        cut = cubes.PointCut("date", [2010, 1,2])
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2010, 1,2])
+        cell = Cell(self.cube, [cut])
 
         drilldown = [("date", None, "day")]
-        expected = [(dim, dim.hierarchy(), [l_year, l_month, l_day])]
-        self.assertEqual(expected, cubes.levels_from_drilldown(cell, drilldown))
+        result = levels_from_drilldown(cell, drilldown)
+        dd = result[0]
+        self.assertSequenceEqual([l_year, l_month, l_day], dd.levels)
+        self.assertEqual(["date.year", "date.month", "date.id"], dd.keys)
 
         drilldown = ["date"]
-        expected = [(dim, dim.hierarchy(), [l_year, l_month])]
-        self.assertRaises(HierarchyError, cubes.levels_from_drilldown, cell, drilldown)
+        with self.assertRaisesRegexp(HierarchyError, "has only 3 levels"):
+            levels_from_drilldown(cell, drilldown)
 
 
 class JoinsTestCase(StarSQLTestCase):
@@ -259,6 +217,33 @@ class StarValidationTestCase(StarSQLTestCase):
         result = self.browser.validate_model()
         self.assertEqual(0, len(result))
 
+
+class MapperTestCase(unittest.TestCase):
+    def test_coalesce_physical(self):
+        def assertPhysical(expected, actual, default=None):
+            ref = coalesce_physical(actual, default)
+            self.assertEqual(expected, ref)
+
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       "table.column")
+        assertPhysical((None, "table", "column.foo", None, None, None, None),
+                       "table.column.foo")
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       ["table", "column"])
+        assertPhysical(("schema", "table", "column", None, None, None, None),
+                       ["schema", "table", "column"])
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       {"column": "column"}, "table")
+        assertPhysical((None, "table", "column", None, None, None, None),
+                       {"table": "table", "column": "column"})
+        assertPhysical(("schema", "table", "column", None, None, None, None),
+                       {"schema": "schema", "table": "table", "column":
+                        "column"})
+        assertPhysical(("schema", "table", "column", "day", None, None, None),
+                       {"schema": "schema", "table": "table", "column":
+                        "column", "extract": "day"})
+
+
 class StarSQLBrowserTestCase(StarSQLTestCase):
     def setUp(self):
         super(StarSQLBrowserTestCase, self).setUp()
@@ -300,26 +285,26 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         }
 
         ftable = self.table("sales")
-        self.connection.execute(ftable.insert(), fact)
+        self.engine.execute(ftable.insert(), fact)
         table = self.table("dim_date")
-        self.connection.execute(table.insert(), date)
+        self.engine.execute(table.insert(), date)
         ptable = self.table("dim_product")
-        self.connection.execute(ptable.insert(), product)
+        self.engine.execute(ptable.insert(), product)
         table = self.table("dim_category")
-        self.connection.execute(table.insert(), category)
+        self.engine.execute(table.insert(), category)
 
         for i in range(1, 10):
             record = dict(product)
             record["id"] = product["id"] + i
             record["product_name"] = product["product_name"] + str(i)
-            self.connection.execute(ptable.insert(), record)
+            self.engine.execute(ptable.insert(), record)
 
         for j in range(1, 10):
             for i in range(1, 10):
                 record = dict(fact)
                 record["id"] = fact["id"] + i + j *10
                 record["product_id"] = fact["product_id"] + i
-                self.connection.execute(ftable.insert(), record)
+                self.engine.execute(ftable.insert(), record)
 
     def table(self, name):
         return sqlalchemy.Table(name, self.metadata,
@@ -332,30 +317,54 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertIsNotNone(fact)
         self.assertEqual(18, len(fact.keys()))
 
-    def test_get_values(self):
+    def test_get_facts(self):
+        """Get single fact"""
+        # TODO: remove this when happy
+        self.browser.logger.setLevel("DEBUG")
+
+        self.assertEqual(True, self.mapper.simplify_dimension_references)
+
+        facts = list(self.browser.facts())
+
+        result = self.engine.execute(self.table("sales").count())
+        count = result.fetchone()[0]
+        self.assertEqual(82, count)
+
+        self.assertIsNotNone(facts)
+        self.assertEqual(82, len(facts))
+        self.assertEqual(18, len(facts[0]))
+
+        attrs = ["date.year", "amount"]
+        facts = list(self.browser.facts(fields=attrs))
+        self.assertEqual(82, len(facts))
+
+        # We get 3: fact key + 2
+        self.assertEqual(3, len(facts[0]))
+
+    def test_get_members(self):
         """Get dimension values"""
-        values = list(self.browser.values(None,"product",1))
-        self.assertIsNotNone(values)
-        self.assertEqual(1, len(values))
+        members = list(self.browser.members(None,"product",1))
+        self.assertIsNotNone(members)
+        self.assertEqual(1, len(members))
 
-        values = list(self.browser.values(None,"product",2))
-        self.assertIsNotNone(values)
-        self.assertEqual(1, len(values))
+        members = list(self.browser.members(None,"product",2))
+        self.assertIsNotNone(members)
+        self.assertEqual(1, len(members))
 
-        values = list(self.browser.values(None,"product",3))
-        self.assertIsNotNone(values)
-        self.assertEqual(10, len(values))
+        members = list(self.browser.members(None,"product",3))
+        self.assertIsNotNone(members)
+        self.assertEqual(10, len(members))
 
     def test_cut_details(self):
-        cut = cubes.PointCut("date", [2012])
+        cut = PointCut("date", [2012])
         details = self.browser.cut_details(cut)
         self.assertEqual([{"date.year":2012, "_key":2012, "_label":2012}], details)
 
-        cut = cubes.PointCut("date", [2013])
+        cut = PointCut("date", [2013])
         details = self.browser.cut_details(cut)
         self.assertEqual(None, details)
 
-        cut = cubes.PointCut("date", [2012,3])
+        cut = PointCut("date", [2012,3])
         details = self.browser.cut_details(cut)
         self.assertEqual([{"date.year":2012, "_key":2012, "_label":2012},
                           {"date.month_name":"March",
@@ -365,38 +374,29 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
 
     @unittest.skip("test model is not suitable")
     def test_cell_details(self):
-        cell = cubes.Cell(self.cube, [cubes.PointCut("date", [2012])])
+        cell = Cell(self.cube, [PointCut("date", [2012])])
         details = self.browser.cell_details(cell)
         self.assertEqual(1, len(details))
 
-        cell = cubes.Cell(self.cube, [cubes.PointCut("product", [10])])
+        cell = Cell(self.cube, [PointCut("product", [10])])
         details = self.browser.cell_details(cell)
         self.assertEqual(1, len(details))
-
-    def test_aggregation_for_measures(self):
-        context = self.browser.context
-
-        aggs = context.aggregations_for_measure(self.cube.measure("amount"))
-        self.assertEqual(2, len(aggs))
-
-        aggs = context.aggregations_for_measure(self.cube.measure("discount"))
-        self.assertEqual(1, len(aggs))
 
     def test_aggregate(self):
-        result = self.browser.aggregate(self.browser.full_cube())
+        result = self.browser.aggregate()
         keys = sorted(result.summary.keys())
         self.assertEqual(4, len(keys))
         self.assertEqual(["amount_min", "amount_sum", "discount_sum", "record_count"], keys)
 
-        result = self.browser.aggregate(self.browser.full_cube(), measures=["amount"])
-        keys = sorted(result.summary.keys())
-        self.assertEqual(3, len(keys))
-        self.assertEqual(["amount_min", "amount_sum", "record_count"], keys)
-
-        result = self.browser.aggregate(self.browser.full_cube(), measures=["discount"])
+        result = self.browser.aggregate(None, measures=["amount"])
         keys = sorted(result.summary.keys())
         self.assertEqual(2, len(keys))
-        self.assertEqual(["discount_sum", "record_count"], keys)
+        self.assertEqual(["amount_min", "amount_sum"], keys)
+
+        result = self.browser.aggregate(None, measures=["discount"])
+        keys = sorted(result.summary.keys())
+        self.assertEqual(1, len(keys))
+        self.assertEqual(["discount_sum"], keys)
 
     @unittest.skip("not implemented")
     def test_aggregate_measure_only(self):
@@ -432,40 +432,9 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         pass
 
 
-class HierarchyTestCase(unittest.TestCase):
+class HierarchyTestCase(CubesTestCaseBase):
     def setUp(self):
-        model = {
-            "cubes": [
-                {
-                    "name":"cube",
-                    "dimensions": ["date"],
-                    "joins": [
-                        {"master":"date_id", "detail":"dim_date.id"}
-                    ]
-                }
-            ],
-            "dimensions": [
-                {
-                    "name": "date",
-                    "levels": [
-                        {"name":"year"},
-                        {"name":"quarter"},
-                        {"name":"month"},
-                        {"name":"week"},
-                        {"name":"day"}
-                    ],
-                    "hierarchies": [
-                        {"name": "ymd", "levels":["year", "month", "day"]},
-                        {"name": "ym", "levels":["year", "month"]},
-                        {"name": "yqmd", "levels":["year", "quarter", "month", "day"]},
-                        {"name": "ywd", "levels":["year", "week", "day"]}
-                    ],
-                    "default_hierarchy_name": "ymd"
-                }
-            ]
-        }
-
-        self.model = cubes.create_model(model)
+        super(HierarchyTestCase, self).setUp()
 
         engine = create_engine("sqlite:///")
         metadata = MetaData(bind=engine)
@@ -511,35 +480,37 @@ class HierarchyTestCase(unittest.TestCase):
             date = date + delta
             i += 1
 
-        self.cube = self.model.cube("cube")
+        workspace = self.create_workspace({"engine": engine},
+                                          "hierarchy.json")
+        self.cube = workspace.cube("cube")
         self.browser = SnowflakeBrowser(self.cube,
-                                        connectable=engine,
+                                        store=workspace.get_store("default"),
                                         dimension_prefix="dim_",
                                         fact_prefix="ft_")
         self.browser.debug = True
 
     def test_cell(self):
-        cell = cubes.Cell(self.cube)
+        cell = Cell(self.cube)
         result = self.browser.aggregate(cell)
         self.assertEqual(366, result.summary["record_count"])
 
-        cut = cubes.PointCut("date", [2000, 2])
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000, 2])
+        cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell)
         self.assertEqual(29, result.summary["record_count"])
 
-        cut = cubes.PointCut("date", [2000, 2], hierarchy="ywd")
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000, 2], hierarchy="ywd")
+        cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell)
         self.assertEqual(7, result.summary["record_count"])
 
-        cut = cubes.PointCut("date", [2000, 1], hierarchy="yqmd")
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000, 1], hierarchy="yqmd")
+        cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell)
         self.assertEqual(91, result.summary["record_count"])
 
     def test_drilldown(self):
-        cell = cubes.Cell(self.cube)
+        cell = Cell(self.cube)
         result = self.browser.aggregate(cell, drilldown=["date"])
         self.assertEqual(1, result.total_cell_count)
 
@@ -555,7 +526,7 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual(366, result.total_cell_count)
 
         # Test year-quarter-month-day
-        hier = self.model.dimension("date").hierarchy("yqmd")
+        hier = self.cube.dimension("date").hierarchy("yqmd")
         result = self.browser.aggregate(cell,
                                         drilldown=[("date", "yqmd", "day")])
         self.assertEqual(366, result.total_cell_count)
@@ -565,15 +536,15 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual(4, result.total_cell_count)
 
     def test_range_drilldown(self):
-        cut = cubes.RangeCut("date", [2000, 1], [2000,3])
-        cell = cubes.Cell(self.cube, [cut])
+        cut = RangeCut("date", [2000, 1], [2000,3])
+        cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell, drilldown=["date"])
         # This should test that it does not drilldown on range
         self.assertEqual(1, result.total_cell_count)
 
     def test_implicit_level(self):
-        cut = cubes.PointCut("date", [2000])
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000])
+        cell = Cell(self.cube, [cut])
 
         result = self.browser.aggregate(cell, drilldown=["date"])
         self.assertEqual(12, result.total_cell_count)
@@ -589,26 +560,26 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual(366, result.total_cell_count)
 
     def test_hierarchy_compatibility(self):
-        cut = cubes.PointCut("date", [2000])
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000])
+        cell = Cell(self.cube, [cut])
 
-        self.assertRaises(HierarchyError, self.browser.aggregate,
-                            cell, drilldown=[("date", "yqmd", None)])
+        with self.assertRaises(HierarchyError):
+            self.browser.aggregate(cell, drilldown=[("date", "yqmd", None)])
 
-        cut = cubes.PointCut("date", [2000], hierarchy="yqmd")
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000], hierarchy="yqmd")
+        cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell,
                                         drilldown=[("date", "yqmd", None)])
 
         self.assertEqual(4, result.total_cell_count)
 
-        cut = cubes.PointCut("date", [2000], hierarchy="yqmd")
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000], hierarchy="yqmd")
+        cell = Cell(self.cube, [cut])
         self.assertRaises(HierarchyError, self.browser.aggregate,
                             cell, drilldown=[("date", "ywd", None)])
 
-        cut = cubes.PointCut("date", [2000], hierarchy="ywd")
-        cell = cubes.Cell(self.cube, [cut])
+        cut = PointCut("date", [2000], hierarchy="ywd")
+        cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell,
                                         drilldown=[("date", "ywd", None)])
 
@@ -624,3 +595,4 @@ def suite():
     suite.addTest(unittest.makeSuite(HierarchyTestCase))
 
     return suite
+

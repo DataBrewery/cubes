@@ -7,7 +7,7 @@ if sys.version_info < (2,7):
 
 setup(
     name = "cubes",
-    version = '0.10.2',
+    version = '0.11.2',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
@@ -17,8 +17,9 @@ setup(
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        'cubes': ['templates/*.html', 'templates/*.js'],
-        'cubes.server': ['templates/*.html']
+        'cubes': [ 'templates/*.html', 'templates/*.js' ],
+        'cubes.server': ['templates/*.html'],
+        'cubes.backends.mixpanel': ['*.json']
     },
 
     scripts = ['bin/slicer'],

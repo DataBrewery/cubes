@@ -2,8 +2,9 @@
 """Logical to Physical Mappers"""
 
 import collections
-from cubes.common import get_logger
-from cubes.errors import *
+
+from .common import get_logger
+from .errors import *
 
 __all__ = (
     "Mapper",
@@ -79,7 +80,7 @@ class Mapper(object):
             self.attributes[self.logical(attr)] = attr
 
         for dim in self.cube.dimensions:
-            for attr in dim.all_attributes():
+            for attr in dim.all_attributes:
                 if not attr.dimension:
                     raise Exception("No dimension in attr %s" % attr)
                 self.attributes[self.logical(attr)] = attr
@@ -117,15 +118,7 @@ class Mapper(object):
         browsing.
         """
 
-        dimension = attribute.dimension
-
-        if dimension:
-            simplify = self.simplify_dimension_references and \
-                               (dimension.is_flat and not dimension.has_details)
-        else:
-            simplify = False
-
-        reference = attribute.ref(simplify, locale)
+        reference = attribute.ref(self.simplify_dimension_references, locale)
 
         return reference
 
@@ -162,7 +155,7 @@ class Mapper(object):
             physical_attrs = []
 
             for attr in attributes:
-                if attr.locales:
+                if attr.is_localizable():
                     refs = [self.physical(attr, locale) for locale in attr.locales]
                 else:
                     refs = [self.physical(attr)]

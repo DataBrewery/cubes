@@ -2,17 +2,15 @@
 # import logging
 import os.path
 import json
-import cStringIO
-import csv
-import codecs
 import wildcards
-from caching import cacheable
 
 import cubes
-from .common import API_VERSION, TEMPLATE_PATH, str_to_bool
-from .common import RequestError, ServerError, NotFoundError
-from .common import SlicerJSONEncoder
+from .errors import *
 from ..errors import *
+from .common import API_VERSION, TEMPLATE_PATH
+from .common import validated_parameter, str_to_bool
+from .common import SlicerJSONEncoder, CSVGenerator
+from .caching import cacheable
 
 try:
     from werkzeug.wrappers import Response
@@ -26,11 +24,8 @@ except ImportError:
 try:
     import cubes_search
 except ImportError:
-    from cubes.common import MissingPackage
     cubes_search = None
-    # SphinxSearcher = MissingPackage("cubes_search", "Sphinx search ", 
-    #                         source = "https://github.com/Stiivi/cubes")
-    # Get cubes sphinx search backend from: https://github.com/Stiivi/cubes
+
 
 __all__ = (
     "ApplicationController",
@@ -38,6 +33,7 @@ __all__ = (
     "CubesController",
     "SearchController"
 )
+
 
 class ApplicationController(object):
     def __init__(self, args, workspace, logger, config):
@@ -208,7 +204,12 @@ class ModelController(ApplicationController):
 
     def get_cube(self, cube_name):
         cube = self.workspace.cube(cube_name)
-        return self.json_response(self._cube_dict(cube))
+
+        # Attach cube features
+        response = self._cube_dict(cube)
+        response["features"] = self.workspace.cube_features(cube)
+
+        return self.json_response(response)
 
     _cached_cubes_list = None
     def list_cubes(self):
@@ -220,86 +221,6 @@ class ModelController(ApplicationController):
 
         return Response(resp, mimetype='application/json')
 
-
-class CSVGenerator(object):
-    def __init__(self, records, fields, include_header = True,
-                dialect=csv.excel, encoding="utf-8", **kwds):
-        # Redirect output to a queue
-        self.include_header = include_header
-        self.records = records
-        self.fields = fields
-        self.queue = cStringIO.StringIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def csvrows(self):
-        if self.include_header:
-            yield self._row_string(self.fields)
-
-        for record in self.records:
-            row = []
-            for field in self.fields:
-                value = record.get(field)
-                if type(value) == unicode or type(value) == str:
-                    row.append(value.encode("utf-8"))
-                elif value:
-                    row.append(unicode(value))
-                else:
-                    row.append(None)
-
-            yield self._row_string(row)
-
-    def _row_string(self, row):
-        self.writer.writerow(row)
-        # Fetch UTF-8 output from the queue ...
-        data = self.queue.getvalue()
-        data = data.decode("utf-8")
-        # ... and reencode it into the target encoding
-        data = self.encoder.encode(data)
-        # empty queue
-        self.queue.truncate(0)
-
-        return data
-
-class UnicodeCSVWriter:
-    """
-    A CSV writer which will write rows to CSV file "f",
-    which is encoded in the given encoding.
-
-    From: <http://docs.python.org/lib/csv-examples.html>
-    """
-
-    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
-        # Redirect output to a queue
-        self.queue = cStringIO.StringIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.stream = f
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def writerow(self, row):
-        new_row = []
-        for value in row:
-            if type(value) == unicode or type(value) == str:
-                new_row.append(value.encode("utf-8"))
-            elif value:
-                new_row.append(unicode(value))
-            else:
-                new_row.append(None)
-
-        self.writer.writerow(new_row)
-        # Fetch UTF-8 output from the queue ...
-        data = self.queue.getvalue()
-        data = data.decode("utf-8")
-        # ... and reencode it into the target encoding
-        data = self.encoder.encode(data)
-        # write to the target stream
-        self.stream.write(data)
-        # empty queue
-        self.queue.truncate(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
 
 class CubesController(ApplicationController):
     def create_browser(self, cube_name):
@@ -360,11 +281,24 @@ class CubesController(ApplicationController):
 
         ddlist = self.args.getlist("drilldown")
 
+        # Collect measures or aggregates
+        # Note that the framework will raise an exception when both are
+        # specified. Use only one.
+        # If the measures are used, then all aggregates derived from thise
+        # measures are considered.
         measures = []
-        mlist = self.args.getlist("measure")
-        if mlist:
-            for mstring in mlist:
-                measures += mstring.split("|")
+
+        # TODO: this should be depreciated (backward compatibility)
+        # TODO: raise error later (invalid argument)
+        for mstring in self.args.getlist("measure") or []:
+            measures += mstring.split("|")
+
+        for mstring in self.args.getlist("measures") or []:
+            measures += mstring.split("|")
+
+        aggregates = []
+        for agg in self.args.getlist("aggregates") or []:
+            aggregates += agg.split("|")
 
         drilldown = []
 
@@ -397,11 +331,26 @@ class CubesController(ApplicationController):
 
     @cacheable
     def facts(self, cube):
+        """Get facts. Parameters:
+
+        * `fields`: comma separated list of selected fields
+        * `page`: page number
+        * `pagesize`: number of facts per page
+        * `order`: list of fields to order by in form ``field:direction``
+        * `format`: ``csv`` or ``json``
+        * `header`: ``names``, ``labels`` or ``none``
+        """
         self.create_browser(cube)
         self.prepare_cell()
 
-        format = self.args.get("format")
-        format = format.lower() if format else "json"
+        # Request parameters
+        output_format = validated_parameter(self.args, "format",
+                                            values=["json", "csv"],
+                                            default="json")
+
+        header_type = validated_parameter(self.args, "header",
+                                          values=["names", "labels", "none"],
+                                          default="none")
 
         fields_str = self.args.get("fields")
         if fields_str:
@@ -409,20 +358,59 @@ class CubesController(ApplicationController):
         else:
             fields = None
 
-        result = self.browser.facts(self.cell, order = self.order,
-                                    page = self.page,
-                                    page_size = self.page_size)
+        # fields contain attribute names
+        if fields:
+            attributes = self.cube.get_attributes(fields)
+        else:
+            attributes = self.cube.all_attributes
 
-        if format == "json":
-            return self.json_response(result)
-        elif format == "csv":
+        # Construct the field list
+        fields = [attr.ref() for attr in attributes]
+
+        # Get the result
+        result = self.browser.facts(self.cell,
+                                    fields=fields,
+                                    order=self.order,
+                                    page=self.page,
+                                    page_size=self.page_size)
+
+        # Add cube key to the fields (it is returned in the result)
+        fields.insert(0, self.cube.key)
+
+        if header_type == "names":
+            header = fields
+        elif header_type == "labels":
+            header = [attr.label or attr.name for attr in attributes]
+            header.insert(0, self.cube.key or "id")
+        else:
+            header = None
+
+        # Construct the header:
+        if header_type and header_type != "none":
+            if header_type == "names":
+                header = [attr.ref() for attr in attributes]
+            elif header_type == "labels":
+                header = [attr.label or attr.name for attr in attributes]
+        else:
+            header = None
+
+        # Get the facts iterator. `result` is expected to be an iterable Facts
+        # object
+        facts = iter(result)
+
+        if output_format == "json":
+            return self.json_response(facts)
+        elif output_format == "csv":
             if not fields:
                 fields = result.labels
-            generator = CSVGenerator(result, fields)
+
+            generator = CSVGenerator(facts,
+                                     fields,
+                                     include_header=bool(header),
+                                     header=header)
+
             return Response(generator.csvrows(),
                             mimetype='text/csv')
-        else:
-            raise RequestError("unknown response format '%s'" % format)
 
     def fact(self, cube, fact_id):
         self.create_browser(cube)
@@ -528,7 +516,7 @@ class SearchController(ApplicationController):
     """
 
     def create_browser(self, cube_name):
-        # FIXME: reuse? 
+        # FIXME: reuse?
         if cube_name:
             self.cube = self.workspace.cube(cube_name)
         else:

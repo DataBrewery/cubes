@@ -23,9 +23,10 @@ Contents:
    computing
    localization
    formatters
+   configuration
    server
    slicer
-   api/index
+   reference/index
    backends
    develop
    notes

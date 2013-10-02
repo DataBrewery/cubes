@@ -1,38 +1,25 @@
 # -*i coding=utf -*-
 # Actually, this is a furry snowflake, not a nice star
 
-from cubes.browser import *
-from cubes.common import get_logger
-from cubes.statutils import *
-from .mapper import SnowflakeMapper, DenormalizedMapper, coalesce_physical, DEFAULT_KEY_FIELD
-import logging
+from ...browser import *
+from ...common import get_logger
+from ...statutils import calculators_for_aggregates, available_calculators
+from ...errors import *
+from .mapper import SnowflakeMapper, DenormalizedMapper
+from .mapper import DEFAULT_KEY_FIELD
+from .functions import get_aggregate_function, available_aggregate_functions
+
 import collections
 import re
 import datetime
-from cubes.errors import *
-from cubes.computation import *
-from cubes.backends.sql import extensions
-from cubes.model import Attribute
 
 try:
     import sqlalchemy
     import sqlalchemy.sql as sql
 
-    aggregation_functions = {
-        "sum": sql.functions.sum,
-        "min": sql.functions.min,
-        "max": sql.functions.max,
-        "count": sql.functions.count,
-        "avg": extensions.avg,
-        "stddev": extensions.stddev,
-        "variance": extensions.variance,
-        "identity": lambda c: c
-    }
-
 except ImportError:
     from cubes.common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
-    aggregation_functions = {}
 
 __all__ = [
     "SnowflakeBrowser",
@@ -46,12 +33,31 @@ _EXPR_EVAL_NS = {
     "func": sql.expression.func,
     "case": sql.expression.case,
     "text": sql.expression.text,
-    "datetime" : datetime,
+    "datetime": datetime,
     "re": re
 }
 
+
 class SnowflakeBrowser(AggregationBrowser):
-    """docstring for SnowflakeBrowser"""
+    __options__ = [
+        {
+            "name": "include_summary",
+            "type": "bool"
+        },
+        {
+            "name": "include_cell_count",
+            "type": "bool"
+        },
+        {
+            "name": "use_denormalization",
+            "type": "bool"
+        },
+        {
+            "name": "safe_labels",
+            "type": "bool"
+        }
+
+    ]
 
     def __init__(self, cube, store, locale=None, metadata=None,
                  debug=False, **options):
@@ -85,7 +91,7 @@ class SnowflakeBrowser(AggregationBrowser):
         """
         super(SnowflakeBrowser, self).__init__(cube, store)
 
-        if cube == None:
+        if not cube:
             raise ArgumentError("Cube for browser should not be None.")
 
         self.logger = get_logger()
@@ -105,6 +111,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
+
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
@@ -114,10 +121,10 @@ class SnowflakeBrowser(AggregationBrowser):
         else:
             mapper_class = SnowflakeMapper
 
-        self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
-                            (str(mapper_class.__name__), cube.name, locale))
+        self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
+                          (str(mapper_class.__name__), cube.name, locale))
 
-        self.mapper = mapper_class(cube, locale=self.locale, schema=store.schema, **options)
+        self.mapper = mapper_class(cube, locale=self.locale, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
         # QueryContext is creating SQL statements (using SQLAlchemy). It
@@ -125,7 +132,20 @@ class SnowflakeBrowser(AggregationBrowser):
         # FIXME: new context is created also when locale changes in set_locale
         self.options = options
         self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata, **self.options)
+                                    metadata=self.metadata, **self.options)
+
+    def features(self):
+        """Return SQL features. Currently they are all the same for every
+        cube, however in the future they might depend on the SQL engine or
+        other factors."""
+
+        features = {
+            "actions": ["aggregate", "members", "fact", "facts", "cell"],
+            "aggregate_functions": available_aggregate_functions(),
+            "post_aggregate_functions": available_calculators()
+        }
+
+        return features
 
     def set_locale(self, locale):
         """Change the browser's locale"""
@@ -134,7 +154,7 @@ class SnowflakeBrowser(AggregationBrowser):
         self.locale = locale
         # Reset context
         self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata, **self.options)
+                                    metadata=self.metadata, **self.options)
 
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube.
@@ -161,30 +181,32 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
-    def facts(self, cell, order=None, page=None, page_size=None):
+    def facts(self, cell=None, fields=None, order=None, page=None,
+              page_size=None):
         """Return all facts from `cell`, might be ordered and paginated.
 
         Number of SQL queries: 1.
         """
 
-        attributes = set()
-        attributes |= set(self.cube.details)
-        for dim in self.cube.dimensions:
-            attributes |= set(dim.hierarchy().all_attributes())
-        # all measures that fit the bill
-        attributes |= set([ m for m in self.cube.measures if 'identity' not in m.aggregations ])
+        cell = cell or Cell(self.cube)
+
+        if not fields:
+            attributes = self.cube.all_attributes
+            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
+        else:
+            attributes = self.cube.get_attributes(fields)
+            self.logger.debug("facts: getting fields: %s" % fields)
 
         cond = self.context.condition_for_cell(cell)
-        statement = self.context.denormalized_statement(
-            attributes=attributes,
-            include_fact_key=True,
-            condition_attributes=cond.attributes
-        )
+        statement = self.context.denormalized_statement(attributes=attributes,
+                                                        include_fact_key=True,
+                                                        condition_attributes=cond.attributes)
 
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
         statement = self.context.paginated_statement(statement, page, page_size)
+
         # FIXME: use level based ordering here. What levels to consider? In
         # what order?
         statement = self.context.ordered_statement(statement, order)
@@ -197,8 +219,8 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
-    def values(self, cell, dimension, depth=None, hierarchy=None, page=None,
-               page_size=None, order=None, **options):
+    def members(self, cell, dimension, depth=None, hierarchy=None, page=None,
+                page_size=None, order=None, **options):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
@@ -227,20 +249,20 @@ class SnowflakeBrowser(AggregationBrowser):
         statement = self.context.denormalized_statement(attributes=attributes,
                                                         include_fact_key=False,
                                                         condition_attributes=
-                                                              cond.attributes)
+                                                        cond.attributes)
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
         statement = self.context.paginated_statement(statement, page, page_size)
         order_levels = [(dimension, hierarchy, levels)]
         statement = self.context.ordered_statement(statement, order,
-                                                        order_levels)
+                                                   order_levels)
 
         group_by = [self.context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
 
         if self.debug:
-            self.logger.info("dimension values SQL:\n%s" % statement)
+            self.logger.info("dimension members SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
         labels = self.context.logical_labels(statement.columns)
@@ -272,39 +294,21 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
-
-    def _level_in_low_cardinality_cell(self, dim, hier, level, cell):
-        """
-        Tests whether the given (dim, hier, level) is present in a point
-        or set cut in the given cell. If so, a level that is normally high-cardinality
-        will produce a very low amount of distinct values if used in a drilldown.
-        """
-        for cut in cell.cuts:
-            cut_dim = self.cube.dimension(cut.dimension)
-            cut_hier = cut_dim.hierarchy(cut.hierarchy)
-            if cut_dim != dim or cut_hier != hier:
-                continue
-            if isinstance(cut, PointCut):
-                if level in hier.levels_for_path(cut.path):
-                    return True
-            if isinstance(cut, SetCut):
-                if len([ p for p in cut.paths if level in hier.levels_for_path(p) ]):
-                    return True
-        return False
-
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
-                  include_summary=None, include_cell_count=None, **options):
+                  include_summary=None, include_cell_count=None,
+                  aggregates=None, **options):
         """Return aggregated result.
 
         Arguments:
 
         * `cell`: cell to be aggregated
-        * `measures`: list of measures to be considered in aggregation
+        * `measures`: aggregates of these measures will be considered
+        * `aggregates`: aggregates to be considered
         * `drilldown`: list of dimensions or list of tuples: (`dimension`,
           `hierarchy`, `level`)
         * `split`: an optional cell that becomes an extra drilldown segmenting
-          the data into those within split cell and those not within 
+          the data into those within split cell and those not within
         * `attributes`: list of attributes from drilled-down dimensions to be
           returned in the result
 
@@ -333,20 +337,15 @@ class SnowflakeBrowser(AggregationBrowser):
         if not cell:
             cell = Cell(self.cube)
 
-        # TODO: add documentation
-
-        # Coalesce measures - make sure that they are Attribute objects, not
-        # strings. Strings are converted to corresponding Cube measure
-        # attributes
-        measures = [ self.cube.measure(measure) for measure in (measures if measures else self.cube.measures) ]
-
-        result = AggregationResult(cell=cell, measures=measures)
+        aggregates = self.prepare_aggregates(aggregates, measures)
+        result = AggregationResult(cell=cell, aggregates=aggregates)
 
         if include_summary or \
-                ( include_summary is None and self.include_summary ) or \
+                (include_summary is None and self.include_summary) or \
                 not drilldown:
+
             summary_statement = self.context.aggregation_statement(cell=cell,
-                                                         measures=measures)
+                                                                   aggregates=aggregates)
 
             if self.debug:
                 self.logger.info("aggregation SQL:\n%s" % summary_statement)
@@ -364,28 +363,38 @@ class SnowflakeBrowser(AggregationBrowser):
             cursor.close()
             result.summary = record
 
+        if include_cell_count is None:
+            include_cell_count = self.include_cell_count
+
         ##
         # Drill-down
         #
         # Note that a split cell if present prepends a drilldown
         ##
 
+        # FIXME: this is the exact code as in the Mongo browser - put it into a
+        # separate method and share
+        # TODO: Use Drilldown class
         if drilldown or split:
             drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else [])
 
-           
             dim_levels = {}
-            self.logger.debug("Drilldown: %s", drilldown)
+
             for dditem in drilldown:
                 dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
-                if dim.info.get('high_cardinality') and not (page_size and page is not None):
+
+                if dim.info.get('high_cardinality') \
+                        and not (page_size and page is not None):
                     raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
+
                 hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
+
                 if len(hc_levels) and not (page_size and page is not None):
-                    # allow this drilldown if all high-card levels are present in the cut cell as a PointCut or SetCut (not RangeCut)
-                    if len( [ l for l in hc_levels if not self._level_in_low_cardinality_cell(dim, hier, l, cell) ] ):
+                    # allow this drilldown if all high-card levels are present
+                    # in the cut cell as a PointCut or SetCut (not RangeCut)
+                    if not all(cell.contains_level(dim, l, hier) for l in hc_levels):
                         raise BrowserError(("Cannot drilldown on high-cardinality levels (%s) " +
-                                           "without including both page_size and page arguments") 
+                                           "without including both page_size and page arguments")
                                            % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
 
                 dim_levels[str(dim)] = [str(level) for level in levels]
@@ -395,8 +404,10 @@ class SnowflakeBrowser(AggregationBrowser):
 
             result.levels = dim_levels
 
+            self.logger.debug("preparing drilldown statement")
+
             statement = self.context.aggregation_statement(cell=cell,
-                                                         measures=measures,
+                                                         aggregates=aggregates,
                                                          attributes=attributes,
                                                          drilldown=drilldown,
                                                          split=split)
@@ -411,45 +422,37 @@ class SnowflakeBrowser(AggregationBrowser):
             dd_result = self.connectable.execute(statement)
             labels = self.context.logical_labels(statement.columns)
 
-            # decorate with calculated measures if applicable
-            calc_aggs = []
-            for c in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
-                calc_aggs += c
-            result.calculators = calc_aggs
+            #
+            # Find post-aggregation calculations and decorate the result
+            #
+            result.calculators = calculators_for_aggregates(aggregates,
+                                                            drilldown,
+                                                            split,
+                                                            available_aggregate_functions())
             result.cells = ResultIterator(dd_result, labels)
             result.labels = labels
 
+            # TODO: Introduce option to disable this
 
-            # TODO: introduce option to disable this
-
-            if include_cell_count or include_cell_count is None and self.include_cell_count:
+            if include_cell_count:
                 count_statement = statement.alias().count()
                 row_count = self.connectable.execute(count_statement).fetchone()
                 total_cell_count = row_count[0]
                 result.total_cell_count = total_cell_count
 
         elif result.summary is not None:
-            # do calculated measures on summary if no drilldown or split
-            for calc_aggs in [ self.calculated_aggregations_for_measure(measure, drilldown, split) for measure in measures ]:
-                for calc in calc_aggs:
-                    calc(result.summary)
+            # Do calculated measures on summary if no drilldown or split
+            # TODO: should not we do this anyway regardless of
+            # drilldown/split?
+            calculators = calculators_for_aggregates(aggregates,
+                                                    drilldown,
+                                                    split,
+                                                    available_aggregate_functions())
+            for calc in calculators:
+                calc(result.summary)
 
         return result
 
-    def calculated_aggregations_for_measure(self, measure, drilldown_levels=None, split=None):
-        """Returns a list of calculator objects that implement aggregations by calculating
-        on retrieved results, given a particular drilldown.
-        """
-        if not measure.aggregations:
-            return []
-
-        # Each calculated aggregation calculates on every non-calculated aggregation.
-        non_calculated_aggs = [ agg for agg in measure.aggregations if aggregation_functions.get(agg) is not None ]
-
-        if not non_calculated_aggs:
-            return []
-
-        return [ func(measure, drilldown_levels, split, non_calculated_aggs) for func in filter(lambda f: f is not None, [ CALCULATED_AGGREGATIONS.get(a) for a in measure.aggregations]) ]
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -476,7 +479,7 @@ class SnowflakeBrowser(AggregationBrowser):
         tables = set()
         aliases = set()
         alias_map = {}
-        # 
+        #
         for join in self.mapper.joins:
             self.logger.debug("join: %s" % (join, ))
 
@@ -543,12 +546,14 @@ class SnowflakeBrowser(AggregationBrowser):
 """A Condition representation. `attributes` - list of attributes involved in
 the conditions, `conditions` - SQL conditions"""
 Condition = collections.namedtuple("Condition",
-                                    ["attributes", "condition"])
+                                   ["attributes", "condition"])
 
 """Aliased table information"""
 AliasedTable = collections.namedtuple("AliasedTable",
-                                    ["schema", "table", "alias"])
+                                     ["schema", "table", "alias"])
 
+JoinProduct = collections.namedtuple("JoinProduct",
+                                        ["expression", "outer_detail"])
 # FIXME: Remove/dissolve this class, it is just historical remnant
 # NOTE: the class was meant to contain reusable code by different SQL
 #       backends
@@ -564,7 +569,7 @@ class QueryContext(object):
         Object attributes:
 
         * `fact_table` – the physical fact table - `sqlalchemy.Table` instance
-        * `tables` – a dictionary where keys are table references (schema,
+        * `tables` – a dictionar keys are table references (schema,
           table) or (shchema, alias) to real tables - `sqlalchemy.Table`
           instances
 
@@ -596,7 +601,8 @@ class QueryContext(object):
         self.fact_name = mapper.fact_name
         try:
             self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
-                                           autoload=True, schema=self.schema)
+                                               autoload=True,
+                                               schema=self.schema)
         except sqlalchemy.exc.NoSuchTableError:
             in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
             msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
@@ -610,7 +616,7 @@ class QueryContext(object):
         #
         # table_aliases contains mapping between aliased table name and real
         # table name with alias:
-        # 
+        #
         #       (schema, aliased_name) --> (schema, real_name, alias)
         #
         self.table_aliases = {
@@ -634,8 +640,8 @@ class QueryContext(object):
         self.safe_labels = options.get("safe_labels", False)
         self.label_counter = 1
 
-    def aggregation_statement(self, cell, measures=None,
-                              attributes=None, drilldown=None, split=None):
+    def aggregation_statement(self, cell, aggregates=None, attributes=None,
+                              drilldown=None, split=None):
         """Return a statement for summarized aggregation. `whereclause` is
         same as SQLAlchemy `whereclause` for
         `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
@@ -660,17 +666,27 @@ class QueryContext(object):
         if split_dim_cond:
             attributes |= set(split_dim_cond.attributes)
 
-        join_expression = self.join_expression_for_attributes(attributes)
+        join_product = self.join_expression_for_attributes(attributes)
+        join_expression = join_product.expression
 
         selection = []
 
         group_by = None
         drilldown_ptd_condition = None
+
+        # TODO: flatten this
         if split_dim_cond or drilldown:
             group_by = []
+
+            # Prepare split expression for selection and group-by
             if split_dim_cond:
-                group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-                selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
+                expr = sql.expression.case([(split_dim_cond.condition, True)],
+                                                            else_=False)
+                expr = expr.label(SPLIT_DIMENSION_NAME)
+
+                group_by.append(expr)
+                selection.append(expr)
+
             for dditem in drilldown:
                 last_level = dditem.levels[-1] if len(dditem.levels) else None
                 for level in dditem.levels:
@@ -678,21 +694,27 @@ class QueryContext(object):
                                                         if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
+
+                    # Prepare period-to-date condition
                     if last_level == level:
                         drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
-        # Measures
-        if measures is None:
-             measures = self.cube.measures
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty")
 
-        # Collect "columns" for measure aggregations
-        for measure in measures:
-            selection.extend(self.aggregations_for_measure(measure))
+        # Collect expressions of aggregate functions
+        selection += self.builtin_aggregate_expressions(aggregates,
+                                                        coalesce_measures=join_product.outer_detail)
 
+        # Drill-down statement
+        # --------------------
+        #
         select = sql.expression.select(selection,
-                                    from_obj=join_expression,
-                                    use_labels=True,
-                                    group_by=group_by)
+                                       from_obj=join_expression,
+                                       use_labels=True,
+                                       group_by=group_by)
+
+        self._log_statement(select, "aggregate select")
 
         conditions = []
         if cell_cond.condition is not None:
@@ -701,43 +723,74 @@ class QueryContext(object):
             conditions.append(drilldown_ptd_condition.condition)
 
         if conditions:
-            select = select.where(sql.expression.and_(*conditions) if len(conditions) > 1 else conditions[0])
+            select = select.where(sql.expression.and_(*conditions) if
+                                  len(conditions) > 1 else conditions[0])
 
         return select
 
-    def aggregations_for_measure(self, measure):
-        """Returns list of aggregation functions (sqlalchemy) on measure
-        columns.  The result columns are labeled as `measure` + ``_`` =
-        `aggregation`, for example: ``amount_sum`` or ``discount_min``.
-
-        `measure` has to be `Attribute` instance.
-
-        If measure has no explicit aggregations associated, then ``sum`` is
-        assumed.
+    def builtin_aggregate_expressions(self, aggregates,
+                                      coalesce_measures=False):
+        """Returns list of expressions for aggregates from `aggregates` that
+        are computed using the SQL statement.
         """
 
-        if not measure.aggregations:
-            aggregations = ["sum"]
-        else:
-            aggregations = [agg.lower() for agg in measure.aggregations]
+        expressions = []
+        for agg in aggregates:
+            exp = self.aggregate_expression(agg, coalesce_measures)
+            if exp is not None:
+                expressions.append(exp)
 
-        result = []
-        for agg_name in aggregations:
-            if not agg_name in aggregation_functions:
-                if not agg_name in CALCULATED_AGGREGATIONS:
-                    raise ArgumentError("Unknown aggregation type %s for measure %s" % \
-                                        (agg_name, measure))
+        return expressions
 
+    def aggregate_expression(self, aggregate, coalesce_measure=False):
+        """Returns an expression that performs the aggregation of measure
+        `aggregate`. The result's label is the aggregate's name.  `aggregate`
+        has to be `MeasureAggregate` instance.
+
+        If aggregate function is post-aggregation calculation, then `None` is
+        returned.
+
+        Aggregation function names are case in-sensitive.
+
+        If `coalesce_measure` is `True` then selected measure column is wrapped
+        in ``COALESCE(column, 0)``.
+        """
+        # TODO: support aggregate.expression
+
+        if aggregate.expression:
+            raise NotImplementedError("Expressions are not yet implemented")
+
+        # If there is no function specified, we consider the aggregate to be
+        # computed in the mapping
+        if not aggregate.function:
+            # TODO: this should be depreciated in favor of aggreate.expression
+            # TODO: Following expression should be raised instead:
+            # raise ModelError("Aggregate '%s' has no function specified"
+            #                 % str(aggregate))
+            column = self.column(aggregate)
+            # TODO: add COALESCE()
+            return column
+
+        function_name = aggregate.function.lower()
+
+        try:
+            function = get_aggregate_function(function_name)
+        except KeyError:
+            if not function_name in available_calculators():
+                raise ArgumentError("Unknown aggregate function %s "
+                                    "for aggregate %s" % \
+                                    (function_name, str(aggregate)))
             else:
-                func = aggregation_functions[agg_name]
-                label = "%s%s" % (str(measure), ("_" + agg_name if agg_name != "identity" else "") )
-                aggregation = func(self.column(measure)).label(label)
-                result.append(aggregation)
+                # The function is post-aggregation calculation
+                return None
 
-        return result
+        expression = function(aggregate, self, coalesce_measure)
+
+        return expression
 
     def denormalized_statement(self, attributes=None, expand_locales=False,
-                               include_fact_key=True, condition_attributes=None):
+                               include_fact_key=True,
+                               condition_attributes=None):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
@@ -757,8 +810,9 @@ class QueryContext(object):
         else:
             join_attributes = set(attributes)
 
-        join_expression = self.join_expression_for_attributes(join_attributes,
+        join_product = self.join_expression_for_attributes(join_attributes,
                                                 expand_locales=expand_locales)
+        join_expression = join_product.expression
 
         columns = self.columns(attributes, expand_locales=expand_locales)
 
@@ -779,10 +833,12 @@ class QueryContext(object):
 
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
-        attributes = hierarchy.all_attributes()
+        attributes = hierarchy.all_attributes
 
-        expression = self.join_expression_for_attributes(attributes,
+        product = self.join_expression_for_attributes(attributes,
                                                         include_fact=False)
+        expression = product.expression
+
         columns = self.columns(attributes)
         select = sql.expression.select(columns,
                                        from_obj=expression,
@@ -790,8 +846,6 @@ class QueryContext(object):
 
         cond = self.condition_for_point(dimension, path, hierarchy)
         select = select.where(cond.condition)
-
-        self.logger.debug("\n\nSQL:\n%s \n\n" % select)
 
         return select
 
@@ -806,7 +860,6 @@ class QueryContext(object):
 
         return statement
 
-
     def join_expression_for_attributes(self, attributes, expand_locales=False,
                                         include_fact=True):
         """Returns a join expression for `attributes`"""
@@ -820,54 +873,153 @@ class QueryContext(object):
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
 
+        Returns a tuple with attributes: `expression` with a SQLAlchemy
+        expression object, and a flag `outer_detail` which is set to `True` if at
+        least one join was done using ``detail`` method (RIGHT OUTER JOIN).
+
         If `include_fact` is ``True`` (default) then fact table is considered
         as starting point. If it is ``False`` The first detail table is
         considered as starting point for joins. This might be useful when
         getting values of a dimension without cell restrictions.
+
+        **Requirement:** joins should be ordered from the "tentacles" towards
+        the center of the star/snowflake schema.
+
+        **Algorithm:**
+
+        * FOR ALL JOINS:
+          1. get a join (order does not matter)
+          2. get master and detail TABLES (raw, not joined)
+          3. prepare the join condition on columns from the tables
+          4. find join PRODUCTS based on the table keys (schema, table)
+          5. perform join on the master/detail PRODUCTS:
+             * match: left inner join
+             * master: left outer join
+             * detail: right outer join – swap master and detail tables and
+                       do the left outer join
+          6. remove the detail PRODUCT
+          7. replace the master PRODUCT with the new one
+
+        * IF there is more than one join product left then some joins are
+          missing
+        * Result: join products should contain only one item which is the
+          final product of the joins
         """
 
-        self.logger.debug("create basic expression with %d joins" % len(joins))
+        self.logger.debug("create expression with %d joins. Fact: %s" %\
+                                    (len(joins), include_fact) )
+
+        # Dictionary of raw tables and their joined products
+        joined_products = {}
 
         if include_fact:
-            self.logger.debug("join: starting with fact table")
-            expression = self.fact_table
-        else:
-            self.logger.debug("join: ignoring fact table")
-            expression = None
+            key = (self.schema, self.fact_name)
+            joined_products[key] = self.fact_table
 
+        # Collect all the tables first:
         for join in joins:
-
             if not join.detail.table or (join.detail.table == self.fact_name and not join.alias):
                 raise MappingError("Detail table name should be present and "
                                    "should not be a fact table unless aliased.")
 
+            # Add master table to the list
+            table = self.table(join.master.schema, join.master.table)
+            joined_products[(join.master.schema, join.master.table)] = table
+
+            # Add (aliased) detail table to the rist
+            table = self.table(join.detail.schema, join.alias or join.detail.table)
+            key = (join.detail.schema, join.alias or join.detail.table)
+            joined_products[key] = table
+
+        self.logger.debug("collected %d tables for joining" %
+                                                    len(joined_products))
+
+        # product_list = ["%s: %s" % item for item in joined_products.items()]
+        # product_list = "\n".join(product_list)
+        # self.logger.debug("products:\n%s" % product_list)
+
+        # Perform the joins
+        # =================
+        #
+        outer_detail = False
+
+        for join in joins:
+            # Prepare the table keys:
+            # Key is a tuple of (schema, table) and is used to get a joined
+            # product object
+            master = join.master
+            master_key = (master.schema, master.table)
+            detail = join.detail
+            detail_key = (detail.schema, join.alias or detail.table)
+
+            self.logger.debug("joining (%s): %s -> %s" % (join.method, master_key,
+                                                            detail_key))
+
+            # We need plain tables to get columns for prepare the join
+            # condition
             master_table = self.table(join.master.schema, join.master.table)
             detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
 
             try:
-                master_column = master_table.c[join.master.column]
-            except:
-                raise MappingError('Unable to find master key (schema %s) "%s"."%s" ' \
+                master_column = master_table.c[master.column]
+            except KeyError:
+                self.logger.error("No master column '%s'. Available: %s" % \
+                                   (master.column, str(master_table.columns)))
+                raise ModelError('Unable to find master key (schema %s) "%s"."%s" ' \
                                     % join.master[0:3])
             try:
-                detail_column = detail_table.c[join.detail.column]
-            except:
-                raise MappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
+                detail_column = detail_table.c[detail.column]
+            except KeyError:
+                raise ErrorMappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
                                     % join.detail[0:3])
 
+            # The join condition:
             onclause = master_column == detail_column
 
-            if expression is not None:
-                expression = sql.expression.join(expression, 
-                                                 detail_table, 
-                                                 onclause=onclause,
-                                                 isouter=(include_fact and join.outer))
-            else:
-                self.logger.debug("join: starting with detail table '%s'" %
-                                                                detail_table)
-                expression = detail_table
+            # Get the joined products – might be plain tables or already
+            # joined tables
+            master_table = joined_products[master_key]
+            detail_table = joined_products[detail_key]
 
-        return expression
+            # Determine the join type based on the join method. If the method
+            # is "detail" then we need to swap the order of the tables
+            # (products), because SQLAlchemy provides inteface only for
+            # left-outer join.
+            if join.method == "match":
+                is_outer = False
+            elif join.method == "master":
+                is_outer = True
+            elif join.method == "detail":
+                # Swap the master and detail tables to perform RIGHT OUTER JOIN
+                master_table, detail_table = (detail_table, master_table)
+                is_outer = True
+                outer_detail = True
+            else:
+                raise ModelError("Unknown join method '%s'" % join.method)
+
+
+            product = sql.expression.join(master_table,
+                                             detail_table,
+                                             onclause=onclause,
+                                             isouter=is_outer)
+
+            del joined_products[detail_key]
+            joined_products[master_key] = product
+
+        if not joined_products:
+            # This should not happen
+            raise InternalError("No joined products left.")
+
+        if len(joined_products) > 1:
+            raise ModelError("Some tables are not joined: %s" %
+                    (joined_products.keys()))
+
+        # Return the remaining joined product
+        result = joined_products.values()[0]
+        self._log_statement(result, "join result")
+
+        # TODO: avoid returning named tuples
+        return JoinProduct(result, outer_detail)
 
     def condition_for_cell(self, cell):
         """Constructs conditions for all cuts in the `cell`. Returns a named
@@ -1014,7 +1166,7 @@ class QueryContext(object):
         if upper.condition is not None:
             conditions.append(upper.condition)
             attributes |= upper.attributes
-        
+
         if ptd_condition and ptd_condition.condition is not None:
             conditions.append(ptd_condition.condition)
             attributes |= ptd_condition.attributes
@@ -1098,7 +1250,8 @@ class QueryContext(object):
         the natural order is used, if not overriden in the `order`.
 
         `dimension_levels` is list of considered dimension levels in form of
-        tuples (`dimension`, `levels`). For each level it's sort key is used.
+        tuples (`dimension`, `hierarchy`, `levels`). For each level it's sort
+        key is used.
         """
 
         # Each attribute mentioned in the order should be present in the selection
@@ -1124,8 +1277,8 @@ class QueryContext(object):
 
         if dimension_levels:
             for dditem in dimension_levels:
-                dim = dditem.dimension
-                for level in dditem.levels:
+                dim, hier, levels = dditem[0:3]
+                for level in levels:
                     level = dim.level(level)
                     if level.order:
                         order.append( (level.order_attribute.ref(), level.order) )
@@ -1219,6 +1372,7 @@ class QueryContext(object):
 
         ref = self.mapper.physical(attribute, locale)
         table = self.table(ref.schema, ref.table)
+
         try:
             column = table.c[ref.column]
         except:
@@ -1260,7 +1414,7 @@ class QueryContext(object):
         if expand_locales:
             columns = []
             for attr in attributes:
-                if attr.locales:
+                if attr.is_localizable():
                     columns += [self.column(attr, locale) for locale in attr.locales]
                 else: # if not attr.locales
                     columns.append(self.column(attr))
@@ -1287,64 +1441,10 @@ class QueryContext(object):
 
         return attributes
 
-class AggregatedCubeBrowser(AggregationBrowser):
-    """docstring for SnowflakeBrowser"""
+    def _log_statement(self, statement, label=None):
+        label = "SQL(%s):" % label if label else "SQL:"
+        self.logger.debug("%s\n%s" % (label, str(statement)))
 
-    def __init__(self, cube, connectable=None, locale=None, metadata=None,
-                 debug=False, **options):
-        """AggregatedCubeBrowser is a SQL-based AggregationBrowser
-        implementation that uses pre-aggregated table.
-
-        Attributes:
-
-        * `cube` - browsed cube
-        * `connectable` - SQLAlchemy connectable object (engine or connection)
-        * `locale` - locale used for browsing
-        * `metadata` - SQLAlchemy MetaData object
-        * `debug` - output SQL to the logger at INFO level
-        * `options` - passed to the mapper and context (see their respective
-          documentation)
-
-        """
-        super(AggregatedCubeBrowser, self).__init__(cube)
-
-        if cube == None:
-            raise ArgumentError("Cube for browser should not be None.")
-
-        self.logger = get_logger()
-
-        self.cube = cube
-        self.locale = locale or cube.locale
-        self.debug = debug
-
-        if connectable is not None:
-            self.connectable = connectable
-            self.metadata = metadata or sqlalchemy.MetaData(bind=self.connectable)
-
-        # Mapper is responsible for finding corresponding physical columns to
-        # dimension attributes and fact measures. It also provides information
-        # about relevant joins to be able to retrieve certain attributes.
-
-        if options.get("use_denormalization"):
-            mapper_class = DenormalizedMapper
-        else:
-            mapper_class = SnowflakeMapper
-
-        self.logger.debug("using mapper %s for cube '%s' (locale: %s)" % \
-                            (str(mapper_class.__name__), cube.name, locale))
-
-        self.mapper = mapper_class(cube, locale=self.locale, **options)
-        self.logger.debug("mapper schema: %s" % self.mapper.schema)
-
-        # QueryContext is creating SQL statements (using SQLAlchemy). It
-        # also caches information about tables retrieved from metadata.
-
-        self.context = QueryContext(self.cube, self.mapper,
-                                      metadata=self.metadata)
-
-        # Map: logical attribute --> 
-        self.attribute_columns = {}
-        self.alias_columns
 
 def order_column(column, order):
     """Orders a `column` according to `order` specified as string."""
@@ -1387,7 +1487,8 @@ class SnapshotQueryContext(QueryContext):
     def __init__(self, cube, mapper, metadata, **options):
         super(SnapshotQueryContext, self).__init__(cube, mapper, metadata, **options)
 
-        snap_info = { 'dimension': 'daily_date', 'level_attribute': 'daily_datetime', 'aggregation': 'max' }
+        snap_info = { 'dimension': 'daily_date', 'level_attribute':
+                     'daily_datetime', 'aggregation': 'max' }
         snap_info.update(cube.info.get('snapshot', {}))
         self.snapshot_dimension = cube.dimension(snap_info['dimension'])
         self.snapshot_level_attrname = snap_info['level_attribute']
@@ -1403,7 +1504,8 @@ class SnapshotQueryContext(QueryContext):
                         return None, False
         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
-    def aggregation_statement(self, cell, measures=None, attributes=None, drilldown=None, split=None):
+    def aggregation_statement(self, cell, aggregates=None, attributes=None,
+                              drilldown=None, split=None):
         """Prototype of 'snapshot cube' aggregation style."""
 
         cell_cond = self.condition_for_cell(cell)
@@ -1423,7 +1525,8 @@ class SnapshotQueryContext(QueryContext):
         if split_dim_cond:
             attributes |= set(split_dim_cond.attributes)
 
-        join_expression = self.join_expression_for_attributes(attributes)
+        join_product = self.join_expression_for_attributes(attributes)
+        join_expression = join_product.expression
 
         selection = []
 
@@ -1438,7 +1541,7 @@ class SnapshotQueryContext(QueryContext):
                 last_level = dditem.levels[-1] if len(dditem.levels) else None
                 for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
-                                                        if attr in attributes]
+                               if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
                     if last_level == level:
@@ -1450,10 +1553,6 @@ class SnapshotQueryContext(QueryContext):
         if drilldown_ptd_condition is not None:
             conditions.append(drilldown_ptd_condition.condition)
 
-        # Measures
-        if measures is None:
-             measures = self.cube.measures
-
         # We must produce, under certain conditions, a subquery:
         #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy.
         #   - If the drilldown does not contain the date dimension.
@@ -1464,9 +1563,15 @@ class SnapshotQueryContext(QueryContext):
         # drilldown levels, plus dim.lowest_level == snapshot_browser_subquery.snapshot_level.
 
         snapshot_level_attribute, needs_join_added = self.snapshot_level_attribute(drilldown)
+
+        outer_detail_join = False
         if snapshot_level_attribute:
             if needs_join_added:
-                join_expression = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
+                # TODO: check if this works with product.outer_detail = True
+                product = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
+                join_expression = product.expression
+                outer_detail_join = product.outer_detail
+
             subq_join_expression = join_expression
             subq_selection = [ s.label('col%d' % i) for i, s in enumerate(selection) ]
             subq_group_by = group_by[:] if group_by else None
@@ -1475,32 +1580,51 @@ class SnapshotQueryContext(QueryContext):
             level_expr = getattr(sql.expression.func, self.snapshot_aggregation)(self.column(snapshot_level_attribute)).label('the_snapshot_level')
             subq_selection.append(level_expr)
             subquery = sql.expression.select(subq_selection, from_obj=subq_join_expression, use_labels=True, group_by=subq_group_by)
+
             if subq_conditions:
                 subquery = subquery.where(sql.expression.and_(*subq_conditions) if len(subq_conditions) > 1 else subq_conditions[0])
+
+            # Prepare the snapshot subquery
             subquery = subquery.alias('the_snapshot_subquery')
             subq_joins = []
-            for a, b in zip(selection, [ sql.expression.literal_column("%s.col%d" % (subquery.name, i)) for i, s in enumerate(subq_selection[:-1]) ]):
-                subq_joins.append(a == b) 
+
+            cols = []
+            for i, s in enumerate(subq_selection[:-1]):
+                col = sql.expression.literal_column("%s.col%d" %
+                                                    (subquery.name, i))
+                cols.append(col)
+
+            for left, right in zip(selection, cols):
+                subq_joins.append(left == right)
+
             subq_joins.append(self.column(snapshot_level_attribute) == sql.expression.literal_column("%s.%s" % (subquery.name, 'the_snapshot_level')))
             join_expression = join_expression.join(subquery, sql.expression.and_(*subq_joins))
 
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty")
 
         # Collect "columns" for measure aggregations
-        for measure in measures:
-            selection.extend(self.aggregations_for_measure(measure))
+        selection += self.builtin_aggregate_expressions(aggregates,
+                                                        coalesce_measures=outer_detail_join)
 
         select = sql.expression.select(selection,
-                                    from_obj=join_expression,
-                                    use_labels=True,
-                                    group_by=group_by)
+                                       from_obj=join_expression,
+                                       use_labels=True,
+                                       group_by=group_by)
 
         if conditions:
-            select = select.where(sql.expression.and_(*conditions) if len(conditions) > 1 else conditions[0])
+            select = select.where(sql.expression.and_(*conditions) if
+                                  len(conditions) > 1 else conditions[0])
 
         return select
 
 class SnapshotBrowser(SnowflakeBrowser):
     def __init__(self, cube, store, connectable=None, locale=None, metadata=None, debug=False, **options):
-       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata, debug=debug, **options)
-       self.context = SnapshotQueryContext(self.cube, self.mapper, metadata=self.metadata, **self.options)
+
+       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata,
+                                             debug=debug, **options)
+
+       self.context = SnapshotQueryContext(self.cube, self.mapper,
+                                           metadata=self.metadata,
+                                           **self.options)
 

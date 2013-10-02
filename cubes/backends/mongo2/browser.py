@@ -1,41 +1,29 @@
-from cubes.common import get_logger
-from cubes.errors import *
-from cubes.browser import *
-from cubes.computation import *
-from cubes.statutils import *
+from ...common import get_logger
+from ...errors import *
+from ...browser import *
+from ...computation import *
+from ...statutils import calculators_for_aggregates, available_calculators
 from cubes import statutils
-from .mapper import MongoCollectionMapper, coalesce_physical
+from .mapper import MongoCollectionMapper
 from .datesupport import DateSupport
+from .functions import get_aggregate_function, available_aggregate_functions
+from .util import to_json_safe, collapse_record
 
 import collections
 import copy
 import pymongo
 import bson
 import re
-import time
 
 from dateutil.relativedelta import relativedelta
-from datetime import datetime, timedelta
+from datetime import datetime
 from itertools import groupby
 from functools import partial
 import pytz
 
+
 tz_utc = pytz.timezone('UTC')
 
-AGGREGATIONS = {
-    'count': {
-        'group_by': (lambda field: { '$sum': 1 }),
-        'aggregate_fn': len,
-    },
-    'sum': {
-        'group_by': (lambda field: { '$sum': "$%s" % field }),
-        'aggregate_fn': sum,
-    },
-    'identity': {
-        'group_by' : (lambda field: { '$sum': 1 }),
-        'aggregate_fn': len
-    }
-}
 
 SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
 
@@ -70,87 +58,137 @@ class Mongo2Browser(AggregationBrowser):
         self.datesupport = DateSupport(self.logger, self.timezone, options.get('week_start_weekday'))
 
 
+    def features(self):
+        """Return SQL features."""
+
+        features = {
+            # TODO: missing "cell"
+            "actions": ["aggregate", "members", "fact", "facts"],
+            "aggregate_functions": available_aggregate_functions(),
+            "post_aggregate_functions": available_calculators()
+        }
+
+        return features
+
     def set_locale(self, locale):
         self.mapper.set_locale(locale)
 
-    def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
-                  attributes=None, order=None, page=None, page_size=None, 
-                  **options):
+    def aggregate(self, cell=None, measures=None, aggregates=None,
+                  drilldown=None, split=None, attributes=None, order=None,
+                  page=None, page_size=None, **options):
+
         cell = cell or Cell(self.cube)
 
-        measures = [self.cube.measure(measure) for measure in (measures if measures else self.cube.measures)]
-
-        result = AggregationResult(cell=cell, measures=measures)
+        aggregates = self.prepare_aggregates(aggregates, measures)
+        result = AggregationResult(cell=cell, aggregates=aggregates)
 
         drilldown_levels = None
 
         labels = []
 
+        # Prepare the drilldown
+        # FIXME: this is the exact code as in SQL browser - put it into a
+        # separate method and share
+
         if drilldown or split:
-            drilldown_levels = levels_from_drilldown(cell, drilldown) if drilldown else []
+            if drilldown:
+                drilldown = levels_from_drilldown(cell, drilldown)
+            else:
+                drilldown = []
+
             dim_levels = {}
+
             if split:
                 dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
-            for dditem in drilldown_levels:
-                # if dim or one of its levels is high_cardinality, and there is no page_size and page, raise BrowserError
-                if dditem.dimension.info.get('high_cardinality') and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dditem.dimension.name))
-                if [ l for l in dditem.levels if l.info.get('high_cardinality') ] and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality levels (%s) without including both page_size and page arguments" % (",".join([l.key.ref() for l in dditem.levels if l.info.get('high_cardinality')])))
-                dim_levels[str(dditem.dimension)] = [str(level) for level in dditem.levels]
+
+            for dditem in drilldown:
+                dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
+
+                # if dim or one of its levels is high_cardinality, and there is
+                # no page_size and page, raise BrowserError
+                if dim.info.get('high_cardinality') \
+                        and not (page_size and page is not None):
+                    raise BrowserError("Cannot drilldown on high-cardinality "
+                                       "dimension (%s) without including "
+                                       "both page_size and page arguments" %
+                                       (dim.name))
+
+                hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
+
+                if hc_levels and not (page_size and page is not None):
+                    raise BrowserError("Cannot drilldown on high-cardinality "
+                                       "levels (%s) without including both "
+                                       "page_size and page arguments" %
+                                       (",".join([l.key.ref() for l in
+                                                  dditem.levels if
+                                                  l.info.get('high_cardinality')])))
+
+                dim_levels[str(dim)] = [str(level) for level in levels]
+
             result.levels = dim_levels
 
-            calc_aggs = []
-            for c in [ self.calculated_aggregations_for_measure(measure, drilldown_levels, split) for measure in measures ]:
-                calc_aggs += c
-            result.calculators = calc_aggs
+            #
+            # Find post-aggregation calculations and decorate the result
+            #
+            result.calculators = calculators_for_aggregates(aggregates,
+                                                            drilldown,
+                                                            split,
+                                                            available_aggregate_functions())
 
-        summary, items = self._do_aggregation_query(cell=cell, measures=measures, attributes=attributes, drilldown=drilldown_levels, split=split, order=order, page=page, page_size=page_size)
+        summary, items = self._do_aggregation_query(cell=cell,
+                                                    aggregates=aggregates,
+                                                    attributes=attributes,
+                                                    drilldown=drilldown_levels,
+                                                    split=split, order=order,
+                                                    page=page,
+                                                    page_size=page_size)
         result.cells = iter(items)
         result.summary = summary
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
-            for calcs in [ self.calculated_aggregations_for_measure(measure, drilldown_levels, split) for measure in measures ]:
-                for calc in calcs:
-                    calc(result.summary)
+            calculators = calculators_for_aggregates(aggregates, drilldown,
+                                                     split,
+                                                     available_aggregate_functions())
+            for calc in calculators:
+                calc(result.summary)
 
-
-        labels += [ str(m) for m in measures ]
+        labels += [ str(m) for m in aggregates ]
         result.labels = labels
         return result
 
-    def calculated_aggregations_for_measure(self, measure, drilldown_levels, split):
-        calc_aggs = [ agg for agg in measure.aggregations if agg in CALCULATED_AGGREGATIONS ]
+    def facts(self, cell=None, fields=None, order=None, page=None, page_size=None,
+              **options):
+        """Return facts iterator."""
 
-        if not calc_aggs:
-            return []
+        cell = cell or Cell(self.cube)
 
-        return [ CALCULATED_AGGREGATIONS.get(c)(measure, drilldown_levels, split, ['identity']) for c in calc_aggs ]
+        if not fields:
+            attributes = self.cube.all_attributes
+            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
+        else:
+            attributes = self.cube.get_attributes(fields)
+            self.logger.debug("facts: getting fields: %s" % fields)
 
-    def _json_safe_item(self, item):
-        new_item = {}
-        for k,v in item.iteritems():
-            new_item[k] = str(v) if isinstance(v, bson.objectid.ObjectId) else v
-        return new_item
-
-    def facts(self, cell=None, order=None, page=None, page_size=None, **options):
+        # Prepare the query
         query_obj, fields_obj = self._build_query_and_fields(cell, [])
+
         # TODO include fields_obj, fully populated
         cursor = self.data_store.find(query_obj)
         if order:
             order_obj = self._order_to_sort_object(order)
             k, v = order_obj.iteritems().next()
             cursor = cursor.sort(k, pymongo.DESCENDING if v == -1 else pymongo.ASCENDING)
+
         if page_size and page > 0:
             cursor = cursor.skip(page * page_size)
+
         if page_size and page_size > 0:
             cursor = cursor.limit(page_size)
-        
-        # TODO map back to logical values
-        items = []
-        for item in cursor:
-            items.append(self._json_safe_item(item))
-        return items
+
+        facts = MongoFactsIterator(cursor, attributes, self.mapper,
+                                   self.datesupport)
+
+        return facts
 
     def fact(self, key):
         # TODO make it possible to have a fact key that is not an ObjectId
@@ -162,7 +200,7 @@ class Mongo2Browser(AggregationBrowser):
             pass
         item = self.data_store.find_one({key_field.field: key_value})
         if item is not None:
-            item = self._json_safe_item(item)
+            item = to_json_safe(item)
         return item
 
     def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, order=None, page=None, page_size=None, **options):
@@ -179,7 +217,13 @@ class Mongo2Browser(AggregationBrowser):
         level_attributes = []
         for level in levels:
            level_attributes += level.attributes
-        summary, cursor = self._do_aggregation_query(cell=cell, measures=None, attributes=level_attributes, drilldown=[(dimension, hierarchy, levels)], order=order, page=page, page_size=page_size)
+        summary, cursor = self._do_aggregation_query(cell=cell, aggregates=None,
+                                                     attributes=level_attributes,
+                                                     drilldown=[(dimension,
+                                                                 hierarchy,
+                                                                 levels)],
+                                                     order=order, page=page,
+                                                     page_size=page_size)
 
         data = []
         for item in cursor:
@@ -196,50 +240,59 @@ class Mongo2Browser(AggregationBrowser):
     def _in_same_collection(self, physical_ref):
         return (physical_ref.database == self.mapper.database) and (physical_ref.collection == self.mapper.collection)
 
-    def _measure_aggregation_field(self, logical_ref, aggregation_name):
-        if aggregation_name == 'identity':
-            return logical_ref
-        return "%s_%s" % (logical_ref, aggregation_name)
-
     def _build_query_and_fields(self, cell, attributes, for_project=False):
+        """Returns a tuple (`query`, `fields`)."""
         find_clauses = []
         query_obj = {}
-        if not for_project and self.cube.mappings and self.cube.mappings.get('__query__'):
+        if not for_project and self.cube.mappings and \
+                self.cube.mappings.get('__query__'):
             query_obj.update(copy.deepcopy(self.cube.mappings['__query__']))
 
-        find_clauses = reduce(lambda i, c: i + c, [self._query_conditions_for_cut(cut, for_project) for cut in cell.cuts], [])
+        find_clauses = []
+        for cut in cell.cuts:
+            find_clauses += self._query_conditions_for_cut(cut, for_project)
 
         if find_clauses:
-            query_obj.update({ "$and": find_clauses })
-        
+            query_obj.update({"$and": find_clauses})
+
         fields_obj = {}
-        if attributes:
-            for attribute in attributes:
-                phys = self.mapper.physical(attribute)
-                if not self._in_same_collection(phys):
-                    raise ValueError("Cannot fetch field that is in different collection than this browser: %r" % phys)
-                fields_obj[ escape_level(attribute.ref()) ] = phys.project_expression()
+
+        for attribute in attributes or []:
+            phys = self.mapper.physical(attribute)
+            if not self._in_same_collection(phys):
+                raise ValueError("Cannot fetch field that is in different "
+                                 "collection than this browser: %r" % phys)
+            fields_obj[escape_level(attribute.ref())] = phys.project_expression()
 
         return query_obj, fields_obj
 
-    def _do_aggregation_query(self, cell, measures, attributes, drilldown, split, order, page, page_size):
+    def _do_aggregation_query(self, cell, aggregates, attributes, drilldown,
+                              split, order, page, page_size):
 
         # determine query for cell cut
         query_obj, fields_obj = self._build_query_and_fields(cell, attributes)
 
-        # if no drilldown or split, only one measure, and only aggregations to do on it are count or identity, no aggregation pipeline needed.
-        if (not drilldown and not split) and len(measures) == 1 and measures[0].aggregations:
-            if len([ a for a in measures[0].aggregations if a not in ('count', 'identity')]) == 0:
-                return (self.data_store.find(query_obj).count(), [])
+        # If no drilldown or split, only one measure, and only aggregations to
+        # do on it are count or identity, no aggregation pipeline needed.
+        if not aggregates:
+            raise ArgumentError("No aggregates provided.")
+
+        if (not drilldown and not split) \
+                and len(aggregates) == 1 \
+                and aggregates[0].function in ("count", "identity"):
+
+            return (self.data_store.find(query_obj).count(), [])
 
         group_id = {}
 
         # prepare split-related projection of complex boolean condition
         if split:
-            split_query_like_obj, dummy = self._build_query_and_fields(split, [], for_project=True)
+            split_query_like_obj, dummy = self._build_query_and_fields(split,
+                                                                       [],
+                                                                       for_project=True)
             if split_query_like_obj:
-                fields_obj[ escape_level(SPLIT_DIMENSION_NAME) ] = split_query_like_obj
-                group_id[ escape_level(SPLIT_DIMENSION_NAME) ] = "$%s" % escape_level(SPLIT_DIMENSION_NAME)
+                fields_obj[escape_level(SPLIT_DIMENSION_NAME)] = split_query_like_obj
+                group_id[escape_level(SPLIT_DIMENSION_NAME)] = "$%s" % escape_level(SPLIT_DIMENSION_NAME)
 
         # drilldown, fire up the pipeline
 
@@ -313,16 +366,31 @@ class Mongo2Browser(AggregationBrowser):
         group_obj = { "_id": group_id }
 
         aggregate_fn_pairs = []
-        for m in measures:
-            for agg in [ agg for agg in m.aggregations if AGGREGATIONS.has_key(agg) ]:
-                agg_ref = AGGREGATIONS.get(agg)
-                phys = self.mapper.physical(m)
-                fields_obj[ escape_level(m.ref()) ] = phys.project_expression()
-                if not self._in_same_collection(phys):
-                    raise ValueError("Measure cannot be in different database or collection than browser: %r" % phys)
-                aggregate_fn_pairs.append( ( escape_level(self._measure_aggregation_field(m.ref(), agg)), sum ) )
-                group_obj[ escape_level(self._measure_aggregation_field(m.ref(), agg)) ] = phys.group if phys.group else agg_ref.get('group_by')(escape_level(m.ref()))
-        
+
+        for agg in aggregates:
+            try:
+                function = get_aggregate_function(agg.function)
+            except KeyError:
+                continue
+
+            phys = self.mapper.physical(agg)
+            fields_obj[escape_level(agg.ref())] = phys.project_expression()
+
+            if not self._in_same_collection(phys):
+                raise BrowserError("Measure cannot be in different database "
+                                   "or collection than browser: %r" % phys)
+
+            aggregate_fn_pairs.append( ( escape_level(agg.ref()), sum ) )
+
+
+            if phys.group:
+                group = phys.group
+            else:
+                group_applicator = function["group_by"]
+                group = group_applicator(escape_level(agg.ref()))
+
+            group_obj[ escape_level(agg.ref()) ] = group
+
         pipeline = []
         pipeline.append({ "$match": query_obj })
         if fields_obj:
@@ -334,13 +402,13 @@ class Mongo2Browser(AggregationBrowser):
                 pipeline.append({ "$sort": self._order_to_sort_object(order) })
             elif len(sort_obj):
                 pipeline.append({ "$sort": sort_obj })
-        
+
         if not timezone_shift_processing and page and page > 0:
             pipeline.append({ "$skip": page * page_size })
-        
+
         if not timezone_shift_processing and page_size and page_size > 0:
             pipeline.append({ "$limit": page_size })
-        
+
         result_items = []
         self.logger.debug("PIPELINE: %s", pipeline)
 
@@ -370,7 +438,7 @@ class Mongo2Browser(AggregationBrowser):
                 # sort group on date
                 dt = item['_id'][date_field]
                 key = [self.datesupport.datepart_functions.get(dp)(dt) for dp in dategrouping]
-                
+
                 # add remainder elements to sort and group
                 for k, v in sorted(item['_id'].items(), key=lambda x:x[0]):
                     if k != date_field:
@@ -434,13 +502,15 @@ class Mongo2Browser(AggregationBrowser):
         return (None, result_items) if (drilldown or split) else (result_items[0], [])
 
     def _build_date_for_cut(self, hier, path, is_end=False):
+        """Constructs a date from timestamp."""
         date_dict = {'month': 1, 'day': 1, 'hour': 0, 'minute': 0 }
         min_part = None
 
-        for val, dp in zip(path, hier.levels[:len(path)]):
-            date_dict[dp.key.name] = self.mapper.physical(dp.key).type(val)
-            min_part = dp
-
+        date_levels = hier.levels[:len(path)]
+        for val, date_part in zip(path, date_levels):
+            physical = self.mapper.physical(date_part.key)
+            date_dict[date_part.key.name] = physical.convert_value(val)
+            min_part = date_part
 
         dt = None
         if 'year' not in date_dict:
@@ -448,7 +518,10 @@ class Mongo2Browser(AggregationBrowser):
                 return dt, min_part
             else:
                 dt = datetime.strptime(date_dict['week'], '%Y-%m-%d')
-                dt = (self.datesupport.get_week_end_date if is_end else self.datesupport.get_week_start_date)(dt)
+                if is_end:
+                    dt = self.datesupport.get_week_end_date(dt)
+                else:
+                    dt = self.datesupport.get_week_start_date(dt)
         else:
             dt = datetime(**date_dict)
 
@@ -514,7 +587,7 @@ class Mongo2Browser(AggregationBrowser):
                         conds.append(start_cond)
                     elif end_cond:
                         conds.append(end_cond)
-                
+
             if False:
                 raise ArgumentError("No support yet for non-date range cuts in mongo2 backend")
                 if cut.from_path:
@@ -568,3 +641,30 @@ def escape_level(ref):
 
 def unescape_level(ref):
     return ref.replace('___', '.')
+
+
+class MongoFactsIterator(Facts):
+    def __init__(self, facts, attributes, mapper, datesupport):
+        super(MongoFactsIterator, self).__init__(facts, attributes)
+        self.mapper = mapper
+        self.datesupport = datesupport
+
+    def __iter__(self):
+        for fact in self.facts:
+            fact = to_json_safe(fact)
+            fact = collapse_record(fact)
+
+            record = {}
+            for attribute in self.attributes:
+                physical = self.mapper.physical(attribute)
+                value = fact.get(physical.field)
+
+                if value and physical.is_date_part:
+                    if physical.extract != "week":
+                        value = getattr(value, physical.extract)
+                    else:
+                        value = self.datesupport.calc_week(value)
+
+                record[attribute.ref()] = value
+
+            yield record

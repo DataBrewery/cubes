@@ -1,10 +1,11 @@
 # -*- coding=utf -*-
 import sys
-from .model import read_model_metadata, create_model_provider
+from .providers import read_model_metadata, create_model_provider
 from .model import Model
 from .common import get_logger
 from .errors import *
 from .stores import open_store, create_browser
+import os.path
 import ConfigParser
 
 __all__ = [
@@ -78,6 +79,15 @@ class Workspace(object):
 
         self.logger = get_logger()
 
+        if config.has_option("workspace", "log"):
+            formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
+            handler = logging.FileHandler(config.get("workspace", "log"))
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+
+        if config.has_option("workspace", "log_level"):
+            self.logger.setLevel(config.get("workspace", "log_level").upper())
+
         self.locales = []
         self.translations = []
 
@@ -131,7 +141,7 @@ class Workspace(object):
         default = None
         if config.has_section("datastore"):
             default = dict(config.items("datastore"))
-        else:
+        elif config.has_section("workspace"):
             self.logger.warn("No [datastore] configuration found, using old "
                              "backend & [workspace]. Update you config file.")
             default = {}
@@ -147,7 +157,10 @@ class Workspace(object):
 
         # Register [store_*] from main config (not documented)
         for section in config.sections():
-            if section.startswith("store_"):
+            if section.startswith("datastore_"):
+                name = section[10:]
+                self._register_store_dict(name, dict(config.items(section)))
+            elif section.startswith("store_"):
                 name = section[6:]
                 self._register_store_dict(name, dict(config.items(section)))
 
@@ -161,12 +174,44 @@ class Workspace(object):
         else:
             self.options = {}
 
+
+        # Load models
+
         if config.has_section("model"):
+            self.logger.warn("Section [model] is depreciated. Use 'model' in "
+                             "[workspace] for single default model or use "
+                             "section [models] to list multiple models.")
             if config.has_option("model", "path"):
                 source = config.get("model", "path")
                 self.logger.debug("Loading model from %s" % source)
                 self.add_model(source)
 
+        if config.has_option("workspace", "models_path"):
+            models_path = config.get("workspace", "models_path")
+        else:
+            models_path = None
+
+        models = []
+        if config.has_option("workspace", "model"):
+            models.append(config.get("workspace", "model"))
+        if config.has_section("models"):
+            models += [path for name, path in config.items("models")]
+
+        self._load_models(models_path, models)
+
+    def _load_models(self, root, paths):
+        """Load `models` with root path `models_path`."""
+
+        if root:
+            self.logger.debug("Models root: %s" % root)
+        else:
+            self.logger.debug("Models root set to current directory")
+
+        for path in paths:
+            self.logger.debug("Loading model %s" % path)
+            if root and not os.path.isabs(path):
+                path = os.path.join(root, path)
+            self.add_model(path)
 
     def _register_store_dict(self, name, info):
         info = dict(info)
@@ -196,8 +241,35 @@ class Workspace(object):
 
         self.store_infos[name] = (type_, config)
 
+    def _store_for_model(self, metadata):
+        """Returns a store for model specified in `metadata`. """
+        store_name = metadata.get("datastore")
+        if not store_name and "info" in metadata:
+            store_name = metadata["info"].get("datastore")
+
+        store_name = store_name or "default"
+
+        return store_name
+
     def add_model(self, model, name=None, store=None, translations=None):
-        """Appends objects from the `model`."""
+        """Registers the `model` in the workspace. `model` can be a metadata
+        dictionary, filename, path to a model bundle directory or a URL.
+
+        If `name` is specified, then it is used instead of name in the
+        model. `store` is an optional name of data store associated with the
+        model.
+
+        Model is added to the list of workspace models. Model provider is
+        determined and associated with the model. Provider is then asked to
+        list public cubes and public dimensions which are registered in the
+        workspace.
+
+        No actual cubes or dimensions are created at the time of calling this
+        method. The creation is deffered until :meth:`cubes.Workspace.cube` or
+        :meth:`cubes.Workspace.dimension` is called.
+
+        """
+
 
         # Model -> Store -> Provider
 
@@ -222,37 +294,15 @@ class Workspace(object):
 
         model_name = name or metadata.get("name")
 
-        # Get the model's store name:
-        #   specified as argument
-        #   specified in the model as "datastore"
+        # Get a provider as specified in the model by "provider" or get the
+        # "default provider"
+        provider_name = metadata.get("provider", "default")
+        provider = create_model_provider(provider_name, metadata)
 
-        store_name = store or metadata.get("datastore")
-        if not store_name and "info" in metadata:
-            store_name = metadata["info"].get("datastore")
-
-        store_name = store_name or "default"
-
-        self.logger.debug("Using store '%s'" % store_name)
-        store = self.get_store(store_name)
-
-        # Provider is specified in:
-        #   model's "provider"
-        #   or store's model_provider_name (explicitly specified as "store")
-        #   or "default"
-        provider_name = metadata.get("provider")
-
-        if provider_name == "datastore":
-            provider_name = store.model_provider_name()
-        elif not provider_name:
-            if store:
-                provider_name = store.model_provider_name()
-            else:
-                provider_name = "default"
-
-        self.logger.debug("using provider %s" % provider_name)
-        provider = create_model_provider(provider_name, metadata, store,
-                                         store_name)
-
+        if provider.requires_store():
+            store_name = store or self._store_for_model(metadata)
+            store = self.get_store(store_name)
+            provider.set_store(store, store_name)
 
         model_object = Model(metadata=metadata,
                              provider=provider,
@@ -268,18 +318,10 @@ class Workspace(object):
             # self.logger.debug("registering public cube '%s'" % name)
             self._register_public_cube(name, model_object)
 
-        # Get list of exported dimensions
-        # By default all explicitly mentioned dimensions are exported.
-        # 
-        if "public_dimensions" in metadata:
-            for dim in metadata["public_dimensions"]:
-                # self.logger.debug("registering public dimension '%s' (by ref.)" % name)
+        # Register public dimensions
+        for dim in provider.public_dimensions():
+            if dim:
                 self._register_public_dimension(dim, model_object)
-        else:
-            for dim in metadata.get("dimensions", []):
-                name = _get_name(dim, "Dimension")
-                # self.logger.debug("registering public dimension '%s'" % name)
-                self._register_public_dimension(name, model_object)
 
     def _register_public_dimension(self, name, model):
         if name in self.dimension_models:
@@ -310,6 +352,10 @@ class Workspace(object):
         .. note::
 
             Master model should not be edited by hand for now.
+
+        .. note::
+
+            Avoid using this method.
         """
 
         master_model = {}
@@ -363,6 +409,7 @@ class Workspace(object):
         self.link_cube(cube, model, provider)
 
         self._cubes[name] = cube
+
         return cube
 
     def _model_for_cube(self, name):
@@ -484,12 +531,16 @@ class Workspace(object):
         store_name = cube.datastore or "default"
         store = self.get_store(store_name)
         store_type = self.store_infos[store_name][0]
+        store_info = self.store_infos[store_name][1]
 
         options = self._browser_options(cube)
 
+        # TODO: merge only keys that are relevant to the browser!
+        options.update(store_info)
+
         # TODO: Construct options for the browser from cube's options dictionary and
         # workspece default configuration
-        # 
+        #
 
         browser_name = cube.browser
         if not browser_name and hasattr(store, "default_browser_name"):
@@ -503,6 +554,13 @@ class Workspace(object):
                                  locale=locale, **options)
 
         return browser
+
+    def cube_features(self, cube):
+        """Returns browser features for `cube`"""
+        # TODO: this might be expensive, make it a bit cheaper
+        # recycle the feature-providing browser or something. Maybe use class
+        # method for that
+        return self.browser(cube).features()
 
     def get_store(self, name="default"):
         """Opens a store `name`. If the store is already open, returns the
