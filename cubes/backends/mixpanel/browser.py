@@ -37,8 +37,6 @@ class MixpanelBrowser(AggregationBrowser):
         self.options = options
         self.logger = get_logger()
 
-        self.mapper = MixpanelMapper(cube)
-
     def features(self):
         """Return SQL features. Currently they are all the same for every
         cube, however in the future they might depend on the SQL engine or
