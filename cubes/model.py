@@ -590,7 +590,7 @@ class Cube(object):
         """Returns a measure aggregate by name."""
         name = str(name)
         try:
-            return self._measures[name]
+            return self._aggregates[name]
         except KeyError:
             raise NoSuchAttributeError("cube '%s' has no measure aggregate "
                                             "'%s'" % (self.name, name))
@@ -616,9 +616,28 @@ class Cube(object):
             attributes += dim.all_attributes
 
         attributes += self.details
+
+        # TODO: do not include measures!!!
         attributes += self.measures
 
         return attributes
+
+    def attribute(self, attribute, simplify=True):
+        """Returns an attribute object (dimension attribute, measure or
+        detail)."""
+
+        for dim in self.dimensions:
+            try:
+                return dim.attribute(attribute)
+            except KeyError:
+                continue
+
+        if attribute in self.details:
+            return self.details[attribute]
+
+        else:
+            raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
+                                       % (self.name, attribute))
 
     def get_attributes(self, attributes, simplify=True):
         """Returns a list of cube's attributes (dimension attributes, details
