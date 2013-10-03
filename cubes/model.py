@@ -2277,6 +2277,8 @@ def fix_level_metadata(metadata):
 
             if metadata.get('info') is not None:
                 new_metadata['info'] = metadata['info']
+            if metadata.get('label') is not None:
+                new_metadata['label'] = metadata["label"]
 
             metadata = new_metadata
 
