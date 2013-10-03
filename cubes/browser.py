@@ -178,6 +178,37 @@ class AggregationBrowser(object):
         aggregates += dependencies
         return aggregates
 
+    def prepare_order(self, order, is_aggregate=False):
+        """Prepares an order list."""
+        order = order or []
+        new_order = []
+
+        for item in order:
+            if isinstance(item, basestring):
+                name = item
+                direction = None
+            else:
+                name, direction = item[0:2]
+
+            attribute = None
+            if is_aggregate:
+                try:
+                    attribute = self.cube.measure_aggregate(name)
+                except NoSuchAttributeError:
+                    attribute = self.cube.attribute(name)
+                else:
+                    if not self.is_builtin_function(attribute.function, attribute):
+                        self.logger.warn("ignoring ordering of post-processed "
+                                         "aggregate %s" % attribute.name)
+                        attribute = None
+            else:
+                attribute = self.cube.attribute(name)
+
+            if attribute:
+                new_order.append( (attribute, direction) )
+
+        return new_order
+
     def is_builtin_function(self, function_name, aggregate):
         """Returns `True` if function `function_name` for `aggregate` is
         bult-in. Returns `False` if the browser can not compute the function

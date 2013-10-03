@@ -458,6 +458,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return result
 
+    def is_builtin_function(self, name, aggregate):
+        return self.context.builtin_function(name, aggregate) is not None
+
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -761,9 +764,6 @@ class QueryContext(object):
                 return None
 
         return function
-
-    def is_builtin_function(self, name, aggregate):
-        return self.builtin_function(self, name, aggregate) is not None
 
     def aggregate_expression(self, aggregate, coalesce_measure=False):
         """Returns an expression that performs the aggregation of measure
@@ -1297,31 +1297,6 @@ class QueryContext(object):
                     if level.order:
                         order.append( (level.order_attribute.ref(), level.order) )
 
-        new_order = []
-        for item in order:
-            if isinstance(item, basestring):
-                name = item
-                direction = None
-            else:
-                name, direction = item[0:2]
-
-            attribute = None
-            if is_aggregate:
-                try:
-                    attribute = self.cube.measure_aggregate(name)
-                except NoSuchAttributeError:
-                    attribute = self.cube.attribute(name)
-                else:
-                    if attribute.function not in available_aggregate_functions():
-                        self.logger.warn("ignoring ordering of post-processed "
-                                         "aggregate %s" % attribute.name)
-                        attribute = None
-            else:
-                attribute = self.cube.attribute(name)
-
-            if attribute:
-                new_order.append( (attribute, direction) )
-
         order_by = collections.OrderedDict()
 
         if split:
@@ -1329,6 +1304,7 @@ class QueryContext(object):
             order_by[SPLIT_DIMENSION_NAME] = split_column
 
         # Collect the corresponding attribute columns
+        new_order = self.prepare_order(order, is_aggregate)
         for attribute, order_dir in new_order:
             try:
                 column = selection[attribute.ref()]
@@ -1361,6 +1337,38 @@ class QueryContext(object):
 
         return statement.order_by(*order_by.values())
 
+    # TODO: this is browser's meethod. Don't touch. Dissolve the context
+    # rather.
+    def prepare_order(self, order, is_aggregate=False):
+        """Prepares an order list."""
+        order = order or []
+        new_order = []
+
+        for item in order:
+            if isinstance(item, basestring):
+                name = item
+                direction = None
+            else:
+                name, direction = item[0:2]
+
+            attribute = None
+            if is_aggregate:
+                try:
+                    attribute = self.cube.measure_aggregate(name)
+                except NoSuchAttributeError:
+                    attribute = self.cube.attribute(name)
+                else:
+                    if not self.is_builtin_function(attribute.function, attribute):
+                        self.logger.warn("ignoring ordering of post-processed "
+                                         "aggregate %s" % attribute.name)
+                        attribute = None
+            else:
+                attribute = self.cube.attribute(name)
+
+            if attribute:
+                new_order.append( (attribute, direction) )
+
+        return new_order
     def table(self, schema, table_name):
         """Return a SQLAlchemy Table instance. If table was already accessed,
         then existing table is returned. Otherwise new instance is created.

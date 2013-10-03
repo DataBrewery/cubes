@@ -403,9 +403,13 @@ class Mongo2Browser(AggregationBrowser):
             pipeline.append({ "$project": fields_obj })
         pipeline.append({ "$group": group_obj })
 
+        order = self.prepare_order(order, is_aggregate=True)
         if not timezone_shift_processing:
             if order:
-                pipeline.append({ "$sort": self._order_to_sort_object(order) })
+                obj = {
+                    "$sort": self._order_to_sort_object(order)
+                }
+                pipeline.append(obj)
             elif len(sort_obj):
                 pipeline.append({ "$sort": sort_obj })
 
@@ -615,18 +619,26 @@ class Mongo2Browser(AggregationBrowser):
         return phys.match_expression(value, op, for_project)
 
     def _order_to_sort_object(self, order=None):
+        """Prepares mongo sort object from `order`. `order` is expected to be
+        result from `prepare_order()`"""
+
         if not order:
             return []
 
         order_by = collections.OrderedDict()
         # each item is a 2-tuple of (logical_attribute_name, sort_order_string)
-        for attrname, sort_order_string in order:
-            sort_order = -1 if sort_order_string in ('desc', 'DESC') else 1
-            attribute = self.mapper.attribute(attrname)
 
-            if attrname not in order_by:
-                order_by[escape_level(attribute.ref())] = ( escape_level(attribute.ref()), sort_order )
-        return dict( order_by.values() )
+        for attribute, direction in order:
+            ref = attribute.ref()
+
+            sort_order = -1 if sort_order_string == 'desc' else 1
+
+            if ref not in order_by:
+                esc = secape_level(ref)
+                order_by[esc] = (esc, sort_order)
+
+        self.logger.debug("=== ORDER: %s" % order_by)
+        return dict(order_by.values())
 
 
 def complex_sorted(items, sortings):
