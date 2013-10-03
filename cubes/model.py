@@ -605,7 +605,7 @@ class Cube(object):
         try:
             return self._aggregates[name]
         except KeyError:
-            raise InternalError("cube '%s' has no measure aggregate "
+            raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
                                             "'%s'" % (self.name, name))
 
 

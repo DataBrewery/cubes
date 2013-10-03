@@ -168,11 +168,18 @@ class AggregationBrowser(object):
 
         # Resolve aggregate dependencies for non-builtin functions:
         for agg in aggregates:
-            if not self.is_builtin_function(agg.function, agg) \
+            if agg.measure and \
+                    not self.is_builtin_function(agg.function, agg) \
                     and agg.measure not in seen:
                 seen.add(agg.measure)
 
-                aggregate = self.cube.measure_aggregate(agg.measure)
+                try:
+                    aggregate = self.cube.measure_aggregate(agg.measure)
+                except NoSuchAttributeError as e:
+                    raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                                            "'%s' for '%s'" % (self.cube.name,
+                                                               agg.measure,
+                                                               agg.name))
                 dependencies.append(aggregate)
 
         aggregates += dependencies
