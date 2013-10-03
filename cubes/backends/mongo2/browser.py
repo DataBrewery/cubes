@@ -139,7 +139,7 @@ class Mongo2Browser(AggregationBrowser):
         summary, items = self._do_aggregation_query(cell=cell,
                                                     aggregates=aggregates,
                                                     attributes=attributes,
-                                                    drilldown=drilldown_levels,
+                                                    drilldown=drilldown,
                                                     split=split, order=order,
                                                     page=page,
                                                     page_size=page_size)
@@ -286,6 +286,7 @@ class Mongo2Browser(AggregationBrowser):
                 and len(aggregates) == 1 \
                 and aggregates[0].function in ("count", "identity"):
 
+            self.logger.debug("doing plain aggregation")
             return (self.data_store.find(query_obj).count(), [])
 
         group_id = {}
