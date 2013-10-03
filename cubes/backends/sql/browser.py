@@ -332,6 +332,8 @@ class SnowflakeBrowser(AggregationBrowser):
             cell = Cell(self.cube)
 
         aggregates = self.prepare_aggregates(aggregates, measures)
+        self.logger.debug("measure aggregates: %s"
+                          % [str(agg) for agg in aggregates])
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
         if include_summary or \
@@ -408,7 +410,8 @@ class SnowflakeBrowser(AggregationBrowser):
 
             statement = self.context.paginated_statement(statement, page, page_size)
             statement = self.context.ordered_statement(statement, order,
-                                                                    drilldown, split)
+                                                       drilldown, split,
+                                                       is_aggregate=True)
 
             if self.debug:
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
@@ -1238,7 +1241,8 @@ class QueryContext(object):
         else:
             return statement
 
-    def ordered_statement(self, statement, order, dimension_levels=None, split=None):
+    def ordered_statement(self, statement, order, dimension_levels=None,
+                          split=None, is_aggregate=False):
         """Returns a SQL statement which is ordered according to the `order`. If
         the statement contains attributes that have natural order specified, then
         the natural order is used, if not overriden in the `order`.
@@ -1266,9 +1270,6 @@ class QueryContext(object):
 
         order = order or []
 
-        if split:
-            order.append( SPLIT_DIMENSION_NAME )
-
         if dimension_levels:
             for dditem in dimension_levels:
                 dim, hier, levels = dditem[0:3]
@@ -1277,31 +1278,49 @@ class QueryContext(object):
                     if level.order:
                         order.append( (level.order_attribute.ref(), level.order) )
 
+        new_order = []
+        for item in order:
+            if isinstance(item, basestring):
+                name = item
+                direction = None
+            else:
+                name, direction = item[0:2]
+
+            attribute = None
+            if is_aggregate:
+                try:
+                    attribute = self.cube.measure_aggregate(name)
+                except NoSuchAttributeError:
+                    attribute = self.cube.attribute(name)
+                else:
+                    if attribute.function not in available_aggregate_functions():
+                        self.logger.warn("ignoring ordering of post-processed "
+                                         "aggregate %s" % attribute.name)
+                        attribute = None
+            else:
+                attribute = self.cube.attribute(name)
+
+            if attribute:
+                new_order.append( (attribute, direction) )
+
         order_by = collections.OrderedDict()
 
-        for item in order:
-            if item == SPLIT_DIMENSION_NAME:
-                column = sql.expression.column(SPLIT_DIMENSION_NAME)
-            elif isinstance(item, basestring):
-                try:
-                    column = selection[item]
-                except KeyError:
-                    attribute = self.mapper.attribute(item)
-                    column = self.column(attribute)
+        if split:
+            split_column = sql.expression.column(SPLIT_DIMENSION_NAME)
+            order_by[SPLIT_DIMENSION_NAME] = split_column
 
-            else:
-                # item is a two-element tuple where first element is attribute
-                # name and second element is ordering
-                try:
-                    column = selection[item[0]]
-                except KeyError:
-                    attribute = self.mapper.attribute(item[0])
-                    column = self.column(attribute)
+        # Collect the corresponding attribute columns
+        for attribute, order_dir in new_order:
+            try:
+                column = selection[attribute.ref()]
+            except KeyError:
+                attribute = self.mapper.attribute(attribute.ref())
+                column = self.column(attribute)
 
-                column = order_column(column, item[1])
+            column = order_column(column, order_dir)
 
-            if item not in order_by:
-                order_by[item] = column
+            if attribute.ref() not in order_by:
+                order_by[attribute.ref()] = column
 
         # Collect natural order for selected columns
         for (name, column) in selection.items():
