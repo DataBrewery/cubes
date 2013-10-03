@@ -41,6 +41,19 @@ DEFAULT_RECORD_COUNT_AGGREGATE = {
 }
 
 
+# TODO: make this configurable
+IMPLICIT_AGGREGATE_LABELS = {
+    "sum": u"Sum of {measure}",
+    "count": u"Record Count",
+    "count_nonempty": u"Non-empty count of {measure}",
+    "min": u"{measure} Minimum",
+    "max": u"{measure} Maximum",
+    "avg": u"Average of {measure}",
+    "sma": u"Simple Moving Avg. of {measure}",
+    "wma": u"Weighted Moving Avg. of {measure}",
+}
+
+
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
                  label=None, description=None, info=None, mappings=None,
@@ -1898,22 +1911,16 @@ class Measure(AttributeBase):
                 measure = self.name
                 function = agg
 
-            if self.label:
-                if agg == "identity":
-                    label = u"%s" % self.label
-                else:
-                    label = u"%s – %s" % (self.label, agg)
-            else:
-                label = None
-
             aggregate = MeasureAggregate(name=name,
-                                         label=label,
+                                         label=None,
                                          description=self.description,
                                          order=self.order,
                                          info=self.info,
                                          format=self.format,
                                          measure=measure,
                                          function=function)
+
+            aggregate.label = _measure_aggregate_label(aggregate, self)
             aggregates.append(aggregate)
 
         return aggregates
@@ -2076,6 +2083,7 @@ def create_cube(metadata):
     aggregates = metadata.pop("aggregates", [])
     aggregates = aggregate_list(aggregates)
     aggregate_dict = dict((a.name, a) for a in aggregates)
+    measure_dict = dict((m.name, m) for m in measures)
 
     # TODO: change this to False in the future?
     if metadata.get("implicit_aggregates", True):
@@ -2096,8 +2104,35 @@ def create_cube(metadata):
                 aggregates.append(aggregate)
                 aggregate_dict[aggregate.name] = aggregate
 
+    # Assign implicit aggregate labels
+    # TODO: make this configurable
+
+    for aggregate in aggregates:
+        try:
+            measure = measure_dict[aggregate.measure]
+        except KeyError:
+            measure = aggregate_dict.get(aggregate.measure)
+
+        if aggregate.label is None:
+            aggregate.label = _measure_aggregate_label(aggregate, measure)
+
     return Cube(measures=measures, aggregates=aggregates,
                 linked_dimensions=dimensions, **metadata)
+
+def _measure_aggregate_label(aggregate, measure):
+    function = aggregate.function
+    template = IMPLICIT_AGGREGATE_LABELS.get(function, "{measure}")
+
+    if aggregate.label is None and template:
+
+        if measure:
+            measure_label = measure.label or measure.name
+        else:
+            measure_label = aggregate.measure
+
+        label = template.format(measure=measure_label)
+
+    return label
 
 def fix_dimension_metadata(metadata):
     """Returns a dimension description as a dictionary. If provided as string,
