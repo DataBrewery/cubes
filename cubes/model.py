@@ -622,13 +622,13 @@ class Cube(object):
 
         return attributes
 
-    def attribute(self, attribute, simplify=True):
+    def attribute(self, attribute):
         """Returns an attribute object (dimension attribute, measure or
         detail)."""
 
         for dim in self.dimensions:
             try:
-                return dim.attribute(attribute)
+                return dim.attribute(attribute, by_ref=True)
             except KeyError:
                 continue
 
