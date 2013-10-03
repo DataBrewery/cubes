@@ -739,19 +739,6 @@ class QueryContext(object):
         are computed using the SQL statement.
         """
 
-        seen = set(a.name for a in aggregates)
-        dependencies = []
-
-        # Resolve aggregate dependencies for non-builtin functions:
-        for agg in aggregates:
-            if not self.builtin_function(agg.function, agg) \
-                    and agg.measure not in seen:
-                seen.add(agg.measure)
-                aggregate = self.cube.measure_aggregate(agg.measure)
-                dependencies.append(aggregate)
-
-        aggregates += dependencies
-
         expressions = []
         for agg in aggregates:
             exp = self.aggregate_expression(agg, coalesce_measures)
@@ -774,6 +761,9 @@ class QueryContext(object):
                 return None
 
         return function
+
+    def is_builtin_function(self, name, aggregate):
+        return self.builtin_function(self, name, aggregate) is not None
 
     def aggregate_expression(self, aggregate, coalesce_measure=False):
         """Returns an expression that performs the aggregation of measure
