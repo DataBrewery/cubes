@@ -428,7 +428,8 @@ class SnowflakeBrowser(AggregationBrowser):
             #
             # Find post-aggregation calculations and decorate the result
             #
-            result.calculators = calculators_for_aggregates(aggregates,
+            result.calculators = calculators_for_aggregates(self.cube,
+                                                            aggregates,
                                                             drilldown,
                                                             split,
                                                             available_aggregate_functions())
@@ -447,7 +448,8 @@ class SnowflakeBrowser(AggregationBrowser):
             # Do calculated measures on summary if no drilldown or split
             # TODO: should not we do this anyway regardless of
             # drilldown/split?
-            calculators = calculators_for_aggregates(aggregates,
+            calculators = calculators_for_aggregates(self.cube,
+                                                     aggregates,
                                                     drilldown,
                                                     split,
                                                     available_aggregate_functions())

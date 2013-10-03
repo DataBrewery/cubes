@@ -9,8 +9,8 @@ __all__ = [
         "available_calculators"
 ]
 
-def calculators_for_aggregates(aggregates, drilldown_levels=None, split=None,
-                               backend_functions=None):
+def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
+                               split=None, backend_functions=None):
     """Returns a list of calculator function objects that implements
     aggregations by calculating on retrieved results, given a particular
     drilldown. Only post-aggregation calculators are returned.
@@ -39,11 +39,13 @@ def calculators_for_aggregates(aggregates, drilldown_levels=None, split=None,
                                 "aggregate '%s'" % (aggregate.function,
                                                     aggregate.name))
 
-        if aggregate.measure not in names:
-            raise ModelError("Unknown aggregate measure '%s'"
-                             % str(aggregate.measure))
+        if aggregate.measure:
+            source = cube.measure_aggregate(aggregate.measure)
+        else:
+            raise InternalError("No measure specified for aggregate '%s' in "
+                                "cube '%s'" % (aggregate.name, cube.name))
 
-        func = factory(aggregate, drilldown_levels, split)
+        func = factory(aggregate, source.ref(), drilldown_levels, split)
         functions.append(func)
 
     return functions
@@ -64,17 +66,19 @@ def simple_moving_average(values):
     return round(reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
 
 
-def weighted_moving_average_factory(aggregate, drilldown_paths, split_cell):
-    return _moving_average_factory(aggregate, drilldown_paths, split_cell,
-                                   weighted_moving_average)
+def weighted_moving_average_factory(aggregate, source, drilldown_paths,
+                                    split_cell):
+    return _moving_average_factory(aggregate, source, drilldown_paths,
+                                   split_cell, weighted_moving_average)
 
 
-def simple_moving_average_factory(aggregate, drilldown_paths, split_cell):
-    return _moving_average_factory(aggregate, drilldown_paths, split_cell,
-                                   simple_moving_average)
+def simple_moving_average_factory(aggregate, source, drilldown_paths,
+                                  split_cell):
+    return _moving_average_factory(aggregate, source, drilldown_paths,
+                                   split_cell, simple_moving_average)
 
 
-def _moving_average_factory(aggregate, drilldown_paths, split_cell, avg_func):
+def _moving_average_factory(aggregate, source, drilldown_paths, split_cell, avg_func):
     """Returns a moving average window function. `aggregate` is the target
     aggergate. `avg_function` is concrete window function."""
 
@@ -116,7 +120,6 @@ def _moving_average_factory(aggregate, drilldown_paths, split_cell, avg_func):
     # consider the measure reference to be aggregated measure reference.
     # TODO: this does not work for implicit post-aggregate calculations
 
-    source = aggregate.measure
     function = WindowFunction(avg_func, window_key,
                               target_attribute=aggregate.name,
                               source_attribute=source,
