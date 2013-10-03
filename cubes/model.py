@@ -605,7 +605,7 @@ class Cube(object):
         try:
             return self._aggregates[name]
         except KeyError:
-            raise NoSuchAttributeError("cube '%s' has no measure aggregate "
+            raise InternalError("cube '%s' has no measure aggregate "
                                             "'%s'" % (self.name, name))
 
 
@@ -2271,7 +2271,8 @@ def fix_level_metadata(metadata):
 
             attribute = {
                 "name": name,
-                "label": metadata.get("label")
+                "label": metadata.get("label"),
+                "info": metadata.get("info")
             }
             metadata = {"name":name, "attributes": [attribute]}
 
