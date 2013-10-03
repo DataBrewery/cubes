@@ -1978,7 +1978,7 @@ class MeasureAggregate(AttributeBase):
         d["function"] = self.function
         d["formula"] = self.formula
         d["expression"] = self.expression
-        d["measure"] = self.formula
+        d["measure"] = self.measure
 
         return d
 
