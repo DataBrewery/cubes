@@ -238,7 +238,8 @@ class MixpanelBrowser(AggregationBrowser):
 
         if drilldown or split:
             self.logger.debug("CALCULATED AGGS because drilldown or split")
-            result.calculators = calculators_for_aggregates(aggregates,
+            result.calculators = calculators_for_aggregates(self.cube,
+                                                            aggregates,
                                                             drilldown,
                                                             split,
                                                             None)
@@ -249,7 +250,8 @@ class MixpanelBrowser(AggregationBrowser):
             self.logger.debug("CALCULATED AGGS ON SUMMARY")
             result.summary = aggregator.cells[0]
             result.cells = []
-            calculators = calculators_for_aggregates(aggregates,
+            calculators = calculators_for_aggregates(self.cube,
+                                                     aggregates,
                                                      drilldown,
                                                      split,
                                                      None)
