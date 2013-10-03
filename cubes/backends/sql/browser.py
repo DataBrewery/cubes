@@ -68,7 +68,6 @@ class SnowflakeBrowser(AggregationBrowser):
         Attributes:
 
         * `cube` - browsed cube
-        * `connectable` - SQLAlchemy connectable object (engine or connection)
         * `locale` - locale used for browsing
         * `metadata` - SQLAlchemy MetaData object
         * `debug` - output SQL to the logger at INFO level
@@ -293,6 +292,9 @@ class SnowflakeBrowser(AggregationBrowser):
         cursor.close()
 
         return record
+
+    def is_builtin_function(self, name, aggregate):
+        return self.context.builtin_function(name, aggregate) is not None
 
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
@@ -1659,7 +1661,7 @@ class SnapshotQueryContext(QueryContext):
         return select
 
 class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, store, connectable=None, locale=None, metadata=None, debug=False, **options):
+    def __init__(self, cube, store, locale=None, metadata=None, debug=False, **options):
 
        super(SnapshotBrowser, self).__init__(cube, store, locale, metadata,
                                              debug=debug, **options)
