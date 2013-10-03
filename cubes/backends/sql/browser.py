@@ -461,7 +461,6 @@ class SnowflakeBrowser(AggregationBrowser):
     def is_builtin_function(self, name, aggregate):
         return self.context.builtin_function(name, aggregate) is not None
 
-
     def validate(self):
         """Validate physical representation of model. Returns a list of
         dictionaries with keys: ``type``, ``issue``, ``object``.
@@ -755,7 +754,7 @@ class QueryContext(object):
         try:
             function = get_aggregate_function(name)
         except KeyError:
-            if not name in available_calculators():
+            if name and not name in available_calculators():
                 raise ArgumentError("Unknown aggregate function %s "
                                     "for aggregate %s" % \
                                     (name, str(aggregate)))
