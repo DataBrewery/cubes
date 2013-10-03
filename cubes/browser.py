@@ -146,7 +146,11 @@ class AggregationBrowser(object):
             raise ArgumentError("Only aggregates or measures can be "
                                 "specified, not both")
         if aggregates:
-            aggregates = self.cube.get_aggregates(aggregates)
+            try:
+                aggregates = self.cube.get_aggregates(aggregates)
+            except KeyError as e:
+                raise NoSuchAttributeError("No measure aggregate '%s' in cube '%s'"
+                                           % (str(e), str(self.cube)))
         elif measures:
             aggregates = []
             for measure in measures:
@@ -167,6 +171,7 @@ class AggregationBrowser(object):
             if not self.is_builtin_function(agg.function, agg) \
                     and agg.measure not in seen:
                 seen.add(agg.measure)
+
                 aggregate = self.cube.measure_aggregate(agg.measure)
                 dependencies.append(aggregate)
 
@@ -178,11 +183,8 @@ class AggregationBrowser(object):
         bult-in. Returns `False` if the browser can not compute the function
         and post-aggregation calculation should be used.
 
-        Default implementation ignores the aggregate and returns `True` if the
-        `function_name` is from a list of class variable `builtin_functions`.
-
-        Subclasses are highly recommended to override this method."""
-        return function_name in (self.builtin_functions or [])
+        Subclasses should override this method."""
+        raise NotImplementedError
 
     def facts(self, cell=None, fields=None, **options):
         """Return an iterable object with of all facts within cell.
