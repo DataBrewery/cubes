@@ -739,6 +739,19 @@ class QueryContext(object):
         are computed using the SQL statement.
         """
 
+        seen = set(a.name for a in aggregates)
+        dependencies = []
+
+        # Resolve aggregate dependencies for non-builtin functions:
+        for agg in aggregates:
+            if not self.builtin_function(agg.function, agg) \
+                    and agg.measure not in seen:
+                seen.add(agg.measure)
+                aggregate = self.cube.measure_aggregate(agg.measure)
+                dependencies.append(aggregate)
+
+        aggregates += dependencies
+
         expressions = []
         for agg in aggregates:
             exp = self.aggregate_expression(agg, coalesce_measures)
@@ -746,6 +759,21 @@ class QueryContext(object):
                 expressions.append(exp)
 
         return expressions
+
+    def builtin_function(self, name, aggregate):
+        """Returns a built-in function for `aggregate`"""
+        try:
+            function = get_aggregate_function(name)
+        except KeyError:
+            if not name in available_calculators():
+                raise ArgumentError("Unknown aggregate function %s "
+                                    "for aggregate %s" % \
+                                    (name, str(aggregate)))
+            else:
+                # The function is post-aggregation calculation
+                return None
+
+        return function
 
     def aggregate_expression(self, aggregate, coalesce_measure=False):
         """Returns an expression that performs the aggregation of measure
@@ -777,17 +805,10 @@ class QueryContext(object):
             return column
 
         function_name = aggregate.function.lower()
+        function = self.builtin_function(function_name, aggregate)
 
-        try:
-            function = get_aggregate_function(function_name)
-        except KeyError:
-            if not function_name in available_calculators():
-                raise ArgumentError("Unknown aggregate function %s "
-                                    "for aggregate %s" % \
-                                    (function_name, str(aggregate)))
-            else:
-                # The function is post-aggregation calculation
-                return None
+        if not function:
+            return None
 
         expression = function(aggregate, self, coalesce_measure)
 
