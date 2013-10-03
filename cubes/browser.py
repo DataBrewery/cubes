@@ -58,6 +58,8 @@ class AggregationBrowser(object):
 
     """List of browser features as strings."""
 
+    builtin_functions = []
+
     def __init__(self, cube, store=None, locale=None, metadata=None, **options):
         """Creates and initializes the aggregation browser. Subclasses should
         override this method. """
@@ -121,12 +123,19 @@ class AggregationBrowser(object):
         """Prepares the aggregate list for aggregatios. `aggregates` might be a
         list of aggregate names or `MeasureAggregate` objects.
 
+        Aggregates that are used in post-aggregation calculations are included
+        in the result. This method is using `is_builtin_function()` to check
+        whether the aggregate is native to the backend or not.
+
         If `measures` are specified, then aggregates that refer tho the
         measures in the list are returned.
 
         If no aggregates are specified then all cube's aggregates are returned.
 
-        Either specify `aggregates` or `measures`, not both. """
+        .. note::
+
+            Either specify `aggregates` or `measures`, not both.
+        """
 
         # Coalesce measures - make sure that they are Attribute objects, not
         # strings. Strings are converted to corresponding Cube measure
@@ -150,7 +159,30 @@ class AggregationBrowser(object):
             raise ArgumentError("List of aggregates sohuld not be empty. If "
                                 "you used measures, check their aggregates.")
 
+        seen = set(a.name for a in aggregates)
+        dependencies = []
+
+        # Resolve aggregate dependencies for non-builtin functions:
+        for agg in aggregates:
+            if not self.is_builtin_function(agg.function, agg) \
+                    and agg.measure not in seen:
+                seen.add(agg.measure)
+                aggregate = self.cube.measure_aggregate(agg.measure)
+                dependencies.append(aggregate)
+
+        aggregates += dependencies
         return aggregates
+
+    def is_builtin_function(self, function_name, aggregate):
+        """Returns `True` if function `function_name` for `aggregate` is
+        bult-in. Returns `False` if the browser can not compute the function
+        and post-aggregation calculation should be used.
+
+        Default implementation ignores the aggregate and returns `True` if the
+        `function_name` is from a list of class variable `builtin_functions`.
+
+        Subclasses are highly recommended to override this method."""
+        return function_name in (self.builtin_functions or [])
 
     def facts(self, cell=None, fields=None, **options):
         """Return an iterable object with of all facts within cell.
