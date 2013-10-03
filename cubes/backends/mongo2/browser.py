@@ -130,7 +130,8 @@ class Mongo2Browser(AggregationBrowser):
             #
             # Find post-aggregation calculations and decorate the result
             #
-            result.calculators = calculators_for_aggregates(aggregates,
+            result.calculators = calculators_for_aggregates(self.cube,
+                                                            aggregates,
                                                             drilldown,
                                                             split,
                                                             available_aggregate_functions())
@@ -146,7 +147,8 @@ class Mongo2Browser(AggregationBrowser):
         result.summary = summary
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
-            calculators = calculators_for_aggregates(aggregates, drilldown,
+            calculators = calculators_for_aggregates(self.cube,
+                                                     aggregates, drilldown,
                                                      split,
                                                      available_aggregate_functions())
             for calc in calculators:
