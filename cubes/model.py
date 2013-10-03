@@ -43,14 +43,14 @@ DEFAULT_RECORD_COUNT_AGGREGATE = {
 
 # TODO: make this configurable
 IMPLICIT_AGGREGATE_LABELS = {
-    "sum": "Sum of {measure}",
-    "count": "Record Count",
-    "count_nonempty": "Non-empty count of {measure}",
-    "min": "{measure} Minimum",
-    "max": "{measure} Maximum",
-    "avg": "Average of {measure}",
-    "sma": "Simple Moving Avg. of {measure}",
-    "wma": "Weighted Moving Avg. of {measure}",
+    "sum": u"Sum of {measure}",
+    "count": u"Record Count",
+    "count_nonempty": u"Non-empty count of {measure}",
+    "min": u"{measure} Minimum",
+    "max": u"{measure} Maximum",
+    "avg": u"Average of {measure}",
+    "sma": u"Simple Moving Avg. of {measure}",
+    "wma": u"Weighted Moving Avg. of {measure}",
 }
 
 
