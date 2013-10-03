@@ -1359,7 +1359,7 @@ class QueryContext(object):
                 except NoSuchAttributeError:
                     attribute = self.cube.attribute(name)
                 else:
-                    if not self.is_builtin_function(attribute.function, attribute):
+                    if not self.builtin_function(attribute.function, attribute):
                         self.logger.warn("ignoring ordering of post-processed "
                                          "aggregate %s" % attribute.name)
                         attribute = None
