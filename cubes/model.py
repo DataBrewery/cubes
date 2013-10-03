@@ -41,6 +41,19 @@ DEFAULT_RECORD_COUNT_AGGREGATE = {
 }
 
 
+# TODO: make this configurable
+IMPLICIT_AGGREGATE_LABELS = {
+    "sum": "Sum of {measure}",
+    "count": "Record Count",
+    "count_nonempty": "Non-empty count of {measure}",
+    "min": "{measure} Minimum",
+    "max": "{measure} Maximum",
+    "avg": "Average of {measure}",
+    "sma": "Simple Moving Avg. of {measure}",
+    "wma": "Weighted Moving Avg. of {measure}",
+}
+
+
 class Model(object):
     def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
                  label=None, description=None, info=None, mappings=None,
@@ -2072,6 +2085,7 @@ def create_cube(metadata):
     aggregates = metadata.pop("aggregates", [])
     aggregates = aggregate_list(aggregates)
     aggregate_dict = dict((a.name, a) for a in aggregates)
+    measure_dict = dict((m.name, m) for m in measures)
 
     # TODO: change this to False in the future?
     if metadata.get("implicit_aggregates", True):
@@ -2091,6 +2105,26 @@ def create_cube(metadata):
             else:
                 aggregates.append(aggregate)
                 aggregate_dict[aggregate.name] = aggregate
+
+    # Assign implicit aggregate labels
+    # TODO: make this configurable
+
+    for aggregate in aggregates:
+        function = aggregate.function
+        template = IMPLICIT_AGGREGATE_LABELS.get(function)
+
+        if aggregate.label is None and template:
+            try:
+                measure = measure_dict[aggregate.measure]
+            except KeyError:
+                measure = aggregate_dict.get(aggregate.measure)
+
+            if measure:
+                measure_label = measure.label or measure.name
+            else:
+                measure_label = aggregate.measure
+
+            aggregate.label = template.format(measure=measure_label)
 
     return Cube(measures=measures, aggregates=aggregates,
                 linked_dimensions=dimensions, **metadata)
