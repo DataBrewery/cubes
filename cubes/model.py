@@ -866,6 +866,7 @@ class Dimension(object):
 
         self._levels = OrderedDict()
         self._attributes = OrderedDict()
+        self._attributes_by_ref = OrderedDict()
 
         try:
             for level in levels:
@@ -880,7 +881,7 @@ class Dimension(object):
             for a in level.attributes:
                 a.dimension = self
                 self._attributes[a.name] = a
-                self._attributes[a.ref()] = a
+                self._attributes_by_ref[a.ref()] = a
 
     def __eq__(self, other):
         if other is None or type(other) != type(self):
@@ -952,9 +953,12 @@ class Dimension(object):
             raise ValueError("Unknown hierarchy object %s (should be a "
                              "string or Hierarchy instance)" % obj)
 
-    def attribute(self, reference):
+    def attribute(self, reference, by_ref=False):
         """Get dimension attribute from `reference`."""
-        return self._attributes[str(reference)]
+        if by_ref:
+            return self._attributes_by_ref[str(reference)]
+        else:
+            return self._attributes[str(reference)]
 
     def _default_hierarchy(self):
         """Get default hierarchy specified by ``default_hierarchy_name``, if
