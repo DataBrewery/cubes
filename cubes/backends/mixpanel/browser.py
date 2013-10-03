@@ -53,9 +53,6 @@ class MixpanelBrowser(AggregationBrowser):
     def aggregate(self, cell=None, measures=None, aggregates=None,
                   drilldown=None, split=None, **options):
 
-        if split:
-            raise BrowserError("split in mixpanel is not supported")
-
         if measures:
             raise ArgumentError("Mixpanel does not provide non-aggregated "
                                 "measures")
@@ -81,6 +78,13 @@ class MixpanelBrowser(AggregationBrowser):
         if "time" in drilldown and len(drilldown) > 2:
             raise ArgumentError("Can not drill down with more than one "
                                 "non-time dimension in mixpanel")
+
+        if split:
+            if len(drilldown) > ( 1 if "time" in drilldown else 0 ):
+                raise BrowserError("split in mixpanel is not supported if a non-time drilldown is specified")
+
+            if split.cut_for_dimension('time'):
+                raise BrowserError("split in mixpanel is not supported for cuts containing time dimension")
 
         #
         # Create from-to date range from time dimension cut
@@ -145,8 +149,9 @@ class MixpanelBrowser(AggregationBrowser):
         if drilldown_on:
             params["on"] = 'properties["%s"]' % \
                                     self._property(drilldown_on.dimension)
+        elif split:
+            params['on'] = self._condition_for_cell(split)
 
-        cuts = [cut for cut in cell.cuts if str(cut.dimension) != "time"]
 
         #
         # The Conditions
@@ -155,31 +160,9 @@ class MixpanelBrowser(AggregationBrowser):
         # Create 'where' condition from cuts
         # Assumption: all dimensions are flat dimensions
 
-        conditions = []
-        for cut in cuts:
-            if isinstance(cut, PointCut):
-                condition = self._point_condition(cut.dimension, cut.path[0], cut.invert)
-                conditions.append(condition)
-            elif isinstance(cut, RangeCut):
-                condition = self._range_condition(cut.dimension,
-                                                  cut.from_path[0],
-                                                  cut.to_path[0], cut.invert)
-                conditions.append(condition)
-            elif isinstance(cut, SetCut):
-                set_conditions = []
-                for path in cut.paths:
-                    condition = self._point_condition(cut.dimension, path[0])
-                    set_conditions.append(condition)
-                condition = " or ".join(set_conditions)
-                conditions.append(condition)
-
-        if len(conditions) > 1:
-            conditions = [ "(%s)" % cond for cond in conditions ]
-        if conditions:
-            condition = " and ".join(conditions)
+        condition = self._condition_for_cell(cell)
+        if condition is not None:
             params["where"] = condition
-
-            self.logger.debug("condition: %s" % condition)
 
         if "limit" in options:
             params["limit"] = options["limit"]
@@ -223,9 +206,11 @@ class MixpanelBrowser(AggregationBrowser):
 
         aggregator = _MixpanelResponseAggregator(self, responses,
                                                  native_aggregate_names,
-                                                 drilldown, actual_time_level)
+                                                 drilldown, split, actual_time_level)
 
         result.levels = drilldown.levels_dictionary()
+        if split:
+            result.levels[SPLIT_DIMENSION_NAME] = SPLIT_DIMENSION_NAME
 
         labels = aggregator.time_levels[:]
         if drilldown_on:
@@ -322,6 +307,34 @@ class MixpanelBrowser(AggregationBrowser):
         """Return correct property name from dimension."""
         dim = str(dim)
         return self.cube.mappings.get(dim, dim)
+
+    def _condition_for_cell(self, cell):
+        cuts = [cut for cut in cell.cuts if str(cut.dimension) != "time"]
+
+        conditions = []
+        for cut in cuts:
+            if isinstance(cut, PointCut):
+                condition = self._point_condition(cut.dimension, cut.path[0], cut.invert)
+                conditions.append(condition)
+            elif isinstance(cut, RangeCut):
+                condition = self._range_condition(cut.dimension,
+                                                  cut.from_path[0],
+                                                  cut.to_path[0], cut.invert)
+                conditions.append(condition)
+            elif isinstance(cut, SetCut):
+                set_conditions = []
+                for path in cut.paths:
+                    condition = self._point_condition(cut.dimension, path[0])
+                    set_conditions.append(condition)
+                condition = " or ".join(set_conditions)
+                conditions.append(condition)
+
+        if len(conditions) > 1:
+            conditions = [ "(%s)" % cond for cond in conditions ]
+        if conditions:
+            return " and ".join(conditions)
+        else:
+            return None
 
     def _point_condition(self, dim, value, invert):
         """Returns a point cut for flat dimension `dim`"""
