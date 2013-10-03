@@ -42,7 +42,6 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
                 
     def aggregate(self, cell, measures = None, drilldown = None, split=None, 
 	          page=None, page_size=None, order=None, **kwargs):
-        import pdb; pdb.set_trace()
         
         cut_string = cubes.browser.string_from_cuts(cell.cuts)
         params = [ ('cut', cut_string) ]
