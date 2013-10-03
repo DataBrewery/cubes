@@ -1907,22 +1907,16 @@ class Measure(AttributeBase):
                 measure = self.name
                 function = agg
 
-            if self.label:
-                if agg == "identity":
-                    label = u"%s" % self.label
-                else:
-                    label = u"%s – %s" % (self.label, agg)
-            else:
-                label = None
-
             aggregate = MeasureAggregate(name=name,
-                                         label=label,
+                                         label=None,
                                          description=self.description,
                                          order=self.order,
                                          info=self.info,
                                          format=self.format,
                                          measure=measure,
                                          function=function)
+
+            aggregate.label = _measure_aggregate_label(aggregate, self)
             aggregates.append(aggregate)
 
         return aggregates
@@ -2110,24 +2104,31 @@ def create_cube(metadata):
     # TODO: make this configurable
 
     for aggregate in aggregates:
-        function = aggregate.function
-        template = IMPLICIT_AGGREGATE_LABELS.get(function)
+        try:
+            measure = measure_dict[aggregate.measure]
+        except KeyError:
+            measure = aggregate_dict.get(aggregate.measure)
 
-        if aggregate.label is None and template:
-            try:
-                measure = measure_dict[aggregate.measure]
-            except KeyError:
-                measure = aggregate_dict.get(aggregate.measure)
-
-            if measure:
-                measure_label = measure.label or measure.name
-            else:
-                measure_label = aggregate.measure
-
-            aggregate.label = template.format(measure=measure_label)
+        if aggregate.label is None:
+            aggregate.label = _measure_aggregate_label(aggregate, measure)
 
     return Cube(measures=measures, aggregates=aggregates,
                 linked_dimensions=dimensions, **metadata)
+
+def _measure_aggregate_label(aggregate, measure):
+    function = aggregate.function
+    template = IMPLICIT_AGGREGATE_LABELS.get(function, "{measure}")
+
+    if aggregate.label is None and template:
+
+        if measure:
+            measure_label = measure.label or measure.name
+        else:
+            measure_label = aggregate.measure
+
+        label = template.format(measure=measure_label)
+
+    return label
 
 def fix_dimension_metadata(metadata):
     """Returns a dimension description as a dictionary. If provided as string,
