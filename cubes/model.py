@@ -877,10 +877,10 @@ class Dimension(object):
         # Collect attributes
         self._attributes = OrderedDict()
         for level in self.levels:
-            self._attributes.update([(a.name, a) for a in level.attributes])
-
-        for attr in self._attributes.values():
-            attr.dimension = self
+            for a in level.attributes:
+                a.dimension = self
+                self._attributes[a.name] = a
+                self._attributes[a.ref()] = a
 
     def __eq__(self, other):
         if other is None or type(other) != type(self):
