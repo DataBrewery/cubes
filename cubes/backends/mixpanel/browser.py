@@ -258,6 +258,11 @@ class MixpanelBrowser(AggregationBrowser):
 
         return result
 
+    def is_builtin_function(self, function_name, aggregate):
+        # Mixpanel has implicit functions for all aggregates. Therefore all
+        # aggregates without a function name are considered built-in
+        return aggregate.function is None
+
     def _segmentation_request(self, event_name, params, unit):
         """Perform Mixpanel request ``segmentation`` – this is the default
         request."""
