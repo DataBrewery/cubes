@@ -2271,10 +2271,14 @@ def fix_level_metadata(metadata):
 
             attribute = {
                 "name": name,
-                "label": metadata.get("label"),
-                "info": metadata.get("info")
+                "label": metadata.get("label")
             }
-            metadata = {"name":name, "attributes": [attribute]}
+            new_metadata = {"name":name, "attributes": [attribute]}
+
+            if metadata.get('info') is not None:
+                new_metadata['info'] = metadata['info']
+
+            metadata = new_metadata
 
         return metadata
 
