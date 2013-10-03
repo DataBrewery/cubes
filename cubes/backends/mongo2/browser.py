@@ -158,6 +158,9 @@ class Mongo2Browser(AggregationBrowser):
         result.labels = labels
         return result
 
+    def is_builtin_function(self, function_name, aggregate):
+        return function_name in available_aggregate_functions()
+
     def facts(self, cell=None, fields=None, order=None, page=None, page_size=None,
               **options):
         """Return facts iterator."""
