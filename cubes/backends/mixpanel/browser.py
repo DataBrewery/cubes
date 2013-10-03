@@ -59,10 +59,8 @@ class MixpanelBrowser(AggregationBrowser):
         if measures:
             raise ArgumentError("Mixpanel does not provide non-aggregated "
                                 "measures")
-        if aggregates:
-            aggregates = self.cube.get_aggregates(aggregates)
-        else:
-            aggregates = self.cube.aggregates
+
+        aggregates = self.prepare_aggregates(aggregates)
 
         # All aggregates without a function can be considered as "native" as
         # they are handled specially.
