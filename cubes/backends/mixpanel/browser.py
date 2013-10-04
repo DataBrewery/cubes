@@ -6,6 +6,7 @@ from ...common import get_logger
 from ...statutils import *
 from .aggregator import _MixpanelResponseAggregator
 from .utils import *
+from .mapper import MixpanelMapper
 
 from ...statutils import calculators_for_aggregates, CALCULATED_AGGREGATIONS
 
@@ -22,7 +23,7 @@ _aggregate_param = {
     }
 
 class MixpanelBrowser(AggregationBrowser):
-    def __init__(self, cube, store, locale=None, metadata=None, **options):
+    def __init__(self, cube, store, locale=None, **options):
         """Creates a Mixpanel aggregation browser.
 
         Requirements and limitations:
@@ -37,18 +38,43 @@ class MixpanelBrowser(AggregationBrowser):
         self.options = options
         self.logger = get_logger()
 
+        dim_names = [dim.name for dim in cube.dimensions]
+        self.mapper = MixpanelMapper(cube, cube.mappings,
+                                     property_dimensions=dim_names)
+
     def features(self):
         """Return SQL features. Currently they are all the same for every
         cube, however in the future they might depend on the SQL engine or
         other factors."""
 
         features = {
-            "actions": ["aggregate"],
+            "actions": ["aggregate", "facts"],
             "aggregate_functions": [],
             "post_aggregate_functions": available_calculators()
         }
 
         return features
+
+    def facts(self, cell, fields=None, page=None, page_size=None, order=None):
+
+        cell = cell or Cell(self.cube)
+
+        if not fields:
+            attributes = self.cube.all_attributes
+            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
+        else:
+            attributes = self.cube.get_attributes(fields)
+            self.logger.debug("facts: getting fields: %s" % fields)
+
+        # TODO: use mapper
+        params = {"event":[self.cube.name]}
+
+        params.update(self.condition_for_cell(cell))
+        response = self.store.request(["export"], params, is_data=True)
+
+        result = MixpanelFacts(response, attributes, self.mapper)
+
+        return result
 
     def aggregate(self, cell=None, measures=None, aggregates=None,
                   drilldown=None, split=None, **options):
@@ -86,32 +112,7 @@ class MixpanelBrowser(AggregationBrowser):
             if split.cut_for_dimension('time'):
                 raise BrowserError("split in mixpanel is not supported for cuts containing time dimension")
 
-        #
-        # Create from-to date range from time dimension cut
-        #
-        time_cut = cell.cut_for_dimension("time")
-        time_hierarchy = time_cut.hierarchy if time_cut else DEFAULT_TIME_HIERARCHY
-
-        if not time_cut:
-            path_time_from = []
-            path_time_to = []
-        elif isinstance(time_cut, PointCut):
-            path_time_from = time_cut.path or []
-            path_time_to = time_cut.path or []
-        elif isinstance(time_cut, RangeCut):
-            path_time_from = time_cut.from_path or []
-            path_time_to = time_cut.to_path or []
-        else:
-            raise ArgumentError("Mixpanel does not know how to handle cuts "
-                                "of type %s" % type(time_cut))
-
-        path_time_from = coalesce_date_path(path_time_from, 0, time_hierarchy)
-        path_time_to = coalesce_date_path(path_time_to, 1, time_hierarchy)
-
-        params = {
-                "from_date": path_time_from.strftime("%Y-%m-%d"),
-                "to_date": path_time_to.strftime("%Y-%m-%d")
-            }
+        params = {}
 
         time_level = drilldown.last_level("time")
         if time_level:
@@ -160,9 +161,7 @@ class MixpanelBrowser(AggregationBrowser):
         # Create 'where' condition from cuts
         # Assumption: all dimensions are flat dimensions
 
-        condition = self._condition_for_cell(cell)
-        if condition is not None:
-            params["where"] = condition
+        params.update(self.condition_for_cell(cell))
 
         if "limit" in options:
             params["limit"] = options["limit"]
@@ -308,7 +307,37 @@ class MixpanelBrowser(AggregationBrowser):
         dim = str(dim)
         return self.cube.mappings.get(dim, dim)
 
-    def _condition_for_cell(self, cell):
+    def condition_for_cell(self, cell):
+        #
+        # Create from-to date range from time dimension cut
+        #
+        time_cut = cell.cut_for_dimension("time")
+        time_hierarchy = time_cut.hierarchy if time_cut else DEFAULT_TIME_HIERARCHY
+
+        if not time_cut:
+            path_time_from = []
+            path_time_to = []
+        elif isinstance(time_cut, PointCut):
+            path_time_from = time_cut.path or []
+            path_time_to = time_cut.path or []
+        elif isinstance(time_cut, RangeCut):
+            path_time_from = time_cut.from_path or []
+            path_time_to = time_cut.to_path or []
+        else:
+            raise ArgumentError("Mixpanel does not know how to handle cuts "
+                                "of type %s" % type(time_cut))
+
+        path_time_from = coalesce_date_path(path_time_from, 0, time_hierarchy)
+        path_time_to = coalesce_date_path(path_time_to, 1, time_hierarchy)
+
+        result = {
+                "from_date": path_time_from.strftime("%Y-%m-%d"),
+                "to_date": path_time_to.strftime("%Y-%m-%d")
+            }
+
+        #
+        # Non-time condition
+        #
         cuts = [cut for cut in cell.cuts if str(cut.dimension) != "time"]
 
         conditions = []
@@ -331,10 +360,11 @@ class MixpanelBrowser(AggregationBrowser):
 
         if len(conditions) > 1:
             conditions = [ "(%s)" % cond for cond in conditions ]
+
         if conditions:
-            return " and ".join(conditions)
-        else:
-            return None
+            result["where"] = " and ".join(conditions)
+
+        return result
 
     def _point_condition(self, dim, value, invert):
         """Returns a point cut for flat dimension `dim`"""
@@ -355,3 +385,28 @@ class MixpanelBrowser(AggregationBrowser):
         condition = condition_tmpl % (self._property(dim), from_value, self._property(dim), to_value)
         return condition
 
+
+class MixpanelFacts(Facts):
+    def __init__(self, result, attributes, mapper):
+        super(MixpanelFacts, self).__init__(result, attributes)
+
+        self.mapper = mapper
+
+    def __iter__(self):
+        for i, record in enumerate(self.facts):
+            record = record["properties"]
+
+            fact = {"__id__": i}
+
+            for attr in self.attributes:
+                if attr.dimension.name != "time":
+                    fact[attr.ref()] = record.get(self.mapper.physical(attr))
+
+            # Populate time dimension attributes (only the requested ones)
+            #
+            time = timestamp_to_record(record["time"])
+            for attr in self.attributes:
+                if attr.dimension.name == "time":
+                    fact[attr.ref()] = time.get(attr.ref())
+
+            yield fact
