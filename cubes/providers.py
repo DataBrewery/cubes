@@ -335,7 +335,7 @@ class ModelProvider(object):
         if name in self.cubes_metadata:
             metadata = dict(self.cubes_metadata[name])
         else:
-            raise ModelError("Unknown cube '%s'" % name)
+            raise NoSuchCubeError("Unknown cube '%s'" % name, name)
 
         # merge datastore from model if datastore not present
         if not metadata.get("datastore"):
