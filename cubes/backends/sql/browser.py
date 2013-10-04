@@ -68,7 +68,6 @@ class SnowflakeBrowser(AggregationBrowser):
         Attributes:
 
         * `cube` - browsed cube
-        * `connectable` - SQLAlchemy connectable object (engine or connection)
         * `locale` - locale used for browsing
         * `metadata` - SQLAlchemy MetaData object
         * `debug` - output SQL to the logger at INFO level
@@ -294,6 +293,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
+    def is_builtin_function(self, name, aggregate):
+        return self.context.builtin_function(name, aggregate) is not None
+
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
                   include_summary=None, include_cell_count=None,
@@ -428,7 +430,8 @@ class SnowflakeBrowser(AggregationBrowser):
             #
             # Find post-aggregation calculations and decorate the result
             #
-            result.calculators = calculators_for_aggregates(aggregates,
+            result.calculators = calculators_for_aggregates(self.cube,
+                                                            aggregates,
                                                             drilldown,
                                                             split,
                                                             available_aggregate_functions())
@@ -447,7 +450,8 @@ class SnowflakeBrowser(AggregationBrowser):
             # Do calculated measures on summary if no drilldown or split
             # TODO: should not we do this anyway regardless of
             # drilldown/split?
-            calculators = calculators_for_aggregates(aggregates,
+            calculators = calculators_for_aggregates(self.cube,
+                                                     aggregates,
                                                     drilldown,
                                                     split,
                                                     available_aggregate_functions())
@@ -456,6 +460,8 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return result
 
+    def is_builtin_function(self, name, aggregate):
+        return self.context.builtin_function(name, aggregate) is not None
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -745,6 +751,21 @@ class QueryContext(object):
 
         return expressions
 
+    def builtin_function(self, name, aggregate):
+        """Returns a built-in function for `aggregate`"""
+        try:
+            function = get_aggregate_function(name)
+        except KeyError:
+            if name and not name in available_calculators():
+                raise ArgumentError("Unknown aggregate function %s "
+                                    "for aggregate %s" % \
+                                    (name, str(aggregate)))
+            else:
+                # The function is post-aggregation calculation
+                return None
+
+        return function
+
     def aggregate_expression(self, aggregate, coalesce_measure=False):
         """Returns an expression that performs the aggregation of measure
         `aggregate`. The result's label is the aggregate's name.  `aggregate`
@@ -775,17 +796,10 @@ class QueryContext(object):
             return column
 
         function_name = aggregate.function.lower()
+        function = self.builtin_function(function_name, aggregate)
 
-        try:
-            function = get_aggregate_function(function_name)
-        except KeyError:
-            if not function_name in available_calculators():
-                raise ArgumentError("Unknown aggregate function %s "
-                                    "for aggregate %s" % \
-                                    (function_name, str(aggregate)))
-            else:
-                # The function is post-aggregation calculation
-                return None
+        if not function:
+            return None
 
         expression = function(aggregate, self, coalesce_measure)
 
@@ -1284,31 +1298,6 @@ class QueryContext(object):
                     if level.order:
                         order.append( (level.order_attribute.ref(), level.order) )
 
-        new_order = []
-        for item in order:
-            if isinstance(item, basestring):
-                name = item
-                direction = None
-            else:
-                name, direction = item[0:2]
-
-            attribute = None
-            if is_aggregate:
-                try:
-                    attribute = self.cube.measure_aggregate(name)
-                except NoSuchAttributeError:
-                    attribute = self.cube.attribute(name)
-                else:
-                    if attribute.function not in available_aggregate_functions():
-                        self.logger.warn("ignoring ordering of post-processed "
-                                         "aggregate %s" % attribute.name)
-                        attribute = None
-            else:
-                attribute = self.cube.attribute(name)
-
-            if attribute:
-                new_order.append( (attribute, direction) )
-
         order_by = collections.OrderedDict()
 
         if split:
@@ -1316,6 +1305,7 @@ class QueryContext(object):
             order_by[SPLIT_DIMENSION_NAME] = split_column
 
         # Collect the corresponding attribute columns
+        new_order = self.prepare_order(order, is_aggregate)
         for attribute, order_dir in new_order:
             try:
                 column = selection[attribute.ref()]
@@ -1348,6 +1338,38 @@ class QueryContext(object):
 
         return statement.order_by(*order_by.values())
 
+    # TODO: this is browser's meethod. Don't touch. Dissolve the context
+    # rather.
+    def prepare_order(self, order, is_aggregate=False):
+        """Prepares an order list."""
+        order = order or []
+        new_order = []
+
+        for item in order:
+            if isinstance(item, basestring):
+                name = item
+                direction = None
+            else:
+                name, direction = item[0:2]
+
+            attribute = None
+            if is_aggregate:
+                try:
+                    attribute = self.cube.measure_aggregate(name)
+                except NoSuchAttributeError:
+                    attribute = self.cube.attribute(name)
+                else:
+                    if not self.is_builtin_function(attribute.function, attribute):
+                        self.logger.warn("ignoring ordering of post-processed "
+                                         "aggregate %s" % attribute.name)
+                        attribute = None
+            else:
+                attribute = self.cube.attribute(name)
+
+            if attribute:
+                new_order.append( (attribute, direction) )
+
+        return new_order
     def table(self, schema, table_name):
         """Return a SQLAlchemy Table instance. If table was already accessed,
         then existing table is returned. Otherwise new instance is created.
@@ -1638,7 +1660,7 @@ class SnapshotQueryContext(QueryContext):
         return select
 
 class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, store, connectable=None, locale=None, metadata=None, debug=False, **options):
+    def __init__(self, cube, store, locale=None, metadata=None, debug=False, **options):
 
        super(SnapshotBrowser, self).__init__(cube, store, locale, metadata,
                                              debug=debug, **options)
