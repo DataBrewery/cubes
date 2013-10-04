@@ -33,7 +33,7 @@ _aggregate_functions = {
         'group_by': (lambda field: { '$sum': "$%s" % field }),
         'aggregate_fn': sum,
     },
-    'identity': {
+    'custom': {
         'group_by' : (lambda field: { '$sum': 1 }),
         'aggregate_fn': len
     }
