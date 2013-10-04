@@ -1542,7 +1542,10 @@ class SnapshotQueryContext(QueryContext):
                     if len(dditem.hierarchy.levels) > len(dditem.levels):
                         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
                     elif len(dditem.hierarchy.levels) == len(dditem.levels):
-                        return None, False
+                        if len(dditem.levels) == 1 and dditem.levels[0].name == 'dow':
+                            return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
+                        else:
+                            return None, False
         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
     def aggregation_statement(self, cell, aggregates=None, attributes=None,
@@ -1595,7 +1598,9 @@ class SnapshotQueryContext(QueryContext):
             conditions.append(drilldown_ptd_condition.condition)
 
         # We must produce, under certain conditions, a subquery:
-        #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy.
+        #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy. OR
+        #   - If the drilldown contains the date dimension, and it's a full path for the given hierarchy, 
+        #     but the hierarchy contains only 'dow'. OR
         #   - If the drilldown does not contain the date dimension.
         #
         # We create a select() with special alias 'snapshot_browser_subquery', using the joins, conditions, and group_by
