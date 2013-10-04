@@ -58,6 +58,8 @@ class AggregationBrowser(object):
 
     """List of browser features as strings."""
 
+    builtin_functions = []
+
     def __init__(self, cube, store=None, locale=None, metadata=None, **options):
         """Creates and initializes the aggregation browser. Subclasses should
         override this method. """
@@ -121,12 +123,19 @@ class AggregationBrowser(object):
         """Prepares the aggregate list for aggregatios. `aggregates` might be a
         list of aggregate names or `MeasureAggregate` objects.
 
+        Aggregates that are used in post-aggregation calculations are included
+        in the result. This method is using `is_builtin_function()` to check
+        whether the aggregate is native to the backend or not.
+
         If `measures` are specified, then aggregates that refer tho the
         measures in the list are returned.
 
         If no aggregates are specified then all cube's aggregates are returned.
 
-        Either specify `aggregates` or `measures`, not both. """
+        .. note::
+
+            Either specify `aggregates` or `measures`, not both.
+        """
 
         # Coalesce measures - make sure that they are Attribute objects, not
         # strings. Strings are converted to corresponding Cube measure
@@ -137,7 +146,11 @@ class AggregationBrowser(object):
             raise ArgumentError("Only aggregates or measures can be "
                                 "specified, not both")
         if aggregates:
-            aggregates = self.cube.get_aggregates(aggregates)
+            try:
+                aggregates = self.cube.get_aggregates(aggregates)
+            except KeyError as e:
+                raise NoSuchAttributeError("No measure aggregate '%s' in cube '%s'"
+                                           % (str(e), str(self.cube)))
         elif measures:
             aggregates = []
             for measure in measures:
@@ -150,7 +163,66 @@ class AggregationBrowser(object):
             raise ArgumentError("List of aggregates sohuld not be empty. If "
                                 "you used measures, check their aggregates.")
 
+        seen = set(a.name for a in aggregates)
+        dependencies = []
+
+        # Resolve aggregate dependencies for non-builtin functions:
+        for agg in aggregates:
+            if agg.measure and \
+                    not self.is_builtin_function(agg.function, agg) \
+                    and agg.measure not in seen:
+                seen.add(agg.measure)
+
+                try:
+                    aggregate = self.cube.measure_aggregate(agg.measure)
+                except NoSuchAttributeError as e:
+                    raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                                            "'%s' for '%s'" % (self.cube.name,
+                                                               agg.measure,
+                                                               agg.name))
+                dependencies.append(aggregate)
+
+        aggregates += dependencies
         return aggregates
+
+    def prepare_order(self, order, is_aggregate=False):
+        """Prepares an order list."""
+        order = order or []
+        new_order = []
+
+        for item in order:
+            if isinstance(item, basestring):
+                name = item
+                direction = None
+            else:
+                name, direction = item[0:2]
+
+            attribute = None
+            if is_aggregate:
+                try:
+                    attribute = self.cube.measure_aggregate(name)
+                except NoSuchAttributeError:
+                    attribute = self.cube.attribute(name)
+                else:
+                    if not self.is_builtin_function(attribute.function, attribute):
+                        self.logger.warn("ignoring ordering of post-processed "
+                                         "aggregate %s" % attribute.name)
+                        attribute = None
+            else:
+                attribute = self.cube.attribute(name)
+
+            if attribute:
+                new_order.append( (attribute, direction) )
+
+        return new_order
+
+    def is_builtin_function(self, function_name, aggregate):
+        """Returns `True` if function `function_name` for `aggregate` is
+        bult-in. Returns `False` if the browser can not compute the function
+        and post-aggregation calculation should be used.
+
+        Subclasses should override this method."""
+        raise NotImplementedError
 
     def facts(self, cell=None, fields=None, **options):
         """Return an iterable object with of all facts within cell.

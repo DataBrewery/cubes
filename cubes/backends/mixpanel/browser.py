@@ -79,16 +79,11 @@ class MixpanelBrowser(AggregationBrowser):
     def aggregate(self, cell=None, measures=None, aggregates=None,
                   drilldown=None, split=None, **options):
 
-        if split:
-            raise BrowserError("split in mixpanel is not supported")
-
         if measures:
             raise ArgumentError("Mixpanel does not provide non-aggregated "
                                 "measures")
-        if aggregates:
-            aggregates = self.cube.get_aggregates(aggregates)
-        else:
-            aggregates = self.cube.aggregates
+
+        aggregates = self.prepare_aggregates(aggregates)
 
         # All aggregates without a function can be considered as "native" as
         # they are handled specially.
@@ -155,8 +150,9 @@ class MixpanelBrowser(AggregationBrowser):
         if drilldown_on:
             params["on"] = 'properties["%s"]' % \
                                     self._property(drilldown_on.dimension)
+        elif split:
+            params['on'] = self._condition_for_cell(split)
 
-        cuts = [cut for cut in cell.cuts if str(cut.dimension) != "time"]
 
         #
         # The Conditions
@@ -209,9 +205,11 @@ class MixpanelBrowser(AggregationBrowser):
 
         aggregator = _MixpanelResponseAggregator(self, responses,
                                                  native_aggregate_names,
-                                                 drilldown, actual_time_level)
+                                                 drilldown, split, actual_time_level)
 
         result.levels = drilldown.levels_dictionary()
+        if split:
+            result.levels[SPLIT_DIMENSION_NAME] = SPLIT_DIMENSION_NAME
 
         labels = aggregator.time_levels[:]
         if drilldown_on:
@@ -222,7 +220,8 @@ class MixpanelBrowser(AggregationBrowser):
 
         if drilldown or split:
             self.logger.debug("CALCULATED AGGS because drilldown or split")
-            result.calculators = calculators_for_aggregates(aggregates,
+            result.calculators = calculators_for_aggregates(self.cube,
+                                                            aggregates,
                                                             drilldown,
                                                             split,
                                                             None)
@@ -233,7 +232,8 @@ class MixpanelBrowser(AggregationBrowser):
             self.logger.debug("CALCULATED AGGS ON SUMMARY")
             result.summary = aggregator.cells[0]
             result.cells = []
-            calculators = calculators_for_aggregates(aggregates,
+            calculators = calculators_for_aggregates(self.cube,
+                                                     aggregates,
                                                      drilldown,
                                                      split,
                                                      None)
@@ -241,6 +241,11 @@ class MixpanelBrowser(AggregationBrowser):
                 calc(result.summary)
 
         return result
+
+    def is_builtin_function(self, function_name, aggregate):
+        # Mixpanel has implicit functions for all aggregates. Therefore all
+        # aggregates without a function name are considered built-in
+        return aggregate.function is None
 
     def _segmentation_request(self, event_name, params, unit):
         """Perform Mixpanel request ``segmentation`` – this is the default

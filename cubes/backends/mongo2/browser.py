@@ -130,7 +130,8 @@ class Mongo2Browser(AggregationBrowser):
             #
             # Find post-aggregation calculations and decorate the result
             #
-            result.calculators = calculators_for_aggregates(aggregates,
+            result.calculators = calculators_for_aggregates(self.cube,
+                                                            aggregates,
                                                             drilldown,
                                                             split,
                                                             available_aggregate_functions())
@@ -138,7 +139,7 @@ class Mongo2Browser(AggregationBrowser):
         summary, items = self._do_aggregation_query(cell=cell,
                                                     aggregates=aggregates,
                                                     attributes=attributes,
-                                                    drilldown=drilldown_levels,
+                                                    drilldown=drilldown,
                                                     split=split, order=order,
                                                     page=page,
                                                     page_size=page_size)
@@ -146,7 +147,8 @@ class Mongo2Browser(AggregationBrowser):
         result.summary = summary
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
-            calculators = calculators_for_aggregates(aggregates, drilldown,
+            calculators = calculators_for_aggregates(self.cube,
+                                                     aggregates, drilldown,
                                                      split,
                                                      available_aggregate_functions())
             for calc in calculators:
@@ -155,6 +157,9 @@ class Mongo2Browser(AggregationBrowser):
         labels += [ str(m) for m in aggregates ]
         result.labels = labels
         return result
+
+    def is_builtin_function(self, function_name, aggregate):
+        return function_name in available_aggregate_functions()
 
     def facts(self, cell=None, fields=None, order=None, page=None, page_size=None,
               **options):
@@ -281,6 +286,7 @@ class Mongo2Browser(AggregationBrowser):
                 and len(aggregates) == 1 \
                 and aggregates[0].function in ("count", "identity"):
 
+            self.logger.debug("doing plain aggregation")
             return (self.data_store.find(query_obj).count(), [])
 
         group_id = {}
@@ -397,9 +403,13 @@ class Mongo2Browser(AggregationBrowser):
             pipeline.append({ "$project": fields_obj })
         pipeline.append({ "$group": group_obj })
 
+        order = self.prepare_order(order, is_aggregate=True)
         if not timezone_shift_processing:
             if order:
-                pipeline.append({ "$sort": self._order_to_sort_object(order) })
+                obj = {
+                    "$sort": self._order_to_sort_object(order)
+                }
+                pipeline.append(obj)
             elif len(sort_obj):
                 pipeline.append({ "$sort": sort_obj })
 
@@ -609,18 +619,26 @@ class Mongo2Browser(AggregationBrowser):
         return phys.match_expression(value, op, for_project)
 
     def _order_to_sort_object(self, order=None):
+        """Prepares mongo sort object from `order`. `order` is expected to be
+        result from `prepare_order()`"""
+
         if not order:
             return []
 
         order_by = collections.OrderedDict()
         # each item is a 2-tuple of (logical_attribute_name, sort_order_string)
-        for attrname, sort_order_string in order:
-            sort_order = -1 if sort_order_string in ('desc', 'DESC') else 1
-            attribute = self.mapper.attribute(attrname)
 
-            if attrname not in order_by:
-                order_by[escape_level(attribute.ref())] = ( escape_level(attribute.ref()), sort_order )
-        return dict( order_by.values() )
+        for attribute, direction in order:
+            ref = attribute.ref()
+
+            sort_order = -1 if sort_order_string == 'desc' else 1
+
+            if ref not in order_by:
+                esc = secape_level(ref)
+                order_by[esc] = (esc, sort_order)
+
+        self.logger.debug("=== ORDER: %s" % order_by)
+        return dict(order_by.values())
 
 
 def complex_sorted(items, sortings):
