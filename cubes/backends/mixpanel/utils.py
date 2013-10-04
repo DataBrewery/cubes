@@ -5,7 +5,8 @@ import calendar
 
 __all__ = [
     "coalesce_date_path",
-    "time_to_path"
+    "time_to_path",
+    "timestamp_to_record"
 ]
 
 def _week_value(dt, as_string=False):
@@ -89,6 +90,17 @@ def _coalesce_date_ymdh(path, bound):
         date = today
 
     return date
+
+def timestamp_to_record(timestamp):
+    """Returns a path from `timestamp` in the ``ymdh`` hierarchy."""
+    time = datetime.datetime.fromtimestamp(timestamp)
+    record = {
+        "time.year": time.year,
+        "time.month": time.month,
+        "time.day": time.day,
+        "time.hour": time.hour
+    }
+    return record
 
 def time_to_path(time_string, last_level, hier='ymdh'):
     """Converts `time_string` into a time path. `time_string` can have format:
