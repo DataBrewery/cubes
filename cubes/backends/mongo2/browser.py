@@ -631,10 +631,10 @@ class Mongo2Browser(AggregationBrowser):
         for attribute, direction in order:
             ref = attribute.ref()
 
-            sort_order = -1 if sort_order_string == 'desc' else 1
+            sort_order = -1 if direction == 'desc' else 1
 
             if ref not in order_by:
-                esc = secape_level(ref)
+                esc = escape_level(ref)
                 order_by[esc] = (esc, sort_order)
 
         self.logger.debug("=== ORDER: %s" % order_by)
