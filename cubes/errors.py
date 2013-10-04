@@ -39,7 +39,7 @@ class MappingError(ModelError):
     database schema. """
 
 
-# TODO: change all instances to ModelError 
+# TODO: change all instances to ModelError
 class ModelInconsistencyError(ModelError):
     """Raised when there is incosistency in model structure."""
 
@@ -54,12 +54,12 @@ class TemplateRequired(ModelError):
         return self.template
 
 class MissingObjectError(UserError):
-    def __init__(self, name, reason=None):
+    def __init__(self, message=None, name=None):
         self.name = name
-        self.reason = reason
+        self.message = message
 
     def __str__(self):
-        return self.name
+        return self.message or self.name
 
 class NoSuchDimensionError(MissingObjectError):
     """Raised when an unknown dimension is requested."""
