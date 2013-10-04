@@ -75,4 +75,3 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         self.assertIsInstance(response, dict)
         self.assertIn("error", response)
         self.assertRegexpMatches(response["error"]["message"], "Unknown cube")
-
