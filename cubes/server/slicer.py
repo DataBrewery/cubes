@@ -175,6 +175,8 @@ class Slicer(object):
             action = getattr(controller, action_name)
             response = action(**params)
             response.headers.add("Access-Control-Allow-Origin", "*")
+        except cubes.MissingObjectError as e:
+            raise NotFoundError(e.name, message=str(e))
         except cubes.UserError as e:
             raise RequestError(str(e))
 
