@@ -28,14 +28,21 @@ class SlicerTestCase(unittest.TestCase):
             cut = cubes.browser.RangeCut(date_dim, [ 2013, 9, 25 ], None)
             cell = cubes.browser.Cell(cube, [ cut ])
             drill = cubes.browser.Drilldown([(date_dim, None, date_dim.level('day'))], cell)
-            b = w.browser(cube)
+            b = self.w.browser(cube)
             try:
                 attr_dim = cube.dimension("attr")
                 split = cubes.browser.PointCut(attr_dim, ['paid', 'pnb'])
             except:
                 split = None
             try:
-                result = b.aggregate(cell, drilldown=drill, split=split, measure=cube.measures[0])
+                kw = {}
+                if cube.aggregates:
+                    kw['aggregates'] = [cube.aggregates[0]]
+                elif cube.measures:
+                    kw['measures'] = [ cube.measures[0] ]
+                else:
+                    raise ValueError("Cube has neither aggregates nor measures")
+                result = b.aggregate(cell, drilldown=drill, split=split, **kw)
                 print result.cells
             except:
                 import sys
