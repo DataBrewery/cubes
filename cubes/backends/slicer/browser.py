@@ -40,6 +40,14 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         
         return reply            
                 
+    def _dditem_to_string(self, dditem):
+        s = dditem.dimension.name
+        if dditem.hierarchy:
+            s += "@" + dditem.hierarchy.name
+        if len(dditem.levels):
+            s += ":" + dditem.levels[-1].name
+        return s
+
     def aggregate(self, cell, measures = None, drilldown = None, split=None, 
 	          page=None, page_size=None, order=None, **kwargs):
         
@@ -50,7 +58,7 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
 
         if drilldown:
             for dd in drilldown:
-                params.append( ("drilldown", str(dd)) )
+                params.append( ("drilldown", self._dditem_to_string(dd)) )
                 levels[str(dd.dimension)] = [ str(l) for l in dd.levels ]
                 
         if split:
@@ -75,7 +83,7 @@ class SlicerBrowser(cubes.browser.AggregationBrowser):
         result.cells = reply.get('cells', [])
 	result.levels = reply.get('levels', {})
 	result.cell = cell.to_dict()
-	result.measures = reply.get('measures', [])
+	result.aggregates = reply.get('aggregates', [])
         if ( reply.get('summary') ):
             result.summary = reply.get('summary')
 
