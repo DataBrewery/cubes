@@ -43,8 +43,11 @@ class Mapper(object):
         self.logger = get_logger()
 
         self.cube = cube
+        # TODO: merge with mappings received as arguments
+        self.mappings = self.cube.mappings
         self.locale = locale
 
+        # TODO: remove this (should be in SQL only)
         fact_prefix = options.get("fact_prefix") or ""
         self.fact_name = fact_name or self.cube.fact or fact_prefix+self.cube.name
         self.schema=schema
@@ -90,12 +93,14 @@ class Mapper(object):
         self.locale = locale
         self._collect_attributes()
 
+    # TODO: depreciate in favor of Cube.all_attributes
     def all_attributes(self, expand_locales=False):
         """Return a list of all attributes of a cube. If `expand_locales` is
         ``True``, then localized logical reference is returned for each
         attribute's locale."""
         return self.attributes.values()
 
+    # TODO: depreciate in favor of Cube.attribute
     def attribute(self, name):
         """Returns an attribute with logical reference `name`. """
         # TODO: If attribute is not found, returns `None` (yes or no?)
@@ -136,15 +141,14 @@ class Mapper(object):
             return (None, reference)
 
     def physical(self, attribute, locale=None):
-        """Returns physical reference as tuple for `attribute`, which should
-        be an instance of :class:`cubes.model.Attribute`. If there is no
-        dimension specified in attribute, then fact table is assumed. The
-        returned tuple has structure: (`schema`, `table`, `column`).
+        """Returns physical reference for attribute. Returned value is backend
+        specific. Default implementation returns a value from the mapping
+        dictionary.
 
         This method should be implemented by `Mapper` subclasses.
         """
 
-        raise NotImplementedError
+        return self.mappings.get(self.logical(attribute, locale))
 
     def map_attributes(self, attributes, expand_locales=False):
         """Convert `attributes` to physical attributes. If `expand_locales` is
