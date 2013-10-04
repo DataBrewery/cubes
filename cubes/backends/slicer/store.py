@@ -2,10 +2,12 @@
 from ...model import *
 from ...browser import *
 from ...stores import Store
+from ...providers import ModelProvider
 from ...errors import *
 from cubes.common import get_logger
 import json
 import urllib2
+import urllib
 
 class Slicer(Store):
     def __init__(self, url, **options):
@@ -20,6 +22,9 @@ class Slicer(Store):
 
 class SlicerModelProvider(ModelProvider):
 
+    def requires_store(self):
+        return True
+
     def list_cubes(self):
         model_desc = self.store.request('model')
         result = []
@@ -33,12 +38,13 @@ class SlicerModelProvider(ModelProvider):
         return result
 
     def cube(self, name):
-        cube_desc = self.store.request("model/cube/%s" % name)
+        cube_desc = self.store.request("model/cube/%s" % urllib.quote(name))
 
-        measures = [ Attribute(**m) for m in cube_desc.get('measures', []) ]
+        measures = [ create_measure(m) for m in cube_desc.get('measures', []) ]
+        aggregates = [ create_measure_aggregate(a) for a in cube_desc.get('aggregates', []) ]
         dimensions = [ create_dimension(d) for d in cube_desc.get('dimensions') ]
 
-        cube = Cube(name=name, measures=measures, dimensions=dimensions, datastore=self.store_name,
+        cube = Cube(name=name, measures=measures, aggregates=aggregates, dimensions=dimensions, datastore=self.store_name,
                     mappings=None, category=cube_desc.get('category'))
 
         cube.info = cube_desc.get('info', {})
