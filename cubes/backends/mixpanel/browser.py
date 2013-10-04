@@ -43,12 +43,27 @@ class MixpanelBrowser(AggregationBrowser):
         other factors."""
 
         features = {
-            "actions": ["aggregate"],
+            "actions": ["aggregate", "facts"],
             "aggregate_functions": [],
             "post_aggregate_functions": available_calculators()
         }
 
         return features
+
+    def facts(self, cell, fields=None, page=None, page_size=None, order=None):
+        self.logger.warn("Field selection for mixpanel is not supported. "
+                         "Selecting all fields provided byt the Mixpanel API.")
+
+        cell = cell or Cell(self.cube)
+
+        # TODO: use mapper
+        params = {"event":[self.cube.name]}
+
+        params.update(self.condition_for_cell(cell))
+        response = self.store.request(["export"], params, is_data=True)
+        result = MixpanelFacts(response, None)
+
+        return result
 
     def aggregate(self, cell=None, measures=None, aggregates=None,
                   drilldown=None, split=None, **options):
@@ -84,32 +99,14 @@ class MixpanelBrowser(AggregationBrowser):
             raise ArgumentError("Can not drill down with more than one "
                                 "non-time dimension in mixpanel")
 
-        #
-        # Create from-to date range from time dimension cut
-        #
-        time_cut = cell.cut_for_dimension("time")
-        time_hierarchy = time_cut.hierarchy if time_cut else DEFAULT_TIME_HIERARCHY
+        if split:
+            if len(drilldown) > ( 1 if "time" in drilldown else 0 ):
+                raise BrowserError("split in mixpanel is not supported if a non-time drilldown is specified")
 
-        if not time_cut:
-            path_time_from = []
-            path_time_to = []
-        elif isinstance(time_cut, PointCut):
-            path_time_from = time_cut.path or []
-            path_time_to = time_cut.path or []
-        elif isinstance(time_cut, RangeCut):
-            path_time_from = time_cut.from_path or []
-            path_time_to = time_cut.to_path or []
-        else:
-            raise ArgumentError("Mixpanel does not know how to handle cuts "
-                                "of type %s" % type(time_cut))
+            if split.cut_for_dimension('time'):
+                raise BrowserError("split in mixpanel is not supported for cuts containing time dimension")
 
-        path_time_from = coalesce_date_path(path_time_from, 0, time_hierarchy)
-        path_time_to = coalesce_date_path(path_time_to, 1, time_hierarchy)
-
-        params = {
-                "from_date": path_time_from.strftime("%Y-%m-%d"),
-                "to_date": path_time_to.strftime("%Y-%m-%d")
-            }
+        params = {}
 
         time_level = drilldown.last_level("time")
         if time_level:
@@ -157,29 +154,7 @@ class MixpanelBrowser(AggregationBrowser):
         # Create 'where' condition from cuts
         # Assumption: all dimensions are flat dimensions
 
-        conditions = []
-        for cut in cuts:
-            if isinstance(cut, PointCut):
-                condition = self._point_condition(cut.dimension, cut.path[0], cut.invert)
-                conditions.append(condition)
-            elif isinstance(cut, RangeCut):
-                condition = self._range_condition(cut.dimension,
-                                                  cut.from_path[0],
-                                                  cut.to_path[0], cut.invert)
-                conditions.append(condition)
-            elif isinstance(cut, SetCut):
-                set_conditions = []
-                for path in cut.paths:
-                    condition = self._point_condition(cut.dimension, path[0])
-                    set_conditions.append(condition)
-                condition = " or ".join(set_conditions)
-                conditions.append(condition)
-
-        if len(conditions) > 1:
-            conditions = [ "(%s)" % cond for cond in conditions ]
-        if conditions:
-            condition = " and ".join(conditions)
-            params["where"] = condition
+        params.update(self.condition_for_cell(cell))
 
             self.logger.debug("condition: %s" % condition)
 
@@ -318,6 +293,65 @@ class MixpanelBrowser(AggregationBrowser):
         dim = str(dim)
         return self.cube.mappings.get(dim, dim)
 
+    def condition_for_cell(self, cell):
+        #
+        # Create from-to date range from time dimension cut
+        #
+        time_cut = cell.cut_for_dimension("time")
+        time_hierarchy = time_cut.hierarchy if time_cut else DEFAULT_TIME_HIERARCHY
+
+        if not time_cut:
+            path_time_from = []
+            path_time_to = []
+        elif isinstance(time_cut, PointCut):
+            path_time_from = time_cut.path or []
+            path_time_to = time_cut.path or []
+        elif isinstance(time_cut, RangeCut):
+            path_time_from = time_cut.from_path or []
+            path_time_to = time_cut.to_path or []
+        else:
+            raise ArgumentError("Mixpanel does not know how to handle cuts "
+                                "of type %s" % type(time_cut))
+
+        path_time_from = coalesce_date_path(path_time_from, 0, time_hierarchy)
+        path_time_to = coalesce_date_path(path_time_to, 1, time_hierarchy)
+
+        result = {
+                "from_date": path_time_from.strftime("%Y-%m-%d"),
+                "to_date": path_time_to.strftime("%Y-%m-%d")
+            }
+
+        #
+        # Non-time condition
+        #
+        cuts = [cut for cut in cell.cuts if str(cut.dimension) != "time"]
+
+        conditions = []
+        for cut in cuts:
+            if isinstance(cut, PointCut):
+                condition = self._point_condition(cut.dimension, cut.path[0], cut.invert)
+                conditions.append(condition)
+            elif isinstance(cut, RangeCut):
+                condition = self._range_condition(cut.dimension,
+                                                  cut.from_path[0],
+                                                  cut.to_path[0], cut.invert)
+                conditions.append(condition)
+            elif isinstance(cut, SetCut):
+                set_conditions = []
+                for path in cut.paths:
+                    condition = self._point_condition(cut.dimension, path[0])
+                    set_conditions.append(condition)
+                condition = " or ".join(set_conditions)
+                conditions.append(condition)
+
+        if len(conditions) > 1:
+            conditions = [ "(%s)" % cond for cond in conditions ]
+
+        if conditions:
+            result["where"] = " and ".join(conditions)
+
+        return result
+
     def _point_condition(self, dim, value, invert):
         """Returns a point cut for flat dimension `dim`"""
 
@@ -336,4 +370,10 @@ class MixpanelBrowser(AggregationBrowser):
 
         condition = condition_tmpl % (self._property(dim), from_value, self._property(dim), to_value)
         return condition
+
+
+class MixpanelFacts(Facts):
+    def __init__(self, result, attributes):
+        super(MixpanelFacts, self).__init__(result, attributes)
+        print "--- initializing mixpanel facts"
 
