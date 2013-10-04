@@ -51,7 +51,7 @@ def create_slicer_workspace(server_url):
     cp.set("datastore", "type", "slicer")
     cp.set("datastore", "url", server_url)
     w = Workspace(cp)
-    w.add_model("%s/model" % server_url)
+    w.add_model({ 'name': 'slicer', 'store': 'slicer', 'provider': 'slicer' })
     return w
 
 class Workspace(object):
