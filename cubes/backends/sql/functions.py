@@ -143,7 +143,7 @@ _functions = (
     ValueCoalescingFunction("avg", avg),
     ValueCoalescingFunction("stddev", stddev),
     ValueCoalescingFunction("variance", variance),
-    ValueCoalescingFunction("identity", lambda c: c),
+    ValueCoalescingFunction("custom", lambda c: c),
 
     GenerativeFunction("count", sql.functions.count, 1),
 )
