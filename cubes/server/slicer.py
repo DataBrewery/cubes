@@ -15,7 +15,7 @@ except ImportError:
     from ..common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Map = Rule = Request = ClosingIterator = HTTPException = _missing
-    NotFound = Response = werkzeug = _missing
+    Response = werkzeug = _missing
 try:
     import pytz
 except ImportError:
@@ -118,7 +118,8 @@ class Slicer(object):
         provide ``config`` as ``ConfigParser`` object.
         """
 
-        self.config = config
+        self.config = config or ConfigParser.ConfigParser()
+
         self.initialize_logger()
 
         self.workspace = Workspace(config=config)
