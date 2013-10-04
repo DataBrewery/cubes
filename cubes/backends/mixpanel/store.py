@@ -69,6 +69,7 @@ class MixpanelModelProvider(ModelProvider):
     def __init__(self, *args, **kwargs):
         super(MixpanelModelProvider, self).__init__(*args, **kwargs)
 
+        # TODO: replace this with mixpanel mapper
         # Map properties to dimension (reverse mapping)
         self.property_to_dimension = {}
         mappings = self.metadata.get("mappings", {})

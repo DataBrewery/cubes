@@ -6,6 +6,7 @@ from ...common import get_logger
 from ...statutils import *
 from .aggregator import _MixpanelResponseAggregator
 from .utils import *
+from .mapper import MixpanelMapper
 
 from ...statutils import calculators_for_aggregates, CALCULATED_AGGREGATIONS
 
@@ -22,7 +23,7 @@ _aggregate_param = {
     }
 
 class MixpanelBrowser(AggregationBrowser):
-    def __init__(self, cube, store, locale=None, metadata=None, **options):
+    def __init__(self, cube, store, locale=None, **options):
         """Creates a Mixpanel aggregation browser.
 
         Requirements and limitations:
@@ -36,6 +37,10 @@ class MixpanelBrowser(AggregationBrowser):
         self.cube = cube
         self.options = options
         self.logger = get_logger()
+
+        dim_names = [dim.name for dim in cube.dimensions]
+        self.mapper = MixpanelMapper(cube, cube.mappings,
+                                     property_dimensions=dim_names)
 
     def features(self):
         """Return SQL features. Currently they are all the same for every
@@ -51,17 +56,23 @@ class MixpanelBrowser(AggregationBrowser):
         return features
 
     def facts(self, cell, fields=None, page=None, page_size=None, order=None):
-        self.logger.warn("Field selection for mixpanel is not supported. "
-                         "Selecting all fields provided byt the Mixpanel API.")
 
         cell = cell or Cell(self.cube)
+
+        if not fields:
+            attributes = self.cube.all_attributes
+            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
+        else:
+            attributes = self.cube.get_attributes(fields)
+            self.logger.debug("facts: getting fields: %s" % fields)
 
         # TODO: use mapper
         params = {"event":[self.cube.name]}
 
         params.update(self.condition_for_cell(cell))
         response = self.store.request(["export"], params, is_data=True)
-        result = MixpanelFacts(response, None)
+
+        result = MixpanelFacts(response, attributes, self.mapper)
 
         return result
 
@@ -376,7 +387,26 @@ class MixpanelBrowser(AggregationBrowser):
 
 
 class MixpanelFacts(Facts):
-    def __init__(self, result, attributes):
+    def __init__(self, result, attributes, mapper):
         super(MixpanelFacts, self).__init__(result, attributes)
-        print "--- initializing mixpanel facts"
 
+        self.mapper = mapper
+
+    def __iter__(self):
+        for i, record in enumerate(self.facts):
+            record = record["properties"]
+
+            fact = {"__id__": i}
+
+            for attr in self.attributes:
+                if attr.dimension.name != "time":
+                    fact[attr.ref()] = record.get(self.mapper.physical(attr))
+
+            # Populate time dimension attributes (only the requested ones)
+            #
+            time = timestamp_to_record(record["time"])
+            for attr in self.attributes:
+                if attr.dimension.name == "time":
+                    fact[attr.ref()] = time.get(attr.ref())
+
+            yield fact
