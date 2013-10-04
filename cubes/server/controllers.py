@@ -313,6 +313,7 @@ class CubesController(ApplicationController):
 
         result = self.browser.aggregate(self.cell,
                                         measures=measures,
+                                        aggregates=aggregates,
                                         drilldown=drilldown, split=split,
                                         page=self.page,
                                         page_size=self.page_size,

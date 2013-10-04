@@ -76,8 +76,12 @@ class AggregateFunction(object):
                              "required for aggregate function %s"
                              % (str(aggregate), self.name))
 
-        measure = context.cube.measure(aggregate.measure)
-        column = context.column(measure)
+        try:
+            source = context.cube.measure(aggregate.measure)
+        except NoSuchAttributeError:
+            source = context.cube.aggregate(aggregate.measure)
+
+        column = context.column(source)
 
         if coalesce:
             column = self.coalesce_value(aggregate, column)

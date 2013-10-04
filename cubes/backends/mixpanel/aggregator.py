@@ -9,7 +9,7 @@ from .utils import *
 from collections import defaultdict
 
 class _MixpanelResponseAggregator(object):
-    def __init__(self, browser, responses, aggregate_names, drilldown,
+    def __init__(self, browser, responses, aggregate_names, drilldown, split,
                     actual_time_level):
         """Aggregator for multiple mixpanel responses (multiple dimensions)
         with drill-down post-aggregation.
@@ -21,6 +21,7 @@ class _MixpanelResponseAggregator(object):
         * `aggregate_names` – list of collected measures
         * `drilldown` – a `Drilldown` object from the browser aggregation
           query
+        * `split` - a split Cell object from the browser aggregation query
 
         Object attributes:
 
@@ -61,6 +62,11 @@ class _MixpanelResponseAggregator(object):
             if obj.dimension.name != "time":
                 # this is a DrilldownItem object. represent it as 'dim.level' or just 'dim' if flat
                 self.drilldown_on = ( "%s.%s" % (obj.dimension.name, obj.levels[-1].name) ) if ( not obj.dimension.is_flat ) else obj.dimension.name
+                self.drilldown_on_value_func = lambda x: x
+
+        if self.drilldown_on is None and split:
+            self.drilldown_on = SPLIT_DIMENSION_NAME
+            self.drilldown_on_value_func = lambda x: True if x == "true" else False
 
         # Time-keyed cells:
         #    (time_path, group) -> dictionary
@@ -176,7 +182,7 @@ class _MixpanelResponseAggregator(object):
 
             # append the drilldown_on attribute ref
             if self.drilldown_on:
-                cell[self.drilldown_on] = key[1]
+                cell[self.drilldown_on] = self.drilldown_on_value_func(key[1])
 
             self.cells.append(cell)
 

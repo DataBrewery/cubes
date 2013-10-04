@@ -605,7 +605,7 @@ class Cube(object):
         try:
             return self._aggregates[name]
         except KeyError:
-            raise NoSuchAttributeError("cube '%s' has no measure aggregate "
+            raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
                                             "'%s'" % (self.name, name))
 
 
@@ -635,13 +635,13 @@ class Cube(object):
 
         return attributes
 
-    def attribute(self, attribute, simplify=True):
+    def attribute(self, attribute):
         """Returns an attribute object (dimension attribute, measure or
         detail)."""
 
         for dim in self.dimensions:
             try:
-                return dim.attribute(attribute)
+                return dim.attribute(attribute, by_ref=True)
             except KeyError:
                 continue
 
@@ -879,6 +879,7 @@ class Dimension(object):
 
         self._levels = OrderedDict()
         self._attributes = OrderedDict()
+        self._attributes_by_ref = OrderedDict()
 
         try:
             for level in levels:
@@ -890,10 +891,10 @@ class Dimension(object):
         # Collect attributes
         self._attributes = OrderedDict()
         for level in self.levels:
-            self._attributes.update([(a.name, a) for a in level.attributes])
-
-        for attr in self._attributes.values():
-            attr.dimension = self
+            for a in level.attributes:
+                a.dimension = self
+                self._attributes[a.name] = a
+                self._attributes_by_ref[a.ref()] = a
 
     def __eq__(self, other):
         if other is None or type(other) != type(self):
@@ -965,9 +966,12 @@ class Dimension(object):
             raise ValueError("Unknown hierarchy object %s (should be a "
                              "string or Hierarchy instance)" % obj)
 
-    def attribute(self, reference):
+    def attribute(self, reference, by_ref=False):
         """Get dimension attribute from `reference`."""
-        return self._attributes[str(reference)]
+        if by_ref:
+            return self._attributes_by_ref[str(reference)]
+        else:
+            return self._attributes[str(reference)]
 
     def _default_hierarchy(self):
         """Get default hierarchy specified by ``default_hierarchy_name``, if
@@ -1985,7 +1989,7 @@ class MeasureAggregate(AttributeBase):
         d["function"] = self.function
         d["formula"] = self.formula
         d["expression"] = self.expression
-        d["measure"] = self.formula
+        d["measure"] = self.measure
 
         return d
 
@@ -2269,7 +2273,12 @@ def fix_level_metadata(metadata):
                 "name": name,
                 "label": metadata.get("label")
             }
-            metadata = {"name":name, "attributes": [attribute]}
+            new_metadata = {"name":name, "attributes": [attribute]}
+
+            if metadata.get('info') is not None:
+                new_metadata['info'] = metadata['info']
+
+            metadata = new_metadata
 
         return metadata
 
