@@ -2,6 +2,7 @@ import unittest
 from cubes import __version__
 import json
 from .common import CubesTestCaseBase
+from sqlalchemy import Table, Column, Integer
 
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
@@ -48,13 +49,23 @@ class SlicerTestCase(SlicerTestCaseBase):
         self.assertEqual(404, status)
 
 class SlicerModelTestCase(SlicerTestCaseBase):
+    sql_engine = "sqlite:///"
+
     def setUp(self):
         super(SlicerModelTestCase, self).setUp()
 
-        workspace = self.slicer.workspace
-        workspace.add_model(self.model_path("model.json"))
-        workspace.add_model(self.model_path("sales_no_date.json"))
+        ws = self.create_workspace()
+        self.slicer.workspace = ws
 
+        # Satisfy browser with empty tables
+        # TODO: replace this once we have data
+        store = ws.get_store("default")
+        table = Table("sales", store.metadata)
+        table.append_column(Column("id", Integer))
+        table.create()
+
+        ws.add_model(self.model_path("model.json"))
+        ws.add_model(self.model_path("sales_no_date.json"))
 
     def test_cube_list(self):
         response, status = self.get("cubes")
@@ -75,3 +86,54 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         self.assertIsInstance(response, dict)
         self.assertIn("error", response)
         self.assertRegexpMatches(response["error"]["message"], "Unknown cube")
+
+    def test_get_cube(self):
+        response, status = self.get("cube/sales/model")
+        self.assertEqual(200, status)
+        self.assertIsInstance(response, dict)
+        self.assertNotIn("error", response)
+
+        self.assertIn("name", response)
+        self.assertIn("measures", response)
+        self.assertIn("aggregates", response)
+        self.assertIn("dimensions", response)
+
+        # We should not get internal info
+        self.assertNotIn("mappings", response)
+        self.assertNotIn("joins", response)
+        self.assertNotIn("options", response)
+        self.assertNotIn("browser_options", response)
+        self.assertNotIn("fact", response)
+
+        # Propert content
+        aggregates = response["aggregates"]
+        self.assertIsInstance(aggregates, list)
+        self.assertEqual(4, len(aggregates))
+        names = [a["name"] for a in aggregates]
+        self.assertItemsEqual(["amount_sum", "amount_min", "discount_sum",
+                               "record_count"], names)
+
+    def test_cube_dimensions(self):
+        response, status = self.get("cube/sales/model")
+        # Dimensions
+        dims = response["dimensions"]
+        self.assertIsInstance(dims, list)
+        self.assertIsInstance(dims[0], dict)
+
+        for dim in dims:
+            self.assertIn("name", dim)
+            self.assertIn("levels", dim)
+            self.assertIn("default_hierarchy_name", dim)
+            self.assertIn("hierarchies", dim)
+            self.assertIn("is_flat", dim)
+            self.assertIn("has_details", dim)
+
+        names = [d["name"] for d in dims]
+        self.assertItemsEqual(["date", "flag", "product"], names)
+
+        # Test dim flags
+        self.assertEqual(True, dims[1]["is_flat"])
+        self.assertEqual(False, dims[1]["has_details"])
+
+        self.assertEqual(False, dims[0]["is_flat"])
+        self.assertEqual(True, dims[0]["has_details"])
