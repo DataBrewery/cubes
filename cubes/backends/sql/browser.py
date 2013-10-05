@@ -616,7 +616,7 @@ class QueryContext(object):
         except sqlalchemy.exc.NoSuchTableError:
             in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
             msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
-            raise WorkspaceError(msg)
+            raise BackendError(msg)
 
         self.tables = {
                     (self.schema, self.fact_name): self.fact_table
