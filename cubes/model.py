@@ -1036,7 +1036,8 @@ class Dimension(object):
         out = IgnoringDictionary()
         out["name"] = self.name
         out["info"] = self.info
-        out["default_hierarchy_name"] = self.default_hierarchy_name
+
+        out["default_hierarchy_name"] = self.hierarchy().name
 
         if options.get("create_label"):
             out["label"] = self.label or to_label(self.name)
