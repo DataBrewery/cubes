@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
-from .browser import SnowflakeBrowser, SnapshotBrowser, QueryContext
-from .mapper import SnowflakeMapper, DenormalizedMapper
+from .browser import SnowflakeBrowser, SnapshotBrowser
+from .mapper import SnowflakeMapper
 from ...common import get_logger, coalesce_options
 from ...stores import Store
 from cubes.errors import *
@@ -180,6 +180,7 @@ class SQLStore(Store):
             # Table reflects a table
             table.drop(checkfirst=False)
 
+    # TODO: broken
     def create_denormalized_view(self, cube, view_name=None, materialize=False,
                                  replace=False, create_index=False,
                                  keys_only=False, schema=None):
@@ -206,6 +207,7 @@ class SQLStore(Store):
           otherwise default workspace schema is used (same schema as fact
           table schema).
         """
+        raise NotImplemented
 
         cube = self.model.cube(cube)
 
