@@ -79,13 +79,13 @@ class QueryContextTestCase(StarSQLTestCase):
         super(QueryContextTestCase, self).setUp()
 
     def test_denormalize(self):
-        statement = self.browser.context.denormalized_statement()
+        statement = self.browser.denormalized_statement()
         cols = [column.name for column in statement.columns]
         self.assertEqual(18, len(cols))
 
     def test_denormalize_locales(self):
         """Denormalized view should have all locales expanded"""
-        statement = self.browser.context.denormalized_statement(expand_locales=True)
+        statement = self.browser.denormalized_statement(expand_locales=True)
         cols = [column.name for column in statement.columns]
         self.assertEqual(20, len(cols))
 

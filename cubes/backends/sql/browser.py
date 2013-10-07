@@ -99,17 +99,29 @@ class SnowflakeBrowser(AggregationBrowser):
         self.locale = locale or cube.locale
         self.debug = debug
 
+        # Database connection and metadata
+        # --------------------------------
+
         self.connectable = store.connectable
         self.metadata = store.metadata or sqlalchemy.MetaData(bind=self.connectable)
 
-	# merge options
-	the_options = {}
-	the_options.update(store.options)
-	the_options.update(options)
-	options = the_options
+        # Options
+        # -------
+
+        # TODO this should be done in the store
+        # merge options
+        the_options = {}
+        the_options.update(store.options)
+        the_options.update(options)
+        options = the_options
 
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
+        self.safe_labels = options.get("safe_labels", False)
+        self.label_counter = 1
+
+        # Mapper
+        # ------
 
         # Mapper is responsible for finding corresponding physical columns to
         # dimension attributes and fact measures. It also provides information
@@ -126,12 +138,59 @@ class SnowflakeBrowser(AggregationBrowser):
         self.mapper = mapper_class(cube, locale=self.locale, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
-        # QueryContext is creating SQL statements (using SQLAlchemy). It
-        # also caches information about tables retrieved from metadata.
-        # FIXME: new context is created also when locale changes in set_locale
-        self.options = options
-        self.context = QueryContext(self.cube, self.mapper,
-                                    metadata=self.metadata, **self.options)
+        self._initialize_schema()
+        self._collect_joins()
+
+    def _initialize_schema(self):
+        """Initialize the shema information: tables, column maps, ... """
+        # TODO check if this is used somewhere
+        self.schema = self.mapper.schema
+
+        # Prepare physical fact table - fetch from metadata
+        #
+        self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
+        self.fact_name = self.mapper.fact_name
+
+        try:
+            self.fact_table = sqlalchemy.Table(self.fact_name,
+                                               self.metadata,
+                                               autoload=True,
+                                               schema=self.schema)
+        except sqlalchemy.exc.NoSuchTableError:
+            in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
+            msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
+            raise WorkspaceError(msg)
+
+        self.tables = {
+                    (self.schema, self.fact_name): self.fact_table
+                }
+
+        # Collect all tables and their aliases.
+        #
+        # table_aliases contains mapping between aliased table name and real
+        # table name with alias:
+        #
+        #       (schema, aliased_name) --> (schema, real_name, alias)
+        #
+        self.table_aliases = {
+            (self.schema, self.fact_name): (self.schema, self.fact_name, None)
+        }
+
+        # Mapping where keys are attributes and values are columns
+        self.logical_to_column = {}
+        # Mapping where keys are column labels and values are attributes
+        self.column_to_logical = {}
+
+
+    def _collect_joins(self):
+        for join in self.mapper.joins:
+            # just ask for the table
+            table = AliasedTable(join.detail.schema,
+                                 join.detail.table,
+                                 join.alias)
+            table_alias = (join.detail.schema, join.alias or join.detail.table)
+            self.table_aliases[table_alias] = table
+
 
     def features(self):
         """Return SQL features. Currently they are all the same for every
@@ -151,16 +210,13 @@ class SnowflakeBrowser(AggregationBrowser):
         self.logger.debug("changing browser's locale to %s" % locale)
         self.mapper.set_locale(locale)
         self.locale = locale
-        # Reset context
-        self.context = QueryContext(self.cube, self.mapper,
-                                    metadata=self.metadata, **self.options)
 
     def fact(self, key_value):
         """Get a single fact with key `key_value` from cube.
 
         Number of SQL queries: 1."""
 
-        select = self.context.fact_statement(key_value)
+        select = self.fact_statement(key_value)
 
         if self.debug:
             self.logger.info("fact SQL:\n%s" % select)
@@ -168,7 +224,7 @@ class SnowflakeBrowser(AggregationBrowser):
         cursor = self.connectable.execute(select)
         row = cursor.fetchone()
 
-        labels = self.context.logical_labels(select.columns)
+        labels = self.logical_labels(select.columns)
 
         if row:
             # Convert SQLAlchemy object into a dictionary
@@ -196,25 +252,25 @@ class SnowflakeBrowser(AggregationBrowser):
             attributes = self.cube.get_attributes(fields)
             self.logger.debug("facts: getting fields: %s" % fields)
 
-        cond = self.context.condition_for_cell(cell)
-        statement = self.context.denormalized_statement(attributes=attributes,
+        cond = self.condition_for_cell(cell)
+        statement = self.denormalized_statement(attributes=attributes,
                                                         include_fact_key=True,
                                                         condition_attributes=cond.attributes)
 
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
-        statement = self.context.paginated_statement(statement, page, page_size)
+        statement = self.paginated_statement(statement, page, page_size)
 
         # FIXME: use level based ordering here. What levels to consider? In
         # what order?
-        statement = self.context.ordered_statement(statement, order)
+        statement = self.ordered_statement(statement, order)
 
         if self.debug:
             self.logger.info("facts SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
-        labels = self.context.logical_labels(statement.columns)
+        labels = self.logical_labels(statement.columns)
 
         return ResultIterator(result, labels)
 
@@ -243,28 +299,28 @@ class SnowflakeBrowser(AggregationBrowser):
         for level in levels:
             attributes.extend(level.attributes)
 
-        cond = self.context.condition_for_cell(cell)
+        cond = self.condition_for_cell(cell)
 
-        statement = self.context.denormalized_statement(attributes=attributes,
+        statement = self.denormalized_statement(attributes=attributes,
                                                         include_fact_key=False,
                                                         condition_attributes=
                                                         cond.attributes)
         if cond.condition is not None:
             statement = statement.where(cond.condition)
 
-        statement = self.context.paginated_statement(statement, page, page_size)
+        statement = self.paginated_statement(statement, page, page_size)
         order_levels = [(dimension, hierarchy, levels)]
-        statement = self.context.ordered_statement(statement, order,
+        statement = self.ordered_statement(statement, order,
                                                    order_levels)
 
-        group_by = [self.context.column(attr) for attr in attributes]
+        group_by = [self.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
 
         if self.debug:
             self.logger.info("dimension members SQL:\n%s" % statement)
 
         result = self.connectable.execute(statement)
-        labels = self.context.logical_labels(statement.columns)
+        labels = self.logical_labels(statement.columns)
 
         return ResultIterator(result, labels)
 
@@ -275,8 +331,8 @@ class SnowflakeBrowser(AggregationBrowser):
         Number of SQL queries: 1.
         """
 
-        statement = self.context.detail_statement(dimension, path, hierarchy)
-        labels = self.context.logical_labels(statement.columns)
+        statement = self.detail_statement(dimension, path, hierarchy)
+        labels = self.logical_labels(statement.columns)
 
         if self.debug:
             self.logger.info("path details SQL:\n%s" % statement)
@@ -294,7 +350,7 @@ class SnowflakeBrowser(AggregationBrowser):
         return record
 
     def is_builtin_function(self, name, aggregate):
-        return self.context.builtin_function(name, aggregate) is not None
+        return self.builtin_function(name, aggregate) is not None
 
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
@@ -348,7 +404,7 @@ class SnowflakeBrowser(AggregationBrowser):
                 (include_summary is None and self.include_summary) or \
                 not drilldown:
 
-            summary_statement = self.context.aggregation_statement(cell=cell,
+            summary_statement = self.aggregation_statement(cell=cell,
                                                                    aggregates=aggregates)
 
             if self.debug:
@@ -359,7 +415,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                labels = self.context.logical_labels(summary_statement.columns)
+                labels = self.logical_labels(summary_statement.columns)
                 record = dict(zip(labels, row))
             else:
                 record = None
@@ -410,14 +466,14 @@ class SnowflakeBrowser(AggregationBrowser):
 
             self.logger.debug("preparing drilldown statement")
 
-            statement = self.context.aggregation_statement(cell=cell,
+            statement = self.aggregation_statement(cell=cell,
                                                          aggregates=aggregates,
                                                          attributes=attributes,
                                                          drilldown=drilldown,
                                                          split=split)
 
-            statement = self.context.paginated_statement(statement, page, page_size)
-            statement = self.context.ordered_statement(statement, order,
+            statement = self.paginated_statement(statement, page, page_size)
+            statement = self.ordered_statement(statement, order,
                                                        drilldown, split,
                                                        is_aggregate=True)
 
@@ -425,7 +481,7 @@ class SnowflakeBrowser(AggregationBrowser):
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
 
             dd_result = self.connectable.execute(statement)
-            labels = self.context.logical_labels(statement.columns)
+            labels = self.logical_labels(statement.columns)
 
             #
             # Find post-aggregation calculations and decorate the result
@@ -461,7 +517,7 @@ class SnowflakeBrowser(AggregationBrowser):
         return result
 
     def is_builtin_function(self, name, aggregate):
-        return self.context.builtin_function(name, aggregate) is not None
+        return self.builtin_function(name, aggregate) is not None
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -521,7 +577,7 @@ class SnowflakeBrowser(AggregationBrowser):
         physical_tables = {}
 
         # Add fact table to support simple attributes
-        physical_tables[(self.context.fact_table.schema, self.context.fact_table.name)] = self.context.fact_table
+        physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
         for table in tables:
             try:
                 physical_table = sqlalchemy.Table(table[1], self.metadata,
@@ -550,104 +606,6 @@ class SnowflakeBrowser(AggregationBrowser):
                     issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
 
         return issues
-
-
-"""A Condition representation. `attributes` - list of attributes involved in
-the conditions, `conditions` - SQL conditions"""
-Condition = collections.namedtuple("Condition",
-                                   ["attributes", "condition"])
-
-"""Aliased table information"""
-AliasedTable = collections.namedtuple("AliasedTable",
-                                     ["schema", "table", "alias"])
-
-JoinProduct = collections.namedtuple("JoinProduct",
-                                        ["expression", "outer_details"])
-# FIXME: Remove/dissolve this class, it is just historical remnant
-# NOTE: the class was meant to contain reusable code by different SQL
-#       backends
-class QueryContext(object):
-
-    def __init__(self, cube, mapper, metadata, **options):
-        """Object providing context for constructing queries. Puts together
-        the mapper and physical structure. `mapper` - which is used for
-        mapping logical to physical attributes and performing joins.
-        `metadata` is a `sqlalchemy.MetaData` instance for getting physical
-        table representations.
-
-        Object attributes:
-
-        * `fact_table` – the physical fact table - `sqlalchemy.Table` instance
-        * `tables` – a dictionar keys are table references (schema,
-          table) or (shchema, alias) to real tables - `sqlalchemy.Table`
-          instances
-
-        .. note::
-
-            To get results as a dictionary, you should ``zip()`` the returned
-            rows after statement execution with:
-
-                labels = [column.name for column in statement.columns]
-                ...
-                record = dict(zip(labels, row))
-
-            This is little overhead for a workaround for SQLAlchemy behaviour
-            in SQLite database. SQLite engine does not respect dots in column
-            names which results in "duplicate column name" error.
-        """
-        super(QueryContext, self).__init__()
-
-        self.logger = get_logger()
-
-        self.cube = cube
-        self.mapper = mapper
-        self.schema = mapper.schema
-        self.metadata = metadata
-
-        # Prepare physical fact table - fetch from metadata
-        #
-        self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
-        self.fact_name = mapper.fact_name
-        try:
-            self.fact_table = sqlalchemy.Table(self.fact_name, self.metadata,
-                                               autoload=True,
-                                               schema=self.schema)
-        except sqlalchemy.exc.NoSuchTableError:
-            in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
-            msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
-            raise WorkspaceError(msg)
-
-        self.tables = {
-                    (self.schema, self.fact_name): self.fact_table
-                }
-
-        # Collect all tables and their aliases.
-        #
-        # table_aliases contains mapping between aliased table name and real
-        # table name with alias:
-        #
-        #       (schema, aliased_name) --> (schema, real_name, alias)
-        #
-        self.table_aliases = {
-            (self.schema, self.fact_name): (self.schema, self.fact_name, None)
-        }
-
-        # Collect all table aliases from joins detail tables
-        for join in self.mapper.joins:
-            # just ask for the table
-            table = AliasedTable(join.detail.schema,
-                                 join.detail.table,
-                                 join.alias)
-            table_alias = (join.detail.schema, join.alias or join.detail.table)
-            self.table_aliases[table_alias] = table
-
-        # Mapping where keys are attributes and values are columns
-        self.logical_to_column = {}
-        # Mapping where keys are column labels and values are attributes
-        self.column_to_logical = {}
-
-        self.safe_labels = options.get("safe_labels", False)
-        self.label_counter = 1
 
     def aggregation_statement(self, cell, aggregates=None, attributes=None,
                               drilldown=None, split=None):
@@ -1487,6 +1445,56 @@ class QueryContext(object):
         self.logger.debug("%s\n%s" % (label, str(statement)))
 
 
+"""A Condition representation. `attributes` - list of attributes involved in
+the conditions, `conditions` - SQL conditions"""
+Condition = collections.namedtuple("Condition",
+                                   ["attributes", "condition"])
+
+"""Aliased table information"""
+AliasedTable = collections.namedtuple("AliasedTable",
+                                     ["schema", "table", "alias"])
+
+JoinProduct = collections.namedtuple("JoinProduct",
+                                        ["expression", "outer_details"])
+# FIXME: Remove/dissolve this class, it is just historical remnant
+# NOTE: the class was meant to contain reusable code by different SQL
+#       backends
+class QueryContext(object):
+
+    def __init__(self, cube, mapper, metadata, **options):
+        """Object providing context for constructing queries. Puts together
+        the mapper and physical structure. `mapper` - which is used for
+        mapping logical to physical attributes and performing joins.
+        `metadata` is a `sqlalchemy.MetaData` instance for getting physical
+        table representations.
+
+        Object attributes:
+
+        * `fact_table` – the physical fact table - `sqlalchemy.Table` instance
+        * `tables` – a dictionar keys are table references (schema,
+          table) or (shchema, alias) to real tables - `sqlalchemy.Table`
+          instances
+
+        .. note::
+
+            To get results as a dictionary, you should ``zip()`` the returned
+            rows after statement execution with:
+
+                labels = [column.name for column in statement.columns]
+                ...
+                record = dict(zip(labels, row))
+
+            This is little overhead for a workaround for SQLAlchemy behaviour
+            in SQLite database. SQLite engine does not respect dots in column
+            names which results in "duplicate column name" error.
+        """
+        super(QueryContext, self).__init__()
+
+        self.logger = get_logger()
+
+
+
+
 def order_column(column, order):
     """Orders a `column` according to `order` specified as string."""
 
@@ -1523,7 +1531,13 @@ class ResultIterator(object):
 
         return dict(zip(self.labels, row))
 
-class SnapshotQueryContext(QueryContext):
+
+# TODO: test this
+class SnapshotBrowser(SnowflakeBrowser):
+    def __init__(self, cube, store, locale=None, metadata=None, debug=False, **options):
+
+       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata,
+                                             debug=debug, **options)
 
     def __init__(self, cube, mapper, metadata, **options):
         super(SnapshotQueryContext, self).__init__(cube, mapper, metadata, **options)
@@ -1663,14 +1677,3 @@ class SnapshotQueryContext(QueryContext):
                                   len(conditions) > 1 else conditions[0])
 
         return select
-
-class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, store, locale=None, metadata=None, debug=False, **options):
-
-       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata,
-                                             debug=debug, **options)
-
-       self.context = SnapshotQueryContext(self.cube, self.mapper,
-                                           metadata=self.metadata,
-                                           **self.options)
-

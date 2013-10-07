@@ -180,6 +180,7 @@ class JoinsTestCase(CubesTestCaseBase):
         cells = self.aggregate_cells("threetables", drilldown=drilldown)
         self.assertEqual(1, len(cells))
 
+    @unittest.skip("Not yet implemented")
     def test_condition_and_drilldown(self):
         cube = self.workspace.cube("condition_and_drilldown")
         cell = Cell(cube, [PointCut("city", [2])])
