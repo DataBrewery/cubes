@@ -723,8 +723,6 @@ class QueryContext(object):
                                        use_labels=True,
                                        group_by=group_by)
 
-        self._log_statement(select, "aggregate select")
-
         conditions = []
         if cell_cond.condition is not None:
             conditions.append(cell_cond.condition)
@@ -734,6 +732,8 @@ class QueryContext(object):
         if conditions:
             select = select.where(sql.expression.and_(*conditions) if
                                   len(conditions) > 1 else conditions[0])
+
+        self._log_statement(select, "aggregate select")
 
         return select
 
@@ -1599,7 +1599,7 @@ class SnapshotQueryContext(QueryContext):
 
         # We must produce, under certain conditions, a subquery:
         #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy. OR
-        #   - If the drilldown contains the date dimension, and it's a full path for the given hierarchy, 
+        #   - If the drilldown contains the date dimension, and it's a full path for the given hierarchy,
         #     but the hierarchy contains only 'dow'. OR
         #   - If the drilldown does not contain the date dimension.
         #
