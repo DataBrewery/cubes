@@ -852,6 +852,10 @@ class Cell(object):
         cuts-to-string conversion."""
         return 'Cell(%s: %s)' % (str(self.cube), self.to_str() or 'All')
 
+    def __nonzero__(self):
+        """Returns `True` if the cell contains cuts."""
+        return bool(self.cuts)
+
 CUT_STRING_SEPARATOR_CHAR = "|"
 DIMENSION_STRING_SEPARATOR_CHAR = ":"
 PATH_STRING_SEPARATOR_CHAR = ","
