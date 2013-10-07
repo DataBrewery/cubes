@@ -16,6 +16,7 @@ Contents:
    
    introduction
    install
+   workspace
    model
    schemas
    mapping
