@@ -371,16 +371,16 @@ class ModelProvider(object):
             model_join_map = {}
             for join in model_joins:
                 try:
-                    name = join['name']
+                    jname = join['name']
                 except KeyError:
                     raise ModelError("Missing required 'name' key in "
                                      "model-level joins.")
 
-                if name in model_join_map:
+                if jname in model_join_map:
                     raise ModelError("Duplicate model-level join 'name': %s" %
-                                     name)
+                                     jname)
 
-                model_join_map[name] = copy.deepcopy(join)
+                model_join_map[jname] = copy.deepcopy(join)
 
             # Merge cube's joins with model joins by their names.
             merged_joins = []
