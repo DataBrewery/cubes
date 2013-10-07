@@ -216,6 +216,26 @@ class AggregationBrowser(object):
 
         return new_order
 
+    def assert_low_cardinality(self, cell, drilldown):
+        """Raises `ArgumentError` when there is drilldown through high
+        cardinality dimension or level and there is no condition in the cell
+        for the level."""
+
+        hc_dimensions = drilldown.high_cardinality_dimensions()
+        if not is_paginated and hc_dimensions:
+            names = [dim.name for dim in hc_dimensions]
+            raise ArgumentError("Cannot drilldown on high-cardinality "
+                                "dimensions (%s) without including both "
+                                "page_size and page arguments" % names)
+
+        hc_levels = drilldown.high_cardinality_levels(cell)
+        if not is_paginated and hc_levels:
+            names = [dim.name for dim in hc_dimensions]
+            raise ArgumentError("Cannot drilldown on high-cardinality "
+                                "levels (%s) without including both "
+                                "page_size and page arguments" % names)
+
+
     def is_builtin_function(self, function_name, aggregate):
         """Returns `True` if function `function_name` for `aggregate` is
         bult-in. Returns `False` if the browser can not compute the function
