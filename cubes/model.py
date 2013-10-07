@@ -1734,7 +1734,7 @@ class Attribute(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, dimension=None, locales=None,
-                 **kwargs):
+                 missing_value=None, **kwargs):
         """Dimension attribute object. Also used as fact detail.
 
         Attributes:
@@ -1760,7 +1760,8 @@ class Attribute(AttributeBase):
 
         super(Attribute, self).__init__(name=name, label=label,
                                         description=description, order=order,
-                                        info=info, format=format)
+                                        info=info, format=format,
+                                        missing_value=missing_value)
 
         self.dimension = dimension
         self.locales = locales or []
@@ -1773,7 +1774,8 @@ class Attribute(AttributeBase):
                          order=copy.deepcopy(self.order, memo),
                          description=self.description,
                          info=copy.deepcopy(self.info, memo),
-                         format=self.format)
+                         format=self.format,
+                         missing_value=self.missing_value)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
@@ -1844,8 +1846,8 @@ def create_measure(md):
 class Measure(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, aggregates=None, formula=None,
-                 expression=None, **kwargs):
+                 info=None, format=None, missing_value=None, aggregates=None,
+                 formula=None, expression=None, **kwargs):
         """Fact measure attribute.
 
         Properties:
@@ -1865,7 +1867,7 @@ class Measure(AttributeBase):
         """
         super(Measure, self).__init__(name=name, label=label,
                                       description=description, order=order,
-                                      info=info, format=format)
+                                      info=info, format=format, missing_value=None)
 
         self.expression = expression
         self.formula = formula
@@ -1877,6 +1879,7 @@ class Measure(AttributeBase):
                        description=self.description,
                        info=copy.deepcopy(self.info, memo),
                        format=self.format,
+                       missing_value=self.missing.value,
                        aggregates=self.aggregates,
                        expression=self.expression,
                        formula=self.formula)
@@ -1944,8 +1947,8 @@ def create_measure_aggregate(md):
 class MeasureAggregate(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, measure=None, function=None,
-                 formula=None, expression=None, **kwargs):
+                 info=None, format=None, missing_value=None, measure=None,
+                 function=None, formula=None, expression=None, **kwargs):
         """Masure aggregate
 
         Attributes:
@@ -1960,7 +1963,8 @@ class MeasureAggregate(AttributeBase):
         super(MeasureAggregate, self).__init__(name=name, label=label,
                                                description=description,
                                                order=order, info=info,
-                                               format=format)
+                                               format=format,
+                                               missing_value=missing_value)
 
         self.function = function
         self.formula = formula
@@ -1974,6 +1978,7 @@ class MeasureAggregate(AttributeBase):
                                 description=self.description,
                                 info=copy.deepcopy(self.info, memo),
                                 format=self.format,
+                                missing_value=self.missing_value,
                                 measure=self.measure,
                                 function=self.function,
                                 formula=self.formula,
