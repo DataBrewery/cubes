@@ -1472,18 +1472,16 @@ class ResultIterator(object):
         return dict(zip(self.labels, row))
 
 
-# TODO: test this
 class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, store, locale=None, metadata=None, debug=False, **options):
+    def __init__(self, cube, **options):
+        super(SnapshotBrowser, self).__init__(cube, **options)
 
-       super(SnapshotBrowser, self).__init__(cube, store, locale, metadata,
-                                             debug=debug, **options)
+        snap_info = {
+            'dimension': 'daily_date',
+            'level_attribute': 'daily_datetime',
+            'aggregation': 'max'
+        }
 
-    def __init__(self, cube, mapper, metadata, **options):
-        super(SnapshotQueryContext, self).__init__(cube, mapper, metadata, **options)
-
-        snap_info = { 'dimension': 'daily_date', 'level_attribute':
-                     'daily_datetime', 'aggregation': 'max' }
         snap_info.update(cube.info.get('snapshot', {}))
         self.snapshot_dimension = cube.dimension(snap_info['dimension'])
         self.snapshot_level_attrname = snap_info['level_attribute']
@@ -1500,6 +1498,7 @@ class SnapshotBrowser(SnowflakeBrowser):
                             return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
                         else:
                             return None, False
+
         return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
 
     def aggregation_statement(self, cell, aggregates=None, attributes=None,
@@ -1530,6 +1529,7 @@ class SnapshotBrowser(SnowflakeBrowser):
 
         group_by = None
         drilldown_ptd_condition = None
+
         if split_dim_cond or drilldown:
             group_by = []
             if split_dim_cond:
