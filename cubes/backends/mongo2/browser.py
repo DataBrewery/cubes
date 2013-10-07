@@ -181,6 +181,7 @@ class Mongo2Browser(AggregationBrowser):
         # TODO include fields_obj, fully populated
         cursor = self.data_store.find(query_obj)
 
+        order = self.prepare_order(order)
         if order:
             order_obj = self._order_to_sort_object(order)
             k, v = order_obj.iteritems().next()
