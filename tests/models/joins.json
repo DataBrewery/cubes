@@ -35,6 +35,9 @@
             "measures": [
                     "amount"
                 ],
+            "aggregates": [
+                    {"name": "record_count", "function": "count"}
+                ],
             "joins": [
                 {
                     "master": "facts.id_city",
@@ -93,7 +96,7 @@
         {
             "name":"city",
             "levels": [
-                    {"name":"name"},
+                    {"name":"city", "attributes": ["id", "name"]},
                     {"name":"country"}
                 ]
         },
