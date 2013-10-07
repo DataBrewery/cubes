@@ -64,6 +64,7 @@ class Mongo2Browser(AggregationBrowser):
         features = {
             # TODO: missing "cell"
             "actions": ["aggregate", "members", "fact", "facts"],
+            "facts": ["fields", "missing_values"],
             "aggregate_functions": available_aggregate_functions(),
             "post_aggregate_functions": available_calculators()
         }
@@ -284,9 +285,6 @@ class Mongo2Browser(AggregationBrowser):
                 expr = phys.match_expression()
 
             fields[escape_level(attribute.ref())] = expr
-
-        self.logger.debug("--- QUERY: %s" % str(query))
-        self.logger.debug("--- FIELDS: %s" % str(fields))
 
         return query, fields
 
@@ -705,7 +703,7 @@ class MongoFactsIterator(Facts):
             record = {}
             for attribute in self.attributes:
                 physical = self.mapper.physical(attribute)
-                value = fact.get(physical.field)
+                value = fact.get(physical.field, attribute.missing_value)
 
                 if value and physical.is_date_part:
                     if physical.extract != "week":
