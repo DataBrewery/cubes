@@ -1588,7 +1588,7 @@ class Drilldown(object):
         return bool(self.high_cardinality_dimensin_drilldown()) or \
                 bool(self.high_cardinality_level_drilldown())
 
-    def high_cardinality_dimensin_drilldown(self):
+    def high_cardinality_dimension_drilldown(self):
         """Returns drilldown items with high cardinality dimensions."""
         items = []
         for item in self.drilldown:
@@ -1605,9 +1605,47 @@ class Drilldown(object):
         for item in self.drilldown:
             for level in item.levels:
                 if level.info.get("high_cardinality"):
-                    items.append(level)
+                    items.append(item)
 
         return items
+
+    def high_cardinality_dimensions(self, cell=None):
+        """Returns list of dimensions in the drilldown that are
+        of high-cardinality."""
+
+        items = self.high_cardinality_dimension_drilldown()
+        return [item.dim for item in items]
+
+    def high_cardinality_levels(self, cell):
+        """Returns list of levels in the drilldown that are of high
+        cardinality and there is no cut for that level in the `cell`."""
+
+        items = self.high_cardinality_level_drilldown()
+
+        for item in items:
+            dim, hier, level = item[0:3]
+
+            hc_levels = [l for l in levels if l.info.get('high_cardinality')]
+
+            if not all(cell.contains_level(dim, l, hier) for l in hc_levels):
+                return hc_levels
+
+        return []
+
+    def result_levels(self, include_split=False):
+        """Returns a dictionary where keys are dimension names and values are
+        list of level names for the drilldown. Use this method to populate the
+        result levels attribute.
+
+        If `include_split` is `True` then split dimension is included."""
+        result = {}
+        for dim, levels in self._by_dimension.items():
+            result[dim] = [str(level) for level in levels]
+
+        if include_split:
+            result.levels[SPLIT_DIMENSION_NAME] = [SPLIT_DIMENSION_NAME]
+
+        return result
 
     def __contains__(self, key):
         return str(key) in self._by_dimension
@@ -1617,6 +1655,9 @@ class Drilldown(object):
 
     def __iter__(self):
         return self.drilldown.__iter__()
+
+    def __nonzero__(self):
+        return len(self.drilldown) > 0
 
 DrilldownItem = namedtuple("DrilldownItem",
                            ["dimension", "hierarchy", "levels", "keys"])
