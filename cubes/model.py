@@ -820,7 +820,7 @@ class Dimension(object):
     """
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
-                 info=None, **desc):
+                 info=None, type_=None, **desc):
 
         """Create a new dimension
 
@@ -836,6 +836,8 @@ class Dimension(object):
         * `description`: human readable dimension description
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information (icon, color, ...)
+        * `type` – one of recognized special dimension types. Currently
+          supported is only ``date``.
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -850,6 +852,7 @@ class Dimension(object):
         self.label = label
         self.description = description
         self.info = info or {}
+        self.type = type_
 
         if not levels:
             raise ModelError("No levels specified for dimension %s"
@@ -1037,6 +1040,7 @@ class Dimension(object):
         out["name"] = self.name
         out["info"] = self.info
         out["default_hierarchy_name"] = self.default_hierarchy_name
+        out["type"] = self.type
 
         if options.get("create_label"):
             out["label"] = self.label or to_label(self.name)
