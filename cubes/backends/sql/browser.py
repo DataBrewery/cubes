@@ -437,31 +437,18 @@ class SnowflakeBrowser(AggregationBrowser):
         if drilldown or split:
             drilldown = Drilldown(drilldown, cell)
 
-            is_paginated = page_size and page is not None
-
-            hc_dimensions = drilldown.high_cardinality_dimensions()
-            if not is_paginated and hc_dimensions:
-                names = [dim.name for dim in hc_dimensions]
-                raise BrowserError("Cannot drilldown on high-cardinality "
-                                   "dimensions (%s) without including both "
-                                   "page_size and page arguments" % names)
-
-            hc_levels = drilldown.high_cardinality_levels(cell)
-            if not is_paginated and hc_levels:
-                names = [dim.name for dim in hc_dimensions]
-                raise BrowserError("Cannot drilldown on high-cardinality "
-                                   "levels (%s) without including both "
-                                   "page_size and page arguments" % names)
+            if page_size and page is not None:
+                self.assert_low_cardinality(cell, drilldown)
 
             result.levels = drilldown.result_levels(include_split=bool(split))
 
             self.logger.debug("preparing drilldown statement")
 
             statement = self.aggregation_statement(cell=cell,
-                                                         aggregates=aggregates,
-                                                         attributes=attributes,
-                                                         drilldown=drilldown,
-                                                         split=split)
+                                                   aggregates=aggregates,
+                                                   attributes=attributes,
+                                                   drilldown=drilldown,
+                                                   split=split)
 
             statement = self.paginated_statement(statement, page, page_size)
             statement = self.ordered_statement(statement, order, drilldown,
