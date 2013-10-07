@@ -23,8 +23,7 @@ except ImportError:
 
 __all__ = [
     "SnowflakeBrowser",
-    "SnapshotBrowser",
-    "QueryContext"
+    "SnapshotBrowser"
 ]
 
 _EXPR_EVAL_NS = {
@@ -205,6 +204,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return features
 
+    def is_builtin_function(self, name, aggregate):
+        return self.builtin_function(name, aggregate) is not None
+
     def set_locale(self, locale):
         """Change the browser's locale"""
         self.logger.debug("changing browser's locale to %s" % locale)
@@ -349,9 +351,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
-    def is_builtin_function(self, name, aggregate):
-        return self.builtin_function(name, aggregate) is not None
-
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
                   include_summary=None, include_cell_count=None,
@@ -436,33 +435,25 @@ class SnowflakeBrowser(AggregationBrowser):
         # separate method and share
         # TODO: Use Drilldown class
         if drilldown or split:
-            drilldown = (levels_from_drilldown(cell, drilldown) if drilldown else [])
+            drilldown = Drilldown(drilldown, cell)
 
-            dim_levels = {}
+            is_paginated = page_size and page is not None
 
-            for dditem in drilldown:
-                dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
+            hc_dimensions = drilldown.high_cardinality_dimensions()
+            if not is_paginated and hc_dimensions:
+                names = [dim.name for dim in hc_dimensions]
+                raise BrowserError("Cannot drilldown on high-cardinality "
+                                   "dimensions (%s) without including both "
+                                   "page_size and page arguments" % names)
 
-                if dim.info.get('high_cardinality') \
-                        and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality dimension (%s) without including both page_size and page arguments" % (dim.name))
+            hc_levels = drilldown.high_cardinality_levels(cell)
+            if not is_paginated and hc_levels:
+                names = [dim.name for dim in hc_dimensions]
+                raise BrowserError("Cannot drilldown on high-cardinality "
+                                   "levels (%s) without including both "
+                                   "page_size and page arguments" % names)
 
-                hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
-
-                if len(hc_levels) and not (page_size and page is not None):
-                    # allow this drilldown if all high-card levels are present
-                    # in the cut cell as a PointCut or SetCut (not RangeCut)
-                    if not all(cell.contains_level(dim, l, hier) for l in hc_levels):
-                        raise BrowserError(("Cannot drilldown on high-cardinality levels (%s) " +
-                                           "without including both page_size and page arguments")
-                                           % (",".join([l.key.ref() for l in levels if l.info.get('high_cardinality')])))
-
-                dim_levels[str(dim)] = [str(level) for level in levels]
-
-            if split:
-                dim_levels[SPLIT_DIMENSION_NAME] = [ SPLIT_DIMENSION_NAME ]
-
-            result.levels = dim_levels
+            result.levels = drilldown.result_levels(include_split=bool(split))
 
             self.logger.debug("preparing drilldown statement")
 
@@ -473,9 +464,8 @@ class SnowflakeBrowser(AggregationBrowser):
                                                          split=split)
 
             statement = self.paginated_statement(statement, page, page_size)
-            statement = self.ordered_statement(statement, order,
-                                                       drilldown, split,
-                                                       is_aggregate=True)
+            statement = self.ordered_statement(statement, order, drilldown,
+                                               split, is_aggregate=True)
 
             if self.debug:
                 self.logger.info("aggregation drilldown SQL:\n%s" % statement)
@@ -515,97 +505,6 @@ class SnowflakeBrowser(AggregationBrowser):
                 calc(result.summary)
 
         return result
-
-    def is_builtin_function(self, name, aggregate):
-        return self.builtin_function(name, aggregate) is not None
-
-    def validate(self):
-        """Validate physical representation of model. Returns a list of
-        dictionaries with keys: ``type``, ``issue``, ``object``.
-
-        Types might be: ``join`` or ``attribute``.
-
-        The ``join`` issues are:
-
-        * ``no_table`` - there is no table for join
-        * ``duplicity`` - either table or alias is specified more than once
-
-        The ``attribute`` issues are:
-
-        * ``no_table`` - there is no table for attribute
-        * ``no_column`` - there is no column for attribute
-        * ``duplicity`` - attribute is found more than once
-
-        """
-        issues = []
-
-        # Check joins
-
-        tables = set()
-        aliases = set()
-        alias_map = {}
-        #
-        for join in self.mapper.joins:
-            self.logger.debug("join: %s" % (join, ))
-
-            if not join.master.column:
-                issues.append(("join", "master column not specified", join))
-            if not join.detail.table:
-                issues.append(("join", "detail table not specified", join))
-            elif join.detail.table == self.mapper.fact_name:
-                issues.append(("join", "detail table should not be fact table", join))
-
-            master_table = (join.master.schema, join.master.table)
-            tables.add(master_table)
-
-            detail_alias = (join.detail.schema, join.alias or join.detail.table)
-
-            if detail_alias in aliases:
-                issues.append(("join", "duplicate detail table %s" % detail_table, join))
-            else:
-                aliases.add(detail_alias)
-
-            detail_table = (join.detail.schema, join.detail.table)
-            alias_map[detail_alias] = detail_table
-
-            if detail_table in tables and not join.alias:
-                issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
-            else:
-                tables.add(detail_table)
-
-        # Check for existence of joined tables:
-        physical_tables = {}
-
-        # Add fact table to support simple attributes
-        physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
-        for table in tables:
-            try:
-                physical_table = sqlalchemy.Table(table[1], self.metadata,
-                                        autoload=True,
-                                        schema=table[0] or self.mapper.schema)
-                physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
-            except sqlalchemy.exc.NoSuchTableError:
-                issues.append(("join", "table %s.%s does not exist" % table, join))
-
-        # Check attributes
-
-        attributes = self.mapper.all_attributes()
-        physical = self.mapper.map_attributes(attributes)
-
-        for attr, ref in zip(attributes, physical):
-            alias_ref = (ref.schema, ref.table)
-            table_ref = alias_map.get(alias_ref, alias_ref)
-            table = physical_tables.get(table_ref)
-
-            if table is None:
-                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
-            else:
-                try:
-                    c = table.c[ref.column]
-                except KeyError:
-                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
-
-        return issues
 
     def aggregation_statement(self, cell, aggregates=None, attributes=None,
                               drilldown=None, split=None):
@@ -1328,6 +1227,7 @@ class SnowflakeBrowser(AggregationBrowser):
                 new_order.append( (attribute, direction) )
 
         return new_order
+
     def table(self, schema, table_name):
         """Return a SQLAlchemy Table instance. If table was already accessed,
         then existing table is returned. Otherwise new instance is created.
@@ -1444,55 +1344,108 @@ class SnowflakeBrowser(AggregationBrowser):
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s" % (label, str(statement)))
 
+    def validate(self):
+        """Validate physical representation of model. Returns a list of
+        dictionaries with keys: ``type``, ``issue``, ``object``.
+
+        Types might be: ``join`` or ``attribute``.
+
+        The ``join`` issues are:
+
+        * ``no_table`` - there is no table for join
+        * ``duplicity`` - either table or alias is specified more than once
+
+        The ``attribute`` issues are:
+
+        * ``no_table`` - there is no table for attribute
+        * ``no_column`` - there is no column for attribute
+        * ``duplicity`` - attribute is found more than once
+
+        """
+        issues = []
+
+        # Check joins
+
+        tables = set()
+        aliases = set()
+        alias_map = {}
+        #
+        for join in self.mapper.joins:
+            self.logger.debug("join: %s" % (join, ))
+
+            if not join.master.column:
+                issues.append(("join", "master column not specified", join))
+            if not join.detail.table:
+                issues.append(("join", "detail table not specified", join))
+            elif join.detail.table == self.mapper.fact_name:
+                issues.append(("join", "detail table should not be fact table", join))
+
+            master_table = (join.master.schema, join.master.table)
+            tables.add(master_table)
+
+            detail_alias = (join.detail.schema, join.alias or join.detail.table)
+
+            if detail_alias in aliases:
+                issues.append(("join", "duplicate detail table %s" % detail_table, join))
+            else:
+                aliases.add(detail_alias)
+
+            detail_table = (join.detail.schema, join.detail.table)
+            alias_map[detail_alias] = detail_table
+
+            if detail_table in tables and not join.alias:
+                issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
+            else:
+                tables.add(detail_table)
+
+        # Check for existence of joined tables:
+        physical_tables = {}
+
+        # Add fact table to support simple attributes
+        physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
+        for table in tables:
+            try:
+                physical_table = sqlalchemy.Table(table[1], self.metadata,
+                                        autoload=True,
+                                        schema=table[0] or self.mapper.schema)
+                physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
+            except sqlalchemy.exc.NoSuchTableError:
+                issues.append(("join", "table %s.%s does not exist" % table, join))
+
+        # Check attributes
+
+        attributes = self.mapper.all_attributes()
+        physical = self.mapper.map_attributes(attributes)
+
+        for attr, ref in zip(attributes, physical):
+            alias_ref = (ref.schema, ref.table)
+            table_ref = alias_map.get(alias_ref, alias_ref)
+            table = physical_tables.get(table_ref)
+
+            if table is None:
+                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
+            else:
+                try:
+                    c = table.c[ref.column]
+                except KeyError:
+                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
+
+        return issues
+
 
 """A Condition representation. `attributes` - list of attributes involved in
 the conditions, `conditions` - SQL conditions"""
 Condition = collections.namedtuple("Condition",
                                    ["attributes", "condition"])
 
+
 """Aliased table information"""
 AliasedTable = collections.namedtuple("AliasedTable",
                                      ["schema", "table", "alias"])
 
+
 JoinProduct = collections.namedtuple("JoinProduct",
                                         ["expression", "outer_details"])
-# FIXME: Remove/dissolve this class, it is just historical remnant
-# NOTE: the class was meant to contain reusable code by different SQL
-#       backends
-class QueryContext(object):
-
-    def __init__(self, cube, mapper, metadata, **options):
-        """Object providing context for constructing queries. Puts together
-        the mapper and physical structure. `mapper` - which is used for
-        mapping logical to physical attributes and performing joins.
-        `metadata` is a `sqlalchemy.MetaData` instance for getting physical
-        table representations.
-
-        Object attributes:
-
-        * `fact_table` – the physical fact table - `sqlalchemy.Table` instance
-        * `tables` – a dictionar keys are table references (schema,
-          table) or (shchema, alias) to real tables - `sqlalchemy.Table`
-          instances
-
-        .. note::
-
-            To get results as a dictionary, you should ``zip()`` the returned
-            rows after statement execution with:
-
-                labels = [column.name for column in statement.columns]
-                ...
-                record = dict(zip(labels, row))
-
-            This is little overhead for a workaround for SQLAlchemy behaviour
-            in SQLite database. SQLite engine does not respect dots in column
-            names which results in "duplicate column name" error.
-        """
-        super(QueryContext, self).__init__()
-
-        self.logger = get_logger()
-
-
 
 
 def order_column(column, order):
