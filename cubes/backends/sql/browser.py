@@ -562,7 +562,7 @@ AliasedTable = collections.namedtuple("AliasedTable",
                                      ["schema", "table", "alias"])
 
 JoinProduct = collections.namedtuple("JoinProduct",
-                                        ["expression", "outer_detail"])
+                                        ["expression", "outer_details"])
 # FIXME: Remove/dissolve this class, it is just historical remnant
 # NOTE: the class was meant to contain reusable code by different SQL
 #       backends
@@ -713,7 +713,7 @@ class QueryContext(object):
 
         # Collect expressions of aggregate functions
         selection += self.builtin_aggregate_expressions(aggregates,
-                                                        coalesce_measures=join_product.outer_detail)
+                                                        coalesce_measures=bool(join_product.outer_details))
 
         # Drill-down statement
         # --------------------
@@ -958,7 +958,7 @@ class QueryContext(object):
         # Perform the joins
         # =================
         #
-        outer_detail = False
+        outer_details = []
 
         for join in joins:
             # Prepare the table keys:
@@ -1010,7 +1010,7 @@ class QueryContext(object):
                 # Swap the master and detail tables to perform RIGHT OUTER JOIN
                 master_table, detail_table = (detail_table, master_table)
                 is_outer = True
-                outer_detail = True
+                outer_details.append(detail_table)
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
@@ -1036,7 +1036,7 @@ class QueryContext(object):
         self._log_statement(result, "join result")
 
         # TODO: avoid returning named tuples
-        return JoinProduct(result, outer_detail)
+        return JoinProduct(result, outer_details)
 
     def condition_for_cell(self, cell):
         """Constructs conditions for all cuts in the `cell`. Returns a named
@@ -1616,7 +1616,7 @@ class SnapshotQueryContext(QueryContext):
                 # TODO: check if this works with product.outer_detail = True
                 product = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
                 join_expression = product.expression
-                outer_detail_join = product.outer_detail
+                outer_detail_join = bool(product.outer_details)
 
             subq_join_expression = join_expression
             subq_selection = [ s.label('col%d' % i) for i, s in enumerate(selection) ]
