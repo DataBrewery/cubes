@@ -1879,7 +1879,7 @@ class Measure(AttributeBase):
                        description=self.description,
                        info=copy.deepcopy(self.info, memo),
                        format=self.format,
-                       missing_value=self.missing.value,
+                       missing_value=self.missing_value,
                        aggregates=self.aggregates,
                        expression=self.expression,
                        formula=self.formula)
