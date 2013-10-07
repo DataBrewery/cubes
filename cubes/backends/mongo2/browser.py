@@ -92,41 +92,12 @@ class Mongo2Browser(AggregationBrowser):
         # separate method and share
 
         if drilldown or split:
-            if drilldown:
-                drilldown = levels_from_drilldown(cell, drilldown)
-            else:
-                drilldown = []
+            drilldown = Drilldown(drilldown, cell)
 
-            dim_levels = {}
+            if page_size and page is not None:
+                self.assert_low_cardinality(cell, drilldown)
 
-            if split:
-                dim_levels[SPLIT_DIMENSION_NAME] = split.to_dict().get('cuts')
-
-            for dditem in drilldown:
-                dim, hier, levels = dditem.dimension, dditem.hierarchy, dditem.levels
-
-                # if dim or one of its levels is high_cardinality, and there is
-                # no page_size and page, raise BrowserError
-                if dim.info.get('high_cardinality') \
-                        and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality "
-                                       "dimension (%s) without including "
-                                       "both page_size and page arguments" %
-                                       (dim.name))
-
-                hc_levels = [ l for l in levels if l.info.get('high_cardinality') ]
-
-                if hc_levels and not (page_size and page is not None):
-                    raise BrowserError("Cannot drilldown on high-cardinality "
-                                       "levels (%s) without including both "
-                                       "page_size and page arguments" %
-                                       (",".join([l.key.ref() for l in
-                                                  dditem.levels if
-                                                  l.info.get('high_cardinality')])))
-
-                dim_levels[str(dim)] = [str(level) for level in levels]
-
-            result.levels = dim_levels
+            result.levels = drilldown.result_levels(include_split=bool(split))
 
             #
             # Find post-aggregation calculations and decorate the result
