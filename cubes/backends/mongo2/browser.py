@@ -169,16 +169,17 @@ class Mongo2Browser(AggregationBrowser):
 
         if not fields:
             attributes = self.cube.all_attributes
-            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
+            self.logger.debug("facts: getting all fields")
         else:
             attributes = self.cube.get_attributes(fields)
             self.logger.debug("facts: getting fields: %s" % fields)
 
         # Prepare the query
-        query_obj, fields_obj = self._build_query_and_fields(cell, [])
+        query_obj, fields_obj = self._build_query_and_fields(cell, [], for_project=False)
 
         # TODO include fields_obj, fully populated
         cursor = self.data_store.find(query_obj)
+
         if order:
             order_obj = self._order_to_sort_object(order)
             k, v = order_obj.iteritems().next()
@@ -208,7 +209,8 @@ class Mongo2Browser(AggregationBrowser):
             item = to_json_safe(item)
         return item
 
-    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None, order=None, page=None, page_size=None, **options):
+    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None,
+               order=None, page=None, page_size=None, **options):
         cell = cell or Cell(self.cube)
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
@@ -246,30 +248,47 @@ class Mongo2Browser(AggregationBrowser):
         return (physical_ref.database == self.mapper.database) and (physical_ref.collection == self.mapper.collection)
 
     def _build_query_and_fields(self, cell, attributes, for_project=False):
-        """Returns a tuple (`query`, `fields`)."""
+        """Returns a tuple (`query`, `fields`). If `for_project` is `True`,
+        then the values are transformed using `project`, otherwise they are
+        transformed usin the `match` expression."""
+
         find_clauses = []
-        query_obj = {}
-        if not for_project and self.cube.mappings and \
-                self.cube.mappings.get('__query__'):
-            query_obj.update(copy.deepcopy(self.cube.mappings['__query__']))
+        query = {}
+
+        if not for_project:
+            try:
+                query_base = copy.deepcopy(self.cube.mappings['__query__'])
+            except KeyError:
+                # We just ignore the missing __query__ mapping
+                pass
+            else:
+                query.update(query_base)
 
         find_clauses = []
         for cut in cell.cuts:
             find_clauses += self._query_conditions_for_cut(cut, for_project)
 
         if find_clauses:
-            query_obj.update({"$and": find_clauses})
+            query.update({"$and": find_clauses})
 
-        fields_obj = {}
+        fields = {}
 
         for attribute in attributes or []:
             phys = self.mapper.physical(attribute)
             if not self._in_same_collection(phys):
                 raise ValueError("Cannot fetch field that is in different "
                                  "collection than this browser: %r" % phys)
-            fields_obj[escape_level(attribute.ref())] = phys.project_expression()
+            if for_project:
+                expr = phys.project_expression()
+            else:
+                expr = phys.match_expression()
 
-        return query_obj, fields_obj
+            fields[escape_level(attribute.ref())] = expr
+
+        self.logger.debug("--- QUERY: %s" % str(query))
+        self.logger.debug("--- FIELDS: %s" % str(fields))
+
+        return query, fields
 
     def _do_aggregation_query(self, cell, aggregates, attributes, drilldown,
                               split, order, page, page_size):
@@ -547,10 +566,20 @@ class Mongo2Browser(AggregationBrowser):
                 start, dp = self._build_date_for_cut(cut_hierarchy, cut.path)
                 if start is None:
                     return conds
+
                 end = start + relativedelta(**{str(dp)+'s':1})
 
-                start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt', for_project)
-                end_cond =self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt'if not cut.invert else '$gte', for_project)
+                if not cut.invert:
+                    start_op = '$gte'
+                    end_op = '$lt'
+                else:
+                    start_op = '$lt'
+                    end_op = '$gt'
+
+                key = cut_hierarchy.levels[0].key
+
+                start_cond = self._query_condition_for_path_value(key, start, start_op, for_project)
+                end_cond =self._query_condition_for_path_value(key, end, end_op, for_project)
 
                 if not cut.invert:
                     conds.append(start_cond)
@@ -562,6 +591,7 @@ class Mongo2Browser(AggregationBrowser):
                 # one condition per path element
                 for idx, p in enumerate(cut.path):
                     conds.append( self._query_condition_for_path_value(cut_hierarchy.levels[idx].key, p, "$ne" if cut.invert else '$eq', for_project) )
+
         elif isinstance(cut, SetCut):
             for path in cut.paths:
                 path_conds = []
