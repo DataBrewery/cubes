@@ -37,7 +37,15 @@ MONGO_DATE_PARTS = ["year", "month", "day", "week", "hour", "minute"]
 class MongoDocumentField(object):
     def __init__(self, database, collection, field, match, project, group,
                  encode, decode, type_name=None, extract=None):
-        """Creates a mongo document field."""
+        """Creates a mongo document field.
+
+        If a cut applies to the dimension, then a $match expression will be
+        used to implement the cut
+
+        If a drilldown applies to the dimension field, then a $project
+        expression, with a key matching the logical ref() of the level, will be
+        used in the aggregation pipeline
+        """
 
         self.database = database
         self.collection = collection
@@ -51,13 +59,17 @@ class MongoDocumentField(object):
         if group:
             self.group = copy.deepcopy(group)
 
-        self.encode = lambda x: x
+        # TODO: is this used?
         if encode:
             self.encode = eval(compile(encode, '__encode__', 'eval'), copy.copy(MONGO_EVAL_NS))
+        else:
+            self.encode = lambda x: x
 
-        self.decode = lambda x: x
+        # TODO: is this used?
         if decode:
             self.decode = eval(compile(decode, '__decode__', 'eval'), copy.copy(MONGO_EVAL_NS))
+        else:
+            self.decode = lambda x: x
 
         type_name = str('string' if type_name is None else type_name)
         self.value_type = MONGO_TYPES.get(type_name.lower(), str)
@@ -68,6 +80,7 @@ class MongoDocumentField(object):
     def match_expression(self, value, op=None, for_project=False):
         value = self.encode(value)
         field_name = ("$%s" % self.field) if for_project else self.field
+
         if op is None or (op == '$eq' and not for_project):
             return { field_name : value }
         elif for_project:
@@ -85,6 +98,9 @@ class MongoDocumentField(object):
         """Convert `value` according to field type"""
         return self.value_type(value)
 
+
+# Special mappings:
+# __query__ – used for all queries
 
 def coalesce_physical(mapper, ref):
     if isinstance(ref, basestring):
