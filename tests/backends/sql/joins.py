@@ -142,7 +142,6 @@ class JoinsTestCase(CubesTestCaseBase):
     def test_cell_count_detail(self):
         summary = self.aggregate_summary("facts_detail_city",
                                          drilldown=self.city_drilldown)
-        self.assertEqual(0, summary["record_count"])
         self.assertEqual(1100, summary["amount_sum"])
 
         cells = self.aggregate_cells("facts_detail_city", drilldown=self.city_drilldown)
@@ -180,3 +179,13 @@ class JoinsTestCase(CubesTestCaseBase):
         drilldown = self.city_drilldown+self.year_drilldown
         cells = self.aggregate_cells("threetables", drilldown=drilldown)
         self.assertEqual(1, len(cells))
+
+    def test_condition_and_drilldown(self):
+        cube = self.workspace.cube("condition_and_drilldown")
+        cell = Cell(cube, [PointCut("city", [2])])
+        dd = [("date", None, "day")]
+        cells = self.aggregate_cells("condition_and_drilldown", cell=cell,
+                                     drilldown=dd)
+
+        # We want every day from the date table
+        self.assertEqual(31, len(cells))
