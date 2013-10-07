@@ -12,7 +12,7 @@ focus on data instead on ways of how to get the data in understandable form.
     :doc:`schemas`
         Example database schemas and their respective models.
 
-    :doc:`api/model`
+    :doc:`reference/model`
         Reference of model classes and fucntions.
 
 Introduction
@@ -20,13 +20,14 @@ Introduction
 
 The logical model enables users to:
 
-* refer to dimension attributes by name regardless of storage (which table)
-* specify hierarchical dependencies of attributes, such as:
+* see the data from the business perspective
+* hide physical structure of the data ("how application's use it")
+* specify concept hierarchies of attributes, such as:
     * `product category > product > subcategory > product`
     * `country > region > county > town`.
-* specify attribute labels to be displayed in end-user application
-* for all localizations use the same attribute name, therefore write only one 
-  query for all report translations
+* provide more descriptive attribute labels for display in the applications or
+  reports
+* transparent localization of metadata and data
 
 Analysts or report writers do not have to know where name of an organisation
 or category is stored, nor he does not have to care whether customer data is
@@ -61,49 +62,46 @@ in geographical names, that is: `country.name` and `region.name`.
 .. How the physical attributes are located is described in the :doc:`mapping` 
 .. chapter.
 
-Logical Model Description
-=========================
+Logical Model Metadata
+======================
 
-The logical model can be either constructed programmatically or provided as
-JSON. The model entities and their structure are depicted on the following
-figure:
 
-.. figure:: logical_model.png
+The logical model is described using `model metadata dictionary`. The content
+is description of logical objects, physical storage and other additional
+information.
+
+.. figure:: images/cubes-model_metadata.png
     :align: center
-    :width: 550px
+    :width: 300px
 
-    The logical model entities and relationships.
+    Logical model metadata
 
-Load a model:
+Logical part of the model description:
 
-.. code-block:: python
+* ``name`` – model name
+* ``label`` – human readable model label *(optional)*
+* ``description`` – human readable description of the model *(optional)*
+* ``locale`` – locale the model metadata are written in *(optional, used for
+  localizable models)*
+* ``cubes`` – list of cubes metadata (see below)
+* ``dimensions`` – list of dimension metadata (see below)
+* ``public_dimensions`` – list of dimension names that will be exported from the
+  model as public and might be shared by cubes from other models. By default,
+  all model's dimensions are considered public.
 
-    model = cubes.load_model(path)
+Physical part of the model description:
 
-The ``path`` might be:
+* ``store`` – name of the datastore where model's cubes are stored. Default is
+  ``default``. See :doc:`workspace` for more information.
+* ``mappings`` - backend-specific logical to physical mapping
+  dictionary. This dictionary is inherited by every cube in the model.
+* ``joins`` - backend-specific join specification (used for example in
+  the SQL backend). It should be a list of dictionaries. This list is
+  inherited by the cubes in the model. 
+* ``browser_options`` – options passed to the browser. The options are merged
+  with options in the cubes.
 
-* JSON file with a dictionary describing model
-* URL with a JSON dictionary
-* a directory with logical model description files (model, cubes, dimensions) - note that this is
-  the old way of specifying model and is being depreciated
-
-Model can be represented also as a single json file containing all model objects. 
-
-The directory contains:
-
-========================== =============================================
-File                       Description
-========================== =============================================
-model.json                 Core model information
-cube_*cube_name*.json      Cube description, one file per cube
-dim_*dimension_name*.json  Dimension description, one file per dimension
-========================== =============================================
-
-
-Model
------
-
-The `model` dictionary contains main model description. The structure is:
+Example model snippet:
 
 .. code-block:: javascript
 
@@ -115,29 +113,75 @@ The `model` dictionary contains main model description. The structure is:
     	"dimensions": [...]
     }
 
-============== ===================================================
-Key            Description
-============== ===================================================
-**cubes**      list of cube descriptions
-**dimensions** list of dimension descriptions
-name           model name *(optional)*
-label          human readable name - can be used in an application
-               *(optional)*
-description    longer human-readable description of the model
-               *(optional)*
-locale         default model locale               
-============== ===================================================
+Mappings and Joins
+------------------
+
+One can specifi shared mappings and joins on the model-level. Those mappings
+and joins are inherited by all the cubes in the model.
+
+The ``mappigns`` dictionary of a cube is merged with model's global mapping
+dictionary. Cube's values overwrite the model's values.
+
+The ``joins`` can be considered as named templates. They should contain
+``name`` property that will be referenced by a cube.
+
+File Representation
+-------------------
+
+The model can be represented either as a JSON file or as a directory with JSON
+files. The single-file model specification is just a dictionary with model
+properties. The model directory bundle should have the following content:
+
+* ``model.json`` – model's master metadata – same as single-file model
+* ``dim_*.json`` – dimension metadata file – single dimension dictionary
+* ``cube_*.json`` – cube metadata – single cube dictionary
+
+The list of dimensions and cubes in the ``model.json`` are merged with the
+dimensions and cubes in the separate files. Avoid duplicate definitions.
+
+Example directory bundle model::
+
+    model.cubesmodel/
+        model.json
+        dim_date.json
+        dim_organization.json
+        dim_category.json
+        cube_contracts.json
+        cube_events.json
+
+Model Provider and External Models
+----------------------------------
+
+If the model is provided from an external source, such as an API or a
+database, then name of the provider should be specified in ``provider``.
+
+The provider receives the model's metadata and the model's data store (if the
+provider so desires). Then the provider generates all the cubes and the
+dimensions.
+
+Example of provided model:
+
+.. code-block:: javascript
+
+    {
+    	"name": "Events",
+    	"provider": "mixpanel"
+    }
+
+.. note::
+
+    The `cubes` and `dimensions` in the generated model are just informative
+    for the model provider. The provider can yield different set of cubes and
+    dimensions as specified in the metadata.
+
 
 .. seealso::
 
-    :func:`cubes.load_model`
+    :func:`cubes.ModelProvider`
         Load a model from a file or a URL.
 
-    :func:`cubes.create_model`
+    :func:`cubes.StaticModelProvider`
         Create model from a dictionary.
-
-    :class:`cubes.Model`
-        Model class reference.
 
 
 Cubes
@@ -182,6 +226,7 @@ Example:
         "dimensions": [ "date", ... ]
 
     	"measures": [...],
+    	"aggregates": [...],
     	"details": [...],
 
     	"fact": "fact_table_name",
@@ -189,6 +234,50 @@ Example:
     	"joins": [ ... ]
     }
 
+Measures and Aggregates
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. figure:: images/cubes-measure_vs_aggregate.png
+    :align: center
+    :width: 300px
+
+    Measure and measure aggregate
+
+Measures are numerical properties of a fact. They might be represented, for
+example, as a table column. Measures are aggregated into measure aggregates.
+The measure is described as:
+
+* ``name`` – measure identifier
+* ``label`` – human readable name to be displayed (localized)
+* ``info`` – additional custom information (unspecified)
+* ``aggregates`` – list of aggregate functions that are provided for this
+  measure. This property is for generating default aggregates automatically.
+  It is highly recommended to list the aggregates explicitly and avoid using
+  this property.
+
+.. ``formula`` – name of formula
+.. ``expression`` – arithmetic expression
+
+Measure aggregate is a value computed by aggregating measures over facts. It's
+properties are:
+
+* ``name`` – aggregate identifier, such as: `amount_sum`, `price_avg`,
+  `total`, `record_count`
+* ``label`` – human readable label to be displayed (localized)
+* ``measure`` – measure the aggregate is derived from, if it exists or it is
+  known. Might be empty.
+* ``function`` - name of an aggregate function applied to the `measure`, if
+  known. For example: `sum`, `min`, `max`.
+* ``info`` – additional custom information (unspecified)
+
+.. note::
+
+    Some aggregates do not have to be computed from measures. They might be
+    already provided by the data store as computed aggregate values (for
+    example Mixpanel's `total`). In this case the `measure` and `function`
+    serves only for the backend or for informational purposes.  Consult the
+    backend documentation for more information about the aggregates and
+    measures.
 
 .. seealso::
 
@@ -197,6 +286,12 @@ Example:
 
    :func:`cubes.create_cube`
         Create cube from a description dictionary.
+
+   :class:`cubes.Measure`
+        Measure class reference.
+
+   :class:`cubes.MeasureAggregate`
+        Measure Aggregate class reference.
 
    :doc:`mapping`
 
@@ -328,16 +423,16 @@ Example of supplier level of supplier dimension:
 
 .. seealso::
 
-   :class:`Dimension`
+   :class:`cubes.Dimension`
         Dimension class reference
 
    :func:`cubes.create_dimension`
         Create a dimension object from a description dictionary.
 
-   :class:`Level`
+   :class:`cubes.Level`
         Level class reference
 
-   :func:`create_level`
+   :func:`cubes.create_level`
         Create level object from a description dictionary.
 
 Hierarchies are described as:
@@ -374,10 +469,9 @@ Example:
 Attributes
 ----------
 
-Measures and dimension level attributes can be specified either as rich
-metadata or just simply as strings. If only string is specified, then all
-attribute metadata will have default values, label will be equal to the
-attribute name.
+Dimension level attributes can be specified either as rich metadata or just
+simply as strings. If only string is specified, then all attribute metadata
+will have default values, label will be equal to the attribute name.
 
 ================ ================================================================
 Key              Description
@@ -386,13 +480,13 @@ name             attribute name (should be unique within a dimension)
 label            human readable name - can be used in an application, localizable
 order            natural order of the attribute (optional), can be ``asc`` or 
                  ``desc``
+format           application specific display format information
+missing_value    Value to be substituted when there is no value (NULL) in the
+                 source (backend has to support this feature)
 locales          list of locales in which the attribute values are available in
                  (optional)
-aggregations     list of aggregations to be performed if the attribute is a 
-                 measure
 info             custom info, such as formatting. Not used by cubes 
                  framework.
-format           application specific display format information
 ================ ================================================================
 
 The optional `order` is used in aggregation browsing and reporting. If
@@ -434,153 +528,3 @@ In reports you do not specify locale for each localized attribute, you specify
 locale for whole report or browsing session. Report queries remain the same
 for all languages.
 
-
-   
-Model validation
-================
-
-To validate a model do:
-
-.. code-block:: python
-
-    results = model.validate()
-
-
-This will return a list of tuples `(result, message)` where result might be
-'warning' or 'error'. If validation contains errors, the model can not be used
-without resulting in failure. If there are warnings, some functionalities
-might or might not fail or might not work as expected.
-
-You can validate model from command line::
-
-    slicer model validate model.json
-    
-See also the :doc:`slicer tool documentation<slicer>` for more information.
-
-Errors
-------
-
-When any of the following validation errors occurs, then it is very probable
-that use of the model will result in failure.
-
-.. list-table::
-    :header-rows: 1 
-    :widths: 30 10 40
-   
-    * - Error
-      - Object
-      - Resolution
-    * - Duplicate measure '*measure*' in cube '*cube*'
-      - cube
-      - Two or more measures have the same name. Make sure that all measure
-        names are unique within the cube, including detail attributes.
-    * - Duplicate detail '*detail*' in cube '*cube*'
-      - cube
-      - Two or more detail attributes have the same name. Make sure that all
-        detail attribute names are unique within the cube, including measures.
-    * - Duplicate detail '*detail*' in cube '*cube*' - specified also as
-        measure
-      - cube
-      - A detail attribute has same name as one of the measures. Make sure
-        that all detail attribute names are unique within the cube, including
-        measures.
-    * - No hierarchies in dimension '*dimension*', more than one levels exist (*count*)"
-      - dimension
-      - There is more than one level specified in the dimension, but no
-        hierarchy is defined. Specify a hierarchy with expected order of the
-        levels.
-    * - No defaut hierarchy specified, there is more than one hierarchy in
-        dimension 'dimension'
-      - dimension
-      - Dimension has more than one hierarchy, but none of them is specified
-        as default. Set the `default_hierarchy_name` to desired default
-        hierarchy.
-    * - Default hierarchy '*hierarchy*' does not exist in dimension '*dimension*'
-      - dimension
-      - There is no hierarchy in the dimension with name specified as
-        `default_hierarchy_name`. Make sure that the default hierarchy name
-        refers to existing hierarchy within the dimension.
-    * - Level '*level*' in dimension '*dimension*' has no attributes
-      - dimension
-      - There are no attributes specified for *level*. Set attributes during
-        Level obejct creation. This error should not appear when creating
-        model from file.
-    * - Key '*key*' in level '*level*' in dimension '*dimension*' is not in
-        level's attribute list
-      - dimension
-      - Key should be one of the attributes specified for the level. Either
-        add the key to the attribute list (preferrably at the beginning) or
-        choose another attribute as the level key.
-    * - Duplicate attribute '*attribute*' in dimension '*dimension*' level
-        '*level*' (also defined in level '*another_level*')
-      - dimension
-      - `attribute` is defined in two or more levels in the same dimension.
-        Make sure that attribute names are all unique within one dimension.
-        Example of most common duplicates are: ``id`` or ``name``. Recommended
-        fix is to use level prefix: ``country_id`` and ``country_name``.
-    * - Dimension (*dim1*) of attribute '*attr*' does not match with owning
-        dimension *dim2*
-      - dimension
-      - This might happen when creating model programatically. Make sure that
-        attribute added to the dimension level has properely set dimension
-        attribute to the dimension it is going to be part of (*dim2*).
-    * - Dimension '*dimension*' is not instance of Attribute
-      - model
-      - When creating dimension programatically, make sure that all attributes
-        added to the dimension level are instances of
-        :class:`cubes.Attribute`. You should not see this error when loading a
-        model from a file.
-    * - Dimension '*dimension*' is not a subclass of Dimension class
-      - model
-      - When creating model programatically, make sure that all dimensions you
-        add to model are subclasses of :class:`Dimension<cubes.Dimension>`. You
-        should not see this error when loading a model from a file.
-    * - Measure '*measure*' in cube '*cube*' is not instance of Attribute
-      - cube
-      - When creating cube programatically, make sure that all measures you
-        add to the cube are subclasses of :class:`cubes.Attribute`. You should
-        not see this error when loading a model from a file.
-    * - Detail '*detail*' in cube '*cube*' is not instance of Attribute
-      - cube
-      - When creating cube programatically, make sure that all detail
-        attributes you add to the cube are subclasses of
-        :class:`cubes.Attribute`. You should not see this error when loading a
-        model from a file.
-        
-The following list contains warning messages from validation process. It is
-not recommended to use the model, some issues might emerge.
-
-.. list-table::
-    :header-rows: 1 
-    :widths: 30 10 40
-
-    * * Warning
-      * Object
-      * Resolution
-    * * No cubes defined
-      * model
-      * Model should contain at least one cube
-
-The model construction uses some implicit defaults to satisfy needs for a
-working model. Validator identifies where the defaults are going to be applied
-and adds information about them to the validation results. Consider them to be
-informative only. The model can be used, just make sure that defaults reflect
-expected reality.
-
-.. list-table::
-    :header-rows: 1 
-    :widths: 30 10 40
-
-    * * Warning
-      * Object
-      * Resolution
-    * - No hierarchies in dimension '*dimension*', flat level '*level*' will
-        be used.
-      - dimension
-      - There are no hierarchies specified in the dimension and there is only
-        one level. Default hierarchy will be created with the only one level.
-    * - Level '*level*' in dimension '*dim*' has no key attribute specified,
-        first attribute will be used: '*attr*'
-      - dimension
-      - Each level should have a key attribute specified. If it is not, then
-        the first attribute from attribute list will be used as key.
