@@ -142,6 +142,7 @@ class JoinsTestCase(CubesTestCaseBase):
     def test_cell_count_detail(self):
         summary = self.aggregate_summary("facts_detail_city",
                                          drilldown=self.city_drilldown)
+        self.assertEqual(0, summary["record_count"])
         self.assertEqual(1100, summary["amount_sum"])
 
         cells = self.aggregate_cells("facts_detail_city", drilldown=self.city_drilldown)
@@ -153,6 +154,23 @@ class JoinsTestCase(CubesTestCaseBase):
 
         amounts = [cell["amount_sum"] for cell in cells]
         self.assertSequenceEqual([100, 0], amounts)
+
+    def test_cell_count_detail_not_found(self):
+        cube = self.workspace.cube("facts_detail_city")
+        cell = Cell(cube, [PointCut("city", [2])])
+        browser = self.workspace.browser(cube)
+        result = browser.aggregate(cell, drilldown=[("city", None, "city")])
+        cells = list(result.cells)
+
+        # We have one cell – one city from dim (nothing from facts)
+        self.assertEqual(1, len(cells))
+        # we have one record - same reason as above
+        self.assertEqual(1, result.summary["record_count"])
+        # The summary should be coalesced to zero
+        self.assertEqual(0, result.summary["amount_sum"])
+
+        names = [cell["city.name"] for cell in cells]
+        self.assertSequenceEqual(["New York"], names)
 
     def test_three_tables(self):
         summary = self.aggregate_summary("threetables",
