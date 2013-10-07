@@ -145,9 +145,6 @@ class JoinsTestCase(CubesTestCaseBase):
         self.assertEqual(1100, summary["amount_sum"])
 
         cells = self.aggregate_cells("facts_detail_city", drilldown=self.city_drilldown)
-        # self.assertEqual(2, len(cells))
-        for cell in cells:
-            self.workspace.logger.debug("-- cell: %s" % (cell, ))
 
         self.assertEqual(2, len(cells))
 
