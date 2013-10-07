@@ -58,7 +58,7 @@ Feature Overview
 
 Core cube features:
 
-* **Workspace** – Cubes workspace
+* **Workspace** – Cubes analytical workspace
   (see :doc:`docs<workspace>`, :doc:`reference<reference/workspace>`) 
 * **Model** - Description of data (*metadata*): cubes, dimensions, concept
   hierarchies, attributes, labels, localizations.
