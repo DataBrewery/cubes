@@ -2,7 +2,10 @@ import unittest
 from cubes import __version__
 import json
 from .common import CubesTestCaseBase
+<<<<<<< HEAD
 from sqlalchemy import Table, Column, Integer
+=======
+>>>>>>> 090c3d55da495f2d3f14cd5085863fb52de0f837
 
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
