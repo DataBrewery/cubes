@@ -95,6 +95,10 @@ class Model(object):
             for dim in dimensions:
                 self.add_dimension(dim)
 
+        # TODO: remove cubes and dimensions from here, they belong to the
+        # provider
+        # TODO: provider -> object; provider_name -> from metadata
+
         self.cubes = OrderedDict()
         if cubes:
             for cube in cubes:
@@ -105,6 +109,7 @@ class Model(object):
     def __str__(self):
         return 'Model(%s)' % self.name
 
+    # TODO: remove
     def add_cube(self, cube):
         """Adds cube to the model and also assigns the model to the cube. If
         cube has a model assigned and it is not this model, then error is
@@ -132,10 +137,12 @@ class Model(object):
 
         self.cubes[cube.name] = cube
 
+    # TODO: remove
     def remove_cube(self, cube):
         """Removes cube from the model"""
         del self.cubes[cube.name]
 
+    # TODO: use provider
     def cube(self, cube):
         """Get a cube with name `name` or coalesce object to a cube."""
         try:
@@ -145,6 +152,7 @@ class Model(object):
             raise ModelError("No such cube '%s'" % str(e))
         return cube
 
+    # TODO: remove
     def add_dimension(self, dimension):
         """Add dimension to model. Replace dimension with same name"""
         assert_instance(dimension, Dimension, "dimension")
@@ -156,6 +164,7 @@ class Model(object):
 
         self._dimensions[dimension.name] = dimension
 
+    # TODO: remove
     def remove_dimension(self, dimension):
         """Remove a dimension from receiver"""
         del self._dimensions[dimension.name]
