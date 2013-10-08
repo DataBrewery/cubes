@@ -62,8 +62,10 @@ def _coalesce_date_ymdh(path, bound):
     today = datetime.datetime.today()
 
     delta = datetime.timedelta(1)
-    # Make path of length 3
-    (year, month, day) = tuple(path + [None]*(3-len(path)))
+    # Make path of length 4
+    (year, month, day, hour) = tuple(path + [None]*(4-len(path)))
+
+    # hours are ignored - Mixpanel does not allow to use hours for cuts
 
     if not year:
         return today
