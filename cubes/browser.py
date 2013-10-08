@@ -808,6 +808,8 @@ class Cell(object):
 
         This method is currently used for preparing the periods-to-date
         conditions.
+
+        See also: :meth:`cubes.Drilldown.deepest_levels`
         """
 
         levels = []
@@ -1624,6 +1626,25 @@ class Drilldown(object):
 
         return dim_levels
 
+    def deepest_levels(self):
+        """Returns a list of tuples: (`dimension`, `hierarchy`, `level`) where
+        `level` is the deepest level drilled down to.
+
+        This method is currently used for preparing the periods-to-date
+        conditions.
+
+        See also: :meth:`cubes.Cell.deepest_levels`
+        """
+
+        levels = []
+
+        for dditem in self.drilldown:
+            item = (dditem.dimension, dditem.hierarchy, dditem.levels[-1])
+            levels.append(item)
+
+        return levels
+
+        return levels
     def is_high_cardinality(self):
         """Returns `True` if the drilldown is through a dimension or a
         dimension level of high cardinality (as specified in the metadata.).
