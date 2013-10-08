@@ -504,9 +504,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         cell_cond = self.condition_for_cell(cell)
 
-        # ADD PTD condition
-        ptd_cell_condition = self._ptd_condition_for_cell(cell)
-
         split_dim_cond = None
         if split:
             split_dim_cond = self.condition_for_cell(split)
@@ -529,7 +526,6 @@ class SnowflakeBrowser(AggregationBrowser):
         selection = []
 
         group_by = None
-        ptd_drilldown_condition = None
 
         # TODO: flatten this
         if split_dim_cond or drilldown:
@@ -545,7 +541,6 @@ class SnowflakeBrowser(AggregationBrowser):
                 selection.append(expr)
 
             for dditem in drilldown:
-                last_level = dditem.levels[-1] if len(dditem.levels) else None
                 for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
                                                         if attr in attributes]
@@ -553,9 +548,6 @@ class SnowflakeBrowser(AggregationBrowser):
                     selection.extend(columns)
 
                     # Prepare period-to-date condition
-                    if last_level == level:
-                        ptd_drilldown_condition = self.condition_for_level(level) or drilldown_ptd_condition
-
         if not aggregates:
             raise ArgumentError("List of aggregates sohuld not be empty")
 
@@ -574,10 +566,11 @@ class SnowflakeBrowser(AggregationBrowser):
         conditions = []
         if cell_cond.condition is not None:
             conditions.append(cell_cond.condition)
-        if ptd_drilldown_condition is not None:
-            conditions.append(ptd_drilldown_condition.condition)
-        if ptd_cell_condition is not None:
-            conditions.append(ptd_cell_condition)
+
+        # Add periods-to-date condition
+        ptd_condition = self._ptd_condition(cell, drilldown)
+        if ptd_condition is not None:
+            conditions.append(ptd_condition)
 
         if conditions:
             select = select.where(sql.expression.and_(*conditions) if
@@ -948,44 +941,56 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return Condition(attributes, condition)
 
-    def condition_for_level(self, level):
-
-        ref = self.mapper.physical(level.key)
-
-        if not ref.condition:
-            return None
-
-        table = self.table(ref.schema, ref.table)
-        try:
-            column = table.c[ref.column]
-        except:
-            raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
-
-        # evaluate the condition expression
-        # TODO: PTD mark
-        expr_func = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
-        if not callable(expr_func):
-            raise BrowserError("Cannot evaluate a callable object from reference's condition expr: %r" % ref)
-        condition = expr_func(column)
-
-        return Condition(set(), condition)
-
-    def _ptd_condition_for_cell(self, cell):
+    def _ptd_condition(self, cell, drilldown):
         """Returns "periods to date" condition for cell."""
-        conditions = []
 
-        for dim, hier, level in cell.deepest_levels(include_empty=False):
-            level_condition = self.condition_for_level(level)
-            # TODO: merge the method here
-            if not level_condition:
-                continue
-            cond = self.condition_for_level(level)
-            conditions.append(cond.condition)
+        # Include every level only once
+        levels = set()
+
+        # For the cell:
+        if cell:
+            levels |= set(item[2] for item in cell.deepest_levels())
+
+        # For drilldown:
+        if drilldown:
+            levels |= set(item[2] for item in drilldown.deepest_levels())
+
+        # Collect the conditions
+        #
+        # Conditions are currently specified in the mappings as "condtition"
+        #
+
+        # Collect relevant columns – those with conditions
+        physicals = []
+        for level in levels:
+            ref = self.mapper.physical(level.key)
+            if ref.condition:
+                physicals.append(ref)
+
+        # Construct the conditions from the physical attribute expression
+        conditions = []
+        for ref in physicals:
+
+            table = self.table(ref.schema, ref.table)
+            try:
+                column = table.c[ref.column]
+            except:
+                raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
+
+            # evaluate the condition expression
+            function = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+            if not callable(function):
+                raise BrowserError("Cannot evaluate a callable object from reference's condition expr: %r" % ref)
+
+            condition = function(column)
+
+            conditions.append(condition)
 
         # TODO: What about invert?
         condition = sql.expression.and_(*conditions)
 
         return condition
+
 
     def condition_for_point(self, dim, path, hierarchy=None, invert=False):
         """Returns a `Condition` tuple (`attributes`, `conditions`,
@@ -1011,11 +1016,6 @@ class SnowflakeBrowser(AggregationBrowser):
             # Prepare condition: dimension.level_key = path_value
             column = self.column(level.key)
             conditions.append(column == value)
-
-            # FIXME: remove PTD code
-            # only the lowermost level's condition should apply
-            # if level == last_level:
-            #    level_condition = self.condition_for_level(level) or level_condition
 
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
@@ -1089,9 +1089,6 @@ class SnowflakeBrowser(AggregationBrowser):
         for level, value in zip(levels[:-1], path[:-1]):
             column = self.column(level.key)
             conditions.append(column == value)
-
-            # if first and last_level == level:
-            #    ptd_condition = self.condition_for_level(level) or ptd_condition
 
             for attr in level.attributes:
                 attributes.add(attr)
@@ -1531,9 +1528,11 @@ class SnapshotBrowser(SnowflakeBrowser):
         """Prototype of 'snapshot cube' aggregation style."""
 
         cell_cond = self.condition_for_cell(cell)
-        split_dim_cond = None
+
         if split:
             split_dim_cond = self.condition_for_cell(split)
+        else:
+            split_dim_cond = None
 
         if not attributes:
             attributes = set()
@@ -1553,28 +1552,29 @@ class SnapshotBrowser(SnowflakeBrowser):
         selection = []
 
         group_by = None
-        drilldown_ptd_condition = None
 
         if split_dim_cond or drilldown:
             group_by = []
+
             if split_dim_cond:
                 group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
                 selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
+
             for dditem in drilldown:
-                last_level = dditem.levels[-1] if len(dditem.levels) else None
                 for level in dditem.levels:
                     columns = [self.column(attr) for attr in level.attributes
                                if attr in attributes]
                     group_by.extend(columns)
                     selection.extend(columns)
-                    if last_level == level:
-                        drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
         conditions = []
         if cell_cond.condition is not None:
             conditions.append(cell_cond.condition)
-        if drilldown_ptd_condition is not None:
-            conditions.append(drilldown_ptd_condition.condition)
+
+        # Add periods-to-date condition
+        ptd_condition = self._ptd_condition(cell, drilldown)
+        if ptd_condition is not None:
+            conditions.append(ptd_condition)
 
         # We must produce, under certain conditions, a subquery:
         #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy. OR
