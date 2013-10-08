@@ -199,7 +199,8 @@ class SnowflakeBrowser(AggregationBrowser):
         cond = self.context.condition_for_cell(cell)
         statement = self.context.denormalized_statement(attributes=attributes,
                                                         include_fact_key=True,
-                                                        condition_attributes=cond.attributes)
+                                                        condition_attributes=cond.attributes,
+                                                        right_outer_joins=False)
 
         if cond.condition is not None:
             statement = statement.where(cond.condition)
@@ -807,7 +808,8 @@ class QueryContext(object):
 
     def denormalized_statement(self, attributes=None, expand_locales=False,
                                include_fact_key=True,
-                               condition_attributes=None):
+                               condition_attributes=None,
+                               right_outer_joins=True):
         """Return a statement (see class description for more information) for
         denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
         for `sqlalchemy.sql.expression.select()`. `attributes` is list of
@@ -815,6 +817,9 @@ class QueryContext(object):
         then all attributes are used. `condition_attributes` contains list of
         attributes that are not going to be selected, but are required for
         WHERE condition.
+
+        If `outer_joins` is `False` then all outer joins are turned into inner
+        joins.
 
         Set `expand_locales` to ``True`` to expand all localized attributes.
         """
@@ -828,7 +833,8 @@ class QueryContext(object):
             join_attributes = set(attributes)
 
         join_product = self.join_expression_for_attributes(join_attributes,
-                                                expand_locales=expand_locales)
+                                                expand_locales=expand_locales,
+                                                right_outer_joins=right_outer_joins)
         join_expression = join_product.expression
 
         columns = self.columns(attributes, expand_locales=expand_locales)
@@ -878,14 +884,15 @@ class QueryContext(object):
         return statement
 
     def join_expression_for_attributes(self, attributes, expand_locales=False,
-                                        include_fact=True):
+                                       include_fact=True,
+                                       right_outer_joins=True):
         """Returns a join expression for `attributes`"""
         physical_references = self.mapper.map_attributes(attributes, expand_locales=expand_locales)
 
         joins = self.mapper.relevant_joins(physical_references)
-        return self.join_expression(joins, include_fact)
+        return self.join_expression(joins, include_fact, right_outer_joins)
 
-    def join_expression(self, joins, include_fact=True):
+    def join_expression(self, joins, include_fact=True, right_outer_joins=True):
         """Create partial expression on a fact table with `joins` that can be
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
@@ -1004,7 +1011,8 @@ class QueryContext(object):
             # left-outer join.
             if join.method == "match":
                 is_outer = False
-            elif join.method == "master":
+            elif join.method == "master" \
+                    or (not right_outer_joins and join.method == "detail"):
                 is_outer = True
             elif join.method == "detail":
                 # Swap the master and detail tables to perform RIGHT OUTER JOIN
