@@ -503,6 +503,10 @@ class SnowflakeBrowser(AggregationBrowser):
         `levels_from_drilldown()` to prepare correct drill-down statement."""
 
         cell_cond = self.condition_for_cell(cell)
+
+        # ADD PTD condition
+        ptd_cell_condition = self._ptd_condition_for_cell(cell)
+
         split_dim_cond = None
         if split:
             split_dim_cond = self.condition_for_cell(split)
@@ -525,7 +529,7 @@ class SnowflakeBrowser(AggregationBrowser):
         selection = []
 
         group_by = None
-        drilldown_ptd_condition = None
+        ptd_drilldown_condition = None
 
         # TODO: flatten this
         if split_dim_cond or drilldown:
@@ -550,7 +554,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
                     # Prepare period-to-date condition
                     if last_level == level:
-                        drilldown_ptd_condition = self.condition_for_level(level) or drilldown_ptd_condition
+                        ptd_drilldown_condition = self.condition_for_level(level) or drilldown_ptd_condition
 
         if not aggregates:
             raise ArgumentError("List of aggregates sohuld not be empty")
@@ -570,8 +574,10 @@ class SnowflakeBrowser(AggregationBrowser):
         conditions = []
         if cell_cond.condition is not None:
             conditions.append(cell_cond.condition)
-        if drilldown_ptd_condition is not None:
-            conditions.append(drilldown_ptd_condition.condition)
+        if ptd_drilldown_condition is not None:
+            conditions.append(ptd_drilldown_condition.condition)
+        if ptd_cell_condition is not None:
+            conditions.append(ptd_cell_condition)
 
         if conditions:
             select = select.where(sql.expression.and_(*conditions) if
@@ -956,12 +962,30 @@ class SnowflakeBrowser(AggregationBrowser):
             raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
 
         # evaluate the condition expression
+        # TODO: PTD mark
         expr_func = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
         if not callable(expr_func):
             raise BrowserError("Cannot evaluate a callable object from reference's condition expr: %r" % ref)
         condition = expr_func(column)
 
         return Condition(set(), condition)
+
+    def _ptd_condition_for_cell(self, cell):
+        """Returns "periods to date" condition for cell."""
+        conditions = []
+
+        for dim, hier, level in cell.deepest_levels(include_empty=False):
+            level_condition = self.condition_for_level(level)
+            # TODO: merge the method here
+            if not level_condition:
+                continue
+            cond = self.condition_for_level(level)
+            conditions.append(cond.condition)
+
+        # TODO: What about invert?
+        condition = sql.expression.and_(*conditions)
+
+        return condition
 
     def condition_for_point(self, dim, path, hierarchy=None, invert=False):
         """Returns a `Condition` tuple (`attributes`, `conditions`,
@@ -978,7 +1002,7 @@ class SnowflakeBrowser(AggregationBrowser):
             raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
                                 "in dimension %s" % (len(path), path, len(levels), dim.name))
 
-        level_condition = None
+        # level_condition = None
 
         last_level = levels[-1] if len(levels) else None
 
@@ -988,18 +1012,19 @@ class SnowflakeBrowser(AggregationBrowser):
             column = self.column(level.key)
             conditions.append(column == value)
 
+            # FIXME: remove PTD code
             # only the lowermost level's condition should apply
-            if level == last_level:
-                level_condition = self.condition_for_level(level) or level_condition
+            # if level == last_level:
+            #    level_condition = self.condition_for_level(level) or level_condition
 
             # FIXME: join attributes only if details are requested
             # Collect grouping columns
             for attr in level.attributes:
                 attributes.add(attr)
 
-        if level_condition:
-            conditions.append(level_condition.condition)
-            attributes = attributes | level_condition.attributes
+        # if level_condition:
+        #    conditions.append(level_condition.condition)
+        #    attributes = attributes | level_condition.attributes
 
         condition = sql.expression.and_(*conditions)
 
@@ -1059,14 +1084,14 @@ class SnowflakeBrowser(AggregationBrowser):
         attributes = set()
         conditions = []
 
-        last_level = levels[-1] if len(levels) else None
+        # last_level = levels[-1] if len(levels) else None
 
         for level, value in zip(levels[:-1], path[:-1]):
             column = self.column(level.key)
             conditions.append(column == value)
 
-            if first and last_level == level:
-                ptd_condition = self.condition_for_level(level) or ptd_condition
+            # if first and last_level == level:
+            #    ptd_condition = self.condition_for_level(level) or ptd_condition
 
             for attr in level.attributes:
                 attributes.add(attr)
@@ -1090,9 +1115,9 @@ class SnowflakeBrowser(AggregationBrowser):
         condition = sql.expression.and_(*conditions)
         attributes |= last.attributes
 
-        if last.condition is not None:
-            condition = sql.expression.or_(condition, last.condition)
-            attributes |= last.attributes
+        # if last.condition is not None:
+        #    condition = sql.expression.or_(condition, last.condition)
+        #    attributes |= last.attributes
 
         return (Condition(attributes, condition), ptd_condition)
 
