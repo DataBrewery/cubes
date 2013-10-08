@@ -799,6 +799,31 @@ class Cell(object):
 
         return levels
 
+    def deepest_levels(self, include_empty=False):
+        """Returns a list of tuples: (`dimension`, `hierarchy`, `level`) where
+        `level` is the deepest level specified in the respective cut. If no
+        level is specified (empty path) and `include_empty` is `True`, then the
+        level will be `None`. If `include_empty` is `True` then empty levels
+        are not included in the result.
+
+        This method is currently used for preparing the periods-to-date
+        conditions.
+        """
+
+        levels = []
+
+        for cut in self.cuts:
+            depth = cut.level_depth()
+            dim = self.cube.dimension(cut.dimension)
+            hier = dim.hierarchy(cut.hierarchy)
+            if depth:
+                item = (dim, hier, hier[depth-1])
+            elif include_empty:
+                item = (dim, hier, None)
+            levels.append(item)
+
+        return levels
+
     def is_base(self, dimension, hierarchy=None):
         """Returns ``True`` when cell is base cell for `dimension`. Cell
         is base if there is a point cut with path referring to the
