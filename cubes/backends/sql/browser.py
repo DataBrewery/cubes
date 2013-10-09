@@ -1179,7 +1179,7 @@ class StatementBuilder(object):
         # Collect drilldown attributes
         # ----------------------------
         # TODO: split to master/detail
-        master_attributes = drilldown.level_attributes()
+        master_attributes |= set(drilldown.level_attributes())
 
         # Join
         # ----
@@ -1201,12 +1201,27 @@ class StatementBuilder(object):
         # Prepare the master_fact statement:
         self.logger.debug("--- SELECT: %s" % ([str(s) for s in selection],))
         self.logger.debug("--- FROM: %s" % (join_expression, ))
-        statement = sql.expression.select(selection,
-                                          from_obj=join_expression,
-                                          use_labels=True,
-                                          group_by=group_by)
+        master_fact = sql.expression.select(selection,
+                                            from_obj=join_expression,
+                                            use_labels=True,
+                                            group_by=group_by)
 
-        self.master_fact = statement
+        # TODO: Add periods-to-date condition
+
+        if master_conditions:
+            condition = condition_conjuction([c.condition for c in master_conditions])
+            master_fact = master_fact.where(condition)
+
+        # TODO: Where condition
+        # Join outer details
+        # ------------------
+
+        # if detail_attributes:
+        #    join_product = self.snowflake.join_expression(detail_attributes,
+        #                                                fact=master_fact)
+        statement = master_fact
+
+
         self.statement = statement
         self.labels = self.snowflake.logical_labels(statement.columns)
 
@@ -1550,36 +1565,6 @@ class StatementBuilder(object):
 
         return self.statement
 
-    def cell_attributes(self, cell):
-        """Returns attributes used in the cell."""
-
-        attributes = []
-        for cut, levels in cell.cut_levels():
-            attributes += [level.key for level in levels]
-
-    def compose_statement(self):
-        # We have:
-        # 1. selection: attributes
-        # 2. conditions: attributes, condition
-        # 3. group by attribute list from drilldown
-
-        attribute_columns = {}
-
-        attributes = self.cell_attributes(cell)
-
-        for condition in self.conditions:
-            for attribute in self.condition.attributes:
-                attribute_columns[attribute] = self.add_column(attribute)
-
-
-        # if everything is match or master:
-        #     get relevant joins
-        # if there is outer:
-        #    if the inner is in condition:
-        #        mask the selection tables as not joined
-        # If everything is match: just get relevant joins for all attributes
-        # for condition in self.conditions:
-
 
 """A Condition representation. `attributes` - list of attributes involved in
 the conditions, `conditions` - SQL conditions"""
@@ -1591,6 +1576,16 @@ Condition = collections.namedtuple("Condition",
 JoinProduct = collections.namedtuple("JoinProduct",
                                         ["expression", "outer_details"])
 
+
+def condition_conjuction(conditions):
+    """Do conjuction of conditions if there are more than one, otherwise just
+    return the single condition."""
+    if not conditions:
+        return None
+    elif len(conditions):
+        return conditions[0]
+    else:
+        return sql.expression.and_(*conditions)
 
 def order_column(column, order):
     """Orders a `column` according to `order` specified as string."""

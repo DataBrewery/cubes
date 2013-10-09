@@ -629,7 +629,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
         self.assertIsNotNone(result.summary)
         self.assertEqual(1, len(result.summary.keys()))
         self.assertEqual("amount_sum", result.summary.keys()[0])
-        self.assertEqual(5550, result.summary["amount_sum"])
+        self.assertEqual(550, result.summary["amount_sum"])
 
         cells = list(result.cells)
         self.assertEqual(0, len(cells))
