@@ -95,11 +95,7 @@ class JoinsTestCase(CubesTestCaseBase):
         self.year_drilldown = [("date", "default", "year")]
         self.city_drilldown = [("city")]
 
-        # TODO: remove this when satisfied
         self.workspace.logger.setLevel("DEBUG")
-        for table in [self.facts, self.dim_city, self.dim_date]:
-            for row in self.engine.execute(table.select()):
-                self.workspace.logger.debug("-- data: %s" % (row, ))
 
     def test_empty(self):
         browser = self.workspace.browser("facts")

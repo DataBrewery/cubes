@@ -108,6 +108,7 @@
     "dimensions": [
         {
             "name":"date",
+            "type": "date",
             "levels": [
                     {"name":"year"},
                     {"name":"month"},
