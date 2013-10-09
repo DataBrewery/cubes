@@ -128,13 +128,15 @@ class SnowflakeMapper(Mapper):
 
         """
 
-        super(SnowflakeMapper, self).__init__(cube, locale=locale,
-                                        schema=schema, fact_name=fact_name,
-                                        **options)
+        super(SnowflakeMapper, self).__init__(cube, locale=locale, **options)
 
         self.mappings = mappings or cube.mappings
         self.dimension_prefix = dimension_prefix
         self.dimension_schema = dimension_schema
+
+        fact_prefix = options.get("fact_prefix") or ""
+        self.fact_name = fact_name or self.cube.fact or fact_prefix+self.cube.name
+        self.schema = schema
 
         self._collect_joins(joins or cube.joins)
 
@@ -280,7 +282,26 @@ class SnowflakeMapper(Mapper):
 
         return tables
 
-    def relevant_joins(self, attributes):
+    def physical_references(self, attributes, expand_locales=False):
+        """Convert `attributes` to physical attributes. If `expand_locales` is
+        ``True`` then physical reference for every attribute locale is
+        returned."""
+
+        if expand_locales:
+            physical_attrs = []
+
+            for attr in attributes:
+                if attr.is_localizable():
+                    refs = [self.physical(attr, locale) for locale in attr.locales]
+                else:
+                    refs = [self.physical(attr)]
+                physical_attrs += refs
+        else:
+            physical_attrs = [self.physical(attr) for attr in attributes]
+
+        return physical_attrs
+
+    def relevant_joins(self, attributes, expand_locales=False):
         """Get relevant joins to the attributes - list of joins that
         are required to be able to acces specified attributes. `attributes`
         is a list of three element tuples: (`schema`, `table`, `attribute`).
@@ -291,10 +312,12 @@ class SnowflakeMapper(Mapper):
 
         self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
 
+        references = self.physical_references(attributes, expand_locales)
+
         if not self.joins:
             self.logger.debug("no joins to be searched for")
 
-        tables_to_join = set((ref[0], ref[1]) for ref in attributes)
+        tables_to_join = set((ref[0], ref[1]) for ref in references)
         joined_tables = set()
         joined_tables.add( (self.schema, self.fact_name) )
 
