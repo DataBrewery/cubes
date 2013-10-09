@@ -1,4 +1,4 @@
-# -*i coding=utf -*-
+# -*- coding=utf -*-
 # Actually, this is a furry snowflake, not a nice star
 
 from ...browser import *
@@ -136,60 +136,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         self.mapper = mapper_class(cube, locale=self.locale, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
-
-        self._initialize_schema()
-        self._collect_joins()
-
-    def _initialize_schema(self):
-        """Initialize the shema information: tables, column maps, ... """
-        # TODO check if this is used somewhere
-        self.schema = self.mapper.schema
-
-        # Prepare physical fact table - fetch from metadata
-        #
-        self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
-        self.fact_name = self.mapper.fact_name
-
-        try:
-            self.fact_table = sqlalchemy.Table(self.fact_name,
-                                               self.metadata,
-                                               autoload=True,
-                                               schema=self.schema)
-        except sqlalchemy.exc.NoSuchTableError:
-            in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
-            msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
-            raise WorkspaceError(msg)
-
-        self.tables = {
-                    (self.schema, self.fact_name): self.fact_table
-                }
-
-        # Collect all tables and their aliases.
-        #
-        # table_aliases contains mapping between aliased table name and real
-        # table name with alias:
-        #
-        #       (schema, aliased_name) --> (schema, real_name, alias)
-        #
-        self.table_aliases = {
-            (self.schema, self.fact_name): (self.schema, self.fact_name, None)
-        }
-
-        # Mapping where keys are attributes and values are columns
-        self.logical_to_column = {}
-        # Mapping where keys are column labels and values are attributes
-        self.column_to_logical = {}
-
-
-    def _collect_joins(self):
-        for join in self.mapper.joins:
-            # just ask for the table
-            table = AliasedTable(join.detail.schema,
-                                 join.detail.table,
-                                 join.alias)
-            table_alias = (join.detail.schema, join.alias or join.detail.table)
-            self.table_aliases[table_alias] = table
-
 
     def features(self):
         """Return SQL features. Currently they are all the same for every
@@ -351,6 +297,12 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
+    def execute_statement(self, statement, label=None):
+        """Execute the `statement`, optionally log it. Returns the result
+        cursor."""
+        self._log_statement(statement, label)
+        return self.connectable.execute(statement)
+
     def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
                   attributes=None, page=None, page_size=None, order=None,
                   include_summary=None, include_cell_count=None,
@@ -391,31 +343,34 @@ class SnowflakeBrowser(AggregationBrowser):
 
         """
 
+        # Preparation
+        # -----------
+
         if not cell:
             cell = Cell(self.cube)
 
         aggregates = self.prepare_aggregates(aggregates, measures)
-        self.logger.debug("measure aggregates: %s"
-                          % [str(agg) for agg in aggregates])
+        drilldown = Drilldown(drilldown, cell)
         result = AggregationResult(cell=cell, aggregates=aggregates)
+
+        # Summary
+        # -------
 
         if include_summary or \
                 (include_summary is None and self.include_summary) or \
                 not drilldown:
 
-            summary_statement = self.aggregation_statement(cell=cell,
-                                                                   aggregates=aggregates)
+            builder = StatementBuilder(self)
+            builder.aggregation_statement(cell, aggregates=aggregates)
 
-            if self.debug:
-                self.logger.info("aggregation SQL:\n%s" % summary_statement)
-
-            cursor = self.connectable.execute(summary_statement)
+            cursor = self.execute_statement(builder.statement,
+                                            "aggregation summary")
             row = cursor.fetchone()
 
+            # TODO: use builder.labels
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                labels = self.logical_labels(summary_statement.columns)
-                record = dict(zip(labels, row))
+                record = dict(zip(builder.labels, row))
             else:
                 record = None
 
@@ -425,18 +380,13 @@ class SnowflakeBrowser(AggregationBrowser):
         if include_cell_count is None:
             include_cell_count = self.include_cell_count
 
-        ##
+
         # Drill-down
+        # ----------
         #
-        # Note that a split cell if present prepends a drilldown
-        ##
+        # Note that a split cell if present prepends the drilldown
 
-        # FIXME: this is the exact code as in the Mongo browser - put it into a
-        # separate method and share
-        # TODO: Use Drilldown class
         if drilldown or split:
-            drilldown = Drilldown(drilldown, cell)
-
             if page_size and page is not None:
                 self.assert_low_cardinality(cell, drilldown)
 
@@ -444,21 +394,17 @@ class SnowflakeBrowser(AggregationBrowser):
 
             self.logger.debug("preparing drilldown statement")
 
-            statement = self.aggregation_statement(cell=cell,
-                                                   aggregates=aggregates,
-                                                   attributes=attributes,
-                                                   drilldown=drilldown,
-                                                   split=split)
+            builder = StatementBuilder(self)
+            builder.aggregation_statement(cell,
+                                          drilldown=drilldown,
+                                          aggregates=aggregates,
+                                          split=split)
+            builder.paginate(page, page_size)
+            order = self.prepare_order(order, is_aggregate=True)
+            builder.order(order)
 
-            statement = self.paginated_statement(statement, page, page_size)
-            statement = self.ordered_statement(statement, order, drilldown,
-                                               split, is_aggregate=True)
-
-            if self.debug:
-                self.logger.info("aggregation drilldown SQL:\n%s" % statement)
-
-            dd_result = self.connectable.execute(statement)
-            labels = self.logical_labels(statement.columns)
+            cursor = self.execute_statement(builder.statement,
+                                            "aggregation drilldown")
 
             #
             # Find post-aggregation calculations and decorate the result
@@ -468,14 +414,14 @@ class SnowflakeBrowser(AggregationBrowser):
                                                             drilldown,
                                                             split,
                                                             available_aggregate_functions())
-            result.cells = ResultIterator(dd_result, labels)
-            result.labels = labels
+            result.cells = ResultIterator(cursor, builder.labels)
+            result.labels = builder.labels
 
             # TODO: Introduce option to disable this
 
             if include_cell_count:
-                count_statement = statement.alias().count()
-                row_count = self.connectable.execute(count_statement).fetchone()
+                count_statement = builder.statement.alias().count()
+                row_count = self.execute_statement(count_statement).fetchone()
                 total_cell_count = row_count[0]
                 result.total_cell_count = total_cell_count
 
@@ -502,24 +448,51 @@ class SnowflakeBrowser(AggregationBrowser):
         attributes are used. `drilldown` has to be a dictionary. Use
         `levels_from_drilldown()` to prepare correct drill-down statement."""
 
-        cell_cond = self.condition_for_cell(cell)
+        # 1. collect INNER or LEFT conditions
 
-        split_dim_cond = None
+        deferred_conditions = []
+        master_conditions = []
+        for condition in conditions:
+            if condition.join_method in ("match", "master"):
+                master_conditions.append(condition)
+            else:
+                deffered_conditions.append(condition)
+
+        statement + conditions
+
+        cell_condition = self.condition_for_cell(cell)
+        # We have:
+        #   condition.attributes
+        #   condition.condition
+        # We needs:
+        #   statement
+
+        for condition in cell_conditions:
+            snowflake.append_condition(condition)
+
+        # match and master attributes are joined first
+
         if split:
-            split_dim_cond = self.condition_for_cell(split)
+            split_condition = self.condition_for_cell(split)
+        else:
+            split_condition = None
 
-        if not attributes:
-            attributes = set()
+        if attributes:
+            raise NotImplementedError("attribute selection is not yet supported")
 
-            if drilldown:
-                for dditem in drilldown:
-                    for level in dditem.levels:
-                        attributes |= set(level.attributes)
+        # if not attributes:
+        #     attributes = set()
+
+        #     if drilldown:
+        #         for dditem in drilldown:
+        #             for level in dditem.levels:
+        #                 attributes |= set(level.attributes)
 
         attributes = set(attributes) | set(cell_cond.attributes)
         if split_dim_cond:
             attributes |= set(split_dim_cond.attributes)
 
+        # We need condition attributes for this join
         join_product = self.join_expression_for_attributes(attributes)
         join_expression = join_product.expression
 
@@ -527,7 +500,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         group_by = None
 
-        # TODO: flatten this
+        # Prepare selection and group_by for drilldown
         if split_dim_cond or drilldown:
             group_by = []
 
@@ -580,20 +553,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return select
 
-    def builtin_aggregate_expressions(self, aggregates,
-                                      coalesce_measures=False):
-        """Returns list of expressions for aggregates from `aggregates` that
-        are computed using the SQL statement.
-        """
-
-        expressions = []
-        for agg in aggregates:
-            exp = self.aggregate_expression(agg, coalesce_measures)
-            if exp is not None:
-                expressions.append(exp)
-
-        return expressions
-
     def builtin_function(self, name, aggregate):
         """Returns a built-in function for `aggregate`"""
         try:
@@ -608,45 +567,6 @@ class SnowflakeBrowser(AggregationBrowser):
                 return None
 
         return function
-
-    def aggregate_expression(self, aggregate, coalesce_measure=False):
-        """Returns an expression that performs the aggregation of measure
-        `aggregate`. The result's label is the aggregate's name.  `aggregate`
-        has to be `MeasureAggregate` instance.
-
-        If aggregate function is post-aggregation calculation, then `None` is
-        returned.
-
-        Aggregation function names are case in-sensitive.
-
-        If `coalesce_measure` is `True` then selected measure column is wrapped
-        in ``COALESCE(column, 0)``.
-        """
-        # TODO: support aggregate.expression
-
-        if aggregate.expression:
-            raise NotImplementedError("Expressions are not yet implemented")
-
-        # If there is no function specified, we consider the aggregate to be
-        # computed in the mapping
-        if not aggregate.function:
-            # TODO: this should be depreciated in favor of aggreate.expression
-            # TODO: Following expression should be raised instead:
-            # raise ModelError("Aggregate '%s' has no function specified"
-            #                 % str(aggregate))
-            column = self.column(aggregate)
-            # TODO: add COALESCE()
-            return column
-
-        function_name = aggregate.function.lower()
-        function = self.builtin_function(function_name, aggregate)
-
-        if not function:
-            return None
-
-        expression = function(aggregate, self, coalesce_measure)
-
-        return expression
 
     def denormalized_statement(self, attributes=None, expand_locales=False,
                                include_fact_key=True,
@@ -720,15 +640,234 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return statement
 
-    def join_expression_for_attributes(self, attributes, expand_locales=False,
-                                        include_fact=True):
-        """Returns a join expression for `attributes`"""
-        physical_references = self.mapper.map_attributes(attributes, expand_locales=expand_locales)
+    def _ptd_condition(self, cell, drilldown):
+        """Returns "periods to date" condition for cell."""
 
-        joins = self.mapper.relevant_joins(physical_references)
-        return self.join_expression(joins, include_fact)
+        # Include every level only once
+        levels = set()
 
-    def join_expression(self, joins, include_fact=True):
+        # For the cell:
+        if cell:
+            levels |= set(item[2] for item in cell.deepest_levels())
+
+        # For drilldown:
+        if drilldown:
+            levels |= set(item[2] for item in drilldown.deepest_levels())
+
+        # Collect the conditions
+        #
+        # Conditions are currently specified in the mappings as "condtition"
+        #
+
+        # Collect relevant columns – those with conditions
+        physicals = []
+        for level in levels:
+            ref = self.mapper.physical(level.key)
+            if ref.condition:
+                physicals.append(ref)
+
+        # Construct the conditions from the physical attribute expression
+        conditions = []
+        for ref in physicals:
+
+            table = self.table(ref.schema, ref.table)
+            try:
+                column = table.c[ref.column]
+            except:
+                raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
+
+            # evaluate the condition expression
+            function = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+            if not callable(function):
+                raise BrowserError("Cannot evaluate a callable object from reference's condition expr: %r" % ref)
+
+            condition = function(column)
+
+            conditions.append(condition)
+
+        # TODO: What about invert?
+        condition = sql.expression.and_(*conditions)
+
+        return condition
+
+    def columns(self, attributes, expand_locales=False):
+        """Returns list of columns.If `expand_locales` is True, then one
+        column per attribute locale is added."""
+
+        if expand_locales:
+            columns = []
+            for attr in attributes:
+                if attr.is_localizable():
+                    columns += [self.column(attr, locale) for locale in attr.locales]
+                else: # if not attr.locales
+                    columns.append(self.column(attr))
+        else:
+            columns = [self.column(attr) for attr in attributes]
+
+        return columns
+
+    def _log_statement(self, statement, label=None):
+        label = "SQL(%s):" % label if label else "SQL:"
+        self.logger.debug("%s\n%s" % (label, str(statement)))
+
+    def validate(self):
+        """Validate physical representation of model. Returns a list of
+        dictionaries with keys: ``type``, ``issue``, ``object``.
+
+        Types might be: ``join`` or ``attribute``.
+
+        The ``join`` issues are:
+
+        * ``no_table`` - there is no table for join
+        * ``duplicity`` - either table or alias is specified more than once
+
+        The ``attribute`` issues are:
+
+        * ``no_table`` - there is no table for attribute
+        * ``no_column`` - there is no column for attribute
+        * ``duplicity`` - attribute is found more than once
+
+        """
+        issues = []
+
+        # Check joins
+
+        tables = set()
+        aliases = set()
+        alias_map = {}
+        #
+        for join in self.mapper.joins:
+            self.logger.debug("join: %s" % (join, ))
+
+            if not join.master.column:
+                issues.append(("join", "master column not specified", join))
+            if not join.detail.table:
+                issues.append(("join", "detail table not specified", join))
+            elif join.detail.table == self.mapper.fact_name:
+                issues.append(("join", "detail table should not be fact table", join))
+
+            master_table = (join.master.schema, join.master.table)
+            tables.add(master_table)
+
+            detail_alias = (join.detail.schema, join.alias or join.detail.table)
+
+            if detail_alias in aliases:
+                issues.append(("join", "duplicate detail table %s" % detail_table, join))
+            else:
+                aliases.add(detail_alias)
+
+            detail_table = (join.detail.schema, join.detail.table)
+            alias_map[detail_alias] = detail_table
+
+            if detail_table in tables and not join.alias:
+                issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
+            else:
+                tables.add(detail_table)
+
+        # Check for existence of joined tables:
+        physical_tables = {}
+
+        # Add fact table to support simple attributes
+        physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
+        for table in tables:
+            try:
+                physical_table = sqlalchemy.Table(table[1], self.metadata,
+                                        autoload=True,
+                                        schema=table[0] or self.mapper.schema)
+                physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
+            except sqlalchemy.exc.NoSuchTableError:
+                issues.append(("join", "table %s.%s does not exist" % table, join))
+
+        # Check attributes
+
+        attributes = self.mapper.all_attributes()
+        physical = self.mapper.map_attributes(attributes)
+
+        for attr, ref in zip(attributes, physical):
+            alias_ref = (ref.schema, ref.table)
+            table_ref = alias_map.get(alias_ref, alias_ref)
+            table = physical_tables.get(table_ref)
+
+            if table is None:
+                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
+            else:
+                try:
+                    c = table.c[ref.column]
+                except KeyError:
+                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
+
+        return issues
+
+
+# TODO: broken
+SnowflakeAttribute = collections.namedtuple("SnowflakeAttribute",
+                                            ["attribute", "join"])
+"""Aliased table information"""
+SnowflakeTable = collections.namedtuple("SnowflakeTable",
+                                        ["schema", "table", "alias", "join"])
+
+
+class SnowflakeSchema(object):
+    def __init__(self, cube, mapper, metadata, safe_labels):
+        self.cube = cube
+        self.mapper = mapper
+        self.metadata = metadata
+        self.safe_labels = safe_labels
+
+        # Initialize the shema information: tables, column maps, ...
+        # TODO check if this is used somewhere
+        self.schema = self.mapper.schema
+
+        # Prepare physical fact table - fetch from metadata
+        #
+        self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
+        self.fact_name = self.mapper.fact_name
+
+        try:
+            self.fact_table = sqlalchemy.Table(self.fact_name,
+                                               self.metadata,
+                                               autoload=True,
+                                               schema=self.schema)
+        except sqlalchemy.exc.NoSuchTableError:
+            in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
+            msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
+            raise WorkspaceError(msg)
+
+        self.tables = {
+                    (self.schema, self.fact_name): self.fact_table
+                }
+
+        # Collect all tables and their aliases.
+        #
+        # table_aliases contains mapping between aliased table name and real
+        # table name with alias:
+        #
+        #       (schema, aliased_name) --> (schema, real_name, alias)
+        #
+        self.table_aliases = {
+            (self.schema, self.fact_name): SnowflakeTable(self.schema,
+                                                          self.fact_name,
+                                                          None,
+                                                          None)
+        }
+
+        # Mapping where keys are attributes and values are columns
+        self.logical_to_column = {}
+        # Mapping where keys are column labels and values are attributes
+        self.column_to_logical = {}
+
+        # Collect tables from joins
+
+        for join in self.mapper.joins:
+            # just ask for the table
+            table = SnowflakeTable(join.detail.schema,
+                                   join.detail.table,
+                                   join.alias,
+                                   join)
+            table_alias = (join.detail.schema, join.alias or join.detail.table)
+            self.table_aliases[table_alias] = table
+
+    def join_expression(self, attributes, include_fact=True, fact=None):
         """Create partial expression on a fact table with `joins` that can be
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
@@ -766,15 +905,14 @@ class SnowflakeBrowser(AggregationBrowser):
           final product of the joins
         """
 
-        self.logger.debug("create expression with %d joins. Fact: %s" %\
-                                    (len(joins), include_fact) )
+        joins = self.mapper.relevant_joins(attributes)
 
         # Dictionary of raw tables and their joined products
         joined_products = {}
 
         if include_fact:
             key = (self.schema, self.fact_name)
-            joined_products[key] = self.fact_table
+            joined_products[key] = fact or self.fact_table
 
         # Collect all the tables first:
         for join in joins:
@@ -790,9 +928,6 @@ class SnowflakeBrowser(AggregationBrowser):
             table = self.table(join.detail.schema, join.alias or join.detail.table)
             key = (join.detail.schema, join.alias or join.detail.table)
             joined_products[key] = table
-
-        self.logger.debug("collected %d tables for joining" %
-                                                    len(joined_products))
 
         # product_list = ["%s: %s" % item for item in joined_products.items()]
         # product_list = "\n".join(product_list)
@@ -812,9 +947,6 @@ class SnowflakeBrowser(AggregationBrowser):
             detail = join.detail
             detail_key = (detail.schema, join.alias or detail.table)
 
-            self.logger.debug("joining (%s): %s -> %s" % (join.method, master_key,
-                                                            detail_key))
-
             # We need plain tables to get columns for prepare the join
             # condition
             master_table = self.table(join.master.schema, join.master.table)
@@ -823,8 +955,8 @@ class SnowflakeBrowser(AggregationBrowser):
             try:
                 master_column = master_table.c[master.column]
             except KeyError:
-                self.logger.error("No master column '%s'. Available: %s" % \
-                                   (master.column, str(master_table.columns)))
+                # self.logger.error("No master column '%s'. Available: %s" % \
+                #                    (master.column, str(master_table.columns)))
                 raise ModelError('Unable to find master key (schema %s) "%s"."%s" ' \
                                     % join.master[0:3])
             try:
@@ -876,25 +1008,282 @@ class SnowflakeBrowser(AggregationBrowser):
 
         # Return the remaining joined product
         result = joined_products.values()[0]
-        self._log_statement(result, "join result")
 
-        # TODO: avoid returning named tuples
         return JoinProduct(result, outer_details)
 
-    def condition_for_cell(self, cell):
-        """Constructs conditions for all cuts in the `cell`. Returns a named
-        tuple with keys:
+    def column(self, attribute, locale=None):
+        """Return a column object for attribute.
 
-        * ``condition`` - SQL conditions
-        * ``attributes`` - attributes that are involved in the conditions.
-          This should be used for join construction.
-        * ``group_by`` - attributes used for GROUP BY expression
+        `locale` is explicit locale to be used. If not specified, then the
+        current locale is used for localizable attributes."""
+
+        logical = self.mapper.logical(attribute, locale)
+        if logical in self.logical_to_column:
+            return self.logical_to_column[logical]
+
+        ref = self.mapper.physical(attribute, locale)
+        table = self.table(ref.schema, ref.table)
+
+        try:
+            column = table.c[ref.column]
+        except:
+            # FIXME: do not expose this exception to server
+            avail = [str(c) for c in table.columns]
+            raise BrowserError("Unknown column '%s' in table '%s' avail: %s" %
+                                        (ref.column, ref.table, avail))
+
+        # Extract part of the date
+        if ref.extract:
+            column = sql.expression.extract(ref.extract, column)
+        if ref.func:
+            column = getattr(sql.expression.func, ref.func)(column)
+        if ref.expr:
+            expr_func = eval(compile(ref.expr, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+            if not callable(expr_func):
+                raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
+            column = expr_func(column)
+        if self.safe_labels:
+            label = "a%d" % self.label_counter
+            self.label_counter += 1
+        else:
+            label = logical
+
+        if isinstance(column, basestring):
+            raise ValueError("Cannot resolve %s to a column object: %r" % (attribute, column))
+
+        column = column.label(label)
+
+        self.logical_to_column[logical] = column
+        self.column_to_logical[label] = logical
+
+        return column
+
+    def logical_labels(self, columns):
+        """Returns list of logical attribute labels from list of columns
+        or column labels.
+
+        This method and additional internal references were added because some
+        database dialects, such as Exasol, can not handle dots in column
+        names, even when quoted.
         """
 
-        if not cell:
-            return Condition([], None)
+        # Should not this belong to the snowflake
+        attributes = []
 
-        attributes = set()
+        for column in columns:
+            attributes.append(self.column_to_logical.get(column.name,
+                                                         column.name))
+
+        return attributes
+
+    def table(self, schema, table_name):
+        """Return a SQLAlchemy Table instance. If table was already accessed,
+        then existing table is returned. Otherwise new instance is created.
+
+        If `schema` is ``None`` then browser's default schema is used.
+        """
+
+        aliased_ref = (schema or self.mapper.schema, table_name)
+
+        if aliased_ref in self.tables:
+            return self.tables[aliased_ref]
+
+        # Get real table reference
+        try:
+            table_ref = self.table_aliases[aliased_ref]
+        except KeyError:
+            raise ModelError("Table with reference %s not found. "
+                             "Missing join in cube '%s'?" %
+                                    (aliased_ref, self.cube.name) )
+
+        table = sqlalchemy.Table(table_ref.table, self.metadata,
+                                 autoload=True, schema=table_ref.schema)
+
+        if table_ref.alias:
+            table = table.alias(table_ref.alias)
+
+        self.tables[aliased_ref] = table
+
+        return table
+
+
+class StatementBuilder(object):
+    def __init__(self, browser):
+        """Creates a statement builder object – a controller-like object that
+        incrementally constructs the statement.
+
+        Result attributes:
+
+        * `statement` – SQL query statement
+        * `labels` – logical labels for the statement selection
+        """
+
+        self.browser = browser
+
+        # Inherit
+        # FIXME: really?
+        self.logger = browser.logger
+        self.mapper = browser.mapper
+        self.cube = browser.cube
+
+        self.snowflake = SnowflakeSchema(self.cube, self.mapper,
+                                         self.browser.metadata,
+                                         safe_labels=browser.safe_labels)
+
+        # Fact table or a join product of match/master joined tables
+        #
+        # This is the main reason for this class
+        self.master_fact = None
+        self.drilldown = None
+
+        # Output:
+        self.statement = None
+        self.labels = []
+
+    def aggregation_statement(self, cell, drilldown=None, aggregates=None,
+                              split=None, attributes=None):
+        """Builds a statement to aggregate the `cell`."""
+
+        # TODO: split
+        # TODO: PTD!!!
+
+        # TODO: add self.labels for builder.labels not statement.labels
+        # FIXME: derive this:
+        drilldown = drilldown or Drilldown()
+
+        has_outer_details = False
+
+        selection = []
+
+        self.logger.debug("=== aggregate")
+        master_attributes = set()
+        master_conditions = self.conditions_for_cell(cell, master_fact=True)
+        self.logger.debug("--- found %s master conditions" % len(master_conditions))
+
+        for cond in master_conditions:
+            self.logger.debug("--- condition: %s: %s"
+                              % ([a.ref() for a in cond.attributes], cond.condition))
+            master_attributes |= set(cond.attributes)
+
+        self.logger.debug("--- master attributes: %s" % [a.ref() for a in master_attributes])
+
+        # Aggregates
+        # ----------
+
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty")
+
+        # Collect expressions of aggregate functions
+        selection += self.builtin_aggregate_expressions(aggregates,
+                                                        coalesce_measures=has_outer_details)
+        # Collect drilldown attributes
+        # ----------------------------
+        # TODO: split to master/detail
+        master_attributes = drilldown.level_attributes()
+
+        # Join
+        # ----
+
+        # Create the master join product:
+        join_product = self.snowflake.join_expression(master_attributes)
+        join_expression = join_product.expression
+
+        # Drilldown – Group-by
+        # --------------------
+        #
+        group_by = []
+
+        for attribute in drilldown.level_attributes():
+            column = self.column(attribute)
+            group_by.append(column)
+            selection.append(column)
+
+        # Prepare the master_fact statement:
+        self.logger.debug("--- SELECT: %s" % ([str(s) for s in selection],))
+        self.logger.debug("--- FROM: %s" % (join_expression, ))
+        statement = sql.expression.select(selection,
+                                          from_obj=join_expression,
+                                          use_labels=True,
+                                          group_by=group_by)
+
+        self.master_fact = statement
+        self.statement = statement
+        self.labels = self.snowflake.logical_labels(statement.columns)
+
+        # Used in order
+        self.drilldown = drilldown
+        self.split = split
+
+        return self.statement
+
+    def builtin_aggregate_expressions(self, aggregates,
+                                      coalesce_measures=False):
+        """Returns list of expressions for aggregates from `aggregates` that
+        are computed using the SQL statement.
+        """
+
+        expressions = []
+        for agg in aggregates:
+            exp = self.aggregate_expression(agg, coalesce_measures)
+            if exp is not None:
+                expressions.append(exp)
+
+        return expressions
+
+    def aggregate_expression(self, aggregate, coalesce_measure=False):
+        """Returns an expression that performs the aggregation of measure
+        `aggregate`. The result's label is the aggregate's name.  `aggregate`
+        has to be `MeasureAggregate` instance.
+
+        If aggregate function is post-aggregation calculation, then `None` is
+        returned.
+
+        Aggregation function names are case in-sensitive.
+
+        If `coalesce_measure` is `True` then selected measure column is wrapped
+        in ``COALESCE(column, 0)``.
+        """
+        # TODO: support aggregate.expression
+
+        if aggregate.expression:
+            raise NotImplementedError("Expressions are not yet implemented")
+
+        # If there is no function specified, we consider the aggregate to be
+        # computed in the mapping
+        if not aggregate.function:
+            # TODO: this should be depreciated in favor of aggreate.expression
+            # TODO: Following expression should be raised instead:
+            # raise ModelError("Aggregate '%s' has no function specified"
+            #                 % str(aggregate))
+            column = self.column(aggregate)
+            # TODO: add COALESCE()
+            return column
+
+        function_name = aggregate.function.lower()
+        function = self.browser.builtin_function(function_name, aggregate)
+
+        if not function:
+            return None
+
+        expression = function(aggregate, self, coalesce_measure)
+
+        return expression
+
+    def conditions_for_cell(self, cell, master_fact=True):
+        """Constructs conditions for all cuts in the `cell`. Returns a list of
+        tuple with attributes:
+
+        * ``condition`` – SQL conditional expression
+        * ``attributes`` – list of attributes in the expression
+        * ``is_outer_detail`` – `True` if one of the attributes is joined as
+          `detail`
+        """
+
+        # TODO: master_fact is ignored for now
+
+        if not cell:
+            return []
+
         conditions = []
 
         for cut in cell.cuts:
@@ -902,18 +1291,16 @@ class SnowflakeBrowser(AggregationBrowser):
 
             if isinstance(cut, PointCut):
                 path = cut.path
-                wrapped_cond = self.condition_for_point(dim, path,
-                                                        cut.hierarchy, cut.invert)
-
-                condition = wrapped_cond.condition
-                attributes |= wrapped_cond.attributes
+                condition = self.condition_for_point(dim, path, cut.hierarchy,
+                                                     cut.invert)
 
             elif isinstance(cut, SetCut):
                 set_conds = []
 
                 for path in cut.paths:
-                    wrapped_cond = self.condition_for_point(dim, path,
-                                                            cut.hierarchy, False)
+                    element_condition = self.condition_for_point(dim, path,
+                                                                 cut.hierarchy,
+                                                                 False)
                     set_conds.append(wrapped_cond.condition)
                     attributes |= wrapped_cond.attributes
 
@@ -934,63 +1321,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             conditions.append(condition)
 
-        if conditions:
-            condition = sql.expression.and_(*conditions)
-        else:
-            condition = None
-
-        return Condition(attributes, condition)
-
-    def _ptd_condition(self, cell, drilldown):
-        """Returns "periods to date" condition for cell."""
-
-        # Include every level only once
-        levels = set()
-
-        # For the cell:
-        if cell:
-            levels |= set(item[2] for item in cell.deepest_levels())
-
-        # For drilldown:
-        if drilldown:
-            levels |= set(item[2] for item in drilldown.deepest_levels())
-
-        # Collect the conditions
-        #
-        # Conditions are currently specified in the mappings as "condtition"
-        #
-
-        # Collect relevant columns – those with conditions
-        physicals = []
-        for level in levels:
-            ref = self.mapper.physical(level.key)
-            if ref.condition:
-                physicals.append(ref)
-
-        # Construct the conditions from the physical attribute expression
-        conditions = []
-        for ref in physicals:
-
-            table = self.table(ref.schema, ref.table)
-            try:
-                column = table.c[ref.column]
-            except:
-                raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
-
-            # evaluate the condition expression
-            function = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
-            if not callable(function):
-                raise BrowserError("Cannot evaluate a callable object from reference's condition expr: %r" % ref)
-
-            condition = function(column)
-
-            conditions.append(condition)
-
-        # TODO: What about invert?
-        condition = sql.expression.and_(*conditions)
-
-        return condition
-
+        return conditions
 
     def condition_for_point(self, dim, path, hierarchy=None, invert=False):
         """Returns a `Condition` tuple (`attributes`, `conditions`,
@@ -1118,20 +1449,34 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return (Condition(attributes, condition), ptd_condition)
 
-    def paginated_statement(self, statement, page, page_size):
+    def column(self, attribute, locale=None):
+        """Returns either a physical column for the attribute or a reference to
+        a column from the master fact if it exists."""
+
+        if self.master_fact:
+            ref = self.mapper.physical(attribute, locale)
+            self.logger.debug("column %s (%s) - master" % (attribute.ref(), ref))
+            return self.master_fact.c[ref.column]
+        else:
+            self.logger.debug("column %s - snowflake" % (attribute.ref(), ))
+            return self.snowflake.column(attribute, locale)
+
+    def paginate(self, page, page_size):
         """Returns paginated statement if page is provided, otherwise returns
         the same statement."""
 
         if page is not None and page_size is not None:
-            return statement.offset(page * page_size).limit(page_size)
-        else:
-            return statement
+            self.statement = self.statement.offset(page * page_size).limit(page_size)
 
-    def ordered_statement(self, statement, order, dimension_levels=None,
-                          split=None, is_aggregate=False):
+        return self.statement
+
+    def order(self, order):
         """Returns a SQL statement which is ordered according to the `order`. If
         the statement contains attributes that have natural order specified, then
         the natural order is used, if not overriden in the `order`.
+
+        `order` sohuld be prepared using
+        :meth:`AggregationBrowser.prepare_order`.
 
         `dimension_levels` is list of considered dimension levels in form of
         tuples (`dimension`, `hierarchy`, `levels`). For each level it's sort
@@ -1146,8 +1491,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         # Get logical attributes from column labels (see logical_labels method
         # description for more information why this step is necessary)
-        logical = self.logical_labels(statement.columns)
-        for column, ref in zip(statement.columns, logical):
+        for column, ref in zip(self.statement.columns, self.labels):
             selection[ref] = column
 
         # Make sure that the `order` is a list of of tuples (`attribute`,
@@ -1156,23 +1500,23 @@ class SnowflakeBrowser(AggregationBrowser):
 
         order = order or []
 
-        if dimension_levels:
-            for dditem in dimension_levels:
-                dim, hier, levels = dditem[0:3]
-                for level in levels:
-                    level = dim.level(level)
-                    if level.order:
-                        order.append( (level.order_attribute.ref(), level.order) )
+        drilldown = self.drilldown or []
+
+        for dditem in drilldown:
+            dim, hier, levels = dditem[0:3]
+            for level in levels:
+                level = dim.level(level)
+                if level.order:
+                    order.append( (level.order_attribute.ref(), level.order) )
 
         order_by = collections.OrderedDict()
 
-        if split:
+        if self.split:
             split_column = sql.expression.column(SPLIT_DIMENSION_NAME)
             order_by[SPLIT_DIMENSION_NAME] = split_column
 
         # Collect the corresponding attribute columns
-        new_order = self.prepare_order(order, is_aggregate)
-        for attribute, order_dir in new_order:
+        for attribute, order_dir in order:
             try:
                 column = selection[attribute.ref()]
             except KeyError:
@@ -1202,244 +1546,39 @@ class SnowflakeBrowser(AggregationBrowser):
             if attribute and attribute.order and name not in order_by.keys():
                 order_by[name] = order_column(column, attribute.order)
 
-        return statement.order_by(*order_by.values())
+        self.statement = self.statement.order_by(*order_by.values())
 
-    # TODO: this is browser's meethod. Don't touch. Dissolve the context
-    # rather.
-    def prepare_order(self, order, is_aggregate=False):
-        """Prepares an order list."""
-        order = order or []
-        new_order = []
+        return self.statement
 
-        for item in order:
-            if isinstance(item, basestring):
-                name = item
-                direction = None
-            else:
-                name, direction = item[0:2]
-
-            attribute = None
-            if is_aggregate:
-                try:
-                    attribute = self.cube.measure_aggregate(name)
-                except NoSuchAttributeError:
-                    attribute = self.cube.attribute(name)
-                else:
-                    if not self.builtin_function(attribute.function, attribute):
-                        self.logger.warn("ignoring ordering of post-processed "
-                                         "aggregate %s" % attribute.name)
-                        attribute = None
-            else:
-                attribute = self.cube.attribute(name)
-
-            if attribute:
-                new_order.append( (attribute, direction) )
-
-        return new_order
-
-    def table(self, schema, table_name):
-        """Return a SQLAlchemy Table instance. If table was already accessed,
-        then existing table is returned. Otherwise new instance is created.
-
-        If `schema` is ``None`` then browser's default schema is used.
-        """
-
-        aliased_ref = (schema or self.schema, table_name)
-
-        if aliased_ref in self.tables:
-            return self.tables[aliased_ref]
-
-        # Get real table reference
-        try:
-            table_ref = self.table_aliases[aliased_ref]
-        except KeyError:
-            raise ModelError("Table with reference %s not found. "
-                             "Missing join in cube '%s'?" %
-                                    (aliased_ref, self.cube.name) )
-
-        table = sqlalchemy.Table(table_ref.table, self.metadata,
-                                 autoload=True, schema=table_ref.schema)
-
-        self.logger.debug("registering table '%s' as '%s'" % (table_ref.table,
-                                                                table_name))
-        if table_ref.alias:
-            table = table.alias(table_ref.alias)
-
-        self.tables[aliased_ref] = table
-
-        return table
-
-    def column(self, attribute, locale=None):
-        """Return a column object for attribute. `locale` is explicit locale
-        to be used. If not specified, then the current browsing/mapping locale
-        is used for localizable attributes."""
-
-        logical = self.mapper.logical(attribute, locale)
-        if logical in self.logical_to_column:
-            return self.logical_to_column[logical]
-
-        ref = self.mapper.physical(attribute, locale)
-        table = self.table(ref.schema, ref.table)
-
-        try:
-            column = table.c[ref.column]
-        except:
-            # FIXME: do not expose this exception to server
-            avail = [str(c) for c in table.columns]
-            raise BrowserError("Unknown column '%s' in table '%s' avail: %s" %
-                                        (ref.column, ref.table, avail))
-
-        # Extract part of the date
-        if ref.extract:
-            column = sql.expression.extract(ref.extract, column)
-        if ref.func:
-            column = getattr(sql.expression.func, ref.func)(column)
-        if ref.expr:
-            expr_func = eval(compile(ref.expr, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
-            if not callable(expr_func):
-                raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
-            column = expr_func(column)
-        if self.safe_labels:
-            label = "a%d" % self.label_counter
-            self.label_counter += 1
-        else:
-            label = logical
-
-        if isinstance(column, basestring):
-            raise ValueError("Cannot resolve %s to a column object: %r" % (attribute, column))
-
-        column = column.label(label)
-
-        self.logical_to_column[logical] = column
-        self.column_to_logical[label] = logical
-
-        return column
-
-    def columns(self, attributes, expand_locales=False):
-        """Returns list of columns.If `expand_locales` is True, then one
-        column per attribute locale is added."""
-
-        if expand_locales:
-            columns = []
-            for attr in attributes:
-                if attr.is_localizable():
-                    columns += [self.column(attr, locale) for locale in attr.locales]
-                else: # if not attr.locales
-                    columns.append(self.column(attr))
-        else:
-            columns = [self.column(attr) for attr in attributes]
-
-        return columns
-
-    def logical_labels(self, columns):
-        """Returns list of logical attribute labels from list of columns
-        or column labels.
-
-        This method and additional internal references were added because some
-        database dialects, such as Exasol, can not handle dots in column
-        names, even when quoted.
-        """
+    def cell_attributes(self, cell):
+        """Returns attributes used in the cell."""
 
         attributes = []
+        for cut, levels in cell.cut_levels():
+            attributes += [level.key for level in levels]
 
-        _QUOTE_STRIPPER = re.compile(r"^\"(.+)\"$")
-        for column in columns:
-            attributes.append(self.column_to_logical.get(column.name,
-                                                         column.name))
+    def compose_statement(self):
+        # We have:
+        # 1. selection: attributes
+        # 2. conditions: attributes, condition
+        # 3. group by attribute list from drilldown
 
-        return attributes
+        attribute_columns = {}
 
-    def _log_statement(self, statement, label=None):
-        label = "SQL(%s):" % label if label else "SQL:"
-        self.logger.debug("%s\n%s" % (label, str(statement)))
+        attributes = self.cell_attributes(cell)
 
-    def validate(self):
-        """Validate physical representation of model. Returns a list of
-        dictionaries with keys: ``type``, ``issue``, ``object``.
+        for condition in self.conditions:
+            for attribute in self.condition.attributes:
+                attribute_columns[attribute] = self.add_column(attribute)
 
-        Types might be: ``join`` or ``attribute``.
 
-        The ``join`` issues are:
-
-        * ``no_table`` - there is no table for join
-        * ``duplicity`` - either table or alias is specified more than once
-
-        The ``attribute`` issues are:
-
-        * ``no_table`` - there is no table for attribute
-        * ``no_column`` - there is no column for attribute
-        * ``duplicity`` - attribute is found more than once
-
-        """
-        issues = []
-
-        # Check joins
-
-        tables = set()
-        aliases = set()
-        alias_map = {}
-        #
-        for join in self.mapper.joins:
-            self.logger.debug("join: %s" % (join, ))
-
-            if not join.master.column:
-                issues.append(("join", "master column not specified", join))
-            if not join.detail.table:
-                issues.append(("join", "detail table not specified", join))
-            elif join.detail.table == self.mapper.fact_name:
-                issues.append(("join", "detail table should not be fact table", join))
-
-            master_table = (join.master.schema, join.master.table)
-            tables.add(master_table)
-
-            detail_alias = (join.detail.schema, join.alias or join.detail.table)
-
-            if detail_alias in aliases:
-                issues.append(("join", "duplicate detail table %s" % detail_table, join))
-            else:
-                aliases.add(detail_alias)
-
-            detail_table = (join.detail.schema, join.detail.table)
-            alias_map[detail_alias] = detail_table
-
-            if detail_table in tables and not join.alias:
-                issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
-            else:
-                tables.add(detail_table)
-
-        # Check for existence of joined tables:
-        physical_tables = {}
-
-        # Add fact table to support simple attributes
-        physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
-        for table in tables:
-            try:
-                physical_table = sqlalchemy.Table(table[1], self.metadata,
-                                        autoload=True,
-                                        schema=table[0] or self.mapper.schema)
-                physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
-            except sqlalchemy.exc.NoSuchTableError:
-                issues.append(("join", "table %s.%s does not exist" % table, join))
-
-        # Check attributes
-
-        attributes = self.mapper.all_attributes()
-        physical = self.mapper.map_attributes(attributes)
-
-        for attr, ref in zip(attributes, physical):
-            alias_ref = (ref.schema, ref.table)
-            table_ref = alias_map.get(alias_ref, alias_ref)
-            table = physical_tables.get(table_ref)
-
-            if table is None:
-                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
-            else:
-                try:
-                    c = table.c[ref.column]
-                except KeyError:
-                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
-
-        return issues
+        # if everything is match or master:
+        #     get relevant joins
+        # if there is outer:
+        #    if the inner is in condition:
+        #        mask the selection tables as not joined
+        # If everything is match: just get relevant joins for all attributes
+        # for condition in self.conditions:
 
 
 """A Condition representation. `attributes` - list of attributes involved in
@@ -1447,10 +1586,6 @@ the conditions, `conditions` - SQL conditions"""
 Condition = collections.namedtuple("Condition",
                                    ["attributes", "condition"])
 
-
-"""Aliased table information"""
-AliasedTable = collections.namedtuple("AliasedTable",
-                                     ["schema", "table", "alias"])
 
 
 JoinProduct = collections.namedtuple("JoinProduct",
