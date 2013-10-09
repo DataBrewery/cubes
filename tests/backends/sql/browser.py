@@ -74,6 +74,7 @@ class StarSQLTestCase(CubesTestCaseBase):
         self.mapper = self.browser.mapper
 
 
+@unittest.skip("Obsolete")
 class QueryContextTestCase(StarSQLTestCase):
     def setUp(self):
         super(QueryContextTestCase, self).setUp()
@@ -89,6 +90,7 @@ class QueryContextTestCase(StarSQLTestCase):
         cols = [column.name for column in statement.columns]
         self.assertEqual(20, len(cols))
 
+    # TODO: move this to tests/browser.py
     def test_levels_from_drilldown(self):
         cell = Cell(self.cube)
         dim = self.cube.dimension("date")
@@ -209,13 +211,6 @@ class JoinsTestCase(StarSQLTestCase):
         test = sorted([r.detail.table for r in relevant])
         self.assertEqual(["category", "product","subcategory"], test)
         self.assertEqual([None, None, None], [r.alias for r in relevant])
-
-
-class StarValidationTestCase(StarSQLTestCase):
-    @unittest.skip("not implemented")
-    def test_validate(self):
-        result = self.browser.validate_model()
-        self.assertEqual(0, len(result))
 
 
 class MapperTestCase(unittest.TestCase):
@@ -383,6 +378,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertEqual(1, len(details))
 
     def test_aggregate(self):
+        self.browser.logger.setLevel("DEBUG")
         result = self.browser.aggregate()
         keys = sorted(result.summary.keys())
         self.assertEqual(4, len(keys))
@@ -397,39 +393,6 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         keys = sorted(result.summary.keys())
         self.assertEqual(1, len(keys))
         self.assertEqual(["discount_sum"], keys)
-
-    @unittest.skip("not implemented")
-    def test_aggregate_measure_only(self):
-        """Aggregation result should: SELECT from fact only"""
-        pass
-
-    @unittest.skip("not implemented")
-    def test_aggregate_flat_dimension(self):
-        """Aggregation result should SELECT from fact table onle, group by flat dimension attribute"""
-        pass
-
-    @unittest.skip("not implemented")
-    def test_aggregate_joins(self):
-        """Aggregation result should:
-            * join date only - no other dimension joined
-            * join all dimensions
-            * snowflake join
-        """
-        pass
-
-    @unittest.skip("not implemented")
-    def test_aggregate_details(self):
-        """Aggregation result should:
-            details should be added after aggregation
-            * fact details
-            * dimension details
-        """
-        pass
-
-    @unittest.skip("not implemented")
-    def test_aggregate_join_date(self):
-        """Aggregation result should join only date, no other joins should be performed"""
-        pass
 
 
 class HierarchyTestCase(CubesTestCaseBase):
@@ -586,13 +549,127 @@ class HierarchyTestCase(CubesTestCaseBase):
         self.assertEqual(54, result.total_cell_count)
 
 
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(JoinsTestCase))
-    suite.addTest(unittest.makeSuite(StarSQLBrowserTestCase))
-    suite.addTest(unittest.makeSuite(StarValidationTestCase))
-    suite.addTest(unittest.makeSuite(QueryContextTestCase))
-    suite.addTest(unittest.makeSuite(HierarchyTestCase))
 
-    return suite
+class SQLBrowserTestCase(CubesTestCaseBase):
+    sql_engine = "sqlite:///"
 
+    def setUp(self):
+        model = {
+            "cubes": [
+                {
+                    "name": "facts",
+                    "dimensions": ["date", "country"],
+                    "measures": ["amount"]
+
+                }
+            ],
+            "dimensions": [
+                {
+                    "name": "date",
+                    "levels": ["year", "month", "day"]
+                },
+                {
+                    "name": "country",
+                },
+            ],
+            "mappings": {
+                "date.year": "year",
+                "date.month": "month",
+                "date.day": "day"
+            }
+        }
+
+        super(SQLBrowserTestCase, self).setUp()
+        self.facts = Table("facts", self.metadata,
+                        Column("id", Integer),
+                        Column("year", Integer),
+                        Column("month", Integer),
+                        Column("day", Integer),
+                        Column("country", String),
+                        Column("amount", Integer)
+                        )
+
+        self.metadata.create_all()
+        data = [
+                ( 1,2012,1,1,"sk",10),
+                ( 2,2012,1,2,"sk",10),
+                ( 3,2012,2,3,"sk",10),
+                ( 4,2012,2,4,"at",10),
+                ( 5,2012,3,5,"at",10),
+                ( 6,2012,3,1,"uk",100),
+                ( 7,2012,4,2,"uk",100),
+                ( 8,2012,4,3,"uk",100),
+                ( 9,2012,5,4,"uk",100),
+                (10,2012,5,5,"uk",100),
+                (11,2013,1,1,"fr",1000),
+                (12,2013,1,2,"fr",1000),
+                (13,2013,2,3,"fr",1000),
+                (14,2013,2,4,"fr",1000),
+                (15,2013,3,5,"fr",1000)
+            ]
+        self.load_data(self.facts, data)
+
+        workspace = self.create_workspace(model=model)
+        self.browser = workspace.browser("facts")
+        self.browser.logger.setLevel("DEBUG")
+        self.cube = self.browser.cube
+
+    def test_aggregate_empty_cell(self):
+        result = self.browser.aggregate()
+        self.assertIsNotNone(result.summary)
+        self.assertEqual(1, len(result.summary.keys()))
+        self.assertEqual("amount_sum", result.summary.keys()[0])
+        self.assertEqual(5550, result.summary["amount_sum"])
+
+    def test_aggregate_condition(self):
+        cut = PointCut("date", [2012])
+        cell = Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell)
+
+        self.assertIsNotNone(result.summary)
+        self.assertEqual(1, len(result.summary.keys()))
+        self.assertEqual("amount_sum", result.summary.keys()[0])
+        self.assertEqual(5550, result.summary["amount_sum"])
+
+        cells = list(result.cells)
+        self.assertEqual(0, len(cells))
+
+    def test_aggregate_drilldown(self):
+        drilldown = [("date", None, "year")]
+        result = self.browser.aggregate(drilldown=drilldown)
+
+        cells = list(result.cells)
+        for cell in cells:
+            self.browser.logger.debug("--- cell: %s" % cell)
+        self.assertEqual(2, len(cells))
+
+        self.assertItemsEqual(["date.year", "amount_sum"],
+                              cells[0].keys())
+        self.assertEqual(550, cells[0]["amount_sum"])
+        self.assertEqual(2012, cells[0]["date.year"])
+        self.assertEqual(5000, cells[1]["amount_sum"])
+        self.assertEqual(2013, cells[1]["date.year"])
+
+    def test_aggregate_drilldown_order(self):
+        drilldown = [("country", None, "country")]
+        result = self.browser.aggregate(drilldown=drilldown)
+
+        cells = list(result.cells)
+        self.assertEqual(4, len(cells))
+
+        self.assertItemsEqual(["country", "amount_sum"],
+                              cells[0].keys())
+        values = [cell["country"] for cell in cells]
+        self.assertSequenceEqual(["at", "fr", "sk", "uk"], values)
+
+        order = [("country", "desc")]
+        result = self.browser.aggregate(drilldown=drilldown, order=order)
+        cells = list(result.cells)
+        values = [cell["country"] for cell in cells]
+        self.assertSequenceEqual(["uk", "sk", "fr", "at"], values)
+
+    # test_drilldown_pagination
+    # test_split
+    # test_drilldown_selected_attributes
+    # drilldown high cardinality
+    # Test:
