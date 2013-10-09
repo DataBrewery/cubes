@@ -378,20 +378,13 @@ class CubesController(ApplicationController):
         # Add cube key to the fields (it is returned in the result)
         fields.insert(0, self.cube.key)
 
-        if header_type == "names":
-            header = fields
-        elif header_type == "labels":
-            header = [attr.label or attr.name for attr in attributes]
-            header.insert(0, self.cube.key or "id")
-        else:
-            header = None
-
-        # Construct the header:
+        # Construct the header
         if header_type and header_type != "none":
             if header_type == "names":
                 header = [attr.ref() for attr in attributes]
             elif header_type == "labels":
                 header = [attr.label or attr.name for attr in attributes]
+                header.insert(0, self.cube.key or "id")
         else:
             header = None
 
