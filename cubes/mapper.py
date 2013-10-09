@@ -48,23 +48,11 @@ class Mapper(object):
         self.locale = locale
 
         # TODO: remove this (should be in SQL only)
-        fact_prefix = options.get("fact_prefix") or ""
-        self.fact_name = fact_name or self.cube.fact or fact_prefix+self.cube.name
-        self.schema=schema
 
         if "simplify_dimension_references" in options:
             self.simplify_dimension_references = options["simplify_dimension_references"]
         else:
             self.simplify_dimension_references = True
-
-        if self.schema:
-            schemastr = "'%s'" % self.schema
-        else:
-            schemastr = "(default)"
-
-        self.logger.debug("mapper options: fact:'%s', schema:%s, "
-                          "simplify: %s" % (self.fact_name, schemastr,
-                                            self.simplify_dimension_references))
 
         self._collect_attributes()
 
@@ -76,17 +64,8 @@ class Mapper(object):
 
         self.attributes = collections.OrderedDict()
 
-        for attr in self.cube.measures:
+        for attr in self.cube.all_attributes:
             self.attributes[self.logical(attr)] = attr
-
-        for attr in self.cube.details:
-            self.attributes[self.logical(attr)] = attr
-
-        for dim in self.cube.dimensions:
-            for attr in dim.all_attributes:
-                if not attr.dimension:
-                    raise Exception("No dimension in attr %s" % attr)
-                self.attributes[self.logical(attr)] = attr
 
     def set_locale(self, locale):
         """Change the mapper's locale"""
@@ -150,31 +129,3 @@ class Mapper(object):
 
         return self.mappings.get(self.logical(attribute, locale))
 
-    def map_attributes(self, attributes, expand_locales=False):
-        """Convert `attributes` to physical attributes. If `expand_locales` is
-        ``True`` then physical reference for every attribute locale is
-        returned."""
-
-        if expand_locales:
-            physical_attrs = []
-
-            for attr in attributes:
-                if attr.is_localizable():
-                    refs = [self.physical(attr, locale) for locale in attr.locales]
-                else:
-                    refs = [self.physical(attr)]
-                physical_attrs += refs
-        else:
-            physical_attrs = [self.physical(attr) for attr in attributes]
-
-        return physical_attrs
-
-    def relevant_joins(self, attributes):
-        """Get relevant joins to the attributes - list of joins that
-        are required to be able to acces specified attributes. `attributes`
-        is a list of three element tuples: (`schema`, `table`, `attribute`).
-
-        Subclasses sohuld implement this method.
-        """
-
-        raise NotImplementedError
