@@ -826,6 +826,19 @@ class Cell(object):
 
         return levels
 
+    def cut_levels(self):
+        """Returns a list of tuples: (`cut`, `levels`) for every cut. Where
+        `levels` is list of levels considered in the cut."""
+        result = []
+        for cut in cuts:
+            depth = cut.level_depth()
+            dim = self.cube.dimension(cut.dimension)
+            hier = dim.hierarchy(cut.hierarchy)
+            if depth:
+                result.append((cut, hier[0:depth]))
+
+        return result
+
     def is_base(self, dimension, hierarchy=None):
         """Returns ``True`` when cell is base cell for `dimension`. Cell
         is base if there is a point cut with path referring to the
@@ -1568,7 +1581,7 @@ def string_to_drilldown(astring):
 
 
 class Drilldown(object):
-    def __init__(self, drilldown, cell):
+    def __init__(self, drilldown=None, cell=None):
         """Creates a drilldown object for `drilldown` specifictation of `cell`.
         The drilldown object can be used by browsers for convenient access to
         various drilldown properties.
@@ -1713,8 +1726,22 @@ class Drilldown(object):
 
         return result
 
+    def level_attributes(self):
+        """Returns attributes of all levels in the drilldown. Order is by the
+        drilldown item, then by the levels and finally by the attribute in the
+        level."""
+        attributes = []
+        for item in self.drilldown:
+            for level in item.levels:
+                attributes += level.attributes
+
+        return attributes
+
+    def has_dimension(self, dim):
+        return str(dim) in self._by_dimension
+
     def __contains__(self, key):
-        return str(key) in self._by_dimension
+        return self.has_dimension(key)
 
     def __len__(self):
         return len(self.drilldown)
