@@ -6,9 +6,7 @@ from ...common import get_logger
 from ...statutils import calculators_for_aggregates, available_calculators
 from ...errors import *
 from .mapper import SnowflakeMapper, DenormalizedMapper
-from .mapper import DEFAULT_KEY_FIELD
 from .functions import get_aggregate_function, available_aggregate_functions
-from .utils import condition_conjuction, order_column
 from .query import QueryBuilder
 
 import collections
@@ -161,24 +159,26 @@ class SnowflakeBrowser(AggregationBrowser):
         self.mapper.set_locale(locale)
         self.locale = locale
 
-    def fact(self, key_value):
+    def fact(self, key_value, fields=None):
         """Get a single fact with key `key_value` from cube.
 
         Number of SQL queries: 1."""
 
-        select = self.fact_statement(key_value)
+        attributes = self.cube.get_attributes(fields)
 
-        if self.debug:
-            self.logger.info("fact SQL:\n%s" % select)
+        builder = QueryBuilder(self)
+        builder.denormalized_statement(attributes=attributes,
+                                       include_fact_key=True)
 
-        cursor = self.connectable.execute(select)
+        builder.fact(key_value)
+
+        cursor = self.execute_statement(builder.statement,
+                                        "facts")
         row = cursor.fetchone()
-
-        labels = self.logical_labels(select.columns)
 
         if row:
             # Convert SQLAlchemy object into a dictionary
-            record = dict(zip(labels, row))
+            record = dict(zip(builder.labels, row))
         else:
             record = None
 
@@ -195,34 +195,20 @@ class SnowflakeBrowser(AggregationBrowser):
 
         cell = cell or Cell(self.cube)
 
-        if not fields:
-            attributes = self.cube.all_attributes
-            self.logger.debug("facts: getting all fields: %s" % ([a.ref() for a in attributes], ))
-        else:
-            attributes = self.cube.get_attributes(fields)
-            self.logger.debug("facts: getting fields: %s" % fields)
+        attributes = self.cube.get_attributes(fields)
 
-        cond = self.condition_for_cell(cell)
-        statement = self.denormalized_statement(attributes=attributes,
-                                                        include_fact_key=True,
-                                                        condition_attributes=cond.attributes)
+        builder = QueryBuilder(self)
+        builder.denormalized_statement(cell,
+                                       attributes,
+                                       include_fact_key=True)
+        builder.paginate(page, page_size)
+        order = self.prepare_order(order, is_aggregate=False)
+        builder.order(order)
 
-        if cond.condition is not None:
-            statement = statement.where(cond.condition)
+        cursor = self.execute_statement(builder.statement,
+                                        "facts")
 
-        statement = self.paginated_statement(statement, page, page_size)
-
-        # FIXME: use level based ordering here. What levels to consider? In
-        # what order?
-        statement = self.ordered_statement(statement, order)
-
-        if self.debug:
-            self.logger.info("facts SQL:\n%s" % statement)
-
-        result = self.connectable.execute(statement)
-        labels = self.logical_labels(statement.columns)
-
-        return ResultIterator(result, labels)
+        return ResultIterator(cursor, builder.labels)
 
     def members(self, cell, dimension, depth=None, hierarchy=None, page=None,
                 page_size=None, order=None, **options):
@@ -570,44 +556,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return function
 
-    def denormalized_statement(self, attributes=None, expand_locales=False,
-                               include_fact_key=True,
-                               condition_attributes=None):
-        """Return a statement (see class description for more information) for
-        denormalized view. `whereclause` is same as SQLAlchemy `whereclause`
-        for `sqlalchemy.sql.expression.select()`. `attributes` is list of
-        logical references to attributes to be selected. If it is ``None``
-        then all attributes are used. `condition_attributes` contains list of
-        attributes that are not going to be selected, but are required for
-        WHERE condition.
-
-        Set `expand_locales` to ``True`` to expand all localized attributes.
-        """
-
-        if attributes is None:
-            attributes = self.mapper.all_attributes()
-
-        if condition_attributes:
-            join_attributes = set(attributes) | condition_attributes
-        else:
-            join_attributes = set(attributes)
-
-        join_product = self.join_expression_for_attributes(join_attributes,
-                                                expand_locales=expand_locales)
-        join_expression = join_product.expression
-
-        columns = self.columns(attributes, expand_locales=expand_locales)
-
-        if include_fact_key:
-            key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
-            columns.insert(0, key_column)
-
-        select = sql.expression.select(columns,
-                                       from_obj=join_expression,
-                                       use_labels=True)
-
-        return select
-
     def detail_statement(self, dimension, path, hierarchy=None):
         """Returns statement for dimension details. `attributes` should be a
         list of attributes from one dimension that is one branch
@@ -635,7 +583,6 @@ class SnowflakeBrowser(AggregationBrowser):
         """Return a statement for selecting a single fact based on `key_value`"""
 
         key_column = self.fact_table.c[self.fact_key]
-        condition = key_column == key_value
 
         statement = self.denormalized_statement()
         statement = statement.where(condition)
@@ -691,22 +638,6 @@ class SnowflakeBrowser(AggregationBrowser):
         condition = sql.expression.and_(*conditions)
 
         return condition
-
-    def columns(self, attributes, expand_locales=False):
-        """Returns list of columns.If `expand_locales` is True, then one
-        column per attribute locale is added."""
-
-        if expand_locales:
-            columns = []
-            for attr in attributes:
-                if attr.is_localizable():
-                    columns += [self.column(attr, locale) for locale in attr.locales]
-                else: # if not attr.locales
-                    columns.append(self.column(attr))
-        else:
-            columns = [self.column(attr) for attr in attributes]
-
-        return columns
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
