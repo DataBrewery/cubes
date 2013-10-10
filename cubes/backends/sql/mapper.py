@@ -319,7 +319,8 @@ class SnowflakeMapper(Mapper):
 
         tables_to_join = set((ref[0], ref[1]) for ref in references)
         joined_tables = set()
-        joined_tables.add( (self.schema, self.fact_name) )
+        fact_table = (self.schema, self.fact_name)
+        joined_tables.add( fact_table )
 
         joins = []
         self.logger.debug("tables to join: %s" % list(tables_to_join))
@@ -351,7 +352,7 @@ class SnowflakeMapper(Mapper):
                     joined = True
                     break
 
-            if joins and not joined:
+            if joins and not joined and table != fact_table:
                 self.logger.warn("No table joined for %s" % (table, ))
 
         self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
