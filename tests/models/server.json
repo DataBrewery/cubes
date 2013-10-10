@@ -1,0 +1,42 @@
+{
+    "cubes": [
+        {
+            "name":"aggregate_test",
+            "dimensions": ["date", "item"],
+            "fact": "facts",
+            "measures": [
+                    "amount"
+                ],
+            "joins": [
+                {
+                    "master": "facts.id_item",
+                    "detail": "item.id",
+                    "method": "match"
+                },
+                {
+                    "master": "facts.id_date",
+                    "detail": "date.id",
+                    "method": "match"
+                }
+            ]
+        }
+    ],
+    "dimensions": [
+        {
+            "name":"date",
+            "levels": [
+                    {"name":"year"},
+                    {"name":"month"},
+                    {"name":"day"}
+                ]
+        },
+        {
+            "name":"item",
+            "levels": [
+                    {"name":"item", "attributes": ["id", "name"]}
+                ]
+        }
+    ]
+
+}
+

@@ -1,8 +1,9 @@
+# -*- coding=utf -*-
 import unittest
 from cubes import __version__
 import json
 from .common import CubesTestCaseBase
-from sqlalchemy import Table, Column, Integer
+from sqlalchemy import MetaData, Table, Column, Integer, String
 
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
@@ -137,3 +138,79 @@ class SlicerModelTestCase(SlicerTestCaseBase):
 
         self.assertEqual(False, dims[0]["is_flat"])
         self.assertEqual(True, dims[0]["has_details"])
+
+
+class SlicerAggregateTestCase(SlicerTestCaseBase):
+    sql_engine = "sqlite:///"
+    def setUp(self):
+        super(SlicerAggregateTestCase, self).setUp()
+
+        self.workspace = self.create_workspace(model="server.json")
+        self.cube = self.workspace.cube("aggregate_test")
+        self.slicer.workspace = self.workspace
+
+        self.facts = Table("facts", self.metadata,
+                        Column("id", Integer),
+                        Column("id_date", Integer),
+                        Column("id_item", Integer),
+                        Column("amount", Integer)
+                        )
+
+        self.dim_date = Table("date", self.metadata,
+                        Column("id", Integer),
+                        Column("year", Integer),
+                        Column("month", Integer),
+                        Column("day", Integer)
+                        )
+
+        self.dim_item = Table("item", self.metadata,
+                        Column("id", Integer),
+                        Column("name", String)
+                        )
+
+        self.metadata.create_all()
+
+        data = [
+                    # Master-detail Match
+                    ( 1, 20130901, 1,   20),
+                    ( 2, 20130902, 1,   20),
+                    ( 3, 20130903, 1,   20),
+                    ( 4, 20130910, 1,   20),
+                    ( 5, 20130915, 1,   20),
+                    #             --------
+                    #             ∑    100
+                    # No city dimension
+                    ( 6, 20131001, 2,  200),
+                    ( 7, 20131002, 2,  200),
+                    ( 8, 20131004, 2,  200),
+                    ( 9, 20131101, 3,  200),
+                    (10, 20131201, 3,  200),
+                    #             --------
+                    #             ∑   1000
+                    #             ========
+                    #             ∑   1100
+
+                ]
+
+        self.load_data(self.facts, data)
+
+        data = [
+                    (1, "apple"),
+                    (2, "pear"),
+                    (3, "garlic"),
+                    (4, "carrod")
+                ]
+
+        self.load_data(self.dim_item, data)
+
+        data = []
+        for day in range(1, 31):
+            row = (20130900+day, 2013, 9, day)
+            data.append(row)
+
+        self.load_data(self.dim_date, data)
+
+    def test_aggregate_csv(self):
+        url = "cube/aggregate_test/aggregate?format=csv"
+        response, status = self.get(url)
+        self.assertEqual(1,1)
