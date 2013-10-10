@@ -1725,6 +1725,9 @@ class AttributeBase(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self.ref())
+
     def to_dict(self, **options):
         # Use ordered dict for nicer JSON output
         d = IgnoringDictionary()
