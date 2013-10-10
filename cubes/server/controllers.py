@@ -403,9 +403,6 @@ class CubesController(ApplicationController):
         else:
             header = None
 
-        else:
-            header = None
-
         # Get the facts iterator. `result` is expected to be an iterable Facts
         # object
         facts = iter(result)
