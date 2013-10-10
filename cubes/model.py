@@ -666,12 +666,12 @@ class Cube(object):
         names = [str(attr) for attr in attributes]
 
         if aggregated:
-            attributes = self.all_attributes
-        else:
             attributes = []
             for dim in self.dimensions:
                 attributes += dim.all_attributes
             attributes += self.aggregates
+        else:
+            attributes = self.all_attributes
 
         attr_map = dict((a.ref(simplify), a) for a in attributes)
 
