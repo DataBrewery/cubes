@@ -270,8 +270,13 @@ class CubesController(ApplicationController):
         self.create_browser(cube)
         self.prepare_cell()
 
-        format = self.args.get("format")
-        format = format.lower() if format else "json"
+        output_format = validated_parameter(self.args, "format",
+                                            values=["json", "csv"],
+                                            default="json")
+
+        header_type = validated_parameter(self.args, "header",
+                                          values=["names", "labels", "none"],
+                                          default="labels")
 
         fields_str = self.args.get("fields")
         if fields_str:
@@ -319,12 +324,22 @@ class CubesController(ApplicationController):
                                         page_size=self.page_size,
                                         order=self.order)
 
-        if format == "json":
+        if header_type == "names":
+            header = result.labels
+        elif header_type == "labels":
+            attributes = self.cube.get_attributes(result.labels)
+            header = [attr.label or attr.name for attr in attributes]
+        else:
+            header = None
+
+        if output_format == "json":
             return self.json_response(result)
-        elif format == "csv":
-            if not fields:
-                fields = result.labels
-            generator = CSVGenerator(result, fields)
+        elif output_format == "csv":
+            fields = result.labels
+            generator = CSVGenerator(result,
+                                     fields,
+                                     include_header=bool(header),
+                                     header=header)
             return Response(generator.csvrows(),
                             mimetype='text/csv')
         else:
@@ -351,7 +366,7 @@ class CubesController(ApplicationController):
 
         header_type = validated_parameter(self.args, "header",
                                           values=["names", "labels", "none"],
-                                          default="none")
+                                          default="labels")
 
         fields_str = self.args.get("fields")
         if fields_str:
@@ -367,6 +382,7 @@ class CubesController(ApplicationController):
 
         # Construct the field list
         fields = [attr.ref() for attr in attributes]
+        self.logger.debug("--- FIELDS: %s" % (fields, ))
 
         # Get the result
         result = self.browser.facts(self.cell,
@@ -378,6 +394,7 @@ class CubesController(ApplicationController):
         # Add cube key to the fields (it is returned in the result)
         fields.insert(0, self.cube.key)
 
+        # Construct the header
         if header_type == "names":
             header = fields
         elif header_type == "labels":
@@ -386,12 +403,6 @@ class CubesController(ApplicationController):
         else:
             header = None
 
-        # Construct the header:
-        if header_type and header_type != "none":
-            if header_type == "names":
-                header = [attr.ref() for attr in attributes]
-            elif header_type == "labels":
-                header = [attr.label or attr.name for attr in attributes]
         else:
             header = None
 
