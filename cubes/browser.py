@@ -1305,6 +1305,7 @@ class AggregationResult(object):
         self._cells = []
         self.total_cell_count = None
         self.remainder = {}
+        self.labels = []
 
         self.calculators = []
 
