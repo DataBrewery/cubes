@@ -301,6 +301,14 @@ class SnowflakeMapper(Mapper):
 
         return physical_attrs
 
+    def tables_for_attributes(self, attributes, expand_locales=False):
+        """Returns a list of tables – tuples (`schema`, `table`) that contain
+        `attributes`."""
+
+        references = self.physical_references(attributes, expand_locales)
+        tables = [(ref[0], ref[1]) for ref in references]
+        return tables
+
     def relevant_joins(self, attributes, expand_locales=False):
         """Get relevant joins to the attributes - list of joins that
         are required to be able to acces specified attributes. `attributes`
@@ -312,12 +320,11 @@ class SnowflakeMapper(Mapper):
 
         self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
 
-        references = self.physical_references(attributes, expand_locales)
-
         if not self.joins:
             self.logger.debug("no joins to be searched for")
 
-        tables_to_join = set((ref[0], ref[1]) for ref in references)
+        tables_to_join = set(self.tables_for_attributes(attributes,
+                                                        expand_locales))
         joined_tables = set()
         fact_table = (self.schema, self.fact_name)
         joined_tables.add( fact_table )
