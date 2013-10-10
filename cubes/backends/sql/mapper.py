@@ -330,7 +330,7 @@ class SnowflakeMapper(Mapper):
         joined_tables.add( fact_table )
 
         joins = []
-        self.logger.debug("tables to join: %s" % list(tables_to_join))
+        # self.logger.debug("tables to join: %s" % list(tables_to_join))
 
         while tables_to_join:
             table = tables_to_join.pop()
@@ -354,7 +354,7 @@ class SnowflakeMapper(Mapper):
                         self.logger.debug("adding master %s to be joined" % (master, ))
                         tables_to_join.add(master)
 
-                    self.logger.debug("joined detail %s" % (detail, ) )
+                    # self.logger.debug("joined detail %s" % (detail, ) )
                     joined_tables.add(detail)
                     joined = True
                     break
