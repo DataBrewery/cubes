@@ -652,16 +652,34 @@ class Cube(object):
             raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
                                        % (self.name, attribute))
 
-    def get_attributes(self, attributes, simplify=True):
+    def get_attributes(self, attributes, simplify=True, aggregated=False):
         """Returns a list of cube's attributes (dimension attributes, details
         and/or measures) according to the list `attributes`. If
         `simplified_references` is `True` then dimension attribute references
         in `attrubutes` are considered simplified, otherwise they are
-        considered as full (dim.attribute)."""
+        considered as full (dim.attribute).
+
+        If `aggregated` is `True` then dimension attributes and aggregates are
+        returned instead.
+        """
 
         names = [str(attr) for attr in attributes]
 
-        attr_map = dict((a.ref(simplify), a) for a in self.all_attributes)
+        if aggregated:
+            attributes = self.all_attributes
+        else:
+            attributes = []
+            for dim in self.dimensions:
+                attributes += dim.all_attributes
+            attributes += self.aggregates
+
+        attr_map = dict((a.ref(simplify), a) for a in attributes)
+
+        attributes += self.details
+
+        # TODO: do not include measures!!!
+        attributes += self.measures
+
 
         result = []
         for name in names:
