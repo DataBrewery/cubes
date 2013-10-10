@@ -7,6 +7,19 @@
             "measures": [
                     "amount"
                 ],
+            "aggregates": [
+                {
+                    "name": "amount_sum",
+                    "label": "Total Amount",
+                    "measure": "amount",
+                    "function": "sum"
+                },
+                {
+                    "name": "count",
+                    "label": "Item Count",
+                    "function": "count"
+                }
+            ],
             "joins": [
                 {
                     "master": "facts.id_item",
@@ -25,16 +38,23 @@
         {
             "name":"date",
             "levels": [
-                    {"name":"year"},
-                    {"name":"month"},
-                    {"name":"day"}
+                    {"name":"year", "label": "Year"},
+                    {"name":"month", "label": "Month"},
+                    {"name":"day", "label": "Day"}
                 ]
         },
         {
             "name":"item",
             "levels": [
-                    {"name":"item", "attributes": ["id", "name"]}
-                ]
+                {
+                    "name":"item",
+                    "attributes": 
+                    [
+                        "id",
+                        {"name":"name", "label": "Item"}
+                    ]
+                }
+            ]
         }
     ]
 
