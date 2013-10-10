@@ -4,6 +4,7 @@ from ...browser import Drilldown
 from ...errors import *
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD
+from .utils import condition_conjuction, order_column
 
 try:
     import sqlalchemy
@@ -56,6 +57,8 @@ class SnowflakeSchema(object):
             in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
             msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
             raise WorkspaceError(msg)
+
+        self.fact_key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
 
         self.tables = {
             (self.schema, self.fact_name): self.fact_table
@@ -116,9 +119,16 @@ class SnowflakeSchema(object):
     def is_outer_detail(self, attribute, for_aggregation=False):
         """Returns `True` if the attribute belongs to an outer-detail table."""
         if for_aggregation:
-            return self.aggregated_fact_relationships[attribute] == OUTER_DETAIL_RSHIP
+            lookup = self.aggregated_fact_relationships
         else:
-            return self.fact_relationships[attribute] == OUTER_DETAIL_RSHIP
+            lookup = self.fact_relationships
+
+        try:
+            return lookup[attribute] == OUTER_DETAIL_RSHIP
+        except KeyError:
+            raise InternalError("No fact relationship for attribute %s "
+                                "(aggregate: %s)"
+                                % (attribute.ref(), for_aggregation))
 
     def analyse_fact_relationships(self, for_aggregation=False):
         """ Analyses the schema and stores the information. Stored information
@@ -385,6 +395,22 @@ class SnowflakeSchema(object):
 
         return column
 
+    def columns(self, attributes, expand_locales=False):
+        """Returns list of columns.If `expand_locales` is True, then one
+        column per attribute locale is added."""
+
+        if expand_locales:
+            columns = []
+            for attr in attributes:
+                if attr.is_localizable():
+                    columns += [self.column(attr, locale) for locale in attr.locales]
+                else: # if not attr.locales
+                    columns.append(self.column(attr))
+        else:
+            columns = [self.column(attr) for attr in attributes]
+
+        return columns
+
     def logical_labels(self, columns):
         """Returns list of logical attribute labels from list of columns
         or column labels.
@@ -457,11 +483,11 @@ class QueryBuilder(object):
                                          self.browser.metadata,
                                          safe_labels=browser.safe_labels)
 
-        # Fact table or a join product of match/master joined tables
-        #
-        # This is the main reason for this class
         self.master_fact = None
+
+        # Intermediate results
         self.drilldown = None
+        self.split = None
 
         # Output:
         self.statement = None
@@ -496,6 +522,8 @@ class QueryBuilder(object):
         detail_cuts = []
 
         for cut, attributes in cut_attributes:
+            for a in attributes:
+                self.logger.debug("--- A(%s): %s" % (type(a), a))
             is_outer_detail = [self.snowflake.is_outer_detail(a) for a in attributes]
 
             if all(is_outer_detail):
@@ -512,7 +540,7 @@ class QueryBuilder(object):
 
         # Used to determine whether we need to have master fact and outer joins
         # construction or we are fine with just one joined construct.
-        has_outer_detail_condition = len(detail_attributes) > 0
+        has_outer_detail_condition = len(detail_cuts) > 0
 
         for attribute in drilldown_attributes:
             if self.snowflake.is_outer_detail(attribute):
@@ -535,6 +563,7 @@ class QueryBuilder(object):
         # DETAIL-ONLY – we have only detail condition
         # MASTER-DETAIL – we have condition in master and in detail
 
+        self.logger.debug("getting cond for master cuts: %s" % (master_cuts, ))
         master_conditions = self.conditions_for_cuts(master_cuts)
 
         # Aggregates
@@ -578,7 +607,8 @@ class QueryBuilder(object):
                 condition = None
 
             # Prepare the master_fact statement:
-            self.logger.debug("JOIN: %s" % str(join_expression))
+            self.logger.debug("-a- JOIN: %s" % str(join_expression))
+            self.logger.debug("-a- WHERE: %s" % str(condition))
             statement = sql.expression.select(selection,
                                               from_obj=join_expression,
                                               use_labels=True,
@@ -598,6 +628,54 @@ class QueryBuilder(object):
         self.drilldown = drilldown
         self.split = split
 
+        return self.statement
+
+    def denormalized_statement(self, cell=None, attributes=None,
+                               expand_locales=False, include_fact_key=True):
+        """Builds a statement for denormalized view. `whereclause` is same as
+        SQLAlchemy `whereclause` for `sqlalchemy.sql.expression.select()`.
+        `attributes` is list of logical references to attributes to be
+        selected. If it is ``None`` then all attributes are used.
+        `condition_attributes` contains list of attributes that are not going
+        to be selected, but are required for WHERE condition.
+
+        Set `expand_locales` to ``True`` to expand all localized attributes.
+        """
+
+        if attributes is None:
+            attributes = self.cube.all_attributes()
+
+        join_attributes = set(attributes) | self.attributes_for_cell(cell)
+        join_expression = self.snowflake.join_expression(attributes)
+
+        columns = self.snowflake.columns(attributes, expand_locales=expand_locales)
+
+        if include_fact_key:
+            columns.insert(0, self.snowflake.fact_key_column)
+
+        if cell:
+            condition = self.condition_for_cell(cell)
+        else:
+            condition = None
+
+        statement = sql.expression.select(columns,
+                                          from_obj=join_expression,
+                                          use_labels=True,
+                                          whereclause=condition)
+
+        self.statement = statement
+        self.labels = self.snowflake.logical_labels(statement.columns)
+
+        return statement
+
+    def fact(self, id_):
+        """Selects only fact with given id"""
+        condition = self.snowflake.fact_key_column == id_
+        return self.append_condition(condition)
+
+    def append_condition(self, condition):
+        """Appends `condition` to the generated statement."""
+        self.statement = self.statement.where(condition)
         return self.statement
 
     def builtin_aggregate_expressions(self, aggregates,
@@ -653,6 +731,16 @@ class QueryBuilder(object):
 
         return expression
 
+    def attributes_for_cell(self, cell):
+        """Returns a set of attributes included in the cell."""
+        if not cell:
+            return set()
+
+        attributes = set()
+        for cut, cut_attrs in self.attributes_for_cell_cuts(cell):
+            attributes |= set(cut_attrs)
+        return attributes
+
     def attributes_for_cell_cuts(self, cell):
         """Returns a list of tuples (`cute`, `attributes`) where `attributes`
         is list of attributes involved in the `cut`."""
@@ -668,9 +756,15 @@ class QueryBuilder(object):
             if depth:
                 dim = self.cube.dimension(cut.dimension)
                 hier = dim.hierarchy(cut.hierarchy)
-                result.append((cut, hier[0:depth]))
+                keys = (level.key for level in hier[0:depth])
+                result.append((cut, keys))
 
         return result
+
+    def condition_for_cell(self, cell):
+        """Returns a SQL condition for the `cell`."""
+        conditions = self.conditions_for_cuts(cell.cuts)
+        condition = condition_conjuction(conditions)
 
     def conditions_for_cuts(self, cuts):
         """Constructs conditions for all cuts in the `cell`. Returns a list of
