@@ -826,19 +826,6 @@ class Cell(object):
 
         return levels
 
-    def cut_levels(self):
-        """Returns a list of tuples: (`cut`, `levels`) for every cut. Where
-        `levels` is list of levels considered in the cut."""
-        result = []
-        for cut in cuts:
-            depth = cut.level_depth()
-            dim = self.cube.dimension(cut.dimension)
-            hier = dim.hierarchy(cut.hierarchy)
-            if depth:
-                result.append((cut, hier[0:depth]))
-
-        return result
-
     def is_base(self, dimension, hierarchy=None):
         """Returns ``True`` when cell is base cell for `dimension`. Cell
         is base if there is a point cut with path referring to the
@@ -1610,6 +1597,21 @@ class Drilldown(object):
             self._by_dimension[dd.dimension.name] = dd
             self._last_level[dd.dimension.name] = dd.levels[-1]
 
+    def __str__(self):
+        drilldowns = []
+        for item in self.drilldown:
+            if item.hierarchy != item.dimension.hierarchy():
+                hierstr = "@%s" % str(item.hierarchy)
+            else:
+                hierstr = ""
+
+            ddstr = "%s%s:%s" % (item.dimension.name,
+                                 hierstr,
+                                 item.levels[-1].name)
+            drilldowns.append(ddstr)
+
+        return ",".join(drilldowns)
+
     def drilldown_for_dimension(self, dim):
         """Returns drilldown item for dimension `dim`."""
         return self._by_dimension[str(dim)]
@@ -1726,7 +1728,7 @@ class Drilldown(object):
 
         return result
 
-    def level_attributes(self):
+    def all_attributes(self):
         """Returns attributes of all levels in the drilldown. Order is by the
         drilldown item, then by the levels and finally by the attribute in the
         level."""
