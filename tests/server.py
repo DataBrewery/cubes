@@ -10,6 +10,8 @@ from werkzeug.wrappers import BaseResponse
 
 from cubes.server import Slicer
 
+import csv
+
 class SlicerTestCaseBase(CubesTestCaseBase):
     def setUp(self):
         super(SlicerTestCaseBase, self).setUp()
@@ -24,11 +26,11 @@ class SlicerTestCaseBase(CubesTestCaseBase):
             path = "/" + path
 
         response = self.server.get(path, *args, **kwargs)
-        self.logger.debug("response: %s" % response.data)
+
         try:
             result = json.loads(response.data)
         except ValueError:
-            result = None
+            result = response.data
 
         return (result, response.status_code)
 
@@ -210,7 +212,37 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
 
         self.load_data(self.dim_date, data)
 
-    def test_aggregate_csv(self):
-        url = "cube/aggregate_test/aggregate?format=csv"
+    def test_aggregate_csv_headers(self):
+        # Default = labels
+        url = "cube/aggregate_test/aggregate?drilldown=date&format=csv"
         response, status = self.get(url)
-        self.assertEqual(1,1)
+
+        reader = csv.reader(response.split("\n"))
+        header = reader.next()
+        self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
+                                 header)
+
+        # Labels - explicit
+        url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=labels"
+        response, status = self.get(url)
+
+        reader = csv.reader(response.split("\n"))
+        header = reader.next()
+        self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
+                                 header)
+        # Names
+        url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=names"
+        response, status = self.get(url)
+
+        reader = csv.reader(response.split("\n"))
+        header = reader.next()
+        self.assertSequenceEqual(["date.year", "amount_sum", "count"],
+                                 header)
+        # None
+        url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=none"
+        response, status = self.get(url)
+
+        reader = csv.reader(response.split("\n"))
+        header = reader.next()
+        self.assertSequenceEqual(["2013", "100", "5"],
+                                 header)
