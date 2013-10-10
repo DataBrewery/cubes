@@ -167,49 +167,55 @@ class QueryContextTestCase(StarSQLTestCase):
             levels_from_drilldown(cell, drilldown)
 
 
-class JoinsTestCase(StarSQLTestCase):
+class RelevantJoinsTestCase(StarSQLTestCase):
     def setUp(self):
-        super(JoinsTestCase, self).setUp()
+        super(RelevantJoinsTestCase, self).setUp()
 
         self.joins = [
-                {"master":"fact.date_id", "detail": "date.id"},
-                {"master":["fact", "product_id"], "detail": "product.id"},
-                {"master":"fact.contract_date_id", "detail": "date.id", "alias":"contract_date"},
-                {"master":"product.subcategory_id", "detail": "subcategory.id"},
-                {"master":"subcategory.category_id", "detail": "category.id"}
+                {"master":"fact.date_id", "detail": "dim_date.id"},
+                {"master":["fact", "product_id"], "detail": "dim_product.id"},
+                {"master":"fact.contract_date_id", "detail": "dim_date.id", "alias":"dim_contract_date"},
+                {"master":"dim_product.subcategory_id", "detail": "dim_subcategory.id"},
+                {"master":"dim_subcategory.category_id", "detail": "dim_category.id"}
             ]
         self.mapper._collect_joins(self.joins)
 
+        self.logger = get_logger()
+        self.logger.setLevel("DEBUG")
+
+    def attributes(self, *attrs):
+        return self.cube.get_attributes(attrs)
+
     def test_basic_joins(self):
-        relevant = self.mapper.relevant_joins([[None,"date"]])
+        relevant = self.mapper.relevant_joins(self.attributes("date.year"))
         self.assertEqual(1, len(relevant))
-        self.assertEqual("date", relevant[0].detail.table)
+        self.assertEqual("dim_date", relevant[0].detail.table)
         self.assertEqual(None, relevant[0].alias)
 
-        relevant = self.mapper.relevant_joins([[None,"product","name"]])
+        relevant = self.mapper.relevant_joins(self.attributes("product.name"))
         self.assertEqual(1, len(relevant))
-        self.assertEqual("product", relevant[0].detail.table)
+        self.assertEqual("dim_product", relevant[0].detail.table)
         self.assertEqual(None, relevant[0].alias)
 
     def test_alias(self):
-        relevant = self.mapper.relevant_joins([[None,"contract_date"]])
+        relevant = self.mapper.relevant_joins(self.attributes("contract_date.year"))
         self.assertEqual(1, len(relevant))
-        self.assertEqual("date", relevant[0].detail.table)
-        self.assertEqual("contract_date", relevant[0].alias)
+        self.assertEqual("dim_date", relevant[0].detail.table)
+        self.assertEqual("dim_contract_date", relevant[0].alias)
 
     def test_snowflake(self):
-        relevant = self.mapper.relevant_joins([[None,"subcategory"]])
+        relevant = self.mapper.relevant_joins(self.attributes("subcategory.name"))
 
         self.assertEqual(2, len(relevant))
         test = sorted([r.detail.table for r in relevant])
-        self.assertEqual(["product","subcategory"], test)
+        self.assertEqual(["dim_product","subcategory"], test)
         self.assertEqual([None, None], [r.alias for r in relevant])
 
-        relevant = self.mapper.relevant_joins([[None,"category"]])
+        relevant = self.mapper.relevant_joins(self.attributes("category.name"))
 
         self.assertEqual(3, len(relevant))
         test = sorted([r.detail.table for r in relevant])
-        self.assertEqual(["category", "product","subcategory"], test)
+        self.assertEqual(["dim_category", "product","subcategory"], test)
         self.assertEqual([None, None, None], [r.alias for r in relevant])
 
 
@@ -336,6 +342,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         # We get 3: fact key + 2
         self.assertEqual(3, len(facts[0]))
 
+    @unittest.skip("not implemented")
     def test_get_members(self):
         """Get dimension values"""
         members = list(self.browser.members(None,"product",1))
