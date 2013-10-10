@@ -482,8 +482,7 @@ class Workspace(object):
             try:
                 model = self.dimension_models[name]
             except KeyError:
-                raise NoSuchDimensionError(name,
-                                           reason="No public dimension '%s'" % name)
+                raise NoSuchDimensionError("No public dimension '%s'" % name)
 
             try:
                 dimension = model.provider.dimension(name, self._dimensions)
@@ -502,7 +501,7 @@ class Workspace(object):
 
 
             if not dimension:
-                raise NoSuchDimensionError(name, "Missing dimension: %s" % name)
+                raise NoSuchDimensionError("Missing dimension: %s" % name, name)
 
         return dimension
 
