@@ -6,6 +6,7 @@ from ...stores import Store
 from ...errors import *
 from ...providers import ModelProvider
 from .mixpanel import *
+from .mapper import cube_event_key
 from string import capwords
 from cubes.common import get_logger
 import pkgutil
@@ -72,14 +73,28 @@ class MixpanelModelProvider(ModelProvider):
         # TODO: replace this with mixpanel mapper
         # Map properties to dimension (reverse mapping)
         self.property_to_dimension = {}
+        self.event_to_cube = {}
+        self.cube_to_event = {}
+
         mappings = self.metadata.get("mappings", {})
-        for dim_name in self.dimensions_metadata.keys():
+
+        # Move this into the Mixpanel Mapper
+        for name in self.dimensions_metadata.keys():
             try:
-                prop = mappings[dim_name]
+                prop = mappings[name]
             except KeyError:
                 pass
             else:
-                self.property_to_dimension[prop] = dim_name
+                self.property_to_dimension[prop] = name
+
+        for name in self.cubes_metadata.keys():
+            try:
+                event = mappings[cube_event_key(name)]
+            except KeyError:
+                pass
+            else:
+                self.cube_to_event[name] = event
+                self.event_to_cube[event] = name
 
     def default_metadata(self, metadata=None):
         """Return Mixpanel's default metadata."""
@@ -108,11 +123,14 @@ class MixpanelModelProvider(ModelProvider):
         by the underscore ``_`` character.
         """
 
-        result = self.store.request(["events", "properties", "top"],
-                                    {"event": name,
-                                     "limit": DIMENSION_COUNT_LIMIT})
+        params = {
+            "event": self.cube_to_event.get(name, name),
+            "limit": DIMENSION_COUNT_LIMIT
+        }
+
+        result = self.store.request(["events", "properties", "top"], params)
         if not result:
-            raise NoSuchCubeError(name)
+            raise NoSuchCubeError("Unknown Mixpanel cube %s" % name, name)
 
         try:
             metadata = self.cube_metadata(name)
@@ -179,10 +197,11 @@ class MixpanelModelProvider(ModelProvider):
         result = self.store.request(["events", "names"], {"type": "general", })
         cubes = []
 
-        for name in result:
+        for event in result:
+            name = self.event_to_cube.get(event, event)
             try:
                 metadata = self.cube_metadata(name)
-            except ModelError:
+            except NoSuchCubeError:
                 metadata = {}
 
             label = metadata.get("label", capwords(name.replace("_", " ")))
