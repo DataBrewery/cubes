@@ -318,7 +318,7 @@ class SnowflakeMapper(Mapper):
         # Attribute: (schema, table, column)
         # Join: ((schema, table, column), (schema, table, column), alias)
 
-        self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
+        # self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
 
         if not self.joins:
             self.logger.debug("no joins to be searched for")
@@ -338,10 +338,9 @@ class SnowflakeMapper(Mapper):
 
             joined = False
             for order, join in enumerate(self.joins):
-                # self.logger.debug("testing join: %s" % (join,e))
-                # print "--- testing join: %s" % (join, )
                 master = (join.master.schema, join.master.table)
                 detail = (join.detail.schema, join.alias or join.detail.table)
+                # self.logger.debug("testing join: %s->%s" % (master,detail))
 
                 if table == detail:
                     # self.logger.debug("detail matches")
@@ -351,7 +350,7 @@ class SnowflakeMapper(Mapper):
                     joins.append( (method_order, order, join) )
 
                     if master not in joined_tables:
-                        self.logger.debug("adding master %s to be joined" % (master, ))
+                        # self.logger.debug("adding master %s to be joined" % (master, ))
                         tables_to_join.add(master)
 
                     # self.logger.debug("joined detail %s" % (detail, ) )
@@ -362,7 +361,7 @@ class SnowflakeMapper(Mapper):
             if joins and not joined and table != fact_table:
                 self.logger.warn("No table joined for %s" % (table, ))
 
-        self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
+        # self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
 
         # Sort joins according to original order specified in the model
         joins.sort()
