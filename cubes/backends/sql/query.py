@@ -578,7 +578,6 @@ class QueryBuilder(object):
         if not has_outer_detail_condition:
             # Collect drilldown attributes
             # ----------------------------
-            # TODO: split to master/detail
             attributes = set(master_attributes) | set(detail_attributes)
 
             # Drilldown – Group-by
@@ -754,7 +753,7 @@ class QueryBuilder(object):
             if depth:
                 dim = self.cube.dimension(cut.dimension)
                 hier = dim.hierarchy(cut.hierarchy)
-                keys = (level.key for level in hier[0:depth])
+                keys = [level.key for level in hier[0:depth]]
                 result.append((cut, keys))
 
         return result
