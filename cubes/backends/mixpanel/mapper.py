@@ -14,6 +14,9 @@ def _mangle_dimension_name(name):
 
     return fixed_name
 
+def cube_event_key(cube):
+    """Returns key used for cube"""
+    return "cube:%s" % cube
 
 class MixpanelMapper(Mapper):
     def __init__(self, cube, locale=None, property_dimensions=None, **options):
@@ -29,6 +32,9 @@ class MixpanelMapper(Mapper):
                 pass
             else:
                 self.property_to_dimension[prop] = dim_name
+
+        self.event_name = self.mappings.get(cube_event_key(cube.name),
+                                            cube.name)
 
     def logical_from_physical(self, physical):
         try:
