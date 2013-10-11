@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
 
-from ...browser import Drilldown
+from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...errors import *
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD
@@ -522,8 +522,6 @@ class QueryBuilder(object):
         detail_cuts = []
 
         for cut, attributes in cut_attributes:
-            for a in attributes:
-                self.logger.debug("--- A(%s): %s" % (type(a), a))
             is_outer_detail = [self.snowflake.is_outer_detail(a) for a in attributes]
 
             if all(is_outer_detail):
@@ -556,7 +554,7 @@ class QueryBuilder(object):
         # Used to determine whether to coalesce attributes.
         has_outer_details = len(detail_attributes) > 0
 
-        self.logger.debug("composition: detail conditions: %s other: %s"
+        self.logger.debug("outer detail: condition=%s other=%s"
                           % (has_outer_detail_condition, has_outer_details))
         # Cases:
         # MASTER-ONLY - we have only master condition
@@ -602,7 +600,7 @@ class QueryBuilder(object):
             # WHERE Condition
             # ---------
             if master_conditions:
-                condition = condition_conjuction([c.condition for c in master_conditions])
+                condition = condition_conjuction(master_conditions)
             else:
                 condition = None
 
@@ -786,7 +784,6 @@ class QueryBuilder(object):
 
                 for path in cut.paths:
                     set_conds.append(wrapped_cond.condition)
-                    attributes |= wrapped_cond.attributes
 
                 condition = sql.expression.or_(*set_conds)
 
@@ -794,12 +791,10 @@ class QueryBuilder(object):
                     condition = sql.expression.not_(condition)
 
             elif isinstance(cut, RangeCut):
-                range_cond = self.range_condition(cut.dimension,
-                                                  cut.hierarchy,
-                                                  cut.from_path,
-                                                  cut.to_path, cut.invert)
-                condition = range_cond.condition
-                attributes |= range_cond.attributes
+                condition = self.range_condition(cut.dimension,
+                                                 cut.hierarchy,
+                                                 cut.from_path,
+                                                 cut.to_path, cut.invert)
 
             else:
                 raise ArgumentError("Unknown cut type %s" % type(cut))
@@ -841,14 +836,14 @@ class QueryBuilder(object):
 
         dim = self.cube.dimension(dim)
 
-        lower, lower_ptd = self._boundary_condition(dim, hierarchy, from_path, 0)
-        upper, upper_ptd = self._boundary_condition(dim, hierarchy, to_path, 1)
+        lower = self._boundary_condition(dim, hierarchy, from_path, 0)
+        upper = self._boundary_condition(dim, hierarchy, to_path, 1)
 
         conditions = []
-        if lower.condition is not None:
-            conditions.append(lower.condition)
-        if upper.condition is not None:
-            conditions.append(upper.condition)
+        if lower is not None:
+            conditions.append(lower)
+        if upper is not None:
+            conditions.append(upper)
 
         condition = condition_conjuction(conditions)
 
