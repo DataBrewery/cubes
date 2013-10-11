@@ -269,6 +269,9 @@ def convert_model(args):
 
 parser = argparse.ArgumentParser(description='Cubes tool')
 subparsers = parser.add_subparsers(title='commands')
+parser.add_argument('--cubes-debug',
+                    dest='cubes_debug', action='store_true', default=False,
+                            help='internal cubes debugging')
 
 ################################################################################
 # Command: valdate_model
@@ -408,12 +411,15 @@ subparser.set_defaults(func=generate_ddl)
 
 args = parser.parse_args(sys.argv[1:])
 
-try:
+if args.cubes_debug:
     args.func(args)
-except CubesError as e:
-    sys.stderr.write("ERROR: %s\n" % e)
-    exit(1)
-except MissingPackageError as e:
-    sys.stderr.write("MISSING PACKAGE ERROR: %s\n" % e)
-    exit(2)
+else:
+    try:
+        args.func(args)
+    except CubesError as e:
+        sys.stderr.write("ERROR: %s\n" % e)
+        exit(1)
+    except MissingPackageError as e:
+        sys.stderr.write("MISSING PACKAGE ERROR: %s\n" % e)
+        exit(2)
 
