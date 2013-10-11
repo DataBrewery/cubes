@@ -1,4 +1,10 @@
 {
+    "cubes": [
+        {
+            "name": "campaign_delivery",
+            "label": "Campaign Deliery"
+        }
+    ],
     "dimensions": [
         {
             "name": "initial_referrer",
@@ -61,6 +67,7 @@
         "browser": "$browser",
         "referrer": "$referrer",
         "referring_domain": "$referring_domain",
-        "country_code": "mp_country_code"
+        "country_code": "mp_country_code",
+        "cube:campaign_delivery": "$campaign_delivery"
     }
 }
