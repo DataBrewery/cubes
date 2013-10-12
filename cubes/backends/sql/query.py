@@ -32,6 +32,7 @@ MATCH_MASTER_RSHIP = 1
 OUTER_DETAIL_RSHIP = 2
 
 
+# TODO: merge this with mapper
 class SnowflakeSchema(object):
     def __init__(self, cube, mapper, metadata, safe_labels):
         self.cube = cube
@@ -209,10 +210,15 @@ class SnowflakeSchema(object):
 
         return fact_relationships
 
-    def join_expression(self, attributes, include_fact=True, fact=None):
+    def join_expression(self, attributes, include_fact=True, fact=None,
+                        fact_columns=None):
         """Create partial expression on a fact table with `joins` that can be
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
+
+        `fact_columns` is a dictionary where keys are tuples (`table`,
+        `column`) and values are columns from `fact`. This is used for
+        composing aggregate statement under certain conditions.
 
         Returns a QLAlchemy expression object.
 
@@ -250,9 +256,14 @@ class SnowflakeSchema(object):
         # Dictionary of raw tables and their joined products
         joined_products = {}
 
+        fact_columns = fact_columns or {}
+        fact_key = (self.schema, self.fact_name)
+
         if include_fact:
-            key = (self.schema, self.fact_name)
-            joined_products[key] = fact or self.fact_table
+            if fact is not None:
+                joined_products[fact_key] = fact
+            else:
+                joined_products[fact_key] = self.fact_table
 
         # Collect all the tables first:
         for join in joins:
@@ -260,8 +271,12 @@ class SnowflakeSchema(object):
                 raise MappingError("Detail table name should be present and "
                                    "should not be a fact table unless aliased.")
 
-            # Add master table to the list
-            table = self.table(join.master.schema, join.master.table)
+            # Add master table to the list. If fact table (or statement) was
+            # explicitly specified, use it instead of the original fact table
+            if fact is not None and (join.master.schema, join.master.table) == fact_key:
+                table = fact
+            else:
+                table = self.table(join.master.schema, join.master.table)
             joined_products[(join.master.schema, join.master.table)] = table
 
             # Add (aliased) detail table to the rist
@@ -287,16 +302,24 @@ class SnowflakeSchema(object):
 
             # We need plain tables to get columns for prepare the join
             # condition
-            master_table = self.table(join.master.schema, join.master.table)
-            detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
+            if fact is not None and (join.master.schema, join.master.table) == fact_key:
+                key = (join.master.schema, join.master.table, join.master.column)
+                try:
+                    master_column = fact_columns[key]
+                except KeyError:
+                    raise InternalError("Missing fact column %s" % (key, ))
+                print "--- got it from fcs"
+            else:
+                master_table = self.table(master.schema, master.table)
 
-            try:
-                master_column = master_table.c[master.column]
-            except KeyError:
-                # self.logger.error("No master column '%s'. Available: %s" % \
-                #                    (master.column, str(master_table.columns)))
-                raise ModelError('Unable to find master key (schema %s) "%s"."%s" ' \
-                                    % join.master[0:3])
+                try:
+                    master_column = master_table.c[master.column]
+                except KeyError:
+                    raise ModelError('Unable to find master key (schema %s) '
+                                     '"%s"."%s" ' % join.master[0:3])
+                print "--- got it from tables"
+
+            detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
             try:
                 detail_column = detail_table.c[detail.column]
             except KeyError:
@@ -304,6 +327,9 @@ class SnowflakeSchema(object):
                                     % join.detail[0:3])
 
             # The join condition:
+            print "--- JOIN on %s(%s) -> %s(%s)" % \
+                    (master_column, type(master_column), detail_column,
+                            type(detail_column))
             onclause = master_column == detail_column
 
             # Get the joined products – might be plain tables or already
@@ -379,6 +405,7 @@ class SnowflakeSchema(object):
             if not callable(expr_func):
                 raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
             column = expr_func(column)
+
         if self.safe_labels:
             label = "a%d" % self.label_counter
             self.label_counter += 1
@@ -497,6 +524,9 @@ class QueryBuilder(object):
                               split=None, attributes=None):
         """Builds a statement to aggregate the `cell`."""
 
+        if not aggregates:
+            raise ArgumentError("List of aggregates sohuld not be empty")
+
         # TODO: split
         # TODO: PTD!!!
 
@@ -516,8 +546,12 @@ class QueryBuilder(object):
         #
         cut_attributes = self.attributes_for_cell_cuts(cell)
         drilldown_attributes = drilldown.all_attributes()
+
+        master_cut_attributes = []
         master_attributes = []
         master_cuts = []
+
+        detail_cut_attributes = []
         detail_attributes = []
         detail_cuts = []
 
@@ -525,7 +559,7 @@ class QueryBuilder(object):
             is_outer_detail = [self.snowflake.is_outer_detail(a) for a in attributes]
 
             if all(is_outer_detail):
-                detail_attributes += attributes
+                detail_cut_attributes += attributes
                 detail_cuts.append(cut)
             else:
                 if any(is_outer_detail):
@@ -533,12 +567,8 @@ class QueryBuilder(object):
                                         "outer detail is not supported."
                                         % str(cut))
                 else:
-                    master_attributes += attributes
+                    master_cut_attributes += attributes
                     master_cuts.append(cut)
-
-        # Used to determine whether we need to have master fact and outer joins
-        # construction or we are fine with just one joined construct.
-        has_outer_detail_condition = len(detail_cuts) > 0
 
         for attribute in drilldown_attributes:
             if self.snowflake.is_outer_detail(attribute):
@@ -546,46 +576,94 @@ class QueryBuilder(object):
             else:
                 master_attributes.append(attribute)
 
-        self.logger.debug("master attributes: %s"
+        self.logger.debug("MASTER selection: %s"
                           % [a.ref() for a in master_attributes])
-        self.logger.debug("detail attributes: %s"
+        self.logger.debug("MASTER cut: %s"
+                          % [a.ref() for a in master_cut_attributes])
+        self.logger.debug("DETAIL selection: %s"
                           % [a.ref() for a in detail_attributes])
+        self.logger.debug("DETAIL cut: %s"
+                          % [a.ref() for a in detail_cut_attributes])
 
         # Used to determine whether to coalesce attributes.
-        has_outer_details = len(detail_attributes) > 0
+        has_outer_details = len(detail_attributes)+len(detail_cut_attributes) > 0
 
-        self.logger.debug("outer detail: condition=%s other=%s"
-                          % (has_outer_detail_condition, has_outer_details))
         # Cases:
         # MASTER-ONLY - we have only master condition
         # DETAIL-ONLY – we have only detail condition
         # MASTER-DETAIL – we have condition in master and in detail
 
-        self.logger.debug("getting cond for master cuts: %s" % (master_cuts, ))
         master_conditions = self.conditions_for_cuts(master_cuts)
+        detail_conditions = self.conditions_for_cuts(detail_cuts)
+
+        # Pick the method:
+        #
+        # M - master, D - detail
+        # C - condition, A - selection attributes (drilldown)
+        #
+        #    MA MC DA DC | method
+        #    ============|=======
+        #  0 -- -- -- -- | simple MC
+        #  1 xx -- -- -- | simple MC
+        #  2 -- xx -- -- | simple MC
+        #  3 xx xx -- -- | simple MC
+        #  4 -- -- xx -- | simple MC
+        #  5 xx -- xx -- | simple MC
+        #  6 -- -- -- xx | simple DC
+        #  7 xx -- -- xx | simple DC
+        #  8 -- xx xx -- | composed with MC as core
+        #  9 xx xx xx -- | composed with MC as core
+        # 10 -- -- xx xx | composed with DC as core
+        # 11 xx -- xx xx | composed with DC as core
+        # 12 -- xx -- xx | composed with MC as core, DC as outer
+        # 13 xx xx -- xx | composed with MC as core, DC as outer
+        # 14 -- xx xx xx | composed with MC as core, DC as outer
+        # 15 xx xx xx xx | composed with MC as core, DC as outer
+
+        if not detail_cut_attributes and not detail_attributes:
+            # Cases: 0,1,2,3
+            # We keep all masters as master, there is nothing in details
+            simple_method = True
+            has_outer_details = False
+        elif not detail_cut_attributes and not master_cut_attributes:
+            # Cases 4, 5
+            # We keep the masters, just append details into selection/drilldown
+            simple_method = True
+            has_outer_details = True
+            master_attributes += detail_attributes
+        elif detail_cut_attributes \
+                and not (master_cut_attributes or detail_attributes):
+            # Cases 6, 7
+            # Use detail cut as master cut, as we have no other cuts
+            simple_method = True
+            has_outer_details = False
+            master_cut_attributes = detail_cut_attributes
+        elif not detail_cut_attributes:
+            # Case 8, 9
+            simple_method = False
+            has_outer_details = True
+        else:
+            raise NotImplementedError
 
         # Aggregates
         # ----------
 
-        if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty")
-
+        # Start the selection with aggregates
         # Collect expressions of aggregate functions
         # TODO: check the Robin's requirement on measure coalescing
-        selection += self.builtin_aggregate_expressions(aggregates,
-                                                        coalesce_measures=has_outer_details)
+        aggregate_selection = self.builtin_aggregate_expressions(aggregates,
+                                                       coalesce_measures=has_outer_details)
+        aggregate_labels = [c.label for c in aggregate_selection]
 
-        if not has_outer_detail_condition:
-            # Collect drilldown attributes
-            # ----------------------------
-            attributes = set(master_attributes) | set(detail_attributes)
-
+        if simple_method:
+            self.logger.debug("using SIMPLE method")
             # Drilldown – Group-by
             # --------------------
             #
             group_by = []
 
-            for attribute in drilldown_attributes:
+            selection = aggregate_selection
+            for attribute in master_attributes:
                 column = self.column(attribute)
                 group_by.append(column)
                 selection.append(column)
@@ -594,18 +672,16 @@ class QueryBuilder(object):
             # ----
 
             # Create the master join product:
+            attributes = set(aggregates)
+            attributes |= set(master_attributes)
+            attributes |= set(master_cut_attributes)
             join_expression = self.snowflake.join_expression(attributes)
 
             # WHERE Condition
             # ---------
-            if master_conditions:
-                condition = condition_conjuction(master_conditions)
-            else:
-                condition = None
+            condition = condition_conjuction(master_conditions)
 
             # Prepare the master_fact statement:
-            self.logger.debug("-a- JOIN: %s" % str(join_expression))
-            self.logger.debug("-a- WHERE: %s" % str(condition))
             statement = sql.expression.select(selection,
                                               from_obj=join_expression,
                                               use_labels=True,
@@ -613,8 +689,85 @@ class QueryBuilder(object):
                                               group_by=group_by)
 
         else:
-            raise NotImplementedError("Outer detail is not implemented")
+            self.logger.debug("using COMPOSED method")
 
+            # 1. MASTER FACT
+            # ==============
+
+
+            attributes = set(master_attributes)
+            attributes |= set(master_cut_attributes)
+            join_expression = self.snowflake.join_expression(attributes)
+
+            # Store a map of joined columns for later
+            # The map is: (schema, table, column) -> column
+
+            master_fact_columns = {}
+            for c in join_expression.columns:
+                master_fact_columns[(c.table.schema, c.table.name, c.name)] = c
+
+            # Prepare the selection
+            selection = aggregate_selection
+            # TODO: only relevant
+            for attribute in attributes:
+                column = self.column(attribute)
+                selection.append(column)
+
+            # WHERE Condition
+            # ---------------
+            condition = condition_conjuction(master_conditions)
+
+            # Prepare the master_fact statement:
+            statement = sql.expression.select(selection,
+                                              from_obj=join_expression,
+                                              use_labels=True,
+                                              whereclause=condition)
+            # From now-on the self.column() method will return columns from
+            # master_fact.
+            # statement = statement.alias(self.snowflake.fact_name)
+            print "==> MASTER statement:", statement
+            self.master_fact = statement
+            print "--- master columns: %s" % (master_fact_columns, )
+
+            # 2. OUTER DETAILS
+            # ================
+            attributes = set(detail_attributes) | set(detail_cut_attributes)
+            join_expression = self.snowflake.join_expression(attributes,
+                                                             fact=self.master_fact,
+                                                             fact_columns=master_fact_columns)
+
+            print "=== DETAIL JOIN: %s" % str(join_expression)
+            # Add drilldown – Group-by
+            # ------------------------
+            #
+            group_by = []
+
+            # Append detail coluns to the master selection
+            attributes = set(detail_attributes)
+            attributes |= set(detail_cut_attributes)
+
+            selection = list(join_expression.columns)
+            # selection = []
+            for attribute in attributes:
+                column = self.column(attribute)
+                group_by.append(column)
+                # selection.append(column)
+
+            # Join
+            # ----
+
+            condition = condition_conjuction(detail_conditions)
+            print "=== DETAIL STATEMENT"
+            print "--- selection:"
+            for s in selection:
+                print "---     %s(%s)" % (str(s), type(s))
+            print "--> JOIN: %s" % str(join_expression)
+            print "--> WHERE: %s" % str(condition)
+            statement = sql.expression.select(selection,
+                                              from_obj=join_expression,
+                                              use_labels=True,
+                                              whereclause=condition)
+            # Create the master join product:
         # TODO: Add periods-to-date condition
 
         self.statement = statement
@@ -901,12 +1054,16 @@ class QueryBuilder(object):
         """Returns either a physical column for the attribute or a reference to
         a column from the master fact if it exists."""
 
-        if self.master_fact:
+        if self.master_fact is not None:
             ref = self.mapper.physical(attribute, locale)
-            self.logger.debug("column %s (%s) - master" % (attribute.ref(), ref))
-            return self.master_fact.c[ref.column]
+            self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))
+            try:
+                return self.master_fact.c[ref.column]
+            except KeyError:
+                self.logger.debug("retry column %s from tables" % (attribute.ref(), ))
+                return self.snowflake.column(attribute, locale)
         else:
-            self.logger.debug("column %s - snowflake" % (attribute.ref(), ))
+            self.logger.debug("column %s from tables" % (attribute.ref(), ))
             return self.snowflake.column(attribute, locale)
 
     def paginate(self, page, page_size):
