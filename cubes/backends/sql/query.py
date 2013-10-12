@@ -92,21 +92,42 @@ class SnowflakeSchema(object):
         # Collect tables from joins
 
         self.tables = {}
-        self._collect_tables()
-
         # Table -> relationship type
         # Prepare maps of attributes -> relationship type
-        self.fact_relationships = self.analyse_fact_relationships(for_aggregation=False)
-        self.aggregated_fact_relationships = self.analyse_fact_relationships(for_aggregation=True)
+        self.fact_relationships = {}
+        self.aggregated_fact_relationships = {}
 
+        self._collect_tables()
 
     def _collect_tables(self):
-        """Collect tables in the schema."""
-        # Collect the fact table
+        """Collect tables in the schema. Analyses their relationship towards
+        the fact table.
+
+        Stored information contains:
+
+        * attribute ownership by a table
+        * relationship type of tables towards the fact table: master/match or
+          detail (outer)
+
+        The rule for deciding the table relationship is as follows:
+
+        * if a table is connected to a fact or other master/detail table by
+          master/detail then it will be considered master/detail
+        * if a table is connected to an outer detail it is considered to be
+          outer detail (in relationship to the fact), regardless of it's join
+          type
+        * if a table is connected through outer detail to any kind of table,
+          then it will stay as detail
+        """
+
+        # Collect the fact table as the root master table
+        #
         table = SnowflakeTable(self.schema, self.fact_name,
                                table=self.fact_table)
         self.tables[table.key] = table
 
+        # Collect all the detail tables
+        # 
         for join in self.mapper.joins:
             # just ask for the table
 
@@ -126,45 +147,8 @@ class SnowflakeSchema(object):
 
             self.tables[table.key] = table
 
-
-    def is_outer_detail(self, attribute, for_aggregation=False):
-        """Returns `True` if the attribute belongs to an outer-detail table."""
-        if for_aggregation:
-            lookup = self.aggregated_fact_relationships
-        else:
-            lookup = self.fact_relationships
-
-        try:
-            return lookup[attribute] == OUTER_DETAIL_RSHIP
-        except KeyError:
-            raise InternalError("No fact relationship for attribute %s "
-                                "(aggregate: %s)"
-                                % (attribute.ref(), for_aggregation))
-
-    def analyse_fact_relationships(self, for_aggregation=False):
-        """ Analyses the schema and stores the information. Stored information
-        contains:
-
-        * attribute ownership by a table
-        * table join type: master/match or detail (outer)
-
-        The rule for marking tables is as follows:
-
-        * if a table is connected to a fact or other master/detail table by
-          master/detail then it will be considered master/detail
-        * if a table is connected to an outer detail it is considered to be
-          outer detail (in relationship to the fact), regardless of it's join
-          type
-        * if a table is connected through outer detail to any kind of table,
-          then it will stay as detail
-        """
-
-        attributes = self.cube.get_attributes(aggregated=for_aggregation)
-        # This should return all joins
-        joins = self.mapper.relevant_joins(attributes)
-
-        if len(joins) != len(self.mapper.joins):
-            raise InternalError("Not all joins are considered for analysis")
+        # Analyse relationships
+        # ---------------------
 
         # Dictionary of raw tables and their joined products
         # table-to-master relationships:
@@ -173,11 +157,12 @@ class SnowflakeSchema(object):
         relationships = {}
 
         # Anchor the fact table
-        table = (self.schema, self.fact_name)
-        relationships[table] = MATCH_MASTER_RSHIP
+        key = (self.schema, self.fact_name)
+        relationships[key] = MATCH_MASTER_RSHIP
+        self.tables[key].relationship = MATCH_MASTER_RSHIP
 
         # Collect all the tables first:
-        for join in joins:
+        for join in self.mapper.joins:
             # Add master table to the list
             table = (join.master.schema, join.master.table)
             if table not in relationships:
@@ -191,8 +176,7 @@ class SnowflakeSchema(object):
                 raise ModelError("Joining detail table %s twice" % (table, ))
 
         # Analyse the joins
-
-        for join in joins:
+        for join in self.mapper.joins:
             master_key = (join.master.schema, join.master.table)
             detail_key = (join.detail.schema, join.alias or join.detail.table)
 
@@ -217,15 +201,41 @@ class SnowflakeSchema(object):
                                        detail_key, join.method))
 
             relationships[detail_key] = relationship
+            self.tables[detail_key].relationship = relationship
 
-        attributes = self.cube.get_attributes(aggregated=for_aggregation)
+
+        # Prepare relationships of attributes
+        #
+        # TODO: make SnowflakeAttribute class
+        attributes = self.cube.get_attributes(aggregated=False)
         tables = self.mapper.tables_for_attributes(attributes)
         tables = dict(zip(attributes, tables))
         mapping = {}
         for attribute in attributes:
             mapping[attribute] = relationships[tables[attribute]]
+        self.fact_relationships = mapping
 
-        return mapping
+        attributes = self.cube.get_attributes(aggregated=True)
+        tables = self.mapper.tables_for_attributes(attributes)
+        tables = dict(zip(attributes, tables))
+        mapping = {}
+        for attribute in attributes:
+            mapping[attribute] = relationships[tables[attribute]]
+        self.aggregated_fact_relationships = mapping
+
+    def is_outer_detail(self, attribute, for_aggregation=False):
+        """Returns `True` if the attribute belongs to an outer-detail table."""
+        if for_aggregation:
+            lookup = self.aggregated_fact_relationships
+        else:
+            lookup = self.fact_relationships
+
+        try:
+            return lookup[attribute] == OUTER_DETAIL_RSHIP
+        except KeyError:
+            raise InternalError("No fact relationship for attribute %s "
+                                "(aggregate: %s)"
+                                % (attribute.ref(), for_aggregation))
 
     def join_expression(self, attributes, include_fact=True, fact=None,
                         fact_columns=None):
