@@ -94,7 +94,7 @@
                 {
                     "master": "facts.id_date",
                     "detail": "dim_date.id",
-                    "method": "match"
+                    "method": "detail"
                 },
                 {
                     "master": "facts.id_city",

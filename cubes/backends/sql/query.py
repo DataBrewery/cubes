@@ -376,6 +376,7 @@ class SnowflakeSchema(object):
                     raise InternalError("Missing fact column %s (has: %s)"
                                         % (key, master_detail_keys.keys()))
                 master_column = master_fact.c[master_label]
+                print "--- master column: %s" % str(master_column)
             else:
                 master_table = self.table(master.schema, master.table)
 
@@ -394,6 +395,7 @@ class SnowflakeSchema(object):
 
             # The join condition:
             onclause = master_column == detail_column
+            print "--- ONCLAUSE: %s" % str(onclause)
 
             # Get the joined products – might be plain tables or already
             # joined tables
@@ -420,6 +422,7 @@ class SnowflakeSchema(object):
                                              detail_table,
                                              onclause=onclause,
                                              isouter=is_outer)
+            print "--- product: %s" % str(product)
 
             del joined_products[detail_key]
             joined_products[master_key] = product
@@ -585,9 +588,10 @@ class QueryBuilder(object):
         # The selection: aggregates + drill-down attributes
         selection = []
 
-        self.logger.debug("=== aggregate")
-        self.logger.debug("--- cell: %s" % ",".join([str(cut) for cut in cell.cuts]))
-        self.logger.debug("--- drilldown: %s" % drilldown)
+        self.logger.debug("prepare aggregation statement. cell: '%s' "
+                          "drilldown: '%s'" %
+                          (",".join([str(cut) for cut in cell.cuts]),
+                          drilldown))
 
         # Analyse and Prepare
         # -------------------
@@ -702,7 +706,7 @@ class QueryBuilder(object):
         # TODO: check the Robin's requirement on measure coalescing
         aggregate_selection = self.builtin_aggregate_expressions(aggregates,
                                                        coalesce_measures=has_outer_details)
-        aggregate_labels = [c.label for c in aggregate_selection]
+        aggregate_labels = [c.name for c in aggregate_selection]
 
         if simple_method:
             self.logger.debug("using SIMPLE method")
@@ -754,7 +758,7 @@ class QueryBuilder(object):
             # Expose fact master detail key outlets:
             master_detail_keys = {}
             counter = 0
-            print "=== outlets: %s" % type(join_product.tables)
+            print "=== master fact bindings: %s" % type(join_product.tables)
             master_detail_selection = []
             for table in join_product.tables:
                 for key in table.detail_keys:
@@ -767,16 +771,20 @@ class QueryBuilder(object):
                     master_detail_selection.append(column)
                     print "---    %s: %s" % (label, column_key)
 
-                # We need to know:
-                # schema, table, column -> fact outlet
+            # SELECT – Prepare the master selection
+            #     * aggregates
+            #     * drilldown items
+            #     * aliased keys for outer detail joins
 
-            # Prepare the selection
-            selection = aggregate_selection
-            # TODO: only relevant
-            for attribute in attributes:
-                column = self.column(attribute)
-                selection.append(column)
-            selection += master_detail_selection
+            master_selection = [self.column(a) for a in set(master_attributes)]
+
+            # Save for detail construction
+            master_drilldown_labels = [str(c) for c in master_selection]
+            print "--- master dd labels: %s" % master_drilldown_labels
+
+            selection = aggregate_selection \
+                            + master_selection \
+                            + master_detail_selection
 
             # WHERE Condition
             # ---------------
@@ -789,11 +797,8 @@ class QueryBuilder(object):
                                               whereclause=condition)
 
             # From now-on the self.column() method will return columns from
-            # master_fact.
-            # statement = statement.alias(self.snowflake.fact_name)
-            print "==> MASTER statement:", statement
+            # master_fact if applicable.
             self.master_fact = statement
-            print "--- master detail keys: %s" % (master_detail_keys, )
 
             # 2. OUTER DETAILS
             # ================
@@ -807,27 +812,35 @@ class QueryBuilder(object):
             # Add drilldown – Group-by
             # ------------------------
             #
+
+            # SELECT – Prepare the detail selection
+            #     * aggregates (from master, already computed just labelled)
+            #     * master drilldown items (inherit)
+            #     * detail drilldown items
+
+            aggregate_selection = [self.master_fact.c[label] for label in
+                                    aggregate_labels]
+            master_selection = [self.master_fact.c[label] for label in
+                                    master_drilldown_labels]
+
+            detail_selection = []
             group_by = []
-
-            # Append detail coluns to the master selection
-            attributes = set(detail_attributes)
-            attributes |= set(detail_cut_attributes)
-
-            selection = list(join_expression.columns)
-            # selection = []
-            for attribute in attributes:
+            for attribute in set(detail_attributes):
                 column = self.column(attribute)
                 group_by.append(column)
-                # selection.append(column)
-
+                detail_selection.append(column)
+            selection = aggregate_selection + master_selection + detail_selection
             # Join
             # ----
 
             condition = condition_conjuction(detail_conditions)
             print "=== DETAIL STATEMENT"
+            print "--- aggregate selection: %s" % [str(c) for c in aggregate_selection]
+            print "--- master selection: %s" % [str(c) for c in master_selection]
+            print "--- detail selection: %s" % [str(c) for c in detail_selection]
             print "--- selection:"
             for s in selection:
-                print "---     %s(%s)" % (str(s), type(s))
+                print "---     %s" % str(s)
             print "--> JOIN: %s" % str(join_expression)
             print "--> WHERE: %s" % str(condition)
             statement = sql.expression.select(selection,
@@ -1125,14 +1138,14 @@ class QueryBuilder(object):
 
         if self.master_fact is not None:
             ref = self.mapper.physical(attribute, locale)
-            self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))
+            # self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))
             try:
                 return self.master_fact.c[ref.column]
             except KeyError:
-                self.logger.debug("retry column %s from tables" % (attribute.ref(), ))
+                # self.logger.debug("retry column %s from tables" % (attribute.ref(), ))
                 return self.snowflake.column(attribute, locale)
         else:
-            self.logger.debug("column %s from tables" % (attribute.ref(), ))
+            # self.logger.debug("column %s from tables" % (attribute.ref(), ))
             return self.snowflake.column(attribute, locale)
 
     def paginate(self, page, page_size):
