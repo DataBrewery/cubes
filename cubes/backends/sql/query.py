@@ -28,6 +28,7 @@ SnowflakeAttribute = namedtuple("SnowflakeAttribute", ["attribute", "join"])
 JoinedProduct = namedtuple("JoinedProduct",
         ["expression", "tables"])
 
+
 MATCH_MASTER_RSHIP = 1
 OUTER_DETAIL_RSHIP = 2
 
@@ -38,6 +39,7 @@ class SnowflakeTable(object):
         self.table = table
         self.alias = alias
         self.join = join
+        self.detail_keys = set()
 
     @property
     def key(self):
@@ -46,6 +48,9 @@ class SnowflakeTable(object):
     @property
     def aliased_name(self):
         return self.alias or self.name
+
+    def __str__(self):
+        return "%s.%s" % (self.key)
 
 # TODO: merge this with mapper
 class SnowflakeSchema(object):
@@ -98,6 +103,7 @@ class SnowflakeSchema(object):
         self.aggregated_fact_relationships = {}
 
         self._collect_tables()
+        self._analyse_table_relationships()
 
     def _collect_tables(self):
         """Collect tables in the schema. Analyses their relationship towards
@@ -146,6 +152,18 @@ class SnowflakeSchema(object):
                                    table=sql_table)
 
             self.tables[table.key] = table
+
+        # Collect detail keys:
+        # 
+        # Every table object has a set of keys `detail_keys` which are
+        # columns that are used to join detail tables.
+        #
+        for join in self.mapper.joins:
+            key = (join.master.schema, join.master.table)
+            master = self.tables[key]
+            master.detail_keys.add(join.master.column)
+
+    def _analyse_table_relationships(self):
 
         # Analyse relationships
         # ---------------------
@@ -223,6 +241,11 @@ class SnowflakeSchema(object):
             mapping[attribute] = relationships[tables[attribute]]
         self.aggregated_fact_relationships = mapping
 
+    def _collect_detail_keys(self):
+        """Assign to each table which keys from the table are used by another
+        detail table as master keys."""
+
+
     def is_outer_detail(self, attribute, for_aggregation=False):
         """Returns `True` if the attribute belongs to an outer-detail table."""
         if for_aggregation:
@@ -237,24 +260,24 @@ class SnowflakeSchema(object):
                                 "(aggregate: %s)"
                                 % (attribute.ref(), for_aggregation))
 
-    def join_expression(self, attributes, include_fact=True, fact=None,
-                        fact_columns=None):
+    def join_expression(self, attributes, include_fact=True, master_fact=None,
+                        master_detail_keys=None):
         """Create partial expression on a fact table with `joins` that can be
         used as core for a SELECT statement. `join` is a list of joins
         returned from mapper (most probably by `Mapper.relevant_joins()`)
 
-        `fact_columns` is a dictionary where keys are tuples (`table`,
-        `column`) and values are columns from `fact`. This is used for
-        composing aggregate statement under certain conditions.
-
         Returns a tuple: (`expression`, `tables`) where `expression` is
-        QLAlchemy expression object and `tables` is a list of keys of joined
-        tables.
+        QLAlchemy expression object and `tables` is a list of `SnowflakeTable`
+        objects used in the join.
 
         If `include_fact` is ``True`` (default) then fact table is considered
         as starting point. If it is ``False`` The first detail table is
         considered as starting point for joins. This might be useful when
         getting values of a dimension without cell restrictions.
+
+        `master_fact` is used for building a composed aggregated expression.
+        `master_detail_keys` is a dictionary of aliased keys from the master
+        fact exposed to the details.
 
         **Requirement:** joins should be ordered from the "tentacles" towards
         the center of the star/snowflake schema.
@@ -285,17 +308,20 @@ class SnowflakeSchema(object):
         # Dictionary of raw tables and their joined products
         joined_products = {}
 
-        fact_columns = fact_columns or {}
-        fact_key = (self.schema, self.fact_name)
+        master_detail_keys = master_detail_keys or {}
 
         tables = []
 
+        fact_key = (self.schema, self.fact_name)
+
         if include_fact:
-            if fact is not None:
-                joined_products[fact_key] = fact
+            if master_fact is not None:
+                fact = master_fact
             else:
-                joined_products[fact_key] = self.fact_table
-            tables.append(fact_key)
+                fact = self.fact_table
+
+            joined_products[fact_key] = fact
+            tables.append(self.tables[fact_key])
 
         # Collect all the tables first:
         for join in joins:
@@ -303,23 +329,33 @@ class SnowflakeSchema(object):
                 raise MappingError("Detail table name should be present and "
                                    "should not be a fact table unless aliased.")
 
+            # 1. MASTER
             # Add master table to the list. If fact table (or statement) was
             # explicitly specified, use it instead of the original fact table
-            if fact is not None and (join.master.schema, join.master.table) == fact_key:
-                table = fact
+
+            if master_fact is not None and (join.master.schema, join.master.table) == fact_key:
+                table = master_fact
             else:
                 table = self.table(join.master.schema, join.master.table)
             joined_products[(join.master.schema, join.master.table)] = table
 
-            # Add (aliased) detail table to the rist
+            # 2. DETAIL
+            # Add (aliased) detail table to the rist. Add the detail to the
+            # list of joined tables – will be used to determine "outlets" for
+            # keys of outer detail joins
+
             table = self.table(join.detail.schema, join.alias or join.detail.table)
             key = (join.detail.schema, join.alias or join.detail.table)
             joined_products[key] = table
-            tables.append(key)
+            tables.append(self.tables[key])
 
         # Perform the joins
         # =================
         #
+        # 1. find the column
+        # 2. construct the condition
+        # 3. use the appropriate SQL JOIN
+        # 
         for join in joins:
             # Prepare the table keys:
             # Key is a tuple of (schema, table) and is used to get a joined
@@ -331,13 +367,15 @@ class SnowflakeSchema(object):
 
             # We need plain tables to get columns for prepare the join
             # condition
-            if fact is not None and (join.master.schema, join.master.table) == fact_key:
+            # TODO: this is unreadable
+            if master_fact is not None and (join.master.schema, join.master.table) == fact_key:
                 key = (join.master.schema, join.master.table, join.master.column)
                 try:
-                    master_column = fact_columns[key]
+                   master_label = master_detail_keys[key]
                 except KeyError:
-                    raise InternalError("Missing fact column %s" % (key, ))
-                print "--- got it from fcs"
+                    raise InternalError("Missing fact column %s (has: %s)"
+                                        % (key, master_detail_keys.keys()))
+                master_column = master_fact.c[master_label]
             else:
                 master_table = self.table(master.schema, master.table)
 
@@ -346,7 +384,6 @@ class SnowflakeSchema(object):
                 except KeyError:
                     raise ModelError('Unable to find master key (schema %s) '
                                      '"%s"."%s" ' % join.master[0:3])
-                print "--- got it from tables"
 
             detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
             try:
@@ -356,9 +393,6 @@ class SnowflakeSchema(object):
                                     % join.detail[0:3])
 
             # The join condition:
-            print "--- JOIN on %s(%s) -> %s(%s)" % \
-                    (master_column, type(master_column), detail_column,
-                            type(detail_column))
             onclause = master_column == detail_column
 
             # Get the joined products – might be plain tables or already
@@ -401,7 +435,7 @@ class SnowflakeSchema(object):
         # Return the remaining joined product
         result = joined_products.values()[0]
 
-        return JoinedProduct(result, joined_products)
+        return JoinedProduct(result, tables)
 
     def column(self, attribute, locale=None):
         """Return a column object for attribute.
@@ -710,7 +744,6 @@ class QueryBuilder(object):
             # 1. MASTER FACT
             # ==============
 
-
             attributes = set(master_attributes) | set(master_cut_attributes)
             join_product = self.snowflake.join_expression(attributes)
             join_expression = join_product.expression
@@ -718,9 +751,24 @@ class QueryBuilder(object):
             # Store a map of joined columns for later
             # The map is: (schema, table, column) -> column
 
-            master_fact_columns = {}
-            for c in join_expression.columns:
-                master_fact_columns[(c.table.schema, c.table.name, c.name)] = c
+            # Expose fact master detail key outlets:
+            master_detail_keys = {}
+            counter = 0
+            print "=== outlets: %s" % type(join_product.tables)
+            master_detail_selection = []
+            for table in join_product.tables:
+                for key in table.detail_keys:
+                    column_key = (table.schema, table.aliased_name, key)
+                    label = "__mfkey_%d__" % counter
+                    counter += 1
+                    master_detail_keys[column_key] = label
+
+                    column = table.table.c[key].label(label)
+                    master_detail_selection.append(column)
+                    print "---    %s: %s" % (label, column_key)
+
+                # We need to know:
+                # schema, table, column -> fact outlet
 
             # Prepare the selection
             selection = aggregate_selection
@@ -728,6 +776,7 @@ class QueryBuilder(object):
             for attribute in attributes:
                 column = self.column(attribute)
                 selection.append(column)
+            selection += master_detail_selection
 
             # WHERE Condition
             # ---------------
@@ -744,14 +793,14 @@ class QueryBuilder(object):
             # statement = statement.alias(self.snowflake.fact_name)
             print "==> MASTER statement:", statement
             self.master_fact = statement
-            print "--- master columns: %s" % (master_fact_columns, )
+            print "--- master detail keys: %s" % (master_detail_keys, )
 
             # 2. OUTER DETAILS
             # ================
             attributes = set(detail_attributes) | set(detail_cut_attributes)
             join = self.snowflake.join_expression(attributes,
-                                                  fact=self.master_fact,
-                                                  fact_columns=master_fact_columns)
+                                                  master_fact=self.master_fact,
+                                                  master_detail_keys=master_detail_keys)
 
             join_expression = join.expression
             print "=== DETAIL JOIN: %s" % str(join_expression)
