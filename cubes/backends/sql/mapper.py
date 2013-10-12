@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Logical to Physical Mappers"""
 
-import collections
 from cubes.common import get_logger
 from cubes.errors import *
 from cubes.mapper import Mapper
+from collections import namedtuple
 
 __all__ = (
     "SnowflakeMapper",
@@ -19,15 +19,19 @@ DEFAULT_KEY_FIELD = "id"
 
 """Physical reference to a table column. Note that the table might be an
 aliased table name as specified in relevant join."""
-TableColumnReference = collections.namedtuple("TableColumnReference",
+TableColumnReference = namedtuple("TableColumnReference",
                                     ["schema", "table", "column", "extract", "func", "expr", "condition"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
 tuples. `method` denotes which table members should be considered in the join:
 *master* – all master members (left outer join), *detail* – all detail members
 (right outer join) and *match* – members must match (inner join)."""
-TableJoin = collections.namedtuple("TableJoin",
+TableJoin = namedtuple("TableJoin",
                                     ["master", "detail", "alias", "method"])
+
+
+SnowflakeTable = namedtuple("SnowflakeTable",
+                            ["schema", "table", "outlets"])
 
 _join_method_order = {"detail":0, "master":1, "match": 2}
 

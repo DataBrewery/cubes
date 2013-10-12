@@ -16,21 +16,36 @@ except ImportError:
 
 
 __all__ = [
-    "SnowflakeSchema",
-    "QueryBuilder"
-]
+        "SnowflakeSchema",
+        "QueryBuilder"
+        ]
 
 
 SnowflakeAttribute = namedtuple("SnowflakeAttribute", ["attribute", "join"])
 
-"""Aliased table information"""
-SnowflakeTable = namedtuple("SnowflakeTable",
-                            ["schema", "table", "alias", "join"])
 
+"""Product of join_expression"""
+JoinedProduct = namedtuple("JoinedProduct",
+        ["expression", "tables"])
 
 MATCH_MASTER_RSHIP = 1
 OUTER_DETAIL_RSHIP = 2
 
+class SnowflakeTable(object):
+    def __init__(self, schema, name, alias=None, table=None, join=None):
+        self.schema = schema
+        self.name = name
+        self.table = table
+        self.alias = alias
+        self.join = join
+
+    @property
+    def key(self):
+        return (self.schema, self.aliased_name)
+
+    @property
+    def aliased_name(self):
+        return self.alias or self.name
 
 # TODO: merge this with mapper
 class SnowflakeSchema(object):
@@ -61,10 +76,6 @@ class SnowflakeSchema(object):
 
         self.fact_key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
 
-        self.tables = {
-            (self.schema, self.fact_name): self.fact_table
-        }
-
         # Collect all tables and their aliases.
         #
         # table_aliases contains mapping between aliased table name and real
@@ -72,12 +83,6 @@ class SnowflakeSchema(object):
         #
         #       (schema, aliased_name) --> (schema, real_name, alias)
         #
-        self.table_aliases = {
-            (self.schema, self.fact_name): SnowflakeTable(self.schema,
-                                                          self.fact_name,
-                                                          None,
-                                                          None)
-        }
 
         # Mapping where keys are attributes and values are columns
         self.logical_to_column = {}
@@ -86,36 +91,41 @@ class SnowflakeSchema(object):
 
         # Collect tables from joins
 
-        for join in self.mapper.joins:
-            # just ask for the table
-            table = SnowflakeTable(join.detail.schema,
-                                   join.detail.table,
-                                   join.alias,
-                                   join)
-            table_alias = (join.detail.schema, join.alias or join.detail.table)
-            self.table_aliases[table_alias] = table
+        self.tables = {}
+        self._collect_tables()
 
         # Table -> relationship type
         # Prepare maps of attributes -> relationship type
-        relationships = self.analyse_fact_relationships(for_aggregation=False)
-        attributes = self.cube.get_attributes(aggregated=False)
-        tables = self.mapper.tables_for_attributes(attributes)
-        tables = dict(zip(attributes, tables))
-        mapping = {}
-        for attribute in attributes:
-            mapping[attribute] = relationships[tables[attribute]]
+        self.fact_relationships = self.analyse_fact_relationships(for_aggregation=False)
+        self.aggregated_fact_relationships = self.analyse_fact_relationships(for_aggregation=True)
 
-        self.fact_relationships = mapping
 
-        relationships = self.analyse_fact_relationships(for_aggregation=True)
-        attributes = self.cube.get_attributes(aggregated=True)
-        tables = self.mapper.tables_for_attributes(attributes)
-        tables = dict(zip(attributes, tables))
-        mapping = {}
-        for attribute in attributes:
-            mapping[attribute] = relationships[tables[attribute]]
+    def _collect_tables(self):
+        """Collect tables in the schema."""
+        # Collect the fact table
+        table = SnowflakeTable(self.schema, self.fact_name,
+                               table=self.fact_table)
+        self.tables[table.key] = table
 
-        self.aggregated_fact_relationships = mapping
+        for join in self.mapper.joins:
+            # just ask for the table
+
+            sql_table = sqlalchemy.Table(join.detail.table,
+                                         self.metadata,
+                                         autoload=True,
+                                         schema=join.detail.schema)
+
+            if join.alias:
+                sql_table = sql_table.alias(join.alias)
+
+            table = SnowflakeTable(schema=join.detail.schema,
+                                   name=join.detail.table,
+                                   alias=join.alias,
+                                   join=join,
+                                   table=sql_table)
+
+            self.tables[table.key] = table
+
 
     def is_outer_detail(self, attribute, for_aggregation=False):
         """Returns `True` if the attribute belongs to an outer-detail table."""
@@ -160,23 +170,23 @@ class SnowflakeSchema(object):
         # table-to-master relationships:
         #     MASTER_MATCH_RSHIP: either joined as "match" or "master"
         #     OUTER_DETAIL_RSHIP: joined as "detail"
-        fact_relationships = {}
+        relationships = {}
 
         # Anchor the fact table
         table = (self.schema, self.fact_name)
-        fact_relationships[table] = MATCH_MASTER_RSHIP
+        relationships[table] = MATCH_MASTER_RSHIP
 
         # Collect all the tables first:
         for join in joins:
             # Add master table to the list
             table = (join.master.schema, join.master.table)
-            if table not in fact_relationships:
+            if table not in relationships:
                 fact_relationships[table] = None
 
             # Add (aliased) detail table to the rist
             table = (join.detail.schema, join.alias or join.detail.table)
-            if table not in fact_relationships:
-                fact_relationships[table] = None
+            if table not in relationships:
+                relationships[table] = None
             else:
                 raise ModelError("Joining detail table %s twice" % (table, ))
 
@@ -186,10 +196,10 @@ class SnowflakeSchema(object):
             master_key = (join.master.schema, join.master.table)
             detail_key = (join.detail.schema, join.alias or join.detail.table)
 
-            if fact_relationships.get(detail_key):
+            if relationships.get(detail_key):
                 raise InternalError("Detail %s already classified" % detail_key)
 
-            master_rs = fact_relationships[master_key]
+            master_rs = relationships[master_key]
 
             if master_rs is None:
                 raise InternalError("Joining to unclassified master. %s->%s"
@@ -206,9 +216,16 @@ class SnowflakeSchema(object):
                                     % (master_key, master_rs,
                                        detail_key, join.method))
 
-            fact_relationships[detail_key] = relationship
+            relationships[detail_key] = relationship
 
-        return fact_relationships
+        attributes = self.cube.get_attributes(aggregated=for_aggregation)
+        tables = self.mapper.tables_for_attributes(attributes)
+        tables = dict(zip(attributes, tables))
+        mapping = {}
+        for attribute in attributes:
+            mapping[attribute] = relationships[tables[attribute]]
+
+        return mapping
 
     def join_expression(self, attributes, include_fact=True, fact=None,
                         fact_columns=None):
@@ -220,7 +237,9 @@ class SnowflakeSchema(object):
         `column`) and values are columns from `fact`. This is used for
         composing aggregate statement under certain conditions.
 
-        Returns a QLAlchemy expression object.
+        Returns a tuple: (`expression`, `tables`) where `expression` is
+        QLAlchemy expression object and `tables` is a list of keys of joined
+        tables.
 
         If `include_fact` is ``True`` (default) then fact table is considered
         as starting point. If it is ``False`` The first detail table is
@@ -259,11 +278,14 @@ class SnowflakeSchema(object):
         fact_columns = fact_columns or {}
         fact_key = (self.schema, self.fact_name)
 
+        tables = []
+
         if include_fact:
             if fact is not None:
                 joined_products[fact_key] = fact
             else:
                 joined_products[fact_key] = self.fact_table
+            tables.append(fact_key)
 
         # Collect all the tables first:
         for join in joins:
@@ -283,10 +305,7 @@ class SnowflakeSchema(object):
             table = self.table(join.detail.schema, join.alias or join.detail.table)
             key = (join.detail.schema, join.alias or join.detail.table)
             joined_products[key] = table
-
-        # product_list = ["%s: %s" % item for item in joined_products.items()]
-        # product_list = "\n".join(product_list)
-        # self.logger.debug("products:\n%s" % product_list)
+            tables.append(key)
 
         # Perform the joins
         # =================
@@ -372,7 +391,7 @@ class SnowflakeSchema(object):
         # Return the remaining joined product
         result = joined_products.values()[0]
 
-        return result
+        return JoinedProduct(result, joined_products)
 
     def column(self, attribute, locale=None):
         """Return a column object for attribute.
@@ -463,28 +482,14 @@ class SnowflakeSchema(object):
         If `schema` is ``None`` then browser's default schema is used.
         """
 
-        aliased_ref = (schema or self.mapper.schema, table_name)
-
-        if aliased_ref in self.tables:
-            return self.tables[aliased_ref]
-
+        key = (schema or self.mapper.schema, table_name)
         # Get real table reference
         try:
-            table_ref = self.table_aliases[aliased_ref]
+            return self.tables[key].table
         except KeyError:
             raise ModelError("Table with reference %s not found. "
                              "Missing join in cube '%s'?"
-                             % (aliased_ref, self.cube.name) )
-
-        table = sqlalchemy.Table(table_ref.table, self.metadata,
-                                 autoload=True, schema=table_ref.schema)
-
-        if table_ref.alias:
-            table = table.alias(table_ref.alias)
-
-        self.tables[aliased_ref] = table
-
-        return table
+                             % (key, self.cube.name) )
 
 
 class QueryBuilder(object):
@@ -675,7 +680,8 @@ class QueryBuilder(object):
             attributes = set(aggregates)
             attributes |= set(master_attributes)
             attributes |= set(master_cut_attributes)
-            join_expression = self.snowflake.join_expression(attributes)
+            join_product = self.snowflake.join_expression(attributes)
+            join_expression = join_product.expression
 
             # WHERE Condition
             # ---------
@@ -695,9 +701,9 @@ class QueryBuilder(object):
             # ==============
 
 
-            attributes = set(master_attributes)
-            attributes |= set(master_cut_attributes)
-            join_expression = self.snowflake.join_expression(attributes)
+            attributes = set(master_attributes) | set(master_cut_attributes)
+            join_product = self.snowflake.join_expression(attributes)
+            join_expression = join_product.expression
 
             # Store a map of joined columns for later
             # The map is: (schema, table, column) -> column
@@ -722,6 +728,7 @@ class QueryBuilder(object):
                                               from_obj=join_expression,
                                               use_labels=True,
                                               whereclause=condition)
+
             # From now-on the self.column() method will return columns from
             # master_fact.
             # statement = statement.alias(self.snowflake.fact_name)
@@ -732,10 +739,11 @@ class QueryBuilder(object):
             # 2. OUTER DETAILS
             # ================
             attributes = set(detail_attributes) | set(detail_cut_attributes)
-            join_expression = self.snowflake.join_expression(attributes,
-                                                             fact=self.master_fact,
-                                                             fact_columns=master_fact_columns)
+            join = self.snowflake.join_expression(attributes,
+                                                  fact=self.master_fact,
+                                                  fact_columns=master_fact_columns)
 
+            join_expression = join.expression
             print "=== DETAIL JOIN: %s" % str(join_expression)
             # Add drilldown – Group-by
             # ------------------------
@@ -796,7 +804,9 @@ class QueryBuilder(object):
             attributes = self.cube.all_attributes()
 
         join_attributes = set(attributes) | self.attributes_for_cell(cell)
-        join_expression = self.snowflake.join_expression(attributes)
+
+        join_product = self.snowflake.join_expression(attributes)
+        join_expression = join_product.expression
 
         columns = self.snowflake.columns(attributes, expand_locales=expand_locales)
 
