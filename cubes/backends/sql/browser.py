@@ -349,7 +349,9 @@ class SnowflakeBrowser(AggregationBrowser):
                 not drilldown:
 
             builder = QueryBuilder(self)
-            builder.aggregation_statement(cell, aggregates=aggregates)
+            builder.aggregation_statement(cell,
+                                          aggregates=aggregates,
+                                          drilldown=drilldown)
 
             cursor = self.execute_statement(builder.statement,
                                             "aggregation summary")
@@ -641,7 +643,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
-        self.logger.debug("%s\n%s" % (label, str(statement)))
+        self.logger.debug("%s\n%s\n" % (label, str(statement)))
 
     def validate(self):
         """Validate physical representation of model. Returns a list of
@@ -753,6 +755,7 @@ class ResultIterator(object):
 
         row = self.batch.popleft()
 
+        print "--- row: %s" % (row, )
         return dict(zip(self.labels, row))
 
 
