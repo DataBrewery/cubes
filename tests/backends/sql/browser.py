@@ -364,6 +364,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertIsNotNone(members)
         self.assertEqual(10, len(members))
 
+    @unittest.skip("not implemented")
     def test_cut_details(self):
         cut = PointCut("date", [2012])
         details = self.browser.cut_details(cut)
@@ -465,7 +466,7 @@ class HierarchyTestCase(CubesTestCaseBase):
                                         dimension_prefix="dim_",
                                         fact_prefix="ft_")
         self.browser.debug = True
-
+        self.browser.logger.setLevel("DEBUG")
     def test_cell(self):
         cell = Cell(self.cube)
         result = self.browser.aggregate(cell)
@@ -652,9 +653,6 @@ class SQLBrowserTestCase(CubesTestCaseBase):
         drilldown = [("date", None, "year")]
         result = self.browser.aggregate(drilldown=drilldown)
 
-        cells = list(result.cells)
-        for cell in cells:
-            self.browser.logger.debug("--- cell: %s" % cell)
         self.assertEqual(2, len(cells))
 
         self.assertItemsEqual(["date.year", "amount_sum"],
