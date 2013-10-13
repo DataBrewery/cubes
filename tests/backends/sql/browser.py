@@ -652,6 +652,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
     def test_aggregate_drilldown(self):
         drilldown = [("date", None, "year")]
         result = self.browser.aggregate(drilldown=drilldown)
+        cells = list(result.cells)
 
         self.assertEqual(2, len(cells))
 
