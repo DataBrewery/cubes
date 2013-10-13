@@ -61,7 +61,6 @@ class SnowflakeSchema(object):
         self.safe_labels = safe_labels
 
         # Initialize the shema information: tables, column maps, ...
-        # TODO check if this is used somewhere
         self.schema = self.mapper.schema
 
         # Prepare physical fact table - fetch from metadata
@@ -441,7 +440,8 @@ class SnowflakeSchema(object):
         """Return a column object for attribute.
 
         `locale` is explicit locale to be used. If not specified, then the
-        current locale is used for localizable attributes."""
+        current locale is used for localizable attributes.
+        """
 
         logical = self.mapper.logical(attribute, locale)
         if logical in self.logical_to_column:
@@ -639,6 +639,8 @@ class QueryBuilder(object):
         cut_attributes = self.attributes_for_cell_cuts(cell)
         drilldown_attributes = drilldown.all_attributes()
 
+        # Prepare the master/detail split
+        #
         master_cut_attributes = []
         master_attributes = []
         master_cuts = []
@@ -653,34 +655,37 @@ class QueryBuilder(object):
             if all(is_outer_detail):
                 detail_cut_attributes += attributes
                 detail_cuts.append(cut)
+            elif any(is_outer_detail):
+                raise InternalError("Cut %s is spreading from master to "
+                                    "outer detail is not supported."
+                                    % str(cut))
             else:
-                if any(is_outer_detail):
-                    raise InternalError("Cut %s spreading from master to "
-                                        "outer detail is not supported."
-                                        % str(cut))
-                else:
-                    master_cut_attributes += attributes
-                    master_cuts.append(cut)
+                master_cut_attributes += attributes
+                master_cuts.append(cut)
 
-        for attribute in drilldown_attributes:
-            if self.snowflake.is_outer_detail(attribute):
-                detail_attributes.append(attribute)
-            else:
-                master_attributes.append(attribute)
+        master, detail = self.split_attributes_by_relationship(drilldown_attributes)
+        detail_attributes += detail
+        master_attributes += master
 
-        self.logger.debug("    master selection: %s"
-                          % [a.ref() for a in master_attributes])
-        self.logger.debug("    master cut: %s"
-                          % [a.ref() for a in master_cut_attributes])
-        self.logger.debug("    detail selection: %s"
-                          % [a.ref() for a in detail_attributes])
-        self.logger.debug("    detail cut: %s"
-                          % [a.ref() for a in detail_cut_attributes])
+        # Period-to-date
+        #
+        # One thing we have to do later is to generate the PTD condition
+        # (either for master or for detail) and assign it to the appropriate
+        # list of conditions
 
-        # Cases:
-        # MASTER-ONLY - we have only master condition
-        # DETAIL-ONLY – we have only detail condition
-        # MASTER-DETAIL – we have condition in master and in detail
+        ptd_attributes = self._ptd_attributes(cell, drilldown)
+        master, detail = self.split_attributes_by_relationship(ptd_attributes)
+        if master and detail:
+            raise InternalError("PTD attributes are spreading from master "
+                                "to outer detail. This is not supported.")
+        elif master:
+            ptd_master_attributes = master
+            ptd_detail_attributes = None
+            master_attributes += master
+        elif detail:
+            ptd_master_attributes = None
+            ptd_detail_attributes = master
+            detail_attributes += detail
 
         # Pick the method:
         #
@@ -711,46 +716,41 @@ class QueryBuilder(object):
         coalesce_measures = bool(detail_cut_attributes) or bool(detail_attributes)
 
         if not detail_cut_attributes and not detail_attributes:
-            self.logger.debug("join case 0, 1, 2 or 3")
-            # Cases: 0,1,2,3
             # We keep all masters as master, there is nothing in details
+            self.logger.debug("join case 0, 1, 2 or 3")
             simple_method = True
 
         elif not detail_cut_attributes and not master_cut_attributes:
-            self.logger.debug("join case 4 or 5")
-            # Cases 4, 5
             # We keep the masters, just append details into selection/drilldown
+            self.logger.debug("join case 4 or 5")
             simple_method = True
             master_attributes += detail_attributes
 
         elif detail_cut_attributes \
                 and not (master_cut_attributes or detail_attributes):
-            self.logger.debug("join case 6 or 7")
-            # Cases 6, 7
             # Use detail cut as master cut, as we have no other cuts
+            self.logger.debug("join case 6 or 7")
             simple_method = True
             master_cut_attributes = detail_cut_attributes
             master_cuts = detail_cuts
 
         elif not detail_cut_attributes:
             self.logger.debug("join case 8 or 9")
-            # Case 8, 9
             simple_method = False
 
         elif detail_attributes and detail_cut_attributes \
-                and not (master_cut_attributes or master_attributes):
+                and not (master_attributes or master_cut_attributes):
             self.logger.debug("join case 10 or 11")
-            # Case 10, 11
             simple_method = True
 
-            master_cut_attributes = master_cut_attributes + detail_cut_attributes
-            master_cuts = detail_cuts
             master_attributes = detail_attributes
+            master_cut_attributes += detail_cut_attributes
+            master_cuts = detail_cuts
 
         elif master_cut_attributes and detail_cut_attributes:
+            # TODO: this is like case 8 or 9
+            self.logger.debug("join case 12 to 15")
             simple_method = False
-            # TODO: this is like 8 or 9 case
-            # raise NotImplementedError("case 12, 13, 14, 15")
 
         else:
             raise InternalError("Unknown join case for aggregate statement")
@@ -764,6 +764,9 @@ class QueryBuilder(object):
         aggregate_selection = self.builtin_aggregate_expressions(aggregates,
                                                        coalesce_measures=coalesce_measures)
         aggregate_labels = [c.name for c in aggregate_selection]
+
+        # At this point we have master/detail assignments rearranged based on
+        # the cut/drilldown combo case.
 
         master_conditions = self.conditions_for_cuts(master_cuts)
 
@@ -796,6 +799,10 @@ class QueryBuilder(object):
             # WHERE
             # -----
             conditions = master_conditions
+
+            if ptd_attributes:
+                ptd_condition = self._ptd_condition(ptd_attributes)
+                conditions.append(ptd_condition)
 
         else:
             self.logger.debug("statement: composed")
@@ -909,6 +916,21 @@ class QueryBuilder(object):
         self.split = split
 
         return self.statement
+
+    def split_attributes_by_relationship(self, attributes):
+        """Returns a tuple (`master`, `detail`) where `master` is a list of
+        attributes that have master/match relationship towards the fact and
+        `detail` is a list of attributes with outer detail relationship
+        towards the fact."""
+        master = []
+        detail = []
+        for attribute in attributes:
+            if self.snowflake.is_outer_detail(attribute):
+                detail.append(attribute)
+            else:
+                master.append(attribute)
+
+        return (master, detail)
 
     def denormalized_statement(self, cell=None, attributes=None,
                                expand_locales=False, include_fact_key=True):
@@ -1181,6 +1203,59 @@ class QueryBuilder(object):
             condition = sql.expression.or_(condition, last)
 
         return condition
+
+    def _ptd_attributes(self, cell, drilldown):
+        """Return attributes that are used for the PTD condition. Output of
+        this function is used for master/detail fact composition and for the
+        `_ptd_condition()`"""
+        # Include every level only once
+        levels = set()
+
+        # For the cell:
+        if cell:
+            levels |= set(item[2] for item in cell.deepest_levels())
+
+        # For drilldown:
+        if drilldown:
+            levels |= set(item[2] for item in drilldown.deepest_levels())
+
+        attributes = []
+        for level in levels:
+            ref = self.mapper.physical(level.key)
+            if ref.condition:
+                attributes.append(level.key)
+
+        return attributes
+
+    def _ptd_condition(self, ptd_attributes):
+        """Returns "periods to date" condition for `ptd_attributes` (which
+        should be a result of `_ptd_attributes()`)"""
+
+        # TODO: PTD is Experimental
+
+        # Collect the conditions
+        #
+        # Conditions are currently specified in the mappings as "condtition"
+        # Collect relevant columns – those with conditions
+
+        # Construct the conditions from the physical attribute expression
+        conditions = []
+        for attribute in attributes:
+
+            ref = self.mapper.physical(attribute)
+            column = self.column(attribute)
+
+            # evalu_attributes_for_ptdate the condition expression
+            function = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+            if not callable(function):
+                raise BrowserError("Cannot evaluate a callable object from "
+                                   "reference's condition expr: %r" % ref)
+
+            condition = function(column)
+            conditions.append(condition)
+
+        # TODO: What about invert?
+        return condition_conjuction(conditions)
 
     def column(self, attribute, locale=None):
         """Returns either a physical column for the attribute or a reference to

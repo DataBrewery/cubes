@@ -592,56 +592,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return statement
 
-    def _ptd_condition(self, cell, drilldown):
-        """Returns "periods to date" condition for cell."""
-
-        # Include every level only once
-        levels = set()
-
-        # For the cell:
-        if cell:
-            levels |= set(item[2] for item in cell.deepest_levels())
-
-        # For drilldown:
-        if drilldown:
-            levels |= set(item[2] for item in drilldown.deepest_levels())
-
-        # Collect the conditions
-        #
-        # Conditions are currently specified in the mappings as "condtition"
-        #
-
-        # Collect relevant columns – those with conditions
-        physicals = []
-        for level in levels:
-            ref = self.mapper.physical(level.key)
-            if ref.condition:
-                physicals.append(ref)
-
-        # Construct the conditions from the physical attribute expression
-        conditions = []
-        for ref in physicals:
-
-            table = self.table(ref.schema, ref.table)
-            try:
-                column = table.c[ref.column]
-            except:
-                raise BrowserError("Unknown column '%s' in table '%s'" % (ref.column, ref.table))
-
-            # evaluate the condition expression
-            function = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
-            if not callable(function):
-                raise BrowserError("Cannot evaluate a callable object from reference's condition expr: %r" % ref)
-
-            condition = function(column)
-
-            conditions.append(condition)
-
-        # TODO: What about invert?
-        condition = sql.expression.and_(*conditions)
-
-        return condition
-
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s\n" % (label, str(statement)))
