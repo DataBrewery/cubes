@@ -4,7 +4,7 @@ from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...errors import *
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD
-from .utils import condition_conjuction, order_column
+from .utils import condition_conjunction, order_column
 
 try:
     import sqlalchemy
@@ -693,8 +693,10 @@ class QueryBuilder(object):
                                 "to outer detail. This is not supported.")
         elif ptd_master:
             master.attributes += ptd_master
+            master.ptd_attributes = ptd_master
         elif ptd_detail:
             detail.attributes += ptd_detail
+            detail.ptd_attributes = ptd_detail
 
         # Pick the method:
         #
@@ -766,9 +768,7 @@ class QueryBuilder(object):
 
             # JOIN
             # ----
-            attributes = set(aggregates)
-            attributes |= set(master.attributes)
-            attributes |= set(master.cut_attributes)
+            attributes = set(aggregates) | master.all_attributes
             join = self.snowflake.join_expression(attributes)
             join_expression = join.expression
 
@@ -776,8 +776,8 @@ class QueryBuilder(object):
             # -----
             conditions = master_conditions
 
-            if ptd_attributes:
-                ptd_condition = self._ptd_condition(ptd_attributes)
+            if master.ptd_attributes:
+                ptd_condition = self._ptd_condition(master.ptd_attributes)
                 conditions.append(ptd_condition)
 
         else:
@@ -786,26 +786,26 @@ class QueryBuilder(object):
             # 1. MASTER FACT
             # ==============
 
-            attributes = set(master.attributes) | set(master.cut_attributes)
-            join_product = self.snowflake.join_expression(attributes)
-            join_expression = join_product.expression
+            join = self.snowflake.join_expression(master.all_attributes)
+            join_expression = join.expression
 
             # Store a map of joined columns for later
             # The map is: (schema, table, column) -> column
 
             # Expose fact master detail key outlets:
             master_detail_keys = {}
-            counter = 0
             master_detail_selection = []
-            for table in join_product.tables:
+            counter = 0
+            for table in join.tables:
                 for key in table.detail_keys:
                     column_key = (table.schema, table.aliased_name, key)
                     label = "__masterkey%d" % counter
-                    counter += 1
                     master_detail_keys[column_key] = label
 
                     column = table.table.c[key].label(label)
                     master_detail_selection.append(column)
+
+                    counter += 1
 
             # SELECT – Prepare the master selection
             #     * aggregates
@@ -823,7 +823,12 @@ class QueryBuilder(object):
 
             # WHERE Condition
             # ---------------
-            condition = condition_conjuction(master_conditions)
+            condition = condition_conjunction(master_conditions)
+
+            # Add the PTD
+            if master.ptd_attributes:
+                ptd_condition = self._ptd_condition(master.ptd_attributes)
+                condition = condition_conjunction([condition, ptd_condition])
 
             # Prepare the master_fact statement:
             statement = sql.expression.select(selection,
@@ -849,21 +854,17 @@ class QueryBuilder(object):
             master_selection = [self.master_fact.c[label] for label in
                                     master_drilldown_labels]
 
-            detail_selection = []
-            group_by = []
-            for attribute in set(detail.attributes):
-                column = self.column(attribute)
-                group_by.append(column)
-                detail_selection.append(column)
+            detail_selection = [self.column(a) for a in set(detail.attributes)]
             selection = aggregate_selection + master_selection + detail_selection
+
+            group_by = detail_selection[:]
 
             # JOIN
             # ----
             # Replace the master-relationship tables with single master fact
             # Provide mapping between original table columns to the master
             # fact selection (with labelled columns)
-            attributes = set(detail.attributes) | set(detail.cut_attributes)
-            join = self.snowflake.join_expression(attributes,
+            join = self.snowflake.join_expression(detail.all_attributes,
                                                   master_fact=self.master_fact,
                                                   master_detail_keys=master_detail_keys)
 
@@ -873,20 +874,23 @@ class QueryBuilder(object):
             # -----
             conditions = self.conditions_for_cuts(detail.cuts)
 
+            # Add the PTD
+            if detail.ptd_attributes:
+                ptd_condition = self._ptd_condition(detail.ptd_attributes)
+                conditions.append(ptd_condition)
+
         # Ignore the GROUP BY if only summary is requested
         group_by = group_by if not summary_only else None
-        condition = condition_conjuction(conditions)
+
+        condition = condition_conjunction(conditions)
         statement = sql.expression.select(selection,
                                           from_obj=join_expression,
                                           use_labels=True,
                                           whereclause=condition,
                                           group_by=group_by)
 
-        # TODO: Add periods-to-date condition
-
         self.statement = statement
         self.labels = self.snowflake.logical_labels(statement.columns)
-
         # Used in order
         self.drilldown = drilldown
         self.split = split
@@ -1044,7 +1048,7 @@ class QueryBuilder(object):
     def condition_for_cell(self, cell):
         """Returns a SQL condition for the `cell`."""
         conditions = self.conditions_for_cuts(cell.cuts)
-        condition = condition_conjuction(conditions)
+        condition = condition_conjunction(conditions)
 
     def conditions_for_cuts(self, cuts):
         """Constructs conditions for all cuts in the `cell`. Returns a list of
@@ -1127,7 +1131,7 @@ class QueryBuilder(object):
         if upper is not None:
             conditions.append(upper)
 
-        condition = condition_conjuction(conditions)
+        condition = condition_conjunction(conditions)
 
         if invert:
             condition = sql.expression.not_(condexpr)
@@ -1173,7 +1177,7 @@ class QueryBuilder(object):
         column = self.column(levels[-1].key)
         conditions.append(operator(column, path[-1]))
 
-        condition = condition_conjuction(conditions)
+        condition = condition_conjunction(conditions)
 
         if last is not None:
             condition = sql.expression.or_(condition, last)
@@ -1231,7 +1235,7 @@ class QueryBuilder(object):
             conditions.append(condition)
 
         # TODO: What about invert?
-        return condition_conjuction(conditions)
+        return condition_conjunction(conditions)
 
     def column(self, attribute, locale=None):
         """Returns either a physical column for the attribute or a reference to
