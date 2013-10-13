@@ -376,7 +376,6 @@ class SnowflakeSchema(object):
                     raise InternalError("Missing fact column %s (has: %s)"
                                         % (key, master_detail_keys.keys()))
                 master_column = master_fact.c[master_label]
-                print "--- master column: %s" % str(master_column)
             else:
                 master_table = self.table(master.schema, master.table)
 
@@ -395,7 +394,6 @@ class SnowflakeSchema(object):
 
             # The join condition:
             onclause = master_column == detail_column
-            print "--- ONCLAUSE: %s" % str(onclause)
 
             # Get the joined products – might be plain tables or already
             # joined tables
@@ -422,7 +420,6 @@ class SnowflakeSchema(object):
                                              detail_table,
                                              onclause=onclause,
                                              isouter=is_outer)
-            print "--- product: %s" % str(product)
 
             del joined_products[detail_key]
             joined_products[master_key] = product
@@ -629,13 +626,13 @@ class QueryBuilder(object):
             else:
                 master_attributes.append(attribute)
 
-        self.logger.debug("MASTER selection: %s"
+        self.logger.debug("    master selection: %s"
                           % [a.ref() for a in master_attributes])
-        self.logger.debug("MASTER cut: %s"
+        self.logger.debug("    master cut: %s"
                           % [a.ref() for a in master_cut_attributes])
-        self.logger.debug("DETAIL selection: %s"
+        self.logger.debug("    detail selection: %s"
                           % [a.ref() for a in detail_attributes])
-        self.logger.debug("DETAIL cut: %s"
+        self.logger.debug("    detail cut: %s"
                           % [a.ref() for a in detail_cut_attributes])
 
         # Used to determine whether to coalesce attributes.
@@ -645,9 +642,6 @@ class QueryBuilder(object):
         # MASTER-ONLY - we have only master condition
         # DETAIL-ONLY – we have only detail condition
         # MASTER-DETAIL – we have condition in master and in detail
-
-        master_conditions = self.conditions_for_cuts(master_cuts)
-        detail_conditions = self.conditions_for_cuts(detail_cuts)
 
         # Pick the method:
         #
@@ -672,18 +666,22 @@ class QueryBuilder(object):
         # 13 xx xx -- xx | composed with MC as core, DC as outer
         # 14 -- xx xx xx | composed with MC as core, DC as outer
         # 15 xx xx xx xx | composed with MC as core, DC as outer
+        # 
+        # TODO: this is a bit complex, maybe it can be simplified somehow
 
         if not detail_cut_attributes and not detail_attributes:
             # Cases: 0,1,2,3
             # We keep all masters as master, there is nothing in details
             simple_method = True
             has_outer_details = False
+
         elif not detail_cut_attributes and not master_cut_attributes:
             # Cases 4, 5
             # We keep the masters, just append details into selection/drilldown
             simple_method = True
             has_outer_details = True
             master_attributes += detail_attributes
+
         elif detail_cut_attributes \
                 and not (master_cut_attributes or detail_attributes):
             # Cases 6, 7
@@ -691,12 +689,23 @@ class QueryBuilder(object):
             simple_method = True
             has_outer_details = False
             master_cut_attributes = detail_cut_attributes
+            master_cuts = detail_cuts
+
         elif not detail_cut_attributes:
             # Case 8, 9
             simple_method = False
             has_outer_details = True
+
+        elif detail_attributes and detail_cut_attributes \
+                and not (master_cut_attributes or master_attributes):
+            simple_method = True
+            has_outer_details = True
+
+        elif master_cut_attributes and detail_cut_attributes:
+            raise NotImplementedError("case 12, 13, 14, 15")
+
         else:
-            raise NotImplementedError
+            raise NotImplementedError("unknown case")
 
         # Aggregates
         # ----------
@@ -708,8 +717,14 @@ class QueryBuilder(object):
                                                        coalesce_measures=has_outer_details)
         aggregate_labels = [c.name for c in aggregate_selection]
 
+        master_conditions = self.conditions_for_cuts(master_cuts)
+
         if simple_method:
-            self.logger.debug("using SIMPLE method")
+            self.logger.debug("statement: simple")
+            self.logger.debug("    master selection: %s"
+                              % [a.ref() for a in master_attributes])
+            self.logger.debug("    master cut: %s"
+                              % [a.ref() for a in master_cut_attributes])
             # Drilldown – Group-by
             # --------------------
             #
@@ -734,6 +749,7 @@ class QueryBuilder(object):
             # WHERE Condition
             # ---------
             condition = condition_conjuction(master_conditions)
+            self.logger.debug("    condition: %s" % str(condition))
 
             # Prepare the master_fact statement:
             statement = sql.expression.select(selection,
@@ -743,7 +759,7 @@ class QueryBuilder(object):
                                               group_by=group_by)
 
         else:
-            self.logger.debug("using COMPOSED method")
+            self.logger.debug("statement: composed")
 
             # 1. MASTER FACT
             # ==============
@@ -833,7 +849,9 @@ class QueryBuilder(object):
             # Join
             # ----
 
+            detail_conditions = self.conditions_for_cuts(detail_cuts)
             condition = condition_conjuction(detail_conditions)
+
             print "=== DETAIL STATEMENT"
             print "--- aggregate selection: %s" % [str(c) for c in aggregate_selection]
             print "--- master selection: %s" % [str(c) for c in master_selection]
