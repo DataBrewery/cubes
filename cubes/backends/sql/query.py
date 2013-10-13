@@ -570,8 +570,17 @@ class QueryBuilder(object):
         self.labels = []
 
     def aggregation_statement(self, cell, drilldown=None, aggregates=None,
-                              split=None, attributes=None):
-        """Builds a statement to aggregate the `cell`."""
+                              split=None, attributes=None, summary_only=False):
+        """Builds a statement to aggregate the `cell`.
+
+        * `cell` – `Cell` to aggregate
+        * `drilldown` – a `Drilldown` object
+        * `aggregates` – list of aggregates to consider
+        * `split` – split cell for split condition
+        * `summary_only` – do not perform GROUP BY for the drilldown. The
+        * drilldown is used only for choosing tables to join and affects outer
+          detail joins in the result
+        """
 
         if not aggregates:
             raise ArgumentError("List of aggregates sohuld not be empty")
@@ -582,13 +591,10 @@ class QueryBuilder(object):
         # TODO: we are expeced to get this prepared!
         drilldown = drilldown or Drilldown()
 
-        # The selection: aggregates + drill-down attributes
-        selection = []
-
         self.logger.debug("prepare aggregation statement. cell: '%s' "
-                          "drilldown: '%s'" %
+                          "drilldown: '%s' summary only: %s" %
                           (",".join([str(cut) for cut in cell.cuts]),
-                          drilldown))
+                          drilldown, summary_only))
 
         # Analyse and Prepare
         # -------------------
@@ -756,7 +762,9 @@ class QueryBuilder(object):
             self.logger.debug("    selection: %s" % [str(s) for s in selection])
             self.logger.debug("    grouop by: %s" % [str(s) for s in group_by])
 
-            # Prepare the master_fact statement:
+            # Ignore the GROUP BY if only summary is requested
+            group_by = group_by if not summary_only else None
+
             statement = sql.expression.select(selection,
                                               from_obj=join_expression,
                                               use_labels=True,
@@ -866,10 +874,14 @@ class QueryBuilder(object):
                 print "---         %s" % str(s)
             print "-->     JOIN: %s" % str(join_expression)
             print "-->     WHERE: %s" % str(condition)
+
+            # Ignore the GROUP BY if only summary is requested
+            group_by = group_by if not summary_only else None
             statement = sql.expression.select(selection,
                                               from_obj=join_expression,
                                               use_labels=True,
-                                              whereclause=condition)
+                                              whereclause=condition,
+                                              group_by=group_by)
             # Create the master join product:
         # TODO: Add periods-to-date condition
 

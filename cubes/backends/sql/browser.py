@@ -350,7 +350,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
             builder = QueryBuilder(self)
             builder.aggregation_statement(cell,
-                                          aggregates=aggregates)
+                                          aggregates=aggregates,
+                                          drilldown=drilldown,
+                                          summary_only=True)
 
             cursor = self.execute_statement(builder.statement,
                                             "aggregation summary")
@@ -753,8 +755,6 @@ class ResultIterator(object):
             self.batch = collections.deque(many)
 
         row = self.batch.popleft()
-
-        print "--- row: %s" % (row, )
         return dict(zip(self.labels, row))
 
 

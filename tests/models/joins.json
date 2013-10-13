@@ -103,6 +103,42 @@
                 }
             ],
             "fact": "facts"
+        },
+        {
+            "name":"masterdetail",
+            "dimensions": ["date_match", "city_match",
+                           "date_detail", "city_detail"],
+            "measures": [ "amount" ],
+            "aggregates": [
+                    {"name": "record_count", "function": "count"}
+                ],
+            "joins": [
+                {
+                    "master": "facts.id_date",
+                    "detail": "dim_date.id",
+                    "alias": "dim_date_match",
+                    "method": "match"
+                },
+                {
+                    "master": "facts.id_city",
+                    "detail": "dim_city.id",
+                    "alias": "dim_city_match",
+                    "method": "match"
+                },
+                {
+                    "master": "facts.id_date",
+                    "detail": "dim_date.id",
+                    "alias": "dim_date_detail",
+                    "method": "detail"
+                },
+                {
+                    "master": "facts.id_city",
+                    "detail": "dim_city.id",
+                    "alias": "dim_city_detail",
+                    "method": "detail"
+                }
+            ],
+            "fact": "facts"
         }
     ],
     "dimensions": [
@@ -127,6 +163,22 @@
             "levels": [
                     {"name":"name"}
                 ]
+        },
+        {
+            "name": "date_match",
+            "template": "date"
+        },
+        {
+            "name": "date_detail",
+            "template": "date"
+        },
+        {
+            "name": "city_match",
+            "template": "city"
+        },
+        {
+            "name": "city_detail",
+            "template": "city"
         }
     ]
 
