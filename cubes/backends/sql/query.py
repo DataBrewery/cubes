@@ -536,6 +536,25 @@ class SnowflakeSchema(object):
                              % (key, self.cube.name) )
 
 
+class _StatementConfiguration(object):
+    def __init__(self):
+        self.cut_attributes = []
+        self.attributes = []
+        self.cuts = []
+        self.ptd_attributes = []
+
+    @property
+    def all_attributes(self):
+        return set(self.attributes) | set(self.cut_attributes)
+
+    def merge(self, other):
+        self.attributes += other.attributes
+        self.cut_attributes += other.cut_attributes
+        self.cuts += other.cuts
+
+    def is_empty(self):
+        return (len(self.attributes) + len(self.cut_attributes)) == 0
+
 class QueryBuilder(object):
     def __init__(self, browser):
         """Creates a SQL query statement builder object – a controller-like
@@ -641,31 +660,25 @@ class QueryBuilder(object):
 
         # Prepare the master/detail split
         #
-        master_cut_attributes = []
-        master_attributes = []
-        master_cuts = []
-
-        detail_cut_attributes = []
-        detail_attributes = []
-        detail_cuts = []
+        master = _StatementConfiguration()
+        detail = _StatementConfiguration()
 
         for cut, attributes in cut_attributes:
             is_outer_detail = [self.snowflake.is_outer_detail(a) for a in attributes]
 
             if all(is_outer_detail):
-                detail_cut_attributes += attributes
-                detail_cuts.append(cut)
+                detail.cut_attributes += attributes
+                detail.cuts.append(cut)
             elif any(is_outer_detail):
                 raise InternalError("Cut %s is spreading from master to "
                                     "outer detail is not supported."
                                     % str(cut))
             else:
-                master_cut_attributes += attributes
-                master_cuts.append(cut)
+                master.cut_attributes += attributes
+                master.cuts.append(cut)
 
-        master, detail = self.split_attributes_by_relationship(drilldown_attributes)
-        detail_attributes += detail
-        master_attributes += master
+        master.attributes, detail.attributes = \
+                self.split_attributes_by_relationship(drilldown_attributes)
 
         # Period-to-date
         #
@@ -674,18 +687,14 @@ class QueryBuilder(object):
         # list of conditions
 
         ptd_attributes = self._ptd_attributes(cell, drilldown)
-        master, detail = self.split_attributes_by_relationship(ptd_attributes)
-        if master and detail:
+        ptd_master, ptd_detail = self.split_attributes_by_relationship(ptd_attributes)
+        if ptd_master and ptd_detail:
             raise InternalError("PTD attributes are spreading from master "
                                 "to outer detail. This is not supported.")
-        elif master:
-            ptd_master_attributes = master
-            ptd_detail_attributes = None
-            master_attributes += master
-        elif detail:
-            ptd_master_attributes = None
-            ptd_detail_attributes = master
-            detail_attributes += detail
+        elif ptd_master:
+            master.attributes += ptd_master
+        elif ptd_detail:
+            detail.attributes += ptd_detail
 
         # Pick the method:
         #
@@ -694,66 +703,33 @@ class QueryBuilder(object):
         #
         #    MA MC DA DC | method
         #    ============|=======
-        #  0 -- -- -- -- | simple MC
-        #  1 xx -- -- -- | simple MC
-        #  2 -- xx -- -- | simple MC
-        #  3 xx xx -- -- | simple MC
-        #  4 -- -- xx -- | simple MC
-        #  5 xx -- xx -- | simple MC
-        #  6 -- -- -- xx | simple DC
-        #  7 xx -- -- xx | simple DC
-        #  8 -- xx xx -- | composed with MC as core
-        #  9 xx xx xx -- | composed with MC as core
-        # 10 -- -- xx xx | composed with DC as core
-        # 11 xx -- xx xx | composed with DC as core
-        # 12 -- xx -- xx | composed with MC as core, DC as outer
-        # 13 xx xx -- xx | composed with MC as core, DC as outer
-        # 14 -- xx xx xx | composed with MC as core, DC as outer
-        # 15 xx xx xx xx | composed with MC as core, DC as outer
+        #  0 -- -- -- -- | simple
+        #  1 xx -- -- -- | simple
+        #  2 -- xx -- -- | simple
+        #  3 xx xx -- -- | simple
+        #  4 -- -- xx -- | simple
+        #  5 xx -- xx -- | simple
+        #  6 -- xx xx -- | composed
+        #  7 xx xx xx -- | composed
+        #  8 -- -- -- xx | simple
+        #  9 xx -- -- xx | simple
+        # 10 -- -- xx xx | simple
+        # 11 xx -- xx xx | simple
+        # 12 -- xx -- xx | composed
+        # 13 xx xx -- xx | composed
+        # 14 -- xx xx xx | composed
+        # 15 xx xx xx xx | composed
         # 
-        # TODO: this is a bit complex, maybe it can be simplified somehow
 
-        coalesce_measures = bool(detail_cut_attributes) or bool(detail_attributes)
-
-        if not detail_cut_attributes and not detail_attributes:
-            # We keep all masters as master, there is nothing in details
-            self.logger.debug("join case 0, 1, 2 or 3")
-            simple_method = True
-
-        elif not detail_cut_attributes and not master_cut_attributes:
-            # We keep the masters, just append details into selection/drilldown
-            self.logger.debug("join case 4 or 5")
-            simple_method = True
-            master_attributes += detail_attributes
-
-        elif detail_cut_attributes \
-                and not (master_cut_attributes or detail_attributes):
-            # Use detail cut as master cut, as we have no other cuts
-            self.logger.debug("join case 6 or 7")
-            simple_method = True
-            master_cut_attributes = detail_cut_attributes
-            master_cuts = detail_cuts
-
-        elif not detail_cut_attributes:
-            self.logger.debug("join case 8 or 9")
+        # The master cut is in conflict with detail drilldown or detail cut 
+        if master.cut_attributes and (detail.attributes or
+                                        detail.cut_attributes):
             simple_method = False
-
-        elif detail_attributes and detail_cut_attributes \
-                and not (master_attributes or master_cut_attributes):
-            self.logger.debug("join case 10 or 11")
-            simple_method = True
-
-            master_attributes = detail_attributes
-            master_cut_attributes += detail_cut_attributes
-            master_cuts = detail_cuts
-
-        elif master_cut_attributes and detail_cut_attributes:
-            # TODO: this is like case 8 or 9
-            self.logger.debug("join case 12 to 15")
-            simple_method = False
-
         else:
-            raise InternalError("Unknown join case for aggregate statement")
+            simple_method = True
+            master.merge(detail)
+
+        coalesce_measures = not detail.is_empty()
 
         # Aggregates
         # ----------
@@ -768,7 +744,7 @@ class QueryBuilder(object):
         # At this point we have master/detail assignments rearranged based on
         # the cut/drilldown combo case.
 
-        master_conditions = self.conditions_for_cuts(master_cuts)
+        master_conditions = self.conditions_for_cuts(master.cuts)
 
         if simple_method:
             self.logger.debug("statement: simple")
@@ -783,7 +759,7 @@ class QueryBuilder(object):
             group_by = []
 
             selection = aggregate_selection
-            for attribute in master_attributes:
+            for attribute in master.attributes:
                 column = self.column(attribute)
                 group_by.append(column)
                 selection.append(column)
@@ -791,8 +767,8 @@ class QueryBuilder(object):
             # JOIN
             # ----
             attributes = set(aggregates)
-            attributes |= set(master_attributes)
-            attributes |= set(master_cut_attributes)
+            attributes |= set(master.attributes)
+            attributes |= set(master.cut_attributes)
             join = self.snowflake.join_expression(attributes)
             join_expression = join.expression
 
@@ -810,7 +786,7 @@ class QueryBuilder(object):
             # 1. MASTER FACT
             # ==============
 
-            attributes = set(master_attributes) | set(master_cut_attributes)
+            attributes = set(master.attributes) | set(master.cut_attributes)
             join_product = self.snowflake.join_expression(attributes)
             join_expression = join_product.expression
 
@@ -836,7 +812,7 @@ class QueryBuilder(object):
             #     * drilldown items
             #     * aliased keys for outer detail joins
 
-            master_selection = [self.column(a) for a in set(master_attributes)]
+            master_selection = [self.column(a) for a in set(master.attributes)]
 
             # Save for detail construction
             master_drilldown_labels = [str(c) for c in master_selection]
@@ -875,7 +851,7 @@ class QueryBuilder(object):
 
             detail_selection = []
             group_by = []
-            for attribute in set(detail_attributes):
+            for attribute in set(detail.attributes):
                 column = self.column(attribute)
                 group_by.append(column)
                 detail_selection.append(column)
@@ -886,7 +862,7 @@ class QueryBuilder(object):
             # Replace the master-relationship tables with single master fact
             # Provide mapping between original table columns to the master
             # fact selection (with labelled columns)
-            attributes = set(detail_attributes) | set(detail_cut_attributes)
+            attributes = set(detail.attributes) | set(detail.cut_attributes)
             join = self.snowflake.join_expression(attributes,
                                                   master_fact=self.master_fact,
                                                   master_detail_keys=master_detail_keys)
@@ -895,7 +871,7 @@ class QueryBuilder(object):
 
             # WHERE
             # -----
-            conditions = self.conditions_for_cuts(detail_cuts)
+            conditions = self.conditions_for_cuts(detail.cuts)
 
         # Ignore the GROUP BY if only summary is requested
         group_by = group_by if not summary_only else None
