@@ -635,9 +635,6 @@ class QueryBuilder(object):
         self.logger.debug("    detail cut: %s"
                           % [a.ref() for a in detail_cut_attributes])
 
-        # Used to determine whether to coalesce attributes.
-        has_outer_details = len(detail_attributes)+len(detail_cut_attributes) > 0
-
         # Cases:
         # MASTER-ONLY - we have only master condition
         # DETAIL-ONLY – we have only detail condition
@@ -669,37 +666,43 @@ class QueryBuilder(object):
         # 
         # TODO: this is a bit complex, maybe it can be simplified somehow
 
+        coalesce_measures = bool(detail_cut_attributes) or bool(detail_attributes)
+
         if not detail_cut_attributes and not detail_attributes:
+            self.logger.debug("join case 0, 1, 2 or 3")
             # Cases: 0,1,2,3
             # We keep all masters as master, there is nothing in details
             simple_method = True
-            has_outer_details = False
 
         elif not detail_cut_attributes and not master_cut_attributes:
+            self.logger.debug("join case 4 or 5")
             # Cases 4, 5
             # We keep the masters, just append details into selection/drilldown
             simple_method = True
-            has_outer_details = True
             master_attributes += detail_attributes
 
         elif detail_cut_attributes \
                 and not (master_cut_attributes or detail_attributes):
+            self.logger.debug("join case 6 or 7")
             # Cases 6, 7
             # Use detail cut as master cut, as we have no other cuts
             simple_method = True
-            has_outer_details = False
             master_cut_attributes = detail_cut_attributes
             master_cuts = detail_cuts
 
         elif not detail_cut_attributes:
+            self.logger.debug("join case 8 or 9")
             # Case 8, 9
             simple_method = False
-            has_outer_details = True
 
         elif detail_attributes and detail_cut_attributes \
                 and not (master_cut_attributes or master_attributes):
+            self.logger.debug("join case 10 or 11")
             simple_method = True
-            has_outer_details = True
+
+            master_cut_attributes = detail_cut_attributes
+            master_cuts = detail_cuts
+            master_attributes = detail_attributes
 
         elif master_cut_attributes and detail_cut_attributes:
             raise NotImplementedError("case 12, 13, 14, 15")
@@ -714,7 +717,7 @@ class QueryBuilder(object):
         # Collect expressions of aggregate functions
         # TODO: check the Robin's requirement on measure coalescing
         aggregate_selection = self.builtin_aggregate_expressions(aggregates,
-                                                       coalesce_measures=has_outer_details)
+                                                       coalesce_measures=coalesce_measures)
         aggregate_labels = [c.name for c in aggregate_selection]
 
         master_conditions = self.conditions_for_cuts(master_cuts)
@@ -750,6 +753,8 @@ class QueryBuilder(object):
             # ---------
             condition = condition_conjuction(master_conditions)
             self.logger.debug("    condition: %s" % str(condition))
+            self.logger.debug("    selection: %s" % [str(s) for s in selection])
+            self.logger.debug("    grouop by: %s" % [str(s) for s in group_by])
 
             # Prepare the master_fact statement:
             statement = sql.expression.select(selection,
@@ -853,14 +858,14 @@ class QueryBuilder(object):
             condition = condition_conjuction(detail_conditions)
 
             print "=== DETAIL STATEMENT"
-            print "--- aggregate selection: %s" % [str(c) for c in aggregate_selection]
-            print "--- master selection: %s" % [str(c) for c in master_selection]
-            print "--- detail selection: %s" % [str(c) for c in detail_selection]
-            print "--- selection:"
+            print "---     aggregate selection: %s" % [str(c) for c in aggregate_selection]
+            print "---     master selection: %s" % [str(c) for c in master_selection]
+            print "---     detail selection: %s" % [str(c) for c in detail_selection]
+            print "---     selection:"
             for s in selection:
-                print "---     %s" % str(s)
-            print "--> JOIN: %s" % str(join_expression)
-            print "--> WHERE: %s" % str(condition)
+                print "---         %s" % str(s)
+            print "-->     JOIN: %s" % str(join_expression)
+            print "-->     WHERE: %s" % str(condition)
             statement = sql.expression.select(selection,
                                               from_obj=join_expression,
                                               use_labels=True,
@@ -870,7 +875,8 @@ class QueryBuilder(object):
 
         self.statement = statement
         self.labels = self.snowflake.logical_labels(statement.columns)
-        self.logger.debug("labels: %s" % self.labels)
+        self.logger.debug("<<< final statement: %s" % str(self.statement))
+        self.logger.debug("<<< labels: %s" % self.labels)
 
         # Used in order
         self.drilldown = drilldown
