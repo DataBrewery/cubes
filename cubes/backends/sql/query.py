@@ -580,6 +580,43 @@ class QueryBuilder(object):
         * `summary_only` – do not perform GROUP BY for the drilldown. The
         * drilldown is used only for choosing tables to join and affects outer
           detail joins in the result
+
+        Algorithm description:
+
+        All the tables have one of the two relationship to the fact:
+        *master/match* or *detail*. Every table connected to a table that has
+        "detail" relationship is considered also in the "detail" relationship
+        towards the fact. Therefore we have two join zones: all master or
+        detail tables from the core, directly connected to the fact table and
+        rest of the table connected to the core through outer detail
+        relationship.
+
+        Depending on the query it is decided whether we are fine with just
+        joining everything together into single join or we need to separate
+        the fact master core from the outer details::
+
+                        +------+           +-----+
+                        | fact |--(match)--| dim +
+                        +------+           +-----+
+            Master Fact    |
+            ===============|========================
+            Outer Details  |               +-----+
+                           +------(detail)-| dim |
+                                           +-----+
+
+        The outer details part is RIGHT OUTER JOINed to the fact. Since there
+        are no tables any more, the original table keys for joins to the outer
+        details were exposed and specially labeled as `__masterkeyXX` where XX
+        is a sequence number of the key. The `join_expression` JOIN
+        constructing method receives the map of the keys and replaces the
+        original tables with connections to the columns already selected in
+        the master fact.
+
+        .. note::
+
+            **Limitation:** we can not have a Cut (condition) where keys (path
+            elements) are from both join zones. Whole cut should be within one
+            zone: either the master fact or outer details.
         """
 
         if not aggregates:
@@ -588,7 +625,6 @@ class QueryBuilder(object):
         # TODO: split
         # TODO: PTD!!!
 
-        # TODO: we are expeced to get this prepared!
         drilldown = drilldown or Drilldown()
 
         self.logger.debug("prepare aggregation statement. cell: '%s' "
@@ -704,17 +740,20 @@ class QueryBuilder(object):
         elif detail_attributes and detail_cut_attributes \
                 and not (master_cut_attributes or master_attributes):
             self.logger.debug("join case 10 or 11")
+            # Case 10, 11
             simple_method = True
 
-            master_cut_attributes = detail_cut_attributes
+            master_cut_attributes = master_cut_attributes + detail_cut_attributes
             master_cuts = detail_cuts
             master_attributes = detail_attributes
 
         elif master_cut_attributes and detail_cut_attributes:
-            raise NotImplementedError("case 12, 13, 14, 15")
+            simple_method = False
+            # TODO: this is like 8 or 9 case
+            # raise NotImplementedError("case 12, 13, 14, 15")
 
         else:
-            raise NotImplementedError("unknown case")
+            raise InternalError("Unknown join case for aggregate statement")
 
         # Aggregates
         # ----------
@@ -730,13 +769,14 @@ class QueryBuilder(object):
 
         if simple_method:
             self.logger.debug("statement: simple")
-            self.logger.debug("    master selection: %s"
-                              % [a.ref() for a in master_attributes])
-            self.logger.debug("    master cut: %s"
-                              % [a.ref() for a in master_cut_attributes])
+
             # Drilldown – Group-by
             # --------------------
             #
+            # SELECT – Prepare the master selection
+            #     * all aggregates
+            #     * master drilldown items
+
             group_by = []
 
             selection = aggregate_selection
@@ -745,31 +785,17 @@ class QueryBuilder(object):
                 group_by.append(column)
                 selection.append(column)
 
-            # Join
+            # JOIN
             # ----
-
-            # Create the master join product:
             attributes = set(aggregates)
             attributes |= set(master_attributes)
             attributes |= set(master_cut_attributes)
-            join_product = self.snowflake.join_expression(attributes)
-            join_expression = join_product.expression
+            join = self.snowflake.join_expression(attributes)
+            join_expression = join.expression
 
-            # WHERE Condition
-            # ---------
-            condition = condition_conjuction(master_conditions)
-            self.logger.debug("    condition: %s" % str(condition))
-            self.logger.debug("    selection: %s" % [str(s) for s in selection])
-            self.logger.debug("    grouop by: %s" % [str(s) for s in group_by])
-
-            # Ignore the GROUP BY if only summary is requested
-            group_by = group_by if not summary_only else None
-
-            statement = sql.expression.select(selection,
-                                              from_obj=join_expression,
-                                              use_labels=True,
-                                              whereclause=condition,
-                                              group_by=group_by)
+            # WHERE
+            # -----
+            conditions = master_conditions
 
         else:
             self.logger.debug("statement: composed")
@@ -787,18 +813,16 @@ class QueryBuilder(object):
             # Expose fact master detail key outlets:
             master_detail_keys = {}
             counter = 0
-            print "=== master fact bindings: %s" % type(join_product.tables)
             master_detail_selection = []
             for table in join_product.tables:
                 for key in table.detail_keys:
                     column_key = (table.schema, table.aliased_name, key)
-                    label = "__mfkey_%d__" % counter
+                    label = "__masterkey%d" % counter
                     counter += 1
                     master_detail_keys[column_key] = label
 
                     column = table.table.c[key].label(label)
                     master_detail_selection.append(column)
-                    print "---    %s: %s" % (label, column_key)
 
             # SELECT – Prepare the master selection
             #     * aggregates
@@ -809,7 +833,6 @@ class QueryBuilder(object):
 
             # Save for detail construction
             master_drilldown_labels = [str(c) for c in master_selection]
-            print "--- master dd labels: %s" % master_drilldown_labels
 
             selection = aggregate_selection \
                             + master_selection \
@@ -829,15 +852,6 @@ class QueryBuilder(object):
             # master_fact if applicable.
             self.master_fact = statement
 
-            # 2. OUTER DETAILS
-            # ================
-            attributes = set(detail_attributes) | set(detail_cut_attributes)
-            join = self.snowflake.join_expression(attributes,
-                                                  master_fact=self.master_fact,
-                                                  master_detail_keys=master_detail_keys)
-
-            join_expression = join.expression
-            print "=== DETAIL JOIN: %s" % str(join_expression)
             # Add drilldown – Group-by
             # ------------------------
             #
@@ -859,36 +873,36 @@ class QueryBuilder(object):
                 group_by.append(column)
                 detail_selection.append(column)
             selection = aggregate_selection + master_selection + detail_selection
-            # Join
+
+            # JOIN
             # ----
+            # Replace the master-relationship tables with single master fact
+            # Provide mapping between original table columns to the master
+            # fact selection (with labelled columns)
+            attributes = set(detail_attributes) | set(detail_cut_attributes)
+            join = self.snowflake.join_expression(attributes,
+                                                  master_fact=self.master_fact,
+                                                  master_detail_keys=master_detail_keys)
 
-            detail_conditions = self.conditions_for_cuts(detail_cuts)
-            condition = condition_conjuction(detail_conditions)
+            join_expression = join.expression
 
-            print "=== DETAIL STATEMENT"
-            print "---     aggregate selection: %s" % [str(c) for c in aggregate_selection]
-            print "---     master selection: %s" % [str(c) for c in master_selection]
-            print "---     detail selection: %s" % [str(c) for c in detail_selection]
-            print "---     selection:"
-            for s in selection:
-                print "---         %s" % str(s)
-            print "-->     JOIN: %s" % str(join_expression)
-            print "-->     WHERE: %s" % str(condition)
+            # WHERE
+            # -----
+            conditions = self.conditions_for_cuts(detail_cuts)
 
-            # Ignore the GROUP BY if only summary is requested
-            group_by = group_by if not summary_only else None
-            statement = sql.expression.select(selection,
-                                              from_obj=join_expression,
-                                              use_labels=True,
-                                              whereclause=condition,
-                                              group_by=group_by)
-            # Create the master join product:
+        # Ignore the GROUP BY if only summary is requested
+        group_by = group_by if not summary_only else None
+        condition = condition_conjuction(conditions)
+        statement = sql.expression.select(selection,
+                                          from_obj=join_expression,
+                                          use_labels=True,
+                                          whereclause=condition,
+                                          group_by=group_by)
+
         # TODO: Add periods-to-date condition
 
         self.statement = statement
         self.labels = self.snowflake.logical_labels(statement.columns)
-        self.logger.debug("<<< final statement: %s" % str(self.statement))
-        self.logger.debug("<<< labels: %s" % self.labels)
 
         # Used in order
         self.drilldown = drilldown
