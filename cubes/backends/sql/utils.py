@@ -7,7 +7,7 @@ import sqlalchemy.sql as sql
 __all__ = [
     "CreateTableAsSelect",
     "InsertIntoAsSelect",
-    "condition_conjuction",
+    "condition_conjunction",
     "order_column"
 ]
 
@@ -51,7 +51,7 @@ def visit_insert_into_as_select(element, compiler, **kw):
 
     return stmt
 
-def condition_conjuction(conditions):
+def condition_conjunction(conditions):
     """Do conjuction of conditions if there are more than one, otherwise just
     return the single condition."""
     if not conditions:
