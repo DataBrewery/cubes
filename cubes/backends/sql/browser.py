@@ -350,8 +350,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             builder = QueryBuilder(self)
             builder.aggregation_statement(cell,
-                                          aggregates=aggregates,
-                                          drilldown=drilldown)
+                                          aggregates=aggregates)
 
             cursor = self.execute_statement(builder.statement,
                                             "aggregation summary")
