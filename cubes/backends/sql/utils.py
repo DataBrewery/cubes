@@ -56,7 +56,7 @@ def condition_conjunction(conditions):
     return the single condition."""
     if not conditions:
         return None
-    elif len(conditions):
+    elif len(conditions) == 1:
         return conditions[0]
     else:
         return sql.expression.and_(*conditions)
