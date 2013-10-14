@@ -732,6 +732,7 @@ class QueryBuilder(object):
             master.merge(detail)
 
         coalesce_measures = not detail.is_empty()
+        self.logger.debug("--- coalesce measures: %s" % coalesce_measures)
 
         # Aggregates
         # ----------
@@ -739,11 +740,6 @@ class QueryBuilder(object):
         # Start the selection with aggregates
         # Collect expressions of aggregate functions
         # TODO: check the Robin's requirement on measure coalescing
-        aggregate_selection = self.builtin_aggregate_expressions(aggregates,
-                                                       coalesce_measures=coalesce_measures)
-        aggregate_labels = [c.name for c in aggregate_selection]
-        self.logger.debug("--- aggregate labels: %s" % (aggregate_labels, ))
-
         # At this point we have master/detail assignments rearranged based on
         # the cut/drilldown combo case.
 
@@ -758,6 +754,10 @@ class QueryBuilder(object):
             # SELECT – Prepare the master selection
             #     * all aggregates
             #     * master drilldown items
+
+            aggregate_selection = self.builtin_aggregate_expressions(aggregates,
+                                                           coalesce_measures=coalesce_measures)
+            aggregate_labels = [c.name for c in aggregate_selection]
 
             group_by = []
 
@@ -813,12 +813,16 @@ class QueryBuilder(object):
             #     * drilldown items
             #     * aliased keys for outer detail joins
 
+            measures = self.measures_for_aggregates(aggregates)
+            self.logger.debug("--- measures: %s" % [str(m) for m in measures])
+            measure_selection = [self.column(m) for m in measures]
+
             master_selection = [self.column(a) for a in set(master.attributes)]
 
             # Save for detail construction
             master_drilldown_labels = [str(c) for c in master_selection]
 
-            selection = aggregate_selection \
+            selection = measure_selection \
                             + master_selection \
                             + master_detail_selection
 
@@ -850,12 +854,14 @@ class QueryBuilder(object):
             #     * master drilldown items (inherit)
             #     * detail drilldown items
 
-            self.logger.debug("--- mf labels: %s" % [str(c) for c in
-                self.master_fact.columns])
-            aggregate_selection = []
-            for label in aggregate_labels:
-                column = self.master_fact.c[label].label(label)
-                aggregate_selection.append(column)
+            aggregate_selection = self.builtin_aggregate_expressions(aggregates,
+                                                           coalesce_measures=coalesce_measures)
+            # aggregate_labels = [c.name for c in aggregate_selection]
+
+            # aggregate_selection = []
+            # for label in aggregate_labels:
+            #    column = self.master_fact.c[label].label(label)
+            #    aggregate_selection.append(column)
             # aggregate_selection = [self.master_fact.c[label] for label in
             #                         aggregate_labels]
             master_selection = [self.master_fact.c[label] for label in
@@ -970,6 +976,27 @@ class QueryBuilder(object):
         self.statement = self.statement.where(condition)
         return self.statement
 
+    def measures_for_aggregates(self, aggregates):
+        """Returns a list of measures for `aggregates`. This method is used in
+        constructing the master fact."""
+
+        measures = []
+
+        aggregates = [agg for agg in aggregates if agg.function]
+
+        for aggregate in aggregates:
+            function_name = aggregate.function.lower()
+            function = self.browser.builtin_function(function_name, aggregate)
+
+            if not function:
+                continue
+
+            names = function.required_measures(aggregate)
+            if names:
+                measures += self.cube.get_attributes(names)
+
+        return measures
+
     def builtin_aggregate_expressions(self, aggregates,
                                       coalesce_measures=False):
         """Returns list of expressions for aggregates from `aggregates` that
@@ -1018,6 +1045,8 @@ class QueryBuilder(object):
 
         if not function:
             return None
+        self.logger.debug("--- applying agg function: %s(%s)" % (function,
+            repr(function)))
 
         expression = function(aggregate, self, coalesce_measure)
 
