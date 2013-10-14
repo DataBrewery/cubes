@@ -742,6 +742,7 @@ class QueryBuilder(object):
         aggregate_selection = self.builtin_aggregate_expressions(aggregates,
                                                        coalesce_measures=coalesce_measures)
         aggregate_labels = [c.name for c in aggregate_selection]
+        self.logger.debug("--- aggregate labels: %s" % (aggregate_labels, ))
 
         # At this point we have master/detail assignments rearranged based on
         # the cut/drilldown combo case.
@@ -838,7 +839,7 @@ class QueryBuilder(object):
 
             # From now-on the self.column() method will return columns from
             # master_fact if applicable.
-            self.master_fact = statement
+            self.master_fact = statement.alias("__master_fact")
 
             # Add drilldown – Group-by
             # ------------------------
@@ -849,8 +850,14 @@ class QueryBuilder(object):
             #     * master drilldown items (inherit)
             #     * detail drilldown items
 
-            aggregate_selection = [self.master_fact.c[label] for label in
-                                    aggregate_labels]
+            self.logger.debug("--- mf labels: %s" % [str(c) for c in
+                self.master_fact.columns])
+            aggregate_selection = []
+            for label in aggregate_labels:
+                column = self.master_fact.c[label].label(label)
+                aggregate_selection.append(column)
+            # aggregate_selection = [self.master_fact.c[label] for label in
+            #                         aggregate_labels]
             master_selection = [self.master_fact.c[label] for label in
                                     master_drilldown_labels]
 
@@ -891,6 +898,7 @@ class QueryBuilder(object):
 
         self.statement = statement
         self.labels = self.snowflake.logical_labels(statement.columns)
+        self.logger.debug("--- labels: %s" %(self.labels,))
         # Used in order
         self.drilldown = drilldown
         self.split = split
@@ -1176,7 +1184,6 @@ class QueryBuilder(object):
 
         column = self.column(levels[-1].key)
         conditions.append(operator(column, path[-1]))
-
         condition = condition_conjunction(conditions)
 
         if last is not None:
