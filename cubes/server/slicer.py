@@ -145,6 +145,11 @@ class Slicer(object):
             else:
                 self.logger.setLevel(levels[level_str])
 
+        if self.config.has_option("server", "debug_exceptions"):
+            self.debug_exceptions = True
+        else:
+            self.debug_exceptions = False
+
     def wsgi_app(self, environ, start_response):
         request = Request(environ)
         urls = rules.bind_to_environ(environ)
@@ -165,17 +170,22 @@ class Slicer(object):
 
     def dispatch(self, ctrl_class, action_name, request, params):
 
+        controller = ctrl_class(request.args,
+                                workspace=self.workspace,
+                                logger=self.logger,
+                                config=self.config)
+        controller.request = request
+        action = getattr(controller, action_name)
+
         try:
-            controller = ctrl_class(request.args,
-                                    workspace=self.workspace,
-                                    logger=self.logger,
-                                    config=self.config)
-            controller.request = request
-            action = getattr(controller, action_name)
             response = action(**params)
-            response.headers.add("Access-Control-Allow-Origin", "*")
         except cubes.UserError as e:
-            raise RequestError(str(e))
+            if self.debug_exceptions:
+                raise
+            else:
+                raise RequestError(str(e))
+        else:
+            response.headers.add("Access-Control-Allow-Origin", "*")
 
         return response
 
