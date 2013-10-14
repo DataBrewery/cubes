@@ -327,7 +327,8 @@ class CubesController(ApplicationController):
         if header_type == "names":
             header = result.labels
         elif header_type == "labels":
-            attributes = self.cube.get_attributes(result.labels)
+            attributes = self.cube.get_attributes(result.labels,
+                                                  aggregated=True)
             header = [attr.label or attr.name for attr in attributes]
         else:
             header = None
