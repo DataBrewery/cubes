@@ -59,6 +59,16 @@ class AggregateFunction(object):
         returns the `value`."""
         return value
 
+    def required_measures(self, aggregate):
+        """Returns a list of measure names that the `aggregate` depends on."""
+        # Currently only one-attribute source is supported, therefore we just
+        # return the attribute.
+        if aggregate.measure:
+            return [aggregate.measure]
+        else:
+            return []
+
+    # TODO: use dict of name:measure from required_measures instead of context
     def apply(self, aggregate, context=None, coalesce=False):
         """Apply the function on the aggregate. Subclasses might override this
         method and use other `aggregates` and browser context.
