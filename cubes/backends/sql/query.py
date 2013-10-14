@@ -826,6 +826,9 @@ class QueryBuilder(object):
                             + master_selection \
                             + master_detail_selection
 
+            # Add the fact key – to properely handle COUNT()
+            selection.append(self.snowflake.fact_key_column)
+
             # WHERE Condition
             # ---------------
             condition = condition_conjunction(master_conditions)
@@ -1272,6 +1275,15 @@ class QueryBuilder(object):
 
         # TODO: What about invert?
         return condition_conjunction(conditions)
+
+    def fact_key_column(self):
+        """Returns a column that represents the fact key."""
+        # TODO: this is used only in FactCountFunction, suggestion for better
+        # solution is in the comments there.
+        if self.master_fact is not None:
+            return self.master_fact.c[self.snowflake.fact_key]
+        else:
+            return self.snowflake.fact_key_column
 
     def column(self, attribute, locale=None):
         """Returns either a physical column for the attribute or a reference to
