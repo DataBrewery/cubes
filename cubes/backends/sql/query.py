@@ -951,16 +951,15 @@ class QueryBuilder(object):
                                                   whereclause=condition,
                                                   group_by=group_by)
 
-            self.logger.debug("--- subselection:")
-            for c in sub_selection:
-                self.logger.debug("---    %s" % str(c))
             sub_statement = sub_statement.alias("__semiadditive_subquery")
-            self.logger.debug("--- subgroup: %s" % (group_by,))
+
             # Construct the subquery JOIN condition
             # Skipt the last subquery selection which we have created just
             # recently
             join_conditions = []
-            for left, right in zip(selection, sub_selection[:-1]):
+            sub_selection = list(sub_statement.columns)[:-1]
+
+            for left, right in zip(selection, sub_selection):
                 join_conditions.append(left == right)
 
             original_column = self.column(semiadditive_attribute)
