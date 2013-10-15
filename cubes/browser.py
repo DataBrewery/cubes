@@ -1704,7 +1704,7 @@ class Drilldown(object):
         items = self.high_cardinality_level_drilldown()
 
         for item in items:
-            dim, hier, level = item[0:3]
+            dim, hier, levels = item[0:3]
 
             hc_levels = [l for l in levels if l.info.get('high_cardinality')]
 
