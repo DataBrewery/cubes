@@ -10,8 +10,6 @@ from .functions import get_aggregate_function, available_aggregate_functions
 from .query import QueryBuilder
 
 import collections
-import re
-import datetime
 
 try:
     import sqlalchemy
@@ -25,16 +23,6 @@ __all__ = [
     "SnowflakeBrowser",
     "SnapshotBrowser"
 ]
-
-_EXPR_EVAL_NS = {
-    "sqlalchemy": sqlalchemy,
-    "sql": sql,
-    "func": sql.expression.func,
-    "case": sql.expression.case,
-    "text": sql.expression.text,
-    "datetime": datetime,
-    "re": re
-}
 
 
 class SnowflakeBrowser(AggregationBrowser):
