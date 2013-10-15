@@ -347,7 +347,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         if include_summary or \
                 (include_summary is None and self.include_summary) or \
-                not drilldown:
+                not (drilldown or split):
 
             summary_statement = self.context.aggregation_statement(cell=cell,
                                                                    aggregates=aggregates)
