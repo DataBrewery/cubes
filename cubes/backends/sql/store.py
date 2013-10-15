@@ -1,5 +1,5 @@
 # -*- coding=utf -*-
-from .browser import SnowflakeBrowser, SnapshotBrowser
+from .browser import SnowflakeBrowser
 from .mapper import SnowflakeMapper
 from ...common import get_logger, coalesce_options
 from ...stores import Store
@@ -152,10 +152,10 @@ class SQLStore(Store):
         """Returns a browser for a `cube`."""
         model = self.localized_model(locale)
         cube = model.cube(cube)
-        browser_class = SnapshotBrowser if cube.info.get('browser') == 'snapshot' else SnowflakeBrowser
-        return browser_class(cube, self.engine, locale=locale,
-                             metadata=self.metadata,
-                             **self.options)
+
+        return SnowflakeBrowser(cube, self.engine, locale=locale,
+                                 metadata=self.metadata,
+                                 **self.options)
 
     def _drop_table(self, table, schema, force=False):
         """Drops `table` in `schema`. If table exists, exception is raised

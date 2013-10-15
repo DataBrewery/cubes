@@ -21,7 +21,6 @@ except ImportError:
 
 __all__ = [
     "SnowflakeBrowser",
-    "SnapshotBrowser"
 ]
 
 
@@ -131,7 +130,7 @@ class SnowflakeBrowser(AggregationBrowser):
         other factors."""
 
         features = {
-            "actions": ["aggregate", "members", "fact", "facts", "cell"],
+            "actions": ["aggregate", "fact", "facts", "cell"],
             "aggregate_functions": available_aggregate_functions(),
             "post_aggregate_functions": available_calculators()
         }
@@ -205,6 +204,9 @@ class SnowflakeBrowser(AggregationBrowser):
 
         Number of database queries: 1.
         """
+
+        raise NotImplementedError
+
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
 
@@ -254,7 +256,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         Number of SQL queries: 1.
         """
-
         statement = self.detail_statement(dimension, path, hierarchy)
         labels = self.logical_labels(statement.columns)
 
@@ -418,120 +419,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return result
 
-    def aggregation_statement(self, cell, aggregates=None, attributes=None,
-                              drilldown=None, split=None):
-        """Return a statement for summarized aggregation. `whereclause` is
-        same as SQLAlchemy `whereclause` for
-        `sqlalchemy.sql.expression.select()`. `attributes` is list of logical
-        references to attributes to be selected. If it is ``None`` then all
-        attributes are used. `drilldown` has to be a dictionary. Use
-        `levels_from_drilldown()` to prepare correct drill-down statement."""
-
-        # 1. collect INNER or LEFT conditions
-
-        deferred_conditions = []
-        master_conditions = []
-        for condition in conditions:
-            if condition.join_method in ("match", "master"):
-                master_conditions.append(condition)
-            else:
-                deffered_conditions.append(condition)
-
-        statement + conditions
-
-        cell_condition = self.condition_for_cell(cell)
-        # We have:
-        #   condition.attributes
-        #   condition.condition
-        # We needs:
-        #   statement
-
-        for condition in cell_conditions:
-            snowflake.append_condition(condition)
-
-        # match and master attributes are joined first
-
-        if split:
-            split_condition = self.condition_for_cell(split)
-        else:
-            split_condition = None
-
-        if attributes:
-            raise NotImplementedError("attribute selection is not yet supported")
-
-        # if not attributes:
-        #     attributes = set()
-
-        #     if drilldown:
-        #         for dditem in drilldown:
-        #             for level in dditem.levels:
-        #                 attributes |= set(level.attributes)
-
-        attributes = set(attributes) | set(cell_cond.attributes)
-        if split_dim_cond:
-            attributes |= set(split_dim_cond.attributes)
-
-        # We need condition attributes for this join
-        join_product = self.join_expression_for_attributes(attributes)
-        join_expression = join_product.expression
-
-        selection = []
-
-        group_by = None
-
-        # Prepare selection and group_by for drilldown
-        if split_dim_cond or drilldown:
-            group_by = []
-
-            # Prepare split expression for selection and group-by
-            if split_dim_cond:
-                expr = sql.expression.case([(split_dim_cond.condition, True)],
-                                                            else_=False)
-                expr = expr.label(SPLIT_DIMENSION_NAME)
-
-                group_by.append(expr)
-                selection.append(expr)
-
-            for dditem in drilldown:
-                for level in dditem.levels:
-                    columns = [self.column(attr) for attr in level.attributes
-                                                        if attr in attributes]
-                    group_by.extend(columns)
-                    selection.extend(columns)
-
-                    # Prepare period-to-date condition
-        if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty")
-
-        # Collect expressions of aggregate functions
-        selection += self.builtin_aggregate_expressions(aggregates,
-                                                        coalesce_measures=bool(join_product.outer_details))
-
-        # Drill-down statement
-        # --------------------
-        #
-        select = sql.expression.select(selection,
-                                       from_obj=join_expression,
-                                       use_labels=True,
-                                       group_by=group_by)
-
-        conditions = []
-        if cell_cond.condition is not None:
-            conditions.append(cell_cond.condition)
-
-        # Add periods-to-date condition
-        ptd_condition = self._ptd_condition(cell, drilldown)
-        if ptd_condition is not None:
-            conditions.append(ptd_condition)
-
-        if conditions:
-            select = select.where(sql.expression.and_(*conditions) if
-                                  len(conditions) > 1 else conditions[0])
-
-        self._log_statement(select, "aggregate select")
-
-        return select
-
     def builtin_function(self, name, aggregate):
         """Returns a built-in function for `aggregate`"""
         try:
@@ -694,153 +581,3 @@ class ResultIterator(object):
 
         row = self.batch.popleft()
         return dict(zip(self.labels, row))
-
-
-class SnapshotBrowser(SnowflakeBrowser):
-    def __init__(self, cube, **options):
-        super(SnapshotBrowser, self).__init__(cube, **options)
-
-        snap_info = {
-            'dimension': 'daily_date',
-            'level_attribute': 'daily_datetime',
-            'aggregation': 'max'
-        }
-
-        snap_info.update(cube.info.get('snapshot', {}))
-        self.snapshot_dimension = cube.dimension(snap_info['dimension'])
-        self.snapshot_level_attrname = snap_info['level_attribute']
-        self.snapshot_aggregation = snap_info['aggregation']
-
-    def snapshot_level_attribute(self, drilldown):
-        if drilldown:
-            for dditem in drilldown:
-                if dditem.dimension.name == self.snapshot_dimension.name:
-                    if len(dditem.hierarchy.levels) > len(dditem.levels):
-                        return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
-                    elif len(dditem.hierarchy.levels) == len(dditem.levels):
-                        if len(dditem.levels) == 1 and dditem.levels[0].name == 'dow':
-                            return self.snapshot_dimension.attribute(self.snapshot_level_attrname), False
-                        else:
-                            return None, False
-
-        return self.snapshot_dimension.attribute(self.snapshot_level_attrname), True
-
-    def aggregation_statement(self, cell, aggregates=None, attributes=None,
-                              drilldown=None, split=None):
-        """Prototype of 'snapshot cube' aggregation style."""
-
-        cell_cond = self.condition_for_cell(cell)
-
-        if split:
-            split_dim_cond = self.condition_for_cell(split)
-        else:
-            split_dim_cond = None
-
-        if not attributes:
-            attributes = set()
-
-            if drilldown:
-                for dditem in drilldown:
-                    for level in dditem.levels:
-                        attributes |= set(level.attributes)
-
-        attributes = set(attributes) | set(cell_cond.attributes)
-        if split_dim_cond:
-            attributes |= set(split_dim_cond.attributes)
-
-        join_product = self.join_expression_for_attributes(attributes)
-        join_expression = join_product.expression
-
-        selection = []
-
-        group_by = None
-
-        if split_dim_cond or drilldown:
-            group_by = []
-
-            if split_dim_cond:
-                group_by.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-                selection.append(sql.expression.case([(split_dim_cond.condition, True)], else_=False).label(SPLIT_DIMENSION_NAME))
-
-            for dditem in drilldown:
-                for level in dditem.levels:
-                    columns = [self.column(attr) for attr in level.attributes
-                               if attr in attributes]
-                    group_by.extend(columns)
-                    selection.extend(columns)
-
-        conditions = []
-        if cell_cond.condition is not None:
-            conditions.append(cell_cond.condition)
-
-        # Add periods-to-date condition
-        ptd_condition = self._ptd_condition(cell, drilldown)
-        if ptd_condition is not None:
-            conditions.append(ptd_condition)
-
-        # We must produce, under certain conditions, a subquery:
-        #   - If the drilldown contains the date dimension, but not a full path for the given hierarchy. OR
-        #   - If the drilldown contains the date dimension, and it's a full path for the given hierarchy,
-        #     but the hierarchy contains only 'dow'. OR
-        #   - If the drilldown does not contain the date dimension.
-        #
-        # We create a select() with special alias 'snapshot_browser_subquery', using the joins, conditions, and group_by
-        # of the main query. We append to the select columns not the measure aggregations, but instead the min() or max()
-        # of the specified dimension level attribute. Then we add the subquery to join_expression with a join clause of the existing
-        # drilldown levels, plus dim.lowest_level == snapshot_browser_subquery.snapshot_level.
-
-        snapshot_level_attribute, needs_join_added = self.snapshot_level_attribute(drilldown)
-
-        outer_detail_join = False
-        if snapshot_level_attribute:
-            if needs_join_added:
-                # TODO: check if this works with product.outer_detail = True
-                product = self.join_expression_for_attributes(attributes | set([snapshot_level_attribute]))
-                join_expression = product.expression
-                outer_detail_join = bool(product.outer_details)
-
-            subq_join_expression = join_expression
-            subq_selection = [ s.label('col%d' % i) for i, s in enumerate(selection) ]
-            subq_group_by = group_by[:] if group_by else None
-            subq_conditions = conditions[:]
-
-            level_expr = getattr(sql.expression.func, self.snapshot_aggregation)(self.column(snapshot_level_attribute)).label('the_snapshot_level')
-            subq_selection.append(level_expr)
-            subquery = sql.expression.select(subq_selection, from_obj=subq_join_expression, use_labels=True, group_by=subq_group_by)
-
-            if subq_conditions:
-                subquery = subquery.where(sql.expression.and_(*subq_conditions) if len(subq_conditions) > 1 else subq_conditions[0])
-
-            # Prepare the snapshot subquery
-            subquery = subquery.alias('the_snapshot_subquery')
-            subq_joins = []
-
-            cols = []
-            for i, s in enumerate(subq_selection[:-1]):
-                col = sql.expression.literal_column("%s.col%d" %
-                                                    (subquery.name, i))
-                cols.append(col)
-
-            for left, right in zip(selection, cols):
-                subq_joins.append(left == right)
-
-            subq_joins.append(self.column(snapshot_level_attribute) == sql.expression.literal_column("%s.%s" % (subquery.name, 'the_snapshot_level')))
-            join_expression = join_expression.join(subquery, sql.expression.and_(*subq_joins))
-
-        if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty")
-
-        # Collect "columns" for measure aggregations
-        selection += self.builtin_aggregate_expressions(aggregates,
-                                                        coalesce_measures=outer_detail_join)
-
-        select = sql.expression.select(selection,
-                                       from_obj=join_expression,
-                                       use_labels=True,
-                                       group_by=group_by)
-
-        if conditions:
-            select = select.where(sql.expression.and_(*conditions) if
-                                  len(conditions) > 1 else conditions[0])
-
-        return select
