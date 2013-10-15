@@ -1720,11 +1720,12 @@ class Drilldown(object):
 
         If `include_split` is `True` then split dimension is included."""
         result = {}
+
         for dim, item in self._by_dimension.items():
             result[dim] = [str(level) for level in item.levels]
 
         if include_split:
-            result.levels[SPLIT_DIMENSION_NAME] = [SPLIT_DIMENSION_NAME]
+            result[SPLIT_DIMENSION_NAME] = [SPLIT_DIMENSION_NAME]
 
         return result
 
