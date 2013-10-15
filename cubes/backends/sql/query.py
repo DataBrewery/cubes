@@ -469,7 +469,6 @@ class SnowflakeSchema(object):
         try:
             column = table.c[ref.column]
         except:
-            # FIXME: do not expose this exception to server
             avail = [str(c) for c in table.columns]
             raise BrowserError("Unknown column '%s' in table '%s' avail: %s"
                                % (ref.column, ref.table, avail))
@@ -560,6 +559,7 @@ class _StatementConfiguration(object):
         self.other_attributes = []
 
         self.split_attributes = []
+        self.split_cuts = []
 
         self.ptd_attributes = []
 
@@ -575,12 +575,15 @@ class _StatementConfiguration(object):
         self.attributes += other.attributes
         self.cuts += other.cuts
         self.cut_attributes += other.cut_attributes
+
         self.split_attributes += other.split_attributes
+        self.split_cuts += other.split_cuts
+
         self.other_attributes += other.other_attributes
 
     def is_empty(self):
         return bool(self.attributes) or bool(self.cut_attributes) \
-                or bool(self.other_attributes)
+                or bool(self.other_attributes) or bool(self.split_attributes)
 
 class QueryBuilder(object):
     def __init__(self, browser):
@@ -830,14 +833,16 @@ class QueryBuilder(object):
             # Expose fact master detail key outlets:
             master_detail_keys = {}
             master_detail_selection = []
-            for i, table in enumerate(join.tables):
+            counter = 0
+            for table in join.tables:
                 for key in table.detail_keys:
                     column_key = (table.schema, table.aliased_name, key)
-                    label = "__masterkey%d" % i
+                    label = "__masterkey%d" % counter
                     master_detail_keys[column_key] = label
 
                     column = table.table.c[key].label(label)
                     master_detail_selection.append(column)
+                    counter += 1
 
             # SELECT – Prepare the master selection
             #     * measures
@@ -925,6 +930,7 @@ class QueryBuilder(object):
                                                      from_obj=join_expression,
                                                      condition=condition,
                                                      group_by=group_by)
+
         # TODO: Internalize the statement inputs into the query builder
         # Ignore the GROUP BY if only summary is requested
 
@@ -1147,7 +1153,6 @@ class QueryBuilder(object):
             # raise ModelError("Aggregate '%s' has no function specified"
             #                 % str(aggregate))
             column = self.column(aggregate)
-            # TODO: add COALESCE()
             return column
 
         function_name = aggregate.function.lower()
@@ -1155,8 +1160,6 @@ class QueryBuilder(object):
 
         if not function:
             return None
-        self.logger.debug("--- applying agg function: %s(%s)" % (function,
-            repr(function)))
 
         expression = function(aggregate, self, coalesce_measure)
 
@@ -1356,8 +1359,6 @@ class QueryBuilder(object):
     def _ptd_condition(self, ptd_attributes):
         """Returns "periods to date" condition for `ptd_attributes` (which
         should be a result of `_ptd_attributes()`)"""
-
-        # TODO: PTD is Experimental
 
         # Collect the conditions
         #
