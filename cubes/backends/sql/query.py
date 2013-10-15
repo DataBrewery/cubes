@@ -245,7 +245,16 @@ class SnowflakeSchema(object):
         tables = dict(zip(attributes, tables))
         mapping = {}
         for attribute in attributes:
-            mapping[attribute] = relationships[tables[attribute]]
+            try:
+                table_ref = tables[attribute]
+            except KeyError:
+                raise ModelError("Unknown table for attribute %s. "
+                                 "Missing mapping?" % attribute)
+            try:
+                mapping[attribute] = relationships[table_ref]
+            except KeyError:
+                raise ModelError("Can not determine to-fact relationship for "
+                                 "table %s. Missing join?" % (table_ref,))
         self.fact_relationships = mapping
 
         attributes = self.cube.get_attributes(aggregated=True)
@@ -798,13 +807,8 @@ class QueryBuilder(object):
             # SELECT – Prepare the master selection
             #     * master drilldown items
 
-            group_by = []
-            selection = []
-
-            for attribute in master.attributes:
-                column = self.column(attribute)
-                group_by.append(column)
-                selection.append(column)
+            selection = [self.column(a) for a in set(master.attributes)]
+            group_by = selection[:]
 
             # JOIN
             # ----
@@ -896,8 +900,8 @@ class QueryBuilder(object):
                                     master_drilldown_labels]
 
             detail_selection = [self.column(a) for a in set(detail.attributes)]
-            selection = master_selection + detail_selection
 
+            selection = master_selection + detail_selection
             group_by = detail_selection[:]
 
             # JOIN
