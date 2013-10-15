@@ -5,6 +5,8 @@ from ...errors import *
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD
 from .utils import condition_conjunction, order_column
+import datetime
+import re
 
 try:
     import sqlalchemy
@@ -27,6 +29,17 @@ SnowflakeAttribute = namedtuple("SnowflakeAttribute", ["attribute", "join"])
 """Product of join_expression"""
 JoinedProduct = namedtuple("JoinedProduct",
         ["expression", "tables"])
+
+
+_EXPR_EVAL_NS = {
+    "sqlalchemy": sqlalchemy,
+    "sql": sql,
+    "func": sql.expression.func,
+    "case": sql.expression.case,
+    "text": sql.expression.text,
+    "datetime": datetime,
+    "re": re
+}
 
 
 MATCH_MASTER_RSHIP = 1
@@ -768,16 +781,6 @@ class QueryBuilder(object):
             master.merge(detail)
 
         coalesce_measures = not detail.is_empty()
-        self.logger.debug("--- coalesce measures: %s" % coalesce_measures)
-
-        # Aggregates
-        # ----------
-
-        # Start the selection with aggregates
-        # Collect expressions of aggregate functions
-        # TODO: check the Robin's requirement on measure coalescing
-        # At this point we have master/detail assignments rearranged based on
-        # the cut/drilldown combo case.
 
         master_conditions = self.conditions_for_cuts(master.cuts)
 
@@ -837,12 +840,11 @@ class QueryBuilder(object):
                     master_detail_selection.append(column)
 
             # SELECT – Prepare the master selection
-            #     * aggregates
+            #     * measures
             #     * drilldown items
             #     * aliased keys for outer detail joins
 
             measures = self.measures_for_aggregates(aggregates)
-            self.logger.debug("--- measures: %s" % [str(m) for m in measures])
             measure_selection = [self.column(m) for m in measures]
 
             master_selection = [self.column(a) for a in set(master.attributes)]
@@ -881,18 +883,8 @@ class QueryBuilder(object):
             #
 
             # SELECT – Prepare the detail selection
-            #     * aggregates (from master, already computed just labelled)
             #     * master drilldown items (inherit)
             #     * detail drilldown items
-
-            # aggregate_labels = [c.name for c in aggregate_selection]
-
-            # aggregate_selection = []
-            # for label in aggregate_labels:
-            #    column = self.master_fact.c[label].label(label)
-            #    aggregate_selection.append(column)
-            # aggregate_selection = [self.master_fact.c[label] for label in
-            #                         aggregate_labels]
             master_selection = [self.master_fact.c[label] for label in
                                     master_drilldown_labels]
 
