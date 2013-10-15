@@ -925,51 +925,14 @@ class QueryBuilder(object):
         condition = condition_conjunction(conditions)
         group_by = group_by if not summary_only else None
 
-        # Include the non-additive dimension
+        # Include the semi-additive dimension, if required
         #
-
         if semiadditive_attribute:
-            sub_selection = selection[:]
-
-            try:
-                func = getattr(sql.expression.func, self.semiadditive_function)
-            except AttributeError:
-                raise ModelError("Unknown function '%s' for semiadditive "
-                                 "dimension '%s'."
-                                 % (self.semiadditive_function,
-                                    self.semiadditive_dimension.name))
-
-            column = self.column(semiadditive_attribute)
-            column = func(column).label("__semiadditive_key")
-            sub_selection.append(column)
-
-            # This has to be the same as the final SELECT, except the subquery
-            # selection
-            sub_statement = sql.expression.select(sub_selection,
-                                                  from_obj=join_expression,
-                                                  use_labels=True,
-                                                  whereclause=condition,
-                                                  group_by=group_by)
-
-            sub_statement = sub_statement.alias("__semiadditive_subquery")
-
-            # Construct the subquery JOIN condition
-            # Skipt the last subquery selection which we have created just
-            # recently
-            join_conditions = []
-            sub_selection = list(sub_statement.columns)[:-1]
-
-            for left, right in zip(selection, sub_selection):
-                join_conditions.append(left == right)
-
-            original_column = self.column(semiadditive_attribute)
-            subquery_column = sub_statement.c["__semiadditive_key"]
-            join_conditions.append(original_column == subquery_column)
-
-            join_condition = condition_conjunction(join_conditions)
-            join_expression = join_expression.join(sub_statement,
-                                                   join_condition)
-
+            join_expression = self._semiadditive_subquery(semiadditive_attribute,
+                                                     selection,
+                                                     from_obj=join_expression,
+                                                     condition=condition,
+                                                     group_by=group_by)
         # TODO: Internalize the statement inputs into the query builder
         # Ignore the GROUP BY if only summary is requested
 
@@ -977,9 +940,6 @@ class QueryBuilder(object):
                                                        coalesce_measures=coalesce_measures)
         selection += aggregate_selection
 
-        self.logger.debug("--- selection:")
-        for c in selection:
-            self.logger.debug("---    %s" % str(c))
         statement = sql.expression.select(selection,
                                           from_obj=join_expression,
                                           use_labels=True,
@@ -988,7 +948,7 @@ class QueryBuilder(object):
 
         self.statement = statement
         self.labels = self.snowflake.logical_labels(statement.columns)
-        self.logger.debug("--- labels: %s" %(self.labels,))
+
         # Used in order
         self.drilldown = drilldown
         self.split = split
@@ -1023,6 +983,51 @@ class QueryBuilder(object):
                 return attribute
             else:
                 return None
+
+    def _semiadditive_subquery(self, semiadditive_attribute, selection,
+                               from_obj, condition, group_by):
+        """Prepare the semi-additive subquery"""
+        sub_selection = selection[:]
+
+        try:
+            func = getattr(sql.expression.func, self.semiadditive_function)
+        except AttributeError:
+            raise ModelError("Unknown function '%s' for semiadditive "
+                             "dimension '%s'."
+                             % (self.semiadditive_function,
+                                self.semiadditive_dimension.name))
+
+        column = self.column(semiadditive_attribute)
+        column = func(column).label("__semiadditive_key")
+        sub_selection.append(column)
+
+        # This has to be the same as the final SELECT, except the subquery
+        # selection
+        sub_statement = sql.expression.select(sub_selection,
+                                              from_obj=from_obj,
+                                              use_labels=True,
+                                              whereclause=condition,
+                                              group_by=group_by)
+
+        sub_statement = sub_statement.alias("__semiadditive_subquery")
+
+        # Construct the subquery JOIN condition
+        # Skipt the last subquery selection which we have created just
+        # recently
+        join_conditions = []
+        sub_selection = list(sub_statement.columns)[:-1]
+
+        for left, right in zip(selection, sub_selection):
+            join_conditions.append(left == right)
+
+        original_column = self.column(semiadditive_attribute)
+        subquery_column = sub_statement.c["__semiadditive_key"]
+        join_conditions.append(original_column == subquery_column)
+
+        join_condition = condition_conjunction(join_conditions)
+        join_expression = from_obj.join(sub_statement, join_condition)
+
+        return join_expression
 
     def split_attributes_by_relationship(self, attributes):
         """Returns a tuple (`master`, `detail`) where `master` is a list of
