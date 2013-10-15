@@ -165,8 +165,8 @@ class JoinsTestCase(JoinsTestCaseBase):
 
         # We have one cell – one city from dim (nothing from facts)
         self.assertEqual(1, len(cells))
-        # we have one record - same reason as above
-        self.assertEqual(1, result.summary["record_count"])
+        # ... however, we have no facts with that city. 
+        self.assertEqual(0, result.summary["record_count"])
         # The summary should be coalesced to zero
         self.assertEqual(0, result.summary["amount_sum"])
 
