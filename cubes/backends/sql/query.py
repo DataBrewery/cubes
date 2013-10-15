@@ -538,22 +538,33 @@ class SnowflakeSchema(object):
 
 class _StatementConfiguration(object):
     def __init__(self):
-        self.cut_attributes = []
         self.attributes = []
         self.cuts = []
+        self.cut_attributes = []
+        self.other_attributes = []
+
+        self.split_attributes = []
+
         self.ptd_attributes = []
 
     @property
     def all_attributes(self):
-        return set(self.attributes) | set(self.cut_attributes)
+        """All attributes that should be considered for a statement
+        composition.  Mostly used to get the relevant joins."""
+
+        return set(self.attributes) | set(self.cut_attributes) \
+                | set(self.split_attributes) | set(self.other_attributes)
 
     def merge(self, other):
         self.attributes += other.attributes
-        self.cut_attributes += other.cut_attributes
         self.cuts += other.cuts
+        self.cut_attributes += other.cut_attributes
+        self.split_attributes += other.split_attributes
+        self.other_attributes += other.other_attributes
 
     def is_empty(self):
-        return (len(self.attributes) + len(self.cut_attributes)) == 0
+        return bool(self.attributes) or bool(self.cut_attributes) \
+                or bool(self.other_attributes)
 
 class QueryBuilder(object):
     def __init__(self, browser):
@@ -587,6 +598,22 @@ class QueryBuilder(object):
         # Output:
         self.statement = None
         self.labels = []
+
+        # Semi-additive dimension
+        # TODO: move this to model (this is ported from the original
+        # SnapshotBrowser)
+
+        info = self.cube.info.get("semiadditive", {})
+        dimname = info.get('dimension')
+        if dimname:
+            dim = self.cube.dimension(dimname)
+            self.semiadditive_dimension = dim
+
+            name = info.get("level")
+            self.semiadditive_level = dim.level(name)
+            self.semiadditive_function = info.get("function", "max")
+        else:
+            self.semiadditive_dimension = None
 
     def aggregation_statement(self, cell, drilldown=None, aggregates=None,
                               split=None, attributes=None, summary_only=False):
@@ -641,9 +668,6 @@ class QueryBuilder(object):
         if not aggregates:
             raise ArgumentError("List of aggregates sohuld not be empty")
 
-        # TODO: split
-        # TODO: PTD!!!
-
         drilldown = drilldown or Drilldown()
 
         self.logger.debug("prepare aggregation statement. cell: '%s' "
@@ -697,6 +721,15 @@ class QueryBuilder(object):
         elif ptd_detail:
             detail.attributes += ptd_detail
             detail.ptd_attributes = ptd_detail
+
+
+        # Semi-additive attribute
+        semiadditive_attribute = self.semiadditive_attribute(drilldown)
+        if semiadditive_attribute:
+            if self.snowflake.is_outer_detail(attribute):
+                detail.other_attributes.append(semiadditive_attribute)
+            else:
+                master.other_attributes.append(semiadditive_attribute)
 
         # Pick the method:
         #
@@ -796,17 +829,14 @@ class QueryBuilder(object):
             # Expose fact master detail key outlets:
             master_detail_keys = {}
             master_detail_selection = []
-            counter = 0
-            for table in join.tables:
+            for i, table in enumerate(join.tables):
                 for key in table.detail_keys:
                     column_key = (table.schema, table.aliased_name, key)
-                    label = "__masterkey%d" % counter
+                    label = "__masterkey%d" % i
                     master_detail_keys[column_key] = label
 
                     column = table.table.c[key].label(label)
                     master_detail_selection.append(column)
-
-                    counter += 1
 
             # SELECT – Prepare the master selection
             #     * aggregates
@@ -895,6 +925,49 @@ class QueryBuilder(object):
                 ptd_condition = self._ptd_condition(detail.ptd_attributes)
                 conditions.append(ptd_condition)
 
+        # Include the non-additive dimension
+        #
+
+        if semiadditive_attribute:
+            sub_selection = selection[:]
+
+            try:
+                func = getattr(sql.expression.func, self.semiadditive_function)
+            except AttributeError:
+                raise ModelError("Unknown function '%s' for semiadditive "
+                                 "dimension '%s'."
+                                 % (self.semiadditive_function,
+                                    self.semiadditive_dimension.name))
+
+            column = self.column(semiadditive_attribute)
+            column = func(column).label("__semiadditive_key")
+            sub_selection.append(column)
+
+            # This has to be the same as the final SELECT, except the subquery
+            # selection
+            sub_statement = sql.expression.select(subquery_selection,
+                                                  from_obj=join_expression,
+                                                  use_labels=True,
+                                                  whereclause=condition,
+                                                  group_by=group_by)
+            sub_statement.alias("__semiadditive_subquery")
+
+            # Construct the subquery JOIN condition
+            # Skipt the last subquery selection which we have created just
+            # recently
+            join_conditions = []
+            for left, right in zip(selection, sub_selection[:-1]):
+                join_conditions.append(left == right)
+
+            original_column = self.column(self.nonadditive_level.key)
+            subquery_column = statement.c["__semiadditive_key"]
+            join_conditions.append(column == level_column)
+
+            join_condition = condition_conjunction(join_conditions)
+            join_expression = join_expression.join(sub_statement,
+                                                   join_condition)
+
+        # TODO: Internalize the statement inputs into the query builder
         # Ignore the GROUP BY if only summary is requested
         group_by = group_by if not summary_only else None
 
@@ -913,6 +986,35 @@ class QueryBuilder(object):
         self.split = split
 
         return self.statement
+
+    def semiadditive_attribute(self, drilldown):
+        """Returns an attribute from a semi-additive dimension, if defined for
+        the cube. Cubes allows one semi-additive dimension. """
+
+        if not self.semiadditive_dimension:
+            return None
+
+        snapshot_dd = [item for item in drilldown \
+                       if item.dimension.name == self.semiadditive_dimension.name]
+
+        dim = self.semiadditive_dimension
+        # TODO: Use level not attribute?
+        attribute = dim.attribute(self.semiadditive_level)
+
+        try:
+            item = drilldown.drilldown_for_dimension(dim)
+        except KeyError:
+            return [attribute]
+
+        # FIXME: the 'dow' is hard-wired
+
+        if len(item.hierarchy.levels) > len(item.levels):
+            return [attribute]
+        elif len(item.hierarchy.levels) == len(item.levels):
+            if len(item.levels) == 1 and item.levels[0].name == 'dow':
+                return [attribute]
+            else:
+                return []
 
     def split_attributes_by_relationship(self, attributes):
         """Returns a tuple (`master`, `detail`) where `master` is a list of
@@ -1066,7 +1168,7 @@ class QueryBuilder(object):
         return attributes
 
     def attributes_for_cell_cuts(self, cell):
-        """Returns a list of tuples (`cute`, `attributes`) where `attributes`
+        """Returns a list of tuples (`cut`, `attributes`) where `attributes`
         is list of attributes involved in the `cut`."""
 
         # Note: this method belongs here, not to the Cell class, as we might
@@ -1389,3 +1491,87 @@ class QueryBuilder(object):
         self.statement = self.statement.order_by(*order_by.values())
 
         return self.statement
+
+class SemiAdditiveQueryBuilder(object):
+    def __init__(self, browser):
+        super(SnapshotQueryBuilder, self).__init__(browser)
+
+        snap_info = {
+            'dimension': 'daily_date',
+            'level_attribute': 'daily_datetime',
+            'aggregation': 'max'
+        }
+
+        snap_info.update(cube.info.get('snapshot', {}))
+        self.snapshot_dimension = cube.dimension(snap_info['dimension'])
+        self.snapshot_level_attrname = snap_info['level_attribute']
+        self.snapshot_aggregation = snap_info['aggregation']
+
+    def semiadditive_attribute(self, drilldown):
+        """Snapshot Browser returns a single-item list of drill-down
+        attributes if."""
+
+        snapshot_dd = [item for item in drilldown \
+                       if item.dimension.name == self.snapshot_dimension.name]
+
+        dim = self.snapshot_dimension
+        # TODO: Use level not attribute?
+        attribute = dim.attribute(self.snapshot_level_attrname)
+
+        try:
+            item = drilldown.drilldown_for_dimension(dim)
+        except KeyError:
+            return [attribute]
+
+        # FIXME: the 'dow' is hard-wired
+
+        if len(item.hierarchy.levels) > len(item.levels):
+            return [attribute]
+        elif len(item.hierarchy.levels) == len(item.levels):
+            if len(item.levels) == 1 and item.levels[0].name == 'dow':
+                return [attribute]
+            else:
+                return []
+
+    def aggregate(self, *args, **kwargs):
+        # FIXME: work in progress
+
+        raise NotImplementedError
+        if semiadditive_attribute:
+
+            subq_join_expression = join_expression
+            subq_selection = [ s.label('col%d' % i) for i, s in enumerate(selection) ]
+            subq_group_by = group_by[:] if group_by else None
+            subq_conditions = conditions[:]
+
+            # 1. Get the selection
+            # 2. 
+
+            func = getattr(sql.expression.func, self.snapshot_aggregation)
+            level_expr = func(self.column(snapshot_level_attribute)).label('the_snapshot_level')
+            subq_selection.append(level_expr)
+            subquery = sql.expression.select(subq_selection, from_obj=subq_join_expression, use_labels=True, group_by=subq_group_by)
+
+            if subq_conditions:
+                condition = condition_conjunction(subq_conditions)
+                subquery = subquery.where(condition)
+
+            # Prepare the snapshot subquery
+            subquery = subquery.alias('the_snapshot_subquery')
+            subq_joins = []
+
+            cols = []
+            for i, s in enumerate(subq_selection[:-1]):
+                col = sql.expression.literal_column("%s.col%d" %
+                                                    (subquery.name, i))
+                cols.append(col)
+
+            for left, right in zip(selection, cols):
+                subq_joins.append(left == right)
+
+            column = self.column(snapshot_level_attribute)
+            level_column =sql.expression.literal_column("%s.%s" %
+                                                        (subquery.name,
+                                                         'the_snapshot_level'))
+            subq_joins.append(column == level_column)
+            join_expression = join_expression.join(subquery, sql.expression.and_(*subq_joins))
