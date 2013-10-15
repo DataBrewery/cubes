@@ -78,7 +78,10 @@ class SnowflakeSchema(object):
             msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
             raise WorkspaceError(msg)
 
-        self.fact_key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
+        try:
+            self.fact_key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
+        except KeyError:
+            self.fact_key_column = list(self.fact_table.columns)[0]
 
         # Collect all tables and their aliases.
         #
@@ -726,7 +729,7 @@ class QueryBuilder(object):
         # Semi-additive attribute
         semiadditive_attribute = self.semiadditive_attribute(drilldown)
         if semiadditive_attribute:
-            if self.snowflake.is_outer_detail(attribute):
+            if self.snowflake.is_outer_detail(semiadditive_attribute):
                 detail.other_attributes.append(semiadditive_attribute)
             else:
                 master.other_attributes.append(semiadditive_attribute)
@@ -785,16 +788,11 @@ class QueryBuilder(object):
             # --------------------
             #
             # SELECT – Prepare the master selection
-            #     * all aggregates
             #     * master drilldown items
 
-            aggregate_selection = self.builtin_aggregate_expressions(aggregates,
-                                                           coalesce_measures=coalesce_measures)
-            aggregate_labels = [c.name for c in aggregate_selection]
-
             group_by = []
+            selection = []
 
-            selection = aggregate_selection
             for attribute in master.attributes:
                 column = self.column(attribute)
                 group_by.append(column)
@@ -887,8 +885,6 @@ class QueryBuilder(object):
             #     * master drilldown items (inherit)
             #     * detail drilldown items
 
-            aggregate_selection = self.builtin_aggregate_expressions(aggregates,
-                                                           coalesce_measures=coalesce_measures)
             # aggregate_labels = [c.name for c in aggregate_selection]
 
             # aggregate_selection = []
@@ -901,7 +897,7 @@ class QueryBuilder(object):
                                     master_drilldown_labels]
 
             detail_selection = [self.column(a) for a in set(detail.attributes)]
-            selection = aggregate_selection + master_selection + detail_selection
+            selection = master_selection + detail_selection
 
             group_by = detail_selection[:]
 
@@ -925,6 +921,10 @@ class QueryBuilder(object):
                 ptd_condition = self._ptd_condition(detail.ptd_attributes)
                 conditions.append(ptd_condition)
 
+        # Prepare the final statement
+        condition = condition_conjunction(conditions)
+        group_by = group_by if not summary_only else None
+
         # Include the non-additive dimension
         #
 
@@ -945,13 +945,17 @@ class QueryBuilder(object):
 
             # This has to be the same as the final SELECT, except the subquery
             # selection
-            sub_statement = sql.expression.select(subquery_selection,
+            sub_statement = sql.expression.select(sub_selection,
                                                   from_obj=join_expression,
                                                   use_labels=True,
                                                   whereclause=condition,
                                                   group_by=group_by)
-            sub_statement.alias("__semiadditive_subquery")
 
+            self.logger.debug("--- subselection:")
+            for c in sub_selection:
+                self.logger.debug("---    %s" % str(c))
+            sub_statement = sub_statement.alias("__semiadditive_subquery")
+            self.logger.debug("--- subgroup: %s" % (group_by,))
             # Construct the subquery JOIN condition
             # Skipt the last subquery selection which we have created just
             # recently
@@ -959,9 +963,9 @@ class QueryBuilder(object):
             for left, right in zip(selection, sub_selection[:-1]):
                 join_conditions.append(left == right)
 
-            original_column = self.column(self.nonadditive_level.key)
-            subquery_column = statement.c["__semiadditive_key"]
-            join_conditions.append(column == level_column)
+            original_column = self.column(semiadditive_attribute)
+            subquery_column = sub_statement.c["__semiadditive_key"]
+            join_conditions.append(original_column == subquery_column)
 
             join_condition = condition_conjunction(join_conditions)
             join_expression = join_expression.join(sub_statement,
@@ -969,9 +973,14 @@ class QueryBuilder(object):
 
         # TODO: Internalize the statement inputs into the query builder
         # Ignore the GROUP BY if only summary is requested
-        group_by = group_by if not summary_only else None
 
-        condition = condition_conjunction(conditions)
+        aggregate_selection = self.builtin_aggregate_expressions(aggregates,
+                                                       coalesce_measures=coalesce_measures)
+        selection += aggregate_selection
+
+        self.logger.debug("--- selection:")
+        for c in selection:
+            self.logger.debug("---    %s" % str(c))
         statement = sql.expression.select(selection,
                                           from_obj=join_expression,
                                           use_labels=True,
@@ -1004,17 +1013,17 @@ class QueryBuilder(object):
         try:
             item = drilldown.drilldown_for_dimension(dim)
         except KeyError:
-            return [attribute]
+            return attribute
 
         # FIXME: the 'dow' is hard-wired
 
         if len(item.hierarchy.levels) > len(item.levels):
-            return [attribute]
+            return attribute
         elif len(item.hierarchy.levels) == len(item.levels):
             if len(item.levels) == 1 and item.levels[0].name == 'dow':
-                return [attribute]
+                return attribute
             else:
-                return []
+                return None
 
     def split_attributes_by_relationship(self, attributes):
         """Returns a tuple (`master`, `detail`) where `master` is a list of
