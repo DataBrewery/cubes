@@ -582,8 +582,10 @@ class _StatementConfiguration(object):
         self.other_attributes += other.other_attributes
 
     def is_empty(self):
-        return bool(self.attributes) or bool(self.cut_attributes) \
-                or bool(self.other_attributes) or bool(self.split_attributes)
+        return not (bool(self.attributes) \
+                    or bool(self.cut_attributes) \
+                    or bool(self.other_attributes) \
+                    or bool(self.split_attributes))
 
 class QueryBuilder(object):
     def __init__(self, browser):
