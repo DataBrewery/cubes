@@ -324,27 +324,33 @@ class CubesController(ApplicationController):
                                         page_size=self.page_size,
                                         order=self.order)
 
-        if header_type == "names":
-            header = result.labels
-        elif header_type == "labels":
-            attributes = self.cube.get_attributes(result.labels,
-                                                  aggregated=True)
-            header = [attr.label or attr.name for attr in attributes]
-        else:
-            header = None
 
         if output_format == "json":
             return self.json_response(result)
-        elif output_format == "csv":
-            fields = result.labels
-            generator = CSVGenerator(result,
-                                     fields,
-                                     include_header=bool(header),
-                                     header=header)
-            return Response(generator.csvrows(),
-                            mimetype='text/csv')
-        else:
+        elif output_format != "csv":
             raise RequestError("unknown response format '%s'" % format)
+
+        # csv
+        if header_type == "names":
+            header = result.labels
+        elif header_type == "labels":
+            attrs = []
+            for l in result.labels:
+                # TODO: add a little bit of polish to this
+                if l == SPLIT_DIMENSION_NAME:
+                    header.append('Matches Filters')
+                else:
+                    header += [ attr.label or attr.name for attr in self.cube.get_attributes([l], aggregated=True) ]
+        else:
+            header = None
+
+        fields = result.labels
+        generator = CSVGenerator(result,
+                                 fields,
+                                 include_header=bool(header),
+                                 header=header)
+        return Response(generator.csvrows(),
+                        mimetype='text/csv')
 
     @cacheable
     def facts(self, cube):
