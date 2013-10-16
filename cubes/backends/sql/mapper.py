@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Logical to Physical Mappers"""
 
-import collections
 from cubes.common import get_logger
 from cubes.errors import *
 from cubes.mapper import Mapper
+from collections import namedtuple
 
 __all__ = (
     "SnowflakeMapper",
@@ -19,15 +19,19 @@ DEFAULT_KEY_FIELD = "id"
 
 """Physical reference to a table column. Note that the table might be an
 aliased table name as specified in relevant join."""
-TableColumnReference = collections.namedtuple("TableColumnReference",
+TableColumnReference = namedtuple("TableColumnReference",
                                     ["schema", "table", "column", "extract", "func", "expr", "condition"])
 
 """Table join specification. `master` and `detail` are TableColumnReference
 tuples. `method` denotes which table members should be considered in the join:
 *master* – all master members (left outer join), *detail* – all detail members
 (right outer join) and *match* – members must match (inner join)."""
-TableJoin = collections.namedtuple("TableJoin",
+TableJoin = namedtuple("TableJoin",
                                     ["master", "detail", "alias", "method"])
+
+
+SnowflakeTable = namedtuple("SnowflakeTable",
+                            ["schema", "table", "outlets"])
 
 _join_method_order = {"detail":0, "master":1, "match": 2}
 
@@ -128,13 +132,15 @@ class SnowflakeMapper(Mapper):
 
         """
 
-        super(SnowflakeMapper, self).__init__(cube, locale=locale,
-                                        schema=schema, fact_name=fact_name,
-                                        **options)
+        super(SnowflakeMapper, self).__init__(cube, locale=locale, **options)
 
         self.mappings = mappings or cube.mappings
         self.dimension_prefix = dimension_prefix
         self.dimension_schema = dimension_schema
+
+        fact_prefix = options.get("fact_prefix") or ""
+        self.fact_name = fact_name or self.cube.fact or fact_prefix+self.cube.name
+        self.schema = schema
 
         self._collect_joins(joins or cube.joins)
 
@@ -280,7 +286,34 @@ class SnowflakeMapper(Mapper):
 
         return tables
 
-    def relevant_joins(self, attributes):
+    def physical_references(self, attributes, expand_locales=False):
+        """Convert `attributes` to physical attributes. If `expand_locales` is
+        ``True`` then physical reference for every attribute locale is
+        returned."""
+
+        if expand_locales:
+            physical_attrs = []
+
+            for attr in attributes:
+                if attr.is_localizable():
+                    refs = [self.physical(attr, locale) for locale in attr.locales]
+                else:
+                    refs = [self.physical(attr)]
+                physical_attrs += refs
+        else:
+            physical_attrs = [self.physical(attr) for attr in attributes]
+
+        return physical_attrs
+
+    def tables_for_attributes(self, attributes, expand_locales=False):
+        """Returns a list of tables – tuples (`schema`, `table`) that contain
+        `attributes`."""
+
+        references = self.physical_references(attributes, expand_locales)
+        tables = [(ref[0], ref[1]) for ref in references]
+        return tables
+
+    def relevant_joins(self, attributes, expand_locales=False):
         """Get relevant joins to the attributes - list of joins that
         are required to be able to acces specified attributes. `attributes`
         is a list of three element tuples: (`schema`, `table`, `attribute`).
@@ -289,17 +322,19 @@ class SnowflakeMapper(Mapper):
         # Attribute: (schema, table, column)
         # Join: ((schema, table, column), (schema, table, column), alias)
 
-        self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
+        # self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
 
         if not self.joins:
             self.logger.debug("no joins to be searched for")
 
-        tables_to_join = set((ref[0], ref[1]) for ref in attributes)
+        tables_to_join = set(self.tables_for_attributes(attributes,
+                                                        expand_locales))
         joined_tables = set()
-        joined_tables.add( (self.schema, self.fact_name) )
+        fact_table = (self.schema, self.fact_name)
+        joined_tables.add( fact_table )
 
         joins = []
-        self.logger.debug("tables to join: %s" % list(tables_to_join))
+        # self.logger.debug("tables to join: %s" % list(tables_to_join))
 
         while tables_to_join:
             table = tables_to_join.pop()
@@ -307,10 +342,9 @@ class SnowflakeMapper(Mapper):
 
             joined = False
             for order, join in enumerate(self.joins):
-                # self.logger.debug("testing join: %s" % (join,e))
-                # print "--- testing join: %s" % (join, )
                 master = (join.master.schema, join.master.table)
                 detail = (join.detail.schema, join.alias or join.detail.table)
+                # self.logger.debug("testing join: %s->%s" % (master,detail))
 
                 if table == detail:
                     # self.logger.debug("detail matches")
@@ -320,18 +354,18 @@ class SnowflakeMapper(Mapper):
                     joins.append( (method_order, order, join) )
 
                     if master not in joined_tables:
-                        self.logger.debug("adding master %s to be joined" % (master, ))
+                        # self.logger.debug("adding master %s to be joined" % (master, ))
                         tables_to_join.add(master)
 
-                    self.logger.debug("joined detail %s" % (detail, ) )
+                    # self.logger.debug("joined detail %s" % (detail, ) )
                     joined_tables.add(detail)
                     joined = True
                     break
 
-            if joins and not joined:
+            if joins and not joined and table != fact_table:
                 self.logger.warn("No table joined for %s" % (table, ))
 
-        self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
+        # self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
 
         # Sort joins according to original order specified in the model
         joins.sort()

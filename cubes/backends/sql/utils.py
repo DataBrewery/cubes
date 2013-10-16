@@ -2,11 +2,14 @@
 
 from sqlalchemy.sql.expression import Executable, ClauseElement
 from sqlalchemy.ext.compiler import compiles
+import sqlalchemy.sql as sql
 
 __all__ = [
-        "CreateTableAsSelect",
-        "InsertIntoAsSelect"
-        ]
+    "CreateTableAsSelect",
+    "InsertIntoAsSelect",
+    "condition_conjunction",
+    "order_column"
+]
 
 class CreateTableAsSelect(Executable, ClauseElement):
     def __init__(self, table, select):
@@ -48,27 +51,26 @@ def visit_insert_into_as_select(element, compiler, **kw):
 
     return stmt
 
-def validate_physical_schema(url, model, fact_prefix=None, dimension_prefix=None):
-    """Validate the model and mappings against physical schema - check for 
-    existence of each column."""
-
-    pass
-
-def denormalize_locale(connection, localized, dernomralized, locales):
-    """Create denormalized version of localized table. (not imlpemented, just proposal)
-
-    Type 1:
-
-    Localized table: id, locale, field1, field2, ...
-
-    Denomralized table: id, field1_loc1, field1_loc2, field2_loc1, field2_loc2,...
-
-    Type 2:
-
-    Localized table: id, locale, key, field, content
-
-    Denomralized table: id, field1_loc1, field1_loc2, field2_loc1, field2_loc2,...
+def condition_conjunction(conditions):
+    """Do conjuction of conditions if there are more than one, otherwise just
+    return the single condition."""
+    if not conditions:
+        return None
+    elif len(conditions) == 1:
+        return conditions[0]
+    else:
+        return sql.expression.and_(*conditions)
 
 
-    """
-    pass
+def order_column(column, order):
+    """Orders a `column` according to `order` specified as string."""
+
+    if not order:
+        return column
+    elif order.lower().startswith("asc"):
+        return column.asc()
+    elif order.lower().startswith("desc"):
+        return column.desc()
+    else:
+        raise ArgumentError("Unknown order %s for column %s") % (order, column)
+

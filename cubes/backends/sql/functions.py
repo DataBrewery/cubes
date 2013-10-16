@@ -59,6 +59,16 @@ class AggregateFunction(object):
         returns the `value`."""
         return value
 
+    def required_measures(self, aggregate):
+        """Returns a list of measure names that the `aggregate` depends on."""
+        # Currently only one-attribute source is supported, therefore we just
+        # return the attribute.
+        if aggregate.measure:
+            return [aggregate.measure]
+        else:
+            return []
+
+    # TODO: use dict of name:measure from required_measures instead of context
     def apply(self, aggregate, context=None, coalesce=False):
         """Apply the function on the aggregate. Subclasses might override this
         method and use other `aggregates` and browser context.
@@ -104,6 +114,7 @@ class ValueCoalescingFunction(AggregateFunction):
         # somehow)
         return sql.functions.coalesce(value, 0)
 
+
 class SummaryCoalescingFunction(AggregateFunction):
     def coalesce_aggregate(self, aggregate, value):
         """Coalesce the aggregated value of `aggregate`. `value` is a
@@ -118,9 +129,25 @@ class GenerativeFunction(AggregateFunction):
         measures."""
         super(GenerativeFunction, self).__init__(name, function)
 
-    def apply(self, aggregate, context=None, missing_value=None):
+    def apply(self, aggregate, context=None, coalesce=False):
         return self.function(*self.args, **self.kwargs)
 
+
+class FactCountFunction(AggregateFunction):
+    def __init__(self, name, function=None, *args, **kwargs):
+        """Creates a function that provides fact (record) counts.  """
+        super(FactCountFunction, self).__init__(name, function)
+
+    def apply(self, aggregate, context=None, coalesce=False):
+        """Count only existing facts. Assumption: every facts has an ID"""
+
+        if coalesce:
+            # TODO: pass the fact column somehow more nicely, maybe in a map:
+            # aggregate: column
+            column = context.fact_key_column()
+            return sql.functions.count(column)
+        else:
+            return sql.functions.count(1)
 
 class avg(ReturnTypeFromArgs):
     pass
@@ -138,14 +165,13 @@ class variance(ReturnTypeFromArgs):
 _functions = (
     SummaryCoalescingFunction("sum", sql.functions.sum),
     SummaryCoalescingFunction("count_nonempty", sql.functions.count),
+    FactCountFunction("count"),
     ValueCoalescingFunction("min", sql.functions.min),
     ValueCoalescingFunction("max", sql.functions.max),
     ValueCoalescingFunction("avg", avg),
     ValueCoalescingFunction("stddev", stddev),
     ValueCoalescingFunction("variance", variance),
     ValueCoalescingFunction("custom", lambda c: c),
-
-    GenerativeFunction("count", sql.functions.count, 1),
 )
 
 _function_dict = {}

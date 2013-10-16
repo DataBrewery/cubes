@@ -216,6 +216,26 @@ class AggregationBrowser(object):
 
         return new_order
 
+    def assert_low_cardinality(self, cell, drilldown):
+        """Raises `ArgumentError` when there is drilldown through high
+        cardinality dimension or level and there is no condition in the cell
+        for the level."""
+
+        hc_dimensions = drilldown.high_cardinality_dimensions()
+        if hc_dimensions:
+            names = [dim.name for dim in hc_dimensions]
+            raise ArgumentError("Cannot drilldown on high-cardinality "
+                                "dimensions (%s) without including both "
+                                "page_size and page arguments" % names)
+
+        hc_levels = drilldown.high_cardinality_levels(cell)
+        if hc_levels:
+            names = [dim.name for dim in hc_dimensions]
+            raise ArgumentError("Cannot drilldown on high-cardinality "
+                                "levels (%s) without including both "
+                                "page_size and page arguments" % names)
+
+
     def is_builtin_function(self, function_name, aggregate):
         """Returns `True` if function `function_name` for `aggregate` is
         bult-in. Returns `False` if the browser can not compute the function
@@ -776,6 +796,33 @@ class Cell(object):
             dim_name = str(dim)
 
             levels[dim_name] = max(level, levels.get(dim_name))
+
+        return levels
+
+    def deepest_levels(self, include_empty=False):
+        """Returns a list of tuples: (`dimension`, `hierarchy`, `level`) where
+        `level` is the deepest level specified in the respective cut. If no
+        level is specified (empty path) and `include_empty` is `True`, then the
+        level will be `None`. If `include_empty` is `True` then empty levels
+        are not included in the result.
+
+        This method is currently used for preparing the periods-to-date
+        conditions.
+
+        See also: :meth:`cubes.Drilldown.deepest_levels`
+        """
+
+        levels = []
+
+        for cut in self.cuts:
+            depth = cut.level_depth()
+            dim = self.cube.dimension(cut.dimension)
+            hier = dim.hierarchy(cut.hierarchy)
+            if depth:
+                item = (dim, hier, hier[depth-1])
+            elif include_empty:
+                item = (dim, hier, None)
+            levels.append(item)
 
         return levels
 
@@ -1522,7 +1569,7 @@ def string_to_drilldown(astring):
 
 
 class Drilldown(object):
-    def __init__(self, drilldown, cell):
+    def __init__(self, drilldown=None, cell=None):
         """Creates a drilldown object for `drilldown` specifictation of `cell`.
         The drilldown object can be used by browsers for convenient access to
         various drilldown properties.
@@ -1550,6 +1597,21 @@ class Drilldown(object):
                                     "times")
             self._by_dimension[dd.dimension.name] = dd
             self._last_level[dd.dimension.name] = dd.levels[-1]
+
+    def __str__(self):
+        drilldowns = []
+        for item in self.drilldown:
+            if item.hierarchy != item.dimension.hierarchy():
+                hierstr = "@%s" % str(item.hierarchy)
+            else:
+                hierstr = ""
+
+            ddstr = "%s%s:%s" % (item.dimension.name,
+                                 hierstr,
+                                 item.levels[-1].name)
+            drilldowns.append(ddstr)
+
+        return ",".join(drilldowns)
 
     def drilldown_for_dimension(self, dim):
         """Returns drilldown item for dimension `dim`."""
@@ -1580,6 +1642,25 @@ class Drilldown(object):
 
         return dim_levels
 
+    def deepest_levels(self):
+        """Returns a list of tuples: (`dimension`, `hierarchy`, `level`) where
+        `level` is the deepest level drilled down to.
+
+        This method is currently used for preparing the periods-to-date
+        conditions.
+
+        See also: :meth:`cubes.Cell.deepest_levels`
+        """
+
+        levels = []
+
+        for dditem in self.drilldown:
+            item = (dditem.dimension, dditem.hierarchy, dditem.levels[-1])
+            levels.append(item)
+
+        return levels
+
+        return levels
     def is_high_cardinality(self):
         """Returns `True` if the drilldown is through a dimension or a
         dimension level of high cardinality (as specified in the metadata.).
@@ -1589,7 +1670,7 @@ class Drilldown(object):
         return bool(self.high_cardinality_dimensin_drilldown()) or \
                 bool(self.high_cardinality_level_drilldown())
 
-    def high_cardinality_dimensin_drilldown(self):
+    def high_cardinality_dimension_drilldown(self):
         """Returns drilldown items with high cardinality dimensions."""
         items = []
         for item in self.drilldown:
@@ -1606,18 +1687,74 @@ class Drilldown(object):
         for item in self.drilldown:
             for level in item.levels:
                 if level.info.get("high_cardinality"):
-                    items.append(level)
+                    items.append(item)
 
         return items
 
+    def high_cardinality_dimensions(self, cell=None):
+        """Returns list of dimensions in the drilldown that are
+        of high-cardinality."""
+
+        items = self.high_cardinality_dimension_drilldown()
+        return [item.dim for item in items]
+
+    def high_cardinality_levels(self, cell):
+        """Returns list of levels in the drilldown that are of high
+        cardinality and there is no cut for that level in the `cell`."""
+
+        items = self.high_cardinality_level_drilldown()
+
+        for item in items:
+            dim, hier, levels = item[0:3]
+
+            hc_levels = [l for l in levels if l.info.get('high_cardinality')]
+
+            if not all(cell.contains_level(dim, l, hier) for l in hc_levels):
+                return hc_levels
+
+        return []
+
+    def result_levels(self, include_split=False):
+        """Returns a dictionary where keys are dimension names and values are
+        list of level names for the drilldown. Use this method to populate the
+        result levels attribute.
+
+        If `include_split` is `True` then split dimension is included."""
+        result = {}
+
+        for dim, item in self._by_dimension.items():
+            result[dim] = [str(level) for level in item.levels]
+
+        if include_split:
+            result[SPLIT_DIMENSION_NAME] = [SPLIT_DIMENSION_NAME]
+
+        return result
+
+    def all_attributes(self):
+        """Returns attributes of all levels in the drilldown. Order is by the
+        drilldown item, then by the levels and finally by the attribute in the
+        level."""
+        attributes = []
+        for item in self.drilldown:
+            for level in item.levels:
+                attributes += level.attributes
+
+        return attributes
+
+    def has_dimension(self, dim):
+        return str(dim) in self._by_dimension
+
     def __contains__(self, key):
-        return str(key) in self._by_dimension
+        return self.has_dimension(key)
 
     def __len__(self):
         return len(self.drilldown)
 
     def __iter__(self):
         return self.drilldown.__iter__()
+
+    def __nonzero__(self):
+        return len(self.drilldown) > 0
 
 DrilldownItem = namedtuple("DrilldownItem",
                            ["dimension", "hierarchy", "levels", "keys"])
