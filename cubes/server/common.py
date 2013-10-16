@@ -114,7 +114,7 @@ class CSVGenerator(object):
                 value = record.get(field)
                 if type(value) == unicode or type(value) == str:
                     row.append(value.encode("utf-8"))
-                elif value:
+                elif value is not None:
                     row.append(unicode(value))
                 else:
                     row.append(None)
