@@ -111,7 +111,6 @@ class SnowflakeMapper(Mapper):
           default table name is used in physical reference construction
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
-        * `dimension_prefix` – prefix for dimension tables
         * `dimension_schema` – schema whre dimension tables are stored (if
           different than fact table schema)
 
