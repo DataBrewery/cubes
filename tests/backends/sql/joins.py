@@ -199,6 +199,32 @@ class JoinsTestCase(JoinsTestCaseBase):
         self.assertIn("date.day", cells[0])
         self.assertNotIn("city.id", cells[0])
 
+    def test_split(self):
+        cube = self.workspace.cube("condition_and_drilldown")
+        split = Cell(cube, [RangeCut("date", [2013, 9, 1],
+                                             [2013, 9, 3])])
+        cells = self.aggregate_cells("condition_and_drilldown",
+                                     split=split)
+
+        # We want every day from the date table
+        self.assertEqual(2, len(cells))
+        self.assertIn(SPLIT_DIMENSION_NAME, cells[0])
+
+        # Both: master and detail split
+
+        cube = self.workspace.cube("condition_and_drilldown")
+        split = Cell(cube, [
+                            RangeCut("date", [2013, 9, 1],
+                                             [2013, 9, 3]),
+                            PointCut("city", [1])
+                           ])
+        cells = self.aggregate_cells("condition_and_drilldown",
+                                     split=split)
+
+        # We want every day from the date table
+        self.assertEqual(2, len(cells))
+        self.assertIn(SPLIT_DIMENSION_NAME, cells[0])
+
 @unittest.skip("not yet")
 class JoinAggregateCompositionTestCase(JoinsTestCaseBase):
     def setUp(self):
