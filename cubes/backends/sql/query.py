@@ -640,8 +640,8 @@ class QueryBuilder(object):
             dim = self.cube.dimension(dimname)
             self.semiadditive_dimension = dim
 
-            name = info.get("level")
-            self.semiadditive_level = dim.level(name)
+            name = info.get("attribute")
+            self.semiadditive_attribute = dim.attribute(name)
             self.semiadditive_function = info.get("function", "max")
         else:
             self.semiadditive_dimension = None
@@ -761,7 +761,7 @@ class QueryBuilder(object):
 
 
         # Semi-additive attribute
-        semiadditive_attribute = self.semiadditive_attribute(drilldown)
+        semiadditive_attribute = self.get_semiadditive_attribute(drilldown)
         if semiadditive_attribute:
             if self.snowflake.is_outer_detail(semiadditive_attribute):
                 detail.other_attributes.append(semiadditive_attribute)
@@ -1059,7 +1059,7 @@ class QueryBuilder(object):
 
         return split_column.label(label)
 
-    def semiadditive_attribute(self, drilldown):
+    def get_semiadditive_attribute(self, drilldown):
         """Returns an attribute from a semi-additive dimension, if defined for
         the cube. Cubes allows one semi-additive dimension. """
 
@@ -1071,20 +1071,19 @@ class QueryBuilder(object):
 
         dim = self.semiadditive_dimension
         # TODO: Use level not attribute?
-        attribute = dim.attribute(self.semiadditive_level)
 
         try:
             item = drilldown.drilldown_for_dimension(dim)
         except KeyError:
-            return attribute
+            return self.semiadditive_attribute
 
         # FIXME: the 'dow' is hard-wired
 
         if len(item.hierarchy.levels) > len(item.levels):
-            return attribute
+            return self.semiadditive_attribute
         elif len(item.hierarchy.levels) == len(item.levels):
             if len(item.levels) == 1 and item.levels[0].name == 'dow':
-                return attribute
+                return self.semiadditive_attribute
             else:
                 return None
 
