@@ -631,16 +631,28 @@ class Cube(object):
 
     @property
     def all_attributes(self):
-        """All cube's attributes: attributes of dimensions, details and
-        measures."""
+        """All cube's attributes from the fact: attributes of dimensions,
+        details and measures."""
         attributes = []
         for dim in self.dimensions:
             attributes += dim.all_attributes
 
         attributes += self.details
 
-        # TODO: do not include measures!!!
         attributes += self.measures
+
+        return attributes
+
+    @property
+    def all_aggregate_attributes(self):
+        """All cube's attributes for aggregation: attributes of dimensions and
+        aggregates.  """
+
+        attributes = []
+        for dim in self.dimensions:
+            attributes += dim.all_attributes
+
+        attributes += self.aggregates
 
         return attributes
 
@@ -661,34 +673,32 @@ class Cube(object):
             raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
                                        % (self.name, attribute))
 
-    def get_attributes(self, attributes, simplify=True, aggregated=False):
-        """Returns a list of cube's attributes (dimension attributes, details
-        and/or measures) according to the list `attributes`. If
-        `simplified_references` is `True` then dimension attribute references
-        in `attrubutes` are considered simplified, otherwise they are
-        considered as full (dim.attribute).
+    def get_attributes(self, attributes=None, simplify=True, aggregated=False):
+        """Returns a list of cube's attributes. If `aggregated` is `True` then
+        attributes after aggregation are returned, otherwise attributes for a
+        fact are considered.
 
-        If `aggregated` is `True` then dimension attributes and aggregates are
-        returned instead.
-        """
+        Aggregated attributes contain: dimension attributes and aggregates.
+        Fact attributes contain: dimension attributes, fact details and fact
+        measures.
 
-        names = [str(attr) for attr in attributes]
+        If the list `attributes` is empty, all attributes are returned.
+
+        If `simplified_references` is `True` then dimension attribute
+        references in `attrubutes` are considered simplified, otherwise they
+        are considered as full (dim.attribute)."""
+
+        names = [str(attr) for attr in attributes or []]
 
         if aggregated:
-            attributes = []
-            for dim in self.dimensions:
-                attributes += dim.all_attributes
-            attributes += self.aggregates
+            attributes = self.all_aggregate_attributes
         else:
             attributes = self.all_attributes
 
+        if not names:
+            return attributes
+
         attr_map = dict((a.ref(simplify), a) for a in attributes)
-
-        attributes += self.details
-
-        # TODO: do not include measures!!!
-        attributes += self.measures
-
 
         result = []
         for name in names:
@@ -1723,6 +1733,9 @@ class AttributeBase(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.ref())
 
     def to_dict(self, **options):
         # Use ordered dict for nicer JSON output

@@ -336,6 +336,7 @@ class CubesController(ApplicationController):
         elif header_type == "labels":
             attrs = []
             for l in result.labels:
+                # TODO: add a little bit of polish to this
                 if l == SPLIT_DIMENSION_NAME:
                     header.append('Matches Filters')
                 else:
