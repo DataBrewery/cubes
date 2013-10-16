@@ -9,31 +9,47 @@ multidimensional analysis and browsing of aggregated data.  It is part of
 
 .. _Data Brewery: http://databrewery.org/
 
-Contents:
+Getting Started
+---------------
 
-.. toctree::
-   :maxdepth: 2
-   
-   introduction
-   install
-   workspace
-   model
-   schemas
-   mapping
-   aggregate
-   computing
-   localization
-   formatters
-   configuration
-   server
-   slicer
-   reference/index
-   backends
-   develop
-   notes
+* :doc:`introduction`
+* :doc:`install`
+* :doc:`workspace`
+
+Data Modeling
+-------------
+
+* :doc:`model`
+* :doc:`schemas`
+* :doc:`localization`
+
+Data Aggregation and Browsing
+-----------------------------
+
+* :doc:`aggregate`
+* :doc:`formatters`
+
+Slicer Tool and OLAP Server
+---------------------------
+
+* :doc:`configuration`
+* :doc:`server`
+* :doc:`slicer`
+
+Backends
+--------
+
+* :doc:`backends/index`
+
+* :doc:`backends/sql`
+
+Developer's Reference
+---------------------
+
+* :doc:`reference/index`
 
 Contact and Getting Help
-------------------------
+========================
 
 If you have questions, problems or suggestions, you can send a message to 
 `Google group`_ or `write to the author`_ (Stefan Urbanek).

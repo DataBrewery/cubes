@@ -120,26 +120,8 @@ Example SQL store::
     url: postgresql://localhost/data
     schema: cubes
 
-Properties:
+For more information and configuration options see :doc:`backends/sql`.
 
-* ``url`` *(required)* – database URL in form: 
-  ``adapter://user:password@host:port/database``
-* ``schema`` *(optional)* – schema containing denormalized views for
-  relational DB cubes
-* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
-  dimension tables when no explicit mapping is specified
-* ``dimension_schema`` – use this option when dimension tables are stored in
-  different schema than the fact tables
-* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact
-  table for a cube, when no explicit fact table name is specified
-* ``use_denormalization`` *(optional)* – browser will use dernormalized view
-  instead of snowflake
-* ``denormalized_view_prefix`` *(optional, advanced)* – if denormalization is
-  used, then this prefix is added for cube name to find corresponding cube
-  view
-* ``denormalized_view_schema`` *(optional, advanced)* – schema wehere
-  denormalized views are located (use this if the views are in different
-  schema than fact tables, otherwise default schema is going to be used)
 
 
 Example

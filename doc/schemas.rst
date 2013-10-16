@@ -3,7 +3,9 @@ Schemas and Models
 ******************
 
 This section contains example database schemas and their respective models
-with description. The examples are based on the SQL backend.
+with description. The examples are for the SQL backend. Please refer to the
+backend documentation of your choice for more information about non-SQL
+setups.
 
 .. seealso::
 
@@ -13,14 +15,17 @@ with description. The examples are based on the SQL backend.
     :doc:`api/model`
         Reference of model classes and fucntions.
 
+    :doc:`backends`
+        Backend references.
+
 Basic Schemas
 =============
 
 Simple Star Schema
 ------------------
 
-*Synopsis: Fact table has the same name as the cube, dimension tables have same names as
-dimensions.*
+*Synopsis: Fact table has the same name as the cube, dimension tables have
+same names as dimensions.*
 
 Fact table is called `sales`, has one measure `amount` and two dimensions:
 `store` and `product`. Each dimension has two attributes.
@@ -49,7 +54,8 @@ Fact table is called `sales`, has one measure `amount` and two dimensions:
 Simple Dimension
 ----------------
 
-*Synopsis: Dimension is represented only by one attribute, has no details, neither hierarchy.*
+*Synopsis: Dimension is represented only by one attribute, has no details,
+neither hierarchy.*
 
 Similar schema as `Simple Star Schema`_ Note the dimension `year` which is
 represented just by one numeroc attribute.
@@ -91,22 +97,25 @@ prefix.*
 In our example the dimension tables have prefix ``dim_`` as in ``dim_product``
 or ``dim_store`` and facts have prefix ``fact_`` as in ``fact_sales``.
 
-There is no need to change the model, only configuration. In Python code we
-specify the prefix during workspace creation in :func:`cubes.create_worskspace`:
+There is no need to change the model, only the data store configuration. In
+Python code we specify the prefix during the data store registration in
+:meth:`cubes.Workspace.register_store`:
 
 .. code-block:: python
 
-    workspace = cubes.create_workspace("sql",
-                                       url=DATABASE_URL,
-                                       dimension_prefix="dim_",
-                                       fact_prefix="fact_")
+    workspace = Workspace()
+    workspace.register_store("default", "sql",
+                             url=DATABASE_URL,
+                             dimension_prefix="dim_",
+                             fact_prefix="fact_")
 
-When using the :doc:`server` we specify the prefixes in the ``[worskpace]``
+When using the :doc:`server` we specify the prefixes in the ``[datastore]``
 section of the `slicer.ini` configuration file:
 
 .. code-block:: ini
 
-    [workspacee]
+    [datastore]
+    ...
     dimension_prefix="dim_"
     fact_prefix="fact_"
 
@@ -114,58 +123,63 @@ section of the `slicer.ini` configuration file:
 Not Default Database Schema
 ---------------------------
 
-*Synopsis: all tables are stored in one common schema that is other than default database schema.*
+*Synopsis: all tables are stored in one common schema that is other than
+default database schema.*
 
 
 .. image:: images/schemas/schema-common_db_schema.png
     :align: center
 
 To specify database schema (in our example ``sales_datamart``) in Python pass
-it in the `schema` argument of :func:`cubes.create_workspace`:
+it in the `schema` argument of :meth:`cubes.Workspace.register_store`:
 
 .. code-block:: python
 
-    workspace = cubes.create_workspace("sql",
-                                       url=DATABASE_URL,
-                                       schema="sales_datamart")
+    workspace = Workspace()
+    workspace.register_store("default", "sql",
+                             url=DATABASE_URL,
+                             schema="sales_datamart")
 
-For the :doc:`server` the schema is specifiedn in the ``[workspace]`` section
+For the :doc:`server` the schema is specifiedn in the ``[datastore]`` section
 of the `slicer.ini` configuration file:
 
 .. code-block:: ini
 
-    [workspacee]
+    [datastore]
+    ...
     schema="sales_datamart"
 
 Separate Dimension Schema
 -------------------------
 
-*Synopsis: dimension tables share one database schema and fact tables share another
-database schema*
-
-
+*Synopsis: dimension tables share one database schema and fact tables share
+another database schema*
 
 .. image:: images/schemas/schema-different_db_schemas.png
     :align: center
 
-Dimensions can be stored in a different database schema than the fact table schema.
+Dimensions can be stored in a different database schema than the fact table
+schema.
 
-To specify database schema of dimensions (in our example ``dimensions``) in Python pass
-it in the `dimension_schema` argument of :func:`cubes.create_workspace`:
+To specify database schema of dimensions (in our example ``dimensions``) in
+Python pass it in the `dimension_schema` argument of
+:meth:`cubes.Workspace.register_store`:
 
 .. code-block:: python
 
-    workspace = cubes.create_workspace("sql",
+    workspace = Workspace()
+    workspace.register_store("default", "sql",
                                        url=DATABASE_URL,
                                        schema="facts",
                                        dimension_schema="dimensions")
 
-For the :doc:`server` the dimension schema is specifiedn in the ``[workspace]`` section
-of the `slicer.ini` configuration file:
+For the :doc:`server` the dimension schema is specifiedn in the
+``[datastore]`` section of the `slicer.ini` configuration file:
 
 .. code-block:: ini
 
-    [workspacee]
+    [datastore]
+    ...
     schema="facts"
     dimension_schema="dimensions"
 
@@ -250,10 +264,12 @@ mapping is required.
     "dimensions": [
         { 
           "name": "supplier",
-          "attributes": ["id", "name", "address"] }
+          "attributes": ["id", "name", "address"]
+        },
         { 
           "name": "client",
-          "attributes": ["id", "name", "address"] }
+          "attributes": ["id", "name", "address"
+        }
     ]
 
 
@@ -637,3 +653,4 @@ version of the master model:
 
     :meth:`cubes.Model.localize`
         Get localized version of the model.
+
