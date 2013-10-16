@@ -343,6 +343,9 @@ Example:
 
 Use either ``hierarchies`` or ``hierarchy``, using both results in an error.
 
+Dimension Templates
+~~~~~~~~~~~~~~~~~~~
+
 If you are creating more dimensions with the same or similar structure, such
 as multiple dates or different types of organisational relationships, you
 might create a template dimension and then use it as base for the other
@@ -373,7 +376,19 @@ new levels have to be specified again if they are different than in the
 original template dimension. However, you might want to just redefine
 hierarchies to omit unnecessary levels.
 
-Hierarchy levels are described as:
+.. note::
+
+    In mappings name of the new dimension should be used. The template
+    dimension was used only to create the new dimension and the connection
+    between the new dimension and the template is lost. In our example above,
+    if cube uses the `creation_date` and `closing_date` dimensions and any
+    mappings would be necessary, then they should be for those two dimensions,
+    not for the `date` dimension.
+
+Level
+-----
+
+Dimension hierarchy levels are described as:
 
 ================ ================================================================
 Key              Description
@@ -434,6 +449,9 @@ Example of supplier level of supplier dimension:
 
    :func:`cubes.create_level`
         Create level object from a description dictionary.
+
+Hierarchy
+---------
 
 Hierarchies are described as:
 
@@ -514,8 +532,14 @@ specified as:
 .. code-block:: javascript
 
     "attributes" = [
-        {"name" = "group_code"},
-        {"name" = "group_name", "order": "asc", "locales" = ["sk", "en", "hu"]}
+        {
+            "name" = "group_code"
+        },
+        {
+            "name" = "group_name",
+            "order": "asc",
+            "locales" = ["sk", "en", "hu"]
+        }
     ]
 
 
