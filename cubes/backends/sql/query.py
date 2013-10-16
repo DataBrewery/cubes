@@ -1,6 +1,7 @@
 # -*- coding=utf -*-
 
 from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
+from ...browser import SPLIT_DIMENSION_NAME
 from ...errors import *
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD
@@ -700,6 +701,11 @@ class QueryBuilder(object):
 
         drilldown = drilldown or Drilldown()
 
+        # Prepare the master/detail split
+        #
+        master = _StatementConfiguration()
+        detail = _StatementConfiguration()
+
         self.logger.debug("prepare aggregation statement. cell: '%s' "
                           "drilldown: '%s' summary only: %s" %
                           (",".join([str(cut) for cut in cell.cuts]),
@@ -709,30 +715,31 @@ class QueryBuilder(object):
         # -------------------
         # Get the cell attributes and find whether we have some outer details
         #
-        cut_attributes = self.attributes_for_cell_cuts(cell)
+        # Cut
+        # ~~~
+
+        mcuts, mattrs, dcuts, dattrs = self._split_cell_by_relationship(cell)
+        master.cuts += mcuts
+        master.cut_attributes += mattrs
+        detail.cuts += dcuts
+        detail.cut_attributes += dattrs
+
+        # Split
+        # ~~~~~
+        # Same as Cut, just different target
+
+        mcuts, mattrs, dcuts, dattrs = self._split_cell_by_relationship(split)
+        master.split_cuts += mcuts
+        master.split_attributes += mattrs
+        detail.split_cuts += dcuts
+        detail.split_attributes += dattrs
+
+        # Drilldown
+        # ~~~~~~~~~
+
         drilldown_attributes = drilldown.all_attributes()
-
-        # Prepare the master/detail split
-        #
-        master = _StatementConfiguration()
-        detail = _StatementConfiguration()
-
-        for cut, attributes in cut_attributes:
-            is_outer_detail = [self.snowflake.is_outer_detail(a) for a in attributes]
-
-            if all(is_outer_detail):
-                detail.cut_attributes += attributes
-                detail.cuts.append(cut)
-            elif any(is_outer_detail):
-                raise InternalError("Cut %s is spreading from master to "
-                                    "outer detail is not supported."
-                                    % str(cut))
-            else:
-                master.cut_attributes += attributes
-                master.cuts.append(cut)
-
         master.attributes, detail.attributes = \
-                self.split_attributes_by_relationship(drilldown_attributes)
+                self._split_attributes_by_relationship(drilldown_attributes)
 
         # Period-to-date
         #
@@ -741,7 +748,7 @@ class QueryBuilder(object):
         # list of conditions
 
         ptd_attributes = self._ptd_attributes(cell, drilldown)
-        ptd_master, ptd_detail = self.split_attributes_by_relationship(ptd_attributes)
+        ptd_master, ptd_detail = self._split_attributes_by_relationship(ptd_attributes)
         if ptd_master and ptd_detail:
             raise InternalError("PTD attributes are spreading from master "
                                 "to outer detail. This is not supported.")
@@ -810,6 +817,13 @@ class QueryBuilder(object):
             selection = [self.column(a) for a in set(master.attributes)]
             group_by = selection[:]
 
+            # SPLIT
+            # -----
+            if split:
+                master_split = self._cell_split_column(master.split_cuts)
+                group_by.append(master_split)
+                selection.append(master_split)
+
             # JOIN
             # ----
             attributes = set(aggregates) | master.all_attributes
@@ -867,6 +881,16 @@ class QueryBuilder(object):
                             + master_selection \
                             + master_detail_selection
 
+            # SPLIT
+            # -----
+            if master.split_cuts:
+                master_split = self._cell_split_column(master.split_cuts,
+                                                       "__master_split")
+                group_by.append(master_split)
+                selection.append(master_split)
+            else:
+                master_split = None
+
             # Add the fact key – to properely handle COUNT()
             selection.append(self.snowflake.fact_key_column)
 
@@ -903,6 +927,26 @@ class QueryBuilder(object):
 
             selection = master_selection + detail_selection
             group_by = detail_selection[:]
+
+            # SPLIT
+            # -----
+            if detail.split_cuts:
+                if master_split:
+                    # Merge the detail and master part of the split "dimension"
+                    master_split = self.master_fact.c["__master_split"]
+                    detail_split = self._cell_split_column(detail.split_cuts,
+                                        "__detail_split")
+                    split_condition = (master_split and detail_split)
+                    detail_split = sql.expression.case([(split_condition, True)],
+                                                       else_=False)
+                    detail_split.label(SPLIT_DIMENSION_NAME)
+                else:
+                    # We have only detail split, no need to merge the
+                    # condition
+                    detail_split = self._cell_split_column(detail.split_cuts)
+
+                selection.append(detail_split)
+                group_by.append(detail_split)
 
             # JOIN
             # ----
@@ -958,6 +1002,62 @@ class QueryBuilder(object):
         self.split = split
 
         return self.statement
+
+    def _split_attributes_by_relationship(self, attributes):
+        """Returns a tuple (`master`, `detail`) where `master` is a list of
+        attributes that have master/match relationship towards the fact and
+        `detail` is a list of attributes with outer detail relationship
+        towards the fact."""
+        master = []
+        detail = []
+        for attribute in attributes:
+            if self.snowflake.is_outer_detail(attribute):
+                detail.append(attribute)
+            else:
+                master.append(attribute)
+
+        return (master, detail)
+
+    def _split_cell_by_relationship(self, cell):
+        """Returns a tuple of _StatementConfiguration objects (`master`,
+        `detail`)"""
+
+        if not cell:
+            return ([], [], [], [])
+
+        master_cuts = []
+        master_cut_attributes = []
+        detail_cuts = []
+        detail_cut_attributes = []
+
+        for cut, attributes in self.attributes_for_cell_cuts(cell):
+            is_outer_detail = [self.snowflake.is_outer_detail(a) for a in attributes]
+
+            if all(is_outer_detail):
+                detail_cut_attributes += attributes
+                detail_cuts.append(cut)
+            elif any(is_outer_detail):
+                raise InternalError("Cut %s is spreading from master to "
+                                    "outer detail is not supported."
+                                    % str(cut))
+            else:
+                master_cut_attributes += attributes
+                master_cuts.append(cut)
+
+        return (master_cuts, master_cut_attributes,
+                detail_cuts, detail_cut_attributes)
+
+    def _cell_split_column(self, cuts, label=None):
+        """Create a column for a cell split from list of `cust`."""
+
+        conditions = self.conditions_for_cuts(cuts)
+        condition = condition_conjunction(conditions)
+        split_column = sql.expression.case([(condition, True)],
+                                           else_=False)
+
+        label = label or SPLIT_DIMENSION_NAME
+
+        return split_column.label(label)
 
     def semiadditive_attribute(self, drilldown):
         """Returns an attribute from a semi-additive dimension, if defined for
@@ -1032,21 +1132,6 @@ class QueryBuilder(object):
         join_expression = from_obj.join(sub_statement, join_condition)
 
         return join_expression
-
-    def split_attributes_by_relationship(self, attributes):
-        """Returns a tuple (`master`, `detail`) where `master` is a list of
-        attributes that have master/match relationship towards the fact and
-        `detail` is a list of attributes with outer detail relationship
-        towards the fact."""
-        master = []
-        detail = []
-        for attribute in attributes:
-            if self.snowflake.is_outer_detail(attribute):
-                detail.append(attribute)
-            else:
-                master.append(attribute)
-
-        return (master, detail)
 
     def denormalized_statement(self, cell=None, attributes=None,
                                expand_locales=False, include_fact_key=True):
