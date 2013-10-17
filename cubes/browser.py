@@ -223,17 +223,17 @@ class AggregationBrowser(object):
 
         hc_dimensions = drilldown.high_cardinality_dimensions()
         if hc_dimensions:
-            names = [dim.name for dim in hc_dimensions]
+            names = [str(dim) for dim in hc_dimensions]
             names = ", ".join(names)
-            raise ArgumentError("Cannot drilldown on high-cardinality "
+            raise ArgumentError("Can not drilldown on high-cardinality "
                                 "dimensions (%s) without including both "
                                 "page_size and page arguments" % names)
 
         hc_levels = drilldown.high_cardinality_levels(cell)
         if hc_levels:
-            names = [dim.name for dim in hc_dimensions]
+            names = [str(level) for level in hc_levels]
             names = ", ".join(names)
-            raise ArgumentError("Cannot drilldown on high-cardinality "
+            raise ArgumentError("Can not drilldown on high-cardinality "
                                 "levels (%s) without including both "
                                 "page_size and page arguments" % names)
 
@@ -1689,7 +1689,7 @@ class Drilldown(object):
             for level in item.levels:
                 if level.cardinality == "high" \
                         and not cell.contains_level(dim, level, hier):
-                    not_contained.append("level")
+                    not_contained.append(level)
 
             if not_contained:
                 return not_contained
