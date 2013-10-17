@@ -84,9 +84,9 @@ Logical part of the model description:
   localizable models)*
 * ``cubes`` – list of cubes metadata (see below)
 * ``dimensions`` – list of dimension metadata (see below)
-* ``public_dimensions`` – list of dimension names that will be exported from the
-  model as public and might be shared by cubes from other models. By default,
-  all model's dimensions are considered public.
+* ``public_dimensions`` – list of dimension names that will be exported from
+  the model as public and might be shared by cubes from other models. By
+  default, all model's dimensions are considered public.
 
 Physical part of the model description:
 
@@ -125,7 +125,8 @@ The ``joins`` can be considered as named templates. They should contain
 ``name`` property that will be referenced by a cube.
 
 
-Vsibility: The joins and mappings are local to a single model. They are not shared within
+Vsibility: The joins and mappings are local to a single model. They are not
+shared within
 the workspace.
 
 Inheritance
@@ -343,8 +344,8 @@ Example:
         }
     ]
 
-`Measure aggregate` is a value computed by aggregating measures over facts. It's
-properties are:
+`Measure aggregate` is a value computed by aggregating measures over facts.
+It's properties are:
 
 * ``name`` – aggregate identifier, such as: `amount_sum`, `price_avg`,
   `total`, `record_count`
