@@ -12,41 +12,65 @@ multidimensional analysis and browsing of aggregated data.  It is part of
 Getting Started
 ---------------
 
-* :doc:`introduction`
-* :doc:`install`
-* :doc:`tutorial`
+.. toctree::
+    :maxdepth: 2
+
+    introduction
+    install
+    tutorial
 
 Data Modeling
 -------------
 
-* :doc:`model`
-* :doc:`schemas`
-* :doc:`localization`
+.. toctree::
+    :maxdepth: 2
 
-Data Aggregation and Browsing
------------------------------
+    model
+    schemas
+    localization
 
-* :doc:`workspace`
-* :doc:`formatters`
+Aggregation, Slicing and Dicing
+-------------------------------
 
-Slicer Tool and OLAP Server
----------------------------
+.. toctree::
+    :maxdepth: 2
 
-* :doc:`configuration`
-* :doc:`server`
-* :doc:`slicer`
+    slicing_and_dicing
+    formatters
+
+Analytical Workspace
+--------------------
+
+.. toctree::
+    :maxdepth: 2
+
+    workspace
+    configuration
+
+Slicer Server and Tool
+----------------------
+
+.. toctree::
+    :maxdepth: 2
+
+    server
+    slicer
 
 Backends
 --------
 
-* :doc:`backends/index`
+.. toctree::
+    :maxdepth: 2
 
-* :doc:`backends/sql`
+    backends/index
 
 Developer's Reference
 ---------------------
 
-* :doc:`reference/index`
+.. toctree::
+    :maxdepth: 2
+
+    reference/index
 
 Contact and Getting Help
 ========================

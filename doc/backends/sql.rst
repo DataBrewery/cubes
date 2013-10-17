@@ -305,7 +305,7 @@ separate logical reference parts.
     stored in their own columns. In other words, you have to denormalize the
     localized data before using them in Cubes.
 
-Read more about :doc:`localization`.
+Read more about :doc:`../localization`.
 
   
 Mapping Process Summary

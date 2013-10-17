@@ -9,6 +9,7 @@ Contents:
 
     workspace
     model
+    providers
     browser
     formatter
     backends
