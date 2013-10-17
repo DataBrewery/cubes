@@ -224,6 +224,7 @@ class AggregationBrowser(object):
         hc_dimensions = drilldown.high_cardinality_dimensions()
         if hc_dimensions:
             names = [dim.name for dim in hc_dimensions]
+            names = ", ".join(names)
             raise ArgumentError("Cannot drilldown on high-cardinality "
                                 "dimensions (%s) without including both "
                                 "page_size and page arguments" % names)
@@ -231,6 +232,7 @@ class AggregationBrowser(object):
         hc_levels = drilldown.high_cardinality_levels(cell)
         if hc_levels:
             names = [dim.name for dim in hc_dimensions]
+            names = ", ".join(names)
             raise ArgumentError("Cannot drilldown on high-cardinality "
                                 "levels (%s) without including both "
                                 "page_size and page arguments" % names)
@@ -864,8 +866,9 @@ class Cell(object):
         dimension = self.cube.dimension(dimension)
         cuts = []
         for cut in self.cuts:
-            if (exclude and cut.dimension != dimension) \
-                    or (not exclude and cut.dimension == dimension):
+            cut_dimension = self.cube.dimension(cut.dimension)
+            if (exclude and cut_dimension != dimension) \
+                    or (not exclude and cut_dimension == dimension):
                 cuts.append(cut)
         return cuts
 
@@ -1661,17 +1664,11 @@ class Drilldown(object):
         return levels
 
         return levels
-    def is_high_cardinality(self):
-        """Returns `True` if the drilldown is through a dimension or a
-        dimension level of high cardinality (as specified in the metadata.).
-        You can use this method as a hint to prevent retrieving and sending
-        huge results to the client."""
 
-        return bool(self.high_cardinality_dimensin_drilldown()) or \
-                bool(self.high_cardinality_level_drilldown())
+    def high_cardinality_dimensions(self, cell=None):
+        """Returns list of dimensions in the drilldown that are
+        of high-cardinality."""
 
-    def high_cardinality_dimension_drilldown(self):
-        """Returns drilldown items with high cardinality dimensions."""
         items = []
         for item in self.drilldown:
             dim = item.dimension
@@ -1679,38 +1676,23 @@ class Drilldown(object):
             if dim.cardinality == "high":
                 items.append(item)
 
-        return items
-
-    def high_cardinality_level_drilldown(self):
-        """Returns drilldown items with high cardinality levels."""
-        items = []
-        for item in self.drilldown:
-            for level in item.levels:
-                if level.cardinality == "high":
-                    items.append(item)
-
-        return items
-
-    def high_cardinality_dimensions(self, cell=None):
-        """Returns list of dimensions in the drilldown that are
-        of high-cardinality."""
-
-        items = self.high_cardinality_dimension_drilldown()
         return [item.dimension for item in items]
 
     def high_cardinality_levels(self, cell):
         """Returns list of levels in the drilldown that are of high
         cardinality and there is no cut for that level in the `cell`."""
 
-        items = self.high_cardinality_level_drilldown()
-
-        for item in items:
+        for item in self.drilldown:
             dim, hier, levels = item[0:3]
+            not_contained = []
 
-            hc_levels = [l for l in levels if l.info.get('high_cardinality')]
+            for level in item.levels:
+                if level.cardinality == "high" \
+                        and not cell.contains_level(dim, level, hier):
+                    not_contained.append("level")
 
-            if not all(cell.contains_level(dim, l, hier) for l in hc_levels):
-                return hc_levels
+            if not_contained:
+                return not_contained
 
         return []
 
