@@ -243,7 +243,7 @@ Measures and Aggregates
 
     Measure and measure aggregate
 
-Measures are numerical properties of a fact. They might be represented, for
+`Measures` are numerical properties of a fact. They might be represented, for
 example, as a table column. Measures are aggregated into measure aggregates.
 The measure is described as:
 
@@ -258,7 +258,22 @@ The measure is described as:
 .. ``formula`` – name of formula
 .. ``expression`` – arithmetic expression
 
-Measure aggregate is a value computed by aggregating measures over facts. It's
+Example:
+
+.. code-block:: javascript
+
+    "measures": [
+        {
+            "name": "amount",
+            "label": "Sales Amount"
+        },
+        {
+            "name": "vat",
+            "label": "VAT"
+        }
+    ]
+
+`Measure aggregate` is a value computed by aggregating measures over facts. It's
 properties are:
 
 * ``name`` – aggregate identifier, such as: `amount_sum`, `price_avg`,
@@ -269,6 +284,92 @@ properties are:
 * ``function`` - name of an aggregate function applied to the `measure`, if
   known. For example: `sum`, `min`, `max`.
 * ``info`` – additional custom information (unspecified)
+
+Example:
+
+.. code-block:: javascript
+
+    "aggregates": [
+        {
+            "name": "amount_sum",
+            "label": "Total Sales Amount",
+            "measure": "amount",
+            "function": "sum"
+        },
+        {
+            "name": "vat_sum",
+            "label": "Total VAT",
+            "measure": "vat",
+            "function": "sum"
+        },
+        {
+            "name": "item_count",
+            "label": "Item Count",
+            "function": "count"
+        }
+    ]
+
+Note the last aggregate ``item_count`` – it counts number of the facts within
+a cell. No measure required as a source for the aggregate.
+
+If no aggregates are specified, Cubes generates default aggregates from the
+measures. For a measure:
+
+.. code-block:: javascript
+
+    "measures": [
+        {
+            "name": "amount",
+            "aggregates": ["sum", "min", "max"]
+        }
+    ]
+    
+The following aggregates are created:
+
+.. code-block:: javascript
+
+    "aggregates" = [
+        {
+            "name": "amount_sum",
+            "measure": "amount",
+            "function": "sum"
+        },
+        {
+            "name": "amount_min",
+            "measure": "amount",
+            "function": "min"
+        },
+        {
+            "name": "amount_max",
+            "measure": "amount",
+            "function": "max"
+        }
+    ]
+
+If there is a list of aggregates already specified in the cube explicitly,
+both lists are merged together.
+
+.. note::
+
+    To prevent automated creation of default aggregates from measures, there
+    is an advanced cube option ``implicit_aggergates``. Set this property to
+    `False` if you want to keep only explicit list of aggregates.
+
+
+In previous version of Cubes there was omnipresent measure aggregate
+called ``record_count``. It is no longer provided by default and has to be
+explicitly defined in the model. The name can be of any choice, it is not
+a built-in aggregate anymore. To keep the original behavior, the following
+aggregate should be added:
+
+.. code-block:: javascript
+
+    "aggregates": [
+        {
+            "name": "record_count",
+            "function": "count"
+        }
+    ]
 
 .. note::
 
@@ -292,14 +393,6 @@ properties are:
 
    :class:`cubes.MeasureAggregate`
         Measure Aggregate class reference.
-
-   :doc:`mapping`
-
-Advanced cube options:
-
-* `implicit_aggergates`: generate aggregates from measures. Default is `True`.
-  Set this property to `False` if you want to keep only explicit list of
-  aggregates.
 
 Dimensions
 ----------
