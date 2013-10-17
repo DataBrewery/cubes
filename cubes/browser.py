@@ -199,15 +199,27 @@ class AggregationBrowser(object):
 
             attribute = None
             if is_aggregate:
+                function = None
                 try:
                     attribute = self.cube.measure_aggregate(name)
+                    function = attribute.function
                 except NoSuchAttributeError:
                     attribute = self.cube.attribute(name)
-                else:
-                    if not self.is_builtin_function(attribute.function, attribute):
-                        self.logger.warn("ignoring ordering of post-processed "
-                                         "aggregate %s" % attribute.name)
-                        attribute = None
+
+                if function and not self.is_builtin_function(function,
+                                                             attribute):
+                    # TODO: Temporary solution: get the original measure instead
+
+                    try:
+                        name = str(attribute.measure)
+                        measure = self.cube.measure_aggregate(name)
+                    except NoSuchAttributeError:
+                        measure = self.cube.measure(name)
+
+                    self.logger.warn("ordering of post-processed aggregate"
+                                     " %s will be based on measure %s"
+                                     % (attribute.name, measure.name))
+                    attribute = measure
             else:
                 attribute = self.cube.attribute(name)
 
