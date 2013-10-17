@@ -163,7 +163,18 @@ The level description:
 * ``order_attribute`` – name of an attribute that the level should be ordered
   by (optional)
 * ``order`` – order direction ``asc``, ``desc`` or none.
+* ``cardinality`` – symbolic approximation of the number of level's members 
 * ``info`` – additional custom information (unspecified)
+
+Cardinality values and their meaning:
+
+* ``tiny`` – few values, each value can have it's representation on the
+  screen, recommended: up to 5.
+* ``low`` – can be used in a list UI element, recommended 5 to 50 (if sorted)
+* ``medium`` – UI element is a search/text field, recommended for more than 50
+  elements
+* ``high`` – backends might refuse to yield results without explicit
+  pagination or cut through this level.
 
 .. note::
 
