@@ -1676,7 +1676,7 @@ class Drilldown(object):
         for item in self.drilldown:
             dim = item.dimension
 
-            if dim.info.get("high_cardinality"):
+            if dim.cardinality == "high":
                 items.append(item)
 
         return items
@@ -1686,7 +1686,7 @@ class Drilldown(object):
         items = []
         for item in self.drilldown:
             for level in item.levels:
-                if level.info.get("high_cardinality"):
+                if level.cardinality == "high":
                     items.append(item)
 
         return items
