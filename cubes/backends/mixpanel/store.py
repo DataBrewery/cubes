@@ -134,7 +134,7 @@ class MixpanelModelProvider(ModelProvider):
 
         try:
             metadata = self.cube_metadata(name)
-        except ModelError:
+        except NoSuchCubeError:
             metadata = {}
 
         options = self.cube_options(name)
