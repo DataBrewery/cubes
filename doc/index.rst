@@ -14,7 +14,7 @@ Getting Started
 
 * :doc:`introduction`
 * :doc:`install`
-* :doc:`workspace`
+* :doc:`tutorial`
 
 Data Modeling
 -------------
@@ -26,7 +26,7 @@ Data Modeling
 Data Aggregation and Browsing
 -----------------------------
 
-* :doc:`aggregate`
+* :doc:`workspace`
 * :doc:`formatters`
 
 Slicer Tool and OLAP Server
