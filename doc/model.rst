@@ -488,6 +488,7 @@ hierarchies            list of dimension hierarchies
 hierarchy              if dimension has only one hierarchy, you can
                        specify it under this key 
 default_hierarchy_name name of a hierarchy that will be used as default
+cardinality            dimension cardinality (see Level for more info)
 info                   custom info, such as formatting. Not used by cubes 
                        framework.
 template               name of a dimension that will be used as template 
@@ -570,6 +571,7 @@ label_attribute  name of attribute containing label to be displayed (customer
                  month name for month level)
 order_attribute  name of attribute that is used for sorting, default is the
                  first attribute (key)
+cardinality      symbolic approximation of the number of level's members 
 info             custom info, such as formatting. Not used by cubes 
                  framework.
 ================ ================================================================
@@ -612,6 +614,20 @@ Example of supplier level of supplier dimension:
 
    :func:`cubes.create_level`
         Create level object from a description dictionary.
+
+Cardinality
+~~~~~~~~~~~
+
+The `cardinality` property is used optionally by backends and front-ends for
+various purposes. The possible values are:
+
+* ``tiny`` – few values, each value can have it's representation on the
+  screen, recommended: up to 5.
+* ``low`` – can be used in a list UI element, recommended 5 to 50 (if sorted)
+* ``medium`` – UI element is a search/text field, recommended for more than 50
+  elements
+* ``high`` – backends might refuse to yield results without explicit
+  pagination or cut through this level.
 
 Hierarchy
 ---------
