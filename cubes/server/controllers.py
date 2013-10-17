@@ -11,6 +11,7 @@ from .common import API_VERSION, TEMPLATE_PATH
 from .common import validated_parameter, str_to_bool
 from .common import SlicerJSONEncoder, CSVGenerator
 from .caching import cacheable
+from ..browser import SPLIT_DIMENSION_NAME
 
 try:
     from werkzeug.wrappers import Response
@@ -334,7 +335,7 @@ class CubesController(ApplicationController):
         if header_type == "names":
             header = result.labels
         elif header_type == "labels":
-            attrs = []
+            header = []
             for l in result.labels:
                 # TODO: add a little bit of polish to this
                 if l == SPLIT_DIMENSION_NAME:
