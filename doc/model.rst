@@ -62,9 +62,8 @@ in geographical names, that is: `country.name` and `region.name`.
 .. How the physical attributes are located is described in the :doc:`mapping` 
 .. chapter.
 
-Logical Model Metadata
-======================
-
+Model
+=====
 
 The logical model is described using `model metadata dictionary`. The content
 is description of logical objects, physical storage and other additional
@@ -116,7 +115,7 @@ Example model snippet:
 Mappings and Joins
 ------------------
 
-One can specifi shared mappings and joins on the model-level. Those mappings
+One can specify shared mappings and joins on the model-level. Those mappings
 and joins are inherited by all the cubes in the model.
 
 The ``mappigns`` dictionary of a cube is merged with model's global mapping
@@ -124,6 +123,58 @@ dictionary. Cube's values overwrite the model's values.
 
 The ``joins`` can be considered as named templates. They should contain
 ``name`` property that will be referenced by a cube.
+
+
+Vsibility: The joins and mappings are local to a single model. They are not shared within
+the workspace.
+
+Inheritance
+~~~~~~~~~~~
+
+.. TODO: move this into recipes
+
+Cubes in a model will inherint mappings and joins from the model. The mappings
+are merged in a way that cube's mappings replace existing model's
+mappings with the same name. Joins are concatenated or merged by their name.
+
+Example from the SQL backend: Say you would like to join a date dimension
+table in ``dim_date`` to every cube. Then you specify the join at the model
+level as:
+
+.. code-block:: json
+
+    "joins": [
+        {
+            "name": "date",
+            "detail": "dim_date.date_id",
+            "method": "match"
+        }
+    ]
+
+The join has a name specified, which is used to match joins in the cube. Note
+that the join contains incimplete information: it contains only the ``detail``
+part, that is the dimension key. To use the join in a cube which has two date
+dimensions `start date` and `end date`:
+
+.. code-block:: json
+
+    "joins": [
+        {
+            "name": "date",
+            "master": "fact_contract.contract_start_date_id",
+        },
+        {
+            "name": "date",
+            "master": "fact_sales.contract_sign_date_id",
+        }
+    ]
+
+The model's joins are searched for a template with given name and then cube
+completes (or even replaces) the join information.
+
+For more information about mappings and joins refer to the :doc:`backend
+documentation<backends/index>` for your data store, such as
+:doc:`SQL<backends/sql>`
 
 File Representation
 -------------------
@@ -159,7 +210,8 @@ The provider receives the model's metadata and the model's data store (if the
 provider so desires). Then the provider generates all the cubes and the
 dimensions.
 
-Example of provided model:
+Example of a model that is provided from an external source
+(:doc:`Mixpanel<backends/mixpanel>`):
 
 .. code-block:: javascript
 
@@ -183,9 +235,27 @@ Example of provided model:
     :func:`cubes.StaticModelProvider`
         Create model from a dictionary.
 
+Dimension Visibility
+--------------------
+
+All dimensions from a static (file) model are shared in the workspace by
+default. That means that the dimensions can be reused freely among cubes from
+different models.
+
+One can define a master model with dimensions only and no cubes. Then define
+one model per cube category, datamart or any other categorization. The models
+can share the master model dimensions.
+
+To expose only certain dimensions from a model specify a list of dimension
+names in the ``public_dimensions`` model property. Only dimensions from the
+list can be shared by other cubes in the workspace.
+
+.. note:: 
+
+    Some backends, such as Mixpanel, don't share dimensions at all.
 
 Cubes
------
+=====
 
 Cube descriptions are stored as a dictionary for key ``cubes`` in the model
 description dictionary or in json files with prefix ``cube_`` like
@@ -235,7 +305,7 @@ Example:
     }
 
 Measures and Aggregates
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 
 .. figure:: images/cubes-measure_vs_aggregate.png
     :align: center
@@ -395,7 +465,7 @@ aggregate should be added:
         Measure Aggregate class reference.
 
 Dimensions
-----------
+==========
 
 Dimension descriptions are stored in model dictionary under the key
 ``dimensions``.
@@ -437,7 +507,7 @@ Example:
 Use either ``hierarchies`` or ``hierarchy``, using both results in an error.
 
 Dimension Templates
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 If you are creating more dimensions with the same or similar structure, such
 as multiple dates or different types of organisational relationships, you
