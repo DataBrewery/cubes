@@ -1499,13 +1499,12 @@ class Level(object):
 
     Cardinality values:
 
-    * `tiny` – few values, each value can have it's representation on the
+    * ``tiny`` – few values, each value can have it's representation on the
       screen, recommended: up to 5.
-    * `low` – can be used in a list UI element, recommended 5 to 50 (if
-      sorted)
-    * `medium` – UI element is a search/text field, recommended for more than
-      50 elements
-    * `large` – backends might refuse to yield results without explicit
+    * ``low`` – can be used in a list UI element, recommended 5 to 50 (if sorted)
+    * ``medium`` – UI element is a search/text field, recommended for more than 50
+      elements
+    * ``high`` – backends might refuse to yield results without explicit
       pagination or cut through this level.
 
     """

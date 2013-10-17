@@ -24,6 +24,7 @@ syn match Keyword "\"hierarchy\"" display
 syn match Keyword "\"attributes\"" display
 syn match Keyword "\"measures\"" display
 syn match Keyword "\"template\"" display
+syn match Keyword "\"cardinality\"" display
 
 syn match Keyword "\"name\"" display
 syn match Keyword "\"label\"" display
