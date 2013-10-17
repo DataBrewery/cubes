@@ -1696,7 +1696,7 @@ class Drilldown(object):
         of high-cardinality."""
 
         items = self.high_cardinality_dimension_drilldown()
-        return [item.dim for item in items]
+        return [item.dimension for item in items]
 
     def high_cardinality_levels(self, cell):
         """Returns list of levels in the drilldown that are of high
