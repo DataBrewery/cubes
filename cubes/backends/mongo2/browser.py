@@ -94,7 +94,7 @@ class Mongo2Browser(AggregationBrowser):
         if drilldown or split:
             drilldown = Drilldown(drilldown, cell)
 
-            if page_size and page is not None:
+            if not (page_size and page is not None):
                 self.assert_low_cardinality(cell, drilldown)
 
             result.levels = drilldown.result_levels(include_split=bool(split))
