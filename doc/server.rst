@@ -680,8 +680,8 @@ Report queries might contain ``rollup`` specification which will result in
 "rolling-up" one or more dimensions to desired level. This functionality is
 provided for cases when you would like to report at higher level of
 aggregation than the cell you provided is in. It works in similar way as drill
-down in :ref:`serveraggregate` but in the opposite direction (it is like ``cd
-..`` in a UNIX shell).
+down in ``/aggregate`` but in the opposite direction (it is like ``cd ..`` in
+a UNIX shell).
 
 Example: You are reporting for year 2010, but you want to have a bar chart
 with all years. You specify rollup:
