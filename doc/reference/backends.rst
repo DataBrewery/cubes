@@ -25,17 +25,10 @@ Browser
 -------
 
 .. autoclass:: cubes.backends.sql.browser.SnowflakeBrowser
-.. autoclass:: cubes.backends.sql.browser.QueryContext
-
-.. note::
-
-   :class:`cubes.QueryContext` does not serve to it's original purpose anymore
-   and will be verylikely meerged with the browser.
+.. autoclass:: cubes.backends.sql.query.QueryBuilder
 
 Slicer
 ======
-
-This backend is just for backend development demonstration purposes.
 
 .. autoclass:: cubes.backends.slicer.SlicerBrowser
 

@@ -28,6 +28,12 @@ The result of aggregated browsing is returned as object:
 .. autoclass:: cubes.CalculatedResultIterator
     :members:
 
+Facts
+-----
+
+.. autoclass:: cubes.Facts
+    :members:
+
 Slicing and Dicing
 ==================
 
@@ -77,5 +83,5 @@ Mapper
 ------
 
 .. autoclass:: cubes.Mapper
-.. autoclass:: cubes.SnowflakeMapper
-.. autoclass:: cubes.DenormalizedMapper
+.. autoclass:: cubes.backends.sql.mapper.SnowflakeMapper
+.. autoclass:: cubes.backends.mongo2.mapper.Mongo2Mapper

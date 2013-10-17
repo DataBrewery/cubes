@@ -12,11 +12,11 @@ setups.
     :doc:`model`
         Logical model description.
 
-    :doc:`api/model`
-        Reference of model classes and fucntions.
-
-    :doc:`backends`
+    :doc:`backends/index`
         Backend references.
+
+    :doc:`reference/model`
+        Developer's reference of model classes and fucntions.
 
 Basic Schemas
 =============

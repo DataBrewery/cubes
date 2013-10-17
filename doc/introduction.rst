@@ -64,9 +64,9 @@ Core cube features:
   hierarchies, attributes, labels, localizations.
   (see :doc:`docs<model>`, :doc:`reference<reference/model>`) 
 * **Browser** - Aggregation browsing, slicing-and-dicing, drill-down.
-  (see :doc:`docs<aggregate>`, :doc:`reference<reference/browser>`) 
+  (see :doc:`docs<browser>`, :doc:`reference<reference/browser>`) 
 * **Backend** - Actual aggregation implementation and utility functions.
-  (see :doc:`docs<backends>`, :doc:`reference<reference/backends>`) 
+  (see :doc:`docs<backends/index>`, :doc:`reference<reference/backends>`) 
 * **Server** - WSGI HTTP server for Cubes
   (see :doc:`docs<server>`, :doc:`reference<reference/server>`) 
 * **Formatters** - Data formatters

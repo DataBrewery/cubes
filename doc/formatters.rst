@@ -27,5 +27,5 @@ Available formmaters:
 
 .. seealso::
 
-    :doc:`api/formatter`
+    :doc:`reference/formatter`
         Formatter reference
