@@ -366,7 +366,7 @@ class Mongo2Browser(AggregationBrowser):
             try:
                 function = get_aggregate_function(agg.function)
             except KeyError:
-                continue
+                function = None
 
             phys = self.mapper.physical(agg)
             fields_obj[escape_level(agg.ref())] = phys.project_expression()
@@ -380,9 +380,13 @@ class Mongo2Browser(AggregationBrowser):
 
             if phys.group:
                 group = phys.group
-            else:
+            elif function:
                 group_applicator = function["group_by"]
                 group = group_applicator(escape_level(agg.ref()))
+            else:
+                raise ModelError("Neither function or mapping group specified "
+                                 "for aggregate '%s' in cube '%s'"
+                                 % (str(agg), str(self.cube)))
 
             group_obj[ escape_level(agg.ref()) ] = group
 
@@ -673,6 +677,7 @@ class MongoFactsIterator(Facts):
             fact = collapse_record(fact)
 
             record = {}
+
             for attribute in self.attributes:
                 physical = self.mapper.physical(attribute)
                 value = fact.get(physical.field, attribute.missing_value)
