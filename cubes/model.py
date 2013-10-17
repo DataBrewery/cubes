@@ -857,7 +857,7 @@ class Dimension(object):
     """
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
-                 info=None, type_=None, **desc):
+                 info=None, type_=None, cardinality=None, **desc):
 
         """Create a new dimension
 
@@ -875,6 +875,11 @@ class Dimension(object):
           application/front-end specific information (icon, color, ...)
         * `type` – one of recognized special dimension types. Currently
           supported is only ``date``.
+        * `cardinality` – cardinality of the dimension members. Used
+          optionally by the backends for load protection and frontends for
+          better auto-generated front-ends. See :class:`Level` for more
+          information, as this attribute is inherited by the levels, if not
+          specified explicitly in the level.
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -890,6 +895,7 @@ class Dimension(object):
         self.description = description
         self.info = info or {}
         self.type = type_
+        self.cardinality = cardinality
 
         if not levels:
             raise ModelError("No levels specified for dimension %s"
@@ -939,9 +945,12 @@ class Dimension(object):
     def __eq__(self, other):
         if other is None or type(other) != type(self):
             return False
-        if self.name != other.name or self.label != other.label \
-            or self.description != other.description:
+        if self.name != other.name \
+                or self.label != other.label \
+                or self.description != other.description \
+                or self.cardinality != other.cardinality:
             return False
+
         elif self._default_hierarchy() != other._default_hierarchy():
             return False
 
@@ -1078,6 +1087,7 @@ class Dimension(object):
         out["info"] = self.info
         out["default_hierarchy_name"] = self.hierarchy().name
         out["type"] = self.type
+        out["cardinality"] = self.cardinality
 
         if options.get("create_label"):
             out["label"] = self.label or to_label(self.name)
@@ -1484,16 +1494,32 @@ class Level(object):
     * `label`: human readable label of the level
     * `info`: custom information dictionary, might be used to store
       application/front-end specific information
+    * `cardinality` – approximation of the number of level's members. Used
+      optionally by backends and front ends.
+
+    Cardinality values:
+
+    * `tiny` – few values, each value can have it's representation on the
+      screen, recommended: up to 5.
+    * `low` – can be used in a list UI element, recommended 5 to 50 (if
+      sorted)
+    * `medium` – UI element is a search/text field, recommended for more than
+      50 elements
+    * `large` – backends might refuse to yield results without explicit
+      pagination or cut through this level.
+
     """
 
     def __init__(self, name, attributes, dimension=None, key=None,
                  order_attribute=None, order=None, label_attribute=None,
-                 label=None, info=None):
+                 label=None, info=None, cardinality=None):
 
         self.name = name
         self.dimension = dimension
+        self.cardinality = cardinality
         self.label = label
         self.info = info or {}
+        self.cardinality = cardinality
 
         if not attributes:
             raise ModelError("Attribute list should not be empty")
@@ -1545,7 +1571,8 @@ class Level(object):
             return False
         elif self.name != other.name \
                 or self.label != other.label \
-                or self.key != other.key:
+                or self.key != other.key \
+                or self.cardinality != other.cardinality:
             return False
         elif self.label_attribute != other.label_attribute:
             return False
@@ -1583,7 +1610,8 @@ class Level(object):
                      order=self.order,
                      label_attribute=self.label_attribute.name,
                      info=copy.copy(self.info),
-                     label=copy.copy(self.label)
+                     label=copy.copy(self.label),
+                     cardinality=self.cardinality
                      )
 
     def to_dict(self, full_attribute_names=False, **options):
@@ -1608,6 +1636,7 @@ class Level(object):
             out["order_attribute"] = self.order_attribute.name
 
         out["order"] = self.order
+        out["cardinality"] = self.cardinality
 
         out["attributes"] = [attr.to_dict(**options) for attr in
                              self.attributes]
@@ -2225,12 +2254,14 @@ def create_dimension(metadata, dimensions=None, name=None):
         label = template.label
         description = template.description
         info = template.info
+        cardinality = template.cardinality
     else:
         levels = None
         hierarchies = None
         default_hierarchy_name = None
         label = None
         description = None
+        cardinality = None
         info = {}
 
     name = metadata.get("name") or name
@@ -2240,6 +2271,15 @@ def create_dimension(metadata, dimensions=None, name=None):
     label = metadata.get("label") or label
     description = metadata.get("description") or description
     info = metadata.get("info") or info
+
+    # Backward compatibility with an experimental feature
+    flag = info.get("high_cardinality")
+    original = metadata.get("cardinality")
+    if not original and flag:
+        metadata["cardinality"] = "high"
+    elif original and original != "high" and flag:
+        raise ModelError("Conflict of cardinality specification in dimension "
+                         "%s" % name)
 
     # Levels
     # ------
@@ -2256,7 +2296,7 @@ def create_dimension(metadata, dimensions=None, name=None):
     if not levels:
         # Create a single level with same properties as the dimension.
         attributes = ["attributes", "key", "order_attribute", "order",
-                      "label_attribute"]
+                      "label_attribute", "cardinality"]
         level_md = {}
         for attr in attributes:
             if attr in metadata:
@@ -2350,6 +2390,16 @@ def create_level(metadata, name=None, dimension=None):
     # TODO: this should be depreciated
     for attribute in attributes:
         attribute.dimension = dimension
+
+    # Backward compatibility with an experimental feature:
+    if "info" in metadata:
+        flag = metadata["info"].get("high_cardinality")
+        original = metadata.get("cardinality")
+        if not original and flag:
+            metadata["cardinality"] = "high"
+        elif original and original != "high" and flag:
+            raise ModelError("Conflict of cardinality specification in level "
+                             "%s" % name)
 
     return Level(name=name,
                  attributes=attributes,
