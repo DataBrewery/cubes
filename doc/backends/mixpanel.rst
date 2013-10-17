@@ -101,17 +101,72 @@ dimension-to-property mapping:
 
 And define the dimension in the model as above.
 
+Built-in dimension models with simplifiend name and with labels:
+
+* `initial_referrer`
+* `initial_referring_domain`
+* `search_engine`
+* `keyword`
+* `os`
+* `browser`
+* `referrer`
+* `referring_domain`
+* `country_code`
+* `city`
+
+Source: `Mixpanel Special or reserved properties`_.
+
+.. _Mixpanel Special or reserved properties: https://mixpanel.com/docs/properties-or-segments/special-or-reserved-properties
+
 Cube Names
 ~~~~~~~~~~
 
 By default, cube names are the same as event names. To use a custom cube name
 add a mapping for ``cube:CUBENAME``:
 
-.. code-block:: javascript
+.. code-block:: json
 
     "mappings": {
         "cube:campaign_delivery": "$campaign_delivery"
     }
+
+Example
+=======
+
+Create a ``slicer.ini``:
+
+.. code-block:: ini
+
+    [workspace]
+    model: model.json
+
+    [datastore]
+    type: mixpanel
+    api_key: YOUR_API_KEY
+    api_secret: YOUR_API_SECRET
+
+    [server]
+    prettyprint: true
+
+Create a ``model.json``:
+
+.. code-block:: json
+
+    {
+        "provider": "mixpanel"
+    }
+
+Run the server:
+
+.. code-block:: sh
+
+    slicer serve slicer.ini
+
+Get a list of cubes:
+
+.. codeb-block:: sh
+
+    curl "http://localhost:5000/cubes"
 
 Notes
 =====
