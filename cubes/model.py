@@ -1519,7 +1519,6 @@ class Level(object):
         self.cardinality = cardinality
         self.label = label
         self.info = info or {}
-        self.cardinality = cardinality
 
         if not attributes:
             raise ModelError("Attribute list should not be empty")
@@ -1565,6 +1564,8 @@ class Level(object):
             self.order_attribute = self.attributes[0]
 
         self.order = order
+
+        self.cardinality = cardinality
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
@@ -2273,13 +2274,13 @@ def create_dimension(metadata, dimensions=None, name=None):
     info = metadata.get("info") or info
 
     # Backward compatibility with an experimental feature
-    flag = info.get("high_cardinality")
-    original = metadata.get("cardinality")
-    if not original and flag:
-        metadata["cardinality"] = "high"
-    elif original and original != "high" and flag:
-        raise ModelError("Conflict of cardinality specification in dimension "
-                         "%s" % name)
+    cardinality = metadata.get("cardinality", cardinality)
+
+    # Backward compatibility with an experimental feature:
+    if not cardinality:
+        info = metadata.get("info", {})
+        if "high_cardinality" in info:
+           cardinality = "high"
 
     # Levels
     # ------
@@ -2296,11 +2297,14 @@ def create_dimension(metadata, dimensions=None, name=None):
     if not levels:
         # Create a single level with same properties as the dimension.
         attributes = ["attributes", "key", "order_attribute", "order",
-                      "label_attribute", "cardinality"]
+                      "label_attribute"]
         level_md = {}
         for attr in attributes:
             if attr in metadata:
                 level_md[attr] = metadata[attr]
+
+        if cardinality:
+            level_md["cardinality"] = cardinality
 
         # Default: if no attributes, then there is single flat attribute
         # whith same name as the dimension
@@ -2339,7 +2343,8 @@ def create_dimension(metadata, dimensions=None, name=None):
                      default_hierarchy_name=default_hierarchy_name,
                      label=label,
                      description=description,
-                     info=info
+                     info=info,
+                     cardinality=cardinality
                      )
 
 
@@ -2362,14 +2367,21 @@ def fix_level_metadata(metadata):
                 "name": name,
                 "label": metadata.get("label")
             }
+
             new_metadata = {"name":name, "attributes": [attribute]}
 
-            if metadata.get('info') is not None:
+            if "info" in metadata:
                 new_metadata['info'] = metadata['info']
-            if metadata.get('label') is not None:
+            if "label" in metadata:
                 new_metadata['label'] = metadata["label"]
 
             metadata = new_metadata
+
+        # Backward compatibility with an experimental feature:
+        if "cardinality" not in metadata:
+            info = metadata.get("info", {})
+            if "high_cardinality" in info:
+                metadata["cardinality"] = "high"
 
         return metadata
 
@@ -2390,16 +2402,6 @@ def create_level(metadata, name=None, dimension=None):
     # TODO: this should be depreciated
     for attribute in attributes:
         attribute.dimension = dimension
-
-    # Backward compatibility with an experimental feature:
-    if "info" in metadata:
-        flag = metadata["info"].get("high_cardinality")
-        original = metadata.get("cardinality")
-        if not original and flag:
-            metadata["cardinality"] = "high"
-        elif original and original != "high" and flag:
-            raise ModelError("Conflict of cardinality specification in level "
-                             "%s" % name)
 
     return Level(name=name,
                  attributes=attributes,
