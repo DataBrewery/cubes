@@ -1457,13 +1457,20 @@ class QueryBuilder(object):
 
         # Construct the conditions from the physical attribute expression
         conditions = []
-        for attribute in attributes:
+        for attribute in ptd_attributes:
+            # FIXME: this is a hack
 
             ref = self.mapper.physical(attribute)
             column = self.column(attribute)
+            table = self.snowflake.table(ref.schema, ref.table)
 
             # evalu_attributes_for_ptdate the condition expression
-            function = eval(compile(ref.condition, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+            compiled_expr = compile(ref.condition, '__expr__', 'eval')
+
+            context = _EXPR_EVAL_NS.copy()
+            context["table"] = table
+            function = eval(compiled_expr, context)
+
             if not callable(function):
                 raise BrowserError("Cannot evaluate a callable object from "
                                    "reference's condition expr: %r" % ref)
