@@ -363,9 +363,12 @@ class Mongo2Browser(AggregationBrowser):
         aggregate_fn_pairs = []
 
         for agg in aggregates:
-            try:
-                function = get_aggregate_function(agg.function)
-            except KeyError:
+            if agg.function:
+                try:
+                    function = get_aggregate_function(agg.function)
+                except KeyError:
+                    continue
+            else:
                 function = None
 
             phys = self.mapper.physical(agg)
