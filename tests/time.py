@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # -*- coding=utf -*-
 from common import CubesTestCaseBase
 from cubes.errors import *
