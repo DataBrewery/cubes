@@ -1601,17 +1601,12 @@ class Drilldown(object):
         """
         self.drilldown = levels_from_drilldown(cell, drilldown)
         self.dimensions = []
-        self._last_level = {}
-        self._by_dimension = {}
+        self._contained_dimensions = set()
 
         # TODO: check for dim. cardinality and whether it sohuld be allowrd
         for dd in self.drilldown:
             self.dimensions.append(dd.dimension)
-            if dd.dimension.name in self._by_dimension:
-                raise ArgumentError("Drilldown dimension '%s' used multiple "
-                                    "times")
-            self._by_dimension[dd.dimension.name] = dd
-            self._last_level[dd.dimension.name] = dd.levels[-1]
+            self._contained_dimensions.add(dd.dimension.name)
 
     def __str__(self):
         drilldowns = []
@@ -1629,33 +1624,17 @@ class Drilldown(object):
         return ",".join(drilldowns)
 
     def drilldown_for_dimension(self, dim):
-        """Returns drilldown item for dimension `dim`."""
-        return self._by_dimension[str(dim)]
+        """Returns drilldown items for dimension `dim`."""
+        items = []
+        dimname = str(dim)
+        for item in self.drilldown:
+            if str(item.dimension) == dimname:
+                items.append(item)
+
+        return items
 
     def __getitem__(self, key):
-        if isinstance(key, int):
-            return self.drilldown[key]
-        else:
-            return self._by_dimension[str(key)]
-
-    def last_level(self, dim):
-        """Returns last level of drilldown by a dimension `dim`. Returns
-        `None` if there is no drilldown by the specified dimension."""
-        return self._last_level.get(str(dim), None)
-
-    def levels_dictionary(self):
-        """Returns a dictionary with list of levels for each dimensions. Keys
-        are dimension names, values are list of level names. This method is
-        intended to be used for `AggregationResult.levels`"""
-
-        # TODO: find a better name for this method
-
-        dim_levels = {}
-
-        for dd in self.drilldown:
-            dim_levels[str(dd.dimension)] = [str(level) for level in dd.levels]
-
-        return dim_levels
+        return self.drilldown[key]
 
     def deepest_levels(self):
         """Returns a list of tuples: (`dimension`, `hierarchy`, `level`) where
@@ -1716,8 +1695,15 @@ class Drilldown(object):
         If `include_split` is `True` then split dimension is included."""
         result = {}
 
-        for dim, item in self._by_dimension.items():
-            result[dim] = [str(level) for level in item.levels]
+        for item in self.drilldown:
+            dim, hier, levels = item[0:3]
+
+            if dim.hierarchy().name == hier.name:
+                dim_key = dim.name
+            else:
+                dim_key = "%s@%s" % (dim.name, hier.name)
+
+            result[dim_key] = [str(level) for level in levels]
 
         if include_split:
             result[SPLIT_DIMENSION_NAME] = [SPLIT_DIMENSION_NAME]
@@ -1736,10 +1722,7 @@ class Drilldown(object):
         return attributes
 
     def has_dimension(self, dim):
-        return str(dim) in self._by_dimension
-
-    def __contains__(self, key):
-        return self.has_dimension(key)
+        return str(dim) in self._contained_dimensions
 
     def __len__(self):
         return len(self.drilldown)
@@ -1753,9 +1736,8 @@ class Drilldown(object):
 DrilldownItem = namedtuple("DrilldownItem",
                            ["dimension", "hierarchy", "levels", "keys"])
 
-# TODO: rename this (back to) coalesce_drilldown or something like that
 
-
+# TODO: move this to Drilldown
 def levels_from_drilldown(cell, drilldown, simplify=True):
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
