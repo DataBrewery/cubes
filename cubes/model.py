@@ -857,7 +857,7 @@ class Dimension(object):
     """
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
-                 info=None, type_=None, cardinality=None, **desc):
+                 info=None, role=None, cardinality=None, **desc):
 
         """Create a new dimension
 
@@ -873,7 +873,7 @@ class Dimension(object):
         * `description`: human readable dimension description
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information (icon, color, ...)
-        * `type` – one of recognized special dimension types. Currently
+        * `role` – one of recognized special dimension types. Currently
           supported is only ``date``.
         * `cardinality` – cardinality of the dimension members. Used
           optionally by the backends for load protection and frontends for
@@ -894,7 +894,7 @@ class Dimension(object):
         self.label = label
         self.description = description
         self.info = info or {}
-        self.type = type_
+        self.role = role
         self.cardinality = cardinality
 
         if not levels:
@@ -946,6 +946,7 @@ class Dimension(object):
         if other is None or type(other) != type(self):
             return False
         if self.name != other.name \
+                or self.role != other.role \
                 or self.label != other.label \
                 or self.description != other.description \
                 or self.cardinality != other.cardinality:
@@ -1086,7 +1087,7 @@ class Dimension(object):
         out["name"] = self.name
         out["info"] = self.info
         out["default_hierarchy_name"] = self.hierarchy().name
-        out["type"] = self.type
+        out["role"] = self.role
         out["cardinality"] = self.cardinality
 
         if options.get("create_label"):
@@ -1492,6 +1493,7 @@ class Level(object):
       (for example: ``customer_name`` for customer level, ``region_name`` for
       region level, ``month_name`` for month level)
     * `label`: human readable label of the level
+    * `role`: role of the level within a special dimension
     * `info`: custom information dictionary, might be used to store
       application/front-end specific information
     * `cardinality` – approximation of the number of level's members. Used
@@ -1511,13 +1513,14 @@ class Level(object):
 
     def __init__(self, name, attributes, dimension=None, key=None,
                  order_attribute=None, order=None, label_attribute=None,
-                 label=None, info=None, cardinality=None):
+                 label=None, info=None, cardinality=None, role=None):
 
         self.name = name
         self.dimension = dimension
         self.cardinality = cardinality
         self.label = label
         self.info = info or {}
+        self.role = role
 
         if not attributes:
             raise ModelError("Attribute list should not be empty")
@@ -1572,19 +1575,12 @@ class Level(object):
         elif self.name != other.name \
                 or self.label != other.label \
                 or self.key != other.key \
-                or self.cardinality != other.cardinality:
+                or self.cardinality != other.cardinality \
+                or self.role != other.role \
+                or self.label_attribute != other.label_attribute \
+                or self.order_attribute != other.order_attribute \
+                or self.attributes != other.attributes:
             return False
-        elif self.label_attribute != other.label_attribute:
-            return False
-        elif self.order_attribute != other.order_attribute:
-            return False
-
-        if self.attributes != other.attributes:
-            return False
-
-        # for attr in other.attributes:
-        #     if attr not in self.attributes:
-        #         return False
 
         return True
 
@@ -1611,7 +1607,8 @@ class Level(object):
                      label_attribute=self.label_attribute.name,
                      info=copy.copy(self.info),
                      label=copy.copy(self.label),
-                     cardinality=self.cardinality
+                     cardinality=self.cardinality,
+                     role=self.role
                      )
 
     def to_dict(self, full_attribute_names=False, **options):
@@ -1619,6 +1616,7 @@ class Level(object):
 
         out = IgnoringDictionary()
         out["name"] = self.name
+        out["role"] = self.role
         out["info"] = self.info
 
         if options.get("create_label"):
@@ -2255,6 +2253,7 @@ def create_dimension(metadata, dimensions=None, name=None):
         description = template.description
         info = template.info
         cardinality = template.cardinality
+        role = template.role
     else:
         levels = None
         hierarchies = None
@@ -2262,6 +2261,7 @@ def create_dimension(metadata, dimensions=None, name=None):
         label = None
         description = None
         cardinality = None
+        role = None
         info = {}
 
     name = metadata.get("name") or name
@@ -2271,6 +2271,7 @@ def create_dimension(metadata, dimensions=None, name=None):
     label = metadata.get("label") or label
     description = metadata.get("description") or description
     info = metadata.get("info") or info
+    role = metadata.get("role") or role
 
     # Backward compatibility with an experimental feature
     cardinality = metadata.get("cardinality", cardinality)
@@ -2343,7 +2344,8 @@ def create_dimension(metadata, dimensions=None, name=None):
                      label=label,
                      description=description,
                      info=info,
-                     cardinality=cardinality
+                     cardinality=cardinality,
+                     role=role
                      )
 
 
