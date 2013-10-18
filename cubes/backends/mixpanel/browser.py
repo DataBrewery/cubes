@@ -101,12 +101,13 @@ class MixpanelBrowser(AggregationBrowser):
         #
         drilldown = Drilldown(drilldown, cell)
 
-        if "time" in drilldown and len(drilldown) > 2:
+        time_drilldowns = drilldown.drilldown_for_dimension("time")
+        if time_drilldowns and len(drilldown) > 2:
             raise ArgumentError("Can not drill down with more than one "
                                 "non-time dimension in mixpanel")
 
         if split:
-            if len(drilldown) > ( 1 if "time" in drilldown else 0 ):
+            if len(drilldown) > ( 1 if time_drilldowns else 0 ):
                 raise BrowserError("split in mixpanel is not supported if a non-time drilldown is specified")
 
             if split.cut_for_dimension('time'):
@@ -114,7 +115,7 @@ class MixpanelBrowser(AggregationBrowser):
 
         params = {}
 
-        time_level = drilldown.last_level("time")
+        time_level = time_drilldowns[0].levels[-1]
         if time_level:
             time_level = str(time_level)
 
@@ -207,7 +208,7 @@ class MixpanelBrowser(AggregationBrowser):
                                                  native_aggregate_names,
                                                  drilldown, split, actual_time_level)
 
-        result.levels = drilldown.levels_dictionary()
+        result.levels = drilldown.result_levels()
         if split:
             result.levels[SPLIT_DIMENSION_NAME] = SPLIT_DIMENSION_NAME
 

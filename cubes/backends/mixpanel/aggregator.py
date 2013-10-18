@@ -46,13 +46,14 @@ class _MixpanelResponseAggregator(object):
 
         # Get time drilldown levels, if we are drilling through time
         try:
-            time_drilldown = drilldown["time"]
+            time_drilldowns = drilldown.drilldown_for_dimension("time")
         except KeyError:
             time_drilldown = None
             self.last_time_level = None
             self.time_levels = []
             self.time_hierarchy = DEFAULT_TIME_HIERARCHY
         else:
+            time_drilldown = time_drilldowns[0]
             self.last_time_level = str(time_drilldown.levels[-1])
             self.time_levels = ["time."+str(l) for l in time_drilldown.levels]
             self.time_hierarchy = str(time_drilldown.hierarchy)
