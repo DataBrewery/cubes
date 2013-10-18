@@ -2387,6 +2387,8 @@ def fix_level_metadata(metadata):
                 new_metadata['info'] = metadata['info']
             if "label" in metadata:
                 new_metadata['label'] = metadata["label"]
+            if "role" in metadata:
+                new_metadata['role'] = metadata["role"]
 
             metadata = new_metadata
 
