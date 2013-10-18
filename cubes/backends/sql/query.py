@@ -1068,7 +1068,7 @@ class QueryBuilder(object):
 
         dim = self.semiadditive_dimension
         items = [item for item in drilldown \
-                       if item.dimension.name == name.name]
+                       if item.dimension.name == dim.name]
 
         if not items:
             return self.semiadditive_attribute
