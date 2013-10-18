@@ -1066,16 +1066,14 @@ class QueryBuilder(object):
         if not self.semiadditive_dimension:
             return None
 
-        snapshot_dd = [item for item in drilldown \
-                       if item.dimension.name == self.semiadditive_dimension.name]
-
         dim = self.semiadditive_dimension
-        # TODO: Use level not attribute?
+        items = [item for item in drilldown \
+                       if item.dimension.name == name.name]
 
-        try:
-            item = drilldown.drilldown_for_dimension(dim)
-        except KeyError:
+        if not items:
             return self.semiadditive_attribute
+
+        item = items[0]
 
         # FIXME: the 'dow' is hard-wired
 
