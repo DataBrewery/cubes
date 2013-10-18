@@ -1552,7 +1552,7 @@ class QueryBuilder(object):
             for level in levels:
                 level = dim.level(level)
                 if level.order:
-                    order.append((level.order_attribute.ref(), level.order))
+                    order.append((level.order_attribute, level.order))
 
         order_by = OrderedDict()
 
