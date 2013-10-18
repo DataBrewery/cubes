@@ -814,7 +814,7 @@ class QueryBuilder(object):
             # SELECT – Prepare the master selection
             #     * master drilldown items
 
-            selection = [self.column(a) for a in set(master.attributes)]
+            selection = [self.column(a) for a in set(master.attributes) if a not in set(master.ptd_attributes)]
             group_by = selection[:]
 
             # SPLIT
@@ -923,7 +923,7 @@ class QueryBuilder(object):
             master_selection = [self.master_fact.c[label] for label in
                                     master_drilldown_labels]
 
-            detail_selection = [self.column(a) for a in set(detail.attributes)]
+            detail_selection = [self.column(a) for a in set(detail.attributes) if a not in set(detail.ptd_attributes)]
 
             selection = master_selection + detail_selection
             group_by = detail_selection[:]
