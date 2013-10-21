@@ -1,9 +1,7 @@
 import sys
 from setuptools import setup, find_packages
 
-requirements = []
-if sys.version_info < (2,7):
-    requirements += ['ordereddict']
+requirements = ["pytz"]
 
 setup(
     name = "cubes",
