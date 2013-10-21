@@ -2,10 +2,8 @@
 # -*- coding=utf -*-
 from common import CubesTestCaseBase
 from cubes.errors import *
-<<<<<<< HEAD
-from cubes.calendar import *
-from cubes.time import *
 from cubes import time_hierarchy_elements
+from cubes.calendar import *
 from datetime import datetime
 
 
