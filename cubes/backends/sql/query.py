@@ -760,6 +760,16 @@ class QueryBuilder(object):
         elif ptd_detail:
             detail.ptd_attributes = ptd_detail
 
+        # TODO: PTD workaround #2
+        # We need to know which attriutes have to be included for JOINs,
+        # however we can know this only when "condition" in mapping is
+        # evaluated, which can be evaluated only after joins and when the
+        # master-fact is ready.
+        required = self.cube.browser_options.get("ptd_master_required", [])
+
+        if required:
+            required = self.cube.get_attributes(required)
+            master.ptd_attributes += required
 
         # Semi-additive attribute
         semiadditive_attribute = self.get_semiadditive_attribute(drilldown)
@@ -908,8 +918,14 @@ class QueryBuilder(object):
 
             # Add the PTD
             if master.ptd_attributes:
-                ptd_condition = self._ptd_condition(master.ptd_attributes)
+                (ptd_condition, ptd_attributes) = \
+                                self._ptd_condition(master.ptd_attributes)
                 condition = condition_conjunction([condition, ptd_condition])
+                # TODO: PTD workaround #3:
+                # Add the PTD attributes to the selection,so the detail part
+                # of the join will be able to find them in the master
+                cols = [self.column(a) for a in ptd_attributes]
+                selection += cols
 
             # Prepare the master_fact statement:
             statement = sql.expression.select(selection,
@@ -920,6 +936,7 @@ class QueryBuilder(object):
             # From now-on the self.column() method will return columns from
             # master_fact if applicable.
             self.master_fact = statement.alias("__master_fact")
+            import pdb; pdb.set_trace()
 
             # Add drilldown – Group-by
             # ------------------------
@@ -931,7 +948,6 @@ class QueryBuilder(object):
             # master_selection = [self.master_fact.c[label] for label in
             #                        master_drilldown_labels]
 
-            master_selecton = [self.column(a) for a in set(master.attributes)]
             master_cols = list(self.master_fact.columns)
             master_selection = master_cols[0:len(master.attributes)]
             # master_selection = \
@@ -981,8 +997,9 @@ class QueryBuilder(object):
             if detail.ptd_attributes:
                 self.logger.debug("adding conditions for PTD attributes: %s"
                                   % [str(a) for a in detail.ptd_attributes])
-                ptd_condition = self._ptd_condition(detail.ptd_attributes)
-                # conditions.append(ptd_condition)
+                (ptd_condition, ptd_attributes) = \
+                        self._ptd_condition(detail.ptd_attributes)
+                conditions.append(ptd_condition)
 
         # Prepare the final statement
         condition = condition_conjunction(conditions)
@@ -1479,11 +1496,17 @@ class QueryBuilder(object):
 
         # Construct the conditions from the physical attribute expression
         conditions = []
+        attributes = set()
         for attribute in ptd_attributes:
             # FIXME: this is a hack
 
             ref = self.mapper.physical(attribute)
+            if not ref.condition:
+                continue
+
             column = self.column(attribute)
+            self.logger.debug("CONDITION: %s: '%s'" % (attribute,
+                ref.condition))
             compiled_expr = compile(ref.condition, '__expr__', 'eval')
 
             context = _EXPR_EVAL_NS.copy()
@@ -1502,10 +1525,13 @@ class QueryBuilder(object):
                 raise BrowserError("Cannot evaluate a callable object from "
                                    "reference's condition expr: %r" % ref)
 
-            attributes = set(dim_getter.attributes) \
+            attributes |= set(dim_getter.attributes) \
                             | set(fact_getter.attributes)
             condition = function(column)
             conditions.append(condition)
+
+            self.logger.debug("PTD condition for '%s': %s"
+                              % (str(attribute), str(condition)))
 
         # TODO: What about invert?
         return (condition_conjunction(conditions), attributes)
@@ -1525,15 +1551,14 @@ class QueryBuilder(object):
 
         if self.master_fact is not None:
             ref = self.mapper.physical(attribute, locale)
-            # self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))
+            self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))
             try:
                 return self.master_fact.c[ref.column]
             except KeyError:
-                # self.logger.debug("retry column %s from tables" % (attribute.ref(), ))
-                      % (str(attribute), ref.column)
+                self.logger.debug("retry column %s from tables" % (attribute.ref(), ))
                 return self.snowflake.column(attribute, locale)
         else:
-            # self.logger.debug("column %s from tables" % (attribute.ref(), ))
+            self.logger.debug("column %s from tables" % (attribute.ref(), ))
             return self.snowflake.column(attribute, locale)
 
     def paginate(self, page, page_size):
