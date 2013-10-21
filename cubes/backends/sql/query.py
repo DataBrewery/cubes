@@ -840,8 +840,7 @@ class QueryBuilder(object):
             conditions = master_conditions
 
             if master.ptd_attributes:
-                (ptd_condition, ptd_attributes) = \
-                                    self._ptd_condition(master.ptd_attributes)
+                ptd_condition = self._ptd_condition(master.ptd_attributes)
                 conditions.append(ptd_condition)
 
             # JOIN
