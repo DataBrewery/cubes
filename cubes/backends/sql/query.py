@@ -1002,8 +1002,8 @@ class QueryBuilder(object):
                 conditions.append(ptd_condition)
 
         # Prepare the final statement
+        # import pdb; pdb.set_trace()
         condition = condition_conjunction(conditions)
-        import pdb; pdb.set_trace()
         group_by = group_by if not summary_only else None
 
         # Include the semi-additive dimension, if required
@@ -1034,7 +1034,11 @@ class QueryBuilder(object):
                                           group_by=group_by)
 
         self.statement = statement
-        self.labels = self.snowflake.logical_labels(statement.columns)
+        self.labels = self.snowflake.logical_labels(selection)
+        self.logger.debug("--- cols: %s"
+                          % [str(l) for l in statement.columns])
+        self.logger.debug("--- labels: %s"
+                          % [str(l) for l in self.labels])
 
         # Used in order
         self.drilldown = drilldown
