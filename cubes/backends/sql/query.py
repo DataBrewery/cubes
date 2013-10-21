@@ -39,7 +39,10 @@ _EXPR_EVAL_NS = {
     "case": sql.expression.case,
     "text": sql.expression.text,
     "datetime": datetime,
-    "re": re
+    "re": re,
+    "extract": sql.expression.extract,
+    "and_": sql.expression.and_,
+    "or_": sql.expression.or_
 }
 
 
@@ -753,10 +756,8 @@ class QueryBuilder(object):
             raise InternalError("PTD attributes are spreading from master "
                                 "to outer detail. This is not supported.")
         elif ptd_master:
-            master.attributes += ptd_master
             master.ptd_attributes = ptd_master
         elif ptd_detail:
-            detail.attributes += ptd_detail
             detail.ptd_attributes = ptd_detail
 
 
@@ -814,7 +815,7 @@ class QueryBuilder(object):
             # SELECT – Prepare the master selection
             #     * master drilldown items
 
-            selection = [self.column(a) for a in set(master.attributes) if a not in set(master.ptd_attributes)]
+            selection = [self.column(a) for a in set(master.attributes)]
             group_by = selection[:]
 
             # SPLIT
@@ -824,19 +825,22 @@ class QueryBuilder(object):
                 group_by.append(master_split)
                 selection.append(master_split)
 
-            # JOIN
-            # ----
-            attributes = set(aggregates) | master.all_attributes
-            join = self.snowflake.join_expression(attributes)
-            join_expression = join.expression
-
             # WHERE
             # -----
             conditions = master_conditions
 
             if master.ptd_attributes:
-                ptd_condition = self._ptd_condition(master.ptd_attributes)
+                (ptd_condition, ptd_attributes) = \
+                                    self._ptd_condition(master.ptd_attributes)
                 conditions.append(ptd_condition)
+
+            # JOIN
+            # ----
+            attributes = set(aggregates) \
+                            | master.all_attributes \
+                            | set(ptd_attributes)
+            join = self.snowflake.join_expression(attributes)
+            join_expression = join.expression
 
         else:
             self.logger.debug("statement: composed")
@@ -865,20 +869,24 @@ class QueryBuilder(object):
                     counter += 1
 
             # SELECT – Prepare the master selection
-            #     * measures
             #     * drilldown items
+            #     * measures
             #     * aliased keys for outer detail joins
+
+            # Master selection is carried as first (we need to retrieve it
+            # later by index)
+            master_selection = [self.column(a) for a in set(master.attributes)]
 
             measures = self.measures_for_aggregates(aggregates)
             measure_selection = [self.column(m) for m in measures]
 
-            master_selection = [self.column(a) for a in set(master.attributes)]
-
             # Save for detail construction
-            master_drilldown_labels = [str(c) for c in master_selection]
-
-            selection = measure_selection \
-                            + master_selection \
+            # master_drilldown_labels = [str(c) for c in master_selection]
+            # self.logger.debug("=== MASTER DDLABELS: %s" % (master_drilldown_labels, ))
+            # Master_selection has to be first and has length of
+            # len(set(master.attributes))
+            selection = master_selection \
+                            + measure_selection \
                             + master_detail_selection
 
             # SPLIT
@@ -920,10 +928,16 @@ class QueryBuilder(object):
             # SELECT – Prepare the detail selection
             #     * master drilldown items (inherit)
             #     * detail drilldown items
-            master_selection = [self.master_fact.c[label] for label in
-                                    master_drilldown_labels]
+            # master_selection = [self.master_fact.c[label] for label in
+            #                        master_drilldown_labels]
 
-            detail_selection = [self.column(a) for a in set(detail.attributes) if a not in set(detail.ptd_attributes)]
+            master_selecton = [self.column(a) for a in set(master.attributes)]
+            master_cols = list(self.master_fact.columns)
+            master_selection = master_cols[0:len(master.attributes)]
+            # master_selection = \
+            # list(self.master_fact.columns)[0:len(set(master.attributes))]
+
+            detail_selection = [self.column(a) for a in set(detail.attributes)]
 
             selection = master_selection + detail_selection
             group_by = detail_selection[:]
@@ -965,8 +979,10 @@ class QueryBuilder(object):
 
             # Add the PTD
             if detail.ptd_attributes:
+                self.logger.debug("adding conditions for PTD attributes: %s"
+                                  % [str(a) for a in detail.ptd_attributes])
                 ptd_condition = self._ptd_condition(detail.ptd_attributes)
-                conditions.append(ptd_condition)
+                # conditions.append(ptd_condition)
 
         # Prepare the final statement
         condition = condition_conjunction(conditions)
@@ -975,6 +991,10 @@ class QueryBuilder(object):
         # Include the semi-additive dimension, if required
         #
         if semiadditive_attribute:
+            self.logger.debug("preparing semiadditive subquery for "
+                              "attributes: %s"
+                              % [str(a) for a in semiadditive_attributes])
+
             join_expression = self._semiadditive_subquery(semiadditive_attribute,
                                                      selection,
                                                      from_obj=join_expression,
@@ -988,6 +1008,7 @@ class QueryBuilder(object):
                                                        coalesce_measures=coalesce_measures)
         selection += aggregate_selection
 
+        # condition = None
         statement = sql.expression.select(selection,
                                           from_obj=join_expression,
                                           use_labels=True,
@@ -1307,7 +1328,10 @@ class QueryBuilder(object):
                 set_conds = []
 
                 for path in cut.paths:
-                    set_conds.append(wrapped_cond.condition)
+                    condition = self.condition_for_point(dim, path,
+                                                         cut.hierarchy,
+                                                         cut.invert)
+                    set_conds.append(condition)
 
                 condition = sql.expression.or_(*set_conds)
 
@@ -1460,24 +1484,31 @@ class QueryBuilder(object):
 
             ref = self.mapper.physical(attribute)
             column = self.column(attribute)
-            table = self.snowflake.table(ref.schema, ref.table)
-
-            # evalu_attributes_for_ptdate the condition expression
             compiled_expr = compile(ref.condition, '__expr__', 'eval')
 
             context = _EXPR_EVAL_NS.copy()
-            context["table"] = table
+
+            # Provide columns for attributes (according to current state of
+            # the query) and collect attributes for required joins.
+            dim_getter = _ColumnGetter(self, attribute.dimension)
+            context["table"] = dim_getter
+            context["dim"] = dim_getter
+            fact_getter = _ColumnGetter(self, self.cube)
+            context["fact"] = fact_getter
+
             function = eval(compiled_expr, context)
 
             if not callable(function):
                 raise BrowserError("Cannot evaluate a callable object from "
                                    "reference's condition expr: %r" % ref)
 
+            attributes = set(dim_getter.attributes) \
+                            | set(fact_getter.attributes)
             condition = function(column)
             conditions.append(condition)
 
         # TODO: What about invert?
-        return condition_conjunction(conditions)
+        return (condition_conjunction(conditions), attributes)
 
     def fact_key_column(self):
         """Returns a column that represents the fact key."""
@@ -1499,6 +1530,7 @@ class QueryBuilder(object):
                 return self.master_fact.c[ref.column]
             except KeyError:
                 # self.logger.debug("retry column %s from tables" % (attribute.ref(), ))
+                      % (str(attribute), ref.column)
                 return self.snowflake.column(attribute, locale)
         else:
             # self.logger.debug("column %s from tables" % (attribute.ref(), ))
@@ -1592,3 +1624,31 @@ class QueryBuilder(object):
         self.statement = self.statement.order_by(*order_by.values())
 
         return self.statement
+
+
+# Used as a workaround for "condition" attribute mapping property
+# TODO: temp solution
+# Assumption: every other attribute is from the same dimension
+class _ColumnGetter(object):
+    def __init__(self, owner, context):
+        self._context = context
+        self._owner = owner
+        # Collected attributes
+        self.attributes = []
+
+    def __getattr__(self, attr):
+        return self._column(attr)
+
+    def __getitem__(self, item):
+        return self._column(item)
+
+    def _column(self, name):
+        attribute = self._context.attribute(name)
+        self.attributes.append(attribute)
+        return self._owner.column(attribute)
+
+    # Backward-compatibility for table.c.foo
+    @property
+    def c(self):
+        return self
+
