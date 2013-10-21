@@ -1,7 +1,11 @@
 import sys
 from setuptools import setup, find_packages
 
+<<<<<<< HEAD
 requirements = ["pytz", "python-dateutil"]
+=======
+requirements = ["pytz"]
+>>>>>>> New class Calendar; Renamed module time to calendar (still wip)
 
 setup(
     name = "cubes",
