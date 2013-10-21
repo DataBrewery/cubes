@@ -918,13 +918,12 @@ class QueryBuilder(object):
 
             # Add the PTD
             if master.ptd_attributes:
-                (ptd_condition, ptd_attributes) = \
-                                self._ptd_condition(master.ptd_attributes)
+                ptd_condition = self._ptd_condition(master.ptd_attributes)
                 condition = condition_conjunction([condition, ptd_condition])
                 # TODO: PTD workaround #3:
                 # Add the PTD attributes to the selection,so the detail part
                 # of the join will be able to find them in the master
-                cols = [self.column(a) for a in ptd_attributes]
+                cols = [self.column(a) for a in master.ptd_attributes]
                 selection += cols
 
             # Prepare the master_fact statement:
@@ -936,7 +935,6 @@ class QueryBuilder(object):
             # From now-on the self.column() method will return columns from
             # master_fact if applicable.
             self.master_fact = statement.alias("__master_fact")
-            import pdb; pdb.set_trace()
 
             # Add drilldown – Group-by
             # ------------------------
@@ -995,14 +993,17 @@ class QueryBuilder(object):
 
             # Add the PTD
             if detail.ptd_attributes:
+                self.logger.debug("=== master:")
+                for c in self.master_fact.columns:
+                    self.logger.debug("---     %s" % (str(c)))
                 self.logger.debug("adding conditions for PTD attributes: %s"
                                   % [str(a) for a in detail.ptd_attributes])
-                (ptd_condition, ptd_attributes) = \
-                        self._ptd_condition(detail.ptd_attributes)
+                ptd_condition = self._ptd_condition(detail.ptd_attributes)
                 conditions.append(ptd_condition)
 
         # Prepare the final statement
         condition = condition_conjunction(conditions)
+        import pdb; pdb.set_trace()
         group_by = group_by if not summary_only else None
 
         # Include the semi-additive dimension, if required
@@ -1496,7 +1497,7 @@ class QueryBuilder(object):
 
         # Construct the conditions from the physical attribute expression
         conditions = []
-        attributes = set()
+
         for attribute in ptd_attributes:
             # FIXME: this is a hack
 
@@ -1505,14 +1506,12 @@ class QueryBuilder(object):
                 continue
 
             column = self.column(attribute)
-            self.logger.debug("CONDITION: %s: '%s'" % (attribute,
-                ref.condition))
             compiled_expr = compile(ref.condition, '__expr__', 'eval')
 
             context = _EXPR_EVAL_NS.copy()
 
             # Provide columns for attributes (according to current state of
-            # the query) and collect attributes for required joins.
+            # the query)
             dim_getter = _ColumnGetter(self, attribute.dimension)
             context["table"] = dim_getter
             context["dim"] = dim_getter
@@ -1525,16 +1524,11 @@ class QueryBuilder(object):
                 raise BrowserError("Cannot evaluate a callable object from "
                                    "reference's condition expr: %r" % ref)
 
-            attributes |= set(dim_getter.attributes) \
-                            | set(fact_getter.attributes)
             condition = function(column)
             conditions.append(condition)
 
-            self.logger.debug("PTD condition for '%s': %s"
-                              % (str(attribute), str(condition)))
-
         # TODO: What about invert?
-        return (condition_conjunction(conditions), attributes)
+        return condition_conjunction(conditions)
 
     def fact_key_column(self):
         """Returns a column that represents the fact key."""
