@@ -12,7 +12,7 @@ from .formatter import *
 from .computation import *
 from .mapper import *
 from .providers import *
-from .time import *
+from .calendar import *
 
 import backends
 import statutils
