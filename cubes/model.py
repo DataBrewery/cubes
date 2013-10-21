@@ -666,12 +666,13 @@ class Cube(object):
             except KeyError:
                 continue
 
-        if attribute in self.details:
-            return self.details[attribute]
+        attrname = str(attribute)
+        for detail in self.details:
+            if detail.name == attrname:
+                return detail
 
-        else:
-            raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
-                                       % (self.name, attribute))
+        raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
+                                   % (self.name, attribute))
 
     def get_attributes(self, attributes=None, simplify=True, aggregated=False):
         """Returns a list of cube's attributes. If `aggregated` is `True` then
