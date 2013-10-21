@@ -954,7 +954,7 @@ class QueryBuilder(object):
             detail_selection = [self.column(a) for a in set(detail.attributes)]
 
             selection = master_selection + detail_selection
-            group_by = detail_selection[:]
+            group_by = selection[:]
 
             # SPLIT
             # -----
@@ -1002,7 +1002,6 @@ class QueryBuilder(object):
                 conditions.append(ptd_condition)
 
         # Prepare the final statement
-        # import pdb; pdb.set_trace()
         condition = condition_conjunction(conditions)
         group_by = group_by if not summary_only else None
 
