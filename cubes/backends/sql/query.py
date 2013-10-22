@@ -503,7 +503,8 @@ class SnowflakeSchema(object):
 
             # Provide columns for attributes (according to current state of
             # the query)
-            dim_getter = _ColumnGetter(self, attribute.dimension)
+            table = attribute.dimension or self.cube
+            dim_getter = _ColumnGetter(self, table)
             context["table"] = dim_getter
             context["dim"] = dim_getter
             fact_getter = _ColumnGetter(self, self.cube)
@@ -1656,8 +1657,6 @@ class _ColumnGetter(object):
     def __init__(self, owner, context):
         self._context = context
         self._owner = owner
-        # Collected attributes
-        self.attributes = []
 
     def __getattr__(self, attr):
         return self._column(attr)
@@ -1667,7 +1666,6 @@ class _ColumnGetter(object):
 
     def _column(self, name):
         attribute = self._context.attribute(name)
-        self.attributes.append(attribute)
         return self._owner.column(attribute)
 
     # Backward-compatibility for table.c.foo
