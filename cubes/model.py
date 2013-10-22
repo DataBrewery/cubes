@@ -1022,7 +1022,13 @@ class Dimension(object):
         if by_ref:
             return self._attributes_by_ref[str(reference)]
         else:
-            return self._attributes[str(reference)]
+            try:
+                return self._attributes[str(reference)]
+            except KeyError:
+                raise NoSuchAttributeError("Unknown attribute '%s' "
+                                           "in dimension '%s'"
+                                           % (str(reference), self.name),
+                                           str(reference))
 
     def _default_hierarchy(self):
         """Get default hierarchy specified by ``default_hierarchy_name``, if
