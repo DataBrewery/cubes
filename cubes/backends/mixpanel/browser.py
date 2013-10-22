@@ -115,7 +115,7 @@ class MixpanelBrowser(AggregationBrowser):
 
         params = {}
 
-        time_level = time_drilldowns[0].levels[-1]
+        time_level = time_drilldowns[0].levels[-1] if time_drilldowns else None
         if time_level:
             time_level = str(time_level)
 
