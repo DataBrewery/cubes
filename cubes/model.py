@@ -671,6 +671,10 @@ class Cube(object):
             if detail.name == attrname:
                 return detail
 
+        for measure in self.measures:
+            if measure.name == attrname:
+                return measure
+
         raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
                                    % (self.name, attribute))
 
