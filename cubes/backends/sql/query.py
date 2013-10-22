@@ -704,8 +704,7 @@ class QueryBuilder(object):
 
         drilldown = drilldown or Drilldown()
 
-        # Prepare the master/detail split
-        #
+        # Configuraion of statement parts
         master = _StatementConfiguration()
         detail = _StatementConfiguration()
 
@@ -838,10 +837,7 @@ class QueryBuilder(object):
             # WHERE
             # -----
             conditions = master_conditions
-
-            if master.ptd_attributes:
-                ptd_condition = self._ptd_condition(master.ptd_attributes)
-                conditions.append(ptd_condition)
+            ptd_attributes = master.ptd_attributes
 
             # JOIN
             # ----
@@ -882,18 +878,13 @@ class QueryBuilder(object):
             #     * measures
             #     * aliased keys for outer detail joins
 
-            # Master selection is carried as first (we need to retrieve it
-            # later by index)
+            # Note: Master selection is carried as first (we need to retrieve
+            # it later by index)
             master_selection = [self.column(a) for a in set(master.attributes)]
 
             measures = self.measures_for_aggregates(aggregates)
             measure_selection = [self.column(m) for m in measures]
 
-            # Save for detail construction
-            # master_drilldown_labels = [str(c) for c in master_selection]
-            # self.logger.debug("=== MASTER DDLABELS: %s" % (master_drilldown_labels, ))
-            # Master_selection has to be first and has length of
-            # len(set(master.attributes))
             selection = master_selection \
                             + measure_selection \
                             + master_detail_selection
@@ -942,13 +933,9 @@ class QueryBuilder(object):
             # SELECT – Prepare the detail selection
             #     * master drilldown items (inherit)
             #     * detail drilldown items
-            # master_selection = [self.master_fact.c[label] for label in
-            #                        master_drilldown_labels]
 
             master_cols = list(self.master_fact.columns)
             master_selection = master_cols[0:len(master.attributes)]
-            # master_selection = \
-            # list(self.master_fact.columns)[0:len(set(master.attributes))]
 
             detail_selection = [self.column(a) for a in set(detail.attributes)]
 
@@ -975,6 +962,12 @@ class QueryBuilder(object):
                 selection.append(detail_split)
                 group_by.append(detail_split)
 
+
+            # WHERE
+            # -----
+            conditions = self.conditions_for_cuts(detail.cuts)
+            ptd_attributes = detail.ptd_attributes
+
             # JOIN
             # ----
             # Replace the master-relationship tables with single master fact
@@ -986,21 +979,16 @@ class QueryBuilder(object):
 
             join_expression = join.expression
 
-            # WHERE
-            # -----
-            conditions = self.conditions_for_cuts(detail.cuts)
+        # The Final Statement
+        # ===================
+        #
 
-            # Add the PTD
-            if detail.ptd_attributes:
-                self.logger.debug("=== master:")
-                for c in self.master_fact.columns:
-                    self.logger.debug("---     %s" % (str(c)))
-                self.logger.debug("adding conditions for PTD attributes: %s"
-                                  % [str(a) for a in detail.ptd_attributes])
-                ptd_condition = self._ptd_condition(detail.ptd_attributes)
-                conditions.append(ptd_condition)
+        # WHERE
+        # -----
+        if ptd_attributes:
+            ptd_condition = self._ptd_condition(ptd_attributes)
+            conditions.append(ptd_condition)
 
-        # Prepare the final statement
         condition = condition_conjunction(conditions)
         group_by = group_by if not summary_only else None
 
@@ -1017,9 +1005,6 @@ class QueryBuilder(object):
                                                      condition=condition,
                                                      group_by=group_by)
 
-        # TODO: Internalize the statement inputs into the query builder
-        # Ignore the GROUP BY if only summary is requested
-
         aggregate_selection = self.builtin_aggregate_expressions(aggregates,
                                                        coalesce_measures=coalesce_measures)
         selection += aggregate_selection
@@ -1033,10 +1018,6 @@ class QueryBuilder(object):
 
         self.statement = statement
         self.labels = self.snowflake.logical_labels(selection)
-        self.logger.debug("--- cols: %s"
-                          % [str(l) for l in statement.columns])
-        self.logger.debug("--- labels: %s"
-                          % [str(l) for l in self.labels])
 
         # Used in order
         self.drilldown = drilldown
