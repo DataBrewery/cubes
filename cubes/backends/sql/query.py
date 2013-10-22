@@ -497,7 +497,19 @@ class SnowflakeSchema(object):
         if ref.func:
             column = getattr(sql.expression.func, ref.func)(column)
         if ref.expr:
-            expr_func = eval(compile(ref.expr, '__expr__', 'eval'), _EXPR_EVAL_NS.copy())
+            # TODO: see _ptd_condition()
+            compiled_expr = compile(ref.expr, '__expr__', 'eval')
+            context = _EXPR_EVAL_NS.copy()
+
+            # Provide columns for attributes (according to current state of
+            # the query)
+            dim_getter = _ColumnGetter(self, attribute.dimension)
+            context["table"] = dim_getter
+            context["dim"] = dim_getter
+            fact_getter = _ColumnGetter(self, self.cube)
+            context["fact"] = fact_getter
+
+            expr_func = eval(compiled_expr, context)
             if not callable(expr_func):
                 raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
             column = expr_func(column)
@@ -1495,6 +1507,7 @@ class QueryBuilder(object):
             if not ref.condition:
                 continue
 
+            # TODO: see column() and "expr" mapping
             column = self.column(attribute)
             compiled_expr = compile(ref.condition, '__expr__', 'eval')
 
@@ -1633,6 +1646,7 @@ class QueryBuilder(object):
         self.statement = self.statement.order_by(*order_by.values())
 
         return self.statement
+
 
 
 # Used as a workaround for "condition" attribute mapping property
