@@ -593,6 +593,7 @@ class _StatementConfiguration(object):
         self.split_cuts += other.split_cuts
 
         self.other_attributes += other.other_attributes
+        self.ptd_attributes += other.ptd_attributes
 
     def is_empty(self):
         return not (bool(self.attributes) \
@@ -987,6 +988,7 @@ class QueryBuilder(object):
         # -----
         if ptd_attributes:
             ptd_condition = self._ptd_condition(ptd_attributes)
+            self.logger.debug("adding PTD condition: %s" % str(ptd_condition))
             conditions.append(ptd_condition)
 
         condition = condition_conjunction(conditions)
