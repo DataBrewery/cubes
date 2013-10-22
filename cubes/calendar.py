@@ -1,15 +1,15 @@
 # -*- coding=utf -*-
 """Date and time utilities."""
 
+import re
+import pytz
+from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import MO, TU, WE, TH, FR, SA, SU
 from datetime import datetime, timedelta
-from .errors import *
 from time import strftime, gmtime
 
-try:
-    import pytz
-except ImportError:
-    from .common import MissingPackage
-    pytz = MissingPackage("pytz", "Calendar date and time utilities")
+from .model import Hierarchy
+from .errors import *
 
 
 __all__ = (
@@ -18,8 +18,46 @@ __all__ = (
 )
 
 
-_calendar_units = ["year", "quarter", "month", "day", "hour", "minute",
+_CALENDAR_UNITS = ["year", "quarter", "month", "day", "hour", "minute",
                     "weekday"]
+
+
+UNIT_YEAR = 8
+UNIT_QUARTER = 7
+UNIT_MONTH = 6
+UNIT_WEEK = 5
+UNIT_DAY = 4
+UNIT_HOUR = 3
+UNIT_MINUTE = 2
+UNIT_SECOND = 1
+
+
+_UNIT_ORDER = {
+    "year": UNIT_YEAR,
+    "quarter": UNIT_QUARTER,
+    "month": UNIT_MONTH,
+    "week": UNIT_WEEK,
+    "day": UNIT_DAY,
+    "hour": UNIT_HOUR,
+    "minute": UNIT_MINUTE,
+    "second": UNIT_SECOND
+}
+
+_DATEUTIL_WEEKDAYS = { 0: MO, 1: TU, 2: WE, 3: TH, 4: FR, 5: SA, 6: SU }
+
+_UTC = pytz.timezone('UTC')
+
+
+RELATIVE_FINE_TIME_RX = re.compile(r"(?P<offset>\d+)?"
+                                    "(?P<unit>\w+)"
+                                    "(?P<direction>(ago|forward))")
+
+
+RELATIVE_TRUNCATED_TIME_RX = re.compile(r"(?P<direction>(last|next))"
+                                         "(?P<offset>\d+)?"
+                                         "(?P<unit>\w+)")
+
+month_to_quarter = lambda month: ((month - 1) / 3) + 1
 
 
 def calendar_hierarchy_units(hierarchy):
@@ -38,7 +76,7 @@ def calendar_hierarchy_units(hierarchy):
     for level in hierarchy.levels:
         role = level.role or level.name
 
-        if role in _calendar_units:
+        if role in _CALENDAR_UNITS:
             units.append(role)
         else:
             raise ArgumentError("Unknown time role '%s' for level '%s'"
@@ -51,11 +89,28 @@ def local_timezone_name():
     """Return system's local timezone"""
     return strftime("%Z", gmtime())
 
-_utc = pytz.timezone('UTC')
 
-_relative_regexp = re.compile(r"(?P<direction>before|next)"
-                               "(?P<offset>\d+)?"
-                               "(?P<unit>\w+)")
+def add_time_units(time, unit, amount):
+    """Subtract `amount` number of `unit`s from datetime object `time`."""
+
+    args = {}
+    if unit == 'hour':
+        args['hours'] = amount
+    elif unit == 'day':
+        args['days'] = amount
+    elif unit == 'week':
+        args['days'] = amount * 7
+    elif unit == 'month':
+        args['months'] = amount
+    elif unit == 'quarter':
+        args['months'] = amount * 3
+    elif unit == 'year':
+        args['years'] = amount
+    else:
+        raise ArgumentError("Unknown unit %s for subtraction.")
+
+    return time + relativedelta(**args)
+
 
 class Calendar(object):
     def __init__(self, first_weekday=0, timezone=None):
@@ -75,7 +130,7 @@ class Calendar(object):
 
     def now(self):
         """Returns current date in the calendar's timezone."""
-        current_moment = _utc.localize(datetime.utcnow())
+        current_moment = _UTC.localize(datetime.utcnow())
         return current_moment.astimezone(self.timezone)
 
     def path(self, time, units):
@@ -94,7 +149,7 @@ class Calendar(object):
             if unit in ("year", "month", "day", "hour", "minute"):
                 value = getattr(time, unit)
             elif unit == "quarter":
-                value = ((time.month - 1) / 3) + 1
+                value = month_to_quarter(time.month)
             elif unit == "weekday":
                 value = (time.weekday() - self.first_weekday) % 7
             else:
@@ -109,26 +164,95 @@ class Calendar(object):
 
         return self.path(self.now(), units)
 
+    def truncate_time(self, time, unit):
+        """Truncates the `time` to calendar unit `unit`. Consider week start
+        day from the calendar."""
 
-    def offset_path(self, name, date):
+        unit_order = _UNIT_ORDER[unit]
+
+        # Seconds are our finest granularity
+        time = time.replace(microsecond=0)
+
+        if unit_order > UNIT_MINUTE:
+            time = time.replace(minute=0, second=0)
+        elif unit_order > UNIT_SECOND:
+            time = time.replace(second=0)
+
+        if unit == 'hour':
+            pass
+
+        elif unit == 'day':
+            time = time.replace(hour=0)
+
+        elif unit == 'week':
+            time = time.replace(hour=0)
+
+            weekday = _DATEUTIL_WEEKDAYS[self.first_weekday]
+            time = time + relativedelta(days=-6, weekday=weekday)
+
+        elif unit == 'month':
+            time = time.replace(day=1, hour=0)
+
+        elif unit == 'quarter':
+            month = (month_to_quarter(time.month) * 3) + 1
+            time = time.replace(month=month, day=1, hour=0)
+
+        elif unit == 'year':
+            time = time.replace(month=1, day=1, hour=0)
+
+        else:
+            raise ValueError("Unrecognized unit: %s" % unit)
+
+        return time
+
+    def named_relative_path(self, reference, units, date=None):
         """"""
 
         date = date or self.now()
-        if name == "today":
+
+        truncate = False
+        relative_match = RELATIVE_FINE_TIME_RX.match(reference)
+        if not relative_match:
+            truncate = True
+            relative_match = RELATIVE_TRUNCATED_TIME_RX.match(reference)
+
+        if reference == "today":
             pass
-        elif name == "yesterday":
+
+        elif reference == "yesterday":
             date = date - relativedelta(days=1)
-        elif name == "tomorrow":
+
+        elif reference == "tomorrow":
             date = date + relativedelta(days=1)
 
-        # TODO: units?
-        retunr self.path(date)
+        elif relative_match:
+            offset = relative_match.group("offset")
+            if offset:
+                try:
+                    offset = int(offset)
+                except ValueError:
+                    raise ArgumentError("Relative time offset should be a "
+                                        "number")
+            else:
+                offset = 1
 
-        # today
-        # tomorrow
-        # yesterday
-        # UNITstart
-        # UNITend
-        # COUNTUNITSago: 10weeksago
-        # 
+            unit = relative_match.group("unit")
+            if unit.endswith("s"):
+                unit = unit[:-1]
 
+            direction = relative_match.group("direction")
+
+            if direction in ("ago", "last"):
+                offset = -offset
+
+            if truncate:
+                date = self.truncate_time(date, unit)
+
+            date = add_time_units(date, unit, offset)
+
+        else:
+            # TODO: UNITstart, UNITend
+            raise ArgumentError("Unknown relative time reference '%s'" %
+                                reference)
+
+        return self.path(date, units)
