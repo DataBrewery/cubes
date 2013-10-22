@@ -1,3 +1,4 @@
+# -*- coding=utf -*-
 from common import CubesTestCaseBase
 from cubes.errors import *
 from cubes.calendar import *
@@ -56,7 +57,75 @@ class DateTimeTestCase(CubesTestCaseBase):
         self.cal.first_weekday = 5
         self.assertEqual([2], self.cal.path(date, ["weekday"]))
 
-    def test_truncate(self):
-        date = datetime(2012, 1, 10)
-        return
-        self.assertEqual(datetime(2012, 1, 10), 0, "year")
+    # Reference for the named relative test
+    #                              2012
+    # 
+    #     Január            Február           Marec             Apríl
+    # po     2  9 16 23 30     6 13 20 27        5*12 19 26        2  9 16 23 30
+    # ut     3 10 17 24 31     7 14 21 28        6 13 20 27        3 10 17 24
+    # st     4 11 18 25     1  8 15 22 29        7 14 21 28        4 11 18 25
+    # št     5 12 19 26     2  9 16 23       *1  8 15 22 29        5 12 19 26
+    # pi     6 13 20 27     3 10 17 24        2  9 16 23 30        6 13 20 27
+    # so     7 14 21 28     4 11 18 25        3 10 17 24 31        7 14 21 28
+    # ne  1  8 15 22 29     5 12 19 26        4 11 18 25        1  8 15 22 29
+
+    def test_named_relative(self):
+        date = datetime(2012, 3, 1)
+
+        units = ["year", "month", "day"]
+        path = self.cal.named_relative_path("tomorrow", units, date)
+        self.assertEqual([2012, 3, 2], path)
+
+        path = self.cal.named_relative_path("yesterday", units, date)
+        self.assertEqual([2012, 2, 29], path)
+
+        path = self.cal.named_relative_path("weekago", units, date)
+        self.assertEqual([2012, 2, 23], path)
+
+        path = self.cal.named_relative_path("3weeksago", units, date)
+        self.assertEqual([2012, 2, 9], path)
+
+        date = datetime(2012, 3, 12)
+
+        path = self.cal.named_relative_path("monthago", units, date)
+        self.assertEqual([2012, 2, 12], path)
+
+        path = self.cal.named_relative_path("12monthsago", units, date)
+        self.assertEqual([2011, 3, 12], path)
+
+        path = self.cal.named_relative_path("monthforward", units, date)
+        self.assertEqual([2012, 4, 12], path)
+
+        path = self.cal.named_relative_path("12monthsforward", units, date)
+        self.assertEqual([2013, 3, 12], path)
+
+    def test_named_relative_truncated(self):
+        date = datetime(2012, 3, 1, 10, 30)
+
+        units = ["year", "month", "day", "hour"]
+
+        path = self.cal.named_relative_path("lastweek", units, date)
+        self.assertEqual([2012, 2, 20, 0], path)
+
+        path = self.cal.named_relative_path("last3weeks", units, date)
+        self.assertEqual([2012, 2, 6, 0], path)
+
+        date = datetime(2012, 3, 12)
+
+        path = self.cal.named_relative_path("lastmonth", units, date)
+        self.assertEqual([2012, 2, 1, 0], path)
+
+        path = self.cal.named_relative_path("last12months", units, date)
+        self.assertEqual([2011, 3, 1, 0], path)
+
+        path = self.cal.named_relative_path("nextmonth", units, date)
+        self.assertEqual([2012, 4, 1, 0], path)
+
+        path = self.cal.named_relative_path("next12months", units, date)
+        self.assertEqual([2013, 3, 1,0 ], path)
+
+        path = self.cal.named_relative_path("lastquarter", units, date)
+        self.assertEqual([2012, 1, 1, 0], path)
+
+        path = self.cal.named_relative_path("lastyear", units, date)
+        self.assertEqual([2011, 1, 1,0 ], path)
