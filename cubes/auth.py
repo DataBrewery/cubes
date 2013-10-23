@@ -28,7 +28,7 @@ def create_authorizer(name, **options):
     ns = get_namespace("authorizers")
     if not ns:
         ns = initialize_namespace("authorizers", root_class=Authorizer,
-                                  suffix="_store",
+                                  suffix="_authorizer",
                                   option_checking=True)
     try:
         factory = ns[name]
