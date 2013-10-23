@@ -116,13 +116,13 @@ class _SimpleAccessRight(object):
     def merge(self, other):
         """Merge `right` with the receiver:
 
-        * `allow_cubes` are merged as intersection
-        * `deny_cubes` are merged as union
+        * `allow_cubes` are merged (union)
+        * `deny_cubes` are merged (union)
         * `cube_restrictions` from `other` with same cube replace restrictions
           from the receiver"""
 
-        self.allow_cubes &= other.allow_cubes
-        self.deny_cubes |= orther.deny_cubes
+        self.allow_cubes |= other.allow_cubes
+        self.deny_cubes |= other.deny_cubes
 
         for cube, restrictions in other.cube_restrictions:
             if not cube in self.cube_restrictions:
@@ -215,10 +215,14 @@ class SimpleAuthorizer(Authorizer):
             raise NotAuthorized("Unauthorized cube '%s' for '%s'"
                                 % (cube_name, token))
 
+<<<<<<< HEAD
     def restricted_cell(self, token, cube, cell):
         right = self.right(token)
 
         cuts = right.cube_restrictions.get(cube.name)
+=======
+        cuts = right.cube_restrictions.get(cube_name)
+>>>>>>> Use union on role merging + added tests
 
         if cuts:
             cuts = [cut_from_dict(cut) for cut in cuts]
