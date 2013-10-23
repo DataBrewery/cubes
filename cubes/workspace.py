@@ -1,6 +1,7 @@
 # -*- coding=utf -*-
 import sys
 from .providers import read_model_metadata, create_model_provider
+from .auth import create_authorizer
 from .model import Model
 from .common import get_logger
 from .errors import *
@@ -174,7 +175,10 @@ class Workspace(object):
         else:
             self.options = {}
 
-
+        # Authorizer
+        if config.has_option("auth", "type"):
+            auth_type = config.get("auth", "type")
+            self.authorizer = create_authorizer(auth_type, **options)
         # Load models
 
         if config.has_section("model"):
