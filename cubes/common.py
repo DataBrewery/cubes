@@ -368,7 +368,7 @@ def sorted_dependencies(graph):
         L.append(n)
 
         # for each node m with an edge e from n to m do
-        #                       (n that depends on m)
+        #                         (n that depends on m)
         parents = [parent for parent, req in graph.items() if n in req]
 
         for parent in parents:
