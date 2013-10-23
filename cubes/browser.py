@@ -536,6 +536,16 @@ class Cell(object):
         self.cube = cube
         self.cuts = cuts if cuts is not None else []
 
+    def __and__(self, other):
+        """Returns a new cell that is a conjunction of the two provided
+        cells. The cube has to match."""
+        if self.cube != other.cube:
+            raise ArgumentError("Can not combine two cells from different "
+                                "cubes '%s' and '%s'."
+                                % (self.name, other.name))
+        cuts = self.cuts + other.cuts
+        return Cell(self.cube, cuts=cuts)
+
     def to_dict(self):
         """Returns a dictionary representation of the cell"""
         result = {
