@@ -384,3 +384,4 @@ def sorted_dependencies(graph):
         raise ArgumentError("Cyclic dependency of: %s"
                             % ", ".join(nonempty))
     return L
+
