@@ -62,13 +62,13 @@ class _SimpleAccessRight(object):
     def merge(self, other):
         """Merge `right` with the receiver:
 
-        * `allow_cubes` are merged as intersection
-        * `deny_cubes` are merged as union
+        * `allow_cubes` are merged (union)
+        * `deny_cubes` are merged (union)
         * `cube_restrictions` from `other` with same cube replace restrictions
           from the receiver"""
 
-        self.allow_cubes &= other.allow_cubes
-        self.deny_cubes |= orther.deny_cubes
+        self.allow_cubes |= other.allow_cubes
+        self.deny_cubes |= other.deny_cubes
 
         for cube, restrictions in other.cube_restrictions:
             if not cube in self.cube_restrictions:
@@ -127,7 +127,7 @@ class SimpleAuthorizer(Authorizer):
         order = sorted_dependencies(deps)
 
         for name in order:
-            role = self.role[name]
+            role = self.roles[name]
             for parent_name in role.roles:
                 parent = self.roles[parent_name]
                 role.merge(parent)
@@ -152,12 +152,12 @@ class SimpleAuthorizer(Authorizer):
 
         cube_name = str(cube)
 
-        if (allow and cube_name not in allow) \
-                or (deny and cube_name in deny):
+        if (right.allow_cubes and cube_name not in right.allow_cubes) \
+                or (right.deny_cubes and cube_name in right.deny_cubes):
             raise NotAuthorized("Unauthorized cube '%s' for '%s'"
                                 % (cube_name, token))
 
-        cuts = info["cube_restrictions"].get(name)
+        cuts = right.cube_restrictions.get(cube_name)
 
         if cuts:
             cuts = [cut_from_dict(cut) for cut in cuts]
