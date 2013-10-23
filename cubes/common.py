@@ -380,6 +380,7 @@ def sorted_dependencies(graph):
 
     # if graph has edges then -> error
     nonempty = [k for k, v in graph.items() if v]
+
     if nonempty:
         raise ArgumentError("Cyclic dependency of: %s"
                             % ", ".join(nonempty))
