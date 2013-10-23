@@ -323,7 +323,7 @@ def read_json_file(path, kind=None):
                                  % (kind, path))
 
     try:
-        f = open(access_file)
+        f = open(path)
     except IOError:
         raise ConfigurationError("Can not open %sfile '%s'"
                                  % (kind, path))
