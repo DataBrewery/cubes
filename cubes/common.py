@@ -323,7 +323,7 @@ def read_json_file(path, kind=None):
                                  % (kind, path))
 
     try:
-        f = open(path)
+        f = open(access_file)
     except IOError:
         raise ConfigurationError("Can not open %sfile '%s'"
                                  % (kind, path))
@@ -358,8 +358,8 @@ def sorted_dependencies(graph):
     # L ← Empty list that will contain the sorted elements
     L = []
 
-    # S ← Set of all nodes with no dependencies (incoming edges)
-    S = set(parent for parent, req in graph.items() if not req)
+    # S ← Set of all nodes with no incoming edges
+    S = set(key for key, value in graph.items() if not value)
 
     while S:
         # remove a node n from S
@@ -368,18 +368,16 @@ def sorted_dependencies(graph):
         L.append(n)
 
         # for each node m with an edge e from n to m do
-        #                       (n that depends on m)
-        parents = [parent for parent, req in graph.items() if n in req]
-
-        for parent in parents:
-            graph[parent].remove(n)
+        edges = graph[n]
+        for m in edges:
             # remove edge e from the graph
+            edges.pop(m)
             # if m has no other incoming edges then insert m into S
-            if not graph[parent]:
-                S.add(parent)
+            if not any(m in p for p in graph.values()):
+                S.append(m)
 
-    # if graph has edges then -> error
     nonempty = [k for k, v in graph.items() if v]
+    # if graph has edges then
     if nonempty:
         raise ArgumentError("Cyclic dependency of: %s"
                             % ", ".join(nonempty))
