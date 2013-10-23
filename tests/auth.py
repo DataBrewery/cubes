@@ -74,3 +74,4 @@ class AuthTestCase(CubesTestCaseBase):
 
         with self.assertRaises(NotAuthorized):
             self.auth.authorize("john", self.churn_cube)
+
