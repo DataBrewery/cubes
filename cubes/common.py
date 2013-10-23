@@ -24,7 +24,9 @@ __all__ = [
     "to_identifier",
     "collect_subclasses",
     "assert_instance",
-    "assert_all_instances"
+    "assert_all_instances",
+    "read_json_file",
+    "sorted_dependencies"
 ]
 
 logger_name = "cubes"
@@ -308,3 +310,73 @@ def to_unicode_string(s):
             get_logger().info("Cannot decode using %s: %s" % (enc, s))
     raise ValueError("Cannot decode for unicode using any of the available encodings: %s" % s)
 
+def read_json_file(path, kind=None):
+    """Read a JSON from `path`. This is convenience function that provides
+    more descriptive exception handling."""
+
+    kind = "%s " % str(kind) if kind else ""
+
+    if not os.path.exists(path):
+         raise ConfigurationError("Can not find %sfile '%s'"
+                                 % (kind, path))
+
+    try:
+        f = open(access_file)
+    except IOError:
+        raise ConfigurationError("Can not open %sfile '%s'"
+                                 % (kind, path))
+
+    try:
+        content = json.load(f)
+    except ValueError as e:
+        raise SyntaxError("Syntax error in %sfile %s: %s"
+                          % (kind, path, str(e)))
+    finally:
+        f.close()
+
+    return content
+
+
+def sorted_dependencies(graph):
+    """Return keys from `deps` ordered by dependency (topological sort).
+    `deps` is a dictionary where keys are strings and values are list of
+    strings where keys is assumed to be dependant on values.
+
+    Example::
+
+        A ---> B -+--> C
+                  |
+                  +--> D --> E
+
+    Will be: ``{"A": ["B"], "B": ["C", "D"], "D": ["E"],"E": []}``
+    """
+
+    graph = dict((key, set(value)) for key, value in graph.items())
+
+    # L ← Empty list that will contain the sorted elements
+    L = []
+
+    # S ← Set of all nodes with no incoming edges
+    S = set(key for key, value in graph.items() if not value)
+
+    while S:
+        # remove a node n from S
+        n = S.pop()
+        # insert n into L
+        L.append(n)
+
+        # for each node m with an edge e from n to m do
+        edges = graph[n]
+        for m in edges:
+            # remove edge e from the graph
+            edges.pop(m)
+            # if m has no other incoming edges then insert m into S
+            if not any(m in p for p in graph.values()):
+                S.append(m)
+
+    nonempty = [k for k, v in graph.items() if v]
+    # if graph has edges then
+    if nonempty:
+        raise ArgumentError("Cyclic dependency of: %s"
+                            % ", ".join(nonempty))
+    return L
