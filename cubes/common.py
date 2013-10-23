@@ -358,8 +358,8 @@ def sorted_dependencies(graph):
     # L ← Empty list that will contain the sorted elements
     L = []
 
-    # S ← Set of all nodes with no incoming edges
-    S = set(key for key, value in graph.items() if not value)
+    # S ← Set of all nodes with no dependencies (incoming edges)
+    S = set(parent for parent, req in graph.items() if not req)
 
     while S:
         # remove a node n from S
@@ -368,16 +368,18 @@ def sorted_dependencies(graph):
         L.append(n)
 
         # for each node m with an edge e from n to m do
-        edges = graph[n]
-        for m in edges:
-            # remove edge e from the graph
-            edges.pop(m)
-            # if m has no other incoming edges then insert m into S
-            if not any(m in p for p in graph.values()):
-                S.append(m)
+        #                       (n that depends on m)
+        parents = [parent for parent, req in graph.items() if n in req]
 
+        for parent in parents:
+            graph[parent].remove(n)
+            # remove edge e from the graph
+            # if m has no other incoming edges then insert m into S
+            if not graph[parent]:
+                S.add(parent)
+
+    # if graph has edges then -> error
     nonempty = [k for k, v in graph.items() if v]
-    # if graph has edges then
     if nonempty:
         raise ArgumentError("Cyclic dependency of: %s"
                             % ", ".join(nonempty))
