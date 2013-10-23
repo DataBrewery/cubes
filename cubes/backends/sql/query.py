@@ -1016,8 +1016,7 @@ class QueryBuilder(object):
         #
         if semiadditive_attribute:
             self.logger.debug("preparing semiadditive subquery for "
-                              "attributes: %s"
-                              % [str(a) for a in semiadditive_attributes])
+                              "attribute: %s" % semiadditive_attribute)
 
             join_expression = self._semiadditive_subquery(semiadditive_attribute,
                                                      selection,
