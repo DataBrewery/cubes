@@ -171,11 +171,10 @@ class Slicer(object):
 
     def dispatch(self, ctrl_class, action_name, request, params):
 
-        controller = ctrl_class(request.args,
+        controller = ctrl_class(request,
                                 workspace=self.workspace,
                                 logger=self.logger,
                                 config=self.config)
-        controller.request = request
         action = getattr(controller, action_name)
 
         if self.debug_exceptions:
