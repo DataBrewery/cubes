@@ -2,11 +2,10 @@
 
 import os.path
 import json
-from collections import namedtuple
+
 from .extensions import get_namespace, initialize_namespace
 from .browser import Cell
 from .errors import *
-from .common import read_json_file, sorted_dependencies
 
 __all__ = (
     "create_authorizer",
@@ -14,8 +13,6 @@ __all__ = (
     "SimpleAuthorizer",
     "NotAuthorized"
 )
-
-ALL_CUBES_WILDCARD = '*'
 
 class NotAuthorized(UserError):
     """Raised when user is not authorized for the request."""
@@ -29,8 +26,9 @@ def create_authorizer(name, **options):
     ns = get_namespace("authorizers")
     if not ns:
         ns = initialize_namespace("authorizers", root_class=Authorizer,
-                                  suffix="_authorizer",
+                                  suffix="_store",
                                   option_checking=True)
+
     try:
         factory = ns[name]
     except KeyError:
@@ -40,181 +38,85 @@ def create_authorizer(name, **options):
 
 
 class Authorizer(object):
-    def authorize(self, token, cubes):
-        """Returns list of authorized cubes from `cubes`. If none of the cubes
-        are authorized an empty list is returned.
+    def cube_is_allowed(object, token):
+        """Return a list of allowed cubes for authorization `token`."""
+        raise NotImplementedError
 
-        Default implementation returs the same `cubes` list as provided.
-        """
-        return cubes
+    def authorize(object, token, cube, cell):
+        """Returns appropriated `cell` within `cube` for authorization token
+        `token`. The `token` is specific to concrete authorizer object.
 
-    def restricted_cell(self, token, cube, cell=None):
-        """Restricts the `cell` for `cube` according to authorization by
-        `token`. If no cell is provided or the cell is empty then returns
-        the restriction cell. If there is no restriction, returns the original
-        `cell` if provided or `None`.
-        """
-        return cell
-
-
-class NoopAuthorizer(Authorizer):
-    def __init__(self):
-        super(NoopAuthorizer, self).__init__()
-
-
-class _SimpleAccessRight(object):
-    def __init__(self, roles, allow_cubes, deny_cubes, cube_restrictions):
-        self.roles = roles or []
-        self.allow_cubes = set(allow_cubes) if allow_cubes else set([])
-        self.deny_cubes = set(deny_cubes) if deny_cubes else set([])
-        self.cube_restrictions = cube_restrictions or {}
-
-    def merge(self, other):
-        """Merge `right` with the receiver:
-
-        * `allow_cubes` are merged (union)
-        * `deny_cubes` are merged (union)
-        * `cube_restrictions` from `other` with same cube replace restrictions
-          from the receiver"""
-
-        self.allow_cubes |= other.allow_cubes
-        self.deny_cubes |= other.deny_cubes
-
-        for cube, restrictions in other.cube_restrictions:
-            if not cube in self.cube_restrictions:
-                self.cube_restrictions[cube] = restrictions
-            else:
-                mine = self.cube_restrictions[cube]
-                mine += restrictions
-
-    def is_allowed(self, cube_name):
-        return (self.allow_cubes \
-                    and (cube_name in self.allow_cubes \
-                            or ALL_CUBES_WILDCARD in self.allow_cubes)) \
-                or \
-                    (self.deny_cubes \
-                    and (cube_name not in self.deny_cubes \
-                            and ALL_CUBES_WILDCARD not in self.deny_cubes))
-
-
-class NoopAuthorizer(Authorizer):
-    def __init__(self):
-        super(NoopAuthorizer, self).__init__()
-
-    def authorize(self, token, cube, cell=None):
-        if cell is not None:
-            return cell
-        return Cell(cube)
+        If `token` does not authorize access to the cube a NotAuthorized exception is
+        raised."""
+        raise NotImplementedError
 
 
 class SimpleAuthorizer(Authorizer):
     __options__ = [
         {
-            "name": "rights_file",
-            "description": "JSON file with access rights",
-            "type": "string"
-        },
-        {
-            "name": "roles_file",
-            "description": "JSON file with access right roles",
+            "name": "tokens_file",
+            "description": "JSON file with authorization tokens and their "
+                           "respective configuration (cubes, cells, ...).",
             "type": "string"
         },
 
     ]
 
-    def __init__(self, rights_file=None, roles_file=None, roles=None,
-                 rights=None, **options):
-        """Creates a simple JSON-file based authorizer. Reads data from
-        `rights_file` and `roles_file` and merge them with `roles` and
-        `rights` dictionaries respectively."""
+    def __init__(self, tokens_file=None, tokens=None):
+        super(SimpleAuthorizer, self).__init__(self)
 
-        super(SimpleAuthorizer, self).__init__()
+        if tokens_file or tokens:
+            raise ArgumentError("Both tokens_file and tokens provided, "
+                                "use only one.")
 
-        roles = roles or {}
-        rights = rights or {}
+        if tokens_file:
+            if not os.path.exists(tokens_file):
+                raise ConfigurationError("Can not find tokens file '%s'"
+                                         % tokens_file)
 
-        if roles_file:
-            content = read_json_file(roles_file, "access roles")
-            roles.update(content)
+            try:
+                f = open(tokens_file)
+            except IOError:
+                raise ConfigurationError("Can not open tokens file '%s'"
+                                         % tokens_file)
 
-        if rights_file:
-            content = read_json_file(rights_file, "access rights")
-            rights.update(content)
+            try:
+                tokens = json.load(f)
+            except ValueError as e:
+                raise SyntaxError("Syntax error in tokens file %s: %s"
+                                  % (tokens_file, str(e)))
+            finally:
+                f.close()
 
-        self.roles = {}
-        self.rights = {}
+        elif not tokens:
+            raise ArgumentError("Neither tokens nor tokens_file provided")
 
-        # Process the roles
-        for key, info in roles.items():
-            role = _SimpleAccessRight(roles=info.get("roles"),
-                                      allow_cubes=info.get("allowed_cubes"),
-                                      deny_cubes=info.get("denied_cubes"),
-                                      cube_restrictions=info.get("cube_restrictions"))
-            self.roles[key] = role
+        self.tokens = {}
 
-        deps = dict((name, role.roles) for name, role in self.roles.items())
-        order = sorted_dependencies(deps)
+        for token, info in tokens:
+            self._add_token(token, info)
 
-        for name in order:
-            role = self.roles[name]
-            for parent_name in role.roles:
-                parent = self.roles[parent_name]
-                role.merge(parent)
+    def add_token(self, token, info):
+        """Prepare the token's info dictionary and add it to the
+        receipient."""
+        info = dict(info)
+        if "allow_cubes" not in info:
+            info["allowed_cubes"] = []
+        if "deny_cubes" not in info:
+            info["deny_cubes"] = []
 
-        # Process rights
-        for key, info in rights.items():
-            right = _SimpleAccessRight(roles=info.get("roles"),
-                                       allow_cubes=info.get("allowed_cubes"),
-                                       deny_cubes=info.get("denied_cubes"),
-                                       cube_restrictions=info.get("cube_restrictions"))
-            self.rights[key] = right
-
-            for role_name in right.roles:
-                role = self.roles[role_name]
-                right.merge(role)
-
-    def right(self, token):
+    def authorize(self, token, cube, cell=None):
         try:
-            right = self.rights[token]
+            info = self.tokens[token]
         except KeyError:
-            raise NotAuthorized("Unknown access right '%s'" % token)
-        return right
+            raise NotAuthorized("Unknown token")
 
-    def authorize(self, token, cubes):
-        try:
-            right = self.right(token)
-        except NotAuthorized:
-            return []
+        allow = info.get("allow_cubes", [])
+        deny = info.get("deny_cubes")
+        name = str(cube)
 
-        authorized = []
+        if (allow and name not in allow) \
+                or (deny and name in deny):
+            raise NotAuthorized("Unauthorized cube '%s'" % name)
 
-        for cube in cubes:
-            cube_name = str(cube)
-
-            if right.is_allowed(cube_name):
-                authorized.append(cube)
-
-        return authorized
-
-    def restricted_cell(self, token, cube, cell):
-        right = self.right(token)
-
-        cuts = right.cube_restrictions.get(cube.name)
-
-        if cuts:
-            if isinstance(cuts, basestring):
-                cuts = cuts_from_string(cube, cuts)
-            else:
-                cuts = [cut_from_dict(cut) for cut in cuts]
-
-            restriction = Cell(cube, cuts)
-        else:
-            restriction = None
-
-        if not restriction:
-            return cell
-        elif cell:
-            return cell + restriction
-        else:
-            return restriction
-
+        return cell
