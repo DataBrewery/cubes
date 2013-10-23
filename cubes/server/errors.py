@@ -46,6 +46,10 @@ class RequestError(ServerError):
     code = 400
 
 
+class NotAuthorizedError(ServerError):
+    code = 403
+    error_type = "not_authorized"
+
 class NotFoundError(ServerError):
     code = 404
     error_type = "not_found"
