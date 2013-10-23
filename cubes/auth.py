@@ -29,7 +29,6 @@ def create_authorizer(name, **options):
         ns = initialize_namespace("authorizers", root_class=Authorizer,
                                   suffix="_store",
                                   option_checking=True)
-
     try:
         factory = ns[name]
     except KeyError:
