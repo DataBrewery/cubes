@@ -169,4 +169,3 @@ class SimpleAuthorizer(Authorizer):
             return cell + constraint_cell
         else:
             return constraint_cell
-
