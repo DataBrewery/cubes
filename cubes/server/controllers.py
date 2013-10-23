@@ -12,15 +12,18 @@ from .common import validated_parameter, str_to_bool
 from .common import SlicerJSONEncoder, CSVGenerator
 from .caching import cacheable
 from ..browser import SPLIT_DIMENSION_NAME
+from ..auth import NotAuthorized
 
 try:
     from werkzeug.wrappers import Response
     from werkzeug.utils import redirect
     from werkzeug.exceptions import NotFound
+    from werkzeug.http import parse_authorization_header
 except ImportError:
     from cubes.common import MissingPackage
     _missing = MissingPackage("werkzeug", "Slicer server")
     Response = redirect = NotFound = _missing
+    parse_authorization_header = _missing
 
 try:
     import cubes_search
@@ -37,12 +40,13 @@ __all__ = (
 
 
 class ApplicationController(object):
-    def __init__(self, args, workspace, logger, config):
+    def __init__(self, request, workspace, logger, config):
 
         self.workspace = workspace
-        self.args = wildcards.proc_wildcards(args)
+        self.args = wildcards.proc_wildcards(request.args)
         self.config = config
         self.logger = logger
+        self.request = request
 
         self.locale = self.args.get("lang")
         self.locales = self.workspace.locales
@@ -95,6 +99,15 @@ class ApplicationController(object):
                     self.order.append( (split[0], split[1]) )
 
 
+        # FIXME: temporary
+        auth_header = self.request.headers.get('authorization')
+        if auth_header:
+            self.authorization = parse_authorization_header(auth_header)
+            self.username = self.authorization.username
+        else:
+            self.authorization = None
+            self.username = None
+
         if 'cache_host' in workspace.options:
             import caching
             import pymongo
@@ -107,6 +120,18 @@ class ApplicationController(object):
 
             cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads, logger=self.logger)
             self.cache = cache
+
+    def authorize(self, cube, cell=None):
+        authorizer = self.workspace.authorizer
+        if not authorizer:
+            return cell
+
+        try:
+            cell = authorizer.authorize(self.username, cube, cell)
+        except NotAuthorized as e:
+            raise NotAuthorizedError(exception=e)
+
+        return cell
 
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
@@ -205,6 +230,7 @@ class ModelController(ApplicationController):
 
     def get_cube(self, cube_name):
         cube = self.workspace.cube(cube_name)
+        self.authorize(cube)
 
         # Attach cube features
         response = self._cube_dict(cube)
@@ -251,9 +277,16 @@ class CubesController(ApplicationController):
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
         self.browser = self.workspace.browser(self.cube, self.locale)
 
+        # TODO: no cell appropriated
+        self.constraint_cell = self.authorize(self.cube)
+
     def prepare_cell(self):
         cuts = self._parse_cut_spec(self.args.getlist("cut"), 'cell')
         self.cell = cubes.Cell(self.cube, cuts)
+
+        # See: authorization
+        if self.constraint_cell:
+            self.cell = self.cell + self.constraint_cell
 
     def _parse_cut_spec(self, cut_strings, context):
         if cut_strings:
