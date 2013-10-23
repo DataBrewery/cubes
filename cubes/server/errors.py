@@ -89,3 +89,4 @@ class NotFoundError(ServerError):
 
 class AggregationError(ServerError):
     code = 400
+
