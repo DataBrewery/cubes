@@ -27,7 +27,7 @@ def create_authorizer(name, **options):
     ns = get_namespace("authorizers")
     if not ns:
         ns = initialize_namespace("authorizers", root_class=Authorizer,
-                                  suffix="_store",
+                                  suffix="_authorizer",
                                   option_checking=True)
 
     try:
@@ -94,7 +94,7 @@ class SimpleAuthorizer(Authorizer):
     ]
 
     def __init__(self, rights_file=None, roles_file=None, roles=None,
-                 rights=None):
+                 rights=None, **options):
         """Creates a simple JSON-file based authorizer. Reads data from
         `rights_file` and `roles_file` and merge them with `roles` and
         `rights` dictionaries respectively."""
@@ -168,5 +168,5 @@ class SimpleAuthorizer(Authorizer):
         if cell:
             return cell + constraint_cell
         else:
-            return None
+            return constraint_cell
 
