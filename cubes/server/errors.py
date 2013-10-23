@@ -50,27 +50,6 @@ class NotAuthorizedError(ServerError):
     code = 403
     error_type = "not_authorized"
 
-
-class NotAuthenticatedError(ServerError):
-    code = 401
-    error_type = "not_authenticated"
-
-    def __init__(self, message=None, exception=None, realm=None, **details):
-        super(NotAuthenticatedError, self).__init__(message,
-                                                    exception,
-                                                    **details)
-        self.message = message
-        self.exception = exception
-        self.details = details
-        self.help = None
-
-    def get_headers(self, environ):
-        """Get a list of headers."""
-        headers = super(NotAuthenticatedError, self).get_headers(environ)
-        headers.append(('WWW-Authenticate', 'Basic realm="Login Required"'))
-        return headers
-
-
 class NotFoundError(ServerError):
     code = 404
     error_type = "not_found"
