@@ -215,14 +215,10 @@ class SimpleAuthorizer(Authorizer):
             raise NotAuthorized("Unauthorized cube '%s' for '%s'"
                                 % (cube_name, token))
 
-<<<<<<< HEAD
     def restricted_cell(self, token, cube, cell):
         right = self.right(token)
 
         cuts = right.cube_restrictions.get(cube.name)
-=======
-        cuts = right.cube_restrictions.get(cube_name)
->>>>>>> Use union on role merging + added tests
 
         if cuts:
             cuts = [cut_from_dict(cut) for cut in cuts]
