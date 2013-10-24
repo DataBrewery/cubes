@@ -121,17 +121,25 @@ class ApplicationController(object):
             cache = caching.MongoCache('CubesCache', client, ttl, dumps=caching.response_dumps, loads=caching.response_loads, logger=self.logger)
             self.cache = cache
 
-    def authorize(self, cube, cell=None):
+    def authorize(self, cube):
+        authorizer = self.workspace.authorizer
+        if not authorizer:
+            return
+
+        try:
+            authorizer.authorize(self.username, cube)
+        except NotAuthorized as e:
+            raise NotAuthorizedError(exception=e)
+
+    def restricted_cell(self, cube, cell):
         authorizer = self.workspace.authorizer
         if not authorizer:
             return cell
 
         try:
-            cell = authorizer.authorize(self.username, cube, cell)
+            return authorizer.restricted_cell(self.username, cube, cell)
         except NotAuthorized as e:
             raise NotAuthorizedError(exception=e)
-
-        return cell
 
     def index(self):
         handle = open(os.path.join(TEMPLATE_PATH, "index.html"))
@@ -277,16 +285,12 @@ class CubesController(ApplicationController):
         self.logger.info("browsing cube '%s' (locale: %s)" % (cube_name, self.locale))
         self.browser = self.workspace.browser(self.cube, self.locale)
 
-        # TODO: no cell appropriated
-        self.constraint_cell = self.authorize(self.cube)
-
     def prepare_cell(self):
         cuts = self._parse_cut_spec(self.args.getlist("cut"), 'cell')
         self.cell = cubes.Cell(self.cube, cuts)
 
         # See: authorization
-        if self.constraint_cell:
-            self.cell = self.cell + self.constraint_cell
+        self.cell = self.restricted_cell(self.cube, self.cell)
 
     def _parse_cut_spec(self, cut_strings, context):
         if cut_strings:
