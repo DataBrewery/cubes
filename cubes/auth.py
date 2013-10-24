@@ -40,17 +40,35 @@ def create_authorizer(name, **options):
 
 
 class Authorizer(object):
-    def cube_is_allowed(object, token):
+    def cube_is_allowed(self, token):
         """Return a list of allowed cubes for authorization `token`."""
         raise NotImplementedError
 
-    def authorize(object, token, cube, cell):
+    def authorize(self, token, cube):
         """Returns appropriated `cell` within `cube` for authorization token
         `token`. The `token` is specific to concrete authorizer object.
 
         If `token` does not authorize access to the cube a NotAuthorized exception is
         raised."""
         raise NotImplementedError
+
+    def restricted_cell(self, token, cube, cell=None):
+        """Restricts the `cell` for `cube` according to authorization by
+        `token`. If no cell is provided or the cell is empty then returns
+        the restriction cell. If there is no restriction, returns the original
+        `cell` if provided or `None`.
+        """
+        raise NotImplemented
+
+class NoopAuthorizer(Authorizer):
+    def __init__(self):
+        super(NoopAuthorizer, self).__init__()
+
+    def authorize(self, token, cube, cell=None):
+        return None
+
+    def restricted_cell(self, token, cube, cell):
+        return None
 
 
 class _SimpleAccessRight(object):
@@ -78,15 +96,6 @@ class _SimpleAccessRight(object):
                 mine = self.cube_restrictions.get(cube)
                 mine += restritions
 
-
-class NoopAuthorizer(Authorizer):
-    def __init__(self):
-        super(NoopAuthorizer, self).__init__()
-
-    def authorize(self, token, cube, cell=None):
-        if cell is not None:
-            return cell
-        return Cell(cube)
 
 class SimpleAuthorizer(Authorizer):
     __options__ = [
@@ -154,11 +163,15 @@ class SimpleAuthorizer(Authorizer):
                 role = self.roles[role_name]
                 right.merge(role)
 
-    def authorize(self, token, cube, cell=None):
+    def right(self, token):
         try:
             right = self.rights[token]
         except KeyError:
             raise NotAuthorized("Unknown access right '%s'" % token)
+        return right
+
+    def authorize(self, token, cube):
+        right = self.right(token)
 
         cube_name = str(cube)
 
@@ -167,16 +180,21 @@ class SimpleAuthorizer(Authorizer):
             raise NotAuthorized("Unauthorized cube '%s' for '%s'"
                                 % (cube_name, token))
 
-        cuts = right.cube_restrictions.get(cube_name)
+    def restricted_cell(self, token, cube, cell):
+        right = self.right(token)
+
+        cuts = right.cube_restrictions.get(cube.name)
 
         if cuts:
             cuts = [cut_from_dict(cut) for cut in cuts]
-            constraint_cell = Cell(cube, cuts)
+            restriction = Cell(cube, cuts)
         else:
-            constraint_cell = Cell(cube)
+            restriction = None
 
-        if cell:
-            return cell + constraint_cell
+        if not restriction:
+            return cell
+        elif cell:
+            return cell + restriction
         else:
-            return constraint_cell
+            return restriction
 

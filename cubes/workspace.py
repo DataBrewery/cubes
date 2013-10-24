@@ -278,7 +278,6 @@ class Workspace(object):
 
         """
 
-
         # Model -> Store -> Provider
 
         if isinstance(model, basestring):
