@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 import sys
 from .providers import read_model_metadata, create_model_provider
-from .auth import create_authorizer
+from .auth import create_authorizer, NoopAuthorizer
 from .model import Model
 from .common import get_logger
 from .errors import *
@@ -180,6 +180,8 @@ class Workspace(object):
             auth_type = config.get("auth", "type")
             options = dict(config.items("auth"))
             self.authorizer = create_authorizer(auth_type, **options)
+        else:
+            self.authorizer = NoopAuthorizer()
 
         # Load models
 
