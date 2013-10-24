@@ -422,7 +422,7 @@ class SnowflakeSchema(object):
             try:
                 detail_column = detail_table.c[detail.column]
             except KeyError:
-                raise ErrorMappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
+                raise MappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
                                     % join.detail[0:3])
 
             # The join condition:
