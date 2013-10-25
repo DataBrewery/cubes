@@ -4,6 +4,7 @@ from werkzeug.local import LocalProxy
 
 import ConfigParser
 from ..workspace import Workspace
+from ..auth import NotAuthorized
 from ..errors import *
 from .common import *
 from .errors import *
@@ -195,26 +196,33 @@ def before_request():
             else:
                 g.order.append( (split[0], split[1]) )
 
+# Authorization
+# =============
+
 @slicer.before_request
 def prepare_authorization():
+    g.authorization_token = None
+
     if current_app.slicer.authorization_method == "http_basic":
     # Method: http_basic
-        auth_header = request.headers.get('authorization')
-        if auth_header:
-            authorization = parse_authorization_header(auth_header)
-            g.auth_token = authorization.username
-        else:
-            g.auth_token = None
+
+        if request.authorization:
+            g.authorization_token = request.authorization.username
     else:
         raise InternalError("Unsupported authorization method: %s"
                             % current_app.slicer.auth_method)
 
 
+def authorize_cube(cube):
+    if not workspace.authorizer:
+        return
 
-
+    try:
+        workspace.authorizer.authorize(g.authorization_token, cube)
+    except NotAuthorized as e:
+        raise NotAuthorizedError(exception=e)
 # Utils
 # =====
-
 
 def jsonify(obj):
     """Returns a ``application/json`` `Response` object with `obj` converted
@@ -261,12 +269,29 @@ def show_info():
 
 @slicer.route("/cubes")
 def list_cubes():
-    pass
+    if "cached_cube_list" in current_app.slicer:
+        cube_list = current_app.slicer.cached_cube_list
+    else:
+        cube_list = workspace.list_cubes()
+        current_app.slicer.cached_cube_list = cube_list
+
+    return jsonify(cube_list)
 
 
-@slicer.route("/cube/<cube>/model")
-def cube_model(cube):
-    pass
+@slicer.route("/cube/<cube_name>/model")
+def cube_model(cube_name):
+    cube = workspace.cube(cube_name)
+    authorize_cube(cube)
+
+    # TODO: only one option: private or public
+    response = cube.to_dict(expand_dimensions=True,
+                            with_mappings=False,
+                            full_attribute_names=True,
+                            create_label=True)
+
+    response["features"] = workspace.cube_features(cube)
+
+    return jsonify(response)
 
 
 @slicer.route("/cube/<cube>/aggregate")
