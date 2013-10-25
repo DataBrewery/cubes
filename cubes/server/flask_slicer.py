@@ -17,15 +17,18 @@ from cubes import __version__
 from .utils import set_default_tz
 import pytz
 
+try:
+    import cubes_search
+except ImportError:
+    cubes_search = None
+
+
 __all__ = (
     "slicer",
     "create_server",
     "run_server",
     "API_VERSION"
 )
-
-
-API_VERSION = 2
 
 
 slicer = Blueprint('slicer', __name__)
@@ -130,9 +133,10 @@ def initialize_slicer(state):
         config = state.options["config"]
 
         # Create workspace
+        current_app.slicer = _Configuration()
+        current_app.slicer.config = config
         current_app.workspace = Workspace(state.options["config"])
         current_app.cubes_logger = current_app.workspace.logger
-        current_app.slicer = _Configuration()
 
         # Configure the application
         _configure_option(config, "prettyprint", False, "bool")
@@ -466,26 +470,136 @@ def cube_facts(cube_name):
                         mimetype='text/csv')
 
 
-@slicer.route("/cube/<cube>/fact/<fact_id>")
-def cube_fact(cube, fact_id):
-    pass
+@slicer.route("/cube/<cube_name>/fact/<fact_id>")
+def cube_fact(cube_name, fact_id):
+    fact = g.browser.fact(fact_id)
+
+    if fact:
+        return jsonify(fact)
+    else:
+        raise NotFoundError(fact_id, "fact",
+                            message="No fact with id '%s'" % fact_id)
 
 
-@slicer.route("/cube/<cube>/members")
-def cube_members(cube):
-    pass
+@slicer.route("/cube/<cube_name>/members/<dimension_name>")
+def cube_members(cube_name, dimension_name):
+    depth = request.args.get("depth")
+
+    if depth:
+        try:
+            depth = int(depth)
+        except ValueError:
+            raise RequestError("depth should be an integer")
+
+    try:
+        dimension = g.cube.dimension(dimension_name)
+    except KeyError:
+        raise NotFoundError(dim_name, "dimension",
+                            message="Dimension '%s' was not found" % dim_name)
+
+    hier_name = request.args.get("hierarchy")
+    hierarchy = dimension.hierarchy(hier_name)
+
+    values = g.browser.members(g.cell,
+                               dimension,
+                               depth=depth,
+                               hierarchy=hierarchy,
+                               page=g.page,
+                               page_size=g.page_size)
+
+    depth = depth or len(hierarchy)
+
+    result = {
+        "dimension": dimension.name,
+        "hierarchy": hierarchy.name,
+        "depth": len(hierarchy) if depth is None else depth,
+        "data": values
+    }
+
+    return jsonify(result)
 
 
-@slicer.route("/cube/<cube>/cell")
-def cube_cell(cube):
-    pass
+@slicer.route("/cube/<cube_name>/cell")
+def cube_cell(cube_name):
+    details = g.browser.cell_details(g.cell)
+    cell_dict = g.cell.to_dict()
+
+    for cut, detail in zip(cell_dict["cuts"], details):
+        cut["details"] = detail
+
+    return jsonify(cell_dict)
 
 
 @slicer.route("/cube/<cube>/report")
 def cube_report(cube):
-    pass
+    report_request = self.json_request()
+
+    try:
+        queries = report_request["queries"]
+    except KeyError:
+        raise RequestError("Report request does not contain 'queries' key")
+
+    cell_cuts = report_request.get("cell")
+
+    if cell_cuts:
+        # Override URL cut with the one in report
+        cuts = [cut_from_dict(cut) for cut in cell_cuts]
+        cell = Cell(g.cube, cuts)
+        logger.info("using cell from report specification (URL parameters "
+                    "are ignored)")
+    else:
+        cell = g.cell
+
+    result = g.browser.report(cell, queries)
+
+    return jsonify(result)
 
 
 @slicer.route("/cube/<cube>/search")
 def cube_search(cube):
-    pass
+    # TODO: this is ported from old Werkzeug slicer, requires revision
+
+    config = current_app.config
+    if config.has_section("search"):
+        options = dict(config.items("search"))
+        engine_name = options.pop("engine")
+    else:
+        raise ConfigurationError("Search engine is not configured.")
+
+    logger.debug("using search engine: %s" % engine_name)
+
+    search_engine = cubes_search.create_searcher(engine_name,
+                                                 browser=g.browser,
+                                                 locales=g.locales,
+                                                 **options)
+    dimension = request.args.get("dimension")
+    if not dimension:
+        raise RequestError("No search dimension provided")
+
+    query = request.args.get("query")
+
+    if not query:
+        raise RequestError("No search query provided")
+
+    locale = g.locale or g.locales[0]
+
+    logger.debug("searching for '%s' in %s, locale %s"
+                 % (query, dimension, locale))
+
+    search_result = search_engine.search(query, dimension, locale=locale)
+
+    result = {
+        "matches": search_result.dimension_matches(dimension),
+        "dimension": dimension,
+        "total_found": search_result.total_found,
+        "locale": locale
+    }
+
+    if search_result.error:
+        result["error"] = search_result.error
+
+    if search_result.warning:
+        result["warning"] = search_result.warning
+
+    return jsonify(result)
+
