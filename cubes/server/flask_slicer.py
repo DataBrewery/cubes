@@ -1,10 +1,12 @@
 # -*- coding=utf -*-
 from flask import Blueprint, Flask, Response, request, g, current_app
 from werkzeug.local import LocalProxy
+from functools import wraps
 
 import ConfigParser
 from ..workspace import Workspace
 from ..auth import NotAuthorized
+from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
 from ..errors import *
 from .common import *
 from .errors import *
@@ -99,6 +101,25 @@ def run_server(config, debug=False):
     app.run(host, port, debug=debug, processes=processes,
             use_reloader=use_reloader)
 
+# Utils
+# -----
+
+
+def prepare_cell(argname="cut", target="cell"):
+    """Sets `g.cell` with a `Cell` object from argument with name `argname`"""
+    # Used by prepare_browser_request and in /aggregate for the split cell
+
+    cuts = []
+    for cut_string in request.args.getlist(argname):
+        cuts += cuts_from_string(cut_string)
+
+    if cuts:
+        cell = Cell(g.cube, cuts)
+    else:
+        cell = None
+
+    setattr(g, target, cell)
+
 # Before
 # ------
 @slicer.record_once
@@ -119,6 +140,62 @@ def initialize_slicer(state):
         _configure_option(config, "json_record_limit", 1000, "int")
         _configure_option(config, "authorization_method", "http_basic",
                           allowed=["http_basic"])
+
+
+@slicer.before_request
+def prepare_browser_request():
+    """Prepares three global variables: `g.cube`, `g.browser` and `g.cell`."""
+    cube_name = request.view_args.get("cube_name")
+    if cube_name:
+        cube = workspace.cube(cube_name)
+    else:
+        cube = None
+
+    g.cube = cube
+    g.browser = workspace.browser(g.cube)
+    prepare_cell()
+
+    if "page" in request.args:
+        try:
+            g.page = int(request.args.get("page"))
+        except ValueError:
+            raise RequestError("'page' should be a number")
+    else:
+        g.page = None
+
+    if "pagesize" in request.args:
+        try:
+            g.page_size = int(request.args.get("pagesize"))
+        except ValueError:
+            raise RequestError("'pagesize' should be a number")
+    else:
+        g.page_size = None
+
+    # Collect orderings:
+    # order is specified as order=<field>[:<direction>]
+    #
+    g.order = []
+    for orders in request.args.getlist("order"):
+        for order in orders.split(","):
+            split = order.split(":")
+            if len(split) == 1:
+                g.order.append( (order, None) )
+            else:
+                g.order.append( (split[0], split[1]) )
+
+
+@slicer.before_request
+def before_request():
+    # TODO: setup language
+
+    # Copy from the application context
+    g.json_record_limit = current_app.slicer.json_record_limit
+
+    if "prettyprint" in request.args:
+        g.prettyprint = str_to_bool(request.args.get("prettyprint"))
+    else:
+        g.prettyprint = current_app.slicer.prettyprint
+
 
 
 class _Configuration(dict):
@@ -156,46 +233,6 @@ def _configure_option(config, option, default, type_=None, allowed=None):
 
     setattr(current_app.slicer, option, value)
 
-@slicer.before_request
-def before_request():
-    # TODO: setup language
-
-    # Copy from the application context
-    g.json_record_limit = current_app.slicer.json_record_limit
-
-    if "prettyprint" in request.args:
-        g.prettyprint = str_to_bool(request.args.get("prettyprint"))
-    else:
-        g.prettyprint = current_app.slicer.prettyprint
-
-    if "page" in request.args:
-        try:
-            g.page = int(request.args.get("page"))
-        except ValueError:
-            raise RequestError("'page' should be a number")
-
-    if "pagesize" in request.args:
-        try:
-            g.pagesize = int(request.args.get("pagesize"))
-        except ValueError:
-            raise RequestError("'pagesize' should be a number")
-
-    # Collect orderings:
-    # order is specified as order=<field>[:<direction>]
-    # examples:
-    #
-    #     order=date.year     # order by year, unspecified direction
-    #     order=date.year:asc # order by year ascending
-    #
-    g.order = []
-    for orders in request.args.getlist("order"):
-        for order in orders.split(","):
-            split = order.split(":")
-            if len(split) == 1:
-                g.order.append( (order, None) )
-            else:
-                g.order.append( (split[0], split[1]) )
-
 # Authorization
 # =============
 
@@ -221,6 +258,7 @@ def authorize_cube(cube):
         workspace.authorizer.authorize(g.authorization_token, cube)
     except NotAuthorized as e:
         raise NotAuthorizedError(exception=e)
+
 # Utils
 # =====
 
@@ -294,9 +332,75 @@ def cube_model(cube_name):
     return jsonify(response)
 
 
-@slicer.route("/cube/<cube>/aggregate")
-def cube_aggregate(cube):
-    pass
+@slicer.route("/cube/<cube_name>/aggregate")
+def aggregate(cube_name):
+    cube = g.cube
+
+    output_format = validated_parameter(request.args, "format",
+                                        values=["json", "csv"],
+                                        default="json")
+
+    header_type = validated_parameter(request.args, "header",
+                                      values=["names", "labels", "none"],
+                                      default="labels")
+
+    fields_str = request.args.get("fields")
+    if fields_str:
+        fields = fields_str.lower().split(',')
+    else:
+        fields = None
+
+    # Aggregates
+    # ----------
+
+    aggregates = []
+    for agg in request.args.getlist("aggregates") or []:
+        aggregates += agg.split("|")
+
+    drilldown = []
+
+    ddlist = request.args.getlist("drilldown")
+    if ddlist:
+        for ddstring in ddlist:
+            drilldown += ddstring.split("|")
+
+    prepare_cell("split", "split")
+
+    result = g.browser.aggregate(g.cell,
+                                 aggregates=aggregates,
+                                 drilldown=drilldown,
+                                 split=g.split,
+                                 page=g.page,
+                                 page_size=g.page_size,
+                                 order=g.order)
+
+    if output_format == "json":
+        return jsonify(result)
+    elif output_format != "csv":
+        raise RequestError("unknown response format '%s'" % output_format)
+
+    # csv
+    if header_type == "names":
+        header = result.labels
+    elif header_type == "labels":
+        header = []
+        for l in result.labels:
+            # TODO: add a little bit of polish to this
+            if l == SPLIT_DIMENSION_NAME:
+                header.append('Matches Filters')
+            else:
+                header += [ attr.label or attr.name for attr in cube.get_attributes([l], aggregated=True) ]
+    else:
+        header = None
+
+    fields = result.labels
+    generator = CSVGenerator(result,
+                             fields,
+                             include_header=bool(header),
+                             header=header)
+
+    return Response(generator.csvrows(),
+                    mimetype='text/csv')
 
 
 @slicer.route("/cube/<cube>/facts")
