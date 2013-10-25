@@ -38,6 +38,7 @@ slicer = Blueprint('slicer', __name__)
 
 def _get_workspace():
     return current_app.workspace
+
 def _get_logger():
     return current_app.cubes_logger
 
@@ -62,8 +63,6 @@ def create_server(config):
     config = _read_config(config)
     app = Flask("slicer")
     app.register_blueprint(slicer, config=config)
-
-    app.config["CUBES_CONFIG"] = config
 
     return app
 
@@ -403,9 +402,68 @@ def aggregate(cube_name):
                     mimetype='text/csv')
 
 
-@slicer.route("/cube/<cube>/facts")
-def cube_facts(cube):
-    pass
+@slicer.route("/cube/<cube_name>/facts")
+def cube_facts(cube_name):
+    # Request parameters
+    output_format = validated_parameter(request.args, "format",
+                                        values=["json", "csv"],
+                                        default="json")
+
+    header_type = validated_parameter(request.args, "header",
+                                      values=["names", "labels", "none"],
+                                      default="labels")
+
+    fields_str = request.args.get("fields")
+    if fields_str:
+        fields = fields_str.lower().split(',')
+    else:
+        fields = None
+
+    # fields contain attribute names
+    if fields:
+        attributes = g.cube.get_attributes(fields)
+    else:
+        attributes = g.cube.all_attributes
+
+    # Construct the field list
+    fields = [attr.ref() for attr in attributes]
+
+    # Get the result
+    result = g.browser.facts(g.cell,
+                             fields=fields,
+                             order=g.order,
+                             page=g.page,
+                             page_size=g.page_size)
+
+    # Add cube key to the fields (it is returned in the result)
+    fields.insert(0, g.cube.key)
+
+    # Construct the header
+    if header_type == "names":
+        header = fields
+    elif header_type == "labels":
+        header = [attr.label or attr.name for attr in attributes]
+        header.insert(0, g.cube.key or "id")
+    else:
+        header = None
+
+    # Get the facts iterator. `result` is expected to be an iterable Facts
+    # object
+    facts = iter(result)
+
+    if output_format == "json":
+        return jsonify(facts)
+    elif output_format == "csv":
+        if not fields:
+            fields = result.labels
+
+        generator = CSVGenerator(facts,
+                                 fields,
+                                 include_header=bool(header),
+                                 header=header)
+
+        return Response(generator.csvrows(),
+                        mimetype='text/csv')
 
 
 @slicer.route("/cube/<cube>/fact/<fact_id>")
