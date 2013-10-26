@@ -68,6 +68,7 @@ class HTTPBasicProxyAuthenticator(Authenticator):
         assumes the server to be behind a proxy. Does not check for a
         password, just passes the `username` as identity"""
         auth = request.authorization
+
         if auth:
             return auth.username
 
