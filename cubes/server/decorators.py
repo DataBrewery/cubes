@@ -7,7 +7,7 @@ from ..workspace import Workspace
 from ..auth import NotAuthorized
 from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
 from ..errors import *
-from .utils import *
+from .common import *
 from .errors import *
 from .local import *
 
@@ -81,6 +81,7 @@ def requires_browser(f):
     return wrapper
 
 
+
 # Authorization
 # =============
 
@@ -92,10 +93,10 @@ def authorize(cube):
         return
 
     logger.debug("authorizing cube %s for %s"
-                 % (str(cube), g.auth_identity))
+                 % (str(cube), g.authorization_token))
 
     try:
-        workspace.authorizer.authorize(g.auth_identity, cube)
+        workspace.authorizer.authorize(g.authorization_token, cube)
     except NotAuthorized as e:
         raise NotAuthorizedError(exception=e)
 
