@@ -3,13 +3,13 @@ from flask import Blueprint, Response, request, g, current_app
 from functools import wraps
 
 from ..workspace import Workspace
-from ..auth import NotAuthorized
-from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
+from ..browser import Cell, SPLIT_DIMENSION_NAME
 from ..errors import *
 from .utils import *
 from .errors import *
 from .decorators import *
 from .local import *
+from .auth import create_authenticator, NotAuthenticated
 
 from cubes import __version__
 
@@ -73,25 +73,29 @@ def initialize_slicer(state):
     with state.app.app_context():
         config = state.options["config"]
 
-        # Create workspace
+        # Create workspace and other app objects
+        # We avoid pollution of the current_app context, as we are a Blueprint
         params = CustomDict()
         current_app.slicer = params
         current_app.slicer.config = config
-        current_app.workspace = Workspace(state.options["config"])
-        current_app.cubes_logger = current_app.workspace.logger
+        current_app.cubes_workspace = Workspace(config)
 
         # Configure the application
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
+
         _store_option(config, "authorization_method", "none",
                       allowed=["http_basic", "param", "none"])
         _store_option(config, "authorization_parameter", "api_key")
-        _store_option(config, "authentication", "none")
+        _store_option(config, "authentication_method", "none")
 
-        if params.authentication and params.authentication != "none":
-            pass
+        method = current_app.slicer.authentication_method
+        if method is None or method == "none":
+            current_app.slicer.authenticator = None
         else:
-            pass
+            options = dict(config.items("authentication"))
+            current_app.slicer.authenticator = create_authenticator(method,
+                                                                    **options)
 
 # Before and After
 # ================
@@ -108,13 +112,26 @@ def process_common_parameters():
     else:
         g.prettyprint = current_app.slicer.prettyprint
 
+
 @slicer.before_request
-def prepare_authorization():
+def prepare_authorization_token():
     g.authorization_token = None
 
+    # Authentication
+    # --------------
+    # TODO: This is provisional functionality (might be changed or removed)
+
+    if current_app.slicer.authenticator:
+        try:
+            identity = current_app.slicer.authenticator.authenticate(request)
+        except NotAuthenticated as e:
+            raise NotAuthenticatedError
+
+    # Authorization
+    # -------------
     method = current_app.slicer.authorization_method
 
-    if method == "none":
+    if method is None or method == "none":
         g.authorization_token = None
 
     elif method == "http_basic":
@@ -352,8 +369,8 @@ def cube_members(cube_name, dimension_name):
     try:
         dimension = g.cube.dimension(dimension_name)
     except KeyError:
-        raise NotFoundError(dim_name, "dimension",
-                            message="Dimension '%s' was not found" % dim_name)
+        raise NotFoundError(dimension_name, "dimension",
+                            message="Dimension '%s' was not found" % dimension_name)
 
     hier_name = request.args.get("hierarchy")
     hierarchy = dimension.hierarchy(hier_name)
@@ -415,8 +432,8 @@ def cube_report(cube):
     return jsonify(result)
 
 
-@slicer.route("/cube/<cube>/search")
-def cube_search(cube):
+@slicer.route("/cube/<cube_name>/search")
+def cube_search(cube_name):
     # TODO: this is ported from old Werkzeug slicer, requires revision
 
     config = current_app.config
