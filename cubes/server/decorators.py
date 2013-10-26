@@ -7,10 +7,9 @@ from ..workspace import Workspace
 from ..auth import NotAuthorized
 from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
 from ..errors import *
-from .utils import *
+from .common import *
 from .errors import *
 from .local import *
-from ..calendar import CalendarMemberConverter
 
 # Utils
 # -----
@@ -19,16 +18,9 @@ def prepare_cell(argname="cut", target="cell"):
     """Sets `g.cell` with a `Cell` object from argument with name `argname`"""
     # Used by prepare_browser_request and in /aggregate for the split cell
 
-
-    # TODO: experimental code, for now only for dims with time role
-    converters = {
-        "time": CalendarMemberConverter(workspace.calendar)
-    }
-
     cuts = []
     for cut_string in request.args.getlist(argname):
-        cuts += cuts_from_string(g.cube, cut_string,
-                                 role_member_converters=converters)
+        cuts += cuts_from_string(cut_string)
 
     if cuts:
         cell = Cell(g.cube, cuts)
@@ -100,12 +92,12 @@ def authorize(cube):
         return
 
     logger.debug("authorizing cube %s for %s"
-                 % (str(cube), g.auth_identity))
+                 % (str(cube), g.authorization_token))
 
-    authorized = workspace.authorizer.authorize(g.auth_identity, [cube])
-    if not authorized:
-        raise NotAuthorizedError("Authorization of cube '%s' failed for "
-                                 "'%s'" % (str(cube), g.auth_identity))
+    try:
+        workspace.authorizer.authorize(g.authorization_token, cube)
+    except NotAuthorized as e:
+        raise NotAuthorizedError(exception=e)
 
 def requires_authorization(f):
     @wraps(f)

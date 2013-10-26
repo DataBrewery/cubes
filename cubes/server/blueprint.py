@@ -3,13 +3,13 @@ from flask import Blueprint, Response, request, g, current_app
 from functools import wraps
 
 from ..workspace import Workspace
-from ..browser import Cell, SPLIT_DIMENSION_NAME
+from ..auth import NotAuthorized
+from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
 from ..errors import *
 from .utils import *
 from .errors import *
 from .decorators import *
 from .local import *
-from .auth import create_authenticator, NotAuthenticated
 
 from cubes import __version__
 
@@ -73,35 +73,25 @@ def initialize_slicer(state):
     with state.app.app_context():
         config = state.options["config"]
 
-        # Create workspace and other app objects
-        # We avoid pollution of the current_app context, as we are a Blueprint
+        # Create workspace
         params = CustomDict()
         current_app.slicer = params
         current_app.slicer.config = config
-        current_app.cubes_workspace = Workspace(config)
+        current_app.workspace = Workspace(state.options["config"])
+        current_app.cubes_logger = current_app.workspace.logger
 
         # Configure the application
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
-
+        _store_option(config, "authorization_method", "none",
+                      allowed=["http_basic", "param", "none"])
+        _store_option(config, "authorization_parameter", "api_key")
         _store_option(config, "authentication", "none")
 
-        method = current_app.slicer.authentication
-        if method is None or method == "none":
-            current_app.slicer.authenticator = None
+        if params.authentication and params.authentication != "none":
+            pass
         else:
-            if config.has_section("authentication"):
-                options = dict(config.items("authentication"))
-            else:
-                options = {}
-
-            current_app.slicer.authenticator = create_authenticator(method,
-                                                                    **options)
-        logger.debug("Server authentication method: %s" % (method or "none"))
-
-        if not current_app.slicer.authenticator and workspace.authorizer:
-            logger.warn("No authenticator specified, but workspace seems to "
-                        "be using an authorizer")
+            pass
 
 # Before and After
 # ================
@@ -118,20 +108,30 @@ def process_common_parameters():
     else:
         g.prettyprint = current_app.slicer.prettyprint
 
-
 @slicer.before_request
 def prepare_authorization():
-    if current_app.slicer.authenticator:
-        try:
-            identity = current_app.slicer.authenticator.authenticate(request)
-        except NotAuthenticated as e:
-            raise NotAuthenticatedError
-    else:
-        identity = None
+    g.authorization_token = None
 
-    # Authorization
-    # -------------
-    g.auth_identity = identity
+    method = current_app.slicer.authorization_method
+
+    if method == "none":
+        g.authorization_token = None
+
+    elif method == "http_basic":
+        if request.authorization:
+            g.authorization_token = request.authorization.username
+        else:
+            raise NotAuthorizedError("HTTP Basic authorization required")
+
+    elif method == "param":
+        param_name = current_app.slicer.authorization_parameter
+        g.authorization_token = request.args.get(param_name)
+
+    elif method is not None:
+        raise InternalError("Unsupported authorization method: %s"
+                            % current_app.slicer.auth_method)
+    else:
+        g.authorization_token = None
 
 
 # Endpoints
@@ -140,7 +140,7 @@ def prepare_authorization():
 @slicer.route("/")
 def show_index():
     # TODO: add template with basic info
-    return "Cubes (TODO: bring back the original cubes server page)"
+    return "Cubes"
 
 
 @slicer.route("/version")
@@ -164,18 +164,11 @@ def show_info():
 
 @slicer.route("/cubes")
 def list_cubes():
-    cube_list = workspace.list_cubes()
-    by_name = dict((c["name"], c) for c in cube_list)
-    names = [c["name"] for c in cube_list]
-    if workspace.authorizer:
-        authorized = workspace.authorizer.authorize(g.auth_identity, names)
-
-    if not authorized:
-        raise NotAuthorizedError("No cubes authorized for '%s'"
-                                 % (g.auth_identity, ))
-
-    cube_list = [by_name[name] for name in authorized]
-    current_app.slicer.cached_cube_list = cube_list
+    if "cached_cube_list" in current_app.slicer:
+        cube_list = current_app.slicer.cached_cube_list
+    else:
+        cube_list = workspace.list_cubes()
+        current_app.slicer.cached_cube_list = cube_list
 
     return jsonify(cube_list)
 
@@ -359,8 +352,8 @@ def cube_members(cube_name, dimension_name):
     try:
         dimension = g.cube.dimension(dimension_name)
     except KeyError:
-        raise NotFoundError(dimension_name, "dimension",
-                            message="Dimension '%s' was not found" % dimension_name)
+        raise NotFoundError(dim_name, "dimension",
+                            message="Dimension '%s' was not found" % dim_name)
 
     hier_name = request.args.get("hierarchy")
     hierarchy = dimension.hierarchy(hier_name)
@@ -422,8 +415,8 @@ def cube_report(cube):
     return jsonify(result)
 
 
-@slicer.route("/cube/<cube_name>/search")
-def cube_search(cube_name):
+@slicer.route("/cube/<cube>/search")
+def cube_search(cube):
     # TODO: this is ported from old Werkzeug slicer, requires revision
 
     config = current_app.config
