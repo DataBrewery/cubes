@@ -7,7 +7,7 @@ from ..workspace import Workspace
 from ..auth import NotAuthorized
 from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
 from ..errors import *
-from .common import *
+from .utils import *
 from .errors import *
 from .local import *
 
