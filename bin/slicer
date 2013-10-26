@@ -208,21 +208,6 @@ def run_server(args):
 
     cubes.server.run_server(config, debug=args.debug)
 
-# TODO: experimental
-def run_flask_server(args):
-    """Run Slicer HTTP server."""
-    config = read_config(args.config)
-
-    # Load extensions
-
-    if config.has_option("server", "modules"):
-        modules = shlex.split(config.get("server", "modules"))
-        for module in modules:
-            e = __import__(module)
-
-    from cubes.server.flask_slicer import run_server as run_flask
-    run_flask(config, debug=True)
-
 def run_test(args):
     """Run test of Slicer HTTP server configuration."""
     raise NotImplementedError("Temporarily disabled.")
@@ -377,9 +362,6 @@ subparser.add_argument('--debug',
                             dest='debug', action='store_true', default=False,
                             help="Run the server in debug mode")
 
-parser_serve = subparsers.add_parser('flask_serve', help="run experimental flask slicer server")
-parser_serve.add_argument('config', help='server confuguration .ini file')
-parser_serve.set_defaults(func=run_flask_server)
 ################################################################################
 # Command: serve
 
