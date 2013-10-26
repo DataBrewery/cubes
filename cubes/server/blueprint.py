@@ -1,17 +1,24 @@
 # -*- coding=utf -*-
-from flask import Blueprint, Flask, Response, request, g, current_app
-from werkzeug.local import LocalProxy
+from flask import Blueprint, Response, request, g, current_app
 from functools import wraps
 
-import ConfigParser
 from ..workspace import Workspace
 from ..auth import NotAuthorized
 from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
 from ..errors import *
-from .common import *
+from .utils import *
 from .errors import *
+from .decorators import *
+from .local import *
 
 from cubes import __version__
+
+# TODO: missing features from the original Werkzeug Slicer:
+# * /locales and localization
+# * default cube: /aggregate
+# * caching
+# * root / index
+# * response.headers.add("Access-Control-Allow-Origin", "*")
 
 # TODO: this belongs to the calendar
 from .utils import set_default_tz
@@ -22,108 +29,42 @@ try:
 except ImportError:
     cubes_search = None
 
-
 __all__ = (
     "slicer",
-    "create_server",
-    "run_server",
     "API_VERSION"
 )
 
-
+API_VERSION = 2
 slicer = Blueprint('slicer', __name__)
-
-
-# Application Context
-# ===================
-#
-# Readability proxies
-
-def _get_workspace():
-    return current_app.workspace
-
-def _get_logger():
-    return current_app.cubes_logger
-
-workspace = LocalProxy(_get_workspace)
-logger = LocalProxy(_get_logger)
-
-def _read_config(config):
-    if isinstance(config, basestring):
-        try:
-            path = config
-            config = ConfigParser.SafeConfigParser()
-            config.read(path)
-        except Exception as e:
-            raise Exception("Unable to load configuration: %s" % e)
-    return config
-
-
-def create_server(config):
-    """Returns a Flask server application. `config` is a path to a
-    ``slicer.ini`` file with Cubes workspace and server configuration."""
-
-    config = _read_config(config)
-    app = Flask("slicer")
-    app.register_blueprint(slicer, config=config)
-
-    return app
-
-
-def run_server(config, debug=False):
-    """Run OLAP server with configuration specified in `config`"""
-
-    config = _read_config(config)
-    app = create_server(config)
-
-    if config.has_option("server", "host"):
-        host = config.get("server", "host")
-    else:
-        host = "localhost"
-
-    if config.has_option("server", "port"):
-        port = config.getint("server", "port")
-    else:
-        port = 5000
-
-    if config.has_option("server", "reload"):
-        use_reloader = config.getboolean("server", "reload")
-    else:
-        use_reloader = False
-
-    if config.has_option('server', 'processes'):
-        processes = config.getint('server', 'processes')
-    else:
-        processes = 1
-
-    # TODO :replace this with [workspace]timezone in future calendar module
-    if config.has_option('server', 'tz'):
-        set_default_tz(pytz.timezone(config.get("server", "tz")))
-
-    app.run(host, port, debug=debug, processes=processes,
-            use_reloader=use_reloader)
-
-# Utils
-# -----
-
-
-def prepare_cell(argname="cut", target="cell"):
-    """Sets `g.cell` with a `Cell` object from argument with name `argname`"""
-    # Used by prepare_browser_request and in /aggregate for the split cell
-
-    cuts = []
-    for cut_string in request.args.getlist(argname):
-        cuts += cuts_from_string(cut_string)
-
-    if cuts:
-        cell = Cell(g.cube, cuts)
-    else:
-        cell = None
-
-    setattr(g, target, cell)
 
 # Before
 # ------
+
+def _store_option(config, option, default, type_=None, allowed=None,
+                      section="server"):
+    """Copies the `option` into the application config dictionary. `default`
+    is a default value, if there is no such option in `config`. `type_` can be
+    `bool`, `int` or `string` (default). If `allowed` is specified, then the
+    option should be only from the list of allowed options, otherwise a
+    `ConfigurationError` exception is raised.
+    """
+
+    if config.has_option(section, option):
+        if type_ == "bool":
+            value = config.getboolean(section, option)
+        elif type_ == "int":
+            value = config.getint(section, option)
+        else:
+            value = config.get(section, option)
+    else:
+        value = default
+
+    if allowed and value not in allowed:
+        raise ConfigurationError("Invalued value '%s' for option '%s'"
+                                 % (value, option))
+
+    setattr(current_app.slicer, option, value)
+
 @slicer.record_once
 def initialize_slicer(state):
     """Create the workspace and configure the application context from the
@@ -133,62 +74,30 @@ def initialize_slicer(state):
         config = state.options["config"]
 
         # Create workspace
-        current_app.slicer = _Configuration()
+        params = CustomDict()
+        current_app.slicer = params
         current_app.slicer.config = config
         current_app.workspace = Workspace(state.options["config"])
         current_app.cubes_logger = current_app.workspace.logger
 
         # Configure the application
-        _configure_option(config, "prettyprint", False, "bool")
-        _configure_option(config, "json_record_limit", 1000, "int")
-        _configure_option(config, "authorization_method", "http_basic",
-                          allowed=["http_basic"])
+        _store_option(config, "prettyprint", False, "bool")
+        _store_option(config, "json_record_limit", 1000, "int")
+        _store_option(config, "authorization_method", "none",
+                      allowed=["http_basic", "param", "none"])
+        _store_option(config, "authorization_parameter", "api_key")
+        _store_option(config, "authentication", "none")
 
+        if params.authentication and params.authentication != "none":
+            pass
+        else:
+            pass
 
-@slicer.before_request
-def prepare_browser_request():
-    """Prepares three global variables: `g.cube`, `g.browser` and `g.cell`."""
-    cube_name = request.view_args.get("cube_name")
-    if cube_name:
-        cube = workspace.cube(cube_name)
-    else:
-        cube = None
-
-    g.cube = cube
-    g.browser = workspace.browser(g.cube)
-    prepare_cell()
-
-    if "page" in request.args:
-        try:
-            g.page = int(request.args.get("page"))
-        except ValueError:
-            raise RequestError("'page' should be a number")
-    else:
-        g.page = None
-
-    if "pagesize" in request.args:
-        try:
-            g.page_size = int(request.args.get("pagesize"))
-        except ValueError:
-            raise RequestError("'pagesize' should be a number")
-    else:
-        g.page_size = None
-
-    # Collect orderings:
-    # order is specified as order=<field>[:<direction>]
-    #
-    g.order = []
-    for orders in request.args.getlist("order"):
-        for order in orders.split(","):
-            split = order.split(":")
-            if len(split) == 1:
-                g.order.append( (order, None) )
-            else:
-                g.order.append( (split[0], split[1]) )
-
+# Before and After
+# ================
 
 @slicer.before_request
-def before_request():
+def process_common_parameters():
     # TODO: setup language
 
     # Copy from the application context
@@ -199,86 +108,30 @@ def before_request():
     else:
         g.prettyprint = current_app.slicer.prettyprint
 
-
-
-class _Configuration(dict):
-    def __getattr__(self, attr):
-        try:
-            return super(_Configuration, self).__getitem__(attr)
-        except KeyError:
-            return super(_Configuration, self).__getattribute__(attr)
-
-    def __setattr__(self, attr, value):
-        self.__setitem__(attr,value)
-
-
-def _configure_option(config, option, default, type_=None, allowed=None):
-    """Copies the `option` into the application config dictionary. `default`
-    is a default value, if there is no such option in `config`. `type_` can be
-    `bool`, `int` or `string` (default). If `allowed` is specified, then the
-    option should be only from the list of allowed options, otherwise a
-    `ConfigurationError` exception is raised.
-    """
-
-    if config.has_option("server", option):
-        if type_ == "bool":
-            value = config.getboolean("server", option)
-        elif type_ == "int":
-            value = config.getint("server", option)
-        else:
-            value = config.get("server", option)
-    else:
-        value = default
-
-    if allowed and value not in allowed:
-        raise ConfigurationError("Invalued value '%s' for option '%s'"
-                                 % (value, option))
-
-    setattr(current_app.slicer, option, value)
-
-# Authorization
-# =============
-
 @slicer.before_request
 def prepare_authorization():
     g.authorization_token = None
 
-    if current_app.slicer.authorization_method == "http_basic":
-    # Method: http_basic
+    method = current_app.slicer.authorization_method
 
+    if method == "none":
+        g.authorization_token = None
+
+    elif method == "http_basic":
         if request.authorization:
             g.authorization_token = request.authorization.username
-    else:
+        else:
+            raise NotAuthorizedError("HTTP Basic authorization required")
+
+    elif method == "param":
+        param_name = current_app.slicer.authorization_parameter
+        g.authorization_token = request.args.get(param_name)
+
+    elif method is not None:
         raise InternalError("Unsupported authorization method: %s"
                             % current_app.slicer.auth_method)
-
-
-def authorize_cube(cube):
-    if not workspace.authorizer:
-        return
-
-    try:
-        workspace.authorizer.authorize(g.authorization_token, cube)
-    except NotAuthorized as e:
-        raise NotAuthorizedError(exception=e)
-
-# Utils
-# =====
-
-def jsonify(obj):
-    """Returns a ``application/json`` `Response` object with `obj` converted
-    to JSON."""
-
-    if g.prettyprint:
-        indent = 4
     else:
-        indent = None
-
-    encoder = SlicerJSONEncoder(indent=indent)
-    encoder.iterator_limit = g.json_record_limit
-    data = encoder.iterencode(obj)
-
-    return Response(data, mimetype='application/json')
+        g.authorization_token = None
 
 
 # Endpoints
@@ -286,6 +139,7 @@ def jsonify(obj):
 
 @slicer.route("/")
 def show_index():
+    # TODO: add template with basic info
     return "Cubes"
 
 
@@ -322,7 +176,7 @@ def list_cubes():
 @slicer.route("/cube/<cube_name>/model")
 def cube_model(cube_name):
     cube = workspace.cube(cube_name)
-    authorize_cube(cube)
+    authorize(cube)
 
     # TODO: only one option: private or public
     response = cube.to_dict(expand_dimensions=True,
@@ -336,6 +190,7 @@ def cube_model(cube_name):
 
 
 @slicer.route("/cube/<cube_name>/aggregate")
+@requires_browser
 def aggregate(cube_name):
     cube = g.cube
 
@@ -407,6 +262,7 @@ def aggregate(cube_name):
 
 
 @slicer.route("/cube/<cube_name>/facts")
+@requires_browser
 def cube_facts(cube_name):
     # Request parameters
     output_format = validated_parameter(request.args, "format",
@@ -471,6 +327,7 @@ def cube_facts(cube_name):
 
 
 @slicer.route("/cube/<cube_name>/fact/<fact_id>")
+@requires_browser
 def cube_fact(cube_name, fact_id):
     fact = g.browser.fact(fact_id)
 
@@ -482,6 +339,7 @@ def cube_fact(cube_name, fact_id):
 
 
 @slicer.route("/cube/<cube_name>/members/<dimension_name>")
+@requires_browser
 def cube_members(cube_name, dimension_name):
     depth = request.args.get("depth")
 
@@ -520,6 +378,7 @@ def cube_members(cube_name, dimension_name):
 
 
 @slicer.route("/cube/<cube_name>/cell")
+@requires_browser
 def cube_cell(cube_name):
     details = g.browser.cell_details(g.cell)
     cell_dict = g.cell.to_dict()
@@ -531,6 +390,7 @@ def cube_cell(cube_name):
 
 
 @slicer.route("/cube/<cube>/report")
+@requires_browser
 def cube_report(cube):
     report_request = self.json_request()
 

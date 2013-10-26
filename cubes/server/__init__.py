@@ -1,18 +1,17 @@
-from common import API_VERSION
-
 try:
-    from werkzeug import __version__ as werkzeug_version
-    from slicer import Slicer, run_server, create_server
-
+    from blueprint import slicer, API_VERSION
+    from base import run_server, create_server
 except ImportError:
-    from cubes.common import MissingPackage
-    _missing = MissingPackage("werkzeug", "Slicer server")
-    Slicer = _missing
+    from ..common import MissingPackage
+    _missing = MissingPackage("flask", "Slicer server")
+    slicer = _missing
     run_server = _missing
     create_server = _missing
+    API_VERSION = "unknown"
+
 
 __all__ = (
-    "Slicer",
+    "slicer",
     "run_server",
     "create_server",
     "API_VERSION"
