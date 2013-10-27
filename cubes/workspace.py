@@ -188,9 +188,9 @@ class Workspace(object):
             self.options = {}
 
         # Authorizer
-        if config.has_option("auth", "type"):
-            auth_type = config.get("auth", "type")
-            options = dict(config.items("auth"))
+        if config.has_option("workspace", "authorization"):
+            auth_type = config.get("workspace", "authorization")
+            options = dict(config.items("authorization"))
             self.authorizer = create_authorizer(auth_type, **options)
         else:
             self.authorizer = NoopAuthorizer()

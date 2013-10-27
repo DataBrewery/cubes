@@ -57,7 +57,8 @@ class Authorizer(object):
         the restriction cell. If there is no restriction, returns the original
         `cell` if provided or `None`.
         """
-        raise NotImplemented
+        return cell
+
 
 class NoopAuthorizer(Authorizer):
     def __init__(self):
