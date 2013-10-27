@@ -382,6 +382,7 @@ Example for ``/dimension/item?depth=1``:
     {
         "dimension": "item"
         "depth": 1, 
+        "hierarchy": "default",
         "data": [
             {
                 "item.category": "a", 
