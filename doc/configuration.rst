@@ -190,4 +190,3 @@ Built-in server authentication methods:
     indentity, then you have to specify the authentication method in the
     server. Otherwise the authorizer will not receive any identity and might
     refuse any access.
-
