@@ -92,10 +92,10 @@ def authorize(cube):
         return
 
     logger.debug("authorizing cube %s for %s"
-                 % (str(cube), g.authorization_token))
+                 % (str(cube), g.auth_identity))
 
     try:
-        workspace.authorizer.authorize(g.authorization_token, cube)
+        workspace.authorizer.authorize(g.auth_identity, cube)
     except NotAuthorized as e:
         raise NotAuthorizedError(exception=e)
 
