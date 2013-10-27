@@ -84,18 +84,24 @@ def initialize_slicer(state):
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
 
-        _store_option(config, "authorization_method", "none",
-                      allowed=["http_basic", "param", "none"])
-        _store_option(config, "authorization_parameter", "api_key")
-        _store_option(config, "authentication_method", "none")
+        _store_option(config, "authentication", "none")
 
-        method = current_app.slicer.authentication_method
+        method = current_app.slicer.authentication
         if method is None or method == "none":
             current_app.slicer.authenticator = None
         else:
-            options = dict(config.items("authentication"))
+            if config.has_section("authentication"):
+                options = dict(config.items("authentication"))
+            else:
+                options = {}
+
             current_app.slicer.authenticator = create_authenticator(method,
                                                                     **options)
+        logger.debug("Server authentication method: %s" % (method or "none"))
+
+        if not current_app.slicer.authenticator and workspace.authorizer:
+            logger.warn("No authenticator specified, but workspace seems to "
+                        "be using an authorizer")
 
 # Before and After
 # ================
@@ -114,41 +120,18 @@ def process_common_parameters():
 
 
 @slicer.before_request
-def prepare_authorization_token():
-    g.authorization_token = None
-
-    # Authentication
-    # --------------
-    # TODO: This is provisional functionality (might be changed or removed)
-
+def prepare_authorization():
     if current_app.slicer.authenticator:
         try:
             identity = current_app.slicer.authenticator.authenticate(request)
         except NotAuthenticated as e:
             raise NotAuthenticatedError
+    else:
+        identity = None
 
     # Authorization
     # -------------
-    method = current_app.slicer.authorization_method
-
-    if method is None or method == "none":
-        g.authorization_token = None
-
-    elif method == "http_basic":
-        if request.authorization:
-            g.authorization_token = request.authorization.username
-        else:
-            raise NotAuthorizedError("HTTP Basic authorization required")
-
-    elif method == "param":
-        param_name = current_app.slicer.authorization_parameter
-        g.authorization_token = request.args.get(param_name)
-
-    elif method is not None:
-        raise InternalError("Unsupported authorization method: %s"
-                            % current_app.slicer.auth_method)
-    else:
-        g.authorization_token = None
+    g.auth_identity = identity
 
 
 # Endpoints
@@ -157,7 +140,7 @@ def prepare_authorization_token():
 @slicer.route("/")
 def show_index():
     # TODO: add template with basic info
-    return "Cubes"
+    return "Cubes (TODO: bring back the original cubes server page)"
 
 
 @slicer.route("/version")
