@@ -180,9 +180,8 @@ Built-in server authentication methods:
 * ``none`` – no authentication
 * ``http_basic_proxy`` – HTTP basic authentication. Will pass the `username`
   to the authorizer
-* ``pass_parameter`` – authentication withot verification, just a way of
-  passing an URL parameter to the authorizer. Default parameter name is
-  ``api_key``
+* ``parameter`` – authentication withot verification, just a way of passing an
+  URL parameter to the authorizer. Default parameter name is ``api_key``
 
 .. note::
 
