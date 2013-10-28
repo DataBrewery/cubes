@@ -96,7 +96,6 @@ class _SimpleAccessRight(object):
                 mine += restritions
 
 
-<<<<<<< HEAD
 class NoopAuthorizer(Authorizer):
     def __init__(self):
         super(NoopAuthorizer, self).__init__()
@@ -141,8 +140,7 @@ class NoopAuthorizer(Authorizer):
             return cell
         return Cell(cube)
 
-=======
->>>>>>> Separated authorize() and "restricted_cell(); merge fix
+
 class SimpleAuthorizer(Authorizer):
     __options__ = [
         {
