@@ -997,20 +997,54 @@ def cuts_from_string(cube, string, member_converters=None,
     if not string:
         return []
 
+    member_converters = member_converters or {}
+    role_member_converters = role_member_converters or {}
+
     cuts = []
+    dim_hier_pattern = re.compile(r"(?P<invert>!)?"
+                                   "(?P<dim>\w+)(@(?P<hier>\w+))?")
 
     dim_cuts = CUT_STRING_SEPARATOR.split(string)
     for dim_cut in dim_cuts:
+<<<<<<< HEAD
         cut = cut_from_string(dim_cut, cube, member_converters,
                               role_member_converters)
+=======
+        print "=== dim_cut: %s" % (dim_cut, )
+        try:
+            (dim_string, cut_string) = DIMENSION_STRING_SEPARATOR.split(dim_cut)
+        except ValueError:
+            raise ArgumentError("Wrong dimension cut string: '%s'" % dim_cut)
+
+        match = dim_hier_pattern.match(dim_string)
+
+        if match:
+            d = match.groupdict()
+            invert = (not not d["invert"])
+            dimension = cube.dimension(d["dim"])
+            hierarchy = dimension.hierarchy(d["hier"])
+        else:
+            raise ArgumentError("Dimension spec '%s' does not match "
+                                "pattern 'dimension@hierarchy'" % dimension)
+
+        converter = member_converters.get(dimension.name)
+        converter = converter or role_member_converters.get(dimension.role)
+        cut = cut_from_string(dimension, hierarchy, cut_string, invert,
+                              converter)
+        print "--- final cut:", cut
+>>>>>>> Changed cuts_from_string() to take cube and converters; added converters and hierarchy to cut_from_string()
         cuts.append(cut)
 
     return cuts
 
 
 
+<<<<<<< HEAD
 def cut_from_string(string, cube=None, member_converters=None,
                     role_member_converters=None):
+=======
+def cut_from_string(dimension, hierarchy, string, invert, converter=None):
+>>>>>>> Changed cuts_from_string() to take cube and converters; added converters and hierarchy to cut_from_string()
     """Returns a cut from `string` with dimension `dimension and assumed
     hierarchy `hierarchy`. The string should match one of the following
     patterns:
@@ -1026,6 +1060,7 @@ def cut_from_string(string, cube=None, member_converters=None,
     as ``date@dqmy``.
     """
 
+<<<<<<< HEAD
     member_converters = member_converters or {}
     role_member_converters = role_member_converters or {}
 
@@ -1052,6 +1087,8 @@ def cut_from_string(string, cube=None, member_converters=None,
     if cube:
         role = cube.dimension(dimension).role
         converter = converter or role_member_converters.get(role)
+=======
+>>>>>>> Changed cuts_from_string() to take cube and converters; added converters and hierarchy to cut_from_string()
 
     # special case: completely empty string means single path element of ''
     # FIXME: why?
