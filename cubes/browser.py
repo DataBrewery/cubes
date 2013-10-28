@@ -933,6 +933,13 @@ PATH_STRING_SEPARATOR = re.compile(r'(?<!\\),')
 RANGE_CUT_SEPARATOR = re.compile(r'(?<!\\)-')
 SET_CUT_SEPARATOR = re.compile(r'(?<!\\);')
 
+PATH_ELEMENT = r"(?:\\.|[^:;|-])*"
+
+RE_ELEMENT = re.compile(r"^%s$" % PATH_ELEMENT)
+RE_POINT = re.compile(r"^%s$" % PATH_ELEMENT)
+RE_SET = re.compile(r"^(%s)(;(%s))*$" % (PATH_ELEMENT, PATH_ELEMENT))
+RE_RANGE = re.compile(r"^(%s)?-(%s)?$" % (PATH_ELEMENT, PATH_ELEMENT))
+
 """
 point: date:2004
 range: date:2004-2010
@@ -941,9 +948,19 @@ set: date:2004;2010;2011,04
 """
 
 
-def cuts_from_string(string):
+def cuts_from_string(cube, string, member_converters=None,
+                     role_member_converters=None):
     """Return list of cuts specified in `string`. You can use this function to
     parse cuts encoded in a URL.
+
+    Arguments:
+
+    * `string` – string containing the cut descritption (see below)
+    * `cube` – cube for which the cuts are being created
+    * `member_converters` – callables converting single-item values into paths.
+      Keys are dimension names.
+    * `role_member_converters` – callables converting single-item values into
+      paths. Keys are dimension role names (`Dimension.role`).
 
     Examples::
 
@@ -980,25 +997,47 @@ def cuts_from_string(string):
     if not string:
         return []
 
+    member_converters = member_converters or {}
+    role_member_converters = role_member_converters or {}
+
     cuts = []
+    dim_hier_pattern = re.compile(r"(?P<invert>!)?"
+                                   "(?P<dim>\w+)(@(?P<hier>\w+))?")
 
     dim_cuts = CUT_STRING_SEPARATOR.split(string)
     for dim_cut in dim_cuts:
-        (dimension, cut_string) = DIMENSION_STRING_SEPARATOR.split(dim_cut)
-        cuts.append(cut_from_string(dimension, cut_string))
+        print "=== dim_cut: %s" % (dim_cut, )
+        try:
+            (dim_string, cut_string) = DIMENSION_STRING_SEPARATOR.split(dim_cut)
+        except ValueError:
+            raise ArgumentError("Wrong dimension cut string: '%s'" % dim_cut)
+
+        match = dim_hier_pattern.match(dim_string)
+
+        if match:
+            d = match.groupdict()
+            invert = (not not d["invert"])
+            dimension = cube.dimension(d["dim"])
+            hierarchy = dimension.hierarchy(d["hier"])
+        else:
+            raise ArgumentError("Dimension spec '%s' does not match "
+                                "pattern 'dimension@hierarchy'" % dimension)
+
+        converter = member_converters.get(dimension.name)
+        converter = converter or role_member_converters.get(dimension.role)
+        cut = cut_from_string(dimension, hierarchy, cut_string, invert,
+                              converter)
+        print "--- final cut:", cut
+        cuts.append(cut)
 
     return cuts
 
-_element_pattern = r"(?:\\.|[^:;|-])*"
-re_element = re.compile(r"^%s$" % _element_pattern)
-re_point = re.compile(r"^%s$" % _element_pattern)
-re_set = re.compile(r"^(%s)(;(%s))*$" % (_element_pattern, _element_pattern))
-re_range = re.compile(r"^(%s)?-(%s)?$" % (_element_pattern, _element_pattern))
 
 
-def cut_from_string(dimension, string):
-    """Returns a cut from `string` with dimension `dimension. The string
-    should match one of the following patterns:
+def cut_from_string(dimension, hierarchy, string, invert, converter=None):
+    """Returns a cut from `string` with dimension `dimension and assumed
+    hierarchy `hierarchy`. The string should match one of the following
+    patterns:
 
     * point cut: ``2010,2,4``
     * range cut: ``2010-2012``, ``2010,1-2012,3,5``, ``2010,1-`` (open range)
@@ -1011,34 +1050,45 @@ def cut_from_string(dimension, string):
     as ``date@dqmy``.
     """
 
-    pattern = r"(?P<invert>!)?(?P<dim>\w+)(@(?P<hier>\w+))?"
-    match = re.match(pattern, dimension)
-
-    if match:
-        d = match.groupdict()
-        invert = (not not d["invert"])
-        dimension = d["dim"]
-        hierarchy = d["hier"]
-    else:
-        raise ArgumentError("Dimension spec '%s' does not match "
-                            "pattern 'dimension@hierarchy'" % dimension)
 
     # special case: completely empty string means single path element of ''
+    # FIXME: why?
     if string == '':
         return PointCut(dimension, [''], hierarchy, invert)
-    elif re_point.match(string):
-        return PointCut(dimension, path_from_string(string), hierarchy, invert)
-    elif re_set.match(string):
+
+    elif RE_POINT.match(string):
+        path = path_from_string(string)
+
+        if converter:
+            path = converter(dimension, hierarchy, path)
+        cut = PointCut(dimension, path, hierarchy, invert)
+
+    elif RE_SET.match(string):
         paths = map(path_from_string, SET_CUT_SEPARATOR.split(string))
-        return SetCut(dimension, paths, hierarchy, invert)
-    elif re_range.match(string):
+
+        if converter:
+            converted = []
+            for path in paths:
+                converted.append(converter(dimension, hierarchy, path))
+            paths = converted
+
+        cut = SetCut(dimension, paths, hierarchy, invert)
+
+    elif RE_RANGE.match(string):
         (from_path, to_path) = map(path_from_string, RANGE_CUT_SEPARATOR.split(string))
-        return RangeCut(dimension, from_path, to_path, hierarchy, invert)
+
+        if converter:
+            from_path = converter(dimension, hierarchy, from_path)
+            to_path = converter(dimension, hierarchy, to_path)
+
+        cut = RangeCut(dimension, from_path, to_path, hierarchy, invert)
+
     else:
         raise ArgumentError("Unknown cut format (check that keys "
                             "consist only of alphanumeric characters and "
                             "underscore): %s" % string)
 
+    return cut
 
 def cut_from_dict(desc, cube=None):
     """Returns a cut from `desc` dictionary. If `cube` is specified, then the
@@ -1099,7 +1149,7 @@ def string_from_path(path):
 
     path = [_path_part_escape(to_unicode_string(s)) for s in path]
 
-    if not all(map(re_element.match, path)):
+    if not all(map(RE_ELEMENT.match, path)):
         get_logger().warn("Can not convert path to string: "
                           "keys contain invalid characters "
                           "(should be alpha-numeric or underscore) '%s'" %
