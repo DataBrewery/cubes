@@ -55,7 +55,7 @@ class PassParameterAuthenticator(Authenticator):
     """Permissive authenticator that passes an URL parameter (default
     ``api_key``) as idenity."""
     def __init__(self, parameter=None, **options):
-        super(ParameterAuthenticator, self).__init__(**options)
+        super(PassParameterAuthenticator, self).__init__(**options)
         self.parameter_name = parameter or "api_key"
 
     def authenticate(self, request):
