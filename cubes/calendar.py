@@ -269,7 +269,26 @@ class Calendar(object):
 
         else:
             # TODO: UNITstart, UNITend
-            raise ArgumentError("Unknown relative time reference '%s'" %
-                                reference)
+            raise ValueError(reference)
 
         return self.path(date, units)
+
+
+class CalendarMemberConverter(object):
+    def __init__(self, calendar):
+        self.calendar = calendar
+
+    def __call__(self, dimension, hierarchy, path):
+        units = hierarchy.level_names
+
+        if len(path) != 1:
+            return path
+
+        value = path[0]
+        try:
+            path = self.calendar.named_relative_path(value, units)
+        except KeyError:
+            return [value]
+
+        return path
+
