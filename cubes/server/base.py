@@ -14,7 +14,9 @@ __all__ = (
 # ================================
 
 def _read_config(config):
-    if isinstance(config, basestring):
+    if not config:
+        return ConfigParser.SafeConfigParser()
+    elif isinstance(config, basestring):
         try:
             path = config
             config = ConfigParser.SafeConfigParser()
@@ -23,7 +25,7 @@ def _read_config(config):
             raise Exception("Unable to load configuration: %s" % e)
     return config
 
-def create_server(config):
+def create_server(config=None):
     """Returns a Flask server application. `config` is a path to a
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 
