@@ -138,8 +138,8 @@ class SimpleAuthorizer(Authorizer):
         # Process the roles
         for key, info in roles.items():
             role = _SimpleAccessRight(roles=info.get("roles"),
-                                      allow_cubes=info.get("allow_cubes"),
-                                      deny_cubes=info.get("deny_cubes"),
+                                      allow_cubes=info.get("allowed_cubes"),
+                                      deny_cubes=info.get("denied_cubes"),
                                       cube_restrictions=info.get("cube_restrictions"))
             self.roles[key] = role
 
@@ -155,8 +155,8 @@ class SimpleAuthorizer(Authorizer):
         # Process rights
         for key, info in rights.items():
             right = _SimpleAccessRight(roles=info.get("roles"),
-                                       allow_cubes=info.get("allow_cubes"),
-                                       deny_cubes=info.get("deny_cubes"),
+                                       allow_cubes=info.get("allowed_cubes"),
+                                       deny_cubes=info.get("denied_cubes"),
                                        cube_restrictions=info.get("cube_restrictions"))
             self.rights[key] = right
 
