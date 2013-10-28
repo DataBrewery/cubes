@@ -51,7 +51,7 @@ class AdminAdminAuthenticator(Authenticator):
         raise NotAuthenticated
 
 
-class ParameterAuthenticator(Authenticator):
+class PassParameterAuthenticator(Authenticator):
     """Permissive authenticator that passes an URL parameter (default
     ``api_key``) as idenity."""
     def __init__(self, parameter=None, **options):
@@ -62,7 +62,7 @@ class ParameterAuthenticator(Authenticator):
         return request.args.get(self.parameter_name)
 
 
-class BasicHTTPProxyAuthenticator(Authenticator):
+class HTTPBasicProxyAuthenticator(Authenticator):
     def authenticate(self, request):
         """Permissive authenticator using HTTP Basic authentication that
         assumes the server to be behind a proxy. Does not check for a
