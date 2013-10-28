@@ -6,6 +6,7 @@ from .model import Model
 from .common import get_logger
 from .errors import *
 from .stores import open_store, create_browser
+from .calendar import Calendar
 import os.path
 import ConfigParser
 
@@ -126,12 +127,23 @@ class Workspace(object):
             raise ConfigurationError("Unknown stores description object: %s" %
                                                     (type(stores)))
 
-        #
-        # Configure the workspace
-        #
+        # Calendar
+        # ========
 
-        if config.has_option("main", "stores"):
-            stores = config.get("main", "stores")
+        if config.has_option("workspace", "timezone"):
+            timezone = config.get("workspace", "timezone")
+        else:
+            timezone = None
+
+        if config.has_option("workspace", "first_weekday"):
+            first_weekday = config.get("workspace", "first_weekday")
+        else:
+            first_weekday = 0
+
+        self.logger.debug("Workspace calendar timezone: %s first week day: %s"
+                          % (timezone, first_weekday))
+        self.calendar = Calendar(timezone=timezone,
+                                 first_weekday=first_weekday)
 
         # Register stores
         #
