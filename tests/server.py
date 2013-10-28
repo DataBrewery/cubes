@@ -8,7 +8,7 @@ from sqlalchemy import MetaData, Table, Column, Integer, String
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
-from cubes.server import Slicer
+from cubes.server import create_server
 
 import csv
 
@@ -16,7 +16,7 @@ class SlicerTestCaseBase(CubesTestCaseBase):
     def setUp(self):
         super(SlicerTestCaseBase, self).setUp()
 
-        self.slicer = Slicer()
+        self.slicer = create_server()
         self.server = Client(self.slicer, BaseResponse)
         self.logger = self.slicer.logger
         self.logger.setLevel("DEBUG")
