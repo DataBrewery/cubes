@@ -45,6 +45,16 @@ _UNIT_ORDER = {
 
 _DATEUTIL_WEEKDAYS = { 0: MO, 1: TU, 2: WE, 3: TH, 4: FR, 5: SA, 6: SU }
 
+_WEEKDAY_NUMBERS = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6
+}
+
 _UTC = pytz.timezone('UTC')
 
 
@@ -120,7 +130,14 @@ class Calendar(object):
         Values for `first_weekday` are 0 for Monday, 6 for Sunday. Default is
         0."""
 
-        self.first_weekday = first_weekday
+        if isinstance(first_weekday, basestring):
+            try:
+                self.first_weekday = _WEEKDAY_NUMBERS[first_weekday.lower()]
+            except KeyError:
+                raise ConfigurationError("Unknown weekday name %s" %
+                                         first_weekday)
+        else:
+            self.first_weekday = int(first_weekday)
 
         if timezone:
             self.timezone_name = timezone
