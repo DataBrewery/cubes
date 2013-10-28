@@ -233,21 +233,14 @@ class AggregationBrowser(object):
         cardinality dimension or level and there is no condition in the cell
         for the level."""
 
-        hc_dimensions = drilldown.high_cardinality_dimensions()
-        if hc_dimensions:
-            names = [str(dim) for dim in hc_dimensions]
-            names = ", ".join(names)
-            raise ArgumentError("Can not drilldown on high-cardinality "
-                                "dimensions (%s) without including both "
-                                "page_size and page arguments" % names)
-
         hc_levels = drilldown.high_cardinality_levels(cell)
         if hc_levels:
             names = [str(level) for level in hc_levels]
             names = ", ".join(names)
             raise ArgumentError("Can not drilldown on high-cardinality "
-                                "levels (%s) without including both "
-                                "page_size and page arguments" % names)
+                                "levels (%s) without including both page_size "
+                                "and page arguments, or else a point/set cut on the level" 
+                                % names)
 
 
     def is_builtin_function(self, function_name, aggregate):
@@ -1656,19 +1649,6 @@ class Drilldown(object):
 
         return levels
 
-    def high_cardinality_dimensions(self, cell=None):
-        """Returns list of dimensions in the drilldown that are
-        of high-cardinality."""
-
-        items = []
-        for item in self.drilldown:
-            dim = item.dimension
-
-            if dim.cardinality == "high":
-                items.append(item)
-
-        return [item.dimension for item in items]
-
     def high_cardinality_levels(self, cell):
         """Returns list of levels in the drilldown that are of high
         cardinality and there is no cut for that level in the `cell`."""
@@ -1678,7 +1658,7 @@ class Drilldown(object):
             not_contained = []
 
             for level in item.levels:
-                if level.cardinality == "high" \
+                if (level.cardinality == "high" or dim.cardinality == "high") \
                         and not cell.contains_level(dim, level, hier):
                     not_contained.append(level)
 
