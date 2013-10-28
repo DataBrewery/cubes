@@ -861,6 +861,8 @@ class Dimension(object):
     Cube dimension.
 
     """
+    special_roles = ["time"]
+
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, **desc):
@@ -880,7 +882,7 @@ class Dimension(object):
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information (icon, color, ...)
         * `role` – one of recognized special dimension types. Currently
-          supported is only ``date``.
+          supported is only ``time``.
         * `cardinality` – cardinality of the dimension members. Used
           optionally by the backends for load protection and frontends for
           better auto-generated front-ends. See :class:`Level` for more
@@ -1305,6 +1307,10 @@ class Hierarchy(object):
             self._set_levels(self._level_refs)
 
         return self._levels.values()
+
+    @property
+    def level_names(self):
+        return self._levels.keys()
 
     @property
     def levels_dict(self):
