@@ -1006,7 +1006,6 @@ def cuts_from_string(cube, string, member_converters=None,
 
     dim_cuts = CUT_STRING_SEPARATOR.split(string)
     for dim_cut in dim_cuts:
-        print "=== dim_cut: %s" % (dim_cut, )
         try:
             (dim_string, cut_string) = DIMENSION_STRING_SEPARATOR.split(dim_cut)
         except ValueError:
@@ -1027,7 +1026,6 @@ def cuts_from_string(cube, string, member_converters=None,
         converter = converter or role_member_converters.get(dimension.role)
         cut = cut_from_string(dimension, hierarchy, cut_string, invert,
                               converter)
-        print "--- final cut:", cut
         cuts.append(cut)
 
     return cuts

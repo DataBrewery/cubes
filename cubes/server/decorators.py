@@ -10,6 +10,7 @@ from ..errors import *
 from .utils import *
 from .errors import *
 from .local import *
+from ..calendar import CalendarMemberConverter
 
 # Utils
 # -----
@@ -18,9 +19,16 @@ def prepare_cell(argname="cut", target="cell"):
     """Sets `g.cell` with a `Cell` object from argument with name `argname`"""
     # Used by prepare_browser_request and in /aggregate for the split cell
 
+
+    # TODO: experimental code, for now only for dims with time role
+    converters = {
+        "time": CalendarMemberConverter(workspace.calendar)
+    }
+
     cuts = []
     for cut_string in request.args.getlist(argname):
-        cuts += cuts_from_string(cut_string)
+        cuts += cuts_from_string(g.cube, cut_string,
+                                 role_member_converters=converters)
 
     if cuts:
         cell = Cell(g.cube, cuts)
