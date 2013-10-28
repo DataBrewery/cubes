@@ -1,7 +1,7 @@
 import sys
 from setuptools import setup, find_packages
 
-requirements = ["pytz", "dateutil"]
+requirements = ["pytz", "python-dateutil"]
 
 setup(
     name = "cubes",
