@@ -8,6 +8,7 @@ from collections import OrderedDict
 from .common import IgnoringDictionary, get_logger, to_label
 from .common import assert_instance, assert_all_instances
 from .errors import *
+from .statutils import aggregate_calculator_labels
 
 __all__ = [
     "Model",
@@ -49,9 +50,9 @@ IMPLICIT_AGGREGATE_LABELS = {
     "min": u"{measure} Minimum",
     "max": u"{measure} Maximum",
     "avg": u"Average of {measure}",
-    "sma": u"Simple Moving Avg. of {measure}",
-    "wma": u"Weighted Moving Avg. of {measure}",
 }
+
+IMPLICIT_AGGREGATE_LABELS.update(aggregate_calculator_labels())
 
 
 class Model(object):
