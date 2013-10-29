@@ -1,12 +1,13 @@
 from collections import deque
-from .model import Attribute
-from .browser import SPLIT_DIMENSION_NAME
 from .errors import *
+from functools import partial
+from math import sqrt
 
 __all__ = [
         "CALCULATED_AGGREGATIONS",
         "calculators_for_aggregates",
-        "available_calculators"
+        "available_calculators",
+        "aggregate_calculator_labels"
 ]
 
 def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
@@ -65,22 +66,36 @@ def simple_moving_average(values):
     # use all the values
     return round(reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
 
-
-def weighted_moving_average_factory(aggregate, source, drilldown_paths,
-                                    split_cell):
-    return _moving_average_factory(aggregate, source, drilldown_paths,
-                                   split_cell, weighted_moving_average)
+def simple_moving_sum(values):
+    return reduce(lambda i, c: i + c, values, 0)
 
 
-def simple_moving_average_factory(aggregate, source, drilldown_paths,
-                                  split_cell):
-    return _moving_average_factory(aggregate, source, drilldown_paths,
-                                   split_cell, simple_moving_average)
+def _variance(values):
+    n, mean, std = len(values), 0, 0
+    for a in values:
+        mean = mean + a
+    mean = mean / float(n)
+    if n < 2:
+        return mean, 0
+    for a in values:
+        std = std + (a - mean)**2
+    return mean, (std / float(n-1))
 
+def simple_relative_stdev(values):
+    mean, var = _variance(values)
+    return round(((sqrt(var)/mean) if mean > 0 else 0), 4)
 
-def _moving_average_factory(aggregate, source, drilldown_paths, split_cell, avg_func):
+def simple_variance(values):
+    mean, var = _variance(values)
+    return round(var, 2)
+
+def simple_stdev(values):
+    mean, var = _variance(values)
+    return round(sqrt(var), 2)
+
+def _window_function_factory(aggregate, source, drilldown_paths, split_cell, window_function, label):
     """Returns a moving average window function. `aggregate` is the target
-    aggergate. `avg_function` is concrete window function."""
+    aggergate. `window_function` is concrete window function."""
 
     # If the level we're drilling to doesn't have aggregation_units configured,
     # we're not doing any calculations
@@ -112,6 +127,7 @@ def _moving_average_factory(aggregate, source, drilldown_paths, split_cell, avg_
 
     window_key = []
     if split_cell:
+        from .browser import SPLIT_DIMENSION_NAME
         window_key.append(SPLIT_DIMENSION_NAME)
     for dditem in key_drilldown_paths:
         window_key += [level.key.ref() for level in dditem.levels]
@@ -120,10 +136,11 @@ def _moving_average_factory(aggregate, source, drilldown_paths, split_cell, avg_
     # consider the measure reference to be aggregated measure reference.
     # TODO: this does not work for implicit post-aggregate calculations
 
-    function = WindowFunction(avg_func, window_key,
+    function = WindowFunction(window_function, window_key,
                               target_attribute=aggregate.name,
                               source_attribute=source,
-                              window_size=num_units)
+                              window_size=num_units,
+                              label=label)
     return function
 
 def get_key(record, composite_key):
@@ -132,7 +149,7 @@ def get_key(record, composite_key):
 
 class WindowFunction(object):
     def __init__(self, function, window_key, target_attribute,
-                 source_attribute, window_size):
+                 source_attribute, window_size, label):
         """Creates a window function."""
 
         if not function:
@@ -150,6 +167,7 @@ class WindowFunction(object):
         self.target_attribute = target_attribute
         self.window_size = window_size
         self.window_values = {}
+        self.label = label
 
     def __call__(self, record):
         """Collects the source value. If the window for the `window_key` is
@@ -181,13 +199,20 @@ class WindowFunction(object):
             record[self.target_attribute] = self.function(values)
 
 
+
 # TODO: make CALCULATED_AGGREGATIONS a namespace (see extensions.py)
 CALCULATED_AGGREGATIONS = {
-    "sma": simple_moving_average_factory,
-    "wma": weighted_moving_average_factory
+    "wma": partial(_window_function_factory, window_function=weighted_moving_average, label='Weighted Moving Avg. of {measure}'),
+    "sma": partial(_window_function_factory, window_function=simple_moving_average, label='Simple Moving Avg. of {measure}'),
+    "sms": partial(_window_function_factory, window_function=simple_moving_sum, label='Simple Moving Sum of {measure}'),
+    "smstd": partial(_window_function_factory, window_function=simple_stdev, label='Moving Std. Deviation of {measure}'),
+    "smrsd": partial(_window_function_factory, window_function=simple_relative_stdev, label='Moving Relative St. Dev. of {measure}'),
+    "smvar": partial(_window_function_factory, window_function=simple_variance, label='Moving Variance of {measure}')
 }
 
 def available_calculators():
     """Returns a list of available calculators."""
     return CALCULATED_AGGREGATIONS.keys()
 
+def aggregate_calculator_labels():
+    return dict([(k, v.keywords['label']) for k, v in CALCULATED_AGGREGATIONS.iteritems()])
