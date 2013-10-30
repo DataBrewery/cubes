@@ -15,6 +15,8 @@ __all__ = (
     "NotAuthorized"
 )
 
+ALL_CUBES_WILDCARD = '*'
+
 class NotAuthorized(UserError):
     """Raised when user is not authorized for the request."""
     # Note: This is not called NotAuthorizedError as it is not in fact an
@@ -63,8 +65,8 @@ class NoopAuthorizer(Authorizer):
 class _SimpleAccessRight(object):
     def __init__(self, roles, allow_cubes, deny_cubes, cube_restrictions):
         self.roles = roles or []
-        self.allow_cubes = set(allow_cubes) if allow_cubes else set()
-        self.deny_cubes = set(deny_cubes) if deny_cubes else set()
+        self.allow_cubes = set(allow_cubes) if allow_cubes else set([])
+        self.deny_cubes = set(deny_cubes) if deny_cubes else set([])
         self.cube_restrictions = cube_restrictions or {}
 
     def merge(self, other):
@@ -83,7 +85,14 @@ class _SimpleAccessRight(object):
                 self.cube_restrictions = list(other.cube_restrictions)
             else:
                 mine = self.cube_restrictions.get(cube)
-                mine += restritions
+                mine += restrictions
+
+    def is_allowed(self, cube_name):
+        return (self.allow_cubes and 
+                (cube_name in self.allow_cubes or ALL_CUBES_WILDCARD in self.allow_cubes)) \
+                or \
+                (self.deny_cubes and 
+                (cube_name not in self.deny_cubes and ALL_CUBES_WILDCARD not in self.deny_cubes))
 
 
 class NoopAuthorizer(Authorizer):
@@ -215,9 +224,7 @@ class SimpleAuthorizer(Authorizer):
         for cube in cubes:
             cube_name = str(cube)
 
-            if (right.allow_cubes and cube_name in right.allow_cubes) \
-                    or (right.deny_cubes and cube_name not in right.deny_cubes):
-
+            if right.is_allowed(cube_name):
                 authorized.append(cube)
 
         return authorized
