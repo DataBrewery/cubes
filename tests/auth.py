@@ -15,8 +15,7 @@ class AuthTestCase(CubesTestCaseBase):
 
     def test_empty(self):
         self.auth = SimpleAuthorizer()
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("john", "sales")
+        self.assertEqual([], self.auth.authorize("john", [self.sales_cube]))
 
     def test_authorize(self):
         rights = {
@@ -24,13 +23,10 @@ class AuthTestCase(CubesTestCaseBase):
         }
         self.auth = SimpleAuthorizer(rights=rights)
 
-        self.assertFalse(self.auth.authorize("john", self.sales_cube))
+        self.assertFalse(self.auth.authorize("john", [self.sales_cube]))
 
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("john", self.churn_cube)
-
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("ivana", self.sales_cube)
+        self.assertEqual([], self.auth.authorize("john", [self.sales_cube]))
+        self.assertEqual([], self.auth.authorize("ivana", [self.churn_cube]))
 
     def test_deny(self):
         rights = {
@@ -38,13 +34,10 @@ class AuthTestCase(CubesTestCaseBase):
         }
         self.auth = SimpleAuthorizer(rights=rights)
 
-        self.assertFalse(self.auth.authorize("john", self.churn_cube))
+        self.assertFalse(self.auth.authorize("john", [self.churn_cube]))
 
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("john", self.sales_cube)
-
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("ivana", self.churn_cube)
+        self.assertEqual([], self.auth.authorize("john", [self.sales_cube]))
+        self.assertEqual([], self.auth.authorize("ivana", [self.churn_cube]))
 
     def test_role(self):
         roles = {
@@ -55,10 +48,8 @@ class AuthTestCase(CubesTestCaseBase):
         }
         self.auth = SimpleAuthorizer(rights=rights, roles=roles)
 
-        self.assertFalse(self.auth.authorize("john", self.sales_cube))
-
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("john", self.churn_cube)
+        self.assertFalse(self.auth.authorize("john", [self.sales_cube]))
+        self.assertEqual([], self.auth.authorize("john", [self.sales_cube]))
 
     def test_role_inheritance(self):
         roles = {
@@ -70,7 +61,5 @@ class AuthTestCase(CubesTestCaseBase):
         }
         self.auth = SimpleAuthorizer(rights=rights, roles=roles)
 
-        self.assertFalse(self.auth.authorize("john", self.sales_cube))
-
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("john", self.churn_cube)
+        self.assertFalse(self.auth.authorize("john", [self.sales_cube]))
+        self.assertEqual([], self.auth.authorize("john", [self.sales_cube]))
