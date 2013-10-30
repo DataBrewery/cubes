@@ -102,10 +102,10 @@ def authorize(cube):
     logger.debug("authorizing cube %s for %s"
                  % (str(cube), g.auth_identity))
 
-    try:
-        workspace.authorizer.authorize(g.auth_identity, cube)
-    except NotAuthorized as e:
-        raise NotAuthorizedError(exception=e)
+    authorized = workspace.authorizer.authorize(g.auth_identity, [cube])
+    if not authorized:
+        raise NotAuthorizedError("Authorization of cube '%s' failed for "
+                                 "'%s'" % (str(cube), g.auth_identity))
 
 def requires_authorization(f):
     @wraps(f)
