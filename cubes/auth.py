@@ -82,17 +82,19 @@ class _SimpleAccessRight(object):
 
         for cube, restrictions in other.cube_restrictions:
             if not cube in self.cube_restrictions:
-                self.cube_restrictions = list(other.cube_restrictions)
+                self.cube_restrictions[cube] = restrictions
             else:
-                mine = self.cube_restrictions.get(cube)
+                mine = self.cube_restrictions[cube]
                 mine += restrictions
 
     def is_allowed(self, cube_name):
-        return (self.allow_cubes and 
-                (cube_name in self.allow_cubes or ALL_CUBES_WILDCARD in self.allow_cubes)) \
+        return (self.allow_cubes \
+                    and (cube_name in self.allow_cubes \
+                            or ALL_CUBES_WILDCARD in self.allow_cubes)) \
                 or \
-                (self.deny_cubes and 
-                (cube_name not in self.deny_cubes and ALL_CUBES_WILDCARD not in self.deny_cubes))
+                    (self.deny_cubes \
+                    and (cube_name not in self.deny_cubes \
+                            and ALL_CUBES_WILDCARD not in self.deny_cubes))
 
 
 class NoopAuthorizer(Authorizer):
@@ -235,7 +237,11 @@ class SimpleAuthorizer(Authorizer):
         cuts = right.cube_restrictions.get(cube.name)
 
         if cuts:
-            cuts = [cut_from_dict(cut) for cut in cuts]
+            if isinstance(cuts, basestring):
+                cuts = cuts_from_string(cube, cuts)
+            else:
+                cuts = [cut_from_dict(cut) for cut in cuts]
+
             restriction = Cell(cube, cuts)
         else:
             restriction = None
