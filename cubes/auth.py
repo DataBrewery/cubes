@@ -38,17 +38,13 @@ def create_authorizer(name, **options):
 
 
 class Authorizer(object):
-    def cube_is_allowed(self, token):
-        """Return a list of allowed cubes for authorization `token`."""
-        raise NotImplementedError
+    def authorize(self, token, cubes):
+        """Returns list of authorized cubes from `cubes`. If none of the cubes
+        are authorized an empty list is returned.
 
-    def authorize(self, token, cube):
-        """Returns appropriated `cell` within `cube` for authorization token
-        `token`. The `token` is specific to concrete authorizer object.
-
-        If `token` does not authorize access to the cube a NotAuthorized exception is
-        raised."""
-        raise NotImplementedError
+        Default implementation returs the same `cubes` list as provided.
+        """
+        return cubes
 
     def restricted_cell(self, token, cube, cell=None):
         """Restricts the `cell` for `cube` according to authorization by
@@ -62,12 +58,6 @@ class Authorizer(object):
 class NoopAuthorizer(Authorizer):
     def __init__(self):
         super(NoopAuthorizer, self).__init__()
-
-    def authorize(self, token, cube, cell=None):
-        return None
-
-    def restricted_cell(self, token, cube, cell):
-        return None
 
 
 class _SimpleAccessRight(object):
@@ -214,15 +204,23 @@ class SimpleAuthorizer(Authorizer):
             raise NotAuthorized("Unknown access right '%s'" % token)
         return right
 
-    def authorize(self, token, cube):
-        right = self.right(token)
+    def authorize(self, token, cubes):
+        try:
+            right = self.right(token)
+        except NotAuthorized:
+            return []
 
-        cube_name = str(cube)
+        authorized = []
 
-        if (right.allow_cubes and cube_name not in right.allow_cubes) \
-                or (right.deny_cubes and cube_name in right.deny_cubes):
-            raise NotAuthorized("Unauthorized cube '%s' for '%s'"
-                                % (cube_name, token))
+        for cube in cubes:
+            cube_name = str(cube)
+
+            if (right.allow_cubes and cube_name in right.allow_cubes) \
+                    or (right.deny_cubes and cube_name not in right.deny_cubes):
+
+                authorized.append(cube)
+
+        return authorized
 
     def restricted_cell(self, token, cube, cell):
         right = self.right(token)
