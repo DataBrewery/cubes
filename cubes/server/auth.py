@@ -65,8 +65,8 @@ class PassParameterAuthenticator(Authenticator):
 class HTTPBasicProxyAuthenticator(Authenticator):
     def authenticate(self, request):
         """Permissive authenticator using HTTP Basic authentication that
-        assumes the server to be behind a proxy. Does not check for a
-        password, just passes the `username` as identity"""
+        assumes the server to be behind a proxy, and that the proxy authenticated the user. 
+        Does not check for a password, just passes the `username` as identity"""
         auth = request.authorization
         if auth:
             return auth.username
