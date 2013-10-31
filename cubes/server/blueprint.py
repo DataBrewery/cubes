@@ -181,18 +181,17 @@ def list_cubes():
 
 
 @slicer.route("/cube/<cube_name>/model")
+@requires_cube
 def cube_model(cube_name):
-    cube = workspace.cube(cube_name)
-    authorize(cube)
+    authorize(g.cube)
 
     # TODO: only one option: private or public
-    response = cube.to_dict(expand_dimensions=True,
-                            with_mappings=False,
-                            full_attribute_names=True,
-                            create_label=True)
+    response = g.cube.to_dict(expand_dimensions=True,
+                              with_mappings=False,
+                              full_attribute_names=True,
+                              create_label=True)
 
-    response["features"] = workspace.cube_features(cube)
-
+    response["features"] = workspace.cube_features(g.cube)
     return jsonify(response)
 
 

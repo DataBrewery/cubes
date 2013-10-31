@@ -412,7 +412,6 @@ class Workspace(object):
         # Requirements:
         #    all dimensions in the cube should exist in the model
         #    if not they will be created
-
         try:
             model = self.cube_models[name]
         except KeyError:
