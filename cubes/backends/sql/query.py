@@ -1599,12 +1599,14 @@ class QueryBuilder(object):
 
         drilldown = self.drilldown or []
 
+        import pdb; pdb.set_trace()
         for dditem in drilldown:
             dim, hier, levels = dditem[0:3]
             for level in levels:
                 level = dim.level(level)
-                if level.order:
-                    order.append((level.order_attribute, level.order))
+                lvl_attr = level.order_attribute or level.key
+                lvl_order = level.order or 'asc'
+                order.append((lvl_attr, lvl_order))
 
         order_by = OrderedDict()
 
