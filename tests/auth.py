@@ -61,8 +61,6 @@ class AuthTestCase(CubesTestCaseBase):
         }
         self.auth = SimpleAuthorizer(rights=rights, roles=roles)
 
-        self.assertFalse(self.auth.authorize("john", self.sales_cube))
-
-        with self.assertRaises(NotAuthorized):
-            self.auth.authorize("john", self.churn_cube)
+        self.assertFalse(self.auth.authorize("john", [self.sales_cube]))
+        self.assertEqual([], self.auth.authorize("john", [self.sales_cube]))
 
