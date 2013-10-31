@@ -1599,7 +1599,6 @@ class QueryBuilder(object):
 
         drilldown = self.drilldown or []
 
-        import pdb; pdb.set_trace()
         for dditem in drilldown:
             dim, hier, levels = dditem[0:3]
             for level in levels:
