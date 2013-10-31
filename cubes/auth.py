@@ -191,6 +191,10 @@ class SimpleAuthorizer(Authorizer):
 
         cuts = right.cube_restrictions.get(cube.name)
 
+        # Append cuts for "any cube"
+        any_cuts = right.cube_restrictions.get(ALL_CUBES_WILDCARD, [])
+        cuts += any_cuts
+
         if cuts:
             if isinstance(cuts, basestring):
                 cuts = cuts_from_string(cube, cuts)
