@@ -58,7 +58,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         super(SlicerModelTestCase, self).setUp()
 
         ws = self.create_workspace()
-        self.slicer.workspace = ws
+        self.slicer.cubes_workspace = ws
 
         # Satisfy browser with empty tables
         # TODO: replace this once we have data
