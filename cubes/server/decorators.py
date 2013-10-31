@@ -38,6 +38,20 @@ def prepare_cell(argname="cut", target="cell"):
     setattr(g, target, cell)
 
 
+def requires_cube(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        cube_name = request.view_args.get("cube_name")
+        try:
+            g.cube = workspace.cube(cube_name)
+        except NoSuchCubeError:
+            raise NotFoundError(cube_name, "cube",
+                                "Unknown cube '%s'" % cube_name)
+
+        return f(*args, **kwargs)
+
+    return wrapper
+
 def requires_browser(f):
     """Prepares three global variables: `g.cube`, `g.browser` and `g.cell`.
     Also athorizes the cube using `authorize()`."""
