@@ -97,51 +97,6 @@ class _SimpleAccessRight(object):
                             and ALL_CUBES_WILDCARD not in self.deny_cubes))
 
 
-class NoopAuthorizer(Authorizer):
-    def __init__(self):
-        super(NoopAuthorizer, self).__init__()
-
-    def authorize(self, token, cube, cell=None):
-        if cell is not None:
-            return cell
-        return Cell(cube)
-
-class _SimpleAccessRight(object):
-    def __init__(self, roles, allow_cubes, deny_cubes, cube_restrictions):
-        self.roles = roles or []
-        self.allow_cubes = set(allow_cubes) if allow_cubes else set()
-        self.deny_cubes = set(deny_cubes) if deny_cubes else set()
-        self.cube_restrictions = cube_restrictions or {}
-
-    def merge(self, other):
-        """Merge `right` with the receiver:
-
-        * `allow_cubes` are merged (union)
-        * `deny_cubes` are merged (union)
-        * `cube_restrictions` from `other` with same cube replace restrictions
-          from the receiver"""
-
-        self.allow_cubes |= other.allow_cubes
-        self.deny_cubes |= other.deny_cubes
-
-        for cube, restrictions in other.cube_restrictions:
-            if not cube in self.cube_restrictions:
-                self.cube_restrictions = list(other.cube_restrictions)
-            else:
-                mine = self.cube_restrictions.get(cube)
-                mine += restritions
-
-
-class NoopAuthorizer(Authorizer):
-    def __init__(self):
-        super(NoopAuthorizer, self).__init__()
-
-    def authorize(self, token, cube, cell=None):
-        if cell is not None:
-            return cell
-        return Cell(cube)
-
-
 class SimpleAuthorizer(Authorizer):
     __options__ = [
         {
