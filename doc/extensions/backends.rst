@@ -151,7 +151,8 @@ Arguments:
 
 * `cell` – cube cell to be aggregated
 * `aggregates` – list of aggregates to be considered (needs to be prepared)
-* `drilldown` – drill-down specification (needs to be prepared)
+* `drilldown` – drill-down specification (needs to be prepared, see
+  :class:`cubes.Drilldown`)
 * `split` (optional browser feature) – virtual cell-based dimension to split
   the aggregation cell into two: within the split cell or outside of the split
   cell
@@ -167,9 +168,9 @@ Arguments:
         # Preparation of arguments:
         if not cell:
             cell = Cell(self.cube)
-        aggregates = self.prepare_aggregates()
+        aggregates = self.prepare_aggregates(aggregates)
         drilldown = Drilldown(drilldown)
-        order = self.prepare_order(order)
+        order = self.prepare_order(order, is_aggregate=True)
 
         #
         # ... do the aggregation here ...
@@ -187,6 +188,27 @@ Arguments:
 
         return result
 
+Facts
+-----
+
+.. code-block:: python
+
+    def facts(self, cell=None, fields=None, order=None, page=None,
+              page_size=None):
+
+        cell = cell or Cell(self.cube)
+        attributes = self.cube.get_attributes(fields)
+        order = self.prepare_order(order, is_aggregate=False)
+
+        #
+        # ... fetch the facts here ...
+        #
+        # facts = ... an iterable ...
+        #
+
+        result = Facts(facts, attributes)
+
+        return result
 
 Browser and Cube Features
 -------------------------

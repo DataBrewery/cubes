@@ -11,10 +11,5 @@ Contents:
     :maxdepth: 2
 
     backends
-
-..    workspace
-..    model
-..    browser
-..    formatter
-..    server
-..    common
+    providers
+    auth
