@@ -11,6 +11,8 @@ from .decorators import *
 from .local import *
 from .auth import create_authenticator, NotAuthenticated
 
+from collections import OrderedDict
+
 from cubes import __version__
 
 # TODO: missing features from the original Werkzeug Slicer:
@@ -156,10 +158,16 @@ def show_version():
 
 @slicer.route("/info")
 def show_info():
-    info = {
-        "authorization_method": current_app.slicer.authorization_method,
-        "version": __version__
-    }
+
+    if workspace.info:
+        info = OrderedDict(workspace.info)
+    else:
+        info = OrderedDict()
+
+    info["authentication"] = current_app.slicer.authentication
+    info["json_record_limit"] = current_app.slicer.json_record_limit
+    info["cubes_version"] = __version__
+
     return jsonify(info)
 
 @slicer.route("/cubes")
