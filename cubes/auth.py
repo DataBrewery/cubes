@@ -4,7 +4,7 @@ import os.path
 import json
 from collections import namedtuple
 from .extensions import get_namespace, initialize_namespace
-from .browser import Cell
+from .browser import Cell, cut_from_string, cut_from_dict
 from .errors import *
 from .common import read_json_file, sorted_dependencies
 
@@ -109,7 +109,7 @@ class _SimpleAccessRight(object):
 
 def right_from_dict(info):
     return _SimpleAccessRight(
-               info.get('roles'), info.get('allowed_cubes'), 
+               info.get('roles'), info.get('allowed_cubes'),
                info.get('denied_cubes'), info.get('cube_restrictions')
            )
 
@@ -197,7 +197,6 @@ class SimpleAuthorizer(Authorizer):
         return authorized
 
     def restricted_cell(self, token, cube, cell):
-        import pdb; pdb.set_trace()
         right = self.right(token)
 
         cuts = right.cube_restrictions.get(cube.name)
@@ -207,19 +206,22 @@ class SimpleAuthorizer(Authorizer):
         cuts += any_cuts
 
         if cuts:
-            if isinstance(cuts, basestring):
-                cuts = cuts_from_string(cube, cuts)
-            else:
-                cuts = [cut_from_dict(cut) for cut in cuts]
+            restriction_cuts = []
+            for cut in cuts:
+                if isinstance(cut, basestring):
+                    cut = cut_from_string(cut, cube)
+                else:
+                    cut = cut_from_dict(cut)
+                restriction_cuts.append(cut)
 
-            restriction = Cell(cube, cuts)
+            restriction = Cell(cube, restriction_cuts)
         else:
             restriction = None
 
         if not restriction:
             return cell
         elif cell:
-            return cell + restriction
+            return cell & restriction
         else:
             return restriction
 
