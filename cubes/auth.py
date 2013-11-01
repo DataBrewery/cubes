@@ -12,7 +12,8 @@ __all__ = (
     "create_authorizer",
     "Authorizer",
     "SimpleAuthorizer",
-    "NotAuthorized"
+    "NotAuthorized",
+    "right_from_dict"
 )
 
 ALL_CUBES_WILDCARD = '*'
@@ -64,7 +65,7 @@ class NoopAuthorizer(Authorizer):
 
 class _SimpleAccessRight(object):
     def __init__(self, roles, allow_cubes, deny_cubes, cube_restrictions):
-        self.roles = roles or []
+        self.roles = set(roles) if roles else set([])
         self.allow_cubes = set(allow_cubes) if allow_cubes else set([])
         self.deny_cubes = set(deny_cubes) if deny_cubes else set([])
         self.cube_restrictions = cube_restrictions or {}
@@ -77,6 +78,7 @@ class _SimpleAccessRight(object):
         * `cube_restrictions` from `other` with same cube replace restrictions
           from the receiver"""
 
+        self.roles |= other.roles
         self.allow_cubes |= other.allow_cubes
         self.deny_cubes |= other.deny_cubes
 
@@ -96,6 +98,20 @@ class _SimpleAccessRight(object):
                     and (cube_name not in self.deny_cubes \
                             and ALL_CUBES_WILDCARD not in self.deny_cubes))
 
+    def to_dict(self):
+        return {
+            "roles": list(self.roles),
+            "allowed_cubes": list(self.allow_cubes),
+            "denied_cubes": list(self.deny_cubes),
+            "cube_restrictions": dict(self.cube_restrictions)
+        }
+
+
+def right_from_dict(info):
+    return _SimpleAccessRight(
+               info.get('roles'), info.get('allowed_cubes'), 
+               info.get('denied_cubes'), info.get('cube_restrictions')
+           )
 
 class SimpleAuthorizer(Authorizer):
     __options__ = [
@@ -136,10 +152,7 @@ class SimpleAuthorizer(Authorizer):
 
         # Process the roles
         for key, info in roles.items():
-            role = _SimpleAccessRight(roles=info.get("roles"),
-                                      allow_cubes=info.get("allowed_cubes"),
-                                      deny_cubes=info.get("denied_cubes"),
-                                      cube_restrictions=info.get("cube_restrictions"))
+            role = right_from_dict(info)
             self.roles[key] = role
 
         deps = dict((name, role.roles) for name, role in self.roles.items())
@@ -153,10 +166,7 @@ class SimpleAuthorizer(Authorizer):
 
         # Process rights
         for key, info in rights.items():
-            right = _SimpleAccessRight(roles=info.get("roles"),
-                                       allow_cubes=info.get("allowed_cubes"),
-                                       deny_cubes=info.get("denied_cubes"),
-                                       cube_restrictions=info.get("cube_restrictions"))
+            right = right_from_dict(info)
             self.rights[key] = right
 
             for role_name in right.roles:
@@ -187,6 +197,7 @@ class SimpleAuthorizer(Authorizer):
         return authorized
 
     def restricted_cell(self, token, cube, cell):
+        import pdb; pdb.set_trace()
         right = self.right(token)
 
         cuts = right.cube_restrictions.get(cube.name)
