@@ -35,6 +35,10 @@ def prepare_cell(argname="cut", target="cell"):
     else:
         cell = None
 
+    if workspace.authorizer:
+        cell = workspace.authorizer.restricted_cell(g.auth_identity,
+                                                    cube=g.cube,
+                                                    cell=cell)
     setattr(g, target, cell)
 
 
@@ -66,6 +70,7 @@ def requires_browser(f):
 
         g.cube = cube
         g.browser = workspace.browser(g.cube)
+
         prepare_cell()
 
         if "page" in request.args:
