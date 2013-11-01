@@ -17,12 +17,56 @@ Version
 
 Request: ``GET /version``
 
-Return a serve  r version.
+Return a server version.
 
 .. code-block:: javascript
 
     {
         "version": "0.10.2"
+    }
+
+Info
+----
+
+Request: ``GET /info``
+
+Return an information about the server and server's data.
+
+Content related keys:
+
+* ``label`` – server's name or label
+* ``description`` – description of the served data
+* ``copyright`` – copyright of the data, if any
+* ``license`` – data license
+* ``maintainer`` – name of the data maintainer, might be in format ``Name
+  Surname <namesurname@domain.org>``
+* ``contributors`` - list of contributors
+* ``keywords`` – list of keywords that describe the data
+* ``related`` – list of related or "friendly" Slicer servers with other open
+  data – a dictionary with keys ``label`` and ``url``.
+* ``visualizations`` – list of links to prepared visualisations of the
+  server's data – a dictionary with keys ``label`` and ``url``.
+
+Server related keys:
+
+* ``authentication`` – authentication method, might be ``none``,
+  ``pass_parameter``, ``http_basic_proxy`` or other. See :doc:`auth` for more
+  information
+* ``json_record_limit`` - maximum number of records yielded for JSON responses
+* ``cubes_version`` – Cubes framework version
+
+
+Example:
+
+.. code-block:: json
+
+    {
+        "description": "Some Open Data",
+        "license": "Public Domain",
+        "keywords": ["budget", "financial"],
+        "authentication": "none", 
+        "json_record_limit": 1000, 
+        "cubes_version": "0.11.2"
     }
 
 Model
