@@ -64,6 +64,14 @@ Backends
 
     backends/index
 
+Recipes
+-------
+
+.. toctree::
+    :maxdepth: 2
+
+    recipes/index
+
 Extension Development
 ---------------------
 

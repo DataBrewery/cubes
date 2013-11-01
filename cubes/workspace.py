@@ -3,12 +3,13 @@ import sys
 from .providers import read_model_metadata, create_model_provider
 from .auth import create_authorizer, NoopAuthorizer
 from .model import Model
-from .common import get_logger
+from .common import get_logger, read_json_file
 from .errors import *
 from .stores import open_store, create_browser
 from .calendar import Calendar
 import os.path
 import ConfigParser
+from collections import OrderedDict
 
 __all__ = [
     "Workspace",
@@ -21,6 +22,20 @@ __all__ = [
     "create_slicer_context",
     "config_items_to_dict",
 ]
+
+
+SLICER_INFO_KEYS = (
+    "name",
+    "label",
+    "description",  # Workspace model description
+    "copyright",    # Copyright for the data
+    "license",      # Data license
+    "maintainer",   # Name (and maybe contact) of data maintainer
+    "contributors", # List of contributors
+    "visualizations",  # List of dicts with url and label of server's visualizers
+    "keywords",     # List of keywords describing server's cubes
+    "related"       # List of dicts with related servers
+)
 
 def config_items_to_dict(items):
     return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
@@ -92,6 +107,14 @@ class Workspace(object):
 
         self.locales = []
         self.translations = []
+
+        self.info = OrderedDict()
+
+        if config.has_option("workspace", "info"):
+            path = config.get("workspace", "info")
+            info = read_json_file(path, "Slicer info")
+            for key in SLICER_INFO_KEYS:
+                self.info[key] = info.get(key)
 
         #
         # Model objects
@@ -299,18 +322,6 @@ class Workspace(object):
         else:
             raise ConfigurationError("Unknown model source reference '%s'" % model)
 
-        # Master model?
-        if metadata.get("__is_master"):
-            # Other places using this format:
-            #     Workspace.model()
-            #     slicer tool merge_model
-
-            parts = metadata["parts"]
-            self.logger.debug("loading master model parts (%s)" % len(parts))
-            for part in parts:
-                self.add_model(part)
-            return
-
         model_name = name or metadata.get("name")
 
         # Get a provider as specified in the model by "provider" or get the
@@ -363,29 +374,6 @@ class Workspace(object):
                                         (name, model_name, previous_name))
 
         self.cube_models[name] = model
-
-    def model(self):
-        """Return a master model. Master model can be used to reconstruct the
-        workspace.
-
-        .. note::
-
-            Master model should not be edited by hand for now.
-
-        .. note::
-
-            Avoid using this method.
-        """
-
-        master_model = {}
-
-        master_model["__comment"] = "This is a master model. Do not edit."
-        master_model["__is_master"] = True
-
-        models = [model.metadata for model in self._models]
-        master_model["parts"] = models
-
-        return master_model
 
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
