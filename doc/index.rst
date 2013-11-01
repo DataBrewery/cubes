@@ -35,7 +35,7 @@ Aggregation, Slicing and Dicing
 .. toctree::
     :maxdepth: 2
 
-    slicing_and_dicing
+    slicing_dicing
     formatters
 
 Analytical Workspace
