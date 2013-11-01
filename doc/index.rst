@@ -64,6 +64,14 @@ Backends
 
     backends/index
 
+Extension Development
+---------------------
+
+.. toctree::
+    :maxdepth: 2
+
+    extensions/index
+
 Developer's Reference
 ---------------------
 
