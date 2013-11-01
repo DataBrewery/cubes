@@ -85,7 +85,7 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(cut, cut_from_string("foo:a+b"))
 
     def test_special_characters(self):
-        self.assertEqual('\:q\-we,a\\sd\;,100',
+        self.assertEqual('\\:q\\-we,a\\\\sd\\;,100',
                          string_from_path([":q-we", "a\\sd;", 100]))
 
     def test_string_from_path(self):

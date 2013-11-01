@@ -149,7 +149,7 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
 
         self.workspace = self.create_workspace(model="server.json")
         self.cube = self.workspace.cube("aggregate_test")
-        self.slicer.workspace = self.workspace
+        self.slicer.cubes_workspace = self.workspace
 
         self.facts = Table("facts", self.metadata,
                         Column("id", Integer),
