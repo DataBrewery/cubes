@@ -7,7 +7,7 @@ mind.
 
 Read more about Open Data:
 
-* `Open Data<http://en.wikipedia.org/wiki/Open_data>`_ (Wikipedia)
+* `Open Data <http://en.wikipedia.org/wiki/Open_data>`_ (Wikipedia)
 * `Defining Open Data <http://blog.okfn.org/2013/10/03/defining-open-data/>`_
   (OKFN)
 * `What is Open Data <http://opendatahandbook.org/en/what-is-open-data/>`_
@@ -27,8 +27,8 @@ add a ``info.json`` file with the following contents:
 * ``description`` – description of the served data
 * ``copyright`` – copyright of the data, if any
 * ``license`` – data license, such as `Creative
-  Commons<http://creativecommons.org>`_, Public Domain or
-  `other<http://opendatacommons.org/licenses/>`_
+  Commons <http://creativecommons.org>`_, Public Domain or
+  `other <http://opendatacommons.org/licenses/>`_
 * ``maintainer`` – name of the data maintainer, might be in format ``Name
   Surname <namesurname@domain.org>``
 * ``contributors`` - list of contributors (if any)
