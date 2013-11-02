@@ -453,7 +453,6 @@ class Workspace(object):
         # Note: Provider should not raise `TemplateRequired` for public
         # dimensions
         #
-
         for dim_name in cube.linked_dimensions:
             try:
                 dim = provider.dimension(dim_name)
