@@ -169,7 +169,7 @@ class SimpleAuthorizer(Authorizer):
             right = right_from_dict(info)
             self.rights[key] = right
 
-            for role_name in right.roles:
+            for role_name in list(right.roles):
                 role = self.roles[role_name]
                 right.merge(role)
 
