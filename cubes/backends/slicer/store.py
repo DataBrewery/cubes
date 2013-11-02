@@ -4,21 +4,70 @@ from ...browser import *
 from ...stores import Store
 from ...providers import ModelProvider
 from ...errors import *
-from cubes.common import get_logger
+from ...common import get_logger
 import json
 import urllib2
 import urllib
 
-class Slicer(Store):
-    def __init__(self, url, **options):
+DEFAULT_SLICER_URL = "http://localhost:5000"
+
+class SlicerStore(Store):
+    def __init__(self, url=None, authentication=None,
+                 auth_identity=None, auth_parameter=None,
+                 **options):
+
+        url = url or DEFAULT_SLICER_URL
+
         self.url = url
         self.logger = get_logger()
 
-    def model_provider_name(self):
-        return "slicer"
+        if authentication and authentication not in ["pass_parameter", "none"]:
+            raise ConfigurationError("Unsupported authentication method '%s'"
+                                     % authentication)
 
-    def request(self, path, **kwargs):
-        return json.loads(urllib2.urlopen("%s/%s" % (self.url, path)).read())
+        self.authentication = authentication
+        self.auth_identity = auth_identity
+        self.auth_parameter = auth_parameter or "api_key"
+
+        # TODO: cube prefix
+        # TODO: model mappings as in mixpanel
+
+    def request(self, action, **params):
+        """
+        * `action` – server action (path)
+        # `params` – request parameters
+        """
+
+        params = dict(params)
+        if self.authentication == "pass_parameter":
+            params[self.auth_parameter] = self.auth_identity
+
+        params_str = urllib.urlencode(params)
+        request_url = '%s/%s' % (self.url, action)
+
+        if params_str:
+            request_url += '?' + params_str
+
+        self.logger.debug("slicer request: %s" % (request_url, ))
+        response = urllib.urlopen(request_url)
+
+        try:
+            result = json.loads(response.read())
+        except:
+            result = {}
+
+        if response.getcode() == 404:
+            raise MissingObjectError
+        elif response.getcode() != 200:
+            raise BackendError("Slicer request error (%s): %s"
+                               % (result.get("type"),result.get("message")))
+
+        return result
+
+    def cube_request(self, action, cube, **params):
+        action = "cube/%s/%s" % (cube, action)
+        return self.request(action, **params)
+
 
 class SlicerModelProvider(ModelProvider):
 
@@ -26,29 +75,25 @@ class SlicerModelProvider(ModelProvider):
         return True
 
     def list_cubes(self):
-        model_desc = self.store.request('model')
-        result = []
-        for c in model_desc.get('cubes', []):
-            result.append({
-                'name': c.get('name'),
-                'label': c.get('label'),
-                'category': c.get('category')
-            })
-
-        return result
+        return self.store.request('cubes')
 
     def cube(self, name):
-        cube_desc = self.store.request("model/cube/%s" % urllib.quote(name))
+        try:
+            cube_desc = self.store.cube_request("model", name)
+        except MissingObjectError:
+            raise NoSuchCubeError("Unknown cube '%s'" % name, name)
 
-        measures = [ create_measure(m) for m in cube_desc.get('measures', []) ]
-        aggregates = [ create_measure_aggregate(a) for a in cube_desc.get('aggregates', []) ]
-        dimensions = [ create_dimension(d) for d in cube_desc.get('dimensions') ]
+        # create_cube() expects dimensions to be a list of names and linked
+        # later, the Slicer returns whole dimension descriptions
 
-        cube = Cube(name=name, measures=measures, aggregates=aggregates, dimensions=dimensions, datastore=self.store_name,
-                    mappings=None, category=cube_desc.get('category'))
+        dimensions = cube_desc.pop("dimensions")
 
-        cube.info = cube_desc.get('info', {})
+        cube = create_cube(cube_desc)
+        for dim in dimensions:
+            dim = create_dimension(dim)
+            cube.add_dimension(dim)
+
         return cube
 
     def dimension(self, name):
-        raise NotImplementedError()
+        raise NoSuchDimensionError(name)

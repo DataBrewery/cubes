@@ -169,7 +169,7 @@ Arguments:
         if not cell:
             cell = Cell(self.cube)
         aggregates = self.prepare_aggregates(aggregates)
-        drilldown = Drilldown(drilldown)
+        drilldown = Drilldown(drilldown, cell)
         order = self.prepare_order(order, is_aggregate=True)
 
         #
