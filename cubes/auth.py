@@ -203,7 +203,8 @@ class SimpleAuthorizer(Authorizer):
 
         # Append cuts for "any cube"
         any_cuts = right.cube_restrictions.get(ALL_CUBES_WILDCARD, [])
-        cuts += any_cuts
+        if any_cuts:
+            cuts += any_cuts
 
         if cuts:
             restriction_cuts = []
