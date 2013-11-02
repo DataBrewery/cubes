@@ -159,8 +159,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         builder.fact(key_value)
 
-        cursor = self.execute_statement(builder.statement,
-                                        "facts")
+        cursor = self.execute_statement(builder.statement, "facts")
         row = cursor.fetchone()
 
         if row:
@@ -198,57 +197,37 @@ class SnowflakeBrowser(AggregationBrowser):
         return ResultIterator(cursor, builder.labels)
 
     def members(self, cell, dimension, depth=None, hierarchy=None, page=None,
-                page_size=None, order=None, **options):
+                page_size=None, order=None):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
         Number of database queries: 1.
         """
-
-        raise NotImplementedError
+        cell = cell or Cell(self.cube)
+        order = self.prepare_order(order, is_aggregate=False)
 
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
 
-        levels = hierarchy.levels
-
         if depth == 0:
-            raise ArgumentError("Depth for dimension values should not be 0")
-        elif depth is not None:
-            levels = levels[0:depth]
-
-        # TODO: this might unnecessarily add fact table as well, there might
-        #       be cases where we do not want that (hm, might be? really? note
-        #       the cell)
+            raise ArgumentError("Depth for dimension members should not be 0")
+        elif depth is None:
+            levels = hierarchy.levels
+        else:
+            levels = hierarchy.levels[0:depth]
 
         attributes = []
         for level in levels:
-            attributes.extend(level.attributes)
+            attributes += level.attributes
 
-        cond = self.condition_for_cell(cell)
+        builder = QueryBuilder(self)
+        builder.members_statement(cell, attributes)
+        builder.paginate(page, page_size)
+        builder.order(order)
 
-        statement = self.denormalized_statement(attributes=attributes,
-                                                        include_fact_key=False,
-                                                        condition_attributes=
-                                                        cond.attributes)
-        if cond.condition is not None:
-            statement = statement.where(cond.condition)
+        result = self.execute_statement(builder.statement, "members")
 
-        statement = self.paginated_statement(statement, page, page_size)
-        order_levels = [(dimension, hierarchy, levels)]
-        statement = self.ordered_statement(statement, order,
-                                                   order_levels)
-
-        group_by = [self.column(attr) for attr in attributes]
-        statement = statement.group_by(*group_by)
-
-        if self.debug:
-            self.logger.info("dimension members SQL:\n%s" % statement)
-
-        result = self.connectable.execute(statement)
-        labels = self.logical_labels(statement.columns)
-
-        return ResultIterator(result, labels)
+        return ResultIterator(result, builder.labels)
 
     def path_details(self, dimension, path, hierarchy=None):
         """Returns details for `path` in `dimension`. Can be used for
@@ -256,23 +235,29 @@ class SnowflakeBrowser(AggregationBrowser):
 
         Number of SQL queries: 1.
         """
-        statement = self.detail_statement(dimension, path, hierarchy)
-        labels = self.logical_labels(statement.columns)
+        dimension = self.cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
 
-        if self.debug:
-            self.logger.info("path details SQL:\n%s" % statement)
+        cut = PointCut(dimension, path, hierarchy=hierarchy)
+        cell = Cell(self.cube, [cut])
 
-        cursor = self.connectable.execute(statement)
-        row = cursor.fetchone()
+        # TODO: use facts() instead (might be faster)
+        members = self.members(cell, dimension,
+                               depth=len(path),
+                               hierarchy=hierarchy)
 
-        if row:
-            record = dict(zip(labels, row))
-        else:
-            record = None
+        labels = members.labels
 
-        cursor.close()
+        # Get the first member (there should be only one)
+        members = list(members)
+        if not members:
+            self.logger.warn("No details for path '%s'" % ",".join(path))
+            return None
 
-        return record
+        member = list(members)[0]
+        # details = dict(zip(labels, member))
+
+        return member
 
     def execute_statement(self, statement, label=None):
         """Execute the `statement`, optionally log it. Returns the result
@@ -433,39 +418,6 @@ class SnowflakeBrowser(AggregationBrowser):
                 return None
 
         return function
-
-    def detail_statement(self, dimension, path, hierarchy=None):
-        """Returns statement for dimension details. `attributes` should be a
-        list of attributes from one dimension that is one branch
-        (master-detail) of a star/snowflake."""
-
-        dimension = self.cube.dimension(dimension)
-        hierarchy = dimension.hierarchy(hierarchy)
-        attributes = hierarchy.all_attributes
-
-        product = self.join_expression_for_attributes(attributes,
-                                                        include_fact=False)
-        expression = product.expression
-
-        columns = self.columns(attributes)
-        select = sql.expression.select(columns,
-                                       from_obj=expression,
-                                       use_labels=True)
-
-        cond = self.condition_for_point(dimension, path, hierarchy)
-        select = select.where(cond.condition)
-
-        return select
-
-    def fact_statement(self, key_value):
-        """Return a statement for selecting a single fact based on `key_value`"""
-
-        key_column = self.fact_table.c[self.fact_key]
-
-        statement = self.denormalized_statement()
-        statement = statement.where(condition)
-
-        return statement
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"

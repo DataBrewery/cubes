@@ -264,8 +264,7 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def members(self, cell, dimension, depth=None, paths=None, hierarchy=None,
-                **options):
+    def members(self, cell, dimension, depth=None, hierarchy=None):
         """Return members of `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned. If no `hierarchy` is specified,
         then default dimension hierarchy is used.
@@ -274,7 +273,8 @@ class AggregationBrowser(object):
 
     def values(self, *args, **kwargs):
         # TODO: depreciated
-        self.members(*args, **kwargs)
+        self.logger.warn("values() is depreciated, use members()")
+        return self.members(*args, **kwargs)
 
     def report(self, cell, queries):
         """Bundle multiple requests from `queries` into a single one.
