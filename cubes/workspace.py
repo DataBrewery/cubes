@@ -18,8 +18,6 @@ __all__ = [
     "get_backend",
     "create_workspace",
     "create_workspace_from_config",
-    "create_slicer_workspace",
-    "create_slicer_context",
     "config_items_to_dict",
 ]
 
@@ -37,8 +35,10 @@ SLICER_INFO_KEYS = (
     "related"       # List of dicts with related servers
 )
 
+
 def config_items_to_dict(items):
     return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
+
 
 def interpret_config_value(value):
     if value is None:
@@ -49,6 +49,7 @@ def interpret_config_value(value):
         elif value.lower() in ('no', 'false', 'off'):
             return False
     return value
+
 
 def _get_name(obj, object_type="Object"):
     if isinstance(obj, basestring):
@@ -61,15 +62,6 @@ def _get_name(obj, object_type="Object"):
 
     return name
 
-
-def create_slicer_workspace(server_url):
-    cp = ConfigParser.SafeConfigParser()
-    cp.add_section("datastore")
-    cp.set("datastore", "type", "slicer")
-    cp.set("datastore", "url", server_url)
-    w = Workspace(cp)
-    w.add_model({ 'name': 'slicer', 'store': 'slicer', 'provider': 'slicer' })
-    return w
 
 class Workspace(object):
     def __init__(self, config=None, stores=None):
@@ -375,6 +367,16 @@ class Workspace(object):
 
         self.cube_models[name] = model
 
+    def add_slicer(self, name, url):
+        """Register a slicer as a model and data provider."""
+        self.register_store(name, "slicer", url=url)
+
+        model = {
+            "store": name,
+            "provider": "slicer"
+        }
+        self.add_model(model)
+
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
@@ -598,39 +600,12 @@ def get_backend(name):
                               "Use Workspace instead." )
 
 
-def create_slicer_context(config):
-    raise NotImplementedError("create_slicer_context() is depreciated. "
-                              "Use Workspace instead." )
-
-
 def create_workspace(backend_name, model, **options):
-    """Depreciated. Use the following instead:
-
-    .. code-block:: python
-
-        ws = Workspace()
-        ws.add_model(model)
-        ws.register_store("default", backend_name, **options)
-    """
-
-    workspace = Workspace()
-    workspace.add_model(model)
-    workspace.register_store("default", backend_name, **options)
-    workspace.logger.warn("create_workspace() is depreciated, "
-                          "use Workspace(config) instead")
-    return workspace
+    raise NotImplemented("create_workspace() is depreciated, "
+                         "use Workspace(config) instead")
 
 
 def create_workspace_from_config(config):
-    """Depreciated. Use the following instead:
-
-    .. code-block:: python
-
-        ws = Workspace(config)
-    """
-
-    workspace = Workspace(config=config)
-    workspace.logger.warn("create_workspace_from_config() is depreciated, "
-                          "use Workspace(config) instead")
-    return workspace
+    raise NotImplemented("create_workspace_from_config() is depreciated, "
+                         "use Workspace(config) instead")
 
