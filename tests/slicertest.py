@@ -1,7 +1,7 @@
 import unittest
 import os
 
-from cubes.workspace import create_slicer_workspace
+from cubes import Workspace
 from cubes.errors import *
 import cubes.browser
 
@@ -10,7 +10,8 @@ import cubes.browser
 
 class SlicerTestCase(unittest.TestCase):
     def setUp(self):
-        self.w = create_slicer_workspace("http://localhost:5010/")
+        self.w = Workspace()
+        self.w.add_slicer("slicer", "http://localhost:5010")
 
         self.cube_list = self.w.list_cubes()
 

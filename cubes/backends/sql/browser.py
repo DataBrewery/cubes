@@ -241,21 +241,24 @@ class SnowflakeBrowser(AggregationBrowser):
         cut = PointCut(dimension, path, hierarchy=hierarchy)
         cell = Cell(self.cube, [cut])
 
-        # TODO: use facts() instead (might be faster)
-        members = self.members(cell, dimension,
-                               depth=len(path),
-                               hierarchy=hierarchy)
+        attributes = []
+        for level in hierarchy.levels[0:len(path)]:
+            attributes += level.attributes
 
-        labels = members.labels
+        builder = QueryBuilder(self)
+        builder.denormalized_statement(cell,
+                                       attributes,
+                                       include_fact_key=True)
+        builder.paginate(0, 1)
+        cursor = self.execute_statement(builder.statement,
+                                        "path details")
 
-        # Get the first member (there should be only one)
-        members = list(members)
-        if not members:
-            self.logger.warn("No details for path '%s'" % ",".join(path))
-            return None
+        row = cursor.fetchone()
 
-        member = list(members)[0]
-        # details = dict(zip(labels, member))
+        if row:
+            member = dict(zip(builder.labels, row))
+        else:
+            member = None
 
         return member
 
