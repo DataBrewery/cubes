@@ -1211,6 +1211,12 @@ class QueryBuilder(object):
 
         return statement
 
+    def members_statement(self, cell, attributes=None):
+        """Prepares dimension members statement."""
+        self.denormalized_statement(cell, attributes, include_fact_key=False)
+        self.statement = self.statement.group_by(*self.statement.columns)
+        return self.statement
+
     def fact(self, id_):
         """Selects only fact with given id"""
         condition = self.snowflake.fact_key_column == id_
