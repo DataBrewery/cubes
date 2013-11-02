@@ -1196,7 +1196,7 @@ class QueryBuilder(object):
         if include_fact_key:
             columns.insert(0, self.snowflake.fact_key_column)
 
-        if cell:
+        if cell is not None:
             condition = self.condition_for_cell(cell)
         else:
             condition = None
@@ -1334,6 +1334,7 @@ class QueryBuilder(object):
         """Returns a SQL condition for the `cell`."""
         conditions = self.conditions_for_cuts(cell.cuts)
         condition = condition_conjunction(conditions)
+        return condition
 
     def conditions_for_cuts(self, cuts):
         """Constructs conditions for all cuts in the `cell`. Returns a list of
