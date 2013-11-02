@@ -1658,13 +1658,20 @@ class Drilldown(object):
         self.dimensions = []
         self._contained_dimensions = set()
 
-        # TODO: check for dim. cardinality and whether it sohuld be allowrd
         for dd in self.drilldown:
             self.dimensions.append(dd.dimension)
             self._contained_dimensions.add(dd.dimension.name)
 
     def __str__(self):
-        drilldowns = []
+        return ",".join(self.items_as_strings())
+
+    def items_as_strings(self):
+        """Returns drilldown items as strings: ``dimension@hierarchy:level``.
+        If hierarchy is dimension's default hierarchy, then it is not included
+        in the string: ``dimension:level``"""
+
+        strings = []
+
         for item in self.drilldown:
             if item.hierarchy != item.dimension.hierarchy():
                 hierstr = "@%s" % str(item.hierarchy)
@@ -1674,9 +1681,9 @@ class Drilldown(object):
             ddstr = "%s%s:%s" % (item.dimension.name,
                                  hierstr,
                                  item.levels[-1].name)
-            drilldowns.append(ddstr)
+            strings.append(ddstr)
 
-        return ",".join(drilldowns)
+        return strings
 
     def drilldown_for_dimension(self, dim):
         """Returns drilldown items for dimension `dim`."""
