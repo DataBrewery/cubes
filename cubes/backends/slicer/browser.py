@@ -11,15 +11,7 @@ class SlicerBrowser(AggregationBrowser):
     """Aggregation browser for Cubes Slicer OLAP server."""
 
     def __init__(self, cube, store, locale=None, **options):
-        """Demo backend browser. This backend is serves just as example of a
-        backend. Uses another Slicer server instance for doing all the work.
-        You might use it as a template for your own browser.
-
-        Attributes:
-
-        * `cube` – obligatory, but currently unused here
-        * `url` - base url of Cubes Slicer OLAP server
-
+        """Browser for another Slicer server.
         """
         super(SlicerBrowser, self).__init__(cube, store, locale)
 
@@ -27,14 +19,6 @@ class SlicerBrowser(AggregationBrowser):
         self.cube = cube
         self.locale = locale
         self.store = store
-
-    def _dditem_to_string(self, dditem):
-        s = dditem.dimension.name
-        if dditem.hierarchy:
-            s += "@" + dditem.hierarchy.name
-        if len(dditem.levels):
-            s += ":" + dditem.levels[-1].name
-        return s
 
     def aggregate(self, cell=None, aggregates=None, drilldown=None,
                   split=None, page=None, page_size=None, order=None):
