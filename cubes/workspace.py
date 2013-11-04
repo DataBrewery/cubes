@@ -30,7 +30,7 @@ SLICER_INFO_KEYS = (
     "license",      # Data license
     "maintainer",   # Name (and maybe contact) of data maintainer
     "contributors", # List of contributors
-    "visualizations",  # List of dicts with url and label of server's visualizers
+    "visualizers",  # List of dicts with url and label of server's visualizers
     "keywords",     # List of keywords describing server's cubes
     "related"       # List of dicts with related servers
 )
@@ -103,8 +103,16 @@ class Workspace(object):
         self.info = OrderedDict()
 
         if config.has_option("workspace", "info"):
-            path = config.get("workspace", "info")
+            path = config.get("workspace", "info_file")
             info = read_json_file(path, "Slicer info")
+            for key in SLICER_INFO_KEYS:
+                self.info[key] = info.get(key)
+        elif config.has_section("workspace"):
+            info = dict(config.items("info"))
+            if "visualizer" in info:
+                info["visualizers"] = [ {"label": info.get("label",
+                                                info.get("name", "Default")),
+                                         "url": info["visualizer"]} ]
             for key in SLICER_INFO_KEYS:
                 self.info[key] = info.get(key)
 
