@@ -66,9 +66,29 @@ class NoopAuthorizer(Authorizer):
 class _SimpleAccessRight(object):
     def __init__(self, roles, allow_cubes, deny_cubes, cube_restrictions):
         self.roles = set(roles) if roles else set([])
+        self.cube_restrictions = cube_restrictions or {}
         self.allow_cubes = set(allow_cubes) if allow_cubes else set([])
         self.deny_cubes = set(deny_cubes) if deny_cubes else set([])
-        self.cube_restrictions = cube_restrictions or {}
+
+        self._get_patterns()
+
+    def _get_patterns(self):
+        self.allow_cube_suffix = []
+        self.allow_cube_prefix = []
+        self.deny_cube_suffix = []
+        self.deny_cube_prefix = []
+
+        for cube in self.allow_cubes:
+            if cube.startswith("*"):
+                self.allow_cube_suffix.append(cube[1:])
+            if cube.endswith("*"):
+                self.allow_cube_prefix.append(cube[:-1])
+
+        for cube in self.deny_cubes:
+            if cube.startswith("*"):
+                self.deny_cube_suffix.append(cube[1:])
+            if cube.endswith("*"):
+                self.deny_cube_prefix.append(cube[:-1])
 
     def merge(self, other):
         """Merge `right` with the receiver:
@@ -89,14 +109,39 @@ class _SimpleAccessRight(object):
                 mine = self.cube_restrictions[cube]
                 mine += restrictions
 
-    def is_allowed(self, cube_name):
-        return (self.allow_cubes \
-                    and (cube_name in self.allow_cubes \
-                            or ALL_CUBES_WILDCARD in self.allow_cubes)) \
-                or \
-                    (self.deny_cubes \
-                    and (cube_name not in self.deny_cubes \
-                            and ALL_CUBES_WILDCARD not in self.deny_cubes))
+        self._get_patterns()
+
+    def is_allowed(self, name):
+        allow = True
+        if self.allow_cubes:
+            if (name in self.allow_cubes) or \
+                        (ALL_CUBES_WILDCARD in self.allow_cubes):
+                allow = True
+
+            if not allow and self.allow_cube_prefix:
+                allow = any(name.startswith(p) for p in self.allow_cube_prefix)
+            if not allow and self.allow_cube_suffix:
+                allow = any(name.endswith(p) for p in self.allow_cube_suffix)
+
+        else:
+            allow = True
+
+        deny = False
+        if self.deny_cubes:
+            if (name in self.deny_cubes) or \
+                        (ALL_CUBES_WILDCARD in self.deny_cubes):
+                deny = True
+
+            if not deny and self.deny_cube_prefix:
+                deny = any(name.startswith(p) for p in self.deny_cube_prefix)
+            if not deny and self.deny_cube_suffix:
+                deny = any(name.endswith(p) for p in self.deny_cube_suffix)
+
+        else:
+            deny = False
+
+
+        return allow and not deny
 
     def to_dict(self):
         return {
