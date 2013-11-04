@@ -1,7 +1,8 @@
 # -*- coding=utf -*-
 from ..extensions import get_namespace, initialize_namespace
 from ..errors import *
-from flask import Response
+from flask import Response, redirect
+import re
 
 __all__ = (
     "Authenticator",
@@ -41,10 +42,26 @@ class Authenticator(object):
         return "logged out"
 
 
-class AdminAdminAuthenticator(Authenticator):
+class AbstractBasicAuthenticator(Authenticator):
+    def __init__(self, realm=None):
+        self.realm = realm or "Default"
+        self.pattern = re.compile(r"^(http(?:s?)://)([^/]+.*)$", re.IGNORECASE)
+
+    def logout(self, request, identity):
+        headers = {"WWW-Authenticate": 'Basic realm="%s"' % self.realm}
+        url_root = request.url_root
+        m = self.pattern.search(url_root)
+        if m:
+            url_root = m.group(1) + "__logout__@" + m.group(2)
+        return redirect(url_root, code=302)
+
+class AdminAdminAuthenticator(AbstractBasicAuthenticator):
     """Simple HTTP Basic authenticator for testing purposes. User name and
     password have to be the same. User name is passed as the authenticated
     identity."""
+    def __init__(self, realm=None, **options):
+        super(AdminAdminAuthenticator, self).__init__(realm=realm)
+
     def authenticate(self, request):
         auth = request.authorization
         if auth and auth.username == auth.password:
@@ -66,10 +83,11 @@ class PassParameterAuthenticator(Authenticator):
         return request.args.get(self.parameter_name)
 
 
-class HTTPBasicProxyAuthenticator(Authenticator):
+class HTTPBasicProxyAuthenticator(AbstractBasicAuthenticator):
     def __init__(self, realm=None, **options):
-        super(HTTPBasicProxyAuthenticator, self).__init__(**options)
+        super(HTTPBasicProxyAuthenticator, self).__init__(realm=realm)
         self.realm = realm or "Default"
+        self.pattern = re.compile(r"^(http(?:s?)://)([^/]+.*)$", re.IGNORECASE)
 
     def authenticate(self, request):
         """Permissive authenticator using HTTP Basic authentication that
@@ -82,7 +100,3 @@ class HTTPBasicProxyAuthenticator(Authenticator):
 
         raise NotAuthenticated(realm=self.realm)
 
-    def logout(self, request, identity):
-        headers = {"WWW-Authenticate": 'Basic realm="%s"' % self.realm}
-        response = Response("logged out", status=401, headers=headers)
-        return response
