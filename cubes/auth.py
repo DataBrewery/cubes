@@ -82,7 +82,7 @@ class _SimpleAccessRight(object):
         self.allow_cubes |= other.allow_cubes
         self.deny_cubes |= other.deny_cubes
 
-        for cube, restrictions in other.cube_restrictions:
+        for cube, restrictions in other.cube_restrictions.iteritems():
             if not cube in self.cube_restrictions:
                 self.cube_restrictions[cube] = restrictions
             else:
