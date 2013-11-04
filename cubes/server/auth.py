@@ -49,11 +49,13 @@ class AbstractBasicAuthenticator(Authenticator):
 
     def logout(self, request, identity):
         headers = {"WWW-Authenticate": 'Basic realm="%s"' % self.realm}
-        url_root = request.url_root
+        url_root = request.args.get('url', request.url_root)
         m = self.pattern.search(url_root)
         if m:
             url_root = m.group(1) + "__logout__@" + m.group(2)
-        return redirect(url_root, code=302)
+            return redirect(url_root, code=302)
+        else:
+            return Response("logged out", status=401, headers=headers)
 
 class AdminAdminAuthenticator(AbstractBasicAuthenticator):
     """Simple HTTP Basic authenticator for testing purposes. User name and
