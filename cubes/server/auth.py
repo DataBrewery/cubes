@@ -1,6 +1,7 @@
 # -*- coding=utf -*-
 from ..extensions import get_namespace, initialize_namespace
 from ..errors import *
+from flask import Response
 
 __all__ = (
     "Authenticator",
@@ -36,6 +37,9 @@ class Authenticator(object):
     def authenticate(self, request):
         raise NotImplementedError
 
+    def logout(self, request, identity):
+        return "logged out"
+
 
 class AdminAdminAuthenticator(Authenticator):
     """Simple HTTP Basic authenticator for testing purposes. User name and
@@ -63,6 +67,10 @@ class PassParameterAuthenticator(Authenticator):
 
 
 class HTTPBasicProxyAuthenticator(Authenticator):
+    def __init__(self, realm=None, **options):
+        super(HTTPBasicProxyAuthenticator, self).__init__(**options)
+        self.realm = realm or "Default"
+
     def authenticate(self, request):
         """Permissive authenticator using HTTP Basic authentication that
         assumes the server to be behind a proxy, and that the proxy authenticated the user. 
@@ -72,5 +80,9 @@ class HTTPBasicProxyAuthenticator(Authenticator):
         if auth:
             return auth.username
 
-        raise NotAuthenticated
+        raise NotAuthenticated(realm=self.realm)
 
+    def logout(self, request, identity):
+        headers = {"WWW-Authenticate": 'Basic realm="%s"' % self.realm}
+        response = Response("logged out", status=401, headers=headers)
+        return response

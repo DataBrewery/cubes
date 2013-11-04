@@ -63,11 +63,12 @@ class NotAuthenticatedError(ServerError):
         self.exception = exception
         self.details = details
         self.help = None
+        self.realm = realm or "Default"
 
     def get_headers(self, environ):
         """Get a list of headers."""
         headers = super(NotAuthenticatedError, self).get_headers(environ)
-        headers.append(('WWW-Authenticate', 'Basic realm="Login Required"'))
+        headers.append(('WWW-Authenticate', 'Basic realm="%s"' % self.realm))
         return headers
 
 
