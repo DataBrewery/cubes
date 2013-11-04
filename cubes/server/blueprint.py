@@ -1,8 +1,9 @@
 # -*- coding=utf -*-
 from flask import Blueprint, Response, request, g, current_app
+from flask import render_template
 from functools import wraps
 
-from ..workspace import Workspace
+from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..browser import Cell, SPLIT_DIMENSION_NAME
 from ..errors import *
 from .utils import *
@@ -37,7 +38,9 @@ __all__ = (
 )
 
 API_VERSION = 2
-slicer = Blueprint('slicer', __name__)
+
+
+slicer = Blueprint("slicer", __name__, template_folder="templates")
 
 # Before
 # ------
@@ -141,8 +144,12 @@ def prepare_authorization():
 
 @slicer.route("/")
 def show_index():
-    # TODO: add template with basic info
-    return "Cubes (TODO: bring back the original cubes server page)"
+    info = get_info()
+    info["authentication"] = info["authentication"] or "none"
+    has_about = any(key in info for key in SLICER_INFO_KEYS)
+    return render_template("index.html",
+                           has_about=has_about,
+                           **info)
 
 
 @slicer.route("/version")
@@ -156,9 +163,7 @@ def show_version():
     return jsonify(info)
 
 
-@slicer.route("/info")
-def show_info():
-
+def get_info():
     if workspace.info:
         info = OrderedDict(workspace.info)
     else:
@@ -168,7 +173,11 @@ def show_info():
     info["json_record_limit"] = current_app.slicer.json_record_limit
     info["cubes_version"] = __version__
 
-    return jsonify(info)
+    return info
+
+@slicer.route("/info")
+def show_info():
+    return jsonify(get_info())
 
 @slicer.route("/cubes")
 def list_cubes():
