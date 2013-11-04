@@ -915,6 +915,9 @@ class Cell(object):
     def __str__(self):
         """Return string representation of the cell by using standard
         cuts-to-string conversion."""
+        return string_from_cuts(self.cuts)
+
+    def __repr__(self):
         return 'Cell(%s: %s)' % (str(self.cube), self.to_str() or 'All')
 
     def __nonzero__(self):
