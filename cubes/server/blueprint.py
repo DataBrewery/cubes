@@ -486,3 +486,11 @@ def cube_search(cube_name):
 
     return jsonify(result)
 
+
+@slicer.route("/logout")
+def logout():
+    if current_app.slicer.authenticator:
+        return current_app.slicer.authenticator.logout(request, g.auth_identity)
+    else:
+        return "logged out"
+
