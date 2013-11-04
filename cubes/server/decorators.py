@@ -15,7 +15,7 @@ from ..calendar import CalendarMemberConverter
 # Utils
 # -----
 
-def prepare_cell(argname="cut", target="cell"):
+def prepare_cell(argname="cut", target="cell", restrict=False):
     """Sets `g.cell` with a `Cell` object from argument with name `argname`"""
     # Used by prepare_browser_request and in /aggregate for the split cell
 
@@ -35,10 +35,11 @@ def prepare_cell(argname="cut", target="cell"):
     else:
         cell = None
 
-    if workspace.authorizer:
-        cell = workspace.authorizer.restricted_cell(g.auth_identity,
-                                                    cube=g.cube,
-                                                    cell=cell)
+    if restrict:
+        if workspace.authorizer:
+            cell = workspace.authorizer.restricted_cell(g.auth_identity,
+                                                        cube=g.cube,
+                                                        cell=cell)
     setattr(g, target, cell)
 
 
@@ -71,7 +72,7 @@ def requires_browser(f):
         g.cube = cube
         g.browser = workspace.browser(g.cube)
 
-        prepare_cell()
+        prepare_cell(restrict=True)
 
         if "page" in request.args:
             try:
