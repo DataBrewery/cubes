@@ -3,7 +3,7 @@
 
 import copy
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 from .common import IgnoringDictionary, get_logger, to_label
 from .common import assert_instance, assert_all_instances
@@ -717,7 +717,8 @@ class Cube(object):
 
         return result
 
-    def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
+    def to_dict(self, expand_dimensions=False, with_mappings=True,
+                hierarchy_restrictions=None, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
         default) then `joins`, `mappings`, `fact` and `options` are included.
         Should be set to ``False`` when returning a dictionary that will be
@@ -744,7 +745,19 @@ class Cube(object):
         out["details"] = details
 
         if expand_dimensions:
-            dims = [dim.to_dict() for dim in self.dimensions]
+            restrictions = defaultdict(dict)
+            if hierarchy_restrictions:
+                # Convert from (dim,hier,level) to a dict
+                for dim,hier,level in hierarchy_restrictions:
+                    restrictions[dim][hier] = level
+
+            dims = []
+
+            for dim in self.dimensions:
+                restr = restrictions.get(dim.name)
+                info = dim.to_dict(hierarchy_restrictions=restr)
+                dims.append(info)
+
         else:
             dims = [dim.name for dim in self.dimensions]
 
@@ -1094,7 +1107,7 @@ class Dimension(object):
 
         return list(self._attributes.values())
 
-    def to_dict(self, **options):
+    def to_dict(self, hierarchy_restrictions=None, **options):
         """Return dictionary representation of the dimension"""
 
         out = IgnoringDictionary()
@@ -1110,8 +1123,24 @@ class Dimension(object):
             out["label"] = self.label
 
         out["levels"] = [level.to_dict(**options) for level in self.levels]
-        out["hierarchies"] = [hier.to_dict(**options) for hier in
-                                                    self.hierarchies.values()]
+
+        # Collect hierarchies and apply hierarchy depth restrictions
+        hierarchies = []
+        hierarchy_restrictions = hierarchy_restrictions or {}
+        for name, hierarchy in self.hierarchies.items():
+            if name in hierarchy_restrictions:
+                level = hierarchy_restrictions["name"]
+                if level:
+                    depth = hierarchy.level_index(level) + 1
+                    restricted = hierarchy.to_dict(depth=depth, **options)
+                    hierarches.append(restricted)
+                else:
+                    # we ignore the hierarchy
+                    pass
+            else:
+                hierarchies.append(hierarchy.to_dict(**options))
+
+        out["hierarchies"] = hierarchies
 
         # Use only for reading, during initialization these keys are ignored,
         # as they are derived
@@ -1455,7 +1484,7 @@ class Hierarchy(object):
 
         return attributes
 
-    def to_dict(self, **options):
+    def to_dict(self, depth=None, **options):
         """Convert to dictionary. Keys:
 
         * `name`: hierarchy name
@@ -1465,8 +1494,14 @@ class Hierarchy(object):
         """
 
         out = IgnoringDictionary()
+
         out["name"] = self.name
-        out["levels"] = [str(l) for l in self.levels]
+        levels = [str(l) for l in self.levels]
+
+        if depth:
+            out["levels"] = levels[0:depth]
+        else:
+            out["levels"] = levels
         out["info"] = self.info
 
         if options.get("create_label"):
