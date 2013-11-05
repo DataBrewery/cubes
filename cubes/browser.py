@@ -41,7 +41,8 @@ __all__ = [
     "TableRow",
     "CrossTable",
     "cross_table",
-    "SPLIT_DIMENSION_NAME"
+    "SPLIT_DIMENSION_NAME",
+    "dimlevel_from_string"
 ]
 
 SPLIT_DIMENSION_NAME = '__within_split__'
@@ -1876,3 +1877,18 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
         result.append(DrilldownItem(dim, hier, levels, keys))
 
     return result
+
+
+def dimlevel_from_string(string):
+    dim_hier_pattern = re.compile("(?P<dim>\w+)"
+                                  "(@(?P<hier>\w+))?"
+                                  "(:(?P<level>\w+))")
+
+    match = dim_hier_pattern.match(string)
+
+    if match:
+        d = match.groupdict()
+        return (d["dim"], d["hier"], d["level"])
+    else:
+        raise ArgumentError("Dimension level reference '%s' does not match "
+                            "pattern 'dimension@hierarchy:level'" % string)
