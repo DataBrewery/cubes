@@ -27,11 +27,7 @@ __all__ = [
     "create_attribute",
     "create_measure",
     "create_measure_aggregate",
-    "attribute_list",
-
-    # FIXME: depreciated. affected: formatter.py
-    "split_aggregate_ref",
-    "aggregate_ref",
+    "attribute_list"
 ]
 
 
@@ -748,7 +744,7 @@ class Cube(object):
             limits = defaultdict(dict)
             if hierarchy_limits:
                 # Convert from (dim,hier,level) to a dict
-                for dim,hier,level in hierarchy_limits:
+                for dim, hier, level in hierarchy_limits:
                     limits[dim][hier] = level
 
             dims = []
@@ -2502,34 +2498,3 @@ def get_localizable_attributes(obj):
 
     return locale
 
-
-def aggregate_ref(measure, aggregate):
-    """Creates a reference string for measure aggregate. Current
-    implementation joins the measure name and aggregate name with an
-    underscore character `'_'`. Use this method in in a backend to create
-    valid aggregate reference. See also `split_aggregate_ref()`"""
-
-    return "%s_%s" % (measure, aggregate)
-
-
-def split_aggregate_ref(measure):
-    """Splits aggregate measure reference into measure name and aggregate
-    name. Use this method in presenters to correctly get measure name and
-    aggregate name from aggregate reference that was created by
-    `aggregate_ref()` function.
-    """
-
-    measure = str(measure)
-
-    r = measure.rfind("_")
-
-    if r == -1 or r >= len(measure) - 1:
-        if r == -1:
-            meaning = measure + "_sum"
-        else:
-            meaning = measure + "sum"
-
-        raise ArgumentError("Invalid aggregate reference '%s'. "
-                            "Did you mean '%s'?" % (measure, meaning))
-
-    return (measure[:r], measure[r + 1:])
