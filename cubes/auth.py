@@ -2,9 +2,10 @@
 
 import os.path
 import json
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from .extensions import get_namespace, initialize_namespace
 from .browser import Cell, cut_from_string, cut_from_dict
+from .browser import dimlevel_from_string
 from .errors import *
 from .common import read_json_file, sorted_dependencies
 
@@ -73,7 +74,18 @@ class _SimpleAccessRight(object):
                  hierarchy_limits):
         self.roles = set(roles) if roles else set([])
         self.cell_restrictions = cell_restrictions or {}
-        self.hierarchy_limits = hierarchy_limits or {}
+
+        self.hierarchy_limits = defaultdict(list)
+
+        if hierarchy_limits:
+            for cube, limits in hierarchy_limits.items():
+                for limit in limits:
+                    if isinstance(limit, basestring):
+                        limit = dimlevel_from_string(limit)
+                    self.hierarchy_limits[cube].append(limit)
+
+        self.hierarchy_limits = dict(self.hierarchy_limits)
+
         self.allow_cubes = set(allow_cubes) if allow_cubes else set([])
         self.deny_cubes = set(deny_cubes) if deny_cubes else set([])
         self._get_patterns()
