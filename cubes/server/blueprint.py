@@ -202,11 +202,19 @@ def list_cubes():
 def cube_model(cube_name):
     authorize(g.cube)
 
-    # TODO: only one option: private or public
+    if workspace.authorizer:
+        hier_limits = workspace.authorizer.hierarchy_limits(g.auth_identity,
+                                                            cube_name)
+    else:
+        hier_limits = None
+
+    logger.debug("HIER LIMITS: %s" % (hier_limits, ))
+
     response = g.cube.to_dict(expand_dimensions=True,
                               with_mappings=False,
                               full_attribute_names=True,
-                              create_label=True)
+                              create_label=True,
+                              hierarchy_limits=hier_limits)
 
     response["features"] = workspace.cube_features(g.cube)
     return jsonify(response)
