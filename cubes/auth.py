@@ -57,6 +57,11 @@ class Authorizer(object):
         """
         return cell
 
+    def hierarchy_limits(self, token, cube):
+        """Returns a list of tuples: (`dimension`, `hierarchy`, `level`)."""
+        # TODO: provisional feature, might change
+        return []
+
 
 class NoopAuthorizer(Authorizer):
     def __init__(self):
@@ -64,12 +69,13 @@ class NoopAuthorizer(Authorizer):
 
 
 class _SimpleAccessRight(object):
-    def __init__(self, roles, allow_cubes, deny_cubes, cube_restrictions):
+    def __init__(self, roles, allow_cubes, deny_cubes, cell_restrictions,
+                 hierarchy_limits):
         self.roles = set(roles) if roles else set([])
-        self.cube_restrictions = cube_restrictions or {}
+        self.cell_restrictions = cell_restrictions or {}
+        self.hierarchy_limits = hierarchy_limits or {}
         self.allow_cubes = set(allow_cubes) if allow_cubes else set([])
         self.deny_cubes = set(deny_cubes) if deny_cubes else set([])
-
         self._get_patterns()
 
     def _get_patterns(self):
@@ -102,12 +108,17 @@ class _SimpleAccessRight(object):
         self.allow_cubes |= other.allow_cubes
         self.deny_cubes |= other.deny_cubes
 
-        for cube, restrictions in other.cube_restrictions.iteritems():
+        for cube, restrictions in other.cell_restrictions.iteritems():
             if not cube in self.cube_restrictions:
-                self.cube_restrictions[cube] = restrictions
+                self.cell_restrictions[cube] = restrictions
             else:
-                mine = self.cube_restrictions[cube]
-                mine += restrictions
+                self.cell_restrictions[cube] += restrictions
+
+        for cube, limits  in other.hierarchy_limits.iteritems():
+            if not cube in self.hierarchy_limits:
+                self.hierarchy_limits[cube] = limits
+            else:
+                self.hierarchy_limits[cube] += limits
 
         self._get_patterns()
 
@@ -144,18 +155,24 @@ class _SimpleAccessRight(object):
         return allow and not deny
 
     def to_dict(self):
-        return {
+        as_dict = {
             "roles": list(self.roles),
             "allowed_cubes": list(self.allow_cubes),
             "denied_cubes": list(self.deny_cubes),
-            "cube_restrictions": dict(self.cube_restrictions)
+            "cell_restrictions": self.cell_restrictions,
+            "hierarchy_limits": self.hierarchy_limits
         }
+
+        return as_dict
 
 
 def right_from_dict(info):
     return _SimpleAccessRight(
-               info.get('roles'), info.get('allowed_cubes'),
-               info.get('denied_cubes'), info.get('cube_restrictions')
+               roles=info.get('roles'),
+               allow_cubes=info.get('allowed_cubes'),
+               deny_cubes=info.get('denied_cubes'),
+               cell_restrictions=info.get('cell_restrictions'),
+               hierarchy_limits=info.get('hierarchy_limits')
            )
 
 class SimpleAuthorizer(Authorizer):
@@ -244,10 +261,10 @@ class SimpleAuthorizer(Authorizer):
     def restricted_cell(self, token, cube, cell):
         right = self.right(token)
 
-        cuts = right.cube_restrictions.get(cube.name)
+        cuts = right.cell_restrictions.get(cube.name)
 
         # Append cuts for "any cube"
-        any_cuts = right.cube_restrictions.get(ALL_CUBES_WILDCARD, [])
+        any_cuts = right.cell_restrictions.get(ALL_CUBES_WILDCARD, [])
         if any_cuts:
             cuts += any_cuts
 
@@ -270,4 +287,10 @@ class SimpleAuthorizer(Authorizer):
             return cell & restriction
         else:
             return restriction
+
+    def hierarchy_limits(self, token, cube):
+        right = self.right(token)
+
+        return right.hierarchy_limits.get(str(cube), [])
+
 

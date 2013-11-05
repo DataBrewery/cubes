@@ -718,7 +718,7 @@ class Cube(object):
         return result
 
     def to_dict(self, expand_dimensions=False, with_mappings=True,
-                hierarchy_restrictions=None, **options):
+                hierarchy_limits=None, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
         default) then `joins`, `mappings`, `fact` and `options` are included.
         Should be set to ``False`` when returning a dictionary that will be
@@ -745,17 +745,17 @@ class Cube(object):
         out["details"] = details
 
         if expand_dimensions:
-            restrictions = defaultdict(dict)
-            if hierarchy_restrictions:
+            limits = defaultdict(dict)
+            if hierarchy_limits:
                 # Convert from (dim,hier,level) to a dict
-                for dim,hier,level in hierarchy_restrictions:
-                    restrictions[dim][hier] = level
+                for dim,hier,level in hierarchy_limits:
+                    limits[dim][hier] = level
 
             dims = []
 
             for dim in self.dimensions:
-                restr = restrictions.get(dim.name)
-                info = dim.to_dict(hierarchy_restrictions=restr)
+                limit = limits.get(dim.name)
+                info = dim.to_dict(hierarchy_limits=limit)
                 dims.append(info)
 
         else:
@@ -1107,7 +1107,7 @@ class Dimension(object):
 
         return list(self._attributes.values())
 
-    def to_dict(self, hierarchy_restrictions=None, **options):
+    def to_dict(self, hierarchy_limits=None, **options):
         """Return dictionary representation of the dimension"""
 
         out = IgnoringDictionary()
@@ -1126,14 +1126,14 @@ class Dimension(object):
 
         # Collect hierarchies and apply hierarchy depth restrictions
         hierarchies = []
-        hierarchy_restrictions = hierarchy_restrictions or {}
+        hierarchy_limits = hierarchy_limits or {}
         for name, hierarchy in self.hierarchies.items():
-            if name in hierarchy_restrictions:
-                level = hierarchy_restrictions["name"]
+            if name in hierarchy_limits:
+                level = hierarchy_limits[name]
                 if level:
                     depth = hierarchy.level_index(level) + 1
                     restricted = hierarchy.to_dict(depth=depth, **options)
-                    hierarches.append(restricted)
+                    hierarchies.append(restricted)
                 else:
                     # we ignore the hierarchy
                     pass
