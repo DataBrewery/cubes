@@ -17,6 +17,7 @@ class SlicerTestCaseBase(CubesTestCaseBase):
         super(SlicerTestCaseBase, self).setUp()
 
         self.slicer = create_server()
+        self.slicer.debug = True
         self.server = Client(self.slicer, BaseResponse)
         self.logger = self.slicer.logger
         self.logger.setLevel("DEBUG")
@@ -119,6 +120,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
     def test_cube_dimensions(self):
         response, status = self.get("cube/sales/model")
         # Dimensions
+        print "===RESPONSE: ", response
         dims = response["dimensions"]
         self.assertIsInstance(dims, list)
         self.assertIsInstance(dims[0], dict)
