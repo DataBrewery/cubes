@@ -2,30 +2,146 @@
 Slicing and Dicing
 ##################
 
+.. note::
+
+    Examples are in Python and in Slicer HTTP requests.
+
+Browser
+=======
+
+The aggregation, slicing, dicing, browsing of the multi-dimensional data is
+being done by an AggregationBrowser. 
+
+.. code-block:: python
+
+    from cubes import Workspace
+
+    workspace = Workspace("slicer.ini")
+    browser = workspace.browser()
+
+Cell and Cuts
+=============
+
+Cell defines a point of interest – portion of the cube to be aggergated or
+browsed.
+
+.. figure:: images/cubes-slice_and_dice-cell.png
+    :align: center
+    :width: 300px
+
+There are three types of cells: `point` – defines a single point in a dimension
+at a prticular level; `range` – defines all points of an ordered dimension
+(such as date) within the range and `set` – collection of points:
+
+.. figure:: images/cubes-point-range-set-cut.png
+    :align: center
+    :width: 600px
+
+Points are defined as dimension `paths` – list of dimension level keys. For
+example a date path for 24th of December 2010 would be: ``[2010, 12, 24]``.
+For December 2010, regardless of day: ``[2010, 12]`` and for the whole year:
+it would be a single item list ``[2010]``. Similar for other dimensions:
+``["sk", "Bratislava"]`` for city `Bratislava` in `Slovakia` (code ``sk``).
+
+In Python the cuts for "sales in Slovakia between June 2010 and June 2013" are
+defined as:
+
+.. code-block:: python
+
+    cuts = [
+        PointCut("geography", ["sk"]),
+        PointCut("date", [2010, 6], [2012, 6])
+    ]
+
+
+Same cuts for Slicer: ``cut=geography:sk|date:2010,6-2012,6``.
+
+If a different hierarchy than default is desired – "from the second quartal of
+2010 to the second quartal of 2012":
+
+.. code-block:: python
+
+    cuts = [
+        PointCut("date", [2010, 2], [2012, 2], hierarchy="yqmd")
+    ]
+
+Slicer: ``cut=date@yqmd:2010,2-2012,2``.
+
+Ranges and sets might have unequal depths: from ``[2010]`` to ``[2012,12,24]``
+means "from the beginning of the year 2010 to December 24th 2012".
+
+.. code-block:: python
+
+    cuts = [
+        PointCut("date", [2010], [2012, 12, 24])
+    ]
+
+Slicer: ``cut=date:2010-2012,12,24``.
+
+Ranges might be open, such as "everything until Dec 24 2012":
+
+.. code-block:: python
+
+    cuts = [
+        PointCut("date", None, [2012, 12, 24])
+    ]
+
+Slicer: ``cut=date:-2012,12,24``.
+
 Aggregate
 =========
 
-* `aggregate()`
+.. code-block:: python
 
-Cell and Cuts
--------------
+    browser = workspace.browser("sales")
+    result = browser.aggregate()
 
-* `aggregate(cell)`
+    print result.summary
 
-* point cut
-* set cut
-* range cut
+Slicer: ``/cube/sales/aggregate``
+
+Aggregate of a cell:
+
+.. code-block:: python
+
+    cuts = [
+        PointCut("geography", ["sk"])
+        PointCut("date", [2010, 6], [2012, 6]),
+    ]
+    cell = Cell(cube, cuts)
+    result = browser.aggregate(cell)
+
+
+Slicer: ``/cube/sales/aggregate?cut=geography:sk|date:2010,6-2012,6``
 
 Drilldown
 ---------
 
-* `aggregate(cell, drilldown)`
-* `aggregate(cell, aggregates, drilldown)`
-* `aggregate(cell, drilldown, page, page_size)`
+Drill-down – get more details, group the aggregation by dimension members. 
 
-* ``dim``
-* ``dim:level``
-* ``dim@hierarchy:level``
+For example "sales by month in 2010":
+
+.. code-block:: python:
+
+    cut = PointCut("date", [2010])
+    cell = Cell(cube, [cut])
+    result = browser.aggregate(cell, drilldown=["date"])
+
+    for row in result:
+        print "%s: %s" % (row["date.year"], row["amount_sum"])
+
+Slicer: ``/cube/sales/aggregate?cut=date:2010&drilldown=date``
+
+.. todo::
+
+    * implicit/explicit drilldown
+    * `aggregate(cell, drilldown)`
+    * `aggregate(cell, aggregates, drilldown)`
+    * `aggregate(cell, drilldown, page, page_size)`
+
+    * ``dim``
+    * ``dim:level``
+    * ``dim@hierarchy:level``
 
 Split
 -----
