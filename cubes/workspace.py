@@ -107,7 +107,7 @@ class Workspace(object):
             info = read_json_file(path, "Slicer info")
             for key in SLICER_INFO_KEYS:
                 self.info[key] = info.get(key)
-        elif config.has_section("workspace"):
+        elif config.has_section("info"):
             info = dict(config.items("info"))
             if "visualizer" in info:
                 info["visualizers"] = [ {"label": info.get("label",
