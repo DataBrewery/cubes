@@ -525,7 +525,7 @@ class Facts(object):
         self.attributes = attributes
 
     def __iter__(self):
-        return self.facts
+        return iter(self.facts)
 
 
 class Cell(object):
