@@ -32,13 +32,14 @@ class SlicerStore(Store):
         # TODO: cube prefix
         # TODO: model mappings as in mixpanel
 
-    def request(self, action, **params):
+    def request(self, action, params=None, is_lines=False):
         """
         * `action` – server action (path)
         # `params` – request parameters
         """
 
-        params = dict(params)
+        params = dict(params) if params else {}
+
         if self.authentication == "pass_parameter":
             params[self.auth_parameter] = self.auth_identity
 
@@ -51,22 +52,35 @@ class SlicerStore(Store):
         self.logger.debug("slicer request: %s" % (request_url, ))
         response = urllib.urlopen(request_url)
 
-        try:
-            result = json.loads(response.read())
-        except:
-            result = {}
-
         if response.getcode() == 404:
             raise MissingObjectError
         elif response.getcode() != 200:
             raise BackendError("Slicer request error (%s): %s"
                                % (result.get("type"),result.get("message")))
 
-        return result
+        if is_lines:
+            return _JSONLinesIterator(response)
+        else:
+            try:
+                result = json.loads(response.read())
+            except:
+                result = {}
 
-    def cube_request(self, action, cube, **params):
+            return result
+
+    def cube_request(self, action, cube, params=None, is_lines=False):
         action = "cube/%s/%s" % (cube, action)
-        return self.request(action, **params)
+        return self.request(action, params, is_lines)
+
+
+class _JSONLinesIterator(object):
+    def __init__(self, stream):
+        self.stream = stream
+
+    def __iter__(self):
+        for line in self.stream:
+            print "--- LINE: '%s'" % repr(line)
+            yield json.loads(line)
 
 
 class SlicerModelProvider(ModelProvider):

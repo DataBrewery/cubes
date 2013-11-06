@@ -51,7 +51,7 @@ class SlicerBrowser(AggregationBrowser):
 
 
         response = self.store.cube_request("aggregate",
-                                           self.cube.name, **params)
+                                           self.cube.name, params)
 
         result = AggregationResult()
 
@@ -67,7 +67,8 @@ class SlicerBrowser(AggregationBrowser):
 
         return result
 
-    def facts(self, cell=None, fields=None, order=None, page=None, page_size=None):
+    def facts(self, cell=None, fields=None, order=None, page=None,
+              page_size=None):
 
         cell = cell or Cell(self.cube)
         attributes = self.cube.get_attributes(fields)
@@ -87,7 +88,10 @@ class SlicerBrowser(AggregationBrowser):
         if page_size is not None:
             params["page_size"] = str(page_size)
 
-        response = self.store.cube_request("facts", self.cube.name, **params)
+        params["format"] = "json_lines"
+
+        response = self.store.cube_request("facts", self.cube.name, params,
+                                           is_lines=True)
 
         return Facts(response, attributes)
 
