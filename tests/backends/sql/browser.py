@@ -349,7 +349,6 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         # We get 3: fact key + 2
         self.assertEqual(3, len(facts[0]))
 
-    @unittest.skip("not implemented")
     def test_get_members(self):
         """Get dimension values"""
         members = list(self.browser.members(None,"product",1))
@@ -364,7 +363,6 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertIsNotNone(members)
         self.assertEqual(10, len(members))
 
-    @unittest.skip("not implemented")
     def test_cut_details(self):
         cut = PointCut("date", [2012])
         details = self.browser.cut_details(cut)

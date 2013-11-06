@@ -7,7 +7,7 @@ Use:
 """
 
 from flask import Flask, render_template, request
-import cubes
+from cubes import Workspace
 import argparse
 import ConfigParser
 
@@ -27,13 +27,13 @@ cube_name = None
 @app.route("/")
 @app.route("/<dim_name>")
 def report(dim_name=None):
-    cube = model.cubes.values()[0]
     browser = get_browser()
+    cube = browser.cube
     mapper = browser.mapper
     if dim_name:
         dimension = cube.dimension(dim_name)
         physical = {}
-        for attribute in dimension.all_attributes():
+        for attribute in dimension.all_attributes:
             logical = attribute.ref()
             physical[logical] = mapper.physical(attribute)
     else:
@@ -46,11 +46,13 @@ def report(dim_name=None):
                             mapping=physical)
 
 def get_browser():
-    if cube_name:
-        cube = model.cube(cube_name)
-    else:
-        cube = model.cubes.values()[0]
-    return workspace.browser_for_cube(cube)
+    global cube_name
+    if not cube_name:
+        # Get the first cube in the list
+        cubes = workspace.list_cubes()
+        cube_name = cubes[0]["name"]
+
+    return workspace.browser(cube_name)
 
 if __name__ == "__main__":
 
@@ -67,8 +69,7 @@ if __name__ == "__main__":
 
     cube_name = args.cube
 
-    workspace = cubes.create_workspace_from_config(config)
-    model = workspace.model
+    workspace = Workspace(config)
 
     app.debug = True
     app.run()

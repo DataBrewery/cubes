@@ -1,0 +1,51 @@
+{
+    "dimensions": [
+        {
+            "name": "default_date",
+            "role": "date",
+            "levels": [
+                { "name": "year" },
+                { "name": "quarter" },
+                { "name": "month" },
+                { "name": "day" },
+                { "name": "hour" }
+            ],
+            "hierarchies": [
+                {"name": "ymd", "levels": ["year", "month", "day"]},
+                {"name": "yqmd", "levels": ["year", "quarter", "month", "day"]},
+                {"name": "ym", "levels": ["year", "month"]},
+                {"name": "ymdh", "levels": ["year", "month", "day", "hour"]}
+            ]
+        },
+        {
+            "name": "invalid_date",
+            "role": "date",
+            "levels": [
+                { "name": "rok" },
+                { "name": "mesiac" },
+                { "name": "den" }
+            ],
+            "hierarchies": [
+                {"name": "ymd", "levels": ["rok", "mesiac", "den"]},
+                {"name": "ym", "levels": ["rok", "mesiac"]}
+            ]
+        },
+        {
+            "name": "explicit_date",
+            "role": "date",
+            "levels": [
+                { "name": "rok", "role": "year" },
+                { "name": "stvrtrok", "role": "quarter" },
+                { "name": "mesiac", "role": "month" },
+                { "name": "den", "role": "day" },
+                { "name": "hodina", "role": "hour" }
+            ],
+            "hierarchies": [
+                {"name": "ymd", "levels": ["rok", "mesiac", "den"]},
+                {"name": "yqmd", "levels": ["rok", "stvrtrok", "mesiac", "den"]},
+                {"name": "ym", "levels": ["rok", "mesiac"]},
+                {"name": "ymdh", "levels": ["rok", "mesiac", "den", "hodina"]}
+            ]
+        }
+    ]
+}

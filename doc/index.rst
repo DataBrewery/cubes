@@ -35,7 +35,7 @@ Aggregation, Slicing and Dicing
 .. toctree::
     :maxdepth: 2
 
-    slicing_and_dicing
+    slicing_dicing
     formatters
 
 Analytical Workspace
@@ -63,6 +63,22 @@ Backends
     :maxdepth: 2
 
     backends/index
+
+Recipes
+-------
+
+.. toctree::
+    :maxdepth: 2
+
+    recipes/index
+
+Extension Development
+---------------------
+
+.. toctree::
+    :maxdepth: 2
+
+    extensions/index
 
 Developer's Reference
 ---------------------

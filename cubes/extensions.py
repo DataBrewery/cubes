@@ -3,23 +3,25 @@ from .common import decamelize, to_identifier, coalesce_options
 from collections import defaultdict
 
 _default_modules = {
-        "stores": {
-                "sql":"cubes.backends.sql.store",
-                "mongo":"cubes.backends.mongo",
-                "mongo2":"cubes.backends.mongo2",
-                "mixpanel":"cubes.backends.mixpanel.store",
-                "slicer":"cubes.backends.slicer.store",
-            },
-        "browsers": {
-                "snowflake":"cubes.backends.sql.browser",
-                "snapshot": "cubes.backends.sql.browser",
-                "mixpanel":"cubes.backends.mixpanel.browser",
-                "slicer":"cubes.backends.slicer.browser",
-            },
-        "model_providers": {
-                "mixpanel":"cubes.backends.mixpanel.store",
-                "slicer":"cubes.backends.slicer.store",
-            }
+    "stores": {
+        "sql":"cubes.backends.sql.store",
+        "mongo":"cubes.backends.mongo",
+        "mongo2":"cubes.backends.mongo2",
+        "mixpanel":"cubes.backends.mixpanel.store",
+        "slicer":"cubes.backends.slicer.store",
+    },
+    "browsers": {
+        "snowflake":"cubes.backends.sql.browser",
+        "snapshot": "cubes.backends.sql.browser",
+        "mixpanel":"cubes.backends.mixpanel.browser",
+        "slicer":"cubes.backends.slicer.browser",
+    },
+    "model_providers": {
+        "mixpanel":"cubes.backends.mixpanel.store",
+        "slicer":"cubes.backends.slicer.store",
+    },
+    "authorizers": {
+    }
 }
 
 class Namespace(dict):

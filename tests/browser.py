@@ -66,26 +66,26 @@ class StringConversionsTestCase(unittest.TestCase):
     def test_cut_string_conversions(self):
         cut = PointCut("foo", ["10"])
         self.assertEqual("foo:10", str(cut))
-        self.assertEqual(cut, cut_from_string("foo", "10"))
+        self.assertEqual(cut, cut_from_string("foo:10"))
 
         cut = PointCut("foo", ["123_abc_", "10", "_"])
         self.assertEqual("foo:123_abc_,10,_", str(cut))
-        self.assertEqual(cut, cut_from_string("foo", "123_abc_,10,_"))
+        self.assertEqual(cut, cut_from_string("foo:123_abc_,10,_"))
 
         cut = PointCut("foo", ["123_ abc_"])
         self.assertEqual(r"foo:123_ abc_", str(cut))
-        self.assertEqual(cut, cut_from_string(r"foo", "123_ abc_"))
+        self.assertEqual(cut, cut_from_string("foo:123_ abc_"))
 
         cut = PointCut("foo", ["a-b"])
-        self.assertEqual(r"foo:a\-b", str(cut))
-        self.assertEqual(cut, cut_from_string(r"foo", "a\-b"))
+        self.assertEqual("foo:a\-b", str(cut))
+        self.assertEqual(cut, cut_from_string("foo:a\-b"))
 
         cut = PointCut("foo", ["a+b"])
-        self.assertEqual(r"foo:a+b", str(cut))
-        self.assertEqual(cut, cut_from_string(r"foo", "a+b"))
+        self.assertEqual("foo:a+b", str(cut))
+        self.assertEqual(cut, cut_from_string("foo:a+b"))
 
     def test_special_characters(self):
-        self.assertEqual(r'\:q\-we,a\\sd\;,100',
+        self.assertEqual('\\:q\\-we,a\\\\sd\\;,100',
                          string_from_path([":q-we", "a\\sd;", 100]))
 
     def test_string_from_path(self):
@@ -104,50 +104,50 @@ class StringConversionsTestCase(unittest.TestCase):
 
         cut = SetCut("foo", [["1"], ["2", "3"], ["qwe", "asd", "100"]])
         self.assertEqual("foo:1;2,3;qwe,asd,100", str(cut))
-        self.assertEqual(cut, cut_from_string("foo", "1;2,3;qwe,asd,100"))
+        self.assertEqual(cut, cut_from_string("foo:1;2,3;qwe,asd,100"))
 
         # single-element SetCuts cannot go round trip, they become point cuts
         cut = SetCut("foo", [["a+b"]])
         self.assertEqual("foo:a+b", str(cut))
-        self.assertEqual(PointCut("foo", ["a+b"]), cut_from_string("foo", "a+b"))
+        self.assertEqual(PointCut("foo", ["a+b"]), cut_from_string("foo:a+b"))
 
         cut = SetCut("foo", [["a-b"]])
-        self.assertEqual(r"foo:a\-b", str(cut))
-        self.assertEqual(PointCut("foo", ["a-b"]), cut_from_string(r"foo", "a\-b"))
+        self.assertEqual("foo:a\-b", str(cut))
+        self.assertEqual(PointCut("foo", ["a-b"]), cut_from_string("foo:a\-b"))
 
     def test_range_cut_string(self):
         cut = RangeCut("date", ["2010"], ["2011"])
         self.assertEqual("date:2010-2011", str(cut))
-        self.assertEqual(cut, cut_from_string("date", "2010-2011"))
+        self.assertEqual(cut, cut_from_string("date:2010-2011"))
 
         cut = RangeCut("date", ["2010"], None)
         self.assertEqual("date:2010-", str(cut))
-        cut = cut_from_string("date", "2010-")
+        cut = cut_from_string("date:2010-")
         if cut.to_path:
             self.fail('there should be no to path, is: %s' % (cut.to_path, ))
 
         cut = RangeCut("date", None, ["2010"])
         self.assertEqual("date:-2010", str(cut))
-        cut = cut_from_string("date", "-2010")
+        cut = cut_from_string("date:-2010")
         if cut.from_path:
             self.fail('there should be no from path is: %s' % (cut.from_path, ))
 
         cut = RangeCut("date", ["2010", "11", "12"], ["2011", "2", "3"])
         self.assertEqual("date:2010,11,12-2011,2,3", str(cut))
-        self.assertEqual(cut, cut_from_string("date", "2010,11,12-2011,2,3"))
+        self.assertEqual(cut, cut_from_string("date:2010,11,12-2011,2,3"))
 
         cut = RangeCut("foo", ["a+b"], ["1"])
         self.assertEqual("foo:a+b-1", str(cut))
-        self.assertEqual(cut, cut_from_string("foo", "a+b-1"))
+        self.assertEqual(cut, cut_from_string("foo:a+b-1"))
 
         cut = RangeCut("foo", ["a-b"], ["1"])
         self.assertEqual(r"foo:a\-b-1", str(cut))
-        self.assertEqual(cut, cut_from_string(r"foo", "a\-b-1"))
+        self.assertEqual(cut, cut_from_string(r"foo:a\-b-1"))
 
     def test_hierarchy_cut(self):
         cut = PointCut("date", ["10"], "dqmy")
         self.assertEqual("date@dqmy:10", str(cut))
-        self.assertEqual(cut, cut_from_string("date@dqmy", "10"))
+        self.assertEqual(cut, cut_from_string("date@dqmy:10"))
 
 
 class BrowserTestCase(CubesTestCaseBase):

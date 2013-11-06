@@ -46,6 +46,32 @@ class RequestError(ServerError):
     code = 400
 
 
+class NotAuthorizedError(ServerError):
+    code = 403
+    error_type = "not_authorized"
+
+
+class NotAuthenticatedError(ServerError):
+    code = 401
+    error_type = "not_authenticated"
+
+    def __init__(self, message=None, exception=None, realm=None, **details):
+        super(NotAuthenticatedError, self).__init__(message,
+                                                    exception,
+                                                    **details)
+        self.message = message
+        self.exception = exception
+        self.details = details
+        self.help = None
+        self.realm = realm or "Default"
+
+    def get_headers(self, environ):
+        """Get a list of headers."""
+        headers = super(NotAuthenticatedError, self).get_headers(environ)
+        headers.append(('WWW-Authenticate', 'Basic realm="%s"' % self.realm))
+        return headers
+
+
 class NotFoundError(ServerError):
     code = 404
     error_type = "not_found"
@@ -64,3 +90,4 @@ class NotFoundError(ServerError):
 
 class AggregationError(ServerError):
     code = 400
+
