@@ -305,6 +305,8 @@ Example:
     	"joins": [ ... ]
     }
 
+.. _measures-and-aggregates:
+
 Measures and Aggregates
 -----------------------
 
