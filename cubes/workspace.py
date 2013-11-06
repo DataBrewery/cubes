@@ -1,12 +1,15 @@
 # -*- coding=utf -*-
 import sys
 from .providers import read_model_metadata, create_model_provider
+from .auth import create_authorizer
 from .model import Model
-from .common import get_logger
+from .common import get_logger, read_json_file
 from .errors import *
 from .stores import open_store, create_browser
+from .calendar import Calendar
 import os.path
 import ConfigParser
+from collections import OrderedDict
 
 __all__ = [
     "Workspace",
@@ -15,13 +18,27 @@ __all__ = [
     "get_backend",
     "create_workspace",
     "create_workspace_from_config",
-    "create_slicer_workspace",
-    "create_slicer_context",
     "config_items_to_dict",
 ]
 
+
+SLICER_INFO_KEYS = (
+    "name",
+    "label",
+    "description",  # Workspace model description
+    "copyright",    # Copyright for the data
+    "license",      # Data license
+    "maintainer",   # Name (and maybe contact) of data maintainer
+    "contributors", # List of contributors
+    "visualizers",  # List of dicts with url and label of server's visualizers
+    "keywords",     # List of keywords describing server's cubes
+    "related"       # List of dicts with related servers
+)
+
+
 def config_items_to_dict(items):
     return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
+
 
 def interpret_config_value(value):
     if value is None:
@@ -32,6 +49,7 @@ def interpret_config_value(value):
         elif value.lower() in ('no', 'false', 'off'):
             return False
     return value
+
 
 def _get_name(obj, object_type="Object"):
     if isinstance(obj, basestring):
@@ -44,15 +62,6 @@ def _get_name(obj, object_type="Object"):
 
     return name
 
-
-def create_slicer_workspace(server_url):
-    cp = ConfigParser.SafeConfigParser()
-    cp.add_section("datastore")
-    cp.set("datastore", "type", "slicer")
-    cp.set("datastore", "url", server_url)
-    w = Workspace(cp)
-    w.add_model({ 'name': 'slicer', 'store': 'slicer', 'provider': 'slicer' })
-    return w
 
 class Workspace(object):
     def __init__(self, config=None, stores=None):
@@ -91,6 +100,22 @@ class Workspace(object):
         self.locales = []
         self.translations = []
 
+        self.info = OrderedDict()
+
+        if config.has_option("workspace", "info"):
+            path = config.get("workspace", "info_file")
+            info = read_json_file(path, "Slicer info")
+            for key in SLICER_INFO_KEYS:
+                self.info[key] = info.get(key)
+        elif config.has_section("info"):
+            info = dict(config.items("info"))
+            if "visualizer" in info:
+                info["visualizers"] = [ {"label": info.get("label",
+                                                info.get("name", "Default")),
+                                         "url": info["visualizer"]} ]
+            for key in SLICER_INFO_KEYS:
+                self.info[key] = info.get(key)
+
         #
         # Model objects
         self._models = []
@@ -125,12 +150,23 @@ class Workspace(object):
             raise ConfigurationError("Unknown stores description object: %s" %
                                                     (type(stores)))
 
-        #
-        # Configure the workspace
-        #
+        # Calendar
+        # ========
 
-        if config.has_option("main", "stores"):
-            stores = config.get("main", "stores")
+        if config.has_option("workspace", "timezone"):
+            timezone = config.get("workspace", "timezone")
+        else:
+            timezone = None
+
+        if config.has_option("workspace", "first_weekday"):
+            first_weekday = config.get("workspace", "first_weekday")
+        else:
+            first_weekday = 0
+
+        self.logger.debug("Workspace calendar timezone: %s first week day: %s"
+                          % (timezone, first_weekday))
+        self.calendar = Calendar(timezone=timezone,
+                                 first_weekday=first_weekday)
 
         # Register stores
         #
@@ -174,6 +210,13 @@ class Workspace(object):
         else:
             self.options = {}
 
+        # Authorizer
+        if config.has_option("workspace", "authorization"):
+            auth_type = config.get("workspace", "authorization")
+            options = dict(config.items("authorization"))
+            self.authorizer = create_authorizer(auth_type, **options)
+        else:
+            self.authorizer = None
 
         # Load models
 
@@ -270,7 +313,6 @@ class Workspace(object):
 
         """
 
-
         # Model -> Store -> Provider
 
         if isinstance(model, basestring):
@@ -279,18 +321,6 @@ class Workspace(object):
             metadata = model
         else:
             raise ConfigurationError("Unknown model source reference '%s'" % model)
-
-        # Master model?
-        if metadata.get("__is_master"):
-            # Other places using this format:
-            #     Workspace.model()
-            #     slicer tool merge_model
-
-            parts = metadata["parts"]
-            self.logger.debug("loading master model parts (%s)" % len(parts))
-            for part in parts:
-                self.add_model(part)
-            return
 
         model_name = name or metadata.get("name")
 
@@ -345,28 +375,15 @@ class Workspace(object):
 
         self.cube_models[name] = model
 
-    def model(self):
-        """Return a master model. Master model can be used to reconstruct the
-        workspace.
+    def add_slicer(self, name, url):
+        """Register a slicer as a model and data provider."""
+        self.register_store(name, "slicer", url=url)
 
-        .. note::
-
-            Master model should not be edited by hand for now.
-
-        .. note::
-
-            Avoid using this method.
-        """
-
-        master_model = {}
-
-        master_model["__comment"] = "This is a master model. Do not edit."
-        master_model["__is_master"] = True
-
-        models = [model.metadata for model in self._models]
-        master_model["parts"] = models
-
-        return master_model
+        model = {
+            "store": name,
+            "provider": "slicer"
+        }
+        self.add_model(model)
 
     def list_cubes(self):
         """Get a list of metadata for cubes in the workspace. Result is a list
@@ -393,7 +410,6 @@ class Workspace(object):
         # Requirements:
         #    all dimensions in the cube should exist in the model
         #    if not they will be created
-
         try:
             model = self.cube_models[name]
         except KeyError:
@@ -445,7 +461,6 @@ class Workspace(object):
         # Note: Provider should not raise `TemplateRequired` for public
         # dimensions
         #
-
         for dim_name in cube.linked_dimensions:
             try:
                 dim = provider.dimension(dim_name)
@@ -592,39 +607,12 @@ def get_backend(name):
                               "Use Workspace instead." )
 
 
-def create_slicer_context(config):
-    raise NotImplementedError("create_slicer_context() is depreciated. "
-                              "Use Workspace instead." )
-
-
 def create_workspace(backend_name, model, **options):
-    """Depreciated. Use the following instead:
-
-    .. code-block:: python
-
-        ws = Workspace()
-        ws.add_model(model)
-        ws.register_store("default", backend_name, **options)
-    """
-
-    workspace = Workspace()
-    workspace.add_model(model)
-    workspace.register_store("default", backend_name, **options)
-    workspace.logger.warn("create_workspace() is depreciated, "
-                          "use Workspace(config) instead")
-    return workspace
+    raise NotImplemented("create_workspace() is depreciated, "
+                         "use Workspace(config) instead")
 
 
 def create_workspace_from_config(config):
-    """Depreciated. Use the following instead:
-
-    .. code-block:: python
-
-        ws = Workspace(config)
-    """
-
-    workspace = Workspace(config=config)
-    workspace.logger.warn("create_workspace_from_config() is depreciated, "
-                          "use Workspace(config) instead")
-    return workspace
+    raise NotImplemented("create_workspace_from_config() is depreciated, "
+                         "use Workspace(config) instead")
 

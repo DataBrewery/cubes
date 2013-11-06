@@ -206,7 +206,7 @@ def run_server(args):
         for module in modules:
             e = __import__(module)
 
-    cubes.server.run_server(config)
+    cubes.server.run_server(config, debug=args.debug)
 
 def run_test(args):
     """Run test of Slicer HTTP server configuration."""
@@ -354,9 +354,13 @@ subparser.set_defaults(func=update_locale)
 ################################################################################
 # Command: serve
 
-parser_serve = subparsers.add_parser('serve', help="run slicer server")
-parser_serve.add_argument('config', help='server confuguration .ini file')
-parser_serve.set_defaults(func=run_server)
+subparser = subparsers.add_parser('serve', help="run slicer server")
+subparser.add_argument('config', help='server confuguration .ini file')
+subparser.set_defaults(func=run_server)
+
+subparser.add_argument('--debug',
+                            dest='debug', action='store_true', default=False,
+                            help="Run the server in debug mode")
 
 ################################################################################
 # Command: serve
