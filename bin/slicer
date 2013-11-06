@@ -206,7 +206,63 @@ def run_server(args):
         for module in modules:
             e = __import__(module)
 
-    cubes.server.run_server(config)
+    cubes.server.run_server(config, debug=args.debug)
+
+def run_test(args):
+    """Run test of Slicer HTTP server configuration."""
+    raise NotImplementedError("Temporarily disabled.")
+    config = read_config(args.config)
+    workspace = Workspace(config)
+
+    results = workspace.validate_model()
+    if results:
+        print("\nvalidation results:\n")
+        for result in results:
+            print("%s: %s" % (result[0], result[1]) )
+    else:
+        print("model test was successful")
+
+def denormalize(args):
+    raise NotImplementedError("Temporarily disabled.")
+    cube_list = args.cube
+    config = read_config(args.config)
+
+    workspace = Workspace(config)
+
+    model = workspace.model
+
+    if not cube_list:
+        cube_list = [cube.name for cube in model.cubes.values()]
+
+    view_schema = args.schema # or workspace.options.get("denormalized_view_schema")
+    view_prefix = args.prefix or workspace.options.get("denormalized_view_prefix")
+
+    for cube_name in cube_list:
+        cube = model.cube(cube_name)
+
+        view_name = view_prefix + cube_name if view_prefix else cube_name
+
+        print("denormalizing cube '%s' into '%s'" % (cube_name, view_name))
+
+        workspace.create_denormalized_view(cube, view_name,
+                                            materialize=args.materialize,
+                                            replace=args.replace,
+                                            create_index=args.index,
+                                            keys_only=False,
+                                            schema=view_schema)
+
+def convert_model(args):
+    path = args.target
+    model = read_model_metadata(args.model)
+
+    if args.format == "json":
+        if not path:
+            print json.dumps(model, indent=4)
+        else:
+            with open(path, "w") as f:
+                json.dump(model, f, indent=4)
+    elif args.format == "bundle":
+        write_model_metadata_bundle(path, model, replace=args.force)
 
 def run_test(args):
     """Run test of Slicer HTTP server configuration."""
@@ -354,9 +410,13 @@ subparser.set_defaults(func=update_locale)
 ################################################################################
 # Command: serve
 
-parser_serve = subparsers.add_parser('serve', help="run slicer server")
-parser_serve.add_argument('config', help='server confuguration .ini file')
-parser_serve.set_defaults(func=run_server)
+subparser = subparsers.add_parser('serve', help="run slicer server")
+subparser.add_argument('config', help='server confuguration .ini file')
+subparser.set_defaults(func=run_server)
+
+subparser.add_argument('--debug',
+                            dest='debug', action='store_true', default=False,
+                            help="Run the server in debug mode")
 
 ################################################################################
 # Command: serve

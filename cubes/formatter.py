@@ -1,7 +1,6 @@
 # -*- coding=utf -*-
 from .errors import *
 from StringIO import StringIO
-from .model import split_aggregate_ref
 from .common import collect_subclasses, decamelize, to_identifier
 from collections import namedtuple
 

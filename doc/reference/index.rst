@@ -14,4 +14,5 @@ Contents:
     formatter
     backends
     server
+    auth
     common
