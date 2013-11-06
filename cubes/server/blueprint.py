@@ -208,8 +208,6 @@ def cube_model(cube_name):
     else:
         hier_limits = None
 
-    logger.debug("HIER LIMITS: %s" % (hier_limits, ))
-
     response = g.cube.to_dict(expand_dimensions=True,
                               with_mappings=False,
                               full_attribute_names=True,
@@ -320,7 +318,7 @@ def cube_facts(cube_name):
     fields = [attr.ref() for attr in attributes]
 
     # Get the result
-    result = g.browser.facts(g.cell,
+    facts = g.browser.facts(g.cell,
                              fields=fields,
                              order=g.order,
                              page=g.page,
@@ -340,7 +338,6 @@ def cube_facts(cube_name):
 
     # Get the facts iterator. `result` is expected to be an iterable Facts
     # object
-    facts = iter(result)
 
     if output_format == "json":
         return jsonify(facts)
