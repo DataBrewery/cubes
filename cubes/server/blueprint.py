@@ -295,7 +295,7 @@ def aggregate(cube_name):
 def cube_facts(cube_name):
     # Request parameters
     output_format = validated_parameter(request.args, "format",
-                                        values=["json", "csv"],
+                                        values=["json", "json_lines", "csv"],
                                         default="json")
 
     header_type = validated_parameter(request.args, "header",
@@ -341,6 +341,9 @@ def cube_facts(cube_name):
 
     if output_format == "json":
         return jsonify(facts)
+    elif output_format == "json_lines":
+        return Response(JSONLinesGenerator(facts),
+                        mimetype='application/x-json-lines')
     elif output_format == "csv":
         if not fields:
             fields = result.labels

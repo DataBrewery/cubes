@@ -372,7 +372,8 @@ Parameters:
 * `cut` - see ``/aggregate``
 * `page`, `pagesize` - paginate results
 * `order` - order results
-* `format` - result format: ``json`` (default; see note below), ``csv``
+* `format` - result format: ``json`` (default; see note below), ``csv`` or
+  ``json_lines``.
 * `fields` - comma separated list of fact fields, by default all fields are
   returned
 * `header` – specify what kind of headers should be present in the ``csv``
@@ -381,6 +382,10 @@ Parameters:
 
 The JSON response is a list of dictionaries where keys are attribute
 references (`ref` property of an attribute).
+
+To use JSON formatted repsonse but don't have the record limit ``json_lines``
+format can be used. The result is one fact record in JSON format per line
+– JSON dictionaries separated by newline `\n` character.
 
 .. note::
 
