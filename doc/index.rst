@@ -88,6 +88,14 @@ Developer's Reference
 
     reference/index
 
+Release Notes
+-------------
+
+.. toctree::
+    :maxdepth: 2
+
+    releases/index
+
 Contact and Getting Help
 ========================
 

@@ -1,0 +1,284 @@
+#######################
+Cubes 1.0 release notes
+#######################
+
+
+These release notes cover the new features and changes (some of them backward
+incompatible).
+
+Overview
+========
+
+The biggest new feature in cubes is the "pluggable" model. You are no longer
+limited to one one model, one type of data store (database) and one set of
+cubes. The new `Workspace` is now famework-level controller object that
+manages models (model sources), cubes and datastores. To the future more
+features will be added to the workspace.
+
+.. figure:: ../images/cubes-analytical-workspace-overview.png
+    :align: center
+    :width: 300px
+
+    Analytical Workspace Overview
+
+
+For more information see the :doc:`Workspace <../workspace>` documentation.
+
+Other notable new features in Cubes 1.0 are:
+
+* Rewritten Slicer server in `Flask <http://flask.pocoo.org>`_ as a reusable
+  `Blueprint <http://flask.pocoo.org/docs/blueprints/>`_.
+* New :doc:`server API <../server>`.
+* support for :ref:`outer joins <sql-outer-joins>` in the :doc:`SQL backend
+  <../backends/sql>`.
+* Distinction between :ref:`measures and aggregates <measures-and-aggregates>`
+* Extensible :doc:`authorization and authentication <../auth>`
+
+ORPHANED
+--------
+
+FIXME: Put these changes somewhere
+
+* ModelProvider.cube_options(cube_name) – return combined options dictionary for
+  cube: merge model's options with cube's options. Meant for provider's
+  subclasses.
+* ModelProvider.cube_metadata(cube_name) – returns combined metadat for a cube
+* Cell.contains_level(dim, level, hierarhy) – returns ``True`` when the cell
+  contains level ``level`` of dimension ``dim``
+* new utility functions: assert_instance() and assert_all_instances()
+* ModelProviders can implement ``requires_store()`` to return true or falce
+* ModelProviders can implement ``initialize_from_store()`` to load data when a
+  store is assigned to the provider
+* renamed Browser.values to members()
+* AggregationResult.measures changed to AggregationResult.aggregates
+* browser receives also store's information
+* changed the exception hierarchy. Now has two branches: ``UserError`` and
+  ``InternalError`` – the ``UserError`` can be returned to the client, the
+  ``InternalError`` should remain privade on the server side.
+* Separated model into two modules: model (objects) providers (controllers)
+* ``to_dict()`` of model objects returns an ordered dictionary for nicer json
+  output
+
+
+Analytical Workspace
+--------------------
+
+To be written...
+
+Flask Server
+------------
+
+Slicer server is now a `Flask <http://flask.pocoo.org>`_ application and a
+reusable `Blueprint <http://flask.pocoo.org/docs/blueprints/>`_. It is
+possible to include the Slicer in your application at an end-point of your
+choice. 
+
+For more information, see the :doc:`recipe <../recipes/flask_integration>`.
+
+Outer Joins
+-----------
+
+Support for thee types of joins was added to the SQL backend: `match` (inner),
+`master` (left outer) and `detail` (right outer).
+
+The *outer joins* allows for example to use whole ``date`` dimension table and
+have "empty cells" for dates where there are no facts.
+
+When an right outer join (``detail`` method) is present, then aggregate values
+are coalesced to zero (based on the function either the values or the result
+is coalesced). For example: AVG coalesces values: ``AVG(COALESCE(c, 0))``, SUM
+coalesces result: ``COALESCE(SUM(c), 0)``. 
+
+.. seealso::
+
+    :ref:`SQL Backend – Outer Joins Documentation<sql-outer-joins>`
+
+
+Measures and Aggregates
+-----------------------
+
+Cubes now distinguishes between *measures* and *aggregates*.  *measure*
+represents a numerical fact property, *aggregate* represents aggregated value
+(applied aggregate function on a property, or provided natively by the
+backend).
+
+This new approach of *aggregates* makes development of backends and cliends
+much easier. There is no need to construct and guess aggregate measures or
+splitting the names from the functions. Backends receive concrete objects with
+sufficient information to perform the aggregation (either by a function or
+fetch already computed value).
+
+Functionality additions and changes:
+
+* New model objects: :class:`cubes.Attribute` (for dimension or detail),
+  :class:`cubes.Measure` and :class:`cubes.MeasureAggregate`.
+* New model creation/helper functions: :func:`cubes.create_measure_aggregate`,
+  :func:`cubes.create_measure`
+
+* :func:`cubes.create_cube` is back
+
+* :meth:`cubes.Cube.aggregates_for_measure` – return all aggregates referring the
+  measure
+* :meth:`cubes.Cube.get_aggregates` – get a list of aggregates according to names
+* :meth:`cubes.Measure.default_aggregates` – create a list of default
+  aggregates for the measure
+* :func:`calculators_for_aggregates` in statutils – returns post-aggregation
+  calculators
+* Added a cube metadata flag to control creation of default aggregates:
+  `implicit_aggregates`. Default is ``True``
+* Cube initialization has no creation of defaults – it should belong to the
+  model provider or :func:`create_cube` function
+
+* If there is no function specified, we consider the aggregate to be specified
+  in the mappings
+
+record_count
+~~~~~~~~~~~~
+
+Implicit aggregate `record_count` is no longer provided for every cube. It
+has to be explicitly defined as an aggregate: 
+
+.. code-block:: json
+
+    "aggregates": [
+        {
+            "name": "item_count",
+            "label": "Item Count",
+            "function": "count"
+        }
+    ]
+
+It can be named and labelled in any way.
+
+.. seealso::
+
+    :ref:`Measures and Aggregates Documentation <measures-and-aggregates>`,
+    :doc:`../model`
+
+
+Statutils
+---------
+
+Module with statistical aggregate functions such as simple moving average or
+weighted moving average.
+
+Provided functions:
+
+* ``wma`` – weighted moving average
+* ``sma`` – simple moving average
+* ``sms`` – simple moving sum
+* ``smstd`` – simple moving st. deviation
+* ``smrsd`` – simple moving relative st. deviation
+* ``smvar`` – simple moving variance
+
+The function are applied on the already computed aggregation results. Backends
+migh handle the function internally if they can.
+
+Model Providers
+---------------
+
+To be written...
+
+Model
+-----
+
+.. todo::
+
+    Write this
+
+* cardinality
+* role
+* 
+
+Server
+------
+
+* do not expose internal exceptions, only user exceptions
+
+HTTP Server API
+---------------
+
+Server end-points have changed.
+
+New end-points:
+
+* ``/version``
+* ``/info``
+* ``/cubes``
+* ``/cube/<cube>/model``
+* ``/cube/<cube>/aggregate``
+* ``/cube/<cube>/facts``
+* ``/cube/<cube>/fact``
+* ``/cube/<cube>/dimension/<dimension>``
+* ``/cube/<cube>/cell``
+* ``/cube/<cube>/report``
+
+
+Removed end-points:
+
+* ``/model`` – without replacement doe to the new concepts of workspace.
+  Alternative is to get list of basic cube info using ``/cubes``.
+* ``/model/cubes`` – without replacement, use ``/cubes``
+* ``/model/cube/<cube>`` – use ``/cube/<cube>/model`` instead
+* ``/model/dimension/*`` – without replacement due to the new concepts of
+  workspace
+* all top-level browser actions such as ``/aggregate`` – now the cube name has
+  to be explicit
+
+
+Parameter changes:
+
+* ``/aggregate`` uses ``aggregates=``, does not accept ``measure=`` any more
+* ``/aggregate`` now accepts ``format=`` to generate CSV output
+* new parameter ``headers=`` for CSV output: with headers as attribute names,
+  headers as attribute labels (human readable) or no headers at all
+* it is now possible to specify multiple drilldowns, separated by ``|`` in one
+  ``drilldown=`` parameter
+
+Response changes:
+
+* ``/cubes`` (as alternative replacement for ``/model``) returns a list of
+  basic cubes info: `name`, `label`, `description` and `category`. It does not
+  return full cube description with dimensions.
+* ``/cube/<cube>/model`` has new keys: ``aggregates`` and ``features``
+
+
+.. sealso::
+
+    :doc:`../server`
+
+Slicer
+------
+
+* added ``slicer model convert`` to convert between json ⇔ directory bundle
+
+Backends
+========
+
+SQL Backend
+-----------
+
+* New module ``functions`` with new AggregationFunction objects
+* Added get_aggregate_function() and available_aggregate_functions()
+* Renamed ``star`` module to ``browser``
+* Updated the code to use the new aggregates instead of old measures. Affected
+  parts of the code are now cleaner and more understandable
+* Moved calculated_aggregations_for_measure to library-level statutils module
+  as calculators_for_aggregates 
+* function dictionary is no longer used
+
+Mixpanel
+--------
+
+New backend. See the :doc:`../backends/mixpanel`
+
+* Updated the code to use the new aggregates instead of old measures.
+* "info.allowed_dimensions" and "info.denied_dimensions" – list of properties
+  to be allowed or denied as dimensions
+* added aggregation of ``unique`` aggregate at top and year levels
+
+Slicer
+------
+
+New backend. See the :doc:`../backends/slicer`
+

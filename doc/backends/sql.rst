@@ -450,6 +450,8 @@ specification:
          }
     ]
 
+.. _sql-outer-joins:
+
 Join Methods and Outer Joins
 ----------------------------
 
