@@ -186,6 +186,8 @@ def list_cubes():
     names = [c["name"] for c in cube_list]
     if workspace.authorizer:
         authorized = workspace.authorizer.authorize(g.auth_identity, names)
+    else:
+        authorized = names
 
     if not authorized:
         raise NotAuthorizedError("No cubes authorized for '%s'"
