@@ -1,0 +1,11 @@
+*******
+Recipes
+*******
+
+How-to guides with code snippets for various use-cases.
+
+.. toctree::
+    :maxdepth: 2
+   
+    opendata
+

@@ -8,7 +8,7 @@ from sqlalchemy import MetaData, Table, Column, Integer, String
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
-from cubes.server import Slicer
+from cubes.server import create_server
 
 import csv
 
@@ -16,7 +16,8 @@ class SlicerTestCaseBase(CubesTestCaseBase):
     def setUp(self):
         super(SlicerTestCaseBase, self).setUp()
 
-        self.slicer = Slicer()
+        self.slicer = create_server()
+        self.slicer.debug = True
         self.server = Client(self.slicer, BaseResponse)
         self.logger = self.slicer.logger
         self.logger.setLevel("DEBUG")
@@ -58,7 +59,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         super(SlicerModelTestCase, self).setUp()
 
         ws = self.create_workspace()
-        self.slicer.workspace = ws
+        self.slicer.cubes_workspace = ws
 
         # Satisfy browser with empty tables
         # TODO: replace this once we have data
@@ -119,6 +120,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
     def test_cube_dimensions(self):
         response, status = self.get("cube/sales/model")
         # Dimensions
+        print "===RESPONSE: ", response
         dims = response["dimensions"]
         self.assertIsInstance(dims, list)
         self.assertIsInstance(dims[0], dict)
@@ -149,7 +151,7 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
 
         self.workspace = self.create_workspace(model="server.json")
         self.cube = self.workspace.cube("aggregate_test")
-        self.slicer.workspace = self.workspace
+        self.slicer.cubes_workspace = self.workspace
 
         self.facts = Table("facts", self.metadata,
                         Column("id", Integer),

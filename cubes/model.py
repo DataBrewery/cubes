@@ -3,7 +3,7 @@
 
 import copy
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 from .common import IgnoringDictionary, get_logger, to_label
 from .common import assert_instance, assert_all_instances
@@ -27,11 +27,7 @@ __all__ = [
     "create_attribute",
     "create_measure",
     "create_measure_aggregate",
-    "attribute_list",
-
-    # FIXME: depreciated. affected: formatter.py
-    "split_aggregate_ref",
-    "aggregate_ref",
+    "attribute_list"
 ]
 
 
@@ -717,7 +713,8 @@ class Cube(object):
 
         return result
 
-    def to_dict(self, expand_dimensions=False, with_mappings=True, **options):
+    def to_dict(self, expand_dimensions=False, with_mappings=True,
+                hierarchy_limits=None, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
         default) then `joins`, `mappings`, `fact` and `options` are included.
         Should be set to ``False`` when returning a dictionary that will be
@@ -744,7 +741,19 @@ class Cube(object):
         out["details"] = details
 
         if expand_dimensions:
-            dims = [dim.to_dict() for dim in self.dimensions]
+            limits = defaultdict(dict)
+            if hierarchy_limits:
+                # Convert from (dim,hier,level) to a dict
+                for dim, hier, level in hierarchy_limits:
+                    limits[dim][hier] = level
+
+            dims = []
+
+            for dim in self.dimensions:
+                limit = limits.get(dim.name)
+                info = dim.to_dict(hierarchy_limits=limit)
+                dims.append(info)
+
         else:
             dims = [dim.name for dim in self.dimensions]
 
@@ -861,6 +870,8 @@ class Dimension(object):
     Cube dimension.
 
     """
+    special_roles = ["time"]
+
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, **desc):
@@ -880,7 +891,7 @@ class Dimension(object):
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information (icon, color, ...)
         * `role` – one of recognized special dimension types. Currently
-          supported is only ``date``.
+          supported is only ``time``.
         * `cardinality` – cardinality of the dimension members. Used
           optionally by the backends for load protection and frontends for
           better auto-generated front-ends. See :class:`Level` for more
@@ -1092,7 +1103,7 @@ class Dimension(object):
 
         return list(self._attributes.values())
 
-    def to_dict(self, **options):
+    def to_dict(self, hierarchy_limits=None, **options):
         """Return dictionary representation of the dimension"""
 
         out = IgnoringDictionary()
@@ -1108,8 +1119,24 @@ class Dimension(object):
             out["label"] = self.label
 
         out["levels"] = [level.to_dict(**options) for level in self.levels]
-        out["hierarchies"] = [hier.to_dict(**options) for hier in
-                                                    self.hierarchies.values()]
+
+        # Collect hierarchies and apply hierarchy depth restrictions
+        hierarchies = []
+        hierarchy_limits = hierarchy_limits or {}
+        for name, hierarchy in self.hierarchies.items():
+            if name in hierarchy_limits:
+                level = hierarchy_limits[name]
+                if level:
+                    depth = hierarchy.level_index(level) + 1
+                    restricted = hierarchy.to_dict(depth=depth, **options)
+                    hierarchies.append(restricted)
+                else:
+                    # we ignore the hierarchy
+                    pass
+            else:
+                hierarchies.append(hierarchy.to_dict(**options))
+
+        out["hierarchies"] = hierarchies
 
         # Use only for reading, during initialization these keys are ignored,
         # as they are derived
@@ -1307,6 +1334,10 @@ class Hierarchy(object):
         return self._levels.values()
 
     @property
+    def level_names(self):
+        return self._levels.keys()
+
+    @property
     def levels_dict(self):
         if not self._levels:
             self._set_levels(self._level_refs)
@@ -1449,7 +1480,7 @@ class Hierarchy(object):
 
         return attributes
 
-    def to_dict(self, **options):
+    def to_dict(self, depth=None, **options):
         """Convert to dictionary. Keys:
 
         * `name`: hierarchy name
@@ -1459,8 +1490,14 @@ class Hierarchy(object):
         """
 
         out = IgnoringDictionary()
+
         out["name"] = self.name
-        out["levels"] = [str(l) for l in self.levels]
+        levels = [str(l) for l in self.levels]
+
+        if depth:
+            out["levels"] = levels[0:depth]
+        else:
+            out["levels"] = levels
         out["info"] = self.info
 
         if options.get("create_label"):
@@ -2387,6 +2424,8 @@ def fix_level_metadata(metadata):
                 new_metadata['info'] = metadata['info']
             if "label" in metadata:
                 new_metadata['label'] = metadata["label"]
+            if "role" in metadata:
+                new_metadata['role'] = metadata["role"]
 
             metadata = new_metadata
 
@@ -2459,34 +2498,3 @@ def get_localizable_attributes(obj):
 
     return locale
 
-
-def aggregate_ref(measure, aggregate):
-    """Creates a reference string for measure aggregate. Current
-    implementation joins the measure name and aggregate name with an
-    underscore character `'_'`. Use this method in in a backend to create
-    valid aggregate reference. See also `split_aggregate_ref()`"""
-
-    return "%s_%s" % (measure, aggregate)
-
-
-def split_aggregate_ref(measure):
-    """Splits aggregate measure reference into measure name and aggregate
-    name. Use this method in presenters to correctly get measure name and
-    aggregate name from aggregate reference that was created by
-    `aggregate_ref()` function.
-    """
-
-    measure = str(measure)
-
-    r = measure.rfind("_")
-
-    if r == -1 or r >= len(measure) - 1:
-        if r == -1:
-            meaning = measure + "_sum"
-        else:
-            meaning = measure + "sum"
-
-        raise ArgumentError("Invalid aggregate reference '%s'. "
-                            "Did you mean '%s'?" % (measure, meaning))
-
-    return (measure[:r], measure[r + 1:])

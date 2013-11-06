@@ -1,98 +1,105 @@
 # -*- coding=utf -*-
 
-import cubes.browser
 import urllib2
 import json
 import logging
 import urllib
+from ...browser import *
 from ...common import get_logger
 
-class SlicerBrowser(cubes.browser.AggregationBrowser):
+class SlicerBrowser(AggregationBrowser):
     """Aggregation browser for Cubes Slicer OLAP server."""
-    
-    def __init__(self, cube, store, locale = None, **options):
-        """Demo backend browser. This backend is serves just as example of a 
-        backend. Uses another Slicer server instance for doing all the work. 
-        You might use it as a template for your own browser.
 
-        Attributes:
-
-        * `cube` – obligatory, but currently unused here
-        * `url` - base url of Cubes Slicer OLAP server
-
+    def __init__(self, cube, store, locale=None, **options):
+        """Browser for another Slicer server.
         """
-        super(SlicerBrowser, self).__init__(cube, store)
+        super(SlicerBrowser, self).__init__(cube, store, locale)
 
         self.logger = get_logger()
-
-        self.baseurl = "%s/cube/%s" % (store.url, cube.name)
         self.cube = cube
-        
-    def request(self, url):
-        self.logger.debug("Request: %s" % url)
-        handle = urllib2.urlopen(url)
-        try:
-            reply = json.load(handle)
-        except Exception as e:
-            raise Exception("Unable to load request %s. Reason: %s" % (url, e))
-        finally:
-            handle.close()
-        
-        return reply            
-                
-    def _dditem_to_string(self, dditem):
-        s = dditem.dimension.name
-        if dditem.hierarchy:
-            s += "@" + dditem.hierarchy.name
-        if len(dditem.levels):
-            s += ":" + dditem.levels[-1].name
-        return s
+        self.locale = locale
+        self.store = store
 
-    def aggregate(self, cell, measures = None, drilldown = None, split=None, 
-	          page=None, page_size=None, order=None, **kwargs):
-        
-        cut_string = cubes.browser.string_from_cuts(cell.cuts)
-        params = [ ('cut', cut_string) ]
+    def aggregate(self, cell=None, aggregates=None, drilldown=None,
+                  split=None, page=None, page_size=None, order=None):
 
-        levels = {}
+        params = {}
+        cell = cell or Cell(self.cube)
+
+        if cell:
+            params["cut"] = string_from_cuts(cell.cuts)
 
         if drilldown:
-            for dd in drilldown:
-                params.append( ("drilldown", self._dditem_to_string(dd)) )
-                levels[str(dd.dimension)] = [ str(l) for l in dd.levels ]
-                
+            drilldown = Drilldown(drilldown, cell)
+            params["drilldown"] = ",".join(drilldown.items_as_strings())
+
         if split:
-            params.append( ('split', str(split)) ) 
+            params["split"] = str(split)
 
-        if measures:
-            for m in measures:
-                params.append( ("measure", str(m)) )
-                    
-	if order is not None:
-	    params.append( ("order", str(order)) )
-	if page is not None:
-	    params.append( ("page", str(page)) )
-	if page_size is not None:
-	    params.append( ("page_size", str(page_size)) )
+        if aggregates:
+            names = [a.name for a in aggregates]
+            params["aggregates"] = ",".join(names)
+
+        if order:
+            params["order"] = self._order_param(order)
+
+        if page is not None:
+            params["page"] = str(page)
+
+        if page_size is not None:
+            params["page_size"] = str(page_size)
 
 
-        url = self.baseurl + "/aggregate?" + urllib.urlencode(params)
-        
-        reply = self.request(url)
-        result = cubes.browser.AggregationResult()
-        result.cells = reply.get('cells', [])
-	result.levels = reply.get('levels', {})
-	result.cell = cell.to_dict()
-	result.aggregates = reply.get('aggregates', [])
-        if ( reply.get('summary') ):
-            result.summary = reply.get('summary')
+        response = self.store.cube_request("aggregate",
+                                           self.cube.name, params)
+
+        result = AggregationResult()
+
+        result.cells = response.get('cells', [])
+
+        if "summary" in response:
+            result.summary = response.get('summary')
+
+        result.levels = response.get('levels', {})
+        result.labels = response.get('labels', [])
+        result.cell = cell
+        result.aggregates = response.get('aggregates', [])
 
         return result
-        
-    def facts(self, cell, **options):
-        raise NotImplementedError
+
+    def facts(self, cell=None, fields=None, order=None, page=None,
+              page_size=None):
+
+        cell = cell or Cell(self.cube)
+        attributes = self.cube.get_attributes(fields)
+        order = self.prepare_order(order, is_aggregate=False)
+
+        params = {}
+
+        if cell:
+            params["cut"] = string_from_cuts(cell.cuts)
+
+        if order:
+            params["order"] = self._order_param(order)
+
+        if page is not None:
+            params["page"] = str(page)
+
+        if page_size is not None:
+            params["page_size"] = str(page_size)
+
+        params["format"] = "json_lines"
+
+        response = self.store.cube_request("facts", self.cube.name, params,
+                                           is_lines=True)
+
+        return Facts(response, attributes)
+
+    def _order_param(self, order):
+        """Prepare an order string in form: ``attribute:direction``"""
+        string = ",".join("%s:%s" % (o[0], o[1]) for o in order)
+        return string
 
     def fact(self, key):
+        raise NotImplementedError
 
-        url = self.baseurl + "/fact/" + urllib.quote(str(key))
-        return self.request(url)

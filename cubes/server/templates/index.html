@@ -2,16 +2,68 @@
  "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
-  <title>Cubes OLAP server</title>
+    <title>Cubes OLAP server{% if label %} – {{label}}{% endif %}</title>
+    <STYLE type="text/css">
+    * { font-family: "Helvetica Neue", "Helvetica", sans-serif; }
+    p { line-height: 130%; font-size: 16px; }
+    h1 { font-weight: normal; }
+    h2 { font-size: 16px; margin-top: 20px; }
+    table { font-size: 14px; border: 1px solid #ddd; border-collapse: collapse; border-spacing: 0; }
+    table td, table th { padding: 8px; border: 1px solid #ddd }
+    th { text-align: left; background-color: #f9f9f9 }
+    a { color: MidnightBlue; text-decoration: none }
+    a:visited { color: RoyalBlue }
+    footer { margin-top: 40px; }
+    ul li { padding-right: 20px; line-height: 130%; list-style-type: square; }
+    </STYLE>
 </head>
+
 <body>
-  <h1>Cubes OLAP server</h1>
+  <h1>Cubes OLAP server{% if label %} – {{label}}{% endif %}</h1>
+
+  {% if has_about %}
+  <h2>About</h2>
   <table id="info">
-      <tr><td>Server version</td><td>{server_version}</td></tr>
-      <tr><td>API version</td><td>{api_version}</td></tr>
+      {% if name %}<tr><th>Name</th><td>{{name}}</td></tr>{% endif %}
+      {% if description %}<tr><th>Description</th><td>{{description}}</td></tr>{% endif %}
+      {% if copyright %}<tr><th>Copyright</th><td>{{copyright}}</td></tr>{% endif %}
+      {% if license %}<tr><th>License</th><td>{{license}}</td></tr>{% endif %}
+      {% if maintainer %}<tr><th>Maintainer</th><td>{{maintainer}}</td></tr>{% endif %}
+      {% if keywords %}<tr><th>Keywords</th><td>{{keywords|join(", ")}}</td></tr>{% endif %}
   </table>
-  <p>For more information please refer to the server
-      <a href="http://packages.python.org/cubes/server.html">HTTP API documentation</a>
-  </p>
+  {% if visualizers %}
+  <h2>Visualizers</h2>
+  <ul>
+  {% for visualizer in visualizers %}
+      <li><a href="{{visualizer.url}}">{{visualizer.label}}</a></li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if related %}
+  <h2>Related Slicers</h2>
+  <ul>
+  {% for slicer in related %}
+      <li><a href="{{slicer.url}}">{{slicer.label}}</a></li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% endif %}
+
+  <h2>System Info</h2>
+  <table id="info">
+      <tr><th>Cubes version</th><td>{{cubes_version}}</td></tr>
+      <tr><th>Authentication method</th><td>{{authentication}}</td></tr>
+      <tr><th>JSON Record Limit</th><td>{{json_record_limit}}</td></tr>
+  </table>
+
+  <footer>
+  For more information see:
+  <ul>
+      <li><a href="http://packages.python.org/cubes/server.html">HTTP API documentation</a></li>
+      <li><a href="http://cubes.databrewery.org">Cubes Poroject Home</a></li>
+  </ul>
+  </footer>
 </body>
 </html>

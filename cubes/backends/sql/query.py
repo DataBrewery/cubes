@@ -1196,7 +1196,7 @@ class QueryBuilder(object):
         if include_fact_key:
             columns.insert(0, self.snowflake.fact_key_column)
 
-        if cell:
+        if cell is not None:
             condition = self.condition_for_cell(cell)
         else:
             condition = None
@@ -1210,6 +1210,12 @@ class QueryBuilder(object):
         self.labels = self.snowflake.logical_labels(statement.columns)
 
         return statement
+
+    def members_statement(self, cell, attributes=None):
+        """Prepares dimension members statement."""
+        self.denormalized_statement(cell, attributes, include_fact_key=False)
+        self.statement = self.statement.group_by(*self.statement.columns)
+        return self.statement
 
     def fact(self, id_):
         """Selects only fact with given id"""
@@ -1328,6 +1334,7 @@ class QueryBuilder(object):
         """Returns a SQL condition for the `cell`."""
         conditions = self.conditions_for_cuts(cell.cuts)
         condition = condition_conjunction(conditions)
+        return condition
 
     def conditions_for_cuts(self, cuts):
         """Constructs conditions for all cuts in the `cell`. Returns a list of

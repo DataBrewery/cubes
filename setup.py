@@ -1,9 +1,7 @@
 import sys
 from setuptools import setup, find_packages
 
-requirements = []
-if sys.version_info < (2,7):
-    requirements += ['ordereddict']
+requirements = ["pytz", "python-dateutil"]
 
 setup(
     name = "cubes",
@@ -47,3 +45,4 @@ setup(
 
     # could also include long_description, download_url, classifiers, etc.
 )
+
