@@ -152,6 +152,20 @@ class CSVGenerator(object):
         return data
 
 
+class JSONLinesGenerator(object):
+    def __init__(self, iterable, separator='\n'):
+        """Creates a generator that yields one JSON record per record from
+        `iterable` separated by a newline character.."""
+        self.iterable = iterable
+        self.separator = separator
+
+        self.encoder = SlicerJSONEncoder(indent=None)
+
+    def __iter__(self):
+        for obj in self.iterable:
+            string = self.encoder.encode(obj)
+            yield "%s%s" % (string, self.separator)
+
 class UnicodeCSVWriter:
     """
     A CSV writer which will write rows to CSV file "f",
