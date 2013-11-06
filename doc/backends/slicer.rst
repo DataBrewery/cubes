@@ -11,6 +11,11 @@ Server backend.
 
     Slicer backend 
 
+.. note::
+
+    If the server has a JSON record limit set, then the backend will receive
+    only limited number of facts.
+
 Store Configuration and Model
 =============================
 

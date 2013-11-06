@@ -41,7 +41,7 @@ class SlicerBrowser(AggregationBrowser):
             params["aggregates"] = ",".join(names)
 
         if order:
-            params["order"] = str(order)
+            params["order"] = self._order_param(order)
 
         if page is not None:
             params["page"] = str(page)
@@ -50,25 +50,51 @@ class SlicerBrowser(AggregationBrowser):
             params["page_size"] = str(page_size)
 
 
-        reply = self.store.cube_request("aggregate", self.cube.name, **params)
+        response = self.store.cube_request("aggregate",
+                                           self.cube.name, **params)
 
         result = AggregationResult()
 
-        result.cells = reply.get('cells', [])
+        result.cells = response.get('cells', [])
 
-        if "summary" in reply:
-            result.summary = reply.get('summary')
+        if "summary" in response:
+            result.summary = response.get('summary')
 
-        result.levels = reply.get('levels', {})
-        result.labels = reply.get('labels', [])
+        result.levels = response.get('levels', {})
+        result.labels = response.get('labels', [])
         result.cell = cell
-        result.aggregates = reply.get('aggregates', [])
+        result.aggregates = response.get('aggregates', [])
 
         return result
 
-    def facts(self, cell, **options):
-        # TODO: This would be much better with CSV - we are missing data types
-        raise NotImplementedError
+    def facts(self, cell=None, fields=None, order=None, page=None, page_size=None):
+
+        cell = cell or Cell(self.cube)
+        attributes = self.cube.get_attributes(fields)
+        order = self.prepare_order(order, is_aggregate=False)
+
+        params = {}
+
+        if cell:
+            params["cut"] = string_from_cuts(cell.cuts)
+
+        if order:
+            params["order"] = self._order_param(order)
+
+        if page is not None:
+            params["page"] = str(page)
+
+        if page_size is not None:
+            params["page_size"] = str(page_size)
+
+        response = self.store.cube_request("facts", self.cube.name, **params)
+
+        return Facts(response, attributes)
+
+    def _order_param(self, order):
+        """Prepare an order string in form: ``attribute:direction``"""
+        string = ",".join("%s:%s" % (o[0], o[1]) for o in order)
+        return string
 
     def fact(self, key):
         raise NotImplementedError
