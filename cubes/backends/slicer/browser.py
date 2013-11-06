@@ -20,6 +20,14 @@ class SlicerBrowser(AggregationBrowser):
         self.locale = locale
         self.store = store
 
+    def features(self):
+
+        features = {
+            "actions": ["aggregate", "facts"],
+        }
+
+        return features
+
     def aggregate(self, cell=None, aggregates=None, drilldown=None,
                   split=None, page=None, page_size=None, order=None):
 
@@ -71,7 +79,11 @@ class SlicerBrowser(AggregationBrowser):
               page_size=None):
 
         cell = cell or Cell(self.cube)
-        attributes = self.cube.get_attributes(fields)
+        if fields:
+            attributes = self.cube.get_attributes(fields)
+        else:
+            attributes = []
+
         order = self.prepare_order(order, is_aggregate=False)
 
         params = {}
@@ -87,6 +99,9 @@ class SlicerBrowser(AggregationBrowser):
 
         if page_size is not None:
             params["page_size"] = str(page_size)
+
+        if attributes:
+            params["fields"] = ",".join(str(attr) for attr in attributes)
 
         params["format"] = "json_lines"
 

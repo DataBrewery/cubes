@@ -79,7 +79,6 @@ class _JSONLinesIterator(object):
 
     def __iter__(self):
         for line in self.stream:
-            print "--- LINE: '%s'" % repr(line)
             yield json.loads(line)
 
 
