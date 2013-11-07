@@ -3,7 +3,8 @@ import sys
 from .providers import read_model_metadata, create_model_provider
 from .auth import create_authorizer
 from .model import Model
-from .common import get_logger, read_json_file
+from .common import read_json_file
+from .logging import get_logger
 from .errors import *
 from .stores import open_store, create_browser
 from .calendar import Calendar

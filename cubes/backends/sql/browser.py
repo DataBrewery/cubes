@@ -2,7 +2,7 @@
 # Actually, this is a furry snowflake, not a nice star
 
 from ...browser import *
-from ...common import get_logger
+from ...logging import get_logger
 from ...statutils import calculators_for_aggregates, available_calculators
 from ...errors import *
 from .mapper import SnowflakeMapper, DenormalizedMapper

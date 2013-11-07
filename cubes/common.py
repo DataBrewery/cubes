@@ -3,7 +3,6 @@
 levels"""
 
 import itertools
-import logging
 import sys
 import re
 from collections import OrderedDict
@@ -14,9 +13,6 @@ import json
 from .errors import *
 
 __all__ = [
-    "logger_name",
-    "get_logger",
-    "create_logger",
     "IgnoringDictionary",
     "MissingPackage",
     "localize_common",
@@ -30,42 +26,6 @@ __all__ = [
     "read_json_file",
     "sorted_dependencies"
 ]
-
-logger_name = "cubes"
-logger = None
-
-def get_logger():
-    """Get brewery default logger"""
-    global logger
-
-    if logger:
-        return logger
-    else:
-        return create_logger()
-
-def create_logger(level=None):
-    """Create a default logger"""
-    global logger
-    logger = logging.getLogger(logger_name)
-
-    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-    if level:
-        level = level.lower()
-        levels = {  "info": logging.INFO,
-                    "debug": logging.DEBUG,
-                    "warn":logging.WARN,
-                    "error": logging.ERROR}
-        if level not in levels:
-            logger.warn("Unknown logging level '%s', keeping default" % level)
-        else:
-            logger.setLevel(levels[level])
-
-    return logger
 
 class IgnoringDictionary(OrderedDict):
     """Simple dictionary extension that will ignore any keys of which values

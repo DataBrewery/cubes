@@ -3,9 +3,9 @@
 
 import collections
 import copy
-from cubes.common import get_logger
-from cubes.errors import *
-from cubes.mapper import Mapper
+from ...logging import get_logger
+from ...errors import *
+from ...mapper import Mapper
 from bson.objectid import ObjectId
 import datetime
 from datetime import datetime

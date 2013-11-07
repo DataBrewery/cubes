@@ -1,5 +1,5 @@
 import logging
-from cubes.common import get_logger
+from cubes.logging import get_logger
 from cubes.workspace import Workspace
 from .browser import Mongo2Browser
 
