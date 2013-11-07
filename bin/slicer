@@ -15,10 +15,13 @@ import cubes
 import cubes.server
 import ConfigParser
 import shlex
-from cubes.common import MissingPackageError, create_logger
+
+from collections import OrderedDict
+
+from cubes.common import MissingPackageError
+from cubes.logging import create_logger
 from cubes.errors import CubesError
 from cubes.providers import read_model_metadata, write_model_metadata_bundle
-from collections import OrderedDict
 
 def validate_model(args):
     """docstring for validate_model"""
