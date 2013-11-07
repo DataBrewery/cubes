@@ -4,8 +4,8 @@ import urllib2
 import json
 import logging
 import urllib
-from ...browser import *
 from ...common import get_logger
+from ...browser import *
 
 class SlicerBrowser(AggregationBrowser):
     """Aggregation browser for Cubes Slicer OLAP server."""
