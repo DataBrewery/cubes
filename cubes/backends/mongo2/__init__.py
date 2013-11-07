@@ -1,2 +1,2 @@
-from .workspace import *
+from .browser import *
 from .store import *

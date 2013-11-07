@@ -272,13 +272,14 @@ def aggregate(cube_name):
 
     prepare_cell("split", "split")
 
-    result = g.browser.aggregate(g.cell,
-                                 aggregates=aggregates,
-                                 drilldown=drilldown,
-                                 split=g.split,
-                                 page=g.page,
-                                 page_size=g.page_size,
-                                 order=g.order)
+    with g.query_logger.log_time("aggregate", g.browser, g.cell, g.auth_identity):
+        result = g.browser.aggregate(g.cell,
+                                     aggregates=aggregates,
+                                     drilldown=drilldown,
+                                     split=g.split,
+                                     page=g.page,
+                                     page_size=g.page_size,
+                                     order=g.order)
 
     if output_format == "json":
         return jsonify(result)
