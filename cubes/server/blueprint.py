@@ -6,6 +6,7 @@ from functools import wraps
 from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..browser import Cell, SPLIT_DIMENSION_NAME
 from ..errors import *
+from ..logging import create_query_logger
 from .utils import *
 from .errors import *
 from .decorators import *
@@ -108,8 +109,24 @@ def initialize_slicer(state):
             logger.warn("No authenticator specified, but workspace seems to "
                         "be using an authorizer")
 
+        _store_option(config, "query_log", None)
+        _store_option(config, "query_log_type", "default")
+
+
 # Before and After
 # ================
+
+@slicer.before_request
+def prepare_query_logger():
+    # TODO: move this to Workspace (identity needed)
+    log = current_app.slicer.query_log
+    log_type = current_app.slicer.query_log_type or "default"
+
+    if log_type == "default":
+        g.query_logger = create_query_logger("default", logger)
+    else:
+        g.query_logger = create_query_logger(log_type, log)
+
 
 @slicer.before_request
 def process_common_parameters():
