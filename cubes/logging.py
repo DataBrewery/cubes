@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from logging import getLogger, Formatter, StreamHandler
 from contextlib import contextmanager
 from collections import namedtuple
+import datetime
 import time
 import csv
 import io
@@ -52,7 +53,7 @@ def create_logger(level=None):
 
 
 LogRecord = namedtuple("LogRecord", ["timestamp", "query", "cube", "cell",
-                                     "identity" "elapsed_time"])
+                                     "identity", "elapsed_time"])
 
 
 def create_query_logger(type_, *args, **kwargs):
@@ -80,15 +81,16 @@ class QueryLogger(object):
         self.log(query, browser, cell, identity, elapsed)
 
     def log(self, query, browser, cell, identity=None, elapsed=None):
-        row = LogRecord(time.time(),
-               query,
-               browser.cube.name,
-               str(cell),
-               identity,
-               elapsed or 0
-               )
+        cell_string = str(cell) if cell is not None else None
 
-        self.write_log(log)
+        record = LogRecord(datetime.datetime.now(),
+                           query,
+                           browser.cube.name,
+                           cell_string,
+                           identity,
+                           elapsed or 0)
+
+        self.write_record(record)
 
 
 class DefaultQueryLogger(QueryLogger):
@@ -96,11 +98,11 @@ class DefaultQueryLogger(QueryLogger):
         self.logger = logger
 
     def write_record(self, record):
-        cell_str = "'%s'" % str(record.cell) if record.cell else "none"
+        cell_str = "'%s'" % str(record.cell) if record.cell is not None else "none"
         identity_str = "'%s'" % str(record.identity) if record.identity else "none"
-        self.logger.info("query: %s cube: %s cell: %s identity: %s time: %s"
+        self.logger.info("query:%s cube:%s cell:%s identity:%s time:%s"
                          % (record.query, record.cube, cell_str, identity_str,
-                            record.elapsed))
+                            record.elapsed_time))
 
 
 class CSVFileQueryLogger(QueryLogger):
@@ -108,7 +110,13 @@ class CSVFileQueryLogger(QueryLogger):
         self.path = path
 
     def write_record(self, record):
-        with io.open(path, 'a') as f:
+        out = []
+        for item in record:
+            if item is not None:
+                item = unicode(item)
+            out.append(item)
+
+        with io.open(self.path, 'ab') as f:
             writer = csv.writer(f)
-            writer.writerow(record)
+            writer.writerow(out)
 
