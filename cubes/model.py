@@ -2059,7 +2059,6 @@ def create_measure_aggregate(md):
     return MeasureAggregate(**md)
 
 
-# TODO: alternative names: MeasureAggregate, AggregatedMeasure, Aggregate
 class MeasureAggregate(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
