@@ -531,7 +531,10 @@ class Cube(object):
 
     def get_aggregates(self, names):
         """Get a list of aggregates with `names`"""
-        return [self._aggregates[name] for name in names]
+        if not names:
+            return self.aggregates
+
+        return [self._aggregates[str(name)] for name in names]
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name. Raises
