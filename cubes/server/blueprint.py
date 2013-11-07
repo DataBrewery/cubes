@@ -227,7 +227,7 @@ def cube_model(cube_name):
 
 @slicer.route("/cube/<cube_name>/aggregate")
 @requires_browser
-@log_request("aggregate")
+@log_request("aggregate", "aggregates")
 def aggregate(cube_name):
     cube = g.cube
 
@@ -300,6 +300,7 @@ def aggregate(cube_name):
 
 @slicer.route("/cube/<cube_name>/facts")
 @requires_browser
+@log_request("facts", "fields")
 def cube_facts(cube_name):
     # Request parameters
     output_format = validated_parameter(request.args, "format",
@@ -326,12 +327,11 @@ def cube_facts(cube_name):
     fields = [attr.ref() for attr in attributes]
 
     # Get the result
-    with log_query("facts"):
-        facts = g.browser.facts(g.cell,
-                                 fields=fields,
-                                 order=g.order,
-                                 page=g.page,
-                                 page_size=g.page_size)
+    facts = g.browser.facts(g.cell,
+                             fields=fields,
+                             order=g.order,
+                             page=g.page,
+                             page_size=g.page_size)
 
     # Add cube key to the fields (it is returned in the result)
     fields.insert(0, g.cube.key)
@@ -380,6 +380,7 @@ def cube_fact(cube_name, fact_id):
 
 @slicer.route("/cube/<cube_name>/members/<dimension_name>")
 @requires_browser
+@log_request("members")
 def cube_members(cube_name, dimension_name):
     depth = request.args.get("depth")
 
@@ -398,13 +399,12 @@ def cube_members(cube_name, dimension_name):
     hier_name = request.args.get("hierarchy")
     hierarchy = dimension.hierarchy(hier_name)
 
-    with log_query("members"):
-        values = g.browser.members(g.cell,
-                                   dimension,
-                                   depth=depth,
-                                   hierarchy=hierarchy,
-                                   page=g.page,
-                                   page_size=g.page_size)
+    values = g.browser.members(g.cell,
+                               dimension,
+                               depth=depth,
+                               hierarchy=hierarchy,
+                               page=g.page,
+                               page_size=g.page_size)
 
     depth = depth or len(hierarchy)
 
