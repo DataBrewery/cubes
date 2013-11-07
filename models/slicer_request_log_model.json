@@ -1,0 +1,58 @@
+{
+    "cubes": [
+        {
+            "name": "slicer_log",
+            "dimensions": [
+                "date", "method", "cube", "identity", "format", "header"
+            ],
+            "measures": [
+                {"name": "elapsed_time"}
+            ],
+            "aggregates": [
+                {
+                    "name": "elapsed_time_sum",
+                    "label":"Total Request Time",
+                    "function": "sum",
+                    "measure": "elapsed_time"
+                },
+                {
+                    "name": "elapsed_time_avg",
+                    "label":"Average Request Time",
+                    "function": "avg",
+                    "measure": "elapsed_time"
+                },
+                {
+                    "name": "elapsed_time_min",
+                    "label":"Minimum Request Time",
+                    "function": "min",
+                    "measure": "elapsed_time"
+                },
+                {
+                    "name": "elapsed_time_max",
+                    "label":"Maximum Request Time",
+                    "function": "max",
+                    "measure": "elapsed_time"
+                }
+            ]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "time",
+            "levels": ["year", "month", "day", "hour", "minute"],
+            "role": "time"
+        },
+        {"name": "method", "label": "Browser Method"},
+        {"name": "cube", "label": "Cube"},
+        {"name": "identity", "label": "Autorization Identity"},
+        {"name": "format", "label": "Output Format"},
+        {"name": "header", "label": "Output Header Format"}
+    ],
+    "mappings": {
+        "date.year": {"column": "timestamp", "extract":"year"},
+        "date.month": {"column": "timestamp", "extract":"month"},
+        "date.day": {"column": "timestamp", "extract":"day"},
+        "date.hour": {"column": "timestamp", "extract":"hour"},
+        "date.minut": {"column": "timestamp", "extract":"minute"}
+    }
+}
