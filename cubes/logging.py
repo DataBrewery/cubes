@@ -24,7 +24,8 @@ __all__ = [
     "QueryLogger",
     "QueryLogHandler",
     "DefaultQueryLogHandler",
-    "CSVFileQueryLogHandler"
+    "CSVFileQueryLogHandler",
+    "QUERY_LOG_RECORD_ITEMS"
 ]
 
 logger_name = "cubes"
@@ -56,8 +57,9 @@ def create_logger(level=None):
     return logger
 
 
-LogRecord = namedtuple("LogRecord", ["timestamp", "query", "cube", "cell",
-                                     "identity", "elapsed_time"])
+QUERY_LOG_RECORD_ITEMS = ["timestamp", "query", "cube", "cell", "identity",
+                          "elapsed_time"]
+LogRecord = namedtuple("LogRecord", QUERY_LOG_RECORD_ITEMS)
 
 
 def create_query_log_handler(type_, *args, **kwargs):

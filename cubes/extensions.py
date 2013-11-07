@@ -20,6 +20,9 @@ _default_modules = {
         "mixpanel":"cubes.backends.mixpanel.store",
         "slicer":"cubes.backends.slicer.store",
     },
+    "query_log_handlers": {
+        "sql":"cubes.backends.sql.logging",
+    },
     "authorizers": {
     }
 }
