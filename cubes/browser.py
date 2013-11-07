@@ -11,7 +11,8 @@ except ImportError:
 
 from cubes.errors import *
 from .model import Dimension, Cube
-from .common import IgnoringDictionary, get_logger, to_unicode_string
+from .common import IgnoringDictionary, to_unicode_string
+from .logging import get_logger
 
 __all__ = [
     "AggregationBrowser",

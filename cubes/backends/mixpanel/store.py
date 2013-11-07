@@ -5,10 +5,10 @@ from ...browser import *
 from ...stores import Store
 from ...errors import *
 from ...providers import ModelProvider
+from ...logging import get_logger
 from .mixpanel import *
 from .mapper import cube_event_key
 from string import capwords
-from cubes.common import get_logger
 import pkgutil
 
 DIMENSION_COUNT_LIMIT = 100

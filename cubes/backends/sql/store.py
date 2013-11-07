@@ -1,12 +1,12 @@
 # -*- coding=utf -*-
 from .browser import SnowflakeBrowser
 from .mapper import SnowflakeMapper
-from ...common import get_logger, coalesce_options
+from ...logging import get_logger
+from ...common import coalesce_options
 from ...stores import Store
-from cubes.errors import *
-from cubes.browser import *
-from cubes.computation import *
-from cubes.workspace import Workspace, interpret_config_value
+from ...errors import *
+from ...browser import *
+from ...computation import *
 
 from .utils import CreateTableAsSelect, InsertIntoAsSelect
 

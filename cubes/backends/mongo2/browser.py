@@ -1,4 +1,4 @@
-from ...common import get_logger
+from ...logging import get_logger
 from ...errors import *
 from ...browser import *
 from ...computation import *

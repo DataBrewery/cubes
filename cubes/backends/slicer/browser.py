@@ -4,7 +4,7 @@ import urllib2
 import json
 import logging
 import urllib
-from ...common import get_logger
+from ...logging import get_logger
 from ...browser import *
 
 class SlicerBrowser(AggregationBrowser):

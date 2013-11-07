@@ -5,8 +5,9 @@ import copy
 
 from collections import OrderedDict, defaultdict
 
-from .common import IgnoringDictionary, get_logger, to_label
+from .common import IgnoringDictionary, to_label
 from .common import assert_instance, assert_all_instances
+from .logging import get_logger
 from .errors import *
 from .statutils import aggregate_calculator_labels
 

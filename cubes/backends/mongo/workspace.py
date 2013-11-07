@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 
 from cubes.workspace import Workspace
-from cubes.common import get_logger
+from cubes.logging import get_logger
 from browser import *
 from builder import *
 import pymongo

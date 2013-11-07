@@ -8,7 +8,8 @@ import urlparse
 import copy
 import shutil
 
-from .common import IgnoringDictionary, get_logger, to_label
+from .common import IgnoringDictionary, to_label
+from .logging import get_logger
 from .errors import *
 from .extensions import get_namespace, initialize_namespace
 from .model import *

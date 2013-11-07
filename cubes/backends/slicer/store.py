@@ -4,7 +4,7 @@ from ...browser import *
 from ...stores import Store
 from ...providers import ModelProvider
 from ...errors import *
-from ...common import get_logger
+from ...logging import get_logger
 import json
 import urllib2
 import urllib
