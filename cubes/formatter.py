@@ -130,19 +130,20 @@ def parse_format_arguments(formatter, args, prefix="f:"):
 class Formatter(object):
     """Empty class for the time being. Currently used only for finding all
     built-in subclasses"""
-    pass
+    def __call__(self, *args, **kwargs):
+        return self.format(*args, **kwargs)
 
 class TextTableFormatter(Formatter):
     parameters = [
                 {
-                    "name": "measure_format",
+                    "name": "aggregate_format",
                     "type": "string",
-                    "label": "Measure format"
+                    "label": "Aggregate format"
                 },
                 {
                     "name": "dimension",
                     "type": "string",
-                    "label": "dimension to consider"
+                    "label": "Dimension to drill-down by"
                 },
                 {
                     "name": "measures",
@@ -153,32 +154,36 @@ class TextTableFormatter(Formatter):
 
     mime_type = "text/plain"
 
-    def __init__(self, measure_format=None):
+    def __init__(self, aggregate_format=None):
         super(TextTableFormatter, self).__init__()
-        self.format = measure_format or {}
+        self.agg_format = aggregate_format or {}
 
-    def format(self, result, dimension, measures):
+    def format(self, result, dimension, aggregates=None, hierarchy=None):
+        cube = result.cell.cube
+        aggregates = cube.get_aggregates(aggregates)
+
         rows = []
         label_width = 0
-        measure_widths = [0] * len(measures)
+        aggregate_widths = [0] * len(aggregates)
 
-        for row in result.table_rows(dimension):
+        for row in result.table_rows(dimension, hierarchy=hierarchy):
             display_row = []
             label_width = max(label_width, len(row.label))
             display_row.append( (row.label, '<') )
-            for i, measure in enumerate(measures):
-                if measure == "record_count":
+
+            for i, aggregate in enumerate(aggregates):
+                if aggregate.function in ["count", "count_nonempty"]:
                     default_fmt = "d"
                 else:
                     default_fmt = ".2f"
 
-                fmt = self.format.get(measure, default_fmt)
-                text = format(row.record[measure], fmt)
-                measure_widths[i] = max(measure_widths[i], len(text))
+                fmt = self.agg_format.get(aggregate.ref(), default_fmt)
+                text = format(row.record[aggregate.ref()], fmt)
+                aggregate_widths[i] = max(aggregate_widths[i], len(text))
                 display_row.append( (text, '>') )
             rows.append(display_row)
 
-        widths = [label_width] + measure_widths
+        widths = [label_width] + aggregate_widths
         stream = StringIO()
 
         for row in rows:
@@ -199,51 +204,39 @@ class SimpleDataTableFormatter(Formatter):
 
     parameters = [
                 {
-                    "name": "count_label",
-                    "type": "string",
-                    "label": "Label of record count column"
-                },
-                {
                     "name": "dimension",
                     "type": "string",
                     "label": "dimension to consider"
                 },
                 {
-                    "name": "aggregated_measures",
-                    "short_name": "measures",
+                    "name": "aggregates",
+                    "short_name": "aggregates",
                     "type": "list",
-                    "label": "list of measures"
+                    "label": "list of aggregates"
                 }
             ]
 
     mime_type = "application/json"
 
-    def __init__(self, count_label=None, levels=None):
+    def __init__(self, levels=None):
         """Creates a formatter that formats result into a tabular structure.
-        `count_label` is default label to be used for `record_count`
-        aggregation."""
+        """
 
         super(SimpleDataTableFormatter, self).__init__()
-        self.count_label = count_label
 
-    def format(self, result, dimension, aggregated_measures):
+    def format(self, result, dimension, hierarchy=None, aggregates=None):
 
         cube = result.cell.cube
+        aggregates = cube.get_aggregates(aggregates)
+
         dimension = cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
         cut = result.cell.cut_for_dimension(dimension)
 
         if cut:
-            path = cut.path
-            hierarchy = dimension.hierarchy(cut.hierarchy)
+            rows_level = hierarchy[cut.level_depth()+1]
         else:
-            path = []
-            hierarchy = dimension.hierarchy()
-
-        levels = hierarchy.levels_for_path(path)
-        if levels:
-            rows_level = hierarchy.next_level(levels[-1])
-        else:
-            rows_level = hierarchy.next_level(None)
+            rows_level = hierarchy[0]
 
         is_last = hierarchy.is_last(rows_level)
 
@@ -253,21 +246,10 @@ class SimpleDataTableFormatter(Formatter):
             rheader = { "label":row.label,
                         "key":row.key}
             # Get values for aggregated measures
-            data = [row.record[m] for m in aggregated_measures]
+            data = [row.record[str(agg)] for agg in aggregates]
             rows.append({"header":rheader, "data":data, "is_base": row.is_base})
 
-        # Create column headings
-        measures = [split_aggregate_ref(m) for m in aggregated_measures]
-        # FIXME: we should format the measure with aggregate here
-
-        labels = []
-        for (measure, aggregation) in measures:
-            if measure != "record_count":
-                attr = cube.measure(measure)
-                label = attr.label or attr.name
-            else:
-                label = self.count_label or "Count"
-            labels.append(label)
+        labels = [agg.label or agg.name for agg in aggregates]
 
         hierarchy = dimension.hierarchy()
         header = [rows_level.label or rows_level.name]
@@ -277,9 +259,10 @@ class SimpleDataTableFormatter(Formatter):
                 "header": header,
                 "rows": rows
                 }
+
         return data_table;
 
-class TextTableFormatter(Formatter):
+class TextTableFormatter2(Formatter):
     parameters = [
                 {
                     "name": "measure_format",
@@ -300,9 +283,8 @@ class TextTableFormatter(Formatter):
 
     mime_type = "text/plain"
 
-    def __init__(self, measure_format=None):
+    def __init__(self):
         super(TextTableFormatter, self).__init__()
-        self.format = measure_format or {}
 
     def format(self, result, dimension, measures):
         cube = result.cube
@@ -320,17 +302,11 @@ CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 class CrossTableFormatter(Formatter):
     parameters = [
                 {
-                    "name": "measures_as",
+                    "name": "aggregates_on",
                     "type": "string",
-                    "label": "Localtion of measures. Can be columns, rows or "
+                    "label": "Localtion of aggregates. Can be columns, rows or "
                              "cells",
                     "scope": "formatter",
-                },
-                {
-                    "name": "count_label",
-                    "type": "string",
-                    "label": "Label to be used for record_count measure",
-                    "scopr": "formatter"
                 },
                 {
                     "name": "onrows",
@@ -343,62 +319,44 @@ class CrossTableFormatter(Formatter):
                     "label": "List of attributes to be put on columns"
                 },
                 {
-                    "name": "measures",
-                    "short_name": "measures",
+                    "name": "aggregates",
+                    "short_name": "aggregates",
                     "type": "list",
-                    "label": "list of aggregated measures"
+                    "label": "list of aggregates"
                 }
             ]
 
     mime_type = "application/json"
 
-    def __init__(self, measures_as=None, measure_labels=None,
-            aggregation_labels=None, measure_label_format=None,
-            count_label=None):
+    def __init__(self, aggregates_on=None):
         """Creates a cross-table formatter.
 
         Arguments:
 
-        * `measures_as` – specify how to put measures in the table. Might be
-          one of ``rows``, ``columns`` or ``cells`` (default).
-        * `measure_labels` – dictionary of labels to be used for measures
-        * `aggregation_labels` – dictionary of labels of aggregations, used
-          for default measure labeling
-        * `measure_label_format` – format string for measure label, default is
-          ``{measure} ({aggregation})``
-        * `count_label` – label to be used for record count. Overrides
-          default setting
+        * `aggregates_on` – specify how to put aggregates in the table. Might
+          be one of ``rows``, ``columns`` or ``cells`` (default).
 
-        If measures are put on rows or columns, then respective row or column
-        is added per measure. The data contains single measure values.
+        If aggregates are put on rows or columns, then respective row or
+        column is added per aggregate. The data contains single aggregate
+        values.
 
-        If measures are put in the table as cells, then the data contains
-        tuples of measures in the order as specified in the `measures`
+        If aggregates are put in the table as cells, then the data contains
+        tuples of aggregates in the order as specified in the `aggregates`
         argument of `format()` method.
-
-        If no `measure_labels` is provided or no key for a measure is found in
-        the dictionary, then the label is constructect with form: "Measure
-        (aggregation)", for example: "Amount (sum)".
-
-        If `aggregation_labels` is provided, then it is used to give measure
-        aggregation label.
         """
+
         super(CrossTableFormatter, self).__init__()
 
-        self.measures_as = measures_as
-        self.measure_labels = measure_labels or {}
-        self.aggregation_labels = aggregation_labels or {}
-        self.measure_label_format = measure_label_format or "{measure} ({aggregation})"
-        self.count_label = count_label
+        self.aggregates_on = aggregates_on
 
-    def format(self, result, onrows=None, oncolumns=None, measures=None,
-               measures_as=None):
+    def format(self, result, onrows=None, oncolumns=None, aggregates=None,
+               aggregates_on=None):
         """
         Creates a cross table from a drilldown (might be any list of records).
         `onrows` contains list of attribute names to be placed at rows and
         `oncolumns` contains list of attribute names to be placet at columns.
-        `measures` is a list of measures to be put into cells. If measures are not
-        specified, then only ``record_count`` is used.
+        `aggregates` is a list of aggregates to be put into cells. If
+        aggregates are not specified, then only ``record_count`` is used.
 
         Returns a named tuble with attributes:
 
@@ -406,44 +364,24 @@ class CrossTableFormatter(Formatter):
           attributes in `oncolumns`.
         * `rows` - labels of rows as list of tuples. The tuples correspond to
           values of attributes in `onrows`.
-        * `data` - list of measure data per row. Each row is a list of measure
-          tuples.
+        * `data` - list of aggregate data per row. Each row is a list of
+          aggregate tuples.
 
         """
 
         # Use formatter's default, if set
-        measures_as = measures_as or self.measures_as
+        aggregates_on = aggregates_on or self.aggregates_on
         cube = result.cell.cube
+        aggregates = cube.get_aggregates(aggregates)
 
         matrix = {}
         row_hdrs = []
         column_hdrs = []
 
-        measures = measures or ["record_count"]
+        labels = [agg.label for agg in aggregates]
+        agg_refs = [agg.ref() for agg in aggregates]
 
-        measure_labels = []
-        for agg_measure in measures:
-            if agg_measure != "record_count":
-                # Try to get label from measure_labels
-                label = self.measure_labels.get(agg_measure)
-
-                # Construct a label if not provided
-                if not label:
-                    name, agg = split_aggregate_ref(agg_measure)
-                    measure = cube.measure(name)
-
-                    agg_label = self.aggregation_labels.get(agg, agg)
-                    m_label = measure.label or measure.name
-
-                    args = {"measure":m_label, "aggregation":agg_label}
-                    label = self.measure_label_format.format(**args)
-            else:
-                measure = cube.measure("record_count")
-                label = self.count_label or measure.label or str(measure)
-
-            measure_labels.append(label)
-
-        if measures_as is None or measures_as == "cells":
+        if aggregates_on is None or aggregates_on == "cells":
             for record in result.cells:
                 # Get table coordinates
                 hrow = tuple(record[f] for f in onrows)
@@ -454,7 +392,7 @@ class CrossTableFormatter(Formatter):
                 if not hcol in column_hdrs:
                     column_hdrs.append(hcol)
 
-                matrix[(hrow, hcol)] = tuple(record[m] for m in measures)
+                matrix[(hrow, hcol)] = tuple(record[a] for a in agg_refs)
 
         else:
             for record in result.cells:
@@ -462,21 +400,23 @@ class CrossTableFormatter(Formatter):
                 base_hrow = [record[f] for f in onrows]
                 base_hcol = [record[f] for f in oncolumns]
 
-                for i, measure in enumerate(measures):
-                    measure_label = measure_labels[i]
-                    if measures_as == "rows":
-                        hrow = tuple(base_hrow + [measure_label])
+                for i, agg in enumerate(aggregates):
+
+                    if aggregates_on == "rows":
+                        hrow = tuple(base_hrow + [agg.label or agg.name])
                         hcol = tuple(base_hcol)
-                    elif measures_as == "columns":
+
+                    elif aggregates_on == "columns":
                         hrow = tuple(base_hrow)
-                        hcol = tuple(base_hcol + [measure_label])
+                        hcol = tuple(base_hcol + [agg.label or agg.name])
 
                     if not hrow in row_hdrs:
                         row_hdrs.append(hrow)
+
                     if not hcol in column_hdrs:
                         column_hdrs.append(hcol)
 
-                    matrix[(hrow, hcol)] = record[measure]
+                    matrix[(hrow, hcol)] = record[agg.ref()]
 
         data = []
 
@@ -489,17 +429,11 @@ class CrossTableFormatter(Formatter):
 class HTMLCrossTableFormatter(CrossTableFormatter):
     parameters = [
                 {
-                    "name": "measures_as",
+                    "name": "aggregates_on",
                     "type": "string",
                     "label": "Localtion of measures. Can be columns, rows or "
                              "cells",
                     "scope": "formatter",
-                },
-                {
-                    "name": "count_label",
-                    "type": "string",
-                    "label": "Label to be used for record_count measure",
-                    "scopr": "formatter"
                 },
                 {
                     "name": "onrows",
@@ -512,10 +446,10 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
                     "label": "List of attributes to be put on columns"
                 },
                 {
-                    "name": "measures",
-                    "short_name": "measures",
+                    "name": "aggregates",
+                    "short_name": "aggregates",
                     "type": "list",
-                    "label": "list of aggregated measures"
+                    "label": "list of aggregates"
                 },
                 {
                     "name": "table_style",
@@ -524,32 +458,28 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
             ]
     mime_type = "text/html"
 
-    def __init__(self, measures_as=None, measure_labels=None,
+    def __init__(self, aggregates_on="cells", measure_labels=None,
             aggregation_labels=None, measure_label_format=None,
             count_label=None, table_style=None):
         """Create a simple HTML table formatter. See `CrossTableFormatter` for
         information about arguments."""
 
-        if measures_as not in ["columns", "rows"]:
-            raise ArgumentError("measures_as sohuld be either 'columns' "
-                                "or 'rows', is %s" % measures_as)
+        if aggregates_on not in ["columns", "rows", "cells"]:
+            raise ArgumentError("aggregates_on sohuld be either 'columns' "
+                                "or 'rows', is %s" % aggregates_on)
 
-        super(HTMLCrossTableFormatter, self).__init__(measures_as=measures_as,
-                                                measure_labels=measure_labels,
-                                                aggregation_labels=aggregation_labels,
-                                                measure_label_format=measure_label_format,
-                                                count_label=count_label)
+        super(HTMLCrossTableFormatter, self).__init__(aggregates_on)
 
         self.env = _jinja_env()
         self.template = self.env.get_template("cross_table.html")
         self.table_style = table_style
 
-    def format(self, result, onrows=None, oncolumns=None, measures=None):
+    def format(self, result, onrows=None, oncolumns=None, aggregates=None):
 
         table = super(HTMLCrossTableFormatter, self).format(result,
                                                         onrows=onrows,
                                                         oncolumns=oncolumns,
-                                                        measures=measures)
+                                                        aggregates=aggregates)
         output = self.template.render(table=table,
                                       table_style=self.table_style)
         return output
@@ -559,52 +489,45 @@ class SimpleHTMLTableFormatter(Formatter):
 
     parameters = [
                 {
-                    "name": "count_label",
-                    "type": "string",
-                    "label": "Label of record count column"
-                },
-                {
                     "name": "dimension",
                     "type": "string",
                     "label": "dimension to consider"
                 },
                 {
-                    "name": "aggregated_measures",
-                    "short_name": "measures",
+                    "name": "aggregates",
+                    "short_name": "aggregates",
                     "type": "list",
-                    "label": "list of measures"
+                    "label": "list of aggregates"
                 }
             ]
 
     mime_type = "text/html"
 
-    def __init__(self, count_label=None, create_links=True,
-                 table_style=None):
+    def __init__(self, create_links=True, table_style=None):
         """Create a simple HTML table formatter"""
 
         super(SimpleHTMLTableFormatter, self).__init__()
 
         self.env = _jinja_env()
-        self.formatter = SimpleDataTableFormatter(count_label)
+        self.formatter = SimpleDataTableFormatter()
         self.template = self.env.get_template("simple_table.html")
         self.create_links = create_links
         self.table_style = table_style
 
-    def format(self, result, dimension, aggregated_measures):
+    def format(self, result, dimension, aggregates=None, hierarchy=None):
         cube = result.cell.cube
         dimension = cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
+        aggregates = cube.get_aggregates(aggregates)
+
         cut = result.cell.cut_for_dimension(dimension)
 
         if cut:
-            path = cut.path
-            hierarchy = dimension.hierarchy(cut.hierarchy)
+            is_last = cut.level_depth() >= len(hierarchy)
         else:
-            path = []
-            hierarchy = dimension.hierarchy()
+            is_last = False
 
-        is_last = len(path)+1 >= len(hierarchy)
-
-        table = self.formatter.format(result, dimension, aggregated_measures)
+        table = self.formatter.format(result, dimension, aggregates=aggregates)
 
         output = self.template.render(cell=result.cell,
                                       dimension=dimension,
@@ -620,10 +543,10 @@ class RickshawSeriesFormatter(Formatter):
 
     Library URL: http://code.shutterstock.com/rickshaw/"""
 
-    def format(self, result, aggregated_measure):
+    def format(self, result, aggregate):
         data = []
         for x, row in enumerate(result):
-            data.append({"x":x, "y":row[aggregated_measure]})
+            data.append({"x":x, "y":row[str(aggregate)]})
         return data
 
 _default_ricshaw_palette = ["mediumorchid", "steelblue", "turquoise",
@@ -636,8 +559,7 @@ class RickshawMultiSeriesFormatter(Formatter):
     Library URL: http://code.shutterstock.com/rickshaw/"""
 
     def format(self, result, series_dimension, values_dimension,
-                aggregated_measure,
-                color_map=None, color_palette=None):
+                aggregate, color_map=None, color_palette=None):
         """Provide multiple series. Result is expected to be ordered.
 
         Arguments:
@@ -676,8 +598,9 @@ class RickshawMultiSeriesFormatter(Formatter):
         rows = [series_level.key.ref(), series_level.label_attribute.ref()]
         columns = [values_level.key.ref(), values_level.label_attribute.ref()]
 
-        cross_table = result.cross_table(onrows=rows, oncolumns=columns,
-                                         measures = [aggregated_measure])
+        cross_table = result.cross_table(onrows=rows,
+                                         oncolumns=columns,
+                                         aggregates=[aggregate])
 
         color_index = 0
 
