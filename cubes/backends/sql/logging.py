@@ -32,7 +32,7 @@ class SQLRequestLogHandler(RequestLogHandler):
                 Column('page', Integer),
                 Column('page_size', Integer),
                 Column('format', String),
-                Column('headers', String),
+                Column('header', String),
             ]
 
             self.table = Table(table, metadata, extend_existing=True, *columns)

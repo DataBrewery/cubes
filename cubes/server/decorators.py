@@ -141,7 +141,7 @@ def requires_authorization(f):
 # Query Logging
 # =============
 
-def log_request(action):
+def log_request(action, attrib_field="attributes"):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
@@ -153,7 +153,8 @@ def log_request(action):
                 "page": g.page,
                 "page_size": g.page_size,
                 "format": request.args.get("format"),
-                "headers": request.args.get("headers")
+                "header": request.args.get("header"),
+                "attributes": request.args.get(attrib_field)
             }
 
             with rlogger.log_time(action, g.browser, g.cell, g.auth_identity,
