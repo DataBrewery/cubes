@@ -17,10 +17,14 @@ __all__ = [
     "logger_name",
     "get_logger",
     "create_logger",
-    "create_query_logger",
+
+    "create_query_log_handler",
+    "configured_query_log_handlers",
+
     "QueryLogger",
-    "DefaultQueryLogger",
-    "CSVFileQueryLogger"
+    "QueryLogHandler",
+    "DefaultQueryLogHandler",
+    "CSVFileQueryLogHandler"
 ]
 
 logger_name = "cubes"
@@ -56,23 +60,51 @@ LogRecord = namedtuple("LogRecord", ["timestamp", "query", "cube", "cell",
                                      "identity", "elapsed_time"])
 
 
-def create_query_logger(type_, *args, **kwargs):
+def create_query_log_handler(type_, *args, **kwargs):
     """Gets a new instance of a query logger."""
 
-    ns = get_namespace("query_loggers")
+    ns = get_namespace("query_log_handlers")
     if not ns:
-        ns = initialize_namespace("query_loggers", root_class=QueryLogger,
-                                  suffix="_query_logger",
+        ns = initialize_namespace("query_log_hanlers",
+                                  root_class=QueryLogHandler,
+                                  suffix="_query_log_handler",
                                   option_checking=True)
     try:
         factory = ns[type_]
     except KeyError:
-        raise ConfigurationError("Unknown query logger '%s'" % type_)
+        raise ConfigurationError("Unknown query log handler '%s'" % type_)
 
     return factory(*args, **kwargs)
 
 
+def configured_query_log_handlers(config, prefix="query_log",
+                                  default_logger=None):
+    """Returns configured query loggers as defined in the `config`."""
+
+    handlers = []
+
+    for section in config.sections():
+        if section.startswith(prefix):
+            options = dict(config.items(section))
+            type_ = options.pop("type")
+            if type_ == "default":
+                logger = default_logger or get_logger()
+                handler = create_query_log_handler("default", logger)
+            else:
+                handler = create_query_log_handler(type_, **options)
+
+            handlers.append(handler)
+
+    return handlers
+
+
 class QueryLogger(object):
+    def __init__(self, handlers=None):
+        if handlers:
+            self.handlers = list(handlers)
+        else:
+            self.handlers = []
+
     @contextmanager
     def log_time(self, query, browser, cell, identity=None):
         start = time.time()
@@ -90,10 +122,15 @@ class QueryLogger(object):
                            identity,
                            elapsed or 0)
 
-        self.write_record(record)
+        for handler in self.handlers:
+            handler.write_record(record)
 
 
-class DefaultQueryLogger(QueryLogger):
+class QueryLogHandler(object):
+    pass
+
+
+class DefaultQueryLogHandler(QueryLogHandler):
     def __init__(self, logger=None, **options):
         self.logger = logger
 
@@ -105,7 +142,7 @@ class DefaultQueryLogger(QueryLogger):
                             record.elapsed_time))
 
 
-class CSVFileQueryLogger(QueryLogger):
+class CSVFileQueryLogHandler(QueryLogHandler):
     def __init__(self, path=None, **options):
         self.path = path
 
