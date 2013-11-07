@@ -1,11 +1,11 @@
 # -*- coding=utf -*-
 
-from ...logging import QueryLogHandler, QUERY_LOG_RECORD_ITEMS
+from ...server.logging import RequestLogHandler, REQUEST_LOG_ITEMS
 from sqlalchemy import create_engine, Table, MetaData, Column
 from sqlalchemy import Integer, Sequence, DateTime, String, Float
 from sqlalchemy.exc import NoSuchTableError
 
-class SQLQueryLogHandler(QueryLogHandler):
+class SQLRequestLogHandler(RequestLogHandler):
     def __init__(self, url=None, table=None, **options):
 
         self.url = url
@@ -21,16 +21,23 @@ class SQLQueryLogHandler(QueryLogHandler):
                 Column('id', Integer, Sequence(table+"_seq"),
                        primary_key=True),
                 Column('timestamp', DateTime),
-                Column('query', String),
+                Column('method', String),
                 Column('cube', String),
                 Column('cell', String),
                 Column('identity', String),
-                Column('elapsed_time', Float)
+                Column('elapsed_time', Float),
+                Column('attributes', String),
+                Column('split', String),
+                Column('drilldown', String),
+                Column('page', Integer),
+                Column('page_size', Integer),
+                Column('format', String),
+                Column('headers', String),
             ]
+
             self.table = Table(table, metadata, extend_existing=True, *columns)
             self.table.create()
 
     def write_record(self, record):
-        row = dict(zip(QUERY_LOG_RECORD_ITEMS, record))
-        insert = self.table.insert().values(row)
+        insert = self.table.insert().values(record)
         self.engine.execute(insert)

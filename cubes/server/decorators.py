@@ -141,10 +141,28 @@ def requires_authorization(f):
 # Query Logging
 # =============
 
-@contextmanager
-def log_query(action):
-    qlogger = current_app.slicer.query_logger
-    with qlogger.log_time(action, g.browser, g.cell, g.auth_identity):
-        yield
+def log_request(action):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            rlogger = current_app.slicer.request_logger
 
+            other = {
+                "split": request.args.get("split"),
+                "drilldown": request.args.get("drilldown"),
+                "page": g.page,
+                "page_size": g.page_size,
+                "format": request.args.get("format"),
+                "headers": request.args.get("headers")
+            }
+
+            with rlogger.log_time(action, g.browser, g.cell, g.auth_identity,
+                                  **other):
+                retval = f(*args, **kwargs)
+
+            return retval
+
+        return wrapper
+
+    return decorator
 
