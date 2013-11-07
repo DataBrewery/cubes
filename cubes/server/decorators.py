@@ -12,6 +12,8 @@ from .errors import *
 from .local import *
 from ..calendar import CalendarMemberConverter
 
+from contextlib import contextmanager
+
 # Utils
 # -----
 
@@ -134,5 +136,15 @@ def requires_authorization(f):
         return f(*args, **kwargs)
 
     return wrapper
+
+
+# Query Logging
+# =============
+
+@contextmanager
+def log_query(action):
+    qlogger = current_app.slicer.query_logger
+    with qlogger.log_time(action, g.browser, g.cell, g.auth_identity):
+        yield
 
 
