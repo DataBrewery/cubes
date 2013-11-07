@@ -42,7 +42,6 @@ __all__ = [
     "CrossTable",
     "cross_table",
     "SPLIT_DIMENSION_NAME",
-    "dimlevel_from_string"
 ]
 
 SPLIT_DIMENSION_NAME = '__within_split__'
