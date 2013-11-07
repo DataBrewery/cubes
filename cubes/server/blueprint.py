@@ -338,11 +338,12 @@ def cube_facts(cube_name):
     fields = [attr.ref() for attr in attributes]
 
     # Get the result
-    facts = g.browser.facts(g.cell,
-                             fields=fields,
-                             order=g.order,
-                             page=g.page,
-                             page_size=g.page_size)
+    with g.query_logger.log_time("facts", g.browser, g.cell, g.auth_identity):
+        facts = g.browser.facts(g.cell,
+                                 fields=fields,
+                                 order=g.order,
+                                 page=g.page,
+                                 page_size=g.page_size)
 
     # Add cube key to the fields (it is returned in the result)
     fields.insert(0, g.cube.key)
@@ -409,12 +410,13 @@ def cube_members(cube_name, dimension_name):
     hier_name = request.args.get("hierarchy")
     hierarchy = dimension.hierarchy(hier_name)
 
-    values = g.browser.members(g.cell,
-                               dimension,
-                               depth=depth,
-                               hierarchy=hierarchy,
-                               page=g.page,
-                               page_size=g.page_size)
+    with g.query_logger.log_time("members", g.browser, g.cell, g.auth_identity):
+        values = g.browser.members(g.cell,
+                                   dimension,
+                                   depth=depth,
+                                   hierarchy=hierarchy,
+                                   page=g.page,
+                                   page_size=g.page_size)
 
     depth = depth or len(hierarchy)
 
