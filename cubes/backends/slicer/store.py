@@ -56,7 +56,7 @@ class SlicerStore(Store):
             raise MissingObjectError
         elif response.getcode() != 200:
             raise BackendError("Slicer request error (%s): %s"
-                               % (result.get("type"),result.get("message")))
+                               % (response.getcode(), response.read()))
 
         if is_lines:
             return _JSONLinesIterator(response)
@@ -101,6 +101,7 @@ class SlicerModelProvider(ModelProvider):
 
         dimensions = cube_desc.pop("dimensions")
 
+        cube_desc['datastore'] = self.store_name
         cube = create_cube(cube_desc)
         for dim in dimensions:
             dim = create_dimension(dim)

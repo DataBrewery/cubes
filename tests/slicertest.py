@@ -11,7 +11,7 @@ import cubes.browser
 class SlicerTestCase(unittest.TestCase):
     def setUp(self):
         self.w = Workspace()
-        self.w.add_slicer("slicer", "http://localhost:5010")
+        self.w.add_slicer("myslicer", "http://localhost:5010")
 
         self.cube_list = self.w.list_cubes()
 
@@ -23,6 +23,8 @@ class SlicerTestCase(unittest.TestCase):
 
     def test_basic(self):
         for c in self.cube_list:
+            if c.get('category') is not None and 'Mix' in c.get('category', ''):
+                continue
             print ("Doing %s..." % c.get('name')),
             cube = self.w.cube(c.get('name'))
             date_dim = self.first_date_dim(cube)

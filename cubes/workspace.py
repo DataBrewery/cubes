@@ -381,7 +381,8 @@ class Workspace(object):
 
         model = {
             "store": name,
-            "provider": "slicer"
+            "provider": "slicer",
+            "datastore": name
         }
         self.add_model(model)
 
