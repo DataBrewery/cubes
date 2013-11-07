@@ -35,7 +35,8 @@ Simple configuration might look like this::
 Workspace
 =========
 
-* ``stores`` – path to a file containing store descriptions
+* ``stores`` – path to a file containing store descriptions – every section is
+  a store with same name as the section
 * ``models_path`` – path to a directory containing models. If this is set to
   non-empty value, then all model paths specified in ``[models]`` are prefixed
   with this path
