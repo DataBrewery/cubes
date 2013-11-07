@@ -6,7 +6,7 @@ from functools import wraps
 from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..browser import Cell, SPLIT_DIMENSION_NAME
 from ..errors import *
-from ..logging import configured_query_log_handlers, QueryLogger
+from .logging import configured_request_log_handlers, RequestLogger
 from .utils import *
 from .errors import *
 from .decorators import *
@@ -110,8 +110,8 @@ def initialize_slicer(state):
                         "be using an authorizer")
 
         # Collect query loggers
-        handlers = configured_query_log_handlers(config)
-        current_app.slicer.query_logger = QueryLogger(handlers)
+        handlers = configured_request_log_handlers(config)
+        current_app.slicer.request_logger = RequestLogger(handlers)
 
 # Before and After
 # ================
@@ -227,6 +227,7 @@ def cube_model(cube_name):
 
 @slicer.route("/cube/<cube_name>/aggregate")
 @requires_browser
+@log_request("aggregate")
 def aggregate(cube_name):
     cube = g.cube
 
@@ -260,14 +261,13 @@ def aggregate(cube_name):
 
     prepare_cell("split", "split")
 
-    with log_query("aggregate"):
-        result = g.browser.aggregate(g.cell,
-                                     aggregates=aggregates,
-                                     drilldown=drilldown,
-                                     split=g.split,
-                                     page=g.page,
-                                     page_size=g.page_size,
-                                     order=g.order)
+    result = g.browser.aggregate(g.cell,
+                                 aggregates=aggregates,
+                                 drilldown=drilldown,
+                                 split=g.split,
+                                 page=g.page,
+                                 page_size=g.page_size,
+                                 order=g.order)
 
     if output_format == "json":
         return jsonify(result)
