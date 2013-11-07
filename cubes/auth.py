@@ -5,7 +5,7 @@ import json
 from collections import namedtuple, defaultdict
 from .extensions import get_namespace, initialize_namespace
 from .browser import Cell, cut_from_string, cut_from_dict
-from .browser import dimlevel_from_string
+from .browser import string_to_drilldown
 from .errors import *
 from .common import read_json_file, sorted_dependencies
 
@@ -81,7 +81,7 @@ class _SimpleAccessRight(object):
             for cube, limits in hierarchy_limits.items():
                 for limit in limits:
                     if isinstance(limit, basestring):
-                        limit = dimlevel_from_string(limit)
+                        limit = string_to_drilldown(limit)
                     self.hierarchy_limits[cube].append(limit)
 
         self.hierarchy_limits = dict(self.hierarchy_limits)

@@ -1878,17 +1878,3 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
 
     return result
 
-
-def dimlevel_from_string(string):
-    dim_hier_pattern = re.compile("(?P<dim>\w+)"
-                                  "(@(?P<hier>\w+))?"
-                                  "(:(?P<level>\w+))")
-
-    match = dim_hier_pattern.match(string)
-
-    if match:
-        d = match.groupdict()
-        return (d["dim"], d["hier"], d["level"])
-    else:
-        raise ArgumentError("Dimension level reference '%s' does not match "
-                            "pattern 'dimension@hierarchy:level'" % string)
