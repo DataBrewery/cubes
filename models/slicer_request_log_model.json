@@ -44,7 +44,7 @@
         },
         {"name": "method", "label": "Browser Method"},
         {"name": "cube", "label": "Cube"},
-        {"name": "identity", "label": "Autorization Identity"},
+        {"name": "identity", "label": "Authorized User"},
         {"name": "format", "label": "Output Format"},
         {"name": "header", "label": "Output Header Format"}
     ],
@@ -53,6 +53,6 @@
         "date.month": {"column": "timestamp", "extract":"month"},
         "date.day": {"column": "timestamp", "extract":"day"},
         "date.hour": {"column": "timestamp", "extract":"hour"},
-        "date.minut": {"column": "timestamp", "extract":"minute"}
+        "date.minute": {"column": "timestamp", "extract":"minute"}
     }
 }
