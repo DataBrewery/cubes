@@ -387,7 +387,18 @@ class ModelProvider(object):
             merged_joins = []
 
             for join in cube_joins:
-                model_join = model_join_map.get(join.get('name'), {})
+                name = join.get('name')
+                if name:
+                    try:
+                        model_join = model_join_map[join.get('name')]
+                    except KeyError:
+                        raise ModelError("No model join template '%s' found"
+                                         % join.get('name'))
+
+                    model_join = dict(model_join)
+                else:
+                    model_join = {}
+
                 model_join.update(join)
                 merged_joins.append(model_join)
         else:
