@@ -888,6 +888,15 @@ class Cell(object):
                 cuts.append(cut)
         return cuts
 
+    def public_cell(self):
+        """Returns a cell that contains only non-hidden cuts. Hidden cuts are
+        mostly generated cuts by a backend or an extension. Public cell is a
+        cell to be presented to the front-end."""
+
+        cuts = [cut for cut in self.cuts if not cut.hidden]
+
+        return Cell(self.cube, cuts)
+
     def __eq__(self, other):
         """cells are considered equal if:
             * they refer to the same cube
@@ -1191,20 +1200,28 @@ def path_from_string(string):
 
 
 class Cut(object):
-    def __init__(self, dimension, hierarchy=None, invert=False):
+    def __init__(self, dimension, hierarchy=None, invert=False,
+                 hidden=False):
+        """Abstract class for a cell cut."""
         self.dimension = dimension
         self.hierarchy = hierarchy
         self.invert = invert
+        self.hidden = hidden
 
     def to_dict(self):
         """Returns dictionary representation fo the receiver. The keys are:
         `dimension`."""
-        d = {
-            "dimension": str(self.dimension),
-            "hierarchy": str(self.hierarchy) if self.hierarchy else None,
-            "level_depth": self.level_depth(),
-            "invert": self.invert
-        }
+        d = OrderedDict()
+
+        # Placeholder for 'type' to be at the beginning of the list
+        d['type'] = None
+
+        d["dimension"] = str(self.dimension)
+        d["hierarchy"] = str(self.hierarchy) if self.hierarchy else None
+        d["level_depth"] = self.level_depth()
+        d["invert"] = self.invert
+        d["hidden"] = self.hidden
+
         return d
 
     def level_depth(self):
@@ -1220,8 +1237,9 @@ class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a
     dimension"""
 
-    def __init__(self, dimension, path, hierarchy=None, invert=False):
-        super(PointCut, self).__init__(dimension, hierarchy, invert)
+    def __init__(self, dimension, path, hierarchy=None, invert=False,
+                 hidden=False):
+        super(PointCut, self).__init__(dimension, hierarchy, invert, hidden)
         self.path = path
 
     def to_dict(self):
@@ -1265,8 +1283,9 @@ class RangeCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, from_path, to_path, hierarchy=None, invert=False):
-        super(RangeCut, self).__init__(dimension, hierarchy, invert)
+    def __init__(self, dimension, from_path, to_path, hierarchy=None,
+                 invert=False, hidden=False):
+        super(RangeCut, self).__init__(dimension, hierarchy, invert, hidden)
         self.from_path = from_path
         self.to_path = to_path
 
@@ -1330,8 +1349,9 @@ class SetCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, paths, hierarchy=None, invert=False):
-        super(SetCut, self).__init__(dimension, hierarchy, invert)
+    def __init__(self, dimension, paths, hierarchy=None, invert=False,
+                 hidden=False):
+        super(SetCut, self).__init__(dimension, hierarchy, invert, hidden)
         self.paths = paths
 
     def to_dict(self):
