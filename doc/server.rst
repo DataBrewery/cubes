@@ -249,6 +249,86 @@ configuration, then the ``/cube/<name>`` part might be omitted and you can
 write only requests like ``/aggregate``.
 
 
+Cells and Cuts
+--------------
+
+The cell - part of the cube we are aggregating or we are interested in - is
+specified by cuts. The cut in URL are given as single parameter ``cut`` which
+has following format:
+
+Examples::
+
+    date:2004
+    date:2004,1
+    date:2004,1|class:5
+    date:2004,1,1|category:5,10,12|class:5
+
+To specify a range where keys are sortable::
+
+    date:2004-2005
+    date:2004,1-2005,5
+
+Open range::
+
+    date:2004,1,1-
+    date:-2005,5,10
+
+Set cuts::
+
+    date:2005;2007
+
+Dimension name is followed by colon ``:``, each dimension cut is separated by
+``|``, and path for dimension levels is separated by a comma ``,``. Set cuts are
+separated by semicolons ``;``. 
+
+To specify other than default hierarchy use format `dimension@hierarchy`, the
+path then should contain values for specified hierarchy levels::
+
+    date@ywd:2004,25
+
+Following image contains examples of cuts in URLs and how they change by
+browsing cube aggregates:
+
+.. figure:: url_cutting.png
+
+    Example of how cuts in URL work and how they should be used in application
+    view templates.
+
+
+Special Characters
+~~~~~~~~~~~~~~~~~~
+
+To pass reserved characters as a dimension member path value escape it with
+the backslash ``\`` character:
+
+* ``category:10\-24`` is a point cut for `category` with value ``10-24``, not
+  a range cut
+* ``city:Nové\ Mesto\ nad\ Váhom`` is a city ``Nové Mesto nad Váhom``
+
+
+.. _named_relative_time:
+
+Calendar and Relative Time
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If a dimension is a date or time dimension (the dimension role is ``time``)
+the members can be specified by a name referring to a relative time. For
+example:
+
+* ``date=yesterday``
+* ``expliration_date=lastmonth-next2months`` – all facts with `expiration
+  date` within last month (whole) and next 2 months (whole)
+* ``date=yearago`` – all facts since the same day of the year last year
+
+The keywords and patterns are:
+
+* ``today``, ``yesterday`` and ``tomorrow``
+* ``...ago`` and ``...forward`` as in ``3weeksago`` (current day minus 3
+  weeks) and ``2monthsforward`` (current day plus 2 months) – relative offset with fine granularity
+* ``last...`` and ``next...`` as in ``last3months`` (beginning of the third
+  month before current month) and ``nextyear`` (end of next year) –
+  relative offset of specific (more coarse) granularity.
+
 Aggregate
 ---------
 
@@ -521,6 +601,8 @@ Example for ``/cell?cut=item:a`` in the ``hello_world`` example:
     }
         
 
+.. _serverreport:
+
 Report
 ------
 
@@ -568,59 +650,6 @@ Parameters that can be used in any request:
     * `prettyprint` - if set to ``true``, space indentation is added to the
       JSON output
 
-Cuts in URLs
-------------
-
-The cell - part of the cube we are aggregating or we are interested in - is
-specified by cuts. The cut in URL are given as single parameter ``cut`` which
-has following format:
-
-Examples::
-
-    date:2004
-    date:2004,1
-    date:2004,1|class:5
-    date:2004,1,1|category:5,10,12|class:5
-
-To specify a range where keys are sortable::
-
-    date:2004-2005
-    date:2004,1-2005,5
-
-Open range::
-
-    date:2004,1,1-
-    date:-2005,5,10
-
-Set cuts::
-
-    date:2005;2007
-
-Dimension name is followed by colon ``:``, each dimension cut is separated by
-``|``, and path for dimension levels is separated by a comma ``,``. Set cuts are
-separated by semicolons ``;``. 
-
-.. note:: 
-
-    Why dimension names are not URL parameters? This prevents conflict from
-    other possible frequent URL parameters that might modify page content/API
-    result, such as ``type``, ``form``, ``source``.
-
-To specify other than default hierarchy use format `dimension@hierarchy`, the
-path then should contain values for specified hierarchy levels::
-
-    date@ywd:2004,25
-
-Following image contains examples of cuts in URLs and how they change by
-browsing cube aggregates:
-
-.. figure:: url_cutting.png
-
-    Example of how cuts in URL work and how they should be used in application
-    view templates.
-
-
-.. _serverreport:
 
 Reports
 =======
