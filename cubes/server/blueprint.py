@@ -89,6 +89,7 @@ def initialize_slicer(state):
         # Configure the application
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
+        _store_option(config, "hide_private_cuts", False, "bool")
 
         _store_option(config, "authentication", "none")
 
@@ -268,6 +269,10 @@ def aggregate(cube_name):
                                  page=g.page,
                                  page_size=g.page_size,
                                  order=g.order)
+
+    # Hide cuts that were generated internally (default: don't)
+    if current_app.slicer.hide_private_cuts:
+        result.cell = result.cell.public_cell()
 
     if output_format == "json":
         return jsonify(result)
