@@ -8,9 +8,9 @@ app = Flask(__name__)
 # Data we aregoing to browse and logical model of the data
 #
 
-MODEL_PATH = "/pipeline/cubes/model.json"
-DB_URL = "mysql://webapp:q7678heub@bizdb.nyc.squarespace.net/bizdw_v6"
-CUBE_NAME = "v6_new_subs"
+MODEL_PATH = "model.json"
+DB_URL = "sqlite:///data.sqlite"
+CUBE_NAME = "irbd_balance"
 
 # Some global variables. We do not have to care about Flask provided thread
 # safety here, as they are non-mutable.
