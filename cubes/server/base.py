@@ -1,35 +1,22 @@
 # -*- coding=utf -*-
 from .blueprint import slicer
 from flask import Flask
-import ConfigParser
 
 from .utils import *
 
 __all__ = (
     "create_server",
-    "run_server",
+    "run_server"
 )
 
 # Server Instantiation and Running
 # ================================
 
-def _read_config(config):
-    if not config:
-        return ConfigParser.SafeConfigParser()
-    elif isinstance(config, basestring):
-        try:
-            path = config
-            config = ConfigParser.SafeConfigParser()
-            config.read(path)
-        except Exception as e:
-            raise Exception("Unable to load configuration: %s" % e)
-    return config
-
 def create_server(config=None):
     """Returns a Flask server application. `config` is a path to a
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 
-    config = _read_config(config)
+    config = read_server_config(config)
     app = Flask("slicer")
     app.register_blueprint(slicer, config=config)
 
@@ -39,7 +26,7 @@ def create_server(config=None):
 def run_server(config, debug=False):
     """Run OLAP server with configuration specified in `config`"""
 
-    config = _read_config(config)
+    config = read_server_config(config)
     app = create_server(config)
 
     if config.has_option("server", "host"):

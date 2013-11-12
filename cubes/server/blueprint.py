@@ -78,6 +78,7 @@ def initialize_slicer(state):
 
     with state.app.app_context():
         config = state.options["config"]
+        config = read_server_config(config)
 
         # Create workspace and other app objects
         # We avoid pollution of the current_app context, as we are a Blueprint

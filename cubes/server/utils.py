@@ -1,15 +1,17 @@
 # -*- coding=utf -*-
 import pytz
+
+from flask import Request, Response, g
 from time import gmtime, strftime
 from datetime import datetime
-from flask import Request, Response, g
 
-import json
-import decimal
-import datetime
-import csv
-import codecs
+import ConfigParser
 import cStringIO
+import datetime
+import decimal
+import codecs
+import json
+import csv
 
 from .errors import *
 
@@ -234,3 +236,17 @@ def jsonify(obj):
     data = encoder.iterencode(obj)
 
     return Response(data, mimetype='application/json')
+
+
+def read_server_config(config):
+    if not config:
+        return ConfigParser.SafeConfigParser()
+    elif isinstance(config, basestring):
+        try:
+            path = config
+            config = ConfigParser.SafeConfigParser()
+            config.read(path)
+        except Exception as e:
+            raise Exception("Unable to load configuration: %s" % e)
+    return config
+
