@@ -4,7 +4,7 @@ import os.path
 import json
 from collections import namedtuple, defaultdict
 from .extensions import get_namespace, initialize_namespace
-from .browser import Cell, cut_from_string, cut_from_dict
+from .browser import Cell, cut_from_string, cut_from_dict, PointCut
 from .browser import string_to_drilldown
 from .errors import *
 from .common import read_json_file, sorted_dependencies
@@ -203,7 +203,7 @@ class SimpleAuthorizer(Authorizer):
     ]
 
     def __init__(self, rights_file=None, roles_file=None, roles=None,
-                 rights=None, **options):
+                 rights=None, identity_dimension=None, **options):
         """Creates a simple JSON-file based authorizer. Reads data from
         `rights_file` and `roles_file` and merge them with `roles` and
         `rights` dictionaries respectively."""
@@ -247,6 +247,17 @@ class SimpleAuthorizer(Authorizer):
                 role = self.roles[role_name]
                 right.merge(role)
 
+        if identity_dimension:
+            if isinstance(identity_dimension, basestring):
+                (dim, hier, _) = string_to_drilldown(identity_dimension)
+            else:
+                (dim, hier) = identity_dimension[:2]
+            self.identity_dimension = dim
+            self.identity_hierarchy = hier
+        else:
+            self.identity_dimension = None
+            self.identity_hierarchy = None
+
     def right(self, token):
         try:
             right = self.rights[token]
@@ -270,8 +281,8 @@ class SimpleAuthorizer(Authorizer):
 
         return authorized
 
-    def restricted_cell(self, token, cube, cell):
-        right = self.right(token)
+    def restricted_cell(self, identity, cube, cell):
+        right = self.right(identity)
 
         cuts = right.cell_restrictions.get(cube.name)
 
@@ -287,15 +298,35 @@ class SimpleAuthorizer(Authorizer):
                     cut = cut_from_string(cut, cube)
                 else:
                     cut = cut_from_dict(cut)
+                cut.hidden = True
                 restriction_cuts.append(cut)
 
             restriction = Cell(cube, restriction_cuts)
         else:
-            restriction = None
+            restriction = Cell(cube)
 
-        if not restriction:
-            return cell
-        elif cell:
+        ident_dim = None
+        if self.identity_dimension:
+            try:
+                ident_dim = cube.dimension(self.identity_dimension)
+            except NoSuchDimensionError:
+                # If cube has the dimension, then use it, otherwise just
+                # ignore it
+                pass
+
+        if ident_dim:
+            hier = ident_dim.hierarchy(self.identity_hierarchy)
+
+            if len(hier) != 1:
+                raise ConfigurationError("Identity hierarchy has to be flat "
+                                         "(%s in dimension %s is not)"
+                                         % (str(hier), str(ident_dim)))
+
+            # TODO: set as hidden
+            cut = PointCut(ident_dim, [identity], hierarchy=hier, hidden=True)
+            restriction = restriction & Cell(cube, [cut])
+
+        if cell:
             return cell & restriction
         else:
             return restriction
