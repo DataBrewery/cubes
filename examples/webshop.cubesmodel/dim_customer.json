@@ -1,0 +1,14 @@
+{
+    "name": "customer", 
+    "label": "Customer",
+    "levels": [
+        {
+            "name": "customer", 
+            "label": "Customer",
+            "attributes": [
+                "id", 
+                "name"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,5 @@
+{
+    "name": "date_visit", 
+    "template": "date_base", 
+    "label": "View Date"
+}

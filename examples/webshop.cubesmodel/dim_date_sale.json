@@ -1,0 +1,5 @@
+{
+    "name": "date_sale", 
+    "template": "date_base", 
+    "label": "Sale Date"
+}

@@ -1,0 +1,38 @@
+{
+    "comment": "This is used as a template for other date dimensions.", 
+    "name": "date", 
+    "label": "Date", 
+
+    "role": "time",
+
+    "levels": [
+        {
+            "name": "year", 
+            "label": "Year"
+        }, 
+        {
+            "name": "quarter", 
+            "label": "Quarter"
+        }, 
+        {
+            "name": "month", 
+            "label": "Month"
+        }, 
+        {
+            "name": "week", 
+            "label": "Week"
+        }
+    ], 
+    "hierarchies": [
+        {
+            "name": "weekly", 
+            "label": "Weekly",
+            "levels": ["year", "week"]
+        }, 
+        {
+            "name": "monthly", 
+            "label": "Monthly"
+            "levels": ["year", "quarter", "month"], 
+        }
+    ]
+}

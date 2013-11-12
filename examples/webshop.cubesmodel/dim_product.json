@@ -1,0 +1,22 @@
+{
+    "name": "product", 
+    "label": "Product",
+    "levels": [
+        {
+            "name": "category", 
+            "label": "Category",
+            "attributes": [
+                "category_id", 
+                "category_label"
+            ]
+        }, 
+        {
+            "name": "product", 
+            "label": "Product",
+            "attributes": [
+                "product_id", 
+                "product_label"
+            ] 
+        }
+    ]
+}

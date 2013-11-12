@@ -1,0 +1,59 @@
+{
+    "name": "date",
+    "label": "Date",
+    "role": "time",
+
+    "levels": [
+        {
+            "name": "year",
+            "label": "Year",
+            "attributes": [
+                {"name": "year", "order": "asc"}
+            ]
+        },
+        {
+            "name": "quarter",
+            "label": "Quarter",
+            "attributes": [
+                {"name": "quarter", "order": "asc"}
+            ]
+        },
+        {
+            "name": "month",
+            "label": "Month",
+            "attributes": [
+                {"name": "month", "order": "asc"},
+                {"name": "month_name"}
+            ]
+        },
+        {
+            "name": "day",
+            "label": "Day",
+            "attributes": [
+                {"name": "day", "order": "asc"}
+            ]
+        },
+        {
+            "name": "weekday",
+            "label": "Day of Week",
+            "attributes": [
+                {"name": "weekday", "order": "asc"},
+                {"name": "weekday_name" }
+            ]
+        }
+    ],
+    "hierarchies": [
+        {
+            "name": "ymd",
+            "levels": ["year", "month", "day"]
+        },
+        {
+            "name": "yqmd",
+            "levels": ["year", "quarter", "month", "day"]
+        },
+        {
+            "name": "weekday",
+            "levels": ["weekday"]
+        }
+    ]
+}

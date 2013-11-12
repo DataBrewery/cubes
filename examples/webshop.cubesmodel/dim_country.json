@@ -1,0 +1,22 @@
+{
+    "name": "country", 
+    "label": "Country",
+    "levels": [
+        {
+            "name": "region", 
+            "label": "Region",
+            "attributes": [
+                "region_id", 
+                "region_label"
+            ]
+        }, 
+        {
+            "name": "country", 
+            "label": "Country",
+            "attributes": [
+                "country_id", 
+                "country_label"
+            ]
+        }
+    ]
+}

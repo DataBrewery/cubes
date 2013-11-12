@@ -1,0 +1,39 @@
+{
+    "name": "webvisits", 
+    "label": "Website Visits", 
+    "dimensions": [
+        "date_visit", 
+        "country", 
+        "source", 
+        "newsletter", 
+        "browser"
+    ], 
+    "measures": [
+        { "name": "pageviews" }
+    ],
+    "aggregates": [
+        {
+            "name": "pageviews_sum", 
+            "label": "Total Page Views",
+            "function": "sum",
+            "measure": "pageviews"
+        },
+        {
+            "name": "pageviews_avg", 
+            "label": "Average Page Views",
+            "function": "avg",
+            "measure": "pageviews"
+        },
+        {
+            "name": "pageviews_max", 
+            "label": "Maximum Page Views",
+            "function": "max",
+            "measure": "pageviews"
+        }
+        {
+            "name": "record_count", 
+            "label": "Visit count",
+            "function": "count"
+        }
+    ],
+}
