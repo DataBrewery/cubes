@@ -519,4 +519,55 @@ When this composed setting is used, then:
 
     Take this into account when designing the dimension hierarchies.
 
+Named Join Templates
+--------------------
+
+If multiple cubes share the same kinds of joins, for example with a dimension
+table, it is possible to define such joins at the model level. They will be
+considered as templates:
+
+.. code-block:: javascript
+
+    "joins": [
+        { "name": "date", "detail": "dim_date.id" },
+        { "name": "company", "detail": "dim_company.id" }
+    ]
+
+Then use the join in a cube:
+
+.. code-block:: javascript
+
+    "cubes": [
+        {
+            "name": "events",
+            "joins": [
+                { "name": "date", "master": "event_date_id" },
+                { "name": "company", "detail": "company_id" }
+            ]
+        }
+    ]
+
+Any property defined in the cube join will replace the model join template.
+You can also use the same named join multiple times in a cube, just give it
+different alias:
+
+.. code-block:: javascript
+
+    "cubes": [
+        {
+            "name": "contracts",
+            "joins": [
+                {
+                    "name": "date",
+                    "master": "contract_start_date_id",
+                    "alias": "dim_contract_start"
+                },
+                {
+                    "name": "date",
+                    "master": "contract_end_date_id",
+                    "alias": "dim_contract_end"
+                }
+            ]
+        }
+    ]
 

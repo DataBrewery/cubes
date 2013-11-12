@@ -51,6 +51,8 @@ to get the model from a remote source.
 For more details about the new workspace see the :doc:`../workpsace`
 documentation.
 
+.. _configuration_1_0:
+
 Configuration
 -------------
 
@@ -172,12 +174,17 @@ Parameter changes:
   headers as attribute labels (human readable) or no headers at all
 * it is now possible to specify multiple drilldowns, separated by ``|`` in one
   ``drilldown=`` parameter
+* cuts for date dimension accepts named relative time references such as
+  ``cut=date:90daysago-today``. See the :ref:`server documentation
+  <named_relative_time>` for more information.
+* dimension path elements can contain special characters if they are escaped
+  by a backslash ``\`` such as ``cut=city:Nové\ Mesto``
 
 Response changes:
 
-* ``/cubes`` (as alternative replacement for ``/model``) returns a list of
-  basic cubes info: `name`, `label`, `description` and `category`. It does not
-  return full cube description with dimensions.
+* ``/cubes`` (replacement for ``/model``) returns a list of basic cubes info:
+  `name`, `label`, `description` and `category`. It does not return full cube
+  description with dimensions.
 * ``/cube/<cube>/model`` has new keys: ``aggregates`` and ``features``
 
 
@@ -225,8 +232,13 @@ migh handle the function internally if they can.
 Browser
 -------
 
-* invert, split
+* cuts now have an `invert` flag (might not be supported by all backends)
+* `aggregate()` has new argument `split` which is a cell that defines
+  artificial flag-like dimension with two values: `0` – aggergated cell is
+  outside of the split cell, `1` – aggregated cell is within the split cell
 
+Both `invert` and `split` features are still provisional, their interface
+might change.
 
 Slicer
 ------
@@ -238,12 +250,22 @@ Model
 
 Model and modeling related changes are:
 
-* new concept of model providers (see details below)
-* measure aggregates (see details below)
+* new concept of model providers (see :ref:`details below <model_providers_1_0>`)
+* measure aggregates (see :ref:`details below <measure_aggregates_1_0>`)
 * cardinality of dimensions and dimension levels
 * dimension roles
 * attribute missing values
 * `format` property of a measure and aggregate
+
+
+.. note::
+
+    ``cubes``, ``dimensions``, ``levels`` and ``hierarchies`` can no longer be
+    dictionaries, they should be lists of dictionaries and the dictionaries
+    should have a ``name`` property set. This was depreciated long ago.
+
+
+.. _model_providers_1_0:
 
 Model Providers
 ---------------
@@ -256,6 +278,8 @@ creates cubes objects from JSON files and dictionaries.
 .. seealso::
 
     :doc:`../extensions/providers`, :doc:`../reference/providers`
+
+.. _measure_aggregates_1_0:
 
 Measures and Aggregates
 -----------------------
@@ -296,7 +320,7 @@ Functionality additions and changes:
   in the mappings
 
 
-TODO: escaped characters, characters in cuts, ...
+.. _record_count_1_0:
 
 record_count
 ------------
@@ -304,7 +328,7 @@ record_count
 Implicit aggregate `record_count` is no longer provided for every cube. It
 has to be explicitly defined as an aggregate: 
 
-.. code-block:: json
+.. code-block:: javascript
 
     "aggregates": [
         {
@@ -345,6 +369,10 @@ New Backends
 * `Mongo`: :doc:`../backends/mongo`
 
 
+.. seealso::
+
+    :doc:`How to Write a Backend Extension <../extensions/backends>`
+
 Other Minor Changes
 ===================
 
@@ -366,3 +394,99 @@ Other Minor Changes
   `role_member_converters`
 * New class :class:`cubes.Drilldown` to get more information about the
   drilldown
+
+
+Migration to 1.0
+================
+
+Checklists for migrating a Cubes project from pre-1.0 to 1.0:
+
+The ``slicer.ini``
+------------------
+
+1. Rename ``[workspace]`` to ``[store]``
+2. Create new empty ``[workspace]``
+3. Move ``[server] backend`` to ``[store] type``
+4. Move ``[server] log``, ``log_level`` to the new ``[workspace]``
+5. Rename ``[model] path`` to ``[models] main`` and remove all non-model references
+   (such as ``locales``).
+
+The minimal configuration looks like:
+
+.. codeblock:: ini
+
+    [store]
+    type: sql
+    url: sqlite:///data.sqlite
+
+    [models]
+    main: model.json
+
+See :ref:`configuration changes <configuration_1_0>` for an example and
+:doc:`configuration documentation <../configuration>` for more information.
+
+The Model
+---------
+
+There are not many model changes, mostly measures and aggregates related.
+
+1. Make sure that ``dimensions``, ``cubes``, ``levels`` and ``hierarchies``
+   are not dictionaries but lists of dictionaries with ``name`` property.
+2. Create the explicit ``record_count`` aggregate, if you are using it. Note
+   that you can name and label the aggregate as you like.
+
+  .. code-block:: javascript
+
+      "aggregates": [
+          {
+              "name": "record_count",
+              "label": "Total Items",
+              "function": "count"
+          }
+      ]
+
+3. In ``measures`` rename ``aggregations`` to ``aggregates`` or even better:
+   create explicit, full aggregate definitions.
+
+See :ref:`Aggregates <measures-and-aggregates>` for more information.
+
+
+Slicer Front-end
+----------------
+
+The biggest change in the front-ends is the removal of the ``/model``
+end-point without equivalend replacement. Use ``/cubes`` to get list of
+provided cubes. The cube definition contains whole dimension descriptions.
+
+1. Change from ``/model`` to ``/cubes``
+2. Change from ``/model/cube/<name>`` to ``/cube/<name>/model``
+3. Cube has to be explicit in every request, therefore ``/aggregate`` does not
+   work any more, use ``/cube/<name>/aggregate``
+4. Change ``aggregate`` parameter ``measure`` to ``aggregates``
+
+Refer to the :doc:`../server` documentation for the new response structures.
+There were minor changes, mostly additions.
+
+
+Additional and Optional Considerations for Migration
+----------------------------------------------------
+
+* if your model is too big, split it into multiple models and add them to the
+  ``[models]`` section. Note that the dimensions can be shared between models.
+* put all your models into a separate directory and use the ``[workspace]
+  models_path`` property. The paths in ``[models]`` are relative to the
+  ``models_path``
+* if you have muliple stores, create a separate ``stores.ini`` file where the
+  section names are store names. Set the ``[workspace] stores`` to the
+  ``stores.ini`` path if it is different than default.
+
+* Add ``"role"="time"`` to a `date` dimension – you might benefit
+  from new date-related additions and special dimension handling in the
+  available front-ends
+* Review ``joins`` and set appropriate join method if desired, for example
+  ``detail`` for a date dimension.
+* Add ``cardinality`` metadata to dimension levels if appropriate.
+
+* Look at the cube's model ``features`` property to learn what the front-end
+  can expect from the backend for that cube
+* Look at the ``/info`` response

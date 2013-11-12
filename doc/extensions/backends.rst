@@ -188,6 +188,12 @@ Arguments:
 
         return result
 
+.. seealso::
+
+    :class:`cubes.AggregationResult`, :class:`cubes.Drilldown`,
+    :class:`cubes.Cell`
+
+
 Facts
 -----
 

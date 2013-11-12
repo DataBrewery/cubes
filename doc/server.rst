@@ -315,10 +315,11 @@ If a dimension is a date or time dimension (the dimension role is ``time``)
 the members can be specified by a name referring to a relative time. For
 example:
 
-* ``date=yesterday``
-* ``expliration_date=lastmonth-next2months`` – all facts with `expiration
+* ``date:yesterday``
+* ``date:90daysago-today`` – get cell for last 90 days
+* ``expliration_date:lastmonth-next2months`` – all facts with `expiration
   date` within last month (whole) and next 2 months (whole)
-* ``date=yearago`` – all facts since the same day of the year last year
+* ``date:yearago`` – all facts since the same day of the year last year
 
 The keywords and patterns are:
 
