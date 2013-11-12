@@ -405,7 +405,7 @@ class Workspace(object):
             by_name = dict((cube["name"], cube) for cube in all_cubes)
             names = [cube["name"] for cube in all_cubes]
 
-            authorized = self.authorizer(authorize, identity, names)
+            authorized = self.authorizer.authorize(identity, names)
             all_cubes = [by_name[name] for name in authorized]
 
         return all_cubes
