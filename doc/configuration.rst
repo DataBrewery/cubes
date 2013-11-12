@@ -44,6 +44,11 @@ Workspace
 * ``log_level`` - level of log details, from least to most: ``error``, 
     ``warn``, ``info``, ``debug``
 
+* ``timezone`` - name of default time zone. Used in date and time operations,
+  such as :ref:`named relative time <named_relative_time>`_.
+* ``first_weekday`` – name of first day of the week. It can also be a number
+  where 0 is Monday, 6 is Sunday
+
 * ``authorization`` – authorization method to be used
 
 Models

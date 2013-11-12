@@ -179,6 +179,8 @@ def get_info():
     info["authentication"] = current_app.slicer.authentication
     info["json_record_limit"] = current_app.slicer.json_record_limit
     info["cubes_version"] = __version__
+    info["timezone"] = workspace.calendar.timezone_name
+    info["first_weekday"] = workspace.calendar.first_weekday
 
     return info
 
