@@ -43,7 +43,7 @@ Data store:
   schema than fact tables, otherwise default schema is going to be used)
 
 Database Connection
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 *(advanced topic)*
 
@@ -104,7 +104,7 @@ does not have to specify additional mapping metadata. Expected structure is
 star schema with one table per (denormalized) dimension.
 
 Facts
-~~~~~
+^^^^^
 
 Cubes looks for fact table with the same name as cube name.  You might specify
 prefix for every fact table with ``fact_table_prefix``.  Example:
@@ -116,7 +116,7 @@ prefix for every fact table with ``fact_table_prefix``.  Example:
   ``fact_invoices`` respectively.
 
 Dimensions
-~~~~~~~~~~
+^^^^^^^^^^
 
 By default, dimension tables are expected to have same name as dimensions and
 dimension table columns are expected to have same name as dimension
@@ -149,7 +149,7 @@ The rules are:
   `description_fr` (see below for more information)
 
 Flat dimension without details
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 What about dimensions that have only one attribute, like one would not have a
 full date but just a `year`? In this case it is kept in the fact table without
@@ -230,7 +230,7 @@ The mapping process process is like this:
     :width: 500px
     
 Date Data Type
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Date datatype column can be turned into a date dimension by extracting date
 parts in the mapping. To do so, for each date attribute specify a ``column``
@@ -483,7 +483,7 @@ date dimension member:
     ]
 
 The `detail` Method and its Limitations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 *(advanced topic)*
 

@@ -55,10 +55,10 @@ Prepare data and run the :doc:`OLAP server<server>`::
     
 And try to do some queries::
 
-    curl "http://localhost:5000/aggregate"
-    curl "http://localhost:5000/aggregate?drilldown=year"
-    curl "http://localhost:5000/aggregate?drilldown=item"
-    curl "http://localhost:5000/aggregate?drilldown=item&cut=item:e"
+    curl "http://localhost:5000/cube/irbd_balance/aggregate"
+    curl "http://localhost:5000/cube/irbd_balance/aggregate?drilldown=year"
+    curl "http://localhost:5000/cube/irbd_balance/aggregate?drilldown=item"
+    curl "http://localhost:5000/cube/irbd_balance/aggregate?drilldown=item&cut=item:e"
 
 .. _Cubes Github repository: https://github.com/Stiivi/cubes
 

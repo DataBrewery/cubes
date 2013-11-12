@@ -9,13 +9,12 @@ Authentication and Authorization
 Authentication
 --------------
 
-.. autoclass:: cubes.server.auth.Authorizer
-.. autoclass:: cubes.server.auth.SimpleAuthorizer
+.. autoclass:: cubes.server.Authenticator
+.. autoexception:: cubes.server.NotAuthenticated
 
 Authorization
 -------------
 
-.. autoclass:: cubes.auth.Authenticator
-
-
-
+.. autoclass:: cubes.Authorizer
+.. autoclass:: cubes.SimpleAuthorizer
+.. autoexception:: cubes.NotAuthorized

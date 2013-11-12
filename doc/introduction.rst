@@ -16,16 +16,17 @@ Features:
 
 * logical view of analysed data - how analysts look at data, how they think of
   data, not not how the data are physically implemented in the data stores
-* hierarchical dimensions (attributes that have hierarchical dependencies,
-  such as category-subcategory or country-region)
-* multiple hierarchies in a dimension – date can be split into year, month,
-  day or year, quaryer, month, day; geography can be categorized by country,
-  state, city or country, region, county, city.
-* localizable metadata and data (see :doc:`localization`)
-
 * OLAP and aggregated browsing (default backend is for relational databse - 
   ROLAP)
-* multidimensional analysis
+* hierarchical dimensions (attributes that have hierarchical dependencies,
+  such as category-subcategory or country-region)
+* multiple hierarchies in a dimension
+* localizable metadata and data (see :doc:`localization`)
+* authentication and authorization of cubes and their data 
+* pluggable data warehouse – plug-in other cube-like (multidimensional) data
+  sources
+
+The framework is very extensible.
 
 Cube, Dimensions, Facts and Measures
 ====================================
@@ -59,18 +60,18 @@ Feature Overview
 Core cube features:
 
 * **Workspace** – Cubes analytical workspace
-  (see :doc:`docs<workspace>`, :doc:`reference<reference/workspace>`) 
+  (see :doc:`docs <workspace>`, :doc:`reference <reference/workspace>`) 
 * **Model** - Description of data (*metadata*): cubes, dimensions, concept
   hierarchies, attributes, labels, localizations.
-  (see :doc:`docs<model>`, :doc:`reference<reference/model>`) 
+  (see :doc:`docs <model>`, :doc:`reference <reference/model>`) 
 * **Browser** - Aggregation browsing, slicing-and-dicing, drill-down.
-  (see :doc:`docs<browser>`, :doc:`reference<reference/browser>`) 
+  (see :doc:`docs <slicing_and_dicing>`, :doc:`reference <reference/browser>`) 
 * **Backend** - Actual aggregation implementation and utility functions.
-  (see :doc:`docs<backends/index>`, :doc:`reference<reference/backends>`) 
+  (see :doc:`docs <backends/index>`, :doc:`reference <reference/backends>`) 
 * **Server** - WSGI HTTP server for Cubes
-  (see :doc:`docs<server>`, :doc:`reference<reference/server>`) 
+  (see :doc:`docs <server>`, :doc:`reference <reference/server>`) 
 * **Formatters** - Data formatters
-  (see :doc:`docs<formatters>`, :doc:`reference<reference/formatter>`) 
+  (see :doc:`docs <formatters>`, :doc:`reference <reference/formatter>`) 
 * :doc:`slicer` - command-line tool
 
 Model
@@ -83,7 +84,7 @@ focus on data instead on ways of how to get the data in understandable form.
 
 More information about logical model can be found in the chapter :doc:`model`. 
 
-See also developer's :doc:`reference<reference/model>`.
+See also developer's :doc:`reference <reference/model>`.
 
 Browser
 -------
@@ -106,7 +107,12 @@ Framework has modular nature and supports multiple database backends,
 therefore different ways of cube computation and ways of browsing aggregated
 data.
 
-See also the backends programming reference :doc:`reference<reference/model>`.
+Multiple backends can be used at once, even multiple sources from the same
+backend might be used in the analytical workspace.
+
+More about existing backends can be found in the :doc:`backends documentation
+<backends/index>`.  See also the backends programming reference
+:doc:`reference<reference/model>`.
 
 .. _ROLAP: http://en.wikipedia.org/wiki/ROLAP
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html

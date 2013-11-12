@@ -35,7 +35,7 @@ Aggregation, Slicing and Dicing
 .. toctree::
     :maxdepth: 2
 
-    slicing_dicing
+    slicing_and_dicing
     formatters
 
 Analytical Workspace
@@ -62,7 +62,10 @@ Backends
 .. toctree::
     :maxdepth: 2
 
-    backends/index
+    backends/sql
+    backends/mongo
+    backends/mixpanel
+    backends/slicer
 
 Recipes
 -------
@@ -78,7 +81,9 @@ Extension Development
 .. toctree::
     :maxdepth: 2
 
-    extensions/index
+    extensions/backends
+    extensions/providers
+    extensions/auth
 
 Developer's Reference
 ---------------------
@@ -86,7 +91,15 @@ Developer's Reference
 .. toctree::
     :maxdepth: 2
 
-    reference/index
+    reference/workspace
+    reference/model
+    reference/providers
+    reference/browser
+    reference/formatter
+    reference/backends
+    reference/server
+    reference/auth
+    reference/common
 
 Release Notes
 -------------
@@ -115,7 +128,7 @@ License
 
 Cubes is licensed under MIT license with small addition::
 
-    Copyright (c) 2011-2012 Stefan Urbanek, see AUTHORS for more details
+    Copyright (c) 2011-2013 Stefan Urbanek, see AUTHORS for more details
 
     Permission is hereby granted, free of charge, to any person obtaining a 
     copy of this software and associated documentation files (the "Software"), 

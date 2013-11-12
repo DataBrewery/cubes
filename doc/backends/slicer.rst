@@ -90,7 +90,7 @@ Run the server:
 
 Get a list of cubes:
 
-.. codeb-block:: sh
+.. code-block:: sh
 
     curl "http://localhost:5000/cubes"
 
