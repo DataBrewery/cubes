@@ -1,6 +1,7 @@
 # -*- coding=utf -*-
 from .blueprint import slicer
 from flask import Flask
+import ConfigParser
 
 from .utils import *
 
@@ -11,6 +12,18 @@ __all__ = (
 
 # Server Instantiation and Running
 # ================================
+
+def _read_config(config):
+    if not config:
+        return ConfigParser.SafeConfigParser()
+    elif isinstance(config, basestring):
+        try:
+            path = config
+            config = ConfigParser.SafeConfigParser()
+            config.read(path)
+        except Exception as e:
+            raise Exception("Unable to load configuration: %s" % e)
+    return config
 
 def create_server(config=None):
     """Returns a Flask server application. `config` is a path to a
