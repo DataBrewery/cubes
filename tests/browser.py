@@ -28,28 +28,31 @@ class CutsTestCase(CubesTestCaseBase):
         # self.assertRaises(Exception, cubes.cut_from_dict, d)
 
         d = {"type": "point", "path": [2010], "dimension": "date",
-             "level_depth": 1, "hierarchy": None, "invert": False}
+             "level_depth": 1, "hierarchy": None, "invert": False,
+             "hidden": False}
 
         cut = cut_from_dict(d)
         tcut = PointCut("date", [2010])
         self.assertEqual(tcut, cut)
-        self.assertEqual(d, tcut.to_dict())
+        self.assertEqual(dict(d), tcut.to_dict())
         self._assert_invert(d, cut, tcut)
 
         d = {"type": "range", "from": [2010], "to": [2012, 10], "dimension":
-             "date", "level_depth": 2, "hierarchy": None, "invert": False}
+             "date", "level_depth": 2, "hierarchy": None, "invert": False,
+             "hidden": False}
         cut = cut_from_dict(d)
         tcut = RangeCut("date", [2010], [2012, 10])
         self.assertEqual(tcut, cut)
-        self.assertEqual(d, tcut.to_dict())
+        self.assertEqual(dict(d), tcut.to_dict())
         self._assert_invert(d, cut, tcut)
 
         d = {"type": "set", "paths": [[2010], [2012, 10]], "dimension": "date",
-             "level_depth": 2, "hierarchy": None, "invert": False}
+             "level_depth": 2, "hierarchy": None, "invert": False,
+             "hidden": False}
         cut = cut_from_dict(d)
         tcut = SetCut("date", [[2010], [2012, 10]])
         self.assertEqual(tcut, cut)
-        self.assertEqual(d, tcut.to_dict())
+        self.assertEqual(dict(d), tcut.to_dict())
         self._assert_invert(d, cut, tcut)
 
         self.assertRaises(ArgumentError, cut_from_dict, {"type": "xxx"})
@@ -59,7 +62,7 @@ class CutsTestCase(CubesTestCaseBase):
         tcut.invert = True
         d["invert"] = True
         self.assertEqual(tcut, cut)
-        self.assertEqual(d, tcut.to_dict())
+        self.assertEqual(dict(d), tcut.to_dict())
 
 
 class StringConversionsTestCase(unittest.TestCase):
