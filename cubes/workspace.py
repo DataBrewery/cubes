@@ -416,6 +416,12 @@ class Workspace(object):
         if not isinstance(name, basestring):
             raise TypeError("Name is not a string, is %s" % type(name))
 
+
+        if self.authorizer:
+            authorized = self.authorizer.authorize(identity, [name])
+            if not authorized:
+                raise NotAuthorized
+
         if name in self._cubes:
             return self._cubes[name]
 
@@ -543,14 +549,14 @@ class Workspace(object):
 
         return options
 
-    def browser(self, cube, locale=None):
+    def browser(self, cube, locale=None, identity=None):
         """Returns a browser for `cube`."""
 
         # TODO: bring back the localization
         # model = self.localized_model(locale)
 
         if isinstance(cube, basestring):
-            cube = self.cube(cube)
+            cube = self.cube(cube, identity=identity)
 
         # TODO: check if the cube is "our" cube
 
@@ -581,12 +587,12 @@ class Workspace(object):
 
         return browser
 
-    def cube_features(self, cube):
+    def cube_features(self, cube, identity=None):
         """Returns browser features for `cube`"""
         # TODO: this might be expensive, make it a bit cheaper
         # recycle the feature-providing browser or something. Maybe use class
         # method for that
-        return self.browser(cube).features()
+        return self.browser(cube, identity).features()
 
     def get_store(self, name="default"):
         """Opens a store `name`. If the store is already open, returns the
