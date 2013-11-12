@@ -50,7 +50,7 @@ def requires_cube(f):
     def wrapper(*args, **kwargs):
         cube_name = request.view_args.get("cube_name")
         try:
-            g.cube = workspace.cube(cube_name)
+            g.cube = authorized_cube(cube_name)
         except NoSuchCubeError:
             raise NotFoundError(cube_name, "cube",
                                 "Unknown cube '%s'" % cube_name)
@@ -67,7 +67,7 @@ def requires_browser(f):
     def wrapper(*args, **kwargs):
         cube_name = request.view_args.get("cube_name")
         if cube_name:
-            cube = workspace.cube(cube_name)
+            cube = authorized_cube(cube_name)
         else:
             cube = None
 
@@ -104,38 +104,23 @@ def requires_browser(f):
                 else:
                     g.order.append( (split[0], split[1]) )
 
-        authorize(cube)
-
         return f(*args, **kwargs)
 
     return wrapper
 
 
-# Authorization
-# =============
+# Get authorized cube
+# ===================
 
-def authorize(cube):
-    """Authorizes the `cube` according to current settings and request
-    parameters."""
+def authorized_cube(cube_name):
+    """Returns a cube `cube_name`. Handle cube authorization if required."""
 
-    if not workspace.authorizer:
-        return
-
-    logger.debug("authorizing cube %s for %s"
-                 % (str(cube), g.auth_identity))
-
-    authorized = workspace.authorizer.authorize(g.auth_identity, [cube])
-    if not authorized:
+    try:
+        cube = workspace.cube(cube_name, g.auth_identity)
+    except NotAuthorized:
         raise NotAuthorizedError("Authorization of cube '%s' failed for "
-                                 "'%s'" % (str(cube), g.auth_identity))
-
-def requires_authorization(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        authorize(g.cube)
-        return f(*args, **kwargs)
-
-    return wrapper
+                                 "'%s'" % (cube_name, g.auth_identity))
+    return cube
 
 
 # Query Logging

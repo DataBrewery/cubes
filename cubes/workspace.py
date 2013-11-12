@@ -387,20 +387,30 @@ class Workspace(object):
         }
         self.add_model(model)
 
-    def list_cubes(self):
+    def list_cubes(self, identity=None):
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
 
         The list is fetched from the model providers on the call of this
         method.
+
+        If the workspace has an authorizer, then it is used to authorize the
+        cubes for `identity` and only authorized list of cubes is returned.
         """
         all_cubes = []
         for model in self._models:
             all_cubes += model.provider.list_cubes()
 
+        if self.authorizer:
+            by_name = dict((cube["name"], cube) for cube in all_cubes)
+            names = [cube["name"] for cube in all_cubes]
+
+            authorized = self.authorizer(authorize, identity, names)
+            all_cubes = [by_name[name] for name in authorized]
+
         return all_cubes
 
-    def cube(self, name):
+    def cube(self, name, identity=None):
         """Returns a cube with `name`"""
 
         if not isinstance(name, basestring):

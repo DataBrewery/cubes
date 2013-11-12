@@ -186,31 +186,17 @@ def get_info():
 def show_info():
     return jsonify(get_info())
 
+
 @slicer.route("/cubes")
 def list_cubes():
     cube_list = workspace.list_cubes()
-    by_name = dict((c["name"], c) for c in cube_list)
-    names = [c["name"] for c in cube_list]
-    if workspace.authorizer:
-        authorized = workspace.authorizer.authorize(g.auth_identity, names)
-    else:
-        authorized = names
-
-    if not authorized:
-        raise NotAuthorizedError("No cubes authorized for '%s'"
-                                 % (g.auth_identity, ))
-
-    cube_list = [by_name[name] for name in authorized]
-    current_app.slicer.cached_cube_list = cube_list
-
+    # TODO: cache per-identity
     return jsonify(cube_list)
 
 
 @slicer.route("/cube/<cube_name>/model")
 @requires_cube
 def cube_model(cube_name):
-    authorize(g.cube)
-
     if workspace.authorizer:
         hier_limits = workspace.authorizer.hierarchy_limits(g.auth_identity,
                                                             cube_name)
