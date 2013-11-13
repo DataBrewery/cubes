@@ -242,7 +242,7 @@ might change.
 Slicer
 ------
 
-* added ``slicer model convert`` to convert between json ⇔ directory bundle
+* added ``slicer model convert`` to convert between json and directory bundle
 
 Model
 =====
