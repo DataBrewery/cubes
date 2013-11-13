@@ -11,6 +11,13 @@ import urllib
 
 DEFAULT_SLICER_URL = "http://localhost:5000"
 
+class _default_opener:
+    def __init__(self):
+        pass
+
+    def open(self, url, *args, **kwargs):
+        return urllib2.urlopen(url, *args, **kwargs)
+
 class SlicerStore(Store):
     def __init__(self, url=None, authentication=None,
                  auth_identity=None, auth_parameter=None,
@@ -36,11 +43,7 @@ class SlicerStore(Store):
             self.opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(_pmgr))
             self.logger.info("Created slicer opener using basic auth credentials with username %s", options['username'])
         else:
-            def _f(*args, **kwargs):
-                return urllib2.urlopen(*args, **kwargs)
-            _o = object()
-            _o.open = _f
-            self.opener = _o
+            self.opener = _default_opener()
 
         # TODO: cube prefix
         # TODO: model mappings as in mixpanel
