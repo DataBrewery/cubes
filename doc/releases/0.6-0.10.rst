@@ -1,6 +1,6 @@
-#################################
+*********************************
 Cubes 0.6 to 0.10.2 Release Notes
-#################################
+*********************************
 
 0.10.2
 ======
@@ -10,11 +10,13 @@ Summary:
 * many improvements in handling multiple hierarchies
 * more support of multiple hierarchies in the slicer server either as
   parameter or with syntax ``dimension@hierarchy``:
-  - dimension values: ``GET /dimension/date?hierarchy=dqmy``
-  - cut: get first quarter of 2012 ``?cut=date@dqmy:2012,1``
-  - drill-down on hierarchy with week on implicit (next) level: ``?drilldown=date@ywd``
-  - drill-down on hierarchy with week with exlpicitly specified week level:
+
+  * dimension values: ``GET /dimension/date?hierarchy=dqmy``
+  * cut: get first quarter of 2012 ``?cut=date@dqmy:2012,1``
+  * drill-down on hierarchy with week on implicit (next) level: ``?drilldown=date@ywd``
+  * drill-down on hierarchy with week with exlpicitly specified week level:
     ``?drilldown=date@ywd:week``
+
 * order and order attribute can now be specified for a Level
 * optional safe column aliases (see docs for more info) for databases that
   have non-standard requirements for column labels even when quoted
@@ -94,9 +96,11 @@ Fixes
 Quick Summary:
 
 * multiple hierarchies:
+
   * Python: ``cut = PointCut("date", [2010,15], hierarchy='ywd')``
   * Server: ``GET /aggregate?cut=date@ywd:2010,15``
   * Server drilldown: ``GET /aggregate?drilldown=date@ywd:week``
+
 * added experimental result formatters (API might change)
 * added experimental pre-aggregations
 
@@ -120,6 +124,7 @@ New Features
   support those aggregations, such as PostgreSQL)
 
 * added preliminary implemenation of pre-aggregation to sql worskspace:
+
   * `create_conformed_rollup()`
   * `create_conformed_rollups()`
   * `create_cube_aggregate()`
@@ -168,10 +173,13 @@ Quick Summary
 
 * Dimension defition can have a "template". For example:
 
-  {
-      "name": "contract_date",
-      "template": "date"
-  }
+  .. code-block:: javascript
+
+      {
+          "name": "contract_date",
+          "template": "date"
+      }
+
 * added table_rows() and cross_table()
 * added simple_model(cube_name, dimension_names, measures)
 
@@ -200,7 +208,9 @@ New Features
   model with flat dimensions from a list of dimension names and measures from
   a list of measure names. For example:
 
-    ``model = simple_model("contracts", ["year","contractor", "type"], ["amount"])``
+  .. code-block:: python
+
+    model = simple_model("contracts", ["year","contractor", "type"], ["amount"])
 
 *Slicer Server:*
 
@@ -329,9 +339,11 @@ New Features
 SQL backend:
 
 * new StarBrowser implemented:
+
     * StarBrowser supports snowflakes or denormalization (optional)
     * for snowflake browsing no write permission is required (does not have to
       be denormalized)
+
 * new `DenormalizedMapper` for mapping logical model to denormalized view
 * new `SnowflakeMapper` for mapping logical model to a snowflake schema
 * `ddl_for_model()` - get schema DDL as string for model
@@ -521,6 +533,7 @@ New features
 ------------
 
 Slicer server:
+
 * changed to handle multiple cubes within model: you have to specify a cube
   for /aggregate, /facts,... in form: /cube/<cube_name>/<browser_action>
 * reflect change in configuration: removed ``view``, added ``view_prefix`` and

@@ -12,7 +12,7 @@ service.
 Authorization: providing (or denying) access to cubes based on user's
 identity.
 
-.. figure:: cubes-slicer_authorization_and_authentication_overview.png
+.. figure:: images/cubes-slicer_authorization_and_authentication_overview.png
     :align: center
     :width: 500px
 

@@ -12,7 +12,7 @@ Level: basic.
 We are going to use very similar data as in the previous examples. Difference 
 is in two added columns: category code and sub-category code. They are simple 
 letter codes for the categories and subcategories. Download :download:`this 
-example file <files/IBRD_Balance_Sheet__FY2010.csv>`.
+example file <../files/IBRD_Balance_Sheet__FY2010.csv>`.
 
 Hierarchy
 ---------
@@ -89,7 +89,7 @@ Preparation
 Again, in short we need:
 
 * data in a database
-* logical model (see :download:`model file<files/model_03.json>`) prepared
+* logical model (see :download:`model file<../files/model_03.json>`) prepared
   with appropriate mappings
 * denormalized view for aggregated browsing (optional)
 

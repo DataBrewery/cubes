@@ -446,9 +446,10 @@ class Cube(object):
         * `fact` - fact table (collection, dataset, ...) name
         * `datastore` - name of datastore where the cube belongs
         * `browser_options` - dictionary of other options used by the backend
-           - refer to the backend documentation to see what options are used
-           (for example SQL browser might look here for ``denormalized_view``
-           in case of denormalized browsing)
+          - refer to the backend documentation to see what options are used
+          (for example SQL browser might look here for ``denormalized_view``
+          in case of denormalized browsing)
+
         """
 
         self.name = name
@@ -2125,7 +2126,7 @@ class MeasureAggregate(AttributeBase):
 def create_attribute(obj, class_=None):
     """Makes sure that the `obj` is an ``Attribute`` instance. If `obj` is a
     string, then new instance is returned. If it is a dictionary, then the
-    dictionary values are used for ``Attribute``instance initialization."""
+    dictionary values are used for ``Attribute`` instance initialization."""
 
     class_ = class_ or Attribute
 

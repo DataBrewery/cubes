@@ -83,5 +83,3 @@ Mapper
 ------
 
 .. autoclass:: cubes.Mapper
-.. autoclass:: cubes.backends.sql.mapper.SnowflakeMapper
-.. autoclass:: cubes.backends.mongo2.mapper.Mongo2Mapper

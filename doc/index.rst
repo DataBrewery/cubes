@@ -45,6 +45,7 @@ Analytical Workspace
     :maxdepth: 2
 
     workspace
+    auth
     configuration
 
 Slicer Server and Tool

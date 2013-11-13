@@ -93,8 +93,9 @@ Core of the Cubes analytics functionality is the aggregation browser. The
 browser module contains utility classes and functions for the 
 browser to work.
 
-More information about browser can be found in the chapter :doc:`aggregate`. 
-See also programming :doc:`reference<reference/browser>`.
+More information about browser can be found in the chapter
+:doc:`slicing_and_dicing`.  See also programming
+:doc:`reference<reference/browser>`.
 
 Backends
 --------

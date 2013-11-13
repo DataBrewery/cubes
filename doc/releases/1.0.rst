@@ -1,7 +1,6 @@
-#######################
+***********************
 Cubes 1.0 release notes
-#######################
-
+***********************
 
 These release notes cover the new features and changes (some of them backward
 incompatible).
@@ -48,7 +47,7 @@ The old backend architecture was limiting. It allowed only one store to be
 used, the model had to be known before the server started, it was not possible
 to get the model from a remote source.
 
-For more details about the new workspace see the :doc:`../workpsace`
+For more details about the new workspace see the :doc:`../workspace`
 documentation.
 
 .. _configuration_1_0:
@@ -188,7 +187,7 @@ Response changes:
 * ``/cube/<cube>/model`` has new keys: ``aggregates`` and ``features``
 
 
-.. sealso::
+.. seealso::
 
     :doc:`../server`
 
@@ -413,7 +412,7 @@ The ``slicer.ini``
 
 The minimal configuration looks like:
 
-.. codeblock:: ini
+.. code-block:: ini
 
     [store]
     type: sql

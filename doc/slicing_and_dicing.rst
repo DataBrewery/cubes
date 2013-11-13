@@ -121,7 +121,7 @@ Drill-down – get more details, group the aggregation by dimension members.
 
 For example "sales by month in 2010":
 
-.. code-block:: python:
+.. code-block:: python
 
     cut = PointCut("date", [2010])
     cell = Cell(cube, [cut])

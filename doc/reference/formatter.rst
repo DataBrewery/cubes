@@ -17,5 +17,5 @@ Formatters
 
 .. seealso::
 
-   :doc:`formatters`
+   :doc:`../formatters`
         Formatters documentation.

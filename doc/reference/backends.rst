@@ -26,6 +26,7 @@ Browser
 
 .. autoclass:: cubes.backends.sql.browser.SnowflakeBrowser
 .. autoclass:: cubes.backends.sql.query.QueryBuilder
+.. autoclass:: cubes.backends.sql.mapper.SnowflakeMapper
 
 Slicer
 ======
@@ -41,3 +42,4 @@ Mongo DB
 ========
 
 .. autoclass:: cubes.backends.mongo2.browser.Mongo2Browser
+.. autoclass:: cubes.backends.mongo2.mapper.MongoCollectionMapper

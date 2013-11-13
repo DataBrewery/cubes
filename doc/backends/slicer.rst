@@ -1,6 +1,6 @@
-#############
+*************
 Slicer Server
-#############
+*************
 
 It is possible to plug-in cubes from other slicer servers using the Slicer
 Server backend.

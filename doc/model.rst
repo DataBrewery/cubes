@@ -280,8 +280,7 @@ details        list of fact details (as Attributes) - attributes
                separately stored)
 joins          specification of physical table joins (required for
                star/snowflake schema)
-mappings       :doc:`mapping<mapping>` of logical attributes to
-               physical attributes
+mappings       mapping of logical attributes to physical attributes
 options        browser options
 info           custom info, such as formatting. Not used by cubes 
                framework.
@@ -727,8 +726,6 @@ specified as:
 
 `group name` is localized, but `group code` is not. Also you can see that the
 result will always be sorted by `group name` alphabetical in ascending order.
-See :ref:`PhysicalAttributeMappings` for more information about how logical
-attributes are mapped to the physical sources.
 
 In reports you do not specify locale for each localized attribute, you specify
 locale for whole report or browsing session. Report queries remain the same

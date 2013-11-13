@@ -1,6 +1,6 @@
-+++++++++++
+***********
 OLAP Server
-+++++++++++
+***********
 
 Cubes framework provides easy to install web service WSGI server with API that 
 covers most of the Cubes logical model metadata and aggregation browsing 
@@ -665,6 +665,7 @@ specification.
 Keys:
 
     * `queries` - dictionary of named queries
+
 ..    * `formatters` - dictionary of formatter configurations
 
 Query specification should contain at least one key: `query` - which is query

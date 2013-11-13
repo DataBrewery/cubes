@@ -1,6 +1,6 @@
-###############
+***************
 Model Providers
-###############
+***************
 
 Model providers create :class:`cubes.Cube` and :class:`cubes.Dimension`
 objects from a metadata or an external description.

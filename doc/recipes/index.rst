@@ -9,4 +9,6 @@ How-to guides with code snippets for various use-cases.
    
     flask_integration
     opendata
+    drilldown_tree
+    hierarchy
 

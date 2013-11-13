@@ -1,6 +1,6 @@
-##################################
+**********************************
 Integration With Flask Application
-##################################
+**********************************
 
 Objective: Add Cubes Slicer to your application to provide raw analytical
 data.

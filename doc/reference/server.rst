@@ -8,7 +8,7 @@ HTTP WSGI OLAP Server Reference
 Light-weight HTTP WSGI server based on the `Flask`_ framework. For more
 information about using the server see :doc:`../server`.
 
-.. _Werkzeug: http://flask.pocoo.org/
+.. _Flask: http://flask.pocoo.org/
 
 .. data:: cubes.server.slicer
 

@@ -36,7 +36,8 @@ Then install the Cubes::
     pip install cubes
 
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
-.. _Werkzeug: http://flask.pocoo.org/
+.. _Flask: http://flask.pocoo.org/
+.. _pip installer: http://www.pip-installer.org/en/latest/installing.html#install-or-upgrade-pip
 
 Quick Start or Hello World!
 ===========================
@@ -73,13 +74,16 @@ Download from Github::
 
     git clone git://github.com/Stiivi/cubes.git
 
-The requirements for SQLAlchemy_ and Werkzeug_ are optional and you do not need
-them if you are going to use another kind of backend.
-
 Install::
 
     cd cubes
     pip install -r requirements.txt
     pip install -r requirements-optional.txt
     python setup.py install
+
+.. note::
+
+    The requirements for SQLAlchemy_ and Flask_ are optional and you do not
+    need them if you are going to use another kind of backend or don't going
+    to use the Slicer server.
 
