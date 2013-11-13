@@ -376,9 +376,9 @@ class Workspace(object):
 
         self.cube_models[name] = model
 
-    def add_slicer(self, name, url):
+    def add_slicer(self, name, url, **options):
         """Register a slicer as a model and data provider."""
-        self.register_store(name, "slicer", url=url)
+        self.register_store(name, "slicer", url=url, **options)
 
         model = {
             "store": name,
