@@ -29,6 +29,19 @@ class SlicerStore(Store):
         self.auth_identity = auth_identity
         self.auth_parameter = auth_parameter or "api_key"
 
+        if "username" in options and "password" in options:
+            # make a basic auth-enabled opener
+            _pmgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            _pmgr.add_password(None, self.url, options['username'], options['password'])
+            self.opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(_pmgr))
+            self.logger.info("Created slicer opener using basic auth credentials with username %s", options['username'])
+        else:
+            def _f(*args, **kwargs):
+                return urllib2.urlopen(*args, **kwargs)
+            _o = object()
+            _o.open = _f
+            self.opener = _o
+
         # TODO: cube prefix
         # TODO: model mappings as in mixpanel
 
@@ -50,7 +63,7 @@ class SlicerStore(Store):
             request_url += '?' + params_str
 
         self.logger.debug("slicer request: %s" % (request_url, ))
-        response = urllib.urlopen(request_url)
+        response = self.opener.open(request_url)
 
         if response.getcode() == 404:
             raise MissingObjectError
