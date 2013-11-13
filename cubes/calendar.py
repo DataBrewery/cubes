@@ -287,7 +287,7 @@ class CalendarMemberConverter(object):
         value = path[0]
         try:
             path = self.calendar.named_relative_path(value, units)
-        except KeyError:
+        except ValueError:
             return [value]
 
         return path

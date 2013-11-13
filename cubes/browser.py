@@ -1065,6 +1065,8 @@ def cut_from_string(string, cube=None, member_converters=None,
     if cube:
         role = cube.dimension(dimension).role
         converter = converter or role_member_converters.get(role)
+        dimension = cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
 
     # special case: completely empty string means single path element of ''
     # FIXME: why?
