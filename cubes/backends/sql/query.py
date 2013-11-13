@@ -263,7 +263,8 @@ class SnowflakeSchema(object):
                 mapping[attribute] = relationships[table_ref]
             except KeyError:
                 raise ModelError("Can not determine to-fact relationship for "
-                                 "table %s. Missing join?" % (table_ref,))
+                                 "table %s (attribute '%s'). Missing join?"
+                                 % (table_ref, str(attribute)))
         self.fact_relationships = mapping
 
         attributes = self.cube.get_attributes(aggregated=True)

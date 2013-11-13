@@ -345,6 +345,12 @@ It can be named and labelled in any way.
     :doc:`../model`
 
 
+Other
+-----
+
+* The dimension hierarchies can be specified per-cube using cube's
+  ``"hierarchies"`` property
+
 Backends
 ========
 

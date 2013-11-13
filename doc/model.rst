@@ -271,6 +271,8 @@ Key            Description
 **aggregates** list of aggregated measures
 **dimensions** list of cube dimension names (recommended, but might
                be empty for dimension-less cubes)
+hierarchies    optional dictionary of allowed dimension
+               hierarchies
 label          human readable name - can be used in an application
 description    longer human-readable description of the cube
                *(optional)*
@@ -465,6 +467,29 @@ aggregate should be added:
 
    :class:`cubes.MeasureAggregate`
         Measure Aggregate class reference.
+
+
+Per-cube Dimension Hierarchies
+------------------------------
+
+It is possible to customize the list of dimension hierarchies that are
+relevant for the cube. For example the `date` dimension might be defined as
+having `day` granularity, but some cubes might be only at the `month` level.
+To specify only relevant hierarchies use ``hierarchies`` metadata property:
+
+.. code-block:: javascript
+
+    {
+        "name": "churn",
+
+        "dimensions": ["date", "customer_type"],
+
+        "hierarchies": {
+            "date": ["ym", "yqm"]
+        },
+
+        ...
+    }
 
 Dimensions
 ==========

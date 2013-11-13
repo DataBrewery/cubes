@@ -150,17 +150,18 @@ class Model(object):
             raise ModelError("No such cube '%s'" % str(e))
         return cube
 
-    # TODO: remove
     def add_dimension(self, dimension):
-        """Add dimension to model. Replace dimension with same name"""
+        """Add dimension to model. If cube has `hierarchy` specified for the
+        `dimension` then copy of the dimension will be added with stripped
+        hierarchies."""
         assert_instance(dimension, Dimension, "dimension")
 
         if dimension.name in self._dimensions:
             raise ModelInconsistencyError("Dimension '%s' already exists "
-                                          "in model '%s'" %
+                                          "in cube '%s'" %
                                           (dimension.name, self.name))
 
-        self._dimensions[dimension.name] = dimension
+        self._dimensions[dimension.name] = copy.copy(dimension)
 
     # TODO: remove
     def remove_dimension(self, dimension):
@@ -409,7 +410,8 @@ class Cube(object):
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, linked_dimensions=None,
-                 locale=None, category=None, datastore=None, **options):
+                 locale=None, category=None, datastore=None,
+                 hierarchies=None, **options):
 
         """Create a new Cube model object.
 
@@ -417,7 +419,6 @@ class Cube(object):
 
         * `name`: cube name, used as identifier
         * `measures`: list of measures – numerical attributes
-        * `aggregates`: list of measure aggregates – measures with applied
           aggregation functions or natively aggregated values
         * `label`: human readable cube label
         * `details`: list of detail attributes
@@ -428,6 +429,12 @@ class Cube(object):
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
         * `locale`: cube's locale
+        * `linked_dimensions` – dimensions to be linked after the cube is
+          created
+        * `hierarchies` – a dictionary of relevant dimension hierarchies for
+          this cube. Keys are dimension names, values are hierarchy names. If
+          a dimension is not in this dictionary, then all hierarchies are
+          used.
 
         There are two ways how to assign dimensions to the cube: specify them
         during cube initialization in `dimensions` by providing a list of
@@ -472,6 +479,8 @@ class Cube(object):
         self.browser = options.get("browser")
 
         self.linked_dimensions = linked_dimensions or []
+        self.dimension_hierarchies = hierarchies or {}
+
         self._dimensions = OrderedDict()
 
         if dimensions:
@@ -550,6 +559,17 @@ class Cube(object):
         if dimension.name in self._dimensions:
             raise ModelError("Dimension with name %s already exits "
                              "in cube %s" % (dimension.name, self.name))
+
+        if dimension.name in self.dimension_hierarchies:
+            hierarchies = self.dimension_hierarchies[dimension.name]
+
+            if not hierarchies:
+                raise ModelInconsistencyError("Can not remove all hierarchies"
+                                              "from a dimension. In cube '%s' "
+                                              "dimension '%s'"
+                                              % (self.name, dimension.name))
+
+            dimension = dimension.limited_clone(hierarchies)
 
 
         self._dimensions[dimension.name] = dimension
@@ -1107,6 +1127,44 @@ class Dimension(object):
         known order. Order of attributes within level is preserved."""
 
         return list(self._attributes.values())
+
+    def limited_clone(self, hierarchies):
+        """Returns a shallow copy of the receiver and limit hierarchies only
+        to those specified in `hierarchies`. If default hierarchy name is not
+        in the new hierarchy list, then the first hierarchy from the list is
+        used."""
+
+        limited_hiers = []
+
+        for name in hierarchies:
+            limited_hiers.append(self.hierarchy(name))
+
+        if self.default_hierarchy_name in hierarchies:
+            default_hier = self.default_hierarchy_name
+        else:
+            default_hier = hierarchies[0]
+
+        levels = []
+        seen = set()
+
+        # Get only levels used in the hierarchies
+        for hier in limited_hiers:
+            for level in hier.levels:
+                if level.name in seen:
+                    continue
+
+                levels.append(level)
+                seen.add(level.name)
+
+        return Dimension(name=self.name,
+                         levels=levels,
+                         hierarchies=limited_hiers,
+                         default_hierarchy_name=default_hier,
+                         label=self.label,
+                         description=self.description,
+                         info=self.info,
+                         role=self.role,
+                         cardinality=self.cardinality)
 
     def to_dict(self, hierarchy_limits=None, **options):
         """Return dictionary representation of the dimension"""
