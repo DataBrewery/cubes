@@ -758,51 +758,6 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(self.cube, cube)
 
 
-class ModelTestCase(ModelTestCaseBase):
-    def setUp(self):
-        super(ModelTestCase, self).setUp()
-
-        a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
-        self.measures = cubes.attribute_list(["amount", "discount"], Measure)
-        self.dimensions = [cubes.create_dimension(desc) for desc in a]
-        self.cube = cubes.Cube("contracts",
-                                dimensions=self.dimensions,
-                                measures=self.measures)
-        self.model = cubes.Model(cubes=[self.cube],
-                                 dimensions=self.dimensions)
-
-        self.model_file = "model.json"
-
-    def test_extraction(self):
-        self.assertEqual(self.dimensions[0], self.model.dimension("date"))
-        self.assertRaises(NoSuchDimensionError, self.model.dimension, "xxx")
-
-        self.assertEqual(self.cube, self.model.cube("contracts"))
-        self.assertRaises(ModelError, self.model.cube, "xxx")
-
-    def test_localize(self):
-        translation = {
-                "locale": "sk",
-                "dimensions": {
-                    "date": {
-                            "label": "Datum",
-                            "attributes": {"month":"mesiac"}
-                        }
-                    }
-                }
-        localized = self.model.localize(translation)
-        dim = localized.dimension("date")
-        self.assertEqual("Datum", dim.label)
-        self.assertEqual("mesiac", dim.attribute("month").label)
-
-        translation["dimensions"]["date"]["attributes"]["month"] = {
-                    "label":"mesiac"
-                }
-        dim = localized.dimension("date")
-        self.assertEqual("Datum", dim.label)
-        self.assertEqual("mesiac", dim.attribute("month").label)
-
-
 class OldModelValidatorTestCase(unittest.TestCase):
     def setUp(self):
         self.model = cubes.Model('test')

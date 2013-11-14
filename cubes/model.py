@@ -53,9 +53,9 @@ IMPLICIT_AGGREGATE_LABELS.update(aggregate_calculator_labels())
 
 
 class Model(object):
-    def __init__(self, name=None, cubes=None, dimensions=None, locale=None,
-                 label=None, description=None, info=None, mappings=None,
-                 provider=None, metadata=None, translations=None):
+    def __init__(self, name=None, locale=None, label=None, description=None,
+                 info=None, mappings=None, provider=None, metadata=None,
+                 translations=None):
         """
         Logical representation of data. Base container for cubes and
         dimensions.
@@ -63,7 +63,6 @@ class Model(object):
         Attributes:
 
         * `name` - model name
-        * `cubes` -  list of `Cube` instances
         * `dimensions` - list of `Dimension` instances
         * `locale` - locale code of the model
         * `label` - human readable name - can be used in an application
@@ -88,105 +87,10 @@ class Model(object):
         # Physical information
         self.mappings = mappings
 
-        self._dimensions = OrderedDict()
-        if dimensions:
-            for dim in dimensions:
-                self.add_dimension(dim)
-
-        # TODO: remove cubes and dimensions from here, they belong to the
-        # provider
-        # TODO: provider -> object; provider_name -> from metadata
-
-        self.cubes = OrderedDict()
-        if cubes:
-            for cube in cubes:
-                self.add_cube(cube)
-
         self.translations = translations or {}
 
     def __str__(self):
         return 'Model(%s)' % self.name
-
-    # TODO: remove
-    def add_cube(self, cube):
-        """Adds cube to the model and also assigns the model to the cube. If
-        cube has a model assigned and it is not this model, then error is
-        raised.
-
-        Raises `ModelInconsistencyError` when trying to assing a cube that is
-        already assigned to a different model or if trying to add a dimension
-        with existing name but different specification.
-        """
-
-        assert_instance(cube, Cube, "cube")
-
-        # Collect dimensions from cube
-        my_dimensions = set(self.dimensions)
-        my_dimension_names = set([dim.name for dim in self.dimensions])
-
-        for dimension in cube.dimensions:
-            if dimension not in my_dimensions:
-                if dimension.name not in my_dimension_names:
-                    self.add_dimension(dimension)
-                else:
-                    raise ModelError("Dimension %s of cube %s has different "
-                                     "specification as model's dimension"
-                                     % (dimension.name, cube.name))
-
-        self.cubes[cube.name] = cube
-
-    # TODO: remove
-    def remove_cube(self, cube):
-        """Removes cube from the model"""
-        del self.cubes[cube.name]
-
-    # TODO: use provider
-    def cube(self, cube):
-        """Get a cube with name `name` or coalesce object to a cube."""
-        try:
-            if isinstance(cube, basestring):
-                cube = self.cubes[cube]
-        except KeyError as e:
-            raise ModelError("No such cube '%s'" % str(e))
-        return cube
-
-    def add_dimension(self, dimension):
-        """Add dimension to model. If cube has `hierarchy` specified for the
-        `dimension` then copy of the dimension will be added with stripped
-        hierarchies."""
-        assert_instance(dimension, Dimension, "dimension")
-
-        if dimension.name in self._dimensions:
-            raise ModelInconsistencyError("Dimension '%s' already exists "
-                                          "in cube '%s'" %
-                                          (dimension.name, self.name))
-
-        self._dimensions[dimension.name] = copy.copy(dimension)
-
-    # TODO: remove
-    def remove_dimension(self, dimension):
-        """Remove a dimension from receiver"""
-        del self._dimensions[dimension.name]
-
-    @property
-    def dimensions(self):
-        return self._dimensions.values()
-
-    def dimension(self, dim):
-        """Get dimension by name or by object. Raises `NoSuchDimensionError`
-        when there is no dimension `dim`."""
-
-        if isinstance(dim, basestring):
-            if dim in self._dimensions:
-                return self._dimensions[dim]
-            else:
-                raise NoSuchDimensionError("Unknown dimension with name '%s' "
-                                           "in model '%s'" % (dim, self.name))
-        elif dim.name in self._dimensions:
-            return dim
-        else:
-            raise NoSuchDimensionError("Unknown dimension '%s' in "
-                                       "model '%s'" % (dim, self.name))
 
     def to_dict(self, **options):
         """Return dictionary representation of the model. All object
@@ -203,12 +107,6 @@ class Model(object):
         out["description"] = self.description
         out["info"] = self.info
 
-        dims = [dim.to_dict(**options) for dim in self._dimensions.values()]
-        out["dimensions"] = dims
-
-        cubes = [cube.to_dict(**options) for cube in self.cubes.values()]
-        out["cubes"] = cubes
-
         if options.get("with_mappings"):
             out["mappings"] = self.mappings
 
@@ -219,10 +117,6 @@ class Model(object):
             return False
         if self.name != other.name or self.label != other.label \
                 or self.description != other.description:
-            return False
-        elif self.dimensions != other.dimensions:
-            return False
-        elif self.cubes != other.cubes:
             return False
         elif self.info != other.info:
             return False
@@ -236,35 +130,7 @@ class Model(object):
         Returs: array of tuples
         """
 
-        results = []
-
-        ################################################################
-        # 1. Chceck dimensions
-        is_fatal = False
-        for dim_name, dim in self._dimensions.items():
-            if not issubclass(dim.__class__, Dimension):
-                results.append(('error', "Dimension '%s' is not a subclass "
-                                "of Dimension class" % dim_name))
-                is_fatal = True
-
-        # We are not going to continue if there are no valid dimension objects,
-        # as more errors migh emerge
-        if is_fatal:
-            return results
-
-        for dim in self.dimensions:
-            results.extend(dim.validate())
-
-        ################################################################
-        # 2. Chceck cubes
-
-        if not self.cubes:
-            results.append(('warning', 'No cubes defined'))
-        else:
-            for cube_name, cube in self.cubes.items():
-                results.extend(cube.validate())
-
-        return results
+        return []
 
     def is_valid(self, strict=False):
         """Check whether model is valid. Model is considered valid if there
@@ -291,6 +157,7 @@ class Model(object):
     def _add_translation(self, lang, translation):
         self.translations[lang] = translation
 
+    # TODO: move to separate module
     def localize(self, translation):
         """Return localized version of the model.
 
