@@ -138,7 +138,7 @@ class _SimpleAccessRight(object):
 
         allow = False
         if self.allowed_cubes:
-            if (name in self.allowed_cubes) and \
+            if (name in self.allowed_cubes) or \
                         (ALL_CUBES_WILDCARD in self.allowed_cubes):
                 allow = True
 
@@ -177,7 +177,7 @@ class _SimpleAccessRight(object):
         # deny_allow
         if allow_after_denied:
             return allow or not deny
-        # deny_allow
+        # allow_deny
         else:
             return allow and not deny
 
