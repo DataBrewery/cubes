@@ -191,7 +191,7 @@ def show_info():
 
 @slicer.route("/cubes")
 def list_cubes():
-    cube_list = workspace.list_cubes()
+    cube_list = workspace.list_cubes(g.auth_identity)
     # TODO: cache per-identity
     return jsonify(cube_list)
 
