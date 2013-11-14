@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 import sys
 from .providers import read_model_metadata, create_model_provider
-from .auth import create_authorizer
+from .auth import create_authorizer, NotAuthorized
 from .model import Model
 from .common import read_json_file
 from .logging import get_logger
