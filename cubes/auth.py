@@ -137,9 +137,9 @@ class _SimpleAccessRight(object):
     def is_allowed(self, name):
         allow = True
         if self.allowed_cubes:
-            if (name in self.allowed_cubes) or \
-                        (ALL_CUBES_WILDCARD in self.allowed_cubes):
-                allow = True
+            if (name not in self.allowed_cubes) or \
+                        (ALL_CUBES_WILDCARD not in self.allowed_cubes):
+                allow = False
 
             if not allow and self.allowed_cube_prefix:
                 allow = any(name.startswith(p) for p in self.allowed_cube_prefix)

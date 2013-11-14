@@ -39,6 +39,16 @@ class AuthTestCase(CubesTestCaseBase):
                          self.auth.authorize("john", [self.sales_cube]))
         self.assertEqual([], self.auth.authorize("ivana", [self.churn_cube]))
 
+    def test_allow(self):
+        rights = {
+            "john": {"denied_cubes": ["sales"]},
+            "ivana": {}
+        }
+        self.auth = SimpleAuthorizer(rights=rights)
+
+        self.assertEqual([self.churn_cube],
+                         self.auth.authorize("ivana", [self.churn_cube]))
+
     def test_role(self):
         roles = {
             "marketing": {"allowed_cubes": ["sales"]}
