@@ -70,7 +70,7 @@ class NoopAuthorizer(Authorizer):
 
 
 class _SimpleAccessRight(object):
-    def __init__(self, roles, allow_cubes, deny_cubes, cell_restrictions,
+    def __init__(self, roles, allowed_cubes, denied_cubes, cell_restrictions,
                  hierarchy_limits):
         self.roles = set(roles) if roles else set([])
         self.cell_restrictions = cell_restrictions or {}
@@ -86,39 +86,39 @@ class _SimpleAccessRight(object):
 
         self.hierarchy_limits = dict(self.hierarchy_limits)
 
-        self.allow_cubes = set(allow_cubes) if allow_cubes else set([])
-        self.deny_cubes = set(deny_cubes) if deny_cubes else set([])
+        self.allowed_cubes = set(allowed_cubes) if allowed_cubes else set([])
+        self.denied_cubes = set(denied_cubes) if denied_cubes else set([])
         self._get_patterns()
 
     def _get_patterns(self):
-        self.allow_cube_suffix = []
-        self.allow_cube_prefix = []
-        self.deny_cube_suffix = []
-        self.deny_cube_prefix = []
+        self.allowed_cube_suffix = []
+        self.allowed_cube_prefix = []
+        self.denied_cube_suffix = []
+        self.denied_cube_prefix = []
 
-        for cube in self.allow_cubes:
+        for cube in self.allowed_cubes:
             if cube.startswith("*"):
-                self.allow_cube_suffix.append(cube[1:])
+                self.allowed_cube_suffix.append(cube[1:])
             if cube.endswith("*"):
-                self.allow_cube_prefix.append(cube[:-1])
+                self.allowed_cube_prefix.append(cube[:-1])
 
-        for cube in self.deny_cubes:
+        for cube in self.denied_cubes:
             if cube.startswith("*"):
-                self.deny_cube_suffix.append(cube[1:])
+                self.denied_cube_suffix.append(cube[1:])
             if cube.endswith("*"):
-                self.deny_cube_prefix.append(cube[:-1])
+                self.denied_cube_prefix.append(cube[:-1])
 
     def merge(self, other):
         """Merge `right` with the receiver:
 
-        * `allow_cubes` are merged (union)
-        * `deny_cubes` are merged (union)
+        * `allowed_cubes` are merged (union)
+        * `denied_cubes` are merged (union)
         * `cube_restrictions` from `other` with same cube replace restrictions
           from the receiver"""
 
         self.roles |= other.roles
-        self.allow_cubes |= other.allow_cubes
-        self.deny_cubes |= other.deny_cubes
+        self.allowed_cubes |= other.allowed_cubes
+        self.denied_cubes |= other.denied_cubes
 
         for cube, restrictions in other.cell_restrictions.iteritems():
             if not cube in self.cube_restrictions:
@@ -136,29 +136,29 @@ class _SimpleAccessRight(object):
 
     def is_allowed(self, name):
         allow = True
-        if self.allow_cubes:
-            if (name in self.allow_cubes) or \
-                        (ALL_CUBES_WILDCARD in self.allow_cubes):
+        if self.allowed_cubes:
+            if (name in self.allowed_cubes) or \
+                        (ALL_CUBES_WILDCARD in self.allowed_cubes):
                 allow = True
 
-            if not allow and self.allow_cube_prefix:
-                allow = any(name.startswith(p) for p in self.allow_cube_prefix)
-            if not allow and self.allow_cube_suffix:
-                allow = any(name.endswith(p) for p in self.allow_cube_suffix)
+            if not allow and self.allowed_cube_prefix:
+                allow = any(name.startswith(p) for p in self.allowed_cube_prefix)
+            if not allow and self.allowed_cube_suffix:
+                allow = any(name.endswith(p) for p in self.allowed_cube_suffix)
 
         else:
             allow = True
 
         deny = False
-        if self.deny_cubes:
-            if (name in self.deny_cubes) or \
-                        (ALL_CUBES_WILDCARD in self.deny_cubes):
+        if self.denied_cubes:
+            if (name in self.denied_cubes) or \
+                        (ALL_CUBES_WILDCARD in self.denied_cubes):
                 deny = True
 
-            if not deny and self.deny_cube_prefix:
-                deny = any(name.startswith(p) for p in self.deny_cube_prefix)
-            if not deny and self.deny_cube_suffix:
-                deny = any(name.endswith(p) for p in self.deny_cube_suffix)
+            if not deny and self.denied_cube_prefix:
+                deny = any(name.startswith(p) for p in self.denied_cube_prefix)
+            if not deny and self.denied_cube_suffix:
+                deny = any(name.endswith(p) for p in self.denied_cube_suffix)
 
         else:
             deny = False
@@ -169,8 +169,8 @@ class _SimpleAccessRight(object):
     def to_dict(self):
         as_dict = {
             "roles": list(self.roles),
-            "allowed_cubes": list(self.allow_cubes),
-            "denied_cubes": list(self.deny_cubes),
+            "allowed_cubes": list(self.allowed_cubes),
+            "denied_cubes": list(self.denied_cubes),
             "cell_restrictions": self.cell_restrictions,
             "hierarchy_limits": self.hierarchy_limits
         }
@@ -181,8 +181,8 @@ class _SimpleAccessRight(object):
 def right_from_dict(info):
     return _SimpleAccessRight(
                roles=info.get('roles'),
-               allow_cubes=info.get('allowed_cubes'),
-               deny_cubes=info.get('denied_cubes'),
+               allowed_cubes=info.get('allowed_cubes'),
+               denied_cubes=info.get('denied_cubes'),
                cell_restrictions=info.get('cell_restrictions'),
                hierarchy_limits=info.get('hierarchy_limits')
            )
