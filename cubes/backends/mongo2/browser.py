@@ -30,6 +30,8 @@ SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
 def is_date_dimension(dim):
     if isinstance(dim, basestring):
         return 'date' in dim.lower()
+    elif hasattr(dim, 'info'):
+        return (not not dim.info.get('is_date'))
     elif hasattr(dim, 'name'):
         return 'date' in dim.name
     else:
@@ -579,7 +581,7 @@ class Mongo2Browser(AggregationBrowser):
         # FIXME for multi-level range: it's { $or: [ level_above_me < value_above_me, $and: [level_above_me = value_above_me, my_level < my_value] }
         # of the level value.
         elif isinstance(cut, RangeCut):
-            if is_date_dimension(cut.dimension.lower()):
+            if is_date_dimension(cut.dimension):
                 start_cond = None
                 end_cond = None
                 if cut.from_path:
