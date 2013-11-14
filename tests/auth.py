@@ -49,6 +49,45 @@ class AuthTestCase(CubesTestCaseBase):
         self.assertEqual([self.churn_cube],
                          self.auth.authorize("ivana", [self.churn_cube]))
 
+    def test_order(self):
+        rights = {
+            "john": {
+                "denied_cubes": ["sales"],
+                "allowed_cubes": ["sales"]
+            },
+            "ivana": {
+                "denied_cubes": ["sales"],
+                "allowed_cubes": ["*"]
+            },
+            "fero": {
+                "denied_cubes": ["*"],
+                "allowed_cubes": ["sales"]
+            },
+            "magda": {
+                "denied_cubes": ["*"],
+                "allowed_cubes": ["*"]
+            },
+        }
+        self.auth = SimpleAuthorizer(rights=rights)
+        self.assertEqual([self.sales_cube],
+                         self.auth.authorize("john", [self.sales_cube]))
+        self.assertEqual([self.sales_cube],
+                         self.auth.authorize("ivana", [self.sales_cube]))
+        self.assertEqual([self.sales_cube],
+                         self.auth.authorize("fero", [self.sales_cube]))
+        self.assertEqual([self.sales_cube],
+                         self.auth.authorize("magda", [self.sales_cube]))
+
+        self.auth = SimpleAuthorizer(rights=rights, order="allow_deny")
+        self.assertEqual([],
+                         self.auth.authorize("john", [self.sales_cube]))
+        self.assertEqual([],
+                         self.auth.authorize("ivana", [self.sales_cube]))
+        self.assertEqual([],
+                         self.auth.authorize("fero", [self.sales_cube]))
+        self.assertEqual([],
+                         self.auth.authorize("magda", [self.sales_cube]))
+
     def test_role(self):
         roles = {
             "marketing": {"allowed_cubes": ["sales"]}

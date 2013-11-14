@@ -134,7 +134,7 @@ class _SimpleAccessRight(object):
 
         self._get_patterns()
 
-    def is_allowed(self, name):
+    def is_allowed(self, name, allow_after_denied=True):
         allow = True
         if self.allowed_cubes:
             if (name not in self.allowed_cubes) and \
@@ -145,6 +145,9 @@ class _SimpleAccessRight(object):
                 allow = any(name.startswith(p) for p in self.allowed_cube_prefix)
             if not allow and self.allowed_cube_suffix:
                 allow = any(name.endswith(p) for p in self.allowed_cube_suffix)
+
+            if allow and allow_after_denied:
+                return True
 
         else:
             allow = True
@@ -198,11 +201,17 @@ class SimpleAuthorizer(Authorizer):
             "description": "JSON file with access right roles",
             "type": "string"
         },
+        {
+            "name": "order",
+            "description": "Order of allow/deny",
+            "type": "string",
+            "values": ["allow_deny", "deny_allow"]
+        },
 
     ]
 
     def __init__(self, rights_file=None, roles_file=None, roles=None,
-                 rights=None, identity_dimension=None, **options):
+                 rights=None, identity_dimension=None, order=None, **options):
         """Creates a simple JSON-file based authorizer. Reads data from
         `rights_file` and `roles_file` and merge them with `roles` and
         `rights` dictionaries respectively."""
@@ -222,6 +231,15 @@ class SimpleAuthorizer(Authorizer):
 
         self.roles = {}
         self.rights = {}
+
+        order = order or "deny_allow"
+
+        if order == "allow_deny":
+            self.allow_after_denied = False
+        elif order == "deny_allow":
+            self.allow_after_denied = True
+        else:
+            raise ConfigurationError("Unknown allow/deny order: %s" % order)
 
         # Process the roles
         for key, info in roles.items():
@@ -275,7 +293,7 @@ class SimpleAuthorizer(Authorizer):
         for cube in cubes:
             cube_name = str(cube)
 
-            if right.is_allowed(cube_name):
+            if right.is_allowed(cube_name, self.allow_after_denied):
                 authorized.append(cube)
 
         return authorized
