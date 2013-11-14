@@ -137,7 +137,7 @@ class _SimpleAccessRight(object):
     def is_allowed(self, name):
         allow = True
         if self.allowed_cubes:
-            if (name not in self.allowed_cubes) or \
+            if (name not in self.allowed_cubes) and \
                         (ALL_CUBES_WILDCARD not in self.allowed_cubes):
                 allow = False
 
@@ -162,7 +162,6 @@ class _SimpleAccessRight(object):
 
         else:
             deny = False
-
 
         return allow and not deny
 
