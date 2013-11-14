@@ -135,22 +135,17 @@ class _SimpleAccessRight(object):
         self._get_patterns()
 
     def is_allowed(self, name, allow_after_denied=True):
-        allow = True
+
+        allow = False
         if self.allowed_cubes:
-            if (name not in self.allowed_cubes) and \
-                        (ALL_CUBES_WILDCARD not in self.allowed_cubes):
-                allow = False
+            if (name in self.allowed_cubes) and \
+                        (ALL_CUBES_WILDCARD in self.allowed_cubes):
+                allow = True
 
             if not allow and self.allowed_cube_prefix:
                 allow = any(name.startswith(p) for p in self.allowed_cube_prefix)
             if not allow and self.allowed_cube_suffix:
                 allow = any(name.endswith(p) for p in self.allowed_cube_suffix)
-
-            if allow and allow_after_denied:
-                return True
-
-        else:
-            allow = True
 
         deny = False
         if self.denied_cubes:
@@ -163,10 +158,28 @@ class _SimpleAccessRight(object):
             if not deny and self.denied_cube_suffix:
                 deny = any(name.endswith(p) for p in self.denied_cube_suffix)
 
-        else:
-            deny = False
+        """
+        Four cases:
+            - allow match, no deny match
+              * allow_deny: allowed
+              * deny_allow: allowed
+            - no allow match, deny match
+              * allow_deny: denied
+              * deny_allow: denied
+            - no match in either
+              * allow_deny: denied
+              * deny_allow: allowed
+            - match in both
+              * allow_deny: denied
+              * deny_allow: allowed
+        """
 
-        return allow and not deny
+        # deny_allow
+        if allow_after_denied:
+            return allow or not deny
+        # deny_allow
+        else:
+            return allow and not deny
 
     def to_dict(self):
         as_dict = {
