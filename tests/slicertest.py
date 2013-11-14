@@ -1,4 +1,5 @@
 import unittest
+import traceback
 import os
 
 from cubes import Workspace
@@ -11,7 +12,7 @@ import cubes.browser
 class SlicerTestCase(unittest.TestCase):
     def setUp(self):
         self.w = Workspace()
-        self.w.add_slicer("myslicer", "http://localhost:5010")
+        self.w.add_slicer("myslicer", "http://localhost:5010", username=os.environ.get("SLICER_USERNAME"), password=os.environ.get("SLICER_PASSWORD"))
 
         self.cube_list = self.w.list_cubes()
 
@@ -30,7 +31,11 @@ class SlicerTestCase(unittest.TestCase):
             date_dim = self.first_date_dim(cube)
             cut = cubes.browser.RangeCut(date_dim, [ 2013, 9, 25 ], None)
             cell = cubes.browser.Cell(cube, [ cut ])
-            drill = cubes.browser.Drilldown([(date_dim, None, date_dim.level('day'))], cell)
+            drill_levels = [ l for l in date_dim.hierarchy().levels if l.name in ('day', 'date') ]
+            if not drill_levels:
+                print "Skipping cube %s with no day/date drilldown available." % c.get('name')
+                continue
+            drill = cubes.browser.Drilldown([(date_dim, None, date_dim.level(drill_levels[0]))], cell)
             b = self.w.browser(cube)
             try:
                 attr_dim = cube.dimension("attr")
@@ -48,6 +53,5 @@ class SlicerTestCase(unittest.TestCase):
                 result = b.aggregate(cell, drilldown=drill, split=split, **kw)
                 print result.cells
             except:
-                import sys
-                print sys.exc_info()
+                traceback.print_exc()
 

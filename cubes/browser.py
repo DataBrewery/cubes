@@ -1853,6 +1853,8 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
     for obj in drilldown:
         if isinstance(obj, basestring):
             obj = string_to_drilldown(obj)
+        elif isinstance(obj, DrilldownItem):
+            obj = (obj.dimension, obj.hierarchy, obj.levels[-1])
         elif len(obj) != 3:
             raise ArgumentError("Drilldown item should be either a string "
                                 "or a tuple of three elements. Is: %s" %
