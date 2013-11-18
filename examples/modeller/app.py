@@ -28,46 +28,44 @@ def index():
                            cubes=cubes)
 
 @app.route("/edit_cube", methods=["GET", "POST"],
-                         defaults={"cube_name":None})
-@app.route("/edit_cube/<cube_name>", methods=["GET", "POST"])
-def edit_cube(cube_name):
+                         defaults={"cube_id":None})
+@app.route("/edit_cube/<cube_id>", methods=["GET", "POST"])
+def edit_cube(cube_id):
+
     if request.method == "POST":
-        if request.values.get("is_new"):
+        if cube_id:
+            is_new = False
+            cube = db_session.query(Cube).get(cube_id)
+        else:
             is_new = True
             cube = Cube()
-            cube.name = request.values.get("name")
-        else:
-            is_new = False
-            name = request.values.get("name")
-            cube = db_session.query(Cube).filter(Cube.name == name).first()
 
+        cube.name = request.values.get("name")
         cube.label = request.values.get("label")
         cube.description = request.values.get("description")
         cube.info = request.values.get("info")
 
         if is_new:
             db_session.add(cube)
-        else:
-            # What to do??
-            pass
 
         db_session.commit()
 
         return redirect(url_for("index"))
     else:
-        if cube_name:
+        if cube_id:
             is_new = False
-            cube = db_session.query(Cube).filter(Cube.name == cube_name).first()
+            cube = db_session.query(Cube).get(cube_id)
             form = CubeForm(obj=cube)
         else:
             is_new = True
             form = CubeForm()
 
-        return render_template("edit_cube.html", form=form, is_new=is_new)
+        return render_template("edit_cube.html", form=form, cube_id=cube_id)
 
-@app.route("/delete_cube/<cube_name>")
-def new_cube(cube_name):
-    db_session.query(Cube).filter(Cube.name == cube_name).delete()
+@app.route("/delete_cube/<cube_id>")
+def new_cube(cube_id):
+    cube = db_session.query(Cube).get(cube_id)
+    db_session.delete(cube)
     db_session.commit()
 
     return redirect(url_for("index"))

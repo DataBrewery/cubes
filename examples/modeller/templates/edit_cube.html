@@ -3,14 +3,15 @@
 
 <h1>Edit Cube</h1>
 
+{% if cube_id %}
+<form method="POST" action="/edit_cube/{{ cube_id }}">
+{% else %}
 <form method="POST" action="/edit_cube">
+{% endif %}
     {{ form.name.label }} {{ form.name(size=20) }} <br />
     {{ form.label.label }} {{ form.label(size=100) }} <br />
     {{ form.description.label }} {{ form.description() }} <br />
     {{ form.info.label }} {{ form.info() }} <br />
-    {% if is_new %}
-        <input type="hidden" name="is_new" value="1">
-    {% endif %}
     <input type="submit" value="Save">
 </form>
 

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block body %}
-<h1>cubes</h1>
+<a anchor="cubes"></a>
+<h1>Cubes</h1>
 <div>
         <button type="button" class="btn btn-default"><a
                 href="edit_cube">New cube</a></button>
@@ -15,11 +16,33 @@
 <tr>
     <td>{{cube.name}}</td>
     <td>{{cube.label}}</td>
-    <td><a href="edit_cube/{{cube.name}}">edit</a>
-    <td><a href="delete_cube/{{cube.name}}">delete</a>
+    <td><a href="edit_cube/{{cube.id}}">edit</a>
+    <td><a href="delete_cube/{{cube.id}}">delete</a>
     </td>
 </tr>
 {% endfor %}
 </table>
 
+<a anchor="dimensions"></a>
+<h1>Dimensions</h1>
+<div>
+        <button type="button" class="btn btn-default"><a
+                href="edit_cube">New dimension</a></button>
+</div>
+<table class="table">
+<tr>
+    <th>Name</th>
+    <th>Label</th>
+    <th>Action</th>
+</tr>
+{% for dim in dimensions %}
+<tr>
+    <td>{{dimension.name}}</td>
+    <td>{{dimension.label}}</td>
+    <td><a href="edit_dimension/{{dim.id}}">edit</a>
+    <td><a href="delete_dimension/{{dim.id}}">delete</a>
+    </td>
+</tr>
+{% endfor %}
+</table>
 {% endblock %}
