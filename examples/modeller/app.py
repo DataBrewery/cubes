@@ -39,9 +39,9 @@ def index():
                            cubes=cubes,
                            dimensions=dimensions)
 
-@app.route("/edit_cube", methods=["GET", "POST"],
+@app.route("/cube", methods=["GET", "POST"],
                          defaults={"cube_id":None})
-@app.route("/edit_cube/<cube_id>", methods=["GET", "POST"])
+@app.route("/cube/<cube_id>", methods=["GET", "POST"])
 def edit_cube(cube_id):
 
     if request.method == "POST":
@@ -66,7 +66,7 @@ def edit_cube(cube_id):
         else:
             form = CubeForm()
 
-        return render_template("edit_dimension.html", form=form, cube_id=cube_id)
+        return render_template("edit_cube.html", form=form, cube_id=cube_id)
 
 
 @app.route("/delete_cube/<cube_id>")

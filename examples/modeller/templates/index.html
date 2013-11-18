@@ -1,10 +1,20 @@
 {% extends "base.html" %}
 {% block body %}
-<a anchor="cubes"></a>
-<h1>Cubes</h1>
+
+<ul class="nav nav-tabs">
+  <li><a href="#cubes" data-toggle="tab">Cubes</a></li>
+  <li><a href="#dimensions" data-toggle="tab">Dimensions</a></li>
+  <li><a href="#mappings" data-toggle="tab">Mappings</a></li>
+  <li><a href="#joins" data-toggle="tab">Joins</a></li>
+  <li><a href="#info" data-toggle="tab">Info</a></li>
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane active" id="cubes">
+
 <div>
         <button type="button" class="btn btn-default"><a
-                href="edit_cube">New cube</a></button>
+                href="cube">New cube</a></button>
 </div>
 <table class="table">
 <tr>
@@ -22,9 +32,11 @@
 </tr>
 {% endfor %}
 </table>
+</div>
 
-<a anchor="dimensions"></a>
-<h1>Dimensions</h1>
+
+<div class="tab-pane" id="dimensions">
+
 <div>
         <button type="button" class="btn btn-default"><a
                 href="dimension">New dimension</a></button>
@@ -45,4 +57,25 @@
 </tr>
 {% endfor %}
 </table>
+</div>
+
+
+<div class="tab-pane" id="mappings">
+    Mappings will be here.
+</div>
+
+
+<div class="tab-pane" id="joins">
+    List of joins will be here.
+</div>
+
+
+<div class="tab-pane" id="info">
+<ul>
+    <li>provider</li>
+    <li>store</li>
+    <li>options (JSON)</li>
+</ul>
+</div>
+
 {% endblock %}
