@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block body %}
+
+<h1>Edit Dimension</h1>
+
+{% if dimension_id %}
+<form method="POST" action="/dimension/{{ dimension_id }}" role="form">
+{% else %}
+<form method="POST" action="/dimension" role="form">
+{% endif %}
+    <div class="form-group">
+        {{ form.name.label }} {{ form.name(size=20) }} <br />
+    </div>
+    <div class="form-group">
+        {{ form.label.label }} {{ form.label(size=100) }} <br />
+    </div>
+    <div class="form-group">
+        {{ form.role.label }} {{ form.role() }} <br />
+    </div>
+    <div class="form-group">
+        {{ form.description.label }} {{ form.description() }} <br />
+    </div>
+    <div class="form-group">
+        {{ form.info.label }} {{ form.info() }} <br />
+    </div>
+    <input type="submit" value="Save">
+</form>
+
+{% endblock %}
+

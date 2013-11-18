@@ -36,6 +36,7 @@ class Dimension(Base):
     label = Column(String)
     description = Column(String)
     info = Column(String)
+    role = Column(String)
 
     levels = relationship('Level', backref='dimension', lazy='dynamic')
 

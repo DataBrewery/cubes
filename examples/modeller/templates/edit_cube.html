@@ -4,15 +4,15 @@
 <h1>Edit Cube</h1>
 
 {% if cube_id %}
-<form method="POST" action="/edit_cube/{{ cube_id }}">
+<form method="POST" action="/edit_cube/{{ cube_id }}" role="form">
 {% else %}
-<form method="POST" action="/edit_cube">
+<form method="POST" action="/edit_cube" role="form">
 {% endif %}
     {{ form.name.label }} {{ form.name(size=20) }} <br />
     {{ form.label.label }} {{ form.label(size=100) }} <br />
     {{ form.description.label }} {{ form.description() }} <br />
     {{ form.info.label }} {{ form.info() }} <br />
-    <input type="submit" value="Save">
+    <input type="submit" class="btn btn-default" value="Save">
 </form>
 
 {% endblock %}

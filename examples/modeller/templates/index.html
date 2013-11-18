@@ -14,10 +14,10 @@
 </tr>
 {% for cube in cubes %}
 <tr>
-    <td>{{cube.name}}</td>
+    <td><a href={{url_for("edit_cube", cube_id=cube.id)}}>{{cube.name}}</a></td>
     <td>{{cube.label}}</td>
     <td><a href="edit_cube/{{cube.id}}">edit</a>
-    <td><a href="delete_cube/{{cube.id}}">delete</a>
+        <a href="delete_cube/{{cube.id}}">delete</a>
     </td>
 </tr>
 {% endfor %}
@@ -27,7 +27,7 @@
 <h1>Dimensions</h1>
 <div>
         <button type="button" class="btn btn-default"><a
-                href="edit_cube">New dimension</a></button>
+                href="dimension">New dimension</a></button>
 </div>
 <table class="table">
 <tr>
@@ -37,10 +37,10 @@
 </tr>
 {% for dim in dimensions %}
 <tr>
-    <td>{{dimension.name}}</td>
-    <td>{{dimension.label}}</td>
-    <td><a href="edit_dimension/{{dim.id}}">edit</a>
-    <td><a href="delete_dimension/{{dim.id}}">delete</a>
+    <td><a href="{{url_for("edit_dimension", dimension_id=dim.id)}}">{{dim.name}}</a></td>
+    <td>{{dim.label}}</td>
+    <td><a href="dimension/{{dim.id}}">edit</a>
+        <a href="delete_dimension/{{dim.id}}">delete</a>
     </td>
 </tr>
 {% endfor %}
