@@ -288,8 +288,10 @@ def aggregate(cube_name):
                              include_header=bool(header),
                              header=header)
 
+    headers = {"Content-Disposition": 'attachment; filename="aggregate.csv"'}
     return Response(generator.csvrows(),
-                    mimetype='text/csv')
+                    mimetype='text/csv',
+                    headers=headers)
 
 
 @slicer.route("/cube/<cube_name>/facts")
@@ -356,8 +358,11 @@ def cube_facts(cube_name):
                                  include_header=bool(header),
                                  header=header)
 
+        headers = {"Content-Disposition": 'attachment; filename="facts.csv"'}
+
         return Response(generator.csvrows(),
-                        mimetype='text/csv')
+                        mimetype='text/csv',
+                        headers=headers)
 
 
 @slicer.route("/cube/<cube_name>/fact/<fact_id>")
