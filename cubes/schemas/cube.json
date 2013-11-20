@@ -1,8 +1,9 @@
 {
+    "title": "Cube",
     "type": "object",
 
     "properties": {
-        "name": {"type": "string", "required": true},
+        "name": {"type": "string"},
         "label": {"type": "string"},
         "description": {"type": "string"},
         "category": {"type": "string"},
@@ -19,7 +20,7 @@
             "items": {
                 "type": ["object", "string"],
                 "properties": {
-                    "name": {"type": "string", "required": true},
+                    "name": {"type": "string"},
                     "label": {"type": "string"},
                     "description": {"type": "string"},
                     "info": {"type": "object"},
@@ -27,15 +28,16 @@
                     "format": {"type": "string"},
                     "order": {"type": "string", "enum": ["asc", "desc"]},
                     "missing_value": {
+                        "title": "Missing value",
                         "type": ["string", "number", "null", "boolean"]
                     },
 
                     "expression": {"type": "string"},
-                    "aggregates": {"type": "array", "items": "string"},
+                    "aggregates": {"type": "array", "items": "string"}
+                },
 
-
-                    "additionalProperties": false
-                }
+                "required": ["name"],
+                "additionalProperties": false
             }
         },
 
@@ -44,7 +46,7 @@
             "items": {
                 "type": ["object", "string"],
                 "properties": {
-                    "name": {"type": "string", "required": true},
+                    "name": {"type": "string"},
                     "label": {"type": "string"},
                     "description": {"type": "string"},
                     "info": {"type": "object"},
@@ -52,24 +54,30 @@
                     "format": {"type": "string"},
                     "order": {"type": "string", "enum": ["asc", "desc"]},
                     "missing_value": {
+                        "title": "Missing value",
                         "type": ["string", "number", "null", "boolean"]
                     },
 
                     "expression": {"type": "string"},
+                    "function": {"type": "string"},
                     "formula": {"type": "string"},
-                    "measure": {"type": "string"},
+                    "measure": {"type": "string"}
+                },
 
-                    "additionalProperties": false
-                }
+                "required": ["name"],
+                "additionalProperties": false
             }
         },
 
         "details": {
+            "title": "Detail Attributes",
             "type": "array",
             "items": {
+                "title": "Detail",
                 "type": ["object", "string"],
+
                 "properties": {
-                    "name": {"type": "string", "required": true},
+                    "name": {"type": "string"},
                     "label": {"type": "string"},
                     "description": {"type": "string"},
                     "info": {"type": "object"},
@@ -77,23 +85,49 @@
                     "format": {"type": "string"},
                     "order": {"type": "string", "enum": ["asc", "desc"]},
                     "missing_value": {
+                        "title": "Missing value",
                         "type": ["string", "number", "null", "boolean"]
                     },
 
-                    "locales": {"type": "array", "items": "string"},
+                    "locales": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    }
+                },
 
-                    "additionalProperties": false
+                "required": ["name"],
+                "additionalProperties": false
+            }
+        },
+
+        "implicit_aggregates": {"type": "boolean"},
+
+        "dimensions": {
+            "title": "Dimensions",
+            "type": "array",
+            "items": {
+                "title": "Dimension name",
+                "type": "string"
+            }
+        },
+
+        "hierarchies": {
+            "type": "object",
+            "patternProperties": {
+                ".*": {
+                    "type": "array",
+                    "items": {
+                        "title": "Hierarchy",
+                        "type": "string"
+                    }
                 }
             }
         },
-        "implicit_aggregates": {"type": "boolean"},
-
-        "dimensions": {"type": "array"},
-        "hierarchies": {"type": "object"},
 
         "mappings": {"type": "object"},
         "joins": {"type": "array"}
     },
 
+    "required": ["name"],
     "additionalProperties": false
 }

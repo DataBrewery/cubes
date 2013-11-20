@@ -6,6 +6,10 @@
         "description": {"type": "string"},
         "info": {"type": "object"},
 
+        "provider": {"type": "string"},
+
+        "browser_options": {"type": "object"},
+
         "cubes": {"type": "array"},
         "dimensions": {"type": "array"},
 

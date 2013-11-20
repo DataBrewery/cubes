@@ -25,18 +25,17 @@ from cubes.providers import read_model_metadata, write_model_metadata_bundle
 
 def validate_model(args):
     """docstring for validate_model"""
-    print("reading model %s" % args.model)
+    print("Reading model %s" % args.model)
     model = cubes.read_model_metadata(args.model)
 
-    print("validating model...")
-    errors = cubes.providers.validate_model(model)
+    print("Validating model...")
+    result = cubes.providers.validate_model(model)
 
-    if not errors:
-        print("model is valid")
-        return
+    error_count = 0
+    warning_count = 0
+    default_count = 0
 
-    print("%s errors:" % len(errors))
-    for error in errors:
+    for error in result:
         if error.scope == "model":
             scope = "model"
         else:
@@ -48,7 +47,40 @@ def validate_model(args):
         if error.property:
             scope += " property '%s'" % error.property
 
-        print "ERROR in %s: %s" % (scope, error.message)
+        show = True
+        if error.severity == "error":
+            error_count += 1
+        elif error.severity == "warning":
+            warning_count += 1
+            show = args.show_warnings
+        elif error.severity == "default":
+            show = args.show_defaults
+            default_count += 1
+
+        if show:
+            print "%s in %s: %s" % (error.severity, scope, error.message)
+
+    if error_count == 0:
+        if warning_count == 0:
+            if default_count == 0:
+                verdict = "model can be used"
+            else:
+                verdict = "model can be used, " \
+                          "make sure that the defaults reflect reality"
+        else:
+            verdict = "not recommended to use the model, " \
+                      "some issues might emerge"
+    else:
+        verdict = "model can not be used"
+
+    print("")
+    print("Defaults used  %d" % default_count)
+    print("Warning        %d" % warning_count)
+    print("Errors         %d" % error_count)
+    print("Summary        %s" % verdict)
+
+    if error_count > 0:
+        exit(1)
 
 def convert_model(args):
     raise NotImplementedError("Temporarily disabled.")
@@ -293,6 +325,13 @@ model_subparsers = model_parser.add_subparsers(title='model commands',
 
 parser_validate = model_subparsers.add_parser('validate',
                             help="validate model and print validation report")
+
+parser_validate.add_argument('-d', '--defaults',
+                            dest='show_defaults', action='store_true', default=False,
+                            help='show defaults')
+parser_validate.add_argument('--no-warnings',
+                            dest='show_warnings', action='store_false', default=True,
+                            help='disable warnings')
 
 parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
 parser_validate.set_defaults(func=validate_model)
