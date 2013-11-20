@@ -1,6 +1,28 @@
 {
+    "$schema": "http://json-schema.org/schema",
     "title": "Cube",
     "type": "object",
+
+    "definitions": {
+        "attribute_base": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "label": {"type": "string"},
+                "description": {"type": "string"},
+                "info": {"type": "object"},
+
+                "format": {"type": "string"},
+                "order": {"type": "string", "enum": ["asc", "desc"]},
+                "missing_value": {
+                    "title": "Missing value",
+                    "type": ["string", "number", "null", "boolean"]
+                }
+            },
+            "required": ["name"],
+            "additionalProperties": false
+        }
+    },
 
     "properties": {
         "name": {"type": "string"},
@@ -18,54 +40,46 @@
         "measures": {
             "type": "array",
             "items": {
-                "type": ["object", "string"],
-                "properties": {
-                    "name": {"type": "string"},
-                    "label": {"type": "string"},
-                    "description": {"type": "string"},
-                    "info": {"type": "object"},
+                "anyof": [
+                    {"type": "string"},
+                    {
+                        "allof": [
+                            {"$ref": "#/definitions/attribute_base"},
+                            {
+                                "properties": {
+                                    "aggregates": {"type": "array"},
+                                    "expression": {"type": "string"}
+                                }
+                            }
+                        ],
+                        "additionalproperties": false
+                    }
+                ]
 
-                    "format": {"type": "string"},
-                    "order": {"type": "string", "enum": ["asc", "desc"]},
-                    "missing_value": {
-                        "title": "Missing value",
-                        "type": ["string", "number", "null", "boolean"]
-                    },
-
-                    "expression": {"type": "string"},
-                    "aggregates": {"type": "array", "items": "string"}
-                },
-
-                "required": ["name"],
-                "additionalProperties": false
             }
         },
 
         "aggregates": {
             "type": "array",
             "items": {
-                "type": ["object", "string"],
-                "properties": {
-                    "name": {"type": "string"},
-                    "label": {"type": "string"},
-                    "description": {"type": "string"},
-                    "info": {"type": "object"},
+                "anyof": [
+                    {"type": "string"},
+                    {
+                        "allof": [
+                            {"$ref": "#/definitions/attribute_base"},
+                            {
+                                "properties": {
+                                    "expression": {"type": "string"},
+                                    "function": {"type": "string"},
+                                    "formula": {"type": "string"},
+                                    "measure": {"type": "string"}
+                                }
+                            }
+                        ],
+                        "additionalproperties": false
+                    }
+                ]
 
-                    "format": {"type": "string"},
-                    "order": {"type": "string", "enum": ["asc", "desc"]},
-                    "missing_value": {
-                        "title": "Missing value",
-                        "type": ["string", "number", "null", "boolean"]
-                    },
-
-                    "expression": {"type": "string"},
-                    "function": {"type": "string"},
-                    "formula": {"type": "string"},
-                    "measure": {"type": "string"}
-                },
-
-                "required": ["name"],
-                "additionalProperties": false
             }
         },
 
@@ -73,30 +87,24 @@
             "title": "Detail Attributes",
             "type": "array",
             "items": {
-                "title": "Detail",
-                "type": ["object", "string"],
-
-                "properties": {
-                    "name": {"type": "string"},
-                    "label": {"type": "string"},
-                    "description": {"type": "string"},
-                    "info": {"type": "object"},
-
-                    "format": {"type": "string"},
-                    "order": {"type": "string", "enum": ["asc", "desc"]},
-                    "missing_value": {
-                        "title": "Missing value",
-                        "type": ["string", "number", "null", "boolean"]
-                    },
-
-                    "locales": {
-                        "type": "array",
-                        "items": {"type": "string"}
+                "anyof": [
+                    {"type": "string"},
+                    {
+                        "allof": [
+                            {"$ref": "#/definitions/attribute_base"},
+                            {
+                                "properties": {
+                                    "locales": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
+                                }
+                            }
+                        ],
+                        "additionalproperties": false
                     }
-                },
+                ]
 
-                "required": ["name"],
-                "additionalProperties": false
             }
         },
 

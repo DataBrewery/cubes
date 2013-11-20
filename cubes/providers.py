@@ -714,7 +714,9 @@ class ModelMetadataValidator(object):
 
     def validate_cube(self, cube):
         validator = jsonschema.Draft4Validator(self.cube_schema)
-        return self._collect_errors("cube", cube.get("name"), validator, cube)
+        name = cube.get("name")
+
+        return self._collect_errors("cube", name, validator, cube)
 
     def validate_dimension(self, dim):
         validator = jsonschema.Draft4Validator(self.dimension_schema)

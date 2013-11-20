@@ -28,7 +28,7 @@ def validate_model(args):
     print("Reading model %s" % args.model)
     model = cubes.read_model_metadata(args.model)
 
-    print("Validating model...")
+    print("Validating model...\n")
     result = cubes.providers.validate_model(model)
 
     error_count = 0
@@ -58,7 +58,7 @@ def validate_model(args):
             default_count += 1
 
         if show:
-            print "%s in %s: %s" % (error.severity, scope, error.message)
+            print "%s in %s: %s" % (error.severity.upper(), scope, error.message)
 
     if error_count == 0:
         if warning_count == 0:

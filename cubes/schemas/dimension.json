@@ -1,10 +1,11 @@
 {
+    "$schema": "http://json-schema.org/schema",
     "title": "Dimension",
     "type": "object",
 
     "definitions": {
         "attribute": {
-            "type": ["object", "string"],
+            "type": "object",
             "properties": {
                 "name": {"type": "string"},
                 "label": {"type": "string"},
@@ -23,10 +24,10 @@
                     "items": {"type": "string"}
                 }
             },
-
-            "required": ["name", "locales"],
+            "required": ["name"],
             "additionalProperties": false
         }
+
     },
 
     "properties": {
@@ -47,7 +48,7 @@
 
             "items": {
                 "title": "Level",
-                "type": ["object", "string"],
+                "type": "object",
 
                 "properties": {
                     "name": {"type": "string"},
@@ -66,7 +67,14 @@
                     "order_attribute": {"type": "string"},
 
                     "attributes": {
-                        "type": "array"
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {"type": "string"},
+                                {"$ref": "#/definitions/attribute"}
+                            ]
+
+                        }
                     },
 
                     "order": {"type": "string", "enum": ["asc", "desc"]}
@@ -82,7 +90,11 @@
         "attributes": {
             "type": "array",
             "items": {
-                "$ref": "#/definitionxxxxs/attribute"
+                "oneOf": [
+                    {"type": "string"},
+                    {"$ref": "#/definitions/attribute"}
+                ]
+
             }
         },
 
@@ -114,7 +126,11 @@
         "default_hierarchy_name": {
             "title": "Default Hierarchy Name",
             "type": "string"
-        }
+        },
+
+        "key": {"type": "string"},
+        "label_attribute": {"type": "string"},
+        "order_attribute": {"type": "string"}
     },
 
     "required": ["name"],
