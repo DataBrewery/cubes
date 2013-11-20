@@ -25,6 +25,7 @@ class Cube(Base):
     info = Column(String)
     category = Column(String)
     key = Column(String)
+    fact = Column(String)
     store = Column(String)
 
 class Dimension(Base):

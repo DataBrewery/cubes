@@ -1,8 +1,22 @@
 {% extends "base.html" %}
 {% block body %}
 
-<h1>Edit Dimension</h1>
 
+{% if not dimension_id %}
+<h1>New dimension</h1>
+{% else %}
+<h1>Dimension {{dimension.name}}</h1>
+{% endif %}
+
+<div class="tab-content">
+
+<ul class="nav nav-tabs">
+  <li><a href="#dimension" data-toggle="tab">Dimension</a></li>
+  <li><a href="#levels" data-toggle="tab">Levels</a></li>
+  <li><a href="#hierarchies" data-toggle="tab">Hierarchies</a></li>
+</ul>
+
+<div class="tab-pane active" id="dimension">
 {% if dimension_id %}
 <form method="POST" action="/dimension/{{ dimension_id }}" role="form">
 {% else %}
@@ -23,8 +37,35 @@
     <div class="form-group">
         {{ form.info.label }} {{ form.info() }} <br />
     </div>
-    <input type="submit" value="Save">
+    <input type="submit" class="btn btn-default" value="Save">
 </form>
+</div>
+
+<div class="tab-pane" id="levels">
+
+<table class="table">
+<tr>
+    <th>Name</th>
+    <th>Label</th>
+    <th>Action</th>
+</tr>
+{% for level in dimension.levels %}
+<tr>
+    <td>{{level.name}}</td>
+    <td>{{level.label}}</td>
+    <td>(none)</td>
+</tr>
+{% endfor %}
+</table>
+
+</div>
+
+
+<div class="tab-pane" id="hierarchies">
+    foo
+</div>
+
+</div>
 
 {% endblock %}
 

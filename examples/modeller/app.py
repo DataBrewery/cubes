@@ -5,8 +5,7 @@ from database import Cube, Dimension, Level
 from database import db_session, Cube, Dimension, Level
 from flask import redirect, url_for
 from wtforms.ext.sqlalchemy.orm import model_form
-from cubes import read_model_metadata
-import json
+from model import import_model
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///modeller.sqlite"
@@ -66,7 +65,7 @@ def edit_cube(cube_id):
         else:
             form = CubeForm()
 
-        return render_template("edit_cube.html", form=form, cube_id=cube_id)
+        return render_template("cube.html", form=form, cube_id=cube_id)
 
 
 @app.route("/delete_cube/<cube_id>")
@@ -112,7 +111,7 @@ def edit_dimension(dimension_id):
             form = DimensionForm()
 
         return render_template("edit_dimension.html", form=form,
-                                dimension_id=dimension_id)
+                dimension=dimension, dimension_id=dimension_id)
 
 @app.route("/delete_dimension/<dimension_id>")
 def delete_dim(dimension_id):
@@ -122,42 +121,12 @@ def delete_dim(dimension_id):
 
     return redirect(url_for("index"))
 
-def load_model(path):
-    metadata = read_model_metadata(path)
-
-    db_session.query(Cube).delete()
-    db_session.query(Dimension).delete()
-    db_session.query(Level).delete()
-
-    for obj in metadata.get("cubes", []):
-        print "adding cube %s" % obj["name"]
-
-        cube = Cube()
-        cube.name = obj.get("name")
-        cube.label = obj.get("label")
-        cube.description = obj.get("description")
-        if "info" in obj:
-            cube.info = json.dumps(obj.get("info"))
-        db_session.add(cube)
-
-    for obj in metadata.get("dimensions", []):
-        dim = Dimension()
-        dim.name = obj.get("name")
-        dim.label = obj.get("label")
-        dim.description = obj.get("description")
-        dim.role = obj.get("role")
-        if "info" in obj:
-            dim.info = json.dumps(obj.get("info"))
-        print "adding dimension %s" % dim.name
-        db_session.add(dim)
-
-    db_session.commit()
 
 if __name__ == "__main__":
 
     import sys
 
     if len(sys.argv) > 1:
-        load_model(sys.argv[1])
+        import_model(sys.argv[1])
 
     app.run(debug=True)
