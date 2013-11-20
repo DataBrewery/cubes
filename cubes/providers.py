@@ -678,7 +678,8 @@ class ModelMetadataValidator(object):
 
         for error in validator.iter_errors(metadata):
             if error.path:
-                ref = ".".join(error.path)
+                path = [str(item) for item in error.path]
+                ref = ".".join(path)
             else:
                 ref = None
 

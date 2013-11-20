@@ -1,5 +1,6 @@
 {
     "type": "object",
+
     "properties": {
         "name": {"type": "string", "required": true},
         "label": {"type": "string"},
@@ -13,9 +14,78 @@
 
         "browser_options": {"type": "object"},
 
-        "measures": {"type": "array"},
-        "aggregates": {"type": "array"},
-        "details": {"type": "array"},
+        "measures": {
+            "type": "array",
+            "items": {
+                "type": ["object", "string"],
+                "properties": {
+                    "name": {"type": "string", "required": true},
+                    "label": {"type": "string"},
+                    "description": {"type": "string"},
+                    "info": {"type": "object"},
+
+                    "format": {"type": "string"},
+                    "order": {"type": "string", "enum": ["asc", "desc"]},
+                    "missing_value": {
+                        "type": ["string", "number", "null", "boolean"]
+                    },
+
+                    "expression": {"type": "string"},
+                    "aggregates": {"type": "array", "items": "string"},
+
+
+                    "additionalProperties": false
+                }
+            }
+        },
+
+        "aggregates": {
+            "type": "array",
+            "items": {
+                "type": ["object", "string"],
+                "properties": {
+                    "name": {"type": "string", "required": true},
+                    "label": {"type": "string"},
+                    "description": {"type": "string"},
+                    "info": {"type": "object"},
+
+                    "format": {"type": "string"},
+                    "order": {"type": "string", "enum": ["asc", "desc"]},
+                    "missing_value": {
+                        "type": ["string", "number", "null", "boolean"]
+                    },
+
+                    "expression": {"type": "string"},
+                    "formula": {"type": "string"},
+                    "measure": {"type": "string"},
+
+                    "additionalProperties": false
+                }
+            }
+        },
+
+        "details": {
+            "type": "array",
+            "items": {
+                "type": ["object", "string"],
+                "properties": {
+                    "name": {"type": "string", "required": true},
+                    "label": {"type": "string"},
+                    "description": {"type": "string"},
+                    "info": {"type": "object"},
+
+                    "format": {"type": "string"},
+                    "order": {"type": "string", "enum": ["asc", "desc"]},
+                    "missing_value": {
+                        "type": ["string", "number", "null", "boolean"]
+                    },
+
+                    "locales": {"type": "array", "items": "string"},
+
+                    "additionalProperties": false
+                }
+            }
+        },
         "implicit_aggregates": {"type": "boolean"},
 
         "dimensions": {"type": "array"},
@@ -24,5 +94,6 @@
         "mappings": {"type": "object"},
         "joins": {"type": "array"}
     },
+
     "additionalProperties": false
 }
