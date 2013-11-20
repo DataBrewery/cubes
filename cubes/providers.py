@@ -724,12 +724,9 @@ class ModelMetadataValidator(object):
 
         errors = self._collect_errors("dimension", name, validator, dim)
 
-        # TODO: attributes vs. levels vs. name
-        # TODO: default hierarchy name
-
-        if "default_dimension_name" not in dim:
+        if "default_hierarchy_name" not in dim:
             error = ValidationError("default", "dimension", name, None,
-                                    "No default dimension name specified, "
+                                    "No default hierarchy name specified, "
                                     "using first one")
             errors.append(error)
 
