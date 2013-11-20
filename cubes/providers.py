@@ -391,14 +391,8 @@ class ModelProvider(object):
 
             for join in cube_joins:
                 name = join.get('name')
-                if name:
-                    try:
-                        model_join = model_join_map[join.get('name')]
-                    except KeyError:
-                        raise ModelError("No model join template '%s' found"
-                                         % join.get('name'))
-
-                    model_join = dict(model_join)
+                if name and model_join_map.has_key(name):
+                    model_join = dict(model_join_map[name])
                 else:
                     model_join = {}
 
