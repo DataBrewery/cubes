@@ -643,25 +643,54 @@ def simple_model(cube_name, dimensions, measures):
 
 
 ValidationError = namedtuple("ValidationError",
-                            ["obj_type", "obj_name", "property", "message"])
+                            ["scope", "object", "property", "message"])
 
 
 def validate_model(metadata):
     """Validate model metadata."""
 
-    data = pkgutil.get_data("cubes", "schemas/model.json")
-    schema = json.loads(data)
-    validator = jsonschema.Draft4Validator(schema)
+    validator = ModelMetadataValidator(metadata)
+    return validator.validate()
 
-    errors = []
+class ModelMetadataValidator(object):
+    def __init__(self, metadata):
+        self.metadata = metadata
 
-    for error in validator.iter_errors(metadata):
-        if error.path:
-            ref = ".".join(error.path)
-        else:
-            ref = None
+        data = pkgutil.get_data("cubes", "schemas/model.json")
+        self.model_schema = json.loads(data)
 
-        verror = ValidationError("model", None, ref, error.message)
-        errors.append(verror)
+        data = pkgutil.get_data("cubes", "schemas/cube.json")
+        self.cube_schema = json.loads(data)
 
-    return errors
+    def validate(self):
+        errors = []
+
+        errors += self.validate_model()
+
+        if "cubes" in self.metadata:
+            for cube in self.metadata["cubes"]:
+                errors += self.validate_cube(cube)
+
+        return errors
+
+    def _collect_errors(self, scope, obj, validator, metadata):
+        errors = []
+
+        for error in validator.iter_errors(metadata):
+            if error.path:
+                ref = ".".join(error.path)
+            else:
+                ref = None
+
+            verror = ValidationError(scope, obj, ref, error.message)
+            errors.append(verror)
+
+        return errors
+
+    def validate_model(self):
+        validator = jsonschema.Draft4Validator(self.model_schema)
+        return self._collect_errors("model", None, validator, self.metadata)
+
+    def validate_cube(self, cube):
+        validator = jsonschema.Draft4Validator(self.cube_schema)
+        return self._collect_errors("cube", cube.get("name"), validator, cube)

@@ -1,0 +1,28 @@
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "required": true},
+        "label": {"type": "string"},
+        "description": {"type": "string"},
+        "category": {"type": "string"},
+        "info": {"type": "object"},
+
+        "fact": {"type": "string"},
+        "key": {"type": "string"},
+        "datastore": {"type": "string"},
+
+        "browser_options": {"type": "object"},
+
+        "measures": {"type": "array"},
+        "aggregates": {"type": "array"},
+        "details": {"type": "array"},
+        "implicit_aggregates": {"type": "boolean"},
+
+        "dimensions": {"type": "array"},
+        "hierarchies": {"type": "object"},
+
+        "mappings": {"type": "object"},
+        "joins": {"type": "array"}
+    },
+    "additionalProperties": false
+}

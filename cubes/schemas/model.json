@@ -3,14 +3,16 @@
     "properties": {
         "name": {"type": "string"},
         "label": {"type": "string"},
+        "description": {"type": "string"},
+        "info": {"type": "object"},
+
         "cubes": {"type": "array"},
         "dimensions": {"type": "array"},
-        "mappings": {"type": "object"},
-        "joins": {"type": "array"},
-        "info": {"type": "object"},
+
         "schema": {"type": "string"},
-        "description": {"type": "string"},
-        "datastore": {"type": "string"}
+        "datastore": {"type": "string"},
+        "mappings": {"type": "object"},
+        "joins": {"type": "array"}
     },
     "additionalProperties": false
 }

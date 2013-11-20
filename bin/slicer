@@ -37,18 +37,18 @@ def validate_model(args):
 
     print("%s errors:" % len(errors))
     for error in errors:
-        if error.obj_type == "model":
-            context = "model"
+        if error.scope == "model":
+            scope = "model"
         else:
-            if error.obj_name:
-                context = "%s '%s'" % (error.obj_type, error.obj_name)
+            if error.object:
+                scope = "%s '%s'" % (error.scope, error.object)
             else:
-                context = "unknown %s" % error.obj_type
+                scope = "unknown %s" % error.scope
 
         if error.property:
-            context += " property '%s'" % error.property
+            scope += " property '%s'" % error.property
 
-        print "ERROR in %s: %s" % (context, error.message)
+        print "ERROR in %s: %s" % (scope, error.message)
 
 def convert_model(args):
     raise NotImplementedError("Temporarily disabled.")
