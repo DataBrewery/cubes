@@ -1,0 +1,16 @@
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "label": {"type": "string"},
+        "cubes": {"type": "array"},
+        "dimensions": {"type": "array"},
+        "mappings": {"type": "object"},
+        "joins": {"type": "array"},
+        "info": {"type": "object"},
+        "schema": {"type": "string"},
+        "description": {"type": "string"},
+        "datastore": {"type": "string"}
+    },
+    "additionalProperties": false
+}

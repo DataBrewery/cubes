@@ -1,19 +1,21 @@
 # -*- coding=utf -*-
 """Logical model model providers."""
+import jsonschema
+import urlparse
+import urllib2
+import pkgutil
+import shutil
+import copy
 import json
 import os
 import re
-import urllib2
-import urlparse
-import copy
-import shutil
 
-from .common import IgnoringDictionary, to_label
-from .logging import get_logger
-from .errors import *
+from collections import namedtuple
 from .extensions import get_namespace, initialize_namespace
+from .logging import get_logger
+from .common import IgnoringDictionary, to_label
+from .errors import *
 from .model import *
-
 
 __all__ = [
     "read_model_metadata",
@@ -21,6 +23,7 @@ __all__ = [
     "create_model_provider",
     "ModelProvider",
     "StaticModelProvider",
+    "validate_model",
 
     # FIXME: Depreciated
     "load_model",
@@ -645,3 +648,26 @@ def simple_model(cube_name, dimensions, measures):
     return Model(cubes=[cube])
 
 
+ValidationError = namedtuple("ValidationError",
+                            ["obj_type", "obj_name", "property", "message"])
+
+
+def validate_model(metadata):
+    """Validate model metadata."""
+
+    data = pkgutil.get_data("cubes", "schemas/model.json")
+    schema = json.loads(data)
+    validator = jsonschema.Draft4Validator(schema)
+
+    errors = []
+
+    for error in validator.iter_errors(metadata):
+        if error.path:
+            ref = ".".join(error.path)
+        else:
+            ref = None
+
+        verror = ValidationError("model", None, ref, error.message)
+        errors.append(verror)
+
+    return errors

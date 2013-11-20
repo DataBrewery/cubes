@@ -28,7 +28,7 @@ The cubes has optional requirements:
 
 For quick satisfaction of requirements install the packages::
 
-    pip install pytz python-dateutil
+    pip install pytz python-dateutil jsonschema
     pip install sqlalchemy flask
 
 Then install the Cubes::

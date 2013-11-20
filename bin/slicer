@@ -25,77 +25,30 @@ from cubes.providers import read_model_metadata, write_model_metadata_bundle
 
 def validate_model(args):
     """docstring for validate_model"""
-    raise NotImplementedError("Temporarily disabled.")
+    print("reading model %s" % args.model)
+    model = cubes.read_model_metadata(args.model)
 
-    print("loading model %s" % args.model)
+    print("validating model...")
+    errors = cubes.providers.validate_model(model)
 
-    try:
-        model = cubes.load_model(args.model)
-    except cubes.ModelError as e:
-        print("error: model loading failed because of model file error: %s" % e)
-        exit(1)
-
-    if args.translation:
-        print("translating using %s" % args.translation)
-        handle = open(args.translation)
-        translation = json.load(handle)
-        handle.close
-        model.localize(translation)
-    print("model locale: %s" % model.locale)
-
-
-    print("-------------------------")
-    print("cubes: %d" % len(model.cubes))
-    for cube_name, cube in model.cubes.items():
-        print("    %s" % cube_name)
-
-    print("dimensions: %d" % len(model.dimensions))
-    for dim in model.dimensions:
-        print("    %s" % dim.name)
-
-    print("-------------------------")
-    error_count = 0
-    warning_count = 0
-    default_count = 0
-    try:
-        results = model.validate()
-    except CubesError as e:
-        results = [["error", "Can not validate model: %s" % str(e)]]
-    show_warnings = args.show_warnings
-    show_defaults = args.show_defaults
-
-    if not results:
+    if not errors:
         print("model is valid")
-    else:
-        print("\nvalidation results:\n")
-        for result in results:
-            display = True
-            if result[0] == "error":
-                error_count += 1
-            elif result[0] == "warning":
-                warning_count += 1
-                display = show_warnings
-            elif result[0] == "default":
-                display = show_defaults
-                default_count += 1
-            if display:
-                print("%s: %s" % result)
+        return
 
-    if error_count == 0:
-        if warning_count == 0:
-            if default_count == 0:
-                message = "model can be used"
-            else:
-                message = "model can be used, make sure that defaults reflect reality"
+    print("%s errors:" % len(errors))
+    for error in errors:
+        if error.obj_type == "model":
+            context = "model"
         else:
-            message = "not recommended to use the model, some issues might emerge"
-    else:
-        message = "model can not be used"
+            if error.obj_name:
+                context = "%s '%s'" % (error.obj_type, error.obj_name)
+            else:
+                context = "unknown %s" % error.obj_type
 
-    print("\ndefaults used: %d" % default_count)
-    print("%d errors, %d warnings: %s" % (error_count, warning_count, message))
-    if error_count > 0:
-        exit(1)
+        if error.property:
+            context += " property '%s'" % error.property
+
+        print "ERROR in %s: %s" % (context, error.message)
 
 def convert_model(args):
     raise NotImplementedError("Temporarily disabled.")
@@ -156,7 +109,6 @@ def update_locale(args):
 
 def extract_locale(args):
     raise NotImplementedError("Temporarily disabled.")
-    """docstring for validate_model"""
     model = cubes.model_from_path(args.model)
     print json.dumps(model.localizable_dictionary())
 
@@ -342,15 +294,6 @@ model_subparsers = model_parser.add_subparsers(title='model commands',
 parser_validate = model_subparsers.add_parser('validate',
                             help="validate model and print validation report")
 
-parser_validate.add_argument('-d', '--defaults',
-                            dest='show_defaults', action='store_true', default=False,
-                            help='show defaults')
-parser_validate.add_argument('-w', '--no-warnings',
-                            dest='show_warnings', action='store_false', default=True,
-                            help='disable warnings')
-parser_validate.add_argument('-t', '--translation',
-                            dest='translation',
-                            help='model translation file')
 parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
 parser_validate.set_defaults(func=validate_model)
 

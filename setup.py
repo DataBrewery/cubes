@@ -1,7 +1,7 @@
 import sys
 from setuptools import setup, find_packages
 
-requirements = ["pytz", "python-dateutil"]
+requirements = ["pytz", "python-dateutil", "jsonschema"]
 
 setup(
     name = "cubes",
@@ -15,7 +15,7 @@ setup(
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        'cubes': [ 'templates/*.html', 'templates/*.js' ],
+        'cubes': [ 'templates/*.html', 'templates/*.js', 'schemas/*.json' ],
         'cubes.server': ['templates/*.html'],
         'cubes.backends.mixpanel': ['*.json']
     },
