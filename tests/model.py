@@ -627,9 +627,6 @@ class DimensionTestCase(unittest.TestCase):
         self.assertEqual(1, len(dim.levels))
         self.assertEqual(1, len(dim.hierarchies))
 
-        self.assertRaises(cubes.ModelInconsistencyError, cubes.Dimension,
-                          "date", levels=["year", "month"])
-
     def test_flat_dimension(self):
         """Flat dimension and 'has details' flags"""
         dim = cubes.create_dimension("foo")

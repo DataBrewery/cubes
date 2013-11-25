@@ -5,6 +5,12 @@ Model Reference
 Model - Cubes meta-data objects and functionality for working with them.
 :doc:`../model`
 
+.. note::
+
+    All model objects: `Cube`, `Dimension`, `Hierarchy`, `Level` and attribute
+    objects should be considered immutable once created. Any changes to the
+    object attributes might result in unexpected behavior.
+
 .. seealso::
 
     :doc:`providers`
