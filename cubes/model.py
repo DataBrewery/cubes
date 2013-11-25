@@ -51,6 +51,9 @@ IMPLICIT_AGGREGATE_LABELS = {
 
 IMPLICIT_AGGREGATE_LABELS.update(aggregate_calculator_labels())
 
+_DEFAULT_LEVEL_ROLES = {
+    "time": ("year", "quarter", "month", "day", "hour", "minute", "second")
+}
 
 class Model(object):
     def __init__(self, name=None, locale=None, label=None, description=None,
@@ -120,38 +123,6 @@ class Model(object):
             return False
         elif self.info != other.info:
             return False
-        return True
-
-    def validate(self):
-        """Validate the model, check for model consistency. Validation result
-        is array of tuples in form: (validation_result, message) where
-        validation_result can be 'warning' or 'error'.
-
-        Returs: array of tuples
-        """
-
-        return []
-
-    def is_valid(self, strict=False):
-        """Check whether model is valid. Model is considered valid if there
-        are no validation errors. If you want to be sure that there are no
-        warnings as well, set *strict* to ``True``. If `strict` is ``False``
-        only errors are considered fatal, if ``True`` also warnings will make
-        model invalid.
-
-        Returns ``True`` when model is valid, otherwise returns ``False``.
-        """
-        results = self.validate()
-        if not results:
-            return True
-
-        if strict:
-            return False
-
-        for result in results:
-            if result[0] == 'error':
-                return False
-
         return True
 
     def _add_translation(self, lang, translation):
@@ -836,12 +807,12 @@ class Dimension(object):
         self._attributes = OrderedDict()
         self._attributes_by_ref = OrderedDict()
 
-        try:
-            for level in levels:
-                self._levels[level.name] = level
-        except AttributeError:
-            raise ModelInconsistencyError("Levels in dimension %s do not look "
-                                          "like Level instances" % self.name)
+        default_roles = _DEFAULT_LEVEL_ROLES.get(self.role)
+
+        for level in levels:
+            self._levels[level.name] = level
+            if default_roles and level.name in default_roles:
+                level.role = level.name
 
         # Collect attributes
         self._attributes = OrderedDict()
