@@ -8,7 +8,13 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
         $q.all([cubes, dimensions]).then(function(results){
             $scope.cubes = results[0].data;
             $scope.dimensions = results[1].data;
-            $scope.foobar = "hello there";
+
+            $scope.dims_by_id = {}
+
+            for(i in $scope.dimensions){
+                dim = $scope.dimensions[i]
+                $scope.dims_by_id[dim.id] = dim
+            }    
         });
     }
 ]);
@@ -52,20 +58,54 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             names = $scope.cube.dimensions || []
             for(var i in names) {
                 var name = names[i]
-                dim = _.find($scope.dimensions,
-                             function(d) {d.name == name});
+                var dim = _.find($scope.dimensions,
+                                 function(d) {return d.name == name});
 
                 if (dim) {
                     $scope.cube_dimensions.push(dim);
                 }
                 else {
-                    dim = { name: name, label: "Unknown " + name }
+                    dim = { name: name, label: name + " (unknown)"}
                     $scope.cube_dimensions.push(dim)
                 }   
-            }
+            };
+
+            $scope.available_dimensions = _.filter($scope.dimensions, function(d) {
+                return names.indexOf(d.name) === -1;
+            });
         });
 
         $scope.active_tab = $routeParams.activeTab || "info";
         $scope.cubeId = id;
+
+        $scope.includeDimension = function(dim_id) {
+            var dim = $scope.dims_by_id[dim_id];
+             
+            // We just need dimension name
+            $scope.cube.dimensions.push(dim.name);
+            
+            // This is for Angular view refresh
+            $scope.cube_dimensions.push(dim);
+            index = $scope.available_dimensions.indexOf(dim);
+            if(index != -1){
+                $scope.available_dimensions.splice(index, 1)
+            };
+        };   
+        $scope.removeDimension = function(dim_id) {
+            var dim = $scope.dims_by_id[dim_id];
+             
+            // We just need dimension name
+            index = $scope.cube.dimensions.indexOf(dim.name);
+            if(index != -1){
+                $scope.cube.dimensions.splice(index, 1)
+                $scope.cube_dimensions.splice(index, 1);
+            };
+            
+            // This is for Angular view refresh
+            // ???
+            $scope.available_dimensions = _.filter($scope.dimensions, function(d) {
+                return $scope.cube.dimensions.indexOf(d.name) === -1;
+            });
+        }   
     }
 ]);

@@ -1,4 +1,3 @@
-<div class="row"></div>
 <div class="row">
     <div class="col-xs-4 col-sm-3">
         <div class="panel panel-default">
@@ -16,9 +15,12 @@
                            ng-model="available_dim_query">
                 </div>
             </div>
-            <ul class="list-group" ng-repeat="dim in dimensions | filter:available_dim_query">
-                <li class="list-group-item">
-                    <a href="#">{{dim.label}}</a> </li>
+            <ul class="list-group" ng-repeat="dim in available_dimensions | filter:available_dim_query">
+                <li class="list-group-item"
+                    ng-click="includeDimension(dim.id)"
+                    title="Name: {{dim.name}}">
+                    <a href="">{{dim.label}}</a>
+                </li>
             </ul>
         </div>
     </div>
@@ -39,8 +41,15 @@
                 </div>
             </div>
             <ul class="list-group" ng-repeat="dim in cube_dimensions | filter:cube_dim_query">
-                <li class="list-group-item">
-                    <a href="#">{{dim.label}}</a> </li>
+                <li class="list-group-item"
+                title="Name: {{dim.name}}">
+                    <a href="#">{{dim.label}}</a>
+                    <button type="button"
+                            class="btn btn-xs btn-default pull-right"
+                            ng-click="removeDimension(dim.id)">
+                        Remove
+                    </button>
+                </li>
             </ul>
         </div>
     </div>

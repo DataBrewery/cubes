@@ -1,5 +1,7 @@
+<div ng-controller="CubeController">
 <div class="page-header">
     <h1>{{cube.label}}<small>{{cube.name}}</small></h1>
+<span ng-click="includeDimension()">This is something</span>
 </div>
 
 <!-- Nav tabs -->
@@ -52,4 +54,5 @@
             <ng-include src="'views/cube-detail-joins.html'"></ng-include>
         </div>
     </div>
+</div>
 </div>
