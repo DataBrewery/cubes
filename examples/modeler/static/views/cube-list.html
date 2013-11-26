@@ -5,10 +5,11 @@
     </div>
     <div class="panel-body">
         <div class="input-group">
-        <span class="input-group-addon">
-            <span class="glyphicon glyphicon-search"></span>
-        </span>
-        <input type="search" class="form-control search" placeholder="Search Cube" ng-model="query"></div>
+            <span class="input-group-addon">
+                <span class="glyphicon glyphicon-search"></span>
+            </span>
+            <input type="search" class="form-control search" placeholder="Search Cube" ng-model="query">
+        </div>
     </div>
     <ul class="list-group" ng-repeat="cube in cubes | filter:query">
         <li class="list-group-item">

@@ -2,14 +2,13 @@ from flask import Flask, render_template
 from cubes import Model, read_model_metadata, create_model_provider
 from cubes import get_logger
 import json
+from collections import OrderedDict
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 
-model = Model(provider=create_model_provider("static", {}))
-
-cube_list = {}
-cube_infos = {}
-cubes = {}
+# Model:
+CUBES = OrderedDict()
+DIMENSIONS = OrderedDict()
 
 def import_model(path):
     # We need to use both: the metadata and the created model, as we do not
@@ -19,15 +18,18 @@ def import_model(path):
     logger = get_logger()
 
     metadata = read_model_metadata(path)
-    provider = create_model_provider("static", metadata)
 
-    model = Model(provider=provider, metadata=metadata)
-
-    cube_list = provider.list_cubes()
+    cube_list = metadata.get("cubes", [])
     for i, cube in enumerate(cube_list):
-        id = i + 1
-        cube["id"] = id
-        cube_infos[str(id)] = cube
+        cube_id = i + 1
+        cube["id"] = cube_id
+        CUBES[str(cube_id)] = cube
+
+    dim_list = metadata.get("dimensions", [])
+    for i, dim in enumerate(dim_list):
+        dim_id = i + 1
+        dim["id"] = dim_id
+        DIMENSIONS[str(dim_id)] = dim
 
 @app.route("/")
 def index():
@@ -35,14 +37,23 @@ def index():
 
 @app.route("/cubes")
 def list_cubes():
-    return json.dumps(cube_list)
+    # TODO: return just relevant info
+    return json.dumps(CUBES.values())
 
 @app.route("/cube/<id>")
 def get_cube(id):
-    info = cube_infos[str(id)]
-    # TODO: use raw metadata
-    cube = model.provider.cube(info["name"])
-    return json.dumps(cube.to_dict())
+    info = CUBES[str(id)]
+    return json.dumps(info)
+
+@app.route("/dimensions")
+def list_dimensions():
+    # TODO: return just relevant info
+    return json.dumps(DIMENSIONS.values())
+
+@app.route("/dimension/<id>")
+def get_dimension(id):
+    info = DIMENSION[str(id)]
+    return json.dumps(info)
 
 
 

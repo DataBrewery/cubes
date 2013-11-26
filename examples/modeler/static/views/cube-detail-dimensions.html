@@ -1,0 +1,49 @@
+<div class="row"></div>
+<div class="row">
+    <div class="col-xs-4 col-sm-3">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Available Dimensions
+            </div>
+            <div class="panel-body">
+                <div class="input-group">
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-search"></span>
+                    </span>
+                    <input type="search"
+                           class="form-control search"
+                           placeholder="Search Dimension"
+                           ng-model="available_dim_query">
+                </div>
+            </div>
+            <ul class="list-group" ng-repeat="dim in dimensions | filter:available_dim_query">
+                <li class="list-group-item">
+                    <a href="#">{{dim.label}}</a> </li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-xs-4 col-sm-3">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Cube Dimensions
+            </div>
+            <div class="panel-body">
+                <div class="input-group">
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-search"></span>
+                    </span>
+                    <input type="search"
+                           class="form-control search"
+                           placeholder="Search Dimension"
+                           ng-model="cube_dim_query">
+                </div>
+            </div>
+            <ul class="list-group" ng-repeat="dim in cube_dimensions | filter:cube_dim_query">
+                <li class="list-group-item">
+                    <a href="#">{{dim.label}}</a> </li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-xs-4 col-sm-3">
+    </div>
+</div>

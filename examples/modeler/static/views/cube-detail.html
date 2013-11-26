@@ -4,18 +4,17 @@
 
 <!-- Nav tabs -->
 <ul class="nav nav-tabs">
-    <!--
-  <li><a href="#overview" data-toggle="tab">Overview</a></li>
-  <li><a href="#dimensions" data-toggle="tab">Dimensions</a></li>
-  <li><a href="#store" data-toggle="tab">Store</a></li>
-  <li><a href="#mappings" data-toggle="tab">Mappings</a></li>
-  <li><a href="#joins" data-toggle="tab">Joins</a></li>
--->
     <li ng-class="{active: active_tab == 'info'}">
         <a ng-click="active_tab = 'info';">Overview</a>
     </li>
     <li ng-class="{active: active_tab == 'dimensions'}">
         <a ng-click="active_tab = 'dimensions';">Dimensions</a>
+    </li>
+    <li ng-class="{active: active_tab == 'measures'}">
+        <a ng-click="active_tab = 'measures';">Measures</a>
+    </li>
+    <li ng-class="{active: active_tab == 'aggregates'}">
+        <a ng-click="active_tab = 'aggregates';">Aggregates</a>
     </li>
     <li ng-class="{active: active_tab == 'store'}">
         <a ng-click="active_tab = 'store';">Store</a>
@@ -32,19 +31,25 @@
 <div class="tab-content" >
     <div ng-switch="active_tab">
         <div ng-switch-when='info'>
-            <ng-include src="'partials/cube-detail-overview.html'"></ng-include>
+            <ng-include src="'views/cube-detail-overview.html'"></ng-include>
         </div>
         <div ng-switch-when='dimensions'>
-             <ng-include src="'partials/cube-detail-dimensions.html'"></ng-include>
+             <ng-include src="'views/cube-detail-dimensions.html'"></ng-include>
+        </div>
+        <div ng-switch-when='measures'>
+             <ng-include src="'views/cube-detail-store.html'"></ng-include>
+        </div>
+        <div ng-switch-when='aggregates'>
+             <ng-include src="'views/cube-detail-store.html'"></ng-include>
         </div>
         <div ng-switch-when='store'>
-             <ng-include src="'partials/cube-detail-store.html'"></ng-include>
+             <ng-include src="'views/cube-detail-store.html'"></ng-include>
         </div>
         <div ng-switch-when='mappings'>
-             <ng-include src="'partials/cube-detail-mappings.html'"></ng-include>
+             <ng-include src="'views/cube-detail-mappings.html'"></ng-include>
         </div>
         <div ng-switch-when='joins'>
-            <ng-include src="'partials/cube-detail-joins.html'"></ng-include>
+            <ng-include src="'views/cube-detail-joins.html'"></ng-include>
         </div>
     </div>
 </div>

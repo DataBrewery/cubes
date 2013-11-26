@@ -40,15 +40,15 @@ CubesModelerApp.config(
     function($routeProvider) {
         $routeProvider.
         when('/cubes', {
-            templateUrl: 'partials/cube-list.html',
+            templateUrl: 'views/cube-list.html',
             controller: 'CubeListController'
         }).
         when('/cubes/:cubeId', {
-            templateUrl: 'partials/cube-detail.html',
+            templateUrl: 'views/cube-detail.html',
             controller: 'CubeController'
         }).
         when('/cubes/:cubeId/:activeTab', {
-            templateUrl: 'partials/cube-detail.html',
+            templateUrl: 'views/cube-detail.html',
             controller: 'CubeController'
         }).
         otherwise({
