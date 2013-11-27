@@ -20,6 +20,8 @@ from .model import *
 __all__ = [
     "read_model_metadata",
     "read_model_metadata_bundle",
+    "write_model_metadata_bundle",
+
     "create_model_provider",
     "ModelProvider",
     "StaticModelProvider",
