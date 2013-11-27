@@ -1,26 +1,26 @@
 <div class="form-group">
-    <label for="cube_name">Datastore Name</label>
+    <label>Datastore Name</label>
     <input type="text"
            class="form-control"
            placeholder="default"
-           value="{{cube.store}}">
+           ng-model="cube.store">
 </div>
 <div class="form-group">
-    <label for="cube_label">Borwser</label>
-    <select>
+    <label>Borwser</label>
+    <select ng-model="cube.browser">
         <option value="default">Default</option>
-        <option value="mixpanel">Mixpanel</option>
+        <option value="sql">SQL Star/Snowflake</option>
         <option value="mongo">Mongo</option>
         <option value="slicer">Slicer</option>
-        <option value="sql">SQL Star/Snowflake</option>
-        <option value="other">Other...</option>
+        <option value="mixpanel">Mixpanel</option>
+        <option value="">Other...</option>
     </select>
 </div>
 
 <div class="form-group">
-    <label for="cube_label">Other Browser</label>
+    <label>Other Browser</label>
     <input type="text"
            class="form-control"
            placeholder="Other browser name"
-           value="{{cube.browser}}">
+           ng-model="cube.browser">
 </div>

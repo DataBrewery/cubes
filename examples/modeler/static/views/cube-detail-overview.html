@@ -1,21 +1,53 @@
 <div class="form-group">
-    <label for="cube_name">Name</label>
+    <label>Name</label>
     <input type="text"
            class="form-control"
            placeholder="Enter Cube Name"
-           value="{{cube.name}}">
+           ng-model="cube.name">
 </div>
 
 <div class="form-group">
-    <label for="cube_label">Label</label>
+    <label>Label</label>
     <input type="text"
            class="form-control"
            placeholder="Label"
-           value="{{cube.label}}">
+           ng-model="cube.label">
 </div>
 
 <div class="form-group">
-    <label for="cube_description">Description</label>
-    <textarea class="form-control" id="cube_label"
-              placeholder="Cube Description">{{cube.description}}</textarea>
+    <label>Description</label>
+    <textarea class="form-control"
+              placeholder="Cube Description"
+              ng-model="cube.description">{{cube.description}}</textarea>
 </div>
+
+<div class="form-group">
+    <label>Category</label>
+    <input type="text"
+           class="form-control"
+           placeholder="Category"
+           ng-model="cube.category">
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">Physical Properties</h3>
+    </div>
+    <div class="panel-body">
+        <div class="form-group">
+            <label>Fact</label>
+            <input type="text"
+                   class="form-control"
+                   placeholder="Fact table or collection name"
+                   ng-model="cube.fact">
+        </div>
+        <div class="form-group">
+            <label>Key</label>
+            <input type="text"
+                   class="form-control"
+                   placeholder="Fact key (default is 'id')"
+                   ng-model="cube.key">
+        </div>
+    </div>
+</div>
+

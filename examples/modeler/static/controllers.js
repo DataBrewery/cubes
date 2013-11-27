@@ -16,6 +16,22 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
                 $scope.dims_by_id[dim.id] = dim
             }    
         });
+
+        $scope.modelObject = null;
+
+        $scope.functions = [
+            {"name": "count", "label": "Record Count"}, 
+            {"name": "count_nonempty", "label": "Count of Non-empty Values"},
+            {"name": "sum", "label": "Sum"},
+            {"name": "min", "label": "Min"},
+            {"name": "max", "label": "Max"},
+            {"name": "avg", "label": "Average"},
+            {"name": "stddev", "label": "Standard Deviation"},
+            {"name": "variance", "label": "Variance"},
+            {"name": "sma", "label": "Simple Moving Average"},
+            {"name": "wma", "label": "Weighted Moving Average"},
+            {"name": null, "label": "Other/Native"},
+        ];
     }
 ]);
 
@@ -23,7 +39,7 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
 
     function ($scope, $http) {
         $http.get('cubes').success(function(data) {
-            $scope.___cubes = data;
+            $scope.cubes = data;
         });
         
         $scope.idSequence = 1;
@@ -38,7 +54,10 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
             cube = {
                 id: $scope.idSequence,
                 name:"new_cube",
-                label: "New Cube"
+                label: "New Cube",
+                measures: [],
+                aggregates: [],
+                details: []
             };
             $scope.idSequence += 1;
             $scope.cubes.push(cube);
@@ -51,11 +70,10 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
     function ($scope, $routeParams, $http) {
         id = $routeParams.cubeId
 
-        $http.get('cube/' + id).success(function(data) {
-            $scope.cube = data;
-
+        $http.get('cube/' + id).success(function(cube) {
+            $scope.cube = cube;
             $scope.cube_dimensions = []
-            names = $scope.cube.dimensions || []
+            names = cube.dimensions || []
             for(var i in names) {
                 var name = names[i]
                 var dim = _.find($scope.dimensions,
@@ -73,6 +91,8 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             $scope.available_dimensions = _.filter($scope.dimensions, function(d) {
                 return names.indexOf(d.name) === -1;
             });
+
+            $scope.$broadcast('cubeLoaded');
         });
 
         $scope.active_tab = $routeParams.activeTab || "info";
@@ -106,6 +126,68 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             $scope.available_dimensions = _.filter($scope.dimensions, function(d) {
                 return $scope.cube.dimensions.indexOf(d.name) === -1;
             });
-        }   
+        };
+
+        $scope.save = function(){
+            $http.put("cube/" + $scope.cubeId, $scope.cube);
+        }
+
     }
 ]);
+
+function AttributeListController(type, label){
+    return function($scope, modelObject) {
+        $scope.attributeType = type;
+        $scope.attributeLabel = label;
+
+        $scope.loadAttributes = function() {
+            type = $scope.attributeType;
+            if(type == "measure"){
+                $scope.attributes = $scope.cube.measures;
+            }
+            else if(type == "aggregate"){
+                $scope.attributes = $scope.cube.aggregates;
+            }
+            else if(type == "detail"){
+                $scope.attributes = $scope.cube.details;
+            }
+            else if(type == "level_attribute"){
+                $scope.attributes = $scope.level.attributes;
+            };
+
+            // Set attribute selection, if there are any attributes
+            if($scope.attributes.length >= 1){
+                $scope.selectedAttribute = $scope.attributes[0];
+            }
+            else {
+                $scope.selectedAttribute = null;
+            };       
+        };   
+
+        if($scope.cube) {
+            $scope.loadAttributes();
+        }
+
+        $scope.$on('cubeLoaded', $scope.loadAttributes);
+
+        $scope.selectAttribute = function(attribute) {
+            $scope.selectedAttribute = attribute;
+        };
+
+        $scope.removeAttribute = function(index) {
+            $scope.attributes.splice(index, 1);
+        }; 
+
+        $scope.addAttribute = function() {
+            attribute = {"name": "new_"+type}
+            $scope.selectedAttribute = attribute;
+            $scope.attributes.push(attribute)
+        };
+    };      
+};
+
+ModelerControllers.controller('CubeMeasureListController', ['$scope',
+                              AttributeListController("measure", "Measure")]);
+
+ModelerControllers.controller('CubeAggregateListController', ['$scope',
+                              AttributeListController("aggregate", "Aggregate")]);

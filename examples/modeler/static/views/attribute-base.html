@@ -1,0 +1,53 @@
+<div class="form-group">
+    <label>Name</label>
+    <input type="text"
+           class="form-control"
+           placeholder="name (required)"
+           ng-value="selectedAttribute.name">
+</div>
+
+<div class="form-group">
+    <label >Label</label>
+    <input type="text"
+           class="form-control"
+           placeholder="Human-readable Label"
+           ng-value="selectedAttribute.label">
+</div>
+
+<div class="form-group">
+    <label>Description</label>
+    <textarea class="form-control"
+              placeholder="Detailed Description">{{selectedAttribute.description}}</textarea>
+</div>
+
+<div ng-if="attributeType == 'aggregate'">
+    <div class="form-group">
+        <label >Measure</label>
+        <input type="text"
+               class="form-control"
+               placeholder="Measure name"
+               ng-value="selectedAttribute.measure">
+    </div>
+
+    <div class="form-group">
+        <label >Function</label>
+        <div class="form-inline">
+            <select ng-model="selectedAttribute.function"
+                    ng-options="f.name as f.label for f in functions">
+            </select>
+
+            <input type="text"
+                   class="form-control"
+                   placeholder="Other function"
+                   ng-value="selectedAttribute.function">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label >Label</label>
+        <input type="text"
+               class="form-control"
+               placeholder="Human-readable Label"
+               value="{{selectedAttribute.label}}">
+    </div>
+</div>
