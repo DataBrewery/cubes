@@ -1,0 +1,114 @@
+<div class="row">
+    <div class="browser-column col-xs-4 col-sm-3">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Hierarchies
+                <span class="pull-right glyphicon glyphicon-plus"
+                      ng-click="addHierarchy()"></span>
+            </div>
+
+            <div class="browser-column-list list-group">
+                <a class="list-group-item"
+                   ng-click="selectHierarchy()"
+                   ng-class="{active: selectedObjectType == 'hierarchy' && selectedObject == hier}" >
+                   <em>All</em>
+                </a>
+                <a class="list-group-item"
+                   ng-click="selectHierarchy(hier)"
+                   ng-class="{active: selectedObject == hier}"
+                    title="Name: {{hier.name}}"
+                    ng-repeat="hier in dimension.hierarchies | filter:available_dim_query">
+                    {{hier.label || hier.name || "(no name)"}}
+                    <span class="glyphicon glyphicon-remove pull-right"
+                          ng-click="removeHierarchy($index)"></span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="browser-column col-xs-4 col-sm-3">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Levels
+                <span class="pull-right glyphicon glyphicon-plus"
+                      ng-click="addLevel()"></span>
+            </div>
+
+            <div class="browser-column-list list-group">
+                <a class="list-group-item"
+                   ng-click="selectLevel(level)"
+                   ng-class="{active: selectedObject == level}"
+                   title="Name: {{hier.name}}"
+                   ng-repeat="level in dimension.levels | filter:cube_dim_query">
+                    <span class="glyphicon glyphicon-ok-sign"
+                          ng-click="moveLevel(1, $index)"></span>
+                    <span class="glyphicon glyphicon-chevron-up"
+                          ng-click="moveLevel(1, $index)"></span>
+                    <span class="glyphicon glyphicon-chevron-down"
+                          ng-click="moveLevel(-1, $index)"></span>
+                   {{level.label || level.name || "(no name)"}}
+                    <span class="glyphicon glyphicon-remove pull-right"
+                          ng-click="removeLevel($index)"></span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="browser-column col-xs-4 col-sm-3">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Attributes
+                <span class="pull-right glyphicon glyphicon-plus"
+                      ng-click="addLevel()"></span>
+            </div>
+
+            <div class="browser-column-list list-group">
+                <a class="list-group-item"
+                   title="Name: {{attr.name}}"
+                   ng-class="{active: selectedObject == attr}"
+                   ng-click="selectAttribute(attr)"
+                   ng-repeat="attr in attributes | filter:cube_dim_query">
+                    <span class="glyphicon glyphicon-chevron-up"
+                          ng-click="moveAttribute(1, $index)"></span>
+                    <span class="glyphicon glyphicon-chevron-down"
+                          ng-click="moveAttribute(-1, $index)"></span>
+                   {{attr.label || attr.name || "(no name)"}}
+                    <span class="glyphicon glyphicon-remove pull-right"
+                          ng-click="removeAttribute($index)"></span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" ng-if="selectedObject">
+    <div class="form-group">
+        <label>Name</label>
+        <input type="text"
+               class="form-control"
+               ng-model="selectedObject.name">
+    </div>
+
+    <div class="form-group">
+        <label>Label</label>
+        <input type="text"
+               class="form-control"
+               placeholder="Label"
+               ng-model="selectedObject.label">
+    </div>
+
+    <div class="form-group">
+        <label>Description</label>
+        <textarea class="form-control"
+                  placeholder="Description"
+                  ng-model="selectedObject.description"></textarea>
+    </div>
+
+    <div ng-if="selectedObjectType == 'level'" class="form-group">
+        <label >Cardinality</label>
+        <div class="form-inline">
+            <select ng-model="selectedObject.cardinality"
+                    ng-options="r.name as r.label for r in cardinalities">
+            </select>
+        </div>
+    </div>
+
+</div>

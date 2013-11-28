@@ -11,8 +11,12 @@
             <input type="search" class="form-control search" placeholder="Search Cube" ng-model="query">
         </div>
     </div>
-    <ul class="list-group" ng-repeat="cube in cubes | filter:query">
-        <li class="list-group-item">
-            <a href="#/cubes/{{cube.id}}">{{cube.label}}</a></li>
-    </ul>
+    <div class="list-group">
+        <a class="list-group-item"
+            ng-repeat="cube in cubes | filter:query"
+            href="#/cubes/{{cube.id}}">
+            {{cube.label || cube.name || "(no name)"}}
+            <small>({{cube.name || "no name"}})</small>
+        </a>
+    </div>
 </div>

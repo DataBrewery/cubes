@@ -1,0 +1,41 @@
+<div class="form-group">
+    <label>Name</label>
+    <input type="text"
+           class="form-control"
+           placeholder="Name"
+           ng-model="dimension.name">
+</div>
+
+<div class="form-group">
+    <label>Label</label>
+    <input type="text"
+           class="form-control"
+           placeholder="Label"
+           ng-model="dimension.label">
+</div>
+
+<div class="form-group">
+    <label>Description</label>
+    <textarea class="form-control"
+              placeholder="Dimension Description"
+              ng-model="dimension.description"></textarea>
+</div>
+
+
+<div class="form-group">
+    <label >Role</label>
+    <div class="form-inline">
+        <select ng-model="dimension.role"
+                ng-options="r.name as r.label for r in dimensionRoles">
+        </select>
+    </div>
+</div>
+
+<div class="form-group">
+    <label >Cardinality</label>
+    <div class="form-inline">
+        <select ng-model="dimension.cardinality"
+                ng-options="r.name as r.label for r in cardinalities">
+        </select>
+    </div>
+</div>

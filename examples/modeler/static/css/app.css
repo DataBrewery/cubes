@@ -1,0 +1,8 @@
+.browser-column {
+    padding-left: 0;
+    padding-right: 0;
+}
+.browser-column-list {
+    height: 150px;
+    overflow: auto;
+}

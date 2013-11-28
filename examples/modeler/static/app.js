@@ -51,6 +51,18 @@ CubesModelerApp.config(
             templateUrl: 'views/cube-detail.html',
             controller: 'CubeController'
         }).
+        when('/dimensions', {
+            templateUrl: 'views/dimension-list.html',
+            controller: 'DimensionListController'
+        }).
+        when('/dimensions/:dimId', {
+            templateUrl: 'views/dimension-detail.html',
+            controller: 'DimensionController'
+        }).
+        when('/dimensions/:dimId/:activeTab', {
+            templateUrl: 'views/dimension-detail.html',
+            controller: 'DimensionController'
+        }).
         otherwise({
             redirectTo: '/cubes'
         });

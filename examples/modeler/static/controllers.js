@@ -20,18 +20,43 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
         $scope.modelObject = null;
 
         $scope.functions = [
-            {"name": "count", "label": "Record Count"}, 
-            {"name": "count_nonempty", "label": "Count of Non-empty Values"},
-            {"name": "sum", "label": "Sum"},
-            {"name": "min", "label": "Min"},
-            {"name": "max", "label": "Max"},
-            {"name": "avg", "label": "Average"},
-            {"name": "stddev", "label": "Standard Deviation"},
-            {"name": "variance", "label": "Variance"},
-            {"name": "sma", "label": "Simple Moving Average"},
-            {"name": "wma", "label": "Weighted Moving Average"},
-            {"name": null, "label": "Other/Native"},
+            {"name": "count", "label": "record count"}, 
+            {"name": "count_nonempty", "label": "count of non-empty values"},
+            {"name": "sum", "label": "sum"},
+            {"name": "min", "label": "min"},
+            {"name": "max", "label": "max"},
+            {"name": "avg", "label": "average"},
+            {"name": "stddev", "label": "standard deviation"},
+            {"name": "variance", "label": "variance"},
+            {"name": "sma", "label": "simple moving average"},
+            {"name": "wma", "label": "weighted moving average"},
+            {"name": null, "label": "other/native"},
         ];
+
+        $scope.cardinalities = [
+            {"name": "", "label": "Default"}, 
+            {"name": "tiny", "label": "Tiny (up to 5 members)"},
+            {"name": "low", "label": "Low (5 to 50 members – in a list view)"},
+            {"name": "medium", "label": "Medium (more than 50 – for a search field)"},
+            {"name": "high", "label": "Hight (slicing required)"}
+        ];
+
+        $scope.dimensionRoles = [
+            {"name": "", "label": "Default"}, 
+            {"name": "time", "label": "Date/Time"}
+        ];
+
+        $scope.levelRoles = {
+            time: [
+                {"name": "", "label": "Default"}, 
+                {"name": "year", "label": "Year"},
+                {"name": "quarter", "label": "Quarter"},
+                {"name": "month", "label": "Month"},
+                {"name": "day", "label": "Day"},
+                {"name": "hour", "label": "Hour"},
+                {"name": "minute", "label": "Minute"}
+            ]
+        };
     }
 ]);
 
@@ -44,12 +69,6 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
         
         $scope.idSequence = 1;
 
-        $scope.selectCube = function(id) {
-            alert(id)
-            cube = _.filter($scope.cubes, function(cube) { return cube.id === id });
-            $scope.currentCube = cube
-        };
-
         $scope.addCube = function() {
             cube = {
                 id: $scope.idSequence,
@@ -61,6 +80,31 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
             };
             $scope.idSequence += 1;
             $scope.cubes.push(cube);
+        };
+
+    }
+]);
+
+ModelerControllers.controller('DimensionListController', ['$scope', '$http',
+
+    function ($scope, $http) {
+        $http.get('dimensions').success(function(data) {
+            $scope.dimensions = data;
+        });
+        
+        $scope.idSequence = 1;
+
+        $scope.addDimension = function() {
+            var level = {"name": "default", "attributes": [ {"name":"attribute"} ]};
+            var dim = {
+                id: $scope.idSequence,
+                name:"new_dimension",
+                label: "New Dimension",
+                levels: [ level ],
+                hierarchies: [ {"name": "default", "levels": ["default"]} ]
+            };
+            $scope.idSequence += 1;
+            $scope.dimensions.push(dim);
         };
 
     }
@@ -191,3 +235,38 @@ ModelerControllers.controller('CubeMeasureListController', ['$scope',
 
 ModelerControllers.controller('CubeAggregateListController', ['$scope',
                               AttributeListController("aggregate", "Aggregate")]);
+
+ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', '$http',
+    function ($scope, $routeParams, $http) {
+        id = $routeParams.dimId
+
+        $http.get('dimension/' + id).success(function(dim) {
+            $scope.dimension = dim;
+
+            $scope.$broadcast('dimensionLoaded');
+        });
+
+        $scope.active_tab = $routeParams.activeTab || "info";
+        $scope.dimId = id;
+
+        $scope.save = function(){
+            $http.put("dimension/" + $scope.dimId, $scope.dimension);
+        }
+
+        $scope.selectHierarchy = function(hier) {
+            $scope.selectedObjectType = "hierarchy";
+            $scope.selectedObject = hier;
+        };
+
+        $scope.selectLevel = function(level) {
+            $scope.selectedObjectType = "level";
+            $scope.selectedObject = level;
+            $scope.attributes = level.attributes;
+        };
+
+        $scope.selectAttribute = function(attribute) {
+            $scope.selectedObjectType = "attribute";
+            $scope.selectedObject = attribute;
+        };
+    }
+]);

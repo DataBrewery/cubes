@@ -15,9 +15,10 @@
                            ng-model="available_dim_query">
                 </div>
             </div>
-            <div class="list-group" ng-repeat="dim in available_dimensions | filter:available_dim_query">
+            <div class="list-group">
                 <a class="list-group-item"
                     ng-click="includeDimension(dim.id)"
+                    ng-repeat="dim in available_dimensions | filter:available_dim_query"
                     title="Name: {{dim.name}}">
                     {{dim.label}}
                 </a>
@@ -40,8 +41,9 @@
                            ng-model="cube_dim_query">
                 </div>
             </div>
-            <div class="list-group" ng-repeat="dim in cube_dimensions | filter:cube_dim_query">
+            <div class="list-group">
                 <a class="list-group-item"
+                   ng-repeat="dim in cube_dimensions | filter:cube_dim_query"
                    title="Name: {{dim.name}}">
                    {{dim.label}}
                     <span class="glyphicon glyphicon-remove pull-right"

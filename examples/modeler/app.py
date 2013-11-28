@@ -92,7 +92,7 @@ def list_dimensions():
 
 @app.route("/dimension/<id>")
 def get_dimension(id):
-    info = DIMENSION[str(id)]
+    info = DIMENSIONS[str(id)]
     return json.dumps(info)
 
 
