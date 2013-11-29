@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 from cubes import Model, read_model_metadata, create_model_provider
 from cubes import get_logger, write_model_metadata_bundle
+from cubes import fix_dimension_metadata
 import json
 from collections import OrderedDict
 
@@ -19,6 +20,8 @@ def import_model(path):
     global MODEL
 
     logger = get_logger()
+    logger.setLevel("INFO")
+    logger.info("importing model from %s" % path)
 
     metadata = read_model_metadata(path)
 
@@ -30,6 +33,7 @@ def import_model(path):
 
     dim_list = metadata.pop("dimensions", [])
     for i, dim in enumerate(dim_list):
+        dim = fix_dimension_metadata(dim)
         dim_id = i + 1
         dim["id"] = dim_id
         DIMENSIONS[str(dim_id)] = dim

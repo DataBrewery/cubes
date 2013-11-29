@@ -37,17 +37,30 @@
                 <a class="list-group-item"
                    ng-click="selectLevel(level)"
                    ng-class="{active: selectedObject == level}"
-                   title="Name: {{hier.name}}"
-                   ng-repeat="level in dimension.levels | filter:cube_dim_query">
-                    <span class="glyphicon glyphicon-ok-sign"
-                          ng-click="moveLevel(1, $index)"></span>
+                   ng-repeat="level in hierarchy.levels">
                     <span class="glyphicon glyphicon-chevron-up"
-                          ng-click="moveLevel(1, $index)"></span>
+                          ng-click="moveLevel(1, level)"></span>
                     <span class="glyphicon glyphicon-chevron-down"
-                          ng-click="moveLevel(-1, $index)"></span>
+                          ng-click="moveLevel(-1, level)"></span>
+                    {{level.label || level.name || "(no name)"}}
+                    <span class="glyphicon glyphicon-minus-sign pull-right"
+                          ng-click="excludeLevel(level)"
+                          title="Exclude level from hierarchy"></span>
+                </a>
+                <em class="list-group-item">Available levels:</em>
+                <a class="list-group-item"
+                   ng-click="selectLevel(level)"
+                   ng-class="{active: selectedObject == level}"
+                   ng-repeat="level in availableLevels">
                    {{level.label || level.name || "(no name)"}}
-                    <span class="glyphicon glyphicon-remove pull-right"
-                          ng-click="removeLevel($index)"></span>
+                    <span ng-if="! isAnyHierarchy"
+                          class="glyphicon glyphicon-ok-sign pull-right"
+                          ng-click="includeLevel(level)"
+                          title="Include in hierarchy"></span>
+                    <span ng-if="isAnyHierarchy"
+                          class="glyphicon glyphicon-remove pull-right"
+                          ng-click="removeLevel($index)"
+                          title="Delete level from dimension"></span>
                 </a>
             </div>
         </div>

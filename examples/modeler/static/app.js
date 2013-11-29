@@ -30,6 +30,10 @@ _.find = function(ary, f) {
   return null;
 };
 
+_.isString = function(o) {
+  return Object.prototype.toString.call(o) === '[object String]';
+};
+
 var CubesModelerApp = angular.module('CubesModelerApp', [
     'ngRoute',
     'ModelerControllers'

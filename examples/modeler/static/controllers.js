@@ -243,6 +243,27 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
         $http.get('dimension/' + id).success(function(dim) {
             $scope.dimension = dim;
 
+            // We are expected to get "fixed" dimensions from the server
+            // For more information see fix_dimension_metadata() in
+            // cubes.model module
+            var levels = {}
+            for(var i in dim.levels){
+                level = dim.levels[i];
+                levels[level.name] = level
+            }
+            // Resolve relationships
+            var hierarchies = dim.hierarchies;
+            if(!hierarchies || hierarchies.length == 0){
+                hierarchies = [];
+            }
+
+            // Remap level names to levels
+            for(var i in hierarchies){
+                hier = hierarchies[i];
+                hier.levels = _.map(hier.levels, function(l) {
+                    return levels[l];
+                })
+            }
             $scope.$broadcast('dimensionLoaded');
         });
 
@@ -256,6 +277,45 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
         $scope.selectHierarchy = function(hier) {
             $scope.selectedObjectType = "hierarchy";
             $scope.selectedObject = hier;
+            $scope.hierarchy = hier
+
+            if(hier) {
+                $scope.availableLevels = _.filter($scope.dimension.levels, function(l) {
+                    return (hier.levels.indexOf(l) === -1);
+                });
+                $scope.isAnyHierarchy = false;
+            }
+            else
+            {
+                $scope.availableLevels = $scope.dimension.levels;                
+                $scope.isAnyHierarchy = true;
+            }
+        };
+
+        $scope.includeLevel = function(level){
+            hier = $scope.hierarchy;
+
+            if(! hier.levels) {
+                hier.levels = [];
+            };
+
+            // TODO: use level object, this will be broken when level is
+            // renamed
+            hier.levels.push(level);
+
+            $scope.selectHierarchy(hier);
+        };
+
+        $scope.moveLevel = function(dir, level){
+            alert("Move!")
+        };
+
+        $scope.excludeLevel = function(level){
+            hier = $scope.hierarchy;
+            index = hier.levels.indexOf(level);
+            hier.levels.splice(index, 1);
+
+            $scope.selectHierarchy(hier); 
         };
 
         $scope.selectLevel = function(level) {
