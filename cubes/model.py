@@ -2159,20 +2159,110 @@ def _measure_aggregate_label(aggregate, measure):
 
     return label
 
-def fix_dimension_metadata(metadata):
+def fix_dimension_metadata(metadata, create_levels=False):
     """Returns a dimension description as a dictionary. If provided as string,
-    then it is going to be used as a name and as a single level."""
+    then it is going to be used as a name and as a single level. Defaults are
+    applied to levels and hierarchies.
+    """
 
     if isinstance(metadata, basestring):
-        return {"name":metadata, "levels": [metadata]}
+        metadata = {"name":metadata, "levels": [metadata]}
     else:
-        return metadata
+        metadata = dict(metadata)
+
+    if not "name" in metadata:
+        raise ModelError("Dimension has no name")
+
+    name = metadata["name"]
+
+    # Fix levels
+    levels = metadata.get("levels")
+    if not levels and create_levels:
+        attributes = ["attributes", "key", "order_attribute", "order",
+                      "label_attribute"]
+        level = {}
+        for attr in attributes:
+            if attr in metadata:
+                level[attr] = metadata[attr]
+
+        level["cardinality"] = metadata.get("cardinality")
+
+        # Default: if no attributes, then there is single flat attribute
+        # whith same name as the dimension
+        level["name"] = name
+        level["label"] = metadata.get("label")
+
+        levels = [level]
+
+    if levels:
+        levels = [fix_level_metadata(level) for level in levels]
+        metadata["levels"] = levels
+
+    # Fix hierarchies
+    if "hierarchy" in metadata and "hierarchies" in metadata:
+        raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies'"
+                                      " specified. Use only one")
+
+    hierarchy = metadata.get("hierarchy")
+    if hierarchy:
+        hierarchies = [{"name": "default", "levels": hierarchy}]
+    else:
+        hierarchies = metadata.get("hierarchies")
+
+    if hierarchies:
+        metadata["hierarchies"] = hierarchies
+
+    return metadata
+
+
+def fix_level_metadata(metadata):
+    """Returns a level description as a dictionary. If provided as string,
+    then it is going to be used as level name and as its only attribute. If a
+    dictionary is provided and has no attributes, then level will contain only
+    attribute with the same name as the level name."""
+    if isinstance(metadata, basestring):
+        metadata = {"name":metadata, "attributes": [metadata]}
+    else:
+        metadata = dict(metadata)
+
+    try:
+        name = metadata["name"]
+    except KeyError:
+        raise ModelError("Level has no name")
+
+    attributes = metadata.get("attributes")
+
+    if not attributes:
+        attribute = {
+            "name": name,
+            "label": metadata.get("label")
+        }
+
+        attributes = [attribute]
+
+    metadata["attributes"] = [fix_attribute_metadata(a) for a in attributes]
+
+    # TODO: Backward compatibility – depreciate later
+    if "cardinality" not in metadata:
+        info = metadata.get("info", {})
+        if "high_cardinality" in info:
+            metadata["cardinality"] = "high"
+
+    return metadata
+
+
+def fix_attribute_metadata(metadata):
+    """Fixes metadata of an attribute. If `metadata` is a string it will be
+    converted into a dictionary with key `"name"` set to the string value."""
+    if isinstance(metadata, basestring):
+        metadata = {"name": metadata}
+
+    return metadata
 
 
 def create_dimension(metadata, dimensions=None, name=None):
     """Create a dimension from a `metadata` dictionary."""
 
-    metadata = fix_dimension_metadata(metadata)
     dimensions = dimensions or {}
 
     if "template" in metadata:
@@ -2204,8 +2294,8 @@ def create_dimension(metadata, dimensions=None, name=None):
         cardinality = template.cardinality
         role = template.role
     else:
-        levels = None
-        hierarchies = None
+        levels = []
+        hierarchies = []
         default_hierarchy_name = None
         label = None
         description = None
@@ -2213,9 +2303,16 @@ def create_dimension(metadata, dimensions=None, name=None):
         role = None
         info = {}
 
+    # Fix the metadata, but don't create default level if the template
+    # provides levels.
+    metadata = fix_dimension_metadata(metadata,
+                                      create_levels=not bool(levels))
+
     name = metadata.get("name") or name
     if not name:
-        raise ModelError("Dimension has no name, neither explicit name provided")
+        raise ModelError("Dimension has no name, "
+                         "neither explicit name provided")
+
 
     label = metadata.get("label") or label
     description = metadata.get("description") or description
@@ -2234,57 +2331,18 @@ def create_dimension(metadata, dimensions=None, name=None):
     # Levels
     # ------
 
-    levels_metadata = metadata.get("levels")
-
-    if levels_metadata:
-        levels = []
-
-        for md in levels_metadata:
-            level = create_level(md)
-            levels.append(level)
+    # We are guaranteed to have "levels" key from fix_dimension_metadata()
 
     if not levels:
-        # Create a single level with same properties as the dimension.
-        attributes = ["attributes", "key", "order_attribute", "order",
-                      "label_attribute"]
-        level_md = {}
-        for attr in attributes:
-            if attr in metadata:
-                level_md[attr] = metadata[attr]
-
-        if cardinality:
-            level_md["cardinality"] = cardinality
-
-        # Default: if no attributes, then there is single flat attribute
-        # whith same name as the dimension
-        level_md["name"] = name
-        level_md["label"] = label
-
-        levels = [create_level(level_md)]
+        levels = [create_level(level) for level in metadata["levels"]]
 
     # Hierarchies
     # -----------
-
-    if "hierarchy" in metadata and "hierarchies" in metadata:
-        raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies'"
-                                      " specified. Use only one")
-
-    hierarchy = metadata.get("hierarchy")
-
-    if hierarchy:
-        # We consider it to be a list of level names
-        if not isinstance(hierarchy, Hierarchy):
-            hierarchy = Hierarchy("default", levels=hierarchy)
-
-        hierarchies = [hierarchy]
-
-    elif "hierarchies" in metadata:
+    if "hierarchies" in metadata:
         hierarchies = [Hierarchy(**md) for md in metadata["hierarchies"]]
 
     default_hierarchy_name = metadata.get("default_hierarchy_name",
                                           default_hierarchy_name)
-
-    name = name or metadata["name"]
 
     return Dimension(name=name,
                      levels=levels,
@@ -2296,46 +2354,6 @@ def create_dimension(metadata, dimensions=None, name=None):
                      cardinality=cardinality,
                      role=role
                      )
-
-
-def fix_level_metadata(metadata):
-    """Returns a level description as a dictionary. If provided as string,
-    then it is going to be used as level name and as its only attribute. If a
-    dictionary is provided and has no attributes, then level will contain only
-    attribute with the same name as the level name."""
-    if isinstance(metadata, basestring):
-        return {"name":metadata, "attributes": [metadata]}
-    else:
-        metadata = dict(metadata)
-        if "attributes" not in metadata:
-            try:
-                name = metadata["name"]
-            except KeyError:
-                raise ModelError("Level has no name.")
-
-            attribute = {
-                "name": name,
-                "label": metadata.get("label")
-            }
-
-            new_metadata = {"name":name, "attributes": [attribute]}
-
-            if "info" in metadata:
-                new_metadata['info'] = metadata['info']
-            if "label" in metadata:
-                new_metadata['label'] = metadata["label"]
-            if "role" in metadata:
-                new_metadata['role'] = metadata["role"]
-
-            metadata = new_metadata
-
-        # Backward compatibility with an experimental feature:
-        if "cardinality" not in metadata:
-            info = metadata.get("info", {})
-            if "high_cardinality" in info:
-                metadata["cardinality"] = "high"
-
-        return metadata
 
 
 def create_level(metadata, name=None, dimension=None):
