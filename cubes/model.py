@@ -28,7 +28,11 @@ __all__ = [
     "create_attribute",
     "create_measure",
     "create_measure_aggregate",
-    "attribute_list"
+    "attribute_list",
+
+    "fix_dimension_metadata",
+    "fix_level_metadata",
+    "fix_attribute_metadata"
 ]
 
 
