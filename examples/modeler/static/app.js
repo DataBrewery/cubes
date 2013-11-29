@@ -34,6 +34,24 @@ _.isString = function(o) {
   return Object.prototype.toString.call(o) === '[object String]';
 };
 
+
+// Move item in array from from_index to to_index
+_.moveItem = function (array, from_index, to_index) {
+    array.splice(to_index, 0, array.splice(from_index, 1)[0]);
+    return array;
+};
+
+_.relativeMoveItem = function(array, obj, offset){
+    // Direction: -1=down 1=up
+    from_index = array.indexOf(obj);
+    to_index = from_index + offset;
+    to_index = to_index < 0 ? 0 : to_index;
+    to_index = to_index >= array.length ? array.length-1 : to_index;
+    _.moveItem(array, from_index, to_index);
+};
+
+
+
 var CubesModelerApp = angular.module('CubesModelerApp', [
     'ngRoute',
     'ModelerControllers'

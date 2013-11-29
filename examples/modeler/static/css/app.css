@@ -6,3 +6,11 @@
     height: 150px;
     overflow: auto;
 }
+
+.attribute-flag {
+    color:rgb(221, 221, 221);
+}
+
+.attribute-flag-active {
+    color: black; 
+}

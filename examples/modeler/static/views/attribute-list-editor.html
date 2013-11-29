@@ -17,16 +17,17 @@
                            ng-model="attribute_query">
                 </div>
             </div>
-            <div class="list-group"
-                ng-repeat="attribute in attributes | filter:attribute_query">
+            <div class="list-group">
                 <a class="list-group-item"
+                   ng-repeat="attribute in attributes | filter:attribute_query"
+                   ng-class="{active: selectedAttribute == attribute}"
                    ng-click="selectAttribute(attribute)">
                         {{attribute.label || "(no label)"}}
                     <small>({{attribute.name}})</small>
                     <span class="glyphicon glyphicon-remove pull-right"
+                          title="Delete {{attributeLabel}}"
                           ng-click="removeAttribute($index)"></span>
                 </a>
-                </span>
             </div>
         </div>
     </div>

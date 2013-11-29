@@ -255,6 +255,7 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
             var hierarchies = dim.hierarchies;
             if(!hierarchies || hierarchies.length == 0){
                 hierarchies = [];
+                dim.hierarchies = hierarchies;
             }
 
             // Remap level names to levels
@@ -264,15 +265,30 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
                     return levels[l];
                 })
             }
+
+            if(hierarchies.length > 0){
+                $scope.selectHierarchy(hierarchies[0]);
+            }
+            else {
+                $scope.selectHierarchy(null);
+            }
+
+            if(dim.default_hierarchy_name) {
+                $scope.defaultHierarchy = _.find($scope.dimension.hierarchies, function(h) {
+                    return (h.name == dim.default_hierarchy_name);
+                });
+            }
+            else {
+                $scope.defaultHierarchy = null;
+            };
+
             $scope.$broadcast('dimensionLoaded');
+
+            $scope.selectHierarchy
         });
 
         $scope.active_tab = $routeParams.activeTab || "info";
         $scope.dimId = id;
-
-        $scope.save = function(){
-            $http.put("dimension/" + $scope.dimId, $scope.dimension);
-        }
 
         $scope.selectHierarchy = function(hier) {
             $scope.selectedObjectType = "hierarchy";
@@ -292,6 +308,44 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
             }
         };
 
+        $scope.addHierarchy = function() {
+            hierarchies = $scope.dimension.hierarchies;
+            hier = {
+                name: "new_hierarchy",
+                label: "New Hierarchy",
+                levels: []
+            };
+            hierarchies.push(hier);
+
+            $scope.selectHierarchy(hier);
+        }
+
+        $scope.removeHierarchy = function(hier){
+            hierarchies = $scope.dimension.hierarchies;
+            index = hierarchies.indexOf(hier);
+            hierarchies.splice(index, 1);
+            if($scope.hierarchies.length > 0){
+                $scope.selectHierarchy(hierarchies[0]);
+            }
+            else {
+                $scope.selectHierarchy(null)
+            }
+        };
+
+        $scope.setDefaultHierarchy = function(hier) {
+            if($scope.defaultHierarchy != hier) {
+                $scope.defaultHierarchy = hier;
+                $scope.dimension.default_hierarchy_name = hier.name;
+            }
+            else {
+                $scope.defaultHierarchy = null;
+                $scope.dimension.default_hierarchy_name = null;
+            };
+        };
+
+        // Levels
+        // ======
+
         $scope.includeLevel = function(level){
             hier = $scope.hierarchy;
 
@@ -306,8 +360,8 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
             $scope.selectHierarchy(hier);
         };
 
-        $scope.moveLevel = function(dir, level){
-            alert("Move!")
+        $scope.moveLevel = function(offset, level){
+            _.relativeMoveItem($scope.hierarchy.levels, level, offset);
         };
 
         $scope.excludeLevel = function(level){
@@ -322,11 +376,126 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
             $scope.selectedObjectType = "level";
             $scope.selectedObject = level;
             $scope.attributes = level.attributes;
+            $scope.level = level;
+
+            if(level){
+                if(level.label_attribute) {
+                    $scope.labelAttribute = _.find($scope.attributes,
+                                                   function(attr){
+                                                       return attr.name == level.label_attribute;
+                                                   })
+                }
+                else {
+                    $scope.labelAttribute = null;
+                }
+                if(level.key) {
+                    $scope.key = _.find($scope.attributes,
+                                        function(attr){
+                                            return attr.name == level.key;
+                                        })
+                }
+                else {
+                    $scope.key = null;
+                }
+            };       
         };
+
+        $scope.addLevel = function() {
+            obj = {
+                name: "new_level",
+                label: "New Level",
+                attributes: [{"name": "new_attribute"}]
+            };
+            $scope.dimension.levels.push(obj);
+
+            if(!$scope.isAnyHierarchy) {
+                $scope.hierarchy.levels.push(obj)
+            }
+
+            $scope.selectLevel(obj);
+        };
+
+        // Attributes
+        // ==========
 
         $scope.selectAttribute = function(attribute) {
             $scope.selectedObjectType = "attribute";
             $scope.selectedObject = attribute;
         };
+
+        $scope.moveAttribute = function(offset, attr){
+            _.relativeMoveItem($scope.attributes, attr, offset);
+        };
+
+        $scope.addAttribute = function() {
+            attr = {
+                name: "new_attribute",
+                label: "New Attribute"
+            };
+            $scope.attributes.push(attr);
+
+            $scope.selectAttribute(attr);
+        };
+
+        $scope.removeAttribute = function(attr){
+            index = $scope.attributes.indexOf(attr);
+            $scope.attributes.splice(index, 1);
+            if($scope.attributes > 0){
+                $scope.selectAttribute($scope.attributes[0]);
+            }
+            else {
+                $scope.selectAttribute(null)
+            }
+        };
+
+        $scope.setKeyAttribute = function(attr) {
+            if($scope.key != attr) {
+                $scope.key = attr;
+                $scope.level.key = attr.name;
+            }
+            else {
+                $scope.key = null;
+                $scope.level.key = null;
+            }
+        };
+
+        $scope.setLabelAttribute = function(attr) {
+            if($scope.labelAttribute != attr) {
+                $scope.labelAttribute = attr;
+                $scope.level.label_attribute = attr.name;
+            }
+            else {
+                $scope.labelAttribute = null;
+                $scope.level.label_attribute = null;  
+            };
+        };
+
+        // Save!
+        // =====
+
+        $scope.save = function(){
+            // Remove relationships
+
+            dim = angular.copy($scope.dimension);
+
+            for(var i in dim.levels) {
+                level = dim.levels[i];
+                if(level.key) {
+                    level.key = level.key.name;
+                };
+                if(level.labelAttribute) {
+                    level.labelAttribute = level.labelAttribute.name;
+                };
+            };
+
+            for(var h in dim.hierarchies) {
+                hier = dim.hierarchies[h];
+                names = _.map(hier.levels, function(level) { return level.name; })
+                hier.levels = names;
+            };
+
+            $http.put("dimension/" + $scope.dimId, dim);
+        };
+
     }
 ]);

@@ -18,9 +18,13 @@
                    ng-class="{active: selectedObject == hier}"
                     title="Name: {{hier.name}}"
                     ng-repeat="hier in dimension.hierarchies | filter:available_dim_query">
+                    <span class="glyphicon glyphicon-flag attribute-flag"
+                          ng-class="{'attribute-flag-active': hier == defaultHierarchy}"
+                          title="Default hierarchy flag"
+                          ng-click="setDefaultHierarchy(hier)"></span>
                     {{hier.label || hier.name || "(no name)"}}
                     <span class="glyphicon glyphicon-remove pull-right"
-                          ng-click="removeHierarchy($index)"></span>
+                          ng-click="removeHierarchy(hier)"></span>
                 </a>
             </div>
         </div>
@@ -28,7 +32,10 @@
     <div class="browser-column col-xs-4 col-sm-3">
         <div class="panel panel-default">
             <div class="panel-heading">
-                Levels
+                <span ng-if="isAnyHierarchy">All levels</span>
+                <span ng-if="!isAnyHierarchy">
+                    {{hierarchy.label || hierarchy.name || "(no name)"}} levels
+                </span>
                 <span class="pull-right glyphicon glyphicon-plus"
                       ng-click="addLevel()"></span>
             </div>
@@ -39,15 +46,16 @@
                    ng-class="{active: selectedObject == level}"
                    ng-repeat="level in hierarchy.levels">
                     <span class="glyphicon glyphicon-chevron-up"
-                          ng-click="moveLevel(1, level)"></span>
-                    <span class="glyphicon glyphicon-chevron-down"
                           ng-click="moveLevel(-1, level)"></span>
+                    <span class="glyphicon glyphicon-chevron-down"
+                          ng-click="moveLevel(1, level)"></span>
                     {{level.label || level.name || "(no name)"}}
                     <span class="glyphicon glyphicon-minus-sign pull-right"
                           ng-click="excludeLevel(level)"
                           title="Exclude level from hierarchy"></span>
                 </a>
-                <em class="list-group-item">Available levels:</em>
+                <em ng-if="!isAnyHierarchy"
+                    class="list-group-item">Available levels:</em>
                 <a class="list-group-item"
                    ng-click="selectLevel(level)"
                    ng-class="{active: selectedObject == level}"
@@ -68,9 +76,12 @@
     <div class="browser-column col-xs-4 col-sm-3">
         <div class="panel panel-default">
             <div class="panel-heading">
-                Attributes
+                <span ng-if="! level">Attributes</span>
+                <span ng-if="level">
+                    {{level.label || level.name || "(no name)"}} attributes
+                </span>
                 <span class="pull-right glyphicon glyphicon-plus"
-                      ng-click="addLevel()"></span>
+                      ng-click="addAttribute()"></span>
             </div>
 
             <div class="browser-column-list list-group">
@@ -80,12 +91,21 @@
                    ng-click="selectAttribute(attr)"
                    ng-repeat="attr in attributes | filter:cube_dim_query">
                     <span class="glyphicon glyphicon-chevron-up"
-                          ng-click="moveAttribute(1, $index)"></span>
+                          ng-click="moveAttribute(-1, attr)"></span>
                     <span class="glyphicon glyphicon-chevron-down"
-                          ng-click="moveAttribute(-1, $index)"></span>
-                   {{attr.label || attr.name || "(no name)"}}
+                          ng-click="moveAttribute(1, attr)"></span>
+                    <span class="glyphicon glyphicon-flag attribute-flag"
+                          ng-class="{'attribute-flag-active': attr == key}"
+                          title="Key Attribute"
+                          ng-click="setKeyAttribute(attr)"></span>
+                    <span class="glyphicon glyphicon-font attribute-flag"
+                          ng-class="{'attribute-flag-active': attr == labelAttribute}"
+                          title="Label Attribute"
+                          ng-click="setLabelAttribute(attr)"></span>
+                    {{attr.label || attr.name || "(no name)"}}
                     <span class="glyphicon glyphicon-remove pull-right"
-                          ng-click="removeAttribute($index)"></span>
+                          ng-if="attributes && attributes.length > 1"
+                          ng-click="removeAttribute(attr)"></span>
                 </a>
             </div>
         </div>

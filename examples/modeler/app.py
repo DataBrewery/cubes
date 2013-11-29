@@ -54,10 +54,12 @@ def save_model():
 def index():
     return render_template('index.html')
 
+
 @app.route("/cubes")
 def list_cubes():
     # TODO: return just relevant info
     return json.dumps(CUBES.values())
+
 
 def fix_attribute_list(attributes):
     if not attributes:
@@ -71,6 +73,7 @@ def fix_attribute_list(attributes):
 
     return fixed
 
+
 @app.route("/cube/<id>", methods=["PUT"])
 def save_cube(id):
     cube = json.loads(request.data)
@@ -78,6 +81,7 @@ def save_cube(id):
     save_model()
 
     return "ok"
+
 
 @app.route("/cube/<id>", methods=["GET"])
 def get_cube(id):
@@ -89,12 +93,23 @@ def get_cube(id):
 
     return json.dumps(info)
 
+
 @app.route("/dimensions")
 def list_dimensions():
     # TODO: return just relevant info
     return json.dumps(DIMENSIONS.values())
 
-@app.route("/dimension/<id>")
+
+@app.route("/dimension/<id>", methods=["PUT"])
+def save_dimension(id):
+    dim = json.loads(request.data)
+    DIMENSIONS[str(id)] = dim
+    save_model()
+
+    return "ok"
+
+
+@app.route("/dimension/<id>", methods=["GET"])
 def get_dimension(id):
     info = DIMENSIONS[str(id)]
     return json.dumps(info)
