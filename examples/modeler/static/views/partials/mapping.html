@@ -1,0 +1,98 @@
+<form class="form-horizontal" role="form">
+<div class="form-group">
+    <label class="col-sm-3 control-label">Edit as type</label>
+    <div class="col-sm-9">
+    <select class="form-control"
+            ng-model="mappingType"
+            ng-options="f.name as f.label for f in mappingTypes">
+    </select>
+    </div>
+</div>
+</form>
+
+<form class="form-horizontal" role="form">
+<div ng-if="mappingType == 'string'">
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Value</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="Mapping value"
+               ng-model="mapping.value">
+        </div>
+    </div>
+</div>
+
+<div ng-if="mappingType == 'sql'">
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Column</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="Mapping value"
+               ng-model="mapping.value.column">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Table</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="Mapping value"
+               ng-model="mapping.value.column">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Schema</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="Mapping value"
+               ng-model="mapping.value.column">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Extract</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="Mapping value"
+               ng-model="mapping.value.column">
+        </div>
+    </div>
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">Provisional/Experimental Properties</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                <label class="col-sm-2 control-label">Func</label>
+                <div class="col-sm-10">
+                <input type="text"
+                       class="form-control"
+                       placeholder="Mapping value"
+                       ng-model="mapping.value.column">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2 control-label">Expr</label>
+                <div class="col-sm-10">
+                <input type="text"
+                       class="form-control"
+                       placeholder="Mapping value"
+                       ng-model="mapping.value.column">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2 control-label">Condition</label>
+                <div class="col-sm-10">
+                <input type="text"
+                       class="form-control"
+                       placeholder="Mapping value"
+                       ng-model="mapping.value.column">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</form>

@@ -91,18 +91,31 @@
                    ng-class="{active: content == attr}"
                    ng-click="selectAttribute(attr)"
                    ng-repeat="attr in attributes | filter:cube_dim_query">
+
                     <span class="glyphicon glyphicon-chevron-up"
                           ng-click="moveAttribute(-1, attr)"></span>
+
                     <span class="glyphicon glyphicon-chevron-down"
                           ng-click="moveAttribute(1, attr)"></span>
+
                     <span class="glyphicon glyphicon-flag attribute-flag"
                           ng-class="{'attribute-flag-active': attr == key}"
                           title="Key Attribute"
                           ng-click="setKeyAttribute(attr)"></span>
+
                     <span class="glyphicon glyphicon-font attribute-flag"
                           ng-class="{'attribute-flag-active': attr == labelAttribute}"
                           title="Label Attribute"
                           ng-click="setLabelAttribute(attr)"></span>
+
+                    <span class="glyphicon attribute-flag"
+                          ng-class="{'attribute-flag-active': attr == orderAttribute,
+                                     'glyphicon-sort-by-attributes': attr != orderAttribute || level.order != 'desc',
+                                     'glyphicon-sort-by-attributes-alt': attr == orderAttribute && level.order == 'desc'}
+                                    "
+                          title="Label Attribute"
+                          ng-click="setOrderAttribute(attr)"></span>
+
                     {{attr.label || attr.name || "(no name)"}}
                     <span class="glyphicon glyphicon-remove pull-right"
                           ng-if="attributes && attributes.length > 1"

@@ -50,6 +50,13 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             {"name": null, "label": "Other/native..."},
         ];
 
+        $scope.mappingTypes = [
+            {"name": "string", "label": "String"},
+            {"name": "sql", "label": "SQL"},
+            {"name": "mongo", "label": "Mongo"},
+            {"name": "jsonstr", "label": "JSON (text)"}
+        ]
+
         $scope.providers = [
             {"name": "default", "label": "Default (static JSON)"},
             {"name": "mixpanel", "label": "Mixpanel"},
@@ -70,7 +77,7 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             {"name": "tiny", "label": "Tiny (up to 5 members)"},
             {"name": "low", "label": "Low (5 to 50 members – in a list view)"},
             {"name": "medium", "label": "Medium (more than 50 – for a search field)"},
-            {"name": "high", "label": "Hight (slicing required)"}
+            {"name": "high", "label": "High (slicing required)"}
         ];
 
         $scope.dimensionRoles = [
@@ -538,6 +545,26 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
             else {
                 $scope.labelAttribute = null;
                 $scope.level.label_attribute = null;  
+            };
+        };
+
+        // Tri-state flag: asc/desc/none
+        $scope.setOrderAttribute = function(attr) {
+            if($scope.orderAttribute != attr) {
+                $scope.orderAttribute = attr;
+                $scope.level.order_attribute = attr.name;
+                $scope.level.order = "asc";
+            }
+            else {
+                order = $scope.level.order;
+                if($scope.level.order == "asc"){
+                    $scope.level.order = "desc";
+                }
+                else{
+                    $scope.orderAttribute = null;
+                    $scope.level.order_attribute = null;
+                    $scope.level.order = null;
+                }
             };
         };
 
