@@ -55,6 +55,11 @@ def index():
     return render_template('index.html')
 
 
+@app.route("/model")
+def get_model():
+    # Note: this returns model metadata sans cubes/dimensions
+    return json.dumps(MODEL)
+
 @app.route("/cubes")
 def list_cubes():
     # TODO: return just relevant info

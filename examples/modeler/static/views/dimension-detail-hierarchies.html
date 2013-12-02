@@ -1,5 +1,6 @@
+<div ng-controller="HierarchiesController">
 <div class="row">
-    <div class="browser-column col-xs-4 col-sm-3">
+    <div class="browser-column col-sm-4">
         <div class="panel panel-default">
             <div class="panel-heading">
                 Hierarchies
@@ -10,12 +11,12 @@
             <div class="browser-column-list list-group">
                 <a class="list-group-item"
                    ng-click="selectHierarchy()"
-                   ng-class="{active: selectedObjectType == 'hierarchy' && selectedObject == hier}" >
+                   ng-class="{active: contentType == 'hierarchy' && content == hier}" >
                    <em>All</em>
                 </a>
                 <a class="list-group-item"
                    ng-click="selectHierarchy(hier)"
-                   ng-class="{active: selectedObject == hier}"
+                   ng-class="{active: content == hier}"
                     title="Name: {{hier.name}}"
                     ng-repeat="hier in dimension.hierarchies | filter:available_dim_query">
                     <span class="glyphicon glyphicon-flag attribute-flag"
@@ -29,7 +30,7 @@
             </div>
         </div>
     </div>
-    <div class="browser-column col-xs-4 col-sm-3">
+    <div class="browser-column col-sm-4">
         <div class="panel panel-default">
             <div class="panel-heading">
                 <span ng-if="isAnyHierarchy">All levels</span>
@@ -43,7 +44,7 @@
             <div class="browser-column-list list-group">
                 <a class="list-group-item"
                    ng-click="selectLevel(level)"
-                   ng-class="{active: selectedObject == level}"
+                   ng-class="{active: content == level}"
                    ng-repeat="level in hierarchy.levels">
                     <span class="glyphicon glyphicon-chevron-up"
                           ng-click="moveLevel(-1, level)"></span>
@@ -58,7 +59,7 @@
                     class="list-group-item">Available levels:</em>
                 <a class="list-group-item"
                    ng-click="selectLevel(level)"
-                   ng-class="{active: selectedObject == level}"
+                   ng-class="{active: content == level}"
                    ng-repeat="level in availableLevels">
                    {{level.label || level.name || "(no name)"}}
                     <span ng-if="! isAnyHierarchy"
@@ -73,7 +74,7 @@
             </div>
         </div>
     </div>
-    <div class="browser-column col-xs-4 col-sm-3">
+    <div class="browser-column col-sm-4">
         <div class="panel panel-default">
             <div class="panel-heading">
                 <span ng-if="! level">Attributes</span>
@@ -87,7 +88,7 @@
             <div class="browser-column-list list-group">
                 <a class="list-group-item"
                    title="Name: {{attr.name}}"
-                   ng-class="{active: selectedObject == attr}"
+                   ng-class="{active: content == attr}"
                    ng-click="selectAttribute(attr)"
                    ng-repeat="attr in attributes | filter:cube_dim_query">
                     <span class="glyphicon glyphicon-chevron-up"
@@ -112,36 +113,23 @@
     </div>
 </div>
 
-<div class="row" ng-if="selectedObject">
-    <div class="form-group">
-        <label>Name</label>
-        <input type="text"
-               class="form-control"
-               ng-model="selectedObject.name">
-    </div>
+<div class="row" ng-if="content">
 
-    <div class="form-group">
-        <label>Label</label>
-        <input type="text"
-               class="form-control"
-               placeholder="Label"
-               ng-model="selectedObject.label">
-    </div>
+    <ng-include src="'views/partials/model_object.html'"></ng-include>
 
+    <form ng-if="contentType == 'level'"
+          class="form-horizontal"
+          role="form">
     <div class="form-group">
-        <label>Description</label>
-        <textarea class="form-control"
-                  placeholder="Description"
-                  ng-model="selectedObject.description"></textarea>
-    </div>
-
-    <div ng-if="selectedObjectType == 'level'" class="form-group">
-        <label >Cardinality</label>
-        <div class="form-inline">
-            <select ng-model="selectedObject.cardinality"
+        <label class="col-sm-2 control-label">Cardinality</label>
+        <div class="col-sm-10">
+            <select class="form-control"
+                    ng-model="dimension.cardinality"
                     ng-options="r.name as r.label for r in cardinalities">
             </select>
         </div>
     </div>
+    </form>
 
 </div>
+</div> <!-- HierarchiesController -->

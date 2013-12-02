@@ -1,53 +1,32 @@
-<div class="form-group">
-    <label>Name</label>
-    <input type="text"
-           class="form-control"
-           placeholder="name (required)"
-           ng-value="selectedAttribute.name">
-</div>
+<ng-include src="'views/partials/model_object.html'"></ng-include>
 
-<div class="form-group">
-    <label >Label</label>
-    <input type="text"
-           class="form-control"
-           placeholder="Human-readable Label"
-           ng-value="selectedAttribute.label">
-</div>
-
-<div class="form-group">
-    <label>Description</label>
-    <textarea class="form-control"
-              placeholder="Detailed Description">{{selectedAttribute.description}}</textarea>
-</div>
-
+<form class="form-horizontal" role="form">
 <div ng-if="attributeType == 'aggregate'">
     <div class="form-group">
-        <label >Measure</label>
+        <label class="col-sm-2 control-label">Measure</label>
+        <div class="col-sm-10">
         <input type="text"
                class="form-control"
                placeholder="Measure name"
-               ng-value="selectedAttribute.measure">
-    </div>
-
-    <div class="form-group">
-        <label >Function</label>
-        <div class="form-inline">
-            <select ng-model="selectedAttribute.function"
-                    ng-options="f.name as f.label for f in functions">
-            </select>
-
-            <input type="text"
-                   class="form-control"
-                   placeholder="Other function"
-                   ng-value="selectedAttribute.function">
+               ng-value="content.measure">
         </div>
     </div>
 
     <div class="form-group">
-        <label >Label</label>
-        <input type="text"
-               class="form-control"
-               placeholder="Human-readable Label"
-               value="{{selectedAttribute.label}}">
+        <label class="col-sm-2 control-label">Function</label>
+        <div class="col-sm-4">
+            <select class="form-control"
+                    ng-model="content.function"
+                    ng-options="f.name as f.label for f in functions">
+            </select>
+        </div>
+        <div class="col-sm-6">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Other function"
+                   ng-value="content.function">
+        </div>
     </div>
 </div>
+
+</form>

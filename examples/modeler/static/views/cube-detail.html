@@ -4,7 +4,7 @@
             class="btn btn-success pull-right"
             ng-click="save()">Save
     </button>
-    <h1>{{cube.label}}<small>{{cube.name}}</small></h1>
+    <h3>{{cube.label || cube.name || "(no name)"}} <small>{{cube.name}}</small></h3>
 </div>
 
 <!-- Nav tabs -->
@@ -20,9 +20,6 @@
     </li>
     <li ng-class="{active: active_tab == 'aggregates'}">
         <a ng-click="active_tab = 'aggregates'; loadAttributes()">Aggregates</a>
-    </li>
-    <li ng-class="{active: active_tab == 'store'}">
-        <a ng-click="active_tab = 'store';">Store</a>
     </li>
     <li ng-class="{active: active_tab == 'mappings'}">
         <a ng-click="active_tab = 'mappings';">Mappings</a>
@@ -46,9 +43,6 @@
         </div>
         <div ng-switch-when='aggregates' ng-controller="CubeAggregateListController">
              <ng-include src="'views/attribute-list-editor.html'"></ng-include>
-        </div>
-        <div ng-switch-when='store'>
-             <ng-include src="'views/cube-detail-store.html'"></ng-include>
         </div>
         <div ng-switch-when='mappings'>
              <ng-include src="'views/cube-detail-mappings.html'"></ng-include>

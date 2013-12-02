@@ -1,14 +1,25 @@
+// Controllers for Cubes Modeler Application
+//
+
 var ModelerControllers = angular.module('ModelerControllers', []);
+
+// TODO: use "content" concept everywhere where possible
+
 
 ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
     function ($scope, $http, $q) {
         var cubes = $http.get('cubes');
         var dimensions = $http.get('dimensions');
+        var model = $http.get('model');
 
-        $q.all([cubes, dimensions]).then(function(results){
+        $q.all([cubes, dimensions, model]).then(function(results){
             $scope.cubes = results[0].data;
             $scope.dimensions = results[1].data;
+            $scope.model = results[2].data;
 
+            // Every controller should have `content` object set – this will
+            // be used by reusable views
+            $scope.content = $scope.model;
             $scope.dims_by_id = {}
 
             for(i in $scope.dimensions){
@@ -19,19 +30,40 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
 
         $scope.modelObject = null;
 
+        // Enumerations for selection lists
+        // ================================
+        //
+        // For more information see Angular ng-select documentation.
+        //
+
         $scope.functions = [
-            {"name": "count", "label": "record count"}, 
-            {"name": "count_nonempty", "label": "count of non-empty values"},
-            {"name": "sum", "label": "sum"},
-            {"name": "min", "label": "min"},
-            {"name": "max", "label": "max"},
-            {"name": "avg", "label": "average"},
-            {"name": "stddev", "label": "standard deviation"},
-            {"name": "variance", "label": "variance"},
-            {"name": "sma", "label": "simple moving average"},
-            {"name": "wma", "label": "weighted moving average"},
-            {"name": null, "label": "other/native"},
+            {"name": "count", "label": "Record count"}, 
+            {"name": "count_nonempty", "label": "Count of non-empty values"},
+            {"name": "sum", "label": "Sum"},
+            {"name": "min", "label": "Min"},
+            {"name": "max", "label": "Max"},
+            {"name": "avg", "label": "Average"},
+            {"name": "stddev", "label": "Standard deviation"},
+            {"name": "variance", "label": "Variance"},
+            {"name": "sma", "label": "Simple moving average"},
+            {"name": "wma", "label": "Weighted moving average"},
+            {"name": null, "label": "Other/native..."},
         ];
+
+        $scope.providers = [
+            {"name": "default", "label": "Default (static JSON)"},
+            {"name": "mixpanel", "label": "Mixpanel"},
+            {"name": "", "label": "Other..."}
+        ]
+
+        $scope.browsers = [
+            {"name": "default", "label": "Default"},
+            {"name": "mixpanel", "label": "Mixpanel"},
+            {"name": "mongo2", "label": "MongoDB"},
+            {"name": "slicer", "label": "Slicer Server"},
+            {"name": "sql", "label": "SQL Star/Snowflake"},
+            {"name": "", "label": "Other..."}
+        ]
 
         $scope.cardinalities = [
             {"name": "", "label": "Default"}, 
@@ -65,6 +97,7 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
     function ($scope, $http) {
         $http.get('cubes').success(function(data) {
             $scope.cubes = data;
+            // TODO: set content = cubes
         });
         
         $scope.idSequence = 1;
@@ -90,6 +123,7 @@ ModelerControllers.controller('DimensionListController', ['$scope', '$http',
     function ($scope, $http) {
         $http.get('dimensions').success(function(data) {
             $scope.dimensions = data;
+            // TODO: set content = dimensions
         });
         
         $scope.idSequence = 1;
@@ -116,6 +150,8 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
 
         $http.get('cube/' + id).success(function(cube) {
             $scope.cube = cube;
+            $scope.content = cube
+
             $scope.cube_dimensions = []
             names = cube.dimensions || []
             for(var i in names) {
@@ -201,10 +237,10 @@ function AttributeListController(type, label){
 
             // Set attribute selection, if there are any attributes
             if($scope.attributes.length >= 1){
-                $scope.selectedAttribute = $scope.attributes[0];
+                $scope.content = $scope.attributes[0];
             }
             else {
-                $scope.selectedAttribute = null;
+                $scope.content = null;
             };       
         };   
 
@@ -215,7 +251,7 @@ function AttributeListController(type, label){
         $scope.$on('cubeLoaded', $scope.loadAttributes);
 
         $scope.selectAttribute = function(attribute) {
-            $scope.selectedAttribute = attribute;
+            $scope.content = attribute;
         };
 
         $scope.removeAttribute = function(index) {
@@ -224,7 +260,7 @@ function AttributeListController(type, label){
 
         $scope.addAttribute = function() {
             attribute = {"name": "new_"+type}
-            $scope.selectedAttribute = attribute;
+            $scope.content = attribute;
             $scope.attributes.push(attribute)
         };
     };      
@@ -242,6 +278,7 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
 
         $http.get('dimension/' + id).success(function(dim) {
             $scope.dimension = dim;
+            $scope.content = dim;
 
             // We are expected to get "fixed" dimensions from the server
             // For more information see fix_dimension_metadata() in
@@ -266,13 +303,6 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
                 })
             }
 
-            if(hierarchies.length > 0){
-                $scope.selectHierarchy(hierarchies[0]);
-            }
-            else {
-                $scope.selectHierarchy(null);
-            }
-
             if(dim.default_hierarchy_name) {
                 $scope.defaultHierarchy = _.find($scope.dimension.hierarchies, function(h) {
                     return (h.name == dim.default_hierarchy_name);
@@ -283,16 +313,57 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
             };
 
             $scope.$broadcast('dimensionLoaded');
-
-            $scope.selectHierarchy
         });
 
         $scope.active_tab = $routeParams.activeTab || "info";
         $scope.dimId = id;
 
+        // Save!
+        // =====
+
+        $scope.save = function(){
+            // Remove relationships
+
+            dim = angular.copy($scope.dimension);
+
+            for(var i in dim.levels) {
+                level = dim.levels[i];
+                if(level.key) {
+                    level.key = level.key.name;
+                };
+                if(level.labelAttribute) {
+                    level.labelAttribute = level.labelAttribute.name;
+                };
+            };
+
+            for(var h in dim.hierarchies) {
+                hier = dim.hierarchies[h];
+                names = _.map(hier.levels, function(level) { return level.name; })
+                hier.levels = names;
+            };
+
+            $http.put("dimension/" + $scope.dimId, dim);
+        };
+
+    }
+]);
+
+ModelerControllers.controller('HierarchiesController', ['$scope',
+    function ($scope) {
+        $scope.content = null;
+
+        $scope.$on('dimensionLoaded', function() {
+            if(hierarchies.length > 0){
+                $scope.selectHierarchy(hierarchies[0]);
+            }
+            else {
+                $scope.selectHierarchy(null);
+            }
+        });
+
         $scope.selectHierarchy = function(hier) {
-            $scope.selectedObjectType = "hierarchy";
-            $scope.selectedObject = hier;
+            $scope.contentType = "hierarchy";
+            $scope.content = hier;
             $scope.hierarchy = hier
 
             if(hier) {
@@ -373,8 +444,8 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
         };
 
         $scope.selectLevel = function(level) {
-            $scope.selectedObjectType = "level";
-            $scope.selectedObject = level;
+            $scope.contentType = "level";
+            $scope.content = level;
             $scope.attributes = level.attributes;
             $scope.level = level;
 
@@ -419,8 +490,8 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
         // ==========
 
         $scope.selectAttribute = function(attribute) {
-            $scope.selectedObjectType = "attribute";
-            $scope.selectedObject = attribute;
+            $scope.contentType = "attribute";
+            $scope.content = attribute;
         };
 
         $scope.moveAttribute = function(offset, attr){

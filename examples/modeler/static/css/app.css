@@ -14,3 +14,7 @@
 .attribute-flag-active {
     color: black; 
 }
+
+.tab-content {
+    padding-top: 12px;
+}

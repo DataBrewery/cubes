@@ -20,7 +20,7 @@
             <div class="list-group">
                 <a class="list-group-item"
                    ng-repeat="attribute in attributes | filter:attribute_query"
-                   ng-class="{active: selectedAttribute == attribute}"
+                   ng-class="{active: content == attribute}"
                    ng-click="selectAttribute(attribute)">
                         {{attribute.label || "(no label)"}}
                     <small>({{attribute.name}})</small>
@@ -32,10 +32,10 @@
         </div>
     </div>
     <div class="col-xs-6 col-sm-8">
-        <div ng-if="selectedAttribute">
+        <div ng-if="content">
             <ng-include src="'views/attribute-base.html'"></ng-include>
         </div>
-        <div ng-if="! selectedAttribute">No {{attributeLabel}} selected</div>
+        <div ng-if="! content">No {{attributeLabel}} selected</div>
     </div>
 </div>
 
