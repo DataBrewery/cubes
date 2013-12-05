@@ -23,6 +23,11 @@ from cubes.logging import create_logger
 from cubes.errors import CubesError
 from cubes.providers import read_model_metadata, write_model_metadata_bundle
 
+try:
+    from cubes_modeler import run_modeler
+except ImportError:
+    run_modeler = None
+
 def validate_model(args):
     """docstring for validate_model"""
     print("Reading model %s" % args.model)
@@ -307,6 +312,23 @@ def convert_model(args):
     elif args.format == "bundle":
         write_model_metadata_bundle(path, model, replace=args.force)
 
+
+def edit_model(args):
+    if not run_modeler:
+        sys.stderr.write("ERROR: 'cubes_modeler' package needs to be "
+                         "installed to edit the model.\n")
+        exit(1)
+
+    if args.port:
+        port = int(args.port)
+    else:
+        port = 5000
+
+    import webbrowser
+    webbrowser.open("http://127.0.0.1:%s" % port)
+
+    run_modeler(args.model, args.target)
+
 ################################################################################
 # Main code
 
@@ -336,6 +358,21 @@ parser_validate.add_argument('--no-warnings',
 parser_validate.add_argument('model', help='model reference - can be a local file path or URL')
 parser_validate.set_defaults(func=validate_model)
 
+
+################################################################################
+# Command: edit
+
+subparser = model_subparsers.add_parser("edit", help="edit model")
+subparser.add_argument('-p', '--port',
+                            dest='port',
+                            default=5000,
+                            help='port to run the editor web server on')
+subparser.add_argument("model", help="model file or URL")
+subparser.add_argument("target", nargs="?",
+                       help="optional target path to write model to "
+                            "(otherwise saved_model in current directory "
+                            "will be used)")
+subparser.set_defaults(func=edit_model)
 
 ################################################################################
 # Command: translate_model

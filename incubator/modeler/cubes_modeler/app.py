@@ -1,3 +1,11 @@
+"""Cubes Modeler – experimental Flask app.
+
+Note: Use only as local server with slicer:
+
+    slicer model edit MODEL [TARGET]
+
+"""
+
 from flask import Flask, render_template, request
 from cubes import Model, read_model_metadata, create_model_provider
 from cubes import get_logger, write_model_metadata_bundle
@@ -5,14 +13,15 @@ from cubes import fix_dimension_metadata
 import json
 from collections import OrderedDict
 
-app = Flask(__name__, static_folder='static', static_url_path='')
+modeler = Flask(__name__, static_folder='static', static_url_path='')
 
+# TODO: maybe we should not have these as globals
 # Model:
 CUBES = OrderedDict()
 DIMENSIONS = OrderedDict()
 MODEL = {}
 
-SAVED_MODEL_FILENAME = "saved_model.cubesmodel"
+saved_model_filename = "saved_model.cubesmodel"
 
 def import_model(path):
     # We need to use both: the metadata and the created model, as we do not
@@ -48,19 +57,19 @@ def save_model():
     # with open(SAVED_MODEL_FILENAME, "w") as f:
     #     json.dump(model, f, indent=4)
 
-    write_model_metadata_bundle(SAVED_MODEL_FILENAME, model, replace=True)
+    write_model_metadata_bundle(saved_model_filename, model, replace=True)
 
-@app.route("/")
+@modeler.route("/")
 def index():
     return render_template('index.html')
 
 
-@app.route("/model")
+@modeler.route("/model")
 def get_model():
     # Note: this returns model metadata sans cubes/dimensions
     return json.dumps(MODEL)
 
-@app.route("/cubes")
+@modeler.route("/cubes")
 def list_cubes():
     # TODO: return just relevant info
     return json.dumps(CUBES.values())
@@ -79,7 +88,7 @@ def fix_attribute_list(attributes):
     return fixed
 
 
-@app.route("/cube/<id>", methods=["PUT"])
+@modeler.route("/cube/<id>", methods=["PUT"])
 def save_cube(id):
     cube = json.loads(request.data)
     CUBES[str(id)] = cube
@@ -88,7 +97,7 @@ def save_cube(id):
     return "ok"
 
 
-@app.route("/cube/<id>", methods=["GET"])
+@modeler.route("/cube/<id>", methods=["GET"])
 def get_cube(id):
     info = CUBES[str(id)]
 
@@ -99,13 +108,13 @@ def get_cube(id):
     return json.dumps(info)
 
 
-@app.route("/dimensions")
+@modeler.route("/dimensions")
 def list_dimensions():
     # TODO: return just relevant info
     return json.dumps(DIMENSIONS.values())
 
 
-@app.route("/dimension/<id>", methods=["PUT"])
+@modeler.route("/dimension/<id>", methods=["PUT"])
 def save_dimension(id):
     dim = json.loads(request.data)
     DIMENSIONS[str(id)] = dim
@@ -114,17 +123,25 @@ def save_dimension(id):
     return "ok"
 
 
-@app.route("/dimension/<id>", methods=["GET"])
+@modeler.route("/dimension/<id>", methods=["GET"])
 def get_dimension(id):
     info = DIMENSIONS[str(id)]
     return json.dumps(info)
 
+def run_modeler(source, target="saved_model.cubesmodel", port=5000):
+    global saved_model_filename
 
+    saved_model_filename = target
+
+    if source:
+        import_model(source)
+    modeler.run(host="0.0.0.0", port=port, debug=True)
 
 if __name__ == '__main__':
     import sys
-
+    import webbrowser
     if len(sys.argv) > 1:
-        import_model(sys.argv[1])
-
-    app.run(host="0.0.0.0", debug=True)
+        source = sys.argv[1]
+    else:
+        source = None
+    run_modeler(source)
