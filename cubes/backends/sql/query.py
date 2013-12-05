@@ -514,6 +514,7 @@ class SnowflakeSchema(object):
             expr_func = eval(compiled_expr, context)
             if not callable(expr_func):
                 raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
+
             column = expr_func(column)
 
         if self.safe_labels:
