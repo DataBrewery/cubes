@@ -521,19 +521,21 @@ class Mongo2Browser(AggregationBrowser):
             min_part = date_part
 
         dt = None
-        if 'year' not in date_dict:
+        if 'year' in date_dict:
+            dt = datetime(**date_dict)
+            if is_end:
+                dt += relativedelta(**{(min_part + 's'): 1})
+        else:
             if 'week' not in date_dict:
-                return dt, min_part
+                return None
             else:
                 dt = datetime.strptime(date_dict['week'], '%Y-%m-%d')
                 if is_end:
-                    dt = self.datesupport.get_week_end_date(dt)
+                    dt = self.datesupport.get_week_end_date(dt) + relativedelta(days=1)
                 else:
                     dt = self.datesupport.get_week_start_date(dt)
-        else:
-            dt = datetime(**date_dict)
 
-        return self.timezone.localize(dt).astimezone(tz_utc), min_part
+        return self.timezone.localize(dt).astimezone(tz_utc)
 
     def _query_conditions_for_cut(self, cut, for_project=False):
         conds = []
@@ -542,11 +544,11 @@ class Mongo2Browser(AggregationBrowser):
 
         if isinstance(cut, PointCut):
             if is_date_dimension(cut.dimension):
-                start, dp = self._build_date_for_cut(cut_hierarchy, cut.path)
+                start = self._build_date_for_cut(cut_hierarchy, cut.path)
                 if start is None:
                     return conds
 
-                end = start + relativedelta(**{str(dp)+'s':1})
+                end = self._build_date_for_cut(cut_hierarchy, cut.path, is_end=True)
 
                 if not cut.invert:
                     start_op = '$gte'
@@ -585,12 +587,11 @@ class Mongo2Browser(AggregationBrowser):
                 start_cond = None
                 end_cond = None
                 if cut.from_path:
-                    start, dp = self._build_date_for_cut(cut_hierarchy, cut.from_path)
+                    start = self._build_date_for_cut(cut_hierarchy, cut.from_path)
                     if start is not None:
                         start_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, start, '$gte' if not cut.invert else '$lt', for_project)
                 if cut.to_path:
-                    end, dp = self._build_date_for_cut(cut_hierarchy, cut.to_path, is_end=True)
-                    end = end + relativedelta(**{str(dp)+'s':1}) # inclusive
+                    end = self._build_date_for_cut(cut_hierarchy, cut.to_path, is_end=True)
                     if end is not None:
                         end_cond = self._query_condition_for_path_value(cut_hierarchy.levels[0].key, end, '$lt' if not cut.invert else '$gte', for_project)
 
