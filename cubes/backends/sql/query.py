@@ -3,6 +3,7 @@
 from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...browser import SPLIT_DIMENSION_NAME
 from ...errors import *
+from ...logging import get_logger
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD
 from .utils import condition_conjunction, order_column
@@ -184,7 +185,11 @@ class SnowflakeSchema(object):
         #
         for join in self.mapper.joins:
             key = (join.master.schema, join.master.table)
-            master = self.tables[key]
+            try:
+                master = self.tables[key]
+            except KeyError:
+                raise ModelError("Unknown table (or join alias) '%s'"
+                                 % (key, ))
             master.detail_keys.add(join.master.column)
 
     def _analyse_table_relationships(self):
@@ -208,7 +213,7 @@ class SnowflakeSchema(object):
             # Add master table to the list
             table = (join.master.schema, join.master.table)
             if table not in relationships:
-                fact_relationships[table] = None
+                self.fact_relationships[table] = None
 
             # Add (aliased) detail table to the rist
             table = (join.detail.schema, join.alias or join.detail.table)
@@ -218,7 +223,7 @@ class SnowflakeSchema(object):
                 raise ModelError("Joining detail table %s twice" % (table, ))
 
         # Analyse the joins
-        for join in self.mapper.joins:
+        for join in reversed(self.mapper.joins):
             master_key = (join.master.schema, join.master.table)
             detail_key = (join.detail.schema, join.alias or join.detail.table)
 
@@ -229,7 +234,7 @@ class SnowflakeSchema(object):
 
             if master_rs is None:
                 raise InternalError("Joining to unclassified master. %s->%s"
-                                    % (master_key, defailt_key))
+                                    % (master_key, detail_key))
             elif master_rs == MATCH_MASTER_RSHIP \
                     and join.method in ("match", "master"):
                 relationship = MATCH_MASTER_RSHIP
@@ -431,8 +436,13 @@ class SnowflakeSchema(object):
 
             # Get the joined products – might be plain tables or already
             # joined tables
-            master_table = joined_products[master_key]
+            try:
+                master_table = joined_products[master_key]
+            except KeyError:
+                raise ModelError("Unknown master %s. Missing join or "
+                                 "wrong join order?" % (master_key, ))
             detail_table = joined_products[detail_key]
+
 
             # Determine the join type based on the join method. If the method
             # is "detail" then we need to swap the order of the tables
@@ -448,7 +458,6 @@ class SnowflakeSchema(object):
                 is_outer = True
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
-
 
             product = sql.expression.join(master_table,
                                              detail_table,
