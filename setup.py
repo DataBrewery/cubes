@@ -5,7 +5,7 @@ requirements = ["pytz", "python-dateutil", "jsonschema"]
 
 setup(
     name = "cubes",
-    version = '0.11.2',
+    version = '1.0alpha',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
