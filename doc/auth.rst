@@ -85,6 +85,11 @@ Rights file:
         }
     }
 
+The rights file of the simple authorization method might contain a special
+guest role which will be used when no other identity is found. See the
+configuration documentation for more information.
+
+
 Authentication
 ==============
 

@@ -174,6 +174,16 @@ Built-in authorization methods:
 * ``none`` – no authorization
 * ``simple`` – uses a JSON file with per-user access rights
 
+The simple authorization has following options:
+
+* ``rights_file`` – path to the file with access rights
+* ``roles_file`` – path to the file with roles
+* ``identity_dimension`` – name of a flat dimension that will be used for cell
+  restriction. Key of that dimension should match the identity.
+* ``order`` – ``allow_deny`` or ``deny_allow`` (default)
+* ``guest`` – name of a guest role. If specified, then this role will be used
+  for all unknown (not specified in the file) roles.
+
 Configure authentication:
 
 .. code-block:: ini

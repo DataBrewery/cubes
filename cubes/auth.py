@@ -220,11 +220,17 @@ class SimpleAuthorizer(Authorizer):
             "type": "string",
             "values": ["allow_deny", "deny_allow"]
         },
+        {
+            "name": "guest",
+            "description": "Name of the 'guest' role",
+            "type": "string",
+        },
 
     ]
 
     def __init__(self, rights_file=None, roles_file=None, roles=None,
-                 rights=None, identity_dimension=None, order=None, **options):
+                 rights=None, identity_dimension=None, order=None,
+                 guest=None, **options):
         """Creates a simple JSON-file based authorizer. Reads data from
         `rights_file` and `roles_file` and merge them with `roles` and
         `rights` dictionaries respectively."""
@@ -244,6 +250,7 @@ class SimpleAuthorizer(Authorizer):
 
         self.roles = {}
         self.rights = {}
+        self.guest = guest or None
 
         order = order or "deny_allow"
 
@@ -292,7 +299,11 @@ class SimpleAuthorizer(Authorizer):
         try:
             right = self.rights[token]
         except KeyError:
-            raise NotAuthorized("Unknown access right '%s'" % token)
+            if self.guest and self.guest in self.rights:
+                return self.rights[self.guest]
+            else:
+                raise NotAuthorized("Unknown access right '%s'" % token)
+
         return right
 
     def authorize(self, token, cubes):
