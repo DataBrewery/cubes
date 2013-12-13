@@ -146,6 +146,34 @@ def prepare_authorization():
     g.auth_identity = identity
 
 
+# Error Handler
+# =============
+
+@slicer.errorhandler(UserError)
+def user_error_handler(e):
+    error_type = e.__class__.error_type
+    error = {
+        "error": error_type,
+        "message": str(e)
+    }
+
+    if hasattr(e, "hint") and e.hint:
+        error["hint"] = e.hint
+
+    code = server_error_codes.get(error_type, 400)
+
+    return jsonify(error), code
+
+@slicer.errorhandler(404)
+def page_not_found(e):
+    error = {
+        "error": "not_found",
+        "message": "The requested URL was not found on the server.",
+        "hint": "If you entered the URL manually please check your "
+                "spelling and try again."
+    }
+    return jsonify(error), 404
+
 # Endpoints
 # =========
 

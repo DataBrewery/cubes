@@ -9,6 +9,7 @@ class UserError(CubesError):
     """Superclass for all errors caused by the cubes and slicer users. Error
     messages from this error might be safely passed to the front-end. Do not
     include any information that you would not like to be public"""
+    error_type = "unknown_user_error"
 
 class InternalError(CubesError):
     """Superclass for all errors that happened internally: configuration
@@ -54,6 +55,8 @@ class TemplateRequired(ModelError):
         return self.template
 
 class MissingObjectError(UserError):
+    error_type = "missing_object"
+
     def __init__(self, message=None, name=None):
         self.name = name
         self.message = message
@@ -77,4 +80,5 @@ class ArgumentError(UserError):
 class HierarchyError(UserError):
     """Raised when attemt to get level deeper than deepest level in a
     hierarchy"""
+    error_type = "hierarchy"
 
