@@ -1268,7 +1268,12 @@ class Hierarchy(object):
         return len(self.levels)
 
     def __getitem__(self, item):
-        return self.levels[item]
+        try:
+            return self.levels[item]
+        except IndexError:
+            raise HierarchyError("Hierarchy '%s' has only %d levels, "
+                                 "asking for deeper level"
+                                 % (self.name, len(self._levels)))
 
     def __contains__(self, item):
         if item in self.levels:
