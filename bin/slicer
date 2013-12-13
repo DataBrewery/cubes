@@ -15,6 +15,7 @@ import cubes
 import cubes.server
 import ConfigParser
 import shlex
+import os
 
 from collections import OrderedDict
 
@@ -197,6 +198,15 @@ def run_server(args):
         modules = shlex.split(config.get("server", "modules"))
         for module in modules:
             e = __import__(module)
+
+    if config.has_option("server", "pid_file"):
+        path = config.get("server", "pid_file")
+        try:
+            with open(path, "w") as f:
+                f.write("%s\n" % os.getpid())
+        except IOError:
+            raise CubesError("Unable to write PID file '%s'. Check the "
+                             "directory existence or permissions." % path)
 
     cubes.server.run_server(config, debug=args.debug)
 

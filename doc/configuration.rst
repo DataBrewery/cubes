@@ -94,6 +94,9 @@ Server
 
 * ``authentication`` – authentication method (see below for more information)
 
+* ``pid_file`` – path to a file where PID of the running server will be
+  written. If not provided, no PID file is created.
+
 Model
 =====
 
