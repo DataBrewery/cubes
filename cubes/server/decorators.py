@@ -118,8 +118,10 @@ def authorized_cube(cube_name):
     try:
         cube = workspace.cube(cube_name, g.auth_identity)
     except NotAuthorized:
+        ident = "'%s'" % g.auth_identity if g.auth_identity \
+                        else "unspecified identity"
         raise NotAuthorizedError("Authorization of cube '%s' failed for "
-                                 "'%s'" % (cube_name, g.auth_identity))
+                                 "%s" % (cube_name, ident))
     return cube
 
 
