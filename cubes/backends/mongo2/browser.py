@@ -518,7 +518,7 @@ class Mongo2Browser(AggregationBrowser):
         for val, date_part in zip(path, date_levels):
             physical = self.mapper.physical(date_part.key)
             date_dict[date_part.key.name] = physical.convert_value(val)
-            min_part = date_part
+            min_part = date_part.key.name
 
         dt = None
         if 'year' in date_dict:
