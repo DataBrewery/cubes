@@ -299,8 +299,9 @@ class SimpleAuthorizer(Authorizer):
         try:
             right = self.rights[token]
         except KeyError:
-            if self.guest and self.guest in self.rights:
-                return self.rights[self.guest]
+            # if guest role exists, use it
+            if self.guest and self.guest in self.roles:
+                return self.roles[self.guest]
             else:
                 raise NotAuthorized("Unknown access right '%s'" % token)
 
