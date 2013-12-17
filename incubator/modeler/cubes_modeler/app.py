@@ -1,3 +1,5 @@
+# -*- encoding: utf8 -*-
+
 """Cubes Modeler – experimental Flask app.
 
 Note: Use only as local server with slicer:
@@ -68,6 +70,14 @@ def index():
 def get_model():
     # Note: this returns model metadata sans cubes/dimensions
     return json.dumps(MODEL)
+
+@modeler.route("/model", methods=["PUT"])
+def save_model_rq(id):
+    global MODEL
+    MODEL = json.loads(request.data)
+    save_model()
+
+    return "ok"
 
 @modeler.route("/cubes")
 def list_cubes():

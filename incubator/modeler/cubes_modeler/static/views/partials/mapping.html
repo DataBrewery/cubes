@@ -1,9 +1,20 @@
 <form class="form-horizontal" role="form">
 <div class="form-group">
-    <label class="col-sm-3 control-label">Edit as type</label>
+    <label class="col-sm-2 control-label">Key</label>
+    <div class="col-sm-10">
+    <input type="text"
+           class="form-control"
+           placeholder="attribute, dimension.attribute or dimension.attribute.locale"
+           ng-model="content.key">
+    </div>
+</div>
+
+<div class="form-group">
+    <label class="col-sm-3 control-label">Edit as</label>
     <div class="col-sm-9">
     <select class="form-control"
-            ng-model="mappingType"
+            ng-change="mappingTypeChanged(selectedType)"
+            ng-model="selectedType"
             ng-options="f.name as f.label for f in mappingTypes">
     </select>
     </div>
@@ -11,26 +22,26 @@
 </form>
 
 <form class="form-horizontal" role="form">
-<div ng-if="mappingType == 'string'">
+<div ng-if="(!selectedType) || (selectedType == 'string')">
     <div class="form-group">
         <label class="col-sm-2 control-label">Value</label>
         <div class="col-sm-10">
         <input type="text"
                class="form-control"
                placeholder="Mapping value"
-               ng-model="mapping.value">
+               ng-model="content.stringValue">
         </div>
     </div>
 </div>
 
-<div ng-if="mappingType == 'sql'">
+<div ng-if="selectedType == 'sql'">
     <div class="form-group">
         <label class="col-sm-2 control-label">Column</label>
         <div class="col-sm-10">
         <input type="text"
                class="form-control"
                placeholder="Mapping value"
-               ng-model="mapping.value.column">
+               ng-model="content.value.column">
         </div>
     </div>
     <div class="form-group">
@@ -38,8 +49,8 @@
         <div class="col-sm-10">
         <input type="text"
                class="form-control"
-               placeholder="Mapping value"
-               ng-model="mapping.value.column">
+               placeholder="Table name (default is fact table)"
+               ng-model="content.value.table">
         </div>
     </div>
     <div class="form-group">
@@ -47,8 +58,8 @@
         <div class="col-sm-10">
         <input type="text"
                class="form-control"
-               placeholder="Mapping value"
-               ng-model="mapping.value.column">
+               placeholder="Database schema name"
+               ng-model="content.value.schema">
         </div>
     </div>
     <div class="form-group">
@@ -56,8 +67,8 @@
         <div class="col-sm-10">
         <input type="text"
                class="form-control"
-               placeholder="Mapping value"
-               ng-model="mapping.value.column">
+               placeholder="Calendar unit to be extracted"
+               ng-model="mapping.value.extract">
         </div>
     </div>
     <div class="panel panel-default">
@@ -71,7 +82,7 @@
                 <input type="text"
                        class="form-control"
                        placeholder="Mapping value"
-                       ng-model="mapping.value.column">
+                       ng-model="content.value.func">
                 </div>
             </div>
             <div class="form-group">
@@ -80,7 +91,7 @@
                 <input type="text"
                        class="form-control"
                        placeholder="Mapping value"
-                       ng-model="mapping.value.column">
+                       ng-model="content.value.expr">
                 </div>
             </div>
             <div class="form-group">
@@ -89,9 +100,84 @@
                 <input type="text"
                        class="form-control"
                        placeholder="Mapping value"
-                       ng-model="mapping.value.column">
+                       ng-model="content.value.cond">
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<div ng-if="selectedType == 'mongo'">
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Field</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.field">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Match</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.match">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Project</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.project">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Group</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.group">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Encode</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.encode">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Decode</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.decode">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Type</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.type">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2 control-label">Extract</label>
+        <div class="col-sm-10">
+        <input type="text"
+               class="form-control"
+               placeholder="mapping value"
+               ng-model="content.value.extract">
         </div>
     </div>
 </div>

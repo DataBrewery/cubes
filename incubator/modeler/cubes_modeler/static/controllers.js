@@ -17,6 +17,29 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             $scope.dimensions = results[1].data;
             $scope.model = results[2].data;
 
+            var mappings = $scope.model.mappings
+
+            if(!mappings){
+                mappings = {}
+            };
+
+            // Convert mappings into a list
+            mapping_list = [];
+            for(var key in mappings) {
+                value = mappings[key];
+                mapping = {
+                    "key": key,
+                    "value": mappings[key]
+                };
+                if(_.isString(value)) {
+                    mapping["string"] = value;
+                    mapping["type"] = "string";
+                };
+                mapping_list.push(mapping);
+            };
+
+            $scope.mappings = mapping_list;
+
             // Every controller should have `content` object set – this will
             // be used by reusable views
             $scope.content = $scope.model;
@@ -95,6 +118,42 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
                 {"name": "hour", "label": "Hour"},
                 {"name": "minute", "label": "Minute"}
             ]
+        };
+
+        $scope.save = function() {
+            console.log("save!");
+            mappings = {}
+
+            for(var i in $scope.mappings) {
+                mapping = $scope.mappings[i];
+                if(mapping.type == "string"){
+                    value = mapping.stringValue;
+                }
+                else {
+                    value = mapping.value;
+                }
+                mappings[mapping.key] = value;
+            }
+
+            $scope.model.mappings = mappings;
+
+            $http.put("model", model);
+
+        };
+
+        $scope.selectMapping = function(mapping) {
+            // TODO: somehow this does not select the edit list
+            $scope.contentType = "mapping";
+            $scope.content = mapping;
+            $scope.selectedType = mapping.type || $scope.selectedType;
+            console.log("Selected type: " + $scope.selectedType)
+        };
+
+        $scope.mappingTypeChanged = function(selection) {
+            if($scope.content && $scope.contentType == "mapping") {
+                console.log("setting content type of "+$scope.content.key+ " to: " + selection)
+                $scope.content.type = selection;
+            }
         };
     }
 ]);
@@ -597,3 +656,4 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
 
     }
 ]);
+

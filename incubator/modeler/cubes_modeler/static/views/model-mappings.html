@@ -1,12 +1,12 @@
 <div class="row">
     <div class="col-xs-3 col-sm-4">
         <div class="panel panel-default">
+            <div class="panel-heading">
+                Mappings
+                <span class="pull-right glyphicon glyphicon-plus"
+                      ng-click="addMapping()"></span>
+            </div>
             <div class="panel-body">
-                <button type="button"
-                        class="btn btn-default"
-                        ng-click="addMapping()">
-                    Add Mapping
-                </button>
                 <div class="input-group">
                     <span class="input-group-addon">
                         <span class="glyphicon glyphicon-search"></span>
@@ -22,10 +22,10 @@
                    ng-repeat="mapping in mappings | filter:query"
                    ng-class="{active: mapping == content}"
                    ng-click="selectMapping(mapping)">
-                        {{mapping.name}}
+                   {{mapping.key}}
                     <span class="glyphicon glyphicon-remove pull-right"
-                          title="Delete {{attributeLabel}}"
-                          ng-click="removeAttribute($index)"></span>
+                          title="Delete {{mappings.key}}"
+                          ng-click="removeMapping(mapping)"></span>
                 </a>
             </div>
         </div>
