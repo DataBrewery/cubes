@@ -151,7 +151,10 @@ Generates DDL schema of a model for SQL backend
 Usage::
 
     slicer ddl [-h] [--dimension-prefix DIMENSION_PREFIX]
-              [--fact-prefix FACT_PREFIX] [--backend BACKEND]
+              [--dimension-suffix DIMENSION_SUFFIX]
+              [--fact-prefix FACT_PREFIX]
+              [--fact-suffix FACT_SUFFIX]
+              [--backend BACKEND]
               url model
 
 positional arguments::

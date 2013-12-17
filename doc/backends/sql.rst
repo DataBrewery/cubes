@@ -29,9 +29,13 @@ Data store:
   relational DB cubes
 * ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
   dimension tables when no explicit mapping is specified
+* ``dimension_suffix`` *(optional)* – used by snowflake mapper to find
+  dimension tables when no explicit mapping is specified
 * ``dimension_schema`` – use this option when dimension tables are stored in
   different schema than the fact tables
 * ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact
+  table for a cube, when no explicit fact table name is specified
+* ``fact_suffix`` *(optional)* – used by the snowflake mapper to find fact
   table for a cube, when no explicit fact table name is specified
 * ``use_denormalization`` *(optional)* – browser will use dernormalized view
   instead of snowflake

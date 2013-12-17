@@ -184,7 +184,9 @@ def generate_ddl(args):
         backend = cubes.backends.sql.browser
 
     ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix,
-                        dimension_prefix=args.dimension_prefix)
+                                dimension_prefix=args.dimension_prefix,
+                                fact_suffix=args.fact_suffix,
+                                dimension_suffix=args.dimension_suffix)
 
     print ddl
 
@@ -496,6 +498,13 @@ subparser.add_argument('--fact-prefix',
                             dest='fact_prefix',
                             default="",
                             help='prefix for fact tables')
+subparser.add_argument('--dimension-suffix',
+                       dest='dimension_suffix',
+                       help='suffix for dimension tables')
+subparser.add_argument('--fact-suffix',
+                       dest='fact_suffix',
+                       default="",
+                       help='suffix for fact tables')
 subparser.add_argument('--backend',
                             dest='backend',
                             help='backend name (currently limited only to SQL backends)')

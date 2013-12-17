@@ -46,7 +46,9 @@ OPTION_TYPES = {
 ####
 # Backend related functions
 ###
-def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_type=None):
+def ddl_for_model(url, model, fact_prefix=None,
+                  fact_suffix=None, dimension_prefix=None,
+                  dimension_suffix=None, schema_type=None):
     """Create a star schema DDL for a model.
 
     Parameters:
@@ -55,6 +57,7 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
        SQLAlchemy to determine appropriate engine backend
     * `cube` - cube to be described
     * `dimension_prefix` - prefix used for dimension tables
+    * `dimension_suffix` - suffix used for dimension tables
     * `schema_type` - ``logical``, ``physical``, ``denormalized``
 
     As model has no data storage type information, following simple rule is
@@ -98,6 +101,10 @@ class SQLStore(Store):
         * `fact_prefix` - used by the snowflake mapper to find fact table for a
           cube, when no explicit fact table name is specified
         * `dimension_prefix` - used by snowflake mapper to find dimension tables
+          when no explicit mapping is specified
+        * `fact_suffix` - used by the snowflake mapper to find fact table for a
+          cube, when no explicit fact table name is specified
+        * `dimension_suffix` - used by snowflake mapper to find dimension tables
           when no explicit mapping is specified
         * `dimension_schema` – schema where dimension tables are stored, if
           different than common schema.
@@ -322,7 +329,8 @@ class SQLStore(Store):
         raise NotImplementedError
 
     def create_conformed_rollup(self, cube, dimension, level=None, hierarchy=None,
-                                schema=None, dimension_prefix=None, replace=False):
+                                schema=None, dimension_prefix=None, dimension_suffix=None,
+                                replace=False):
         """Extracts dimension values at certain level into a separate table.
         The new table name will be composed of `dimension_prefix`, dimension
         name and suffixed by dimension level. For example a product dimension
@@ -336,6 +344,7 @@ class SQLStore(Store):
         * `hierarchy` – hierarchy to be used
         * `schema` – target schema
         * `dimension_prefix` – prefix used for the dimension table
+        * `dimension_suffix` – suffix used for the dimension table
         * `replace` – if ``True`` then existing table will be replaced,
           otherwise an exception is raised if table already exists.
         """
@@ -365,13 +374,14 @@ class SQLStore(Store):
         group_by = [context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
 
-        table_name = "%s%s_%s" % (dimension_prefix or "",
-                                  str(dimension), str(level))
+        table_name = "%s%s%s_%s" % (dimension_prefix or "", dimension_suffix or "",
+                                    str(dimension), str(level))
         self._create_table_from_statement(table_name, statement, schema,
                                             replace, insert=True)
 
     def create_conformed_rollups(self, cube, dimensions, grain=None, schema=None,
-                                 dimension_prefix=None, replace=False):
+                                 dimension_prefix=None, dimension_suffix=None,
+                                 replace=False):
         """Extract multiple dimensions from a snowflake. See
         `extract_dimension()` for more information. `grain` is a dictionary
         where keys are dimension names and values are levels, if level is
@@ -392,7 +402,8 @@ class SQLStore(Store):
                 level = hierarchy[depth]
                 self.create_conformed_rollup(cube, dim, level=level,
                                     schema=schema,
-                                    dimension_prefix=dimension_prefix,
+                                    dimension_prefix=dimension_prefix or "",
+                                    dimension_suffix=dimension_suffix or "",
                                     replace=replace)
 
     def _create_table_from_statement(self, table_name, statement, schema,

@@ -107,6 +107,8 @@ Python code we specify the prefix during the data store registration in
     workspace.register_store("default", "sql",
                              url=DATABASE_URL,
                              dimension_prefix="dim_",
+                             dimension_suffix="_dim",
+                             fact_suffix="_fact",
                              fact_prefix="fact_")
 
 When using the :doc:`server` we specify the prefixes in the ``[datastore]``

@@ -9,18 +9,18 @@
             "dimensions" : ["date", "flag", "product"],
             "details": ["fact_detail1", "fact_detail2"],
             "joins": [
-                {"master": "sales.date_id", "detail":"dim_date.id"},
-                {"master": "sales.product_id", "detail":"dim_product.id"},
-                {"master": "sales.category_id", "detail":"dim_category.id"}
+                {"master": "sales.date_id", "detail":"dim_date_dim.id"},
+                {"master": "sales.product_id", "detail":"dim_product_dim.id"},
+                {"master": "sales.category_id", "detail":"dim_category_dim.id"}
             ],
             "mappings":{
-                "product.name": "dim_product.product_name",
-                "product.category": "dim_product.category_id",
-                "product.category_name.en": "dim_category.category_name_en",
-                "product.category_name.sk": "dim_category.category_name_sk",
-                "product.subcategory": "dim_category.subcategory_id",
-                "product.subcategory_name.en": "dim_category.subcategory_name_en",
-                "product.subcategory_name.sk": "dim_category.subcategory_name_sk"
+                "product.name": "dim_product_dim.product_name",
+                "product.category": "dim_product_dim.category_id",
+                "product.category_name.en": "dim_category_dim.category_name_en",
+                "product.category_name.sk": "dim_category_dim.category_name_sk",
+                "product.subcategory": "dim_category_dim.subcategory_id",
+                "product.subcategory_name.en": "dim_category_dim.subcategory_name_en",
+                "product.subcategory_name.sk": "dim_category_dim.subcategory_name_sk"
             }
         }
     ],
