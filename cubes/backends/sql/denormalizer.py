@@ -23,7 +23,7 @@ class SQLDenormalizer(object):
     capabilities = ["localization"]
 
     def __init__(self, cube, connection=None, schema=None,
-                 dimension_table_prefix="", dimension_table_suffix=""):
+                 dimension_table_prefix=None, dimension_table_suffix=None):
         """Creates a simple SQL view builder.
 
         :Parameters:
@@ -71,8 +71,8 @@ class SQLDenormalizer(object):
             # print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
             self.cube_attributes.append(str(measure))
 
-        self.dimension_table_prefix = dimension_table_prefix
-        self.dimension_table_suffix = dimension_table_suffix
+        self.dimension_table_prefix = dimension_table_prefix or ""
+        self.dimension_table_suffix = dimension_table_suffix or ""
 
         if connection:
             self.connection = connection
