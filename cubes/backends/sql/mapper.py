@@ -92,8 +92,8 @@ class SnowflakeMapper(Mapper):
     # and subclassed here.
 
     def __init__(self, cube, mappings=None, locale=None, schema=None,
-                    fact_name=None, dimension_prefix=None, joins=None,
-                    dimension_schema=None, **options):
+                 fact_name=None, dimension_prefix="", dimension_suffix="",
+                 joins=None, dimension_schema=None, **options):
 
         """A snowflake schema mapper for a cube. The mapper creates required
         joins, resolves table names and maps logical references to tables and
@@ -108,6 +108,8 @@ class SnowflakeMapper(Mapper):
           attribute name. Might be useful when using single-table schema, for
           example, with couple of one-column dimensions.
         * `dimension_prefix` – default prefix of dimension tables, if
+          default table name is used in physical reference construction
+        * `dimension_suffix` – default suffix of dimension tables, if
           default table name is used in physical reference construction
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
@@ -135,10 +137,12 @@ class SnowflakeMapper(Mapper):
 
         self.mappings = mappings or cube.mappings
         self.dimension_prefix = dimension_prefix
+        self.dimension_suffix = dimension_suffix
         self.dimension_schema = dimension_schema
 
         fact_prefix = options.get("fact_prefix") or ""
-        self.fact_name = fact_name or self.cube.fact or fact_prefix+self.cube.name
+        fact_suffix = options.get("fact_suffix") or ""
+        self.fact_name = fact_name or self.cube.fact or "%s%s%s" % (fact_prefix, self.cube.name, fact_suffix)
         self.schema = schema
 
         self._collect_joins(joins or cube.joins)
@@ -244,10 +248,7 @@ class SnowflakeMapper(Mapper):
             if dimension and not (self.simplify_dimension_references \
                                    and (dimension.is_flat
                                         and not dimension.has_details)):
-                table_name = str(dimension)
-                if self.dimension_prefix:
-                    table_name = self.dimension_prefix + table_name
-
+                table_name = "%s%s%s" % (self.dimension_prefix, dimension, self.dimension_suffix)
             else:
                 table_name = self.fact_name
 

@@ -11,7 +11,7 @@ class MapperTestCase(CubesTestCaseBase):
         self.workspace = self.create_workspace(model=self.modelmd)
 
         self.cube = self.workspace.cube("sales")
-        self.mapper = SnowflakeMapper(self.cube, dimension_prefix='dim_')
+        self.mapper = SnowflakeMapper(self.cube, dimension_prefix='dim_', dimension_suffix="_dim")
 
         self.mapper.mappings = {
             "product.name": "product.product_name",
@@ -73,7 +73,8 @@ class MapperTestCase(CubesTestCaseBase):
         explicit default prefix) in physical references."""
 
         # No dimension prefix
-        self.mapper.dimension_prefix = None
+        self.mapper.dimension_prefix = ""
+        self.mapper.dimension_suffix = ""
         self.assertMapping("date.year", "date.year")
         self.assertMapping("sales.flag", "flag")
         self.assertMapping("sales.amount", "amount")
@@ -85,7 +86,8 @@ class MapperTestCase(CubesTestCaseBase):
         self.assertMapping("dm_date.month_name", "date.month_name")
         self.assertMapping("sales.flag", "flag")
         self.assertMapping("sales.amount", "amount")
-        self.mapper.dimension_prefix = None
+        self.mapper.dimension_prefix = ""
+        self.mapper.dimension_suffix = ""
 
     def test_physical_refs_flat_dims(self):
         self.cube.fact = None
@@ -105,23 +107,23 @@ class MapperTestCase(CubesTestCaseBase):
         attributes in physical references"""
 
         # Test defaults
-        self.assertMapping("dim_date.month_name", "date.month_name")
-        self.assertMapping("dim_category.category_name_en",
+        self.assertMapping("dim_date_dim.month_name", "date.month_name")
+        self.assertMapping("dim_category_dim.category_name_en",
                            "product.category_name")
-        self.assertMapping("dim_category.category_name_sk",
+        self.assertMapping("dim_category_dim.category_name_sk",
                            "product.category_name", "sk")
-        self.assertMapping("dim_category.category_name_en",
+        self.assertMapping("dim_category_dim.category_name_en",
                            "product.category_name", "de")
 
         # Test with mapping
-        self.assertMapping("dim_product.product_name", "product.name")
-        self.assertMapping("dim_product.category_id", "product.category")
-        self.assertMapping("dim_product.product_name", "product.name", "sk")
-        self.assertMapping("dim_category.subcategory_name_en",
+        self.assertMapping("dim_product_dim.product_name", "product.name")
+        self.assertMapping("dim_product_dim.category_id", "product.category")
+        self.assertMapping("dim_product_dim.product_name", "product.name", "sk")
+        self.assertMapping("dim_category_dim.subcategory_name_en",
                            "product.subcategory_name")
-        self.assertMapping("dim_category.subcategory_name_sk",
+        self.assertMapping("dim_category_dim.subcategory_name_sk",
                            "product.subcategory_name", "sk")
-        self.assertMapping("dim_category.subcategory_name_en",
+        self.assertMapping("dim_category_dim.subcategory_name_en",
                            "product.subcategory_name", "de")
 
 
