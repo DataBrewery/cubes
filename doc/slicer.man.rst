@@ -22,7 +22,7 @@ SYNOPSIS
 | **slicer** extract_locale
 | **slicer** translate
 | **slicer** test
-| **slicer** ddl [--dimension-prefix dimension_prefix] [--fact_prefix *prefix*] [--backend *backend*] *url* *model*
+| **slicer** ddl [--dimension-prefix dimension_prefix] [--dimension-suffix dimension_suffix] [--fact_prefix *prefix*] [--fact_suffix *suffix*] [--backend *backend*] *url* *model*
 | **slicer** denormalize [-p *prefix*] [-f|--force] [-m|materialize] [-i|--index] [-s|--schema *schema*] [-c|--cube *cube*] *config.ini*
 
 DESCRIPTION
