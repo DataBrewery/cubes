@@ -51,6 +51,36 @@ def import_model(path):
 
     MODEL = metadata
 
+    # Convert joins (of known types)
+    # TODO: currently we assume that all JOINS are SQL joins as we have no way
+    # to determine actual store and therefore the backend used for
+    # interpreting this model
+
+    joins = metadata.pop("joins", [])
+
+    for join in joins:
+        if "detail" in join:
+            join["detail"] = _fix_sql_join_value(join["detail"])
+        if "master" in join:
+            join["master"] = _fix_sql_join_value(join["master"])
+        join["__type__"] = "sql"
+
+    MODEL["joins"] = joins
+
+def _fix_sql_join_value(value):
+    if isinstance(value, basestring):
+        split = value.split(".")
+        if len(split) > 1:
+            join = {
+                "table": split[0],
+                "column": ".".join(split[1:])
+            }
+        else:
+            join = {"column":value}
+        return join
+    else:
+        return value
+
 def save_model():
     model = dict(MODEL)
     model["cubes"] = list(CUBES.values())

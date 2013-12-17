@@ -1,0 +1,114 @@
+<!-- TODO: This is a form for just SQL join type, see the mapping form as an
+     example for multi-backend form -->
+
+<form class="form-horizontal" role="form">
+
+<div class="form-group">
+    <label class="col-sm-2 control-label">Name</label>
+    <div class="col-sm-10">
+    <input type="text"
+           class="form-control"
+           placeholder="Join template name"
+           ng-model="content.name">
+    </div>
+</div>
+
+<div class="form-group">
+    <label class="col-sm-2 control-label">Method</label>
+    <div class="col-sm-4">
+    <select class="form-control"
+            ng-model="content.method"
+            ng-options="f.name as f.label for f in joinMethods">
+    </select>
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">Master</h3>
+    </div>
+    <div class="panel-body">
+        <div class="form-group">
+            <label class="col-sm-2 control-label">Column</label>
+            <div class="col-sm-10">
+            <input type="text"
+                   class="form-control"
+                   placeholder="default"
+                   ng-model="content.master.column">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-2 control-label">Table</label>
+            <div class="col-sm-10">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Fact table as default"
+                   ng-model="content.master.table">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-2 control-label">Schema</label>
+            <div class="col-sm-10">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Default schema"
+                   ng-model="content.master.schema">
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">Detail</h3>
+    </div>
+    <div class="panel-body">
+        <div class="form-group">
+            <label class="col-sm-2 control-label">Column</label>
+            <div class="col-sm-10">
+            <input type="text"
+                   class="form-control"
+                   placeholder="default"
+                   ng-model="content.master.column">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-2 control-label">Table</label>
+            <div class="col-sm-10">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Detail (dimension) table"
+                   ng-model="content.master.table">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-2 control-label">Schema</label>
+            <div class="col-sm-10">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Default schema"
+                   ng-model="content.master.schema">
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="form-group">
+    <label class="col-sm-2 control-label">Alias</label>
+    <div class="col-sm-10">
+    <input type="text"
+           class="form-control"
+           placeholder="Optional join alias"
+           ng-model="content.alias">
+    </div>
+</div>
+
+
+</form>
+

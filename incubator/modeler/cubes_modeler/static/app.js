@@ -50,6 +50,20 @@ _.relativeMoveItem = function(array, obj, offset){
     _.moveItem(array, from_index, to_index);
 };
 
+// Remove `item` from `array` and return item just before the one removed or
+// nothing if no items are left.
+// This is UI helper function.
+_.removeListItem = function(array, item) {
+    var index = array.indexOf(item);
+    if(index != -1){
+        array.splice(index, 1)
+    };
+    if(array.length > 0) {
+        return array[Math.max(0, index-1)]
+    };
+    return null;
+}
+
 
 
 var CubesModelerApp = angular.module('CubesModelerApp', [

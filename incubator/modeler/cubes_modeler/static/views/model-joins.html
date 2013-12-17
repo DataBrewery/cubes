@@ -1,0 +1,44 @@
+<div class="row">
+    <div class="col-xs-3 col-sm-4">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Joins
+                <span class="pull-right glyphicon glyphicon-plus"
+                      ng-click="addJoin()"></span>
+            </div>
+            <div class="panel-body">
+                <div class="input-group">
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-search"></span>
+                    </span>
+                    <input type="search"
+                           class="form-control search"
+                           placeholder="Search"
+                           ng-model="query">
+                </div>
+            </div>
+            <div class="list-group">
+                <a class="list-group-item"
+                   ng-repeat="join in model.joins | filter:query"
+                   ng-class="{active: join == content}"
+                   ng-click="selectJoin(join)">
+                    <span class="glyphicon glyphicon-chevron-up"
+                          ng-click="moveJoin(-1, join)"></span>
+                    <span class="glyphicon glyphicon-chevron-down"
+                          ng-click="moveJoin(1, join)"></span>
+                   {{join.name || '(no name)'}}
+                   <small>{{join.detail.name || '(no detail)'}}
+                       <span ng-if="join.detail.alias">as '{{join.detail.alias}}'</span>
+                   </small>
+                    <span class="glyphicon glyphicon-remove pull-right"
+                          title="Delete join"
+                          ng-click="removeJoin(join)"></span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-xs-6 col-sm-8">
+        <ng-include src="'views/partials/join.html'"></ng-include>
+    </div>
+</div>
+

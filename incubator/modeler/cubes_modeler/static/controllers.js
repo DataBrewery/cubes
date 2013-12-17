@@ -24,7 +24,7 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             };
 
             // Convert mappings into a list
-            mapping_list = [];
+            var mapping_list = [];
             for(var key in mappings) {
                 value = mappings[key];
                 mapping = {
@@ -39,6 +39,28 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             };
 
             $scope.mappings = mapping_list;
+
+            // Convert joins into a list
+            var joins = [];
+            for(var join in $scope.model.joins) {
+                if(_.isString(join.master)){
+                    join.master 
+                }
+
+                join["__label__"] = JSON.stringify(join.detail)
+                mapping = {
+                    "key": key,
+                    "value": mappings[key]
+                };
+                if(_.isString(value)) {
+                    mapping["string"] = value;
+                    mapping["type"] = "string";
+                };
+                mapping_list.push(mapping);
+            };
+
+            $scope.mappings = mapping_list;
+            $scope.joins = $scope.model.joins
 
             // Every controller should have `content` object set – this will
             // be used by reusable views
@@ -120,6 +142,13 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             ]
         };
 
+        $scope.joinMethods = [
+            {"name": "", "label": "Default"}, 
+            {"name": "match", "label": "Match (inner)"},
+            {"name": "master", "label": "Master (left outer)"},
+            {"name": "detail", "label": "Detail (right outer)"}
+        ];
+
         $scope.save = function() {
             console.log("save!");
             mappings = {}
@@ -141,6 +170,9 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
 
         };
 
+        // Mappings
+        // ========
+
         $scope.selectMapping = function(mapping) {
             // TODO: somehow this does not select the edit list
             $scope.contentType = "mapping";
@@ -153,6 +185,34 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             if($scope.content && $scope.contentType == "mapping") {
                 console.log("setting content type of "+$scope.content.key+ " to: " + selection)
                 $scope.content.type = selection;
+            }
+        };
+
+        // Joins
+        // =====
+
+        $scope.selectJoin = function(join) {
+            // TODO: somehow this does not select the edit list
+            $scope.contentType = "join";
+            $scope.content = join;
+            // TODO: hardwired SQL-only joins
+            $scope.selectedType = "sql";
+        };
+
+        $scope.addJoin = function() {
+            join = {
+                master: {},
+                detail: {}
+            };
+
+            $scope.joins.push(join);
+            $scope.selectJoin(join);
+        };
+
+        $scope.removeJoin = function(join) {
+            var last = _.removeListItem($scope.joins, join);
+            if(join === $scope.content) {
+                $scope.selectJoin(last);
             }
         };
     }
