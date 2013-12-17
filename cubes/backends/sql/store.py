@@ -47,8 +47,8 @@ OPTION_TYPES = {
 # Backend related functions
 ###
 def ddl_for_model(url, model, fact_prefix=None,
-                  fact_suffix=None, dimension_prefix="",
-                  dimension_suffix="", schema_type=None):
+                  fact_suffix=None, dimension_prefix=None,
+                  dimension_suffix=None, schema_type=None):
     """Create a star schema DDL for a model.
 
     Parameters:
@@ -329,7 +329,7 @@ class SQLStore(Store):
         raise NotImplementedError
 
     def create_conformed_rollup(self, cube, dimension, level=None, hierarchy=None,
-                                schema=None, dimension_prefix="", dimension_suffix="",
+                                schema=None, dimension_prefix=None, dimension_suffix=None,
                                 replace=False):
         """Extracts dimension values at certain level into a separate table.
         The new table name will be composed of `dimension_prefix`, dimension
@@ -380,7 +380,7 @@ class SQLStore(Store):
                                             replace, insert=True)
 
     def create_conformed_rollups(self, cube, dimensions, grain=None, schema=None,
-                                 dimension_prefix="", dimension_suffix="",
+                                 dimension_prefix=None, dimension_suffix=None,
                                  replace=False):
         """Extract multiple dimensions from a snowflake. See
         `extract_dimension()` for more information. `grain` is a dictionary
@@ -402,8 +402,8 @@ class SQLStore(Store):
                 level = hierarchy[depth]
                 self.create_conformed_rollup(cube, dim, level=level,
                                     schema=schema,
-                                    dimension_prefix=dimension_prefix,
-                                    dimension_suffix=dimension_suffix,
+                                    dimension_prefix=dimension_prefix or "",
+                                    dimension_suffix=dimension_suffix or "",
                                     replace=replace)
 
     def _create_table_from_statement(self, table_name, statement, schema,

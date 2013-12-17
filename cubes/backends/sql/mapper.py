@@ -92,7 +92,7 @@ class SnowflakeMapper(Mapper):
     # and subclassed here.
 
     def __init__(self, cube, mappings=None, locale=None, schema=None,
-                 fact_name=None, dimension_prefix="", dimension_suffix="",
+                 fact_name=None, dimension_prefix=None, dimension_suffix=None,
                  joins=None, dimension_schema=None, **options):
 
         """A snowflake schema mapper for a cube. The mapper creates required
@@ -136,8 +136,8 @@ class SnowflakeMapper(Mapper):
         super(SnowflakeMapper, self).__init__(cube, locale=locale, **options)
 
         self.mappings = mappings or cube.mappings
-        self.dimension_prefix = dimension_prefix
-        self.dimension_suffix = dimension_suffix
+        self.dimension_prefix = dimension_prefix or ""
+        self.dimension_suffix = dimension_suffix or ""
         self.dimension_schema = dimension_schema
 
         fact_prefix = options.get("fact_prefix") or ""
