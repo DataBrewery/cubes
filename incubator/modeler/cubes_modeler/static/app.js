@@ -113,3 +113,4 @@ CubesModelerApp.config(
         });
     }
 ]);
+

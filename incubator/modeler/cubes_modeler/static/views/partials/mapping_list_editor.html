@@ -1,0 +1,37 @@
+<div class="row">
+    <div class="col-xs-3 col-sm-4">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Mappings
+                <span class="pull-right glyphicon glyphicon-plus"
+                      ng-click="addMapping()"></span>
+            </div>
+            <div class="panel-body">
+                <div class="input-group">
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-search"></span>
+                    </span>
+                    <input type="search"
+                           class="form-control search"
+                           placeholder="Search"
+                           ng-model="query">
+                </div>
+            </div>
+            <div class="list-group">
+                <a class="list-group-item"
+                   ng-repeat="mapping in mappings | filter:query"
+                   ng-class="{active: mapping == content}"
+                   ng-click="selectMapping(mapping)">
+                   {{mapping.key}}
+                    <span class="glyphicon glyphicon-remove pull-right"
+                          title="Delete {{mappings.key}}"
+                          ng-click="removeMapping(mapping)"></span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-xs-6 col-sm-8">
+        <ng-include src="'views/partials/mapping.html'"></ng-include>
+    </div>
+</div>
+

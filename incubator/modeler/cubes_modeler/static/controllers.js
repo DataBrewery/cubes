@@ -5,6 +5,95 @@ var ModelerControllers = angular.module('ModelerControllers', []);
 
 // TODO: use "content" concept everywhere where possible
 
+PhysicalObject = function($scope){
+    // Mappings
+    // ========
+
+    $scope.selectMapping = function(mapping) {
+        // TODO: somehow this does not select the edit list
+        $scope.contentType = "mapping";
+        $scope.content = mapping;
+        $scope.selectedType = mapping.type || $scope.selectedType;
+        $scope.jsonIsValid = true;
+        console.log("Selected type: " + $scope.selectedType)
+    };
+
+    $scope.mappingTypeChanged = function(selection) {
+        if($scope.content && $scope.contentType == "mapping") {
+            console.log("setting content type of "+$scope.content.key+ " to: " + selection);
+            // TODO: add JSON string validation
+            if(selection == "jsonstr") {
+                $scope.content.jsonString = JSON.stringify($scope.content.value, null, "    ");
+                $scope.jsonIsValid = true;
+            }
+            else if($scope.content.type == "jsonstr") {
+                $scope.content.value = JSON.parse($scope.content.jsonString);
+            }
+            $scope.content.type = selection;
+        }
+    };
+
+    $scope.addMapping = function() {
+        mapping = {
+            key: "unnamed"
+        };
+
+        $scope.mappings.push(mapping);
+        $scope.selectMapping(mapping);
+    };
+
+    $scope.removeMapping = function(obj) {
+        var last = _.removeListItem($scope.mappings, obj);
+        if(obj === $scope.content) {
+            $scope.selectMapping(last);
+        }
+    };
+
+    // Joins
+    // =====
+
+    $scope.selectJoin = function(join) {
+        // TODO: somehow this does not select the edit list
+        $scope.contentType = "join";
+        $scope.content = join;
+        // TODO: hardwired SQL-only joins
+        $scope.selectedType = "sql";
+    };
+
+    $scope.addJoin = function() {
+        join = {
+            master: {},
+            detail: {}
+        };
+
+        $scope.joins.push(join);
+        $scope.selectJoin(join);
+    };
+
+    $scope.removeJoin = function(join) {
+        var last = _.removeListItem($scope.joins, join);
+        if(join === $scope.content) {
+            $scope.selectJoin(last);
+        }
+    };
+
+    $scope.moveJoin = function(offset, join){
+        _.relativeMoveItem($scope.joins, join, offset);
+    };
+
+    $scope.jsonEdited = function() {
+        try {
+            JSON.parse($scope.content.jsonString);
+            $scope.jsonIsValid = true;
+        }
+        catch(err) {
+            $scope.jsonIsValid = false;
+            $scope.jsonError = err.message;
+        };
+    };
+
+}
+
 
 ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
     function ($scope, $http, $q) {
@@ -160,6 +249,8 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             {"name": "detail", "label": "Detail (right outer)"}
         ];
 
+        PhysicalObject($scope);
+
         $scope.save = function() {
             console.log("save!");
             mappings = {}
@@ -182,91 +273,6 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
 
         };
 
-        // Mappings
-        // ========
-
-        $scope.selectMapping = function(mapping) {
-            // TODO: somehow this does not select the edit list
-            $scope.contentType = "mapping";
-            $scope.content = mapping;
-            $scope.selectedType = mapping.type || $scope.selectedType;
-            $scope.jsonIsValid = true;
-            console.log("Selected type: " + $scope.selectedType)
-        };
-
-        $scope.mappingTypeChanged = function(selection) {
-            if($scope.content && $scope.contentType == "mapping") {
-                console.log("setting content type of "+$scope.content.key+ " to: " + selection);
-                // TODO: add JSON string validation
-                if(selection == "jsonstr") {
-                    $scope.content.jsonString = JSON.stringify($scope.content.value, null, "    ");
-                    $scope.jsonIsValid = true;
-                }
-                else if($scope.content.type == "jsonstr") {
-                    $scope.content.value = JSON.parse($scope.content.jsonString);
-                }
-                $scope.content.type = selection;
-            }
-        };
-
-        $scope.addMapping = function() {
-            mapping = {
-                key: "unnamed"
-            };
-
-            $scope.mappings.push(mapping);
-            $scope.selectMapping(mapping);
-        };
-
-        $scope.removeMapping = function(obj) {
-            var last = _.removeListItem($scope.mappings, obj);
-            if(obj === $scope.content) {
-                $scope.selectMapping(last);
-            }
-        };
-
-        // Joins
-        // =====
-
-        $scope.selectJoin = function(join) {
-            // TODO: somehow this does not select the edit list
-            $scope.contentType = "join";
-            $scope.content = join;
-            // TODO: hardwired SQL-only joins
-            $scope.selectedType = "sql";
-        };
-
-        $scope.addJoin = function() {
-            join = {
-                master: {},
-                detail: {}
-            };
-
-            $scope.joins.push(join);
-            $scope.selectJoin(join);
-        };
-
-        $scope.removeJoin = function(join) {
-            var last = _.removeListItem($scope.joins, join);
-            if(join === $scope.content) {
-                $scope.selectJoin(last);
-            }
-        };
-
-        $scope.moveJoin = function(offset, join){
-            _.relativeMoveItem($scope.joins, join, offset);
-        };
-
-        $scope.jsonEdited = function() {
-            try {
-                JSON.parse($scope.content.jsonString);
-                $scope.jsonIsValid = true;
-            }
-            catch(err) {
-                $scope.jsonIsValid = false;
-                $scope.jsonError = err.message;
-            };
-        };
     }
 ]);
 
@@ -350,6 +356,29 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
                 return names.indexOf(d.name) === -1;
             });
 
+            var mappings = cube.mappings
+
+            if(!mappings){
+                mappings = {}
+            };
+
+            // Convert mappings into a list
+            var mapping_list = [];
+            for(var key in mappings) {
+                value = mappings[key];
+                mapping = {
+                    "key": key,
+                    "value": mappings[key]
+                };
+                if(_.isString(value)) {
+                    mapping["string"] = value;
+                    mapping["type"] = "string";
+                };
+                mapping_list.push(mapping);
+            };
+
+            $scope.mappings = mapping_list;
+
             $scope.$broadcast('cubeLoaded');
         });
 
@@ -386,7 +415,10 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             });
         };
 
+        PhysicalObject($scope);
+
         $scope.save = function(){
+            // TODO: Mappings and joins
             $http.put("cube/" + $scope.cubeId, $scope.cube);
         }
 
