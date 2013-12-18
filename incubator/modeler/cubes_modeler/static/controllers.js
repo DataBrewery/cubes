@@ -124,29 +124,19 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
                     mapping["string"] = value;
                     mapping["type"] = "string";
                 };
+                mapping["jsonString"] = JSON.stringify(value, null, "    ");
                 mapping_list.push(mapping);
             };
 
             $scope.mappings = mapping_list;
 
             // Convert joins into a list
-            var joins = [];
-            for(var join in $scope.model.joins) {
-                if(_.isString(join.master)){
-                    join.master 
-                }
+            $scope.joins = [];
+            for(var i in $scope.model.joins) {
+                var join = $scope.model.joins[i]
 
                 join["__label__"] = JSON.stringify(join.detail)
-                mapping = {
-                    "key": key,
-                    "value": mappings[key]
-                };
-                if(_.isString(value)) {
-                    mapping["string"] = value;
-                    mapping["type"] = "string";
-                };
-                mapping["jsonString"] = JSON.stringify(value, null, "    ");
-                mapping_list.push(mapping);
+                $scope.joins.push(join);
             };
 
             mapping_list.sort(function(a,b) {
@@ -374,10 +364,22 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
                     mapping["string"] = value;
                     mapping["type"] = "string";
                 };
+                mapping["jsonString"] = JSON.stringify(value, null, "    ");
                 mapping_list.push(mapping);
             };
 
             $scope.mappings = mapping_list;
+            //
+            // Convert joins into a list
+
+            // Convert joins into a list
+            $scope.joins = [];
+            for(var i in cube.joins) {
+                var join = cube.joins[i]
+
+                join["__label__"] = JSON.stringify(join.detail)
+                $scope.joins.push(join);
+            };
 
             $scope.$broadcast('cubeLoaded');
         });

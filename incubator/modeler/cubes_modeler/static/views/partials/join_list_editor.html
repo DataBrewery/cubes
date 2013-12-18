@@ -2,9 +2,9 @@
     <div class="col-xs-3 col-sm-4">
         <div class="panel panel-default">
             <div class="panel-heading">
-                Mappings
+                Joins
                 <span class="pull-right glyphicon glyphicon-plus"
-                      ng-click="addMapping()"></span>
+                      ng-click="addJoin()"></span>
             </div>
             <div class="panel-body">
                 <div class="input-group">
@@ -19,19 +19,26 @@
             </div>
             <div class="list-group">
                 <a class="list-group-item"
-                   ng-repeat="mapping in mappings | filter:query"
-                   ng-class="{active: mapping === content}"
-                   ng-click="selectMapping(mapping)">
-                   {{mapping.key}}
+                   ng-repeat="join in joins | filter:query"
+                   ng-class="{active: join == content}"
+                   ng-click="selectJoin(join)">
+                    <span class="glyphicon glyphicon-chevron-up"
+                          ng-click="moveJoin(-1, join)"></span>
+                    <span class="glyphicon glyphicon-chevron-down"
+                          ng-click="moveJoin(1, join)"></span>
+                   {{join.name || '(no name)'}}
+                   <small>{{join.detail.name || '(no detail)'}}
+                       <span ng-if="join.detail.alias">as '{{join.detail.alias}}'</span>
+                   </small>
                     <span class="glyphicon glyphicon-remove pull-right"
-                          title="Delete {{mappings.key}}"
-                          ng-click="removeMapping(mapping)"></span>
+                          title="Delete join"
+                          ng-click="removeJoin(join)"></span>
                 </a>
             </div>
         </div>
     </div>
     <div class="col-xs-6 col-sm-8">
-        <ng-include src="'views/partials/mapping.html'"></ng-include>
+        <ng-include src="'views/partials/join.html'"></ng-include>
     </div>
 </div>
 

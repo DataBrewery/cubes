@@ -145,6 +145,17 @@ def get_cube(id):
     info["aggregates"] = fix_attribute_list(info.get("aggregates"))
     info["details"] = fix_attribute_list(info.get("details"))
 
+    joins = info.pop("joins", [])
+
+    for join in joins:
+        if "detail" in join:
+            join["detail"] = _fix_sql_join_value(join["detail"])
+        if "master" in join:
+            join["master"] = _fix_sql_join_value(join["master"])
+        join["__type__"] = "sql"
+
+    info["joins"] = joins
+
     return json.dumps(info)
 
 
