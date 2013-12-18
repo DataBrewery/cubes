@@ -181,4 +181,20 @@
         </div>
     </div>
 </div>
+<div ng-if="selectedType == 'jsonstr'">
+    <div class="form-group">
+        <label class="col-sm-2 control-label">JSON</label>
+        <div class="col-sm-10">
+        <textarea
+               class="form-control"
+               rows="10"
+               ng-model="content.jsonString"
+               ng-change="jsonEdited()">
+        </textarea>
+        <span ng-if="jsonIsValid" class="label label-success">Valid</span>
+        <span ng-if="!jsonIsValid" class="label label-danger">Invalid</span>
+        <span ng-if="!jsonIsValid">{{jsonError}}</span>
+        </div>
+    </div>
+</div>
 </form>

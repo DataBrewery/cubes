@@ -56,8 +56,19 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
                     mapping["string"] = value;
                     mapping["type"] = "string";
                 };
+                mapping["jsonString"] = JSON.stringify(value, null, "    ");
                 mapping_list.push(mapping);
             };
+
+            mapping_list.sort(function(a,b) {
+                if(a.key < b.key){
+                    return -1;
+                }
+                else if (b.key > a.key) {
+                    return 1;
+                }
+                return 0
+            });
 
             $scope.mappings = mapping_list;
             $scope.joins = $scope.model.joins
@@ -165,8 +176,9 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             }
 
             $scope.model.mappings = mappings;
+            $scope.model.joins = $scope.joins;
 
-            $http.put("model", model);
+            $http.put("model", $scope.model);
 
         };
 
@@ -178,13 +190,38 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             $scope.contentType = "mapping";
             $scope.content = mapping;
             $scope.selectedType = mapping.type || $scope.selectedType;
+            $scope.jsonIsValid = true;
             console.log("Selected type: " + $scope.selectedType)
         };
 
         $scope.mappingTypeChanged = function(selection) {
             if($scope.content && $scope.contentType == "mapping") {
-                console.log("setting content type of "+$scope.content.key+ " to: " + selection)
+                console.log("setting content type of "+$scope.content.key+ " to: " + selection);
+                // TODO: add JSON string validation
+                if(selection == "jsonstr") {
+                    $scope.content.jsonString = JSON.stringify($scope.content.value, null, "    ");
+                    $scope.jsonIsValid = true;
+                }
+                else if($scope.content.type == "jsonstr") {
+                    $scope.content.value = JSON.parse($scope.content.jsonString);
+                }
                 $scope.content.type = selection;
+            }
+        };
+
+        $scope.addMapping = function() {
+            mapping = {
+                key: "unnamed"
+            };
+
+            $scope.mappings.push(mapping);
+            $scope.selectMapping(mapping);
+        };
+
+        $scope.removeMapping = function(obj) {
+            var last = _.removeListItem($scope.mappings, obj);
+            if(obj === $scope.content) {
+                $scope.selectMapping(last);
             }
         };
 
@@ -214,6 +251,21 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             if(join === $scope.content) {
                 $scope.selectJoin(last);
             }
+        };
+
+        $scope.moveJoin = function(offset, join){
+            _.relativeMoveItem($scope.joins, join, offset);
+        };
+
+        $scope.jsonEdited = function() {
+            try {
+                JSON.parse($scope.content.jsonString);
+                $scope.jsonIsValid = true;
+            }
+            catch(err) {
+                $scope.jsonIsValid = false;
+                $scope.jsonError = err.message;
+            };
         };
     }
 ]);
