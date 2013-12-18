@@ -471,34 +471,30 @@ class Workspace(object):
 
         # Assumption: empty cube
 
-        # Algorithm:
-        #     1. Give a chance to get the dimension from cube's provider
-        #     2. If provider does not have the dimension, then use a public
-        #        dimension
-        #
-        # Note: Provider should not raise `TemplateRequired` for public
-        # dimensions
-        #
         for dim_name in cube.linked_dimensions:
             try:
-                dim = provider.dimension(dim_name)
-            except NoSuchDimensionError:
-                dim = self.dimension(dim_name)
+                dim = self.dimension(dim_name, model.provider)
             except TemplateRequired as e:
                 # FIXME: handle this special case
-                raise ModelError("Template required in non-public dimension "
+                raise ModelError("Template required in private dimension "
                                  "'%s'" % dim_name)
 
             cube.add_dimension(dim)
 
-    def dimension(self, name):
+    def dimension(self, name, provider=None):
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
         no model published the dimension. Raises `RequiresTemplate` error when
         model provider requires a template to be able to provide the
-        dimension, but such template is not a public dimension."""
+        dimension, but such template is not a public dimension.
+        """
 
-        if name in self._dimensions:
+        # Return a public dimension if no provider for private dimensions is
+        # specified.
+        if not provider and name in self._dimensions:
             return self._dimensions[name]
+
+        # Create a copy of public dimension list
+        dimensions = dict(self._dimensions)
 
         # Assumption: all dimensions that are to be used as templates should
         # be public dimensions. If it is a private dimension, then the
@@ -510,31 +506,55 @@ class Workspace(object):
 
             name = missing.pop()
 
-            # Get a model that provides the public dimension. If no model
-            # advertises the dimension as public, then we fail.
-            try:
-                model = self.dimension_models[name]
-            except KeyError:
-                raise NoSuchDimensionError("No public dimension '%s'" % name)
+            # First give a chance to provider
+            dimension = None
 
-            try:
-                dimension = model.provider.dimension(name, self._dimensions)
-            except TemplateRequired as e:
+            # Required template name
+            required_template = None
+            if provider:
+                try:
+                    dimension = provider.dimension(name, dimensions)
+                except NoSuchDimensionError:
+                    dimension = None
+                except TemplateRequired as e:
+                    dimension = None
+                    required_template = e.template
+
+            if not dimension and name in self._dimensions:
+                # Get cached dimension
+                dimension = self._dimensions[name]
+
+            # Now we try to look-up public dimension
+            if not dimension and not required_template:
+                if name not in self.dimension_models:
+                    raise NoSuchDimensionError("No public dimension '%s'" % name)
+
+                public_provider = self.dimension_models[name].provider
+                try:
+                    dimension = public_provider.dimension(name, dimensions)
+                except TemplateRequired as e:
+                    required_template = e.template
+                except NoSuchDimensionError:
+                    raise InternalError("Provider %s promised public dimension "
+                            "'%s' but did not provide it."
+                            % (public_provider, name))
+                else:
+                    # Register the public dimension
+                    self._dimensions[name] = dimension
+
+            if required_template:
                 missing.add(name)
-                if e.template in missing:
+                if required_template in missing:
                     raise ModelError("Dimension templates cycle in '%s'" %
-                                        e.template)
-                missing.add(e.template)
+                                     required_template)
+                missing.add(required_template)
                 continue
-            except NoSuchDimensionError:
-                dimension = self._dimensions.get("name")
-            else:
-                # We store the newly created public dimension
-                self._dimensions[name] = dimension
-
 
             if not dimension:
                 raise NoSuchDimensionError("Missing dimension: %s" % name, name)
+
+            # We store the newly created public dimension
+            dimensions[name] = dimension
 
         return dimension
 
