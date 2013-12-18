@@ -102,7 +102,7 @@ def get_model():
     return json.dumps(MODEL)
 
 @modeler.route("/model", methods=["PUT"])
-def save_model_rq(id):
+def save_model_rq():
     global MODEL
     MODEL = json.loads(request.data)
     save_model()
