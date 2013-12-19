@@ -8,6 +8,7 @@ from .utils import *
 
 from collections import defaultdict
 from datetime import datetime
+import pytz
 
 class _MixpanelResponseAggregator(object):
     def __init__(self, browser, responses, aggregate_names, drilldown, split,
@@ -177,9 +178,10 @@ class _MixpanelResponseAggregator(object):
 
         # compute the current datetime, convert to path
         current_time_path = time_to_path(
-                datetime.now().strftime("%Y-%m-%d %H:00:00"), 
+                pytz.timezone('UTC').localize(datetime.utcnow()).astimezone(self.browser.timezone).strftime("%Y-%m-%d %H:00:00"), 
                 self.last_time_level, 
                 self.time_hierarchy)
+
         self.cells = []
         for key, cell in cells:
             # If we are aggregating at finer granularity than "all":

@@ -37,6 +37,7 @@ class MixpanelBrowser(AggregationBrowser):
         self.cube = cube
         self.options = options
         self.logger = get_logger()
+        self.timezone = self.store.tz
 
         dim_names = [dim.name for dim in cube.dimensions]
         self.mapper = MixpanelMapper(cube, cube.mappings,

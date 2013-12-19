@@ -226,6 +226,7 @@ class MixpanelStore(Store):
             tz = pytz.timezone(tz)
         else:
             tz = pytz.timezone(time.strftime('%Z', time.localtime()))
+        self.tz = tz
         self.logger = get_logger()
 
     def request(self, *args, **kwargs):
