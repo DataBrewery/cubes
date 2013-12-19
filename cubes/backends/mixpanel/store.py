@@ -182,7 +182,7 @@ class MixpanelModelProvider(ModelProvider):
 
         return cube
 
-    def dimension(self, name):
+    def dimension(self, name, dimensions=[]):
         if name == "time":
             return _time_dimension
 
