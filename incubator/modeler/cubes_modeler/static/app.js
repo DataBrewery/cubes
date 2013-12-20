@@ -100,12 +100,10 @@ CubesModelerApp.config(
             controller: 'DimensionController'
         }).
         when('/joins', {
-            templateUrl: 'views/model-joins.html',
-            controller: 'ModelController'
+            templateUrl: 'views/model-joins.html'
         }).
         when('/mappings', {
-            templateUrl: 'views/model-mappings.html',
-            controller: 'ModelController'
+            templateUrl: 'views/model-mappings.html'
         }).
         otherwise({
             templateUrl: 'views/model-overview.html',
