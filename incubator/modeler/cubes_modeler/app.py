@@ -22,6 +22,7 @@ modeler = Flask(__name__, static_folder='static', static_url_path='')
 CUBES = OrderedDict()
 DIMENSIONS = OrderedDict()
 MODEL = {}
+SOURCE = None
 
 saved_model_filename = "saved_model.cubesmodel"
 
@@ -95,15 +96,31 @@ def save_model():
 def index():
     return render_template('index.html')
 
+@modeler.route("/reset")
+def reset_model():
+    # This is just development reset
+    print "Model reset"
+    global MODEL, CUBES, DIMENSION
+
+    if SOURCE:
+        import_model(SOURCE)
+    else:
+        CUBES = OrderedDict()
+        DIMENSIONS = OrderedDict()
+        MODEL = {}
+
+    return "ok"
 
 @modeler.route("/model")
 def get_model():
     # Note: this returns model metadata sans cubes/dimensions
+    print MODEL
     return json.dumps(MODEL)
 
 @modeler.route("/model", methods=["PUT"])
 def save_model_rq():
     global MODEL
+    print request.data
     MODEL = json.loads(request.data)
     save_model()
 
@@ -184,8 +201,11 @@ def run_modeler(source, target="saved_model.cubesmodel", port=5000):
 
     saved_model_filename = target
 
+    global SOURCE
     if source:
         import_model(source)
+        SOURCE = source
+
     modeler.run(host="0.0.0.0", port=port, debug=True)
 
 if __name__ == '__main__':
