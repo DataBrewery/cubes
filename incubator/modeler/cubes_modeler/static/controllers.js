@@ -209,14 +209,15 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
         $scope.reset = function() {
             console.log("Reseting the model, reload required.")
             $http.get("reset");
+            $scope.$digest()
         };
     }
 ]);
 
 
-ModelerControllers.controller('CubeListController', ['$scope', '$http',
+ModelerControllers.controller('CubeListController', ['$scope', '$http', '$q',
 
-    function ($scope, $http) {
+    function ($scope, $http, $q) {
         $http.get('cubes').success(function(data) {
             $scope.cubes = data;
             // TODO: set content = cubes

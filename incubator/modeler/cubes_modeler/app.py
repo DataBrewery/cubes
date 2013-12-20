@@ -25,9 +25,7 @@ DIMENSIONS = OrderedDict()
 MODEL = {}
 SOURCE = None
 
-new_cube_sequence = count(1)
 cube_id_sequence = count(1)
-new_dimension_sequence = count(1)
 dimension_id_sequence = count(1)
 
 saved_model_filename = "saved_model.cubesmodel"
@@ -36,6 +34,9 @@ def import_model(path):
     # We need to use both: the metadata and the created model, as we do not
     # want to reproduce the model creation here
     global MODEL
+
+    cube_id_sequence = count(1)
+    dimension_id_sequence = count(1)
 
     logger = get_logger()
     logger.setLevel("INFO")
@@ -116,6 +117,8 @@ def reset_model():
     if SOURCE:
         import_model(SOURCE)
     else:
+        cube_id_sequence = count(1)
+        dimension_id_sequence = count(1)
         CUBES = OrderedDict()
         DIMENSIONS = OrderedDict()
         MODEL = {}
@@ -143,6 +146,7 @@ def save_model_rq():
 @modeler.route("/cubes")
 def list_cubes():
     # TODO: return just relevant info
+    print json.dumps(CUBES.values())
     return json.dumps(CUBES.values())
 
 
@@ -193,6 +197,7 @@ def get_cube(id):
 def new_cube():
     cube_id = cube_id_sequence.next()
     cube = {
+        "id": cube_id,
         "name": "cube%d" % cube_id,
         "label": "New Cube %s" % cube_id,
         "dimensions": [],
