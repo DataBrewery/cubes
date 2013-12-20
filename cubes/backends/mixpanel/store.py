@@ -10,6 +10,7 @@ from .mixpanel import *
 from .mapper import cube_event_key
 from string import capwords
 import pkgutil
+import time, pytz
 
 DIMENSION_COUNT_LIMIT = 100
 
@@ -182,7 +183,7 @@ class MixpanelModelProvider(ModelProvider):
 
         return cube
 
-    def dimension(self, name):
+    def dimension(self, name, dimensions=[]):
         if name == "time":
             return _time_dimension
 
@@ -218,9 +219,14 @@ class MixpanelModelProvider(ModelProvider):
 
 
 class MixpanelStore(Store):
-    def __init__(self, api_key, api_secret, category=None):
+    def __init__(self, api_key, api_secret, category=None, tz=None):
         self.mixpanel = Mixpanel(api_key, api_secret)
         self.category = category or "Mixpanel Events"
+        if tz is not None:
+            tz = pytz.timezone(tz)
+        else:
+            tz = pytz.timezone(time.strftime('%Z', time.localtime()))
+        self.tz = tz
         self.logger = get_logger()
 
     def request(self, *args, **kwargs):

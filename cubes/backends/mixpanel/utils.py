@@ -23,7 +23,7 @@ _week_path_readers = ( lambda v: datetime.datetime.strptime(v, '%Y-%m-%d'), lamb
 _lower_date = datetime.datetime(2008, 1, 1)
 
 def coalesce_date_path(path, bound, hier='ymdh'):
-    if hier == 'wdh':
+    if str(hier) == 'wdh':
         return _coalesce_date_wdh(path, bound)
     else:
         return _coalesce_date_ymdh(path, bound)
