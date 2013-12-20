@@ -20,7 +20,6 @@ PhysicalObject = function($scope){
 
     $scope.mappingTypeChanged = function(selection) {
         if($scope.content && $scope.contentType == "mapping") {
-            console.log("setting content type of "+$scope.content.key+ " to: " + selection);
             // TODO: add JSON string validation
             if(selection == "jsonstr") {
                 $scope.content.jsonString = JSON.stringify($scope.content.value, null, "    ");
@@ -91,7 +90,6 @@ PhysicalObject = function($scope){
             $scope.jsonError = err.message;
         };
     };
-
 }
 
 
@@ -242,7 +240,6 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
         PhysicalObject($scope);
 
         $scope.save = function() {
-            console.log("save!");
             mappings = {}
 
             for(var i in $scope.mappings) {
@@ -259,10 +256,12 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             $scope.model.mappings = mappings;
             $scope.model.joins = $scope.joins;
 
+            console.log("Saving model...");
             $http.put("model", $scope.model);
 
-        };
+            $scope.$broadcast("save");
 
+        };
     }
 ]);
 
@@ -288,6 +287,10 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
             $scope.idSequence += 1;
             $scope.cubes.push(cube);
         };
+
+        $scope.$on("save", function(){
+        });
+
 
     }
 ]);
@@ -421,6 +424,7 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
 
         $scope.save = function(){
             // TODO: Mappings and joins
+            console.log("Saving cube " + $scope.cubeId);
             $http.put("cube/" + $scope.cubeId, $scope.cube);
         }
 
@@ -532,7 +536,6 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
 
         // Save!
         // =====
-
         $scope.save = function(){
             // Remove relationships
 
@@ -554,9 +557,11 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
                 hier.levels = names;
             };
 
+            console.log("Saving dimension " + $scope.dimId)
             $http.put("dimension/" + $scope.dimId, dim);
         };
 
+        $scope.$on('save', $scope.save);
     }
 ]);
 
@@ -771,33 +776,6 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
                     $scope.level.order = null;
                 }
             };
-        };
-
-        // Save!
-        // =====
-
-        $scope.save = function(){
-            // Remove relationships
-
-            dim = angular.copy($scope.dimension);
-
-            for(var i in dim.levels) {
-                level = dim.levels[i];
-                if(level.key) {
-                    level.key = level.key.name;
-                };
-                if(level.labelAttribute) {
-                    level.labelAttribute = level.labelAttribute.name;
-                };
-            };
-
-            for(var h in dim.hierarchies) {
-                hier = dim.hierarchies[h];
-                names = _.map(hier.levels, function(level) { return level.name; })
-                hier.levels = names;
-            };
-
-            $http.put("dimension/" + $scope.dimId, dim);
         };
 
     }
