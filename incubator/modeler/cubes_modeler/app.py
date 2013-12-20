@@ -14,6 +14,7 @@ from cubes import get_logger, write_model_metadata_bundle
 from cubes import fix_dimension_metadata
 import json
 from collections import OrderedDict
+from itertools import count
 
 modeler = Flask(__name__, static_folder='static', static_url_path='')
 
@@ -23,6 +24,11 @@ CUBES = OrderedDict()
 DIMENSIONS = OrderedDict()
 MODEL = {}
 SOURCE = None
+
+new_cube_sequence = count(1)
+cube_id_sequence = count(1)
+new_dimension_sequence = count(1)
+dimension_id_sequence = count(1)
 
 saved_model_filename = "saved_model.cubesmodel"
 
@@ -39,14 +45,15 @@ def import_model(path):
 
     cube_list = metadata.pop("cubes", [])
     for i, cube in enumerate(cube_list):
-        cube_id = i + 1
+        cube_id = cube_id_sequence.next()
         cube["id"] = cube_id
         CUBES[str(cube_id)] = cube
 
     dim_list = metadata.pop("dimensions", [])
     for i, dim in enumerate(dim_list):
         dim = fix_dimension_metadata(dim)
-        dim_id = i + 1
+
+        dim_id = dimension_id_sequence.next()
         dim["id"] = dim_id
         DIMENSIONS[str(dim_id)] = dim
 
@@ -68,6 +75,7 @@ def import_model(path):
 
     MODEL["joins"] = joins
 
+
 def _fix_sql_join_value(value):
     if isinstance(value, basestring):
         split = value.split(".")
@@ -82,6 +90,7 @@ def _fix_sql_join_value(value):
     else:
         return value
 
+
 def save_model():
     model = dict(MODEL)
     model["cubes"] = list(CUBES.values())
@@ -92,9 +101,11 @@ def save_model():
 
     write_model_metadata_bundle(saved_model_filename, model, replace=True)
 
+
 @modeler.route("/")
 def index():
     return render_template('index.html')
+
 
 @modeler.route("/reset")
 def reset_model():
@@ -111,11 +122,13 @@ def reset_model():
 
     return "ok"
 
+
 @modeler.route("/model")
 def get_model():
     # Note: this returns model metadata sans cubes/dimensions
     print MODEL
     return json.dumps(MODEL)
+
 
 @modeler.route("/model", methods=["PUT"])
 def save_model_rq():
@@ -125,6 +138,7 @@ def save_model_rq():
     save_model()
 
     return "ok"
+
 
 @modeler.route("/cubes")
 def list_cubes():
@@ -174,6 +188,24 @@ def get_cube(id):
     info["joins"] = joins
 
     return json.dumps(info)
+
+@modeler.route("/new_cube", methods=["PUT"])
+def new_cube():
+    cube_id = cube_id_sequence.next()
+    cube = {
+        "name": "cube%d" % cube_id,
+        "label": "New Cube %s" % cube_id,
+        "dimensions": [],
+        "aggregates": [],
+        "measures": [],
+        "mappings": {},
+        "joins": [],
+        "info": {}
+    }
+
+    CUBES[str(cube_id)] = cube
+
+    return json.dumps(cube)
 
 
 @modeler.route("/dimensions")

@@ -28,6 +28,8 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
         var dimensions = $http.get('dimensions');
         var model = $http.get('model');
 
+        $scope.storeType = "sql";
+
         $q.all([cubes, dimensions, model]).then(function(results){
             console.log("Loading model...");
             console.debug("scope: " + $scope.$id);
@@ -167,6 +169,14 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             {"name": "detail", "label": "Detail (right outer)"}
         ];
 
+        $scope.storeTypes = [
+            {"name": "mixpanel", "label": "Mixpanel"},
+            {"name": "mongo", "label": "Mongo"},
+            {"name": "slicer", "label": "Slicer"},
+            {"name": "sql", "label": "SQL"}, 
+            {"name": "", "label": "Other"}
+        ];
+
         PhysicalObject($scope);
 
         $scope.save = function() {
@@ -215,18 +225,14 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
         $scope.idSequence = 1;
 
         $scope.addCube = function() {
-            cube = {
-                id: $scope.idSequence,
-                name:"new_cube",
-                label: "New Cube",
-                measures: [],
-                aggregates: [],
-                details: []
-            };
-            $scope.idSequence += 1;
-            $scope.cubes.push(cube);
-        };
+            var new_cube = $http.put('new_cube');
 
+            $q.all([new_cube]).then(function(results){
+                var cube = results[0].data;
+
+                $scope.cubes.push(cube);
+            });
+        };    
     }
 ]);
 
@@ -739,7 +745,7 @@ ModelerControllers.controller('MappingListController', ['$scope',
             // TODO: somehow this does not select the edit list
             $scope.contentType = "mapping";
             $scope.content = mapping;
-            $scope.selectedType = mapping.type || $scope.selectedType;
+            $scope.selectedType = mapping.type || $scope.storeType;
             $scope.jsonIsValid = true;
             console.log("Selected type: " + $scope.selectedType)
         };

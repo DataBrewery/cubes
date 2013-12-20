@@ -79,7 +79,7 @@ CubesModelerApp.config(
             templateUrl: 'views/cube-list.html',
             controller: 'CubeListController'
         }).
-        when('/cubes/:cubeId', {
+        when('/cube/:cubeId', {
             templateUrl: 'views/cube-detail.html',
             controller: 'CubeController'
         }).
@@ -103,7 +103,7 @@ CubesModelerApp.config(
             templateUrl: 'views/model-joins.html'
         }).
         when('/mappings', {
-            templateUrl: 'views/model-mappings.html'
+            templateUrl: 'views/model-mappings.html',
         }).
         otherwise({
             templateUrl: 'views/model-overview.html',
