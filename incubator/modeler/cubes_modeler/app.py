@@ -113,6 +113,7 @@ def reset_model():
     # This is just development reset
     print "Model reset"
     global MODEL, CUBES, DIMENSION
+    global cube_id_sequence, dimension_id_sequence
 
     if SOURCE:
         import_model(SOURCE)
