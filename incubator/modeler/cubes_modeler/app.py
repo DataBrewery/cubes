@@ -15,6 +15,12 @@ from cubes import fix_dimension_metadata
 import json
 from collections import OrderedDict
 from itertools import count
+import argparse
+
+__all__ = (
+    "run_modeler",
+    "ModelEditorSlicerCommand"
+)
 
 modeler = Flask(__name__, static_folder='static', static_url_path='')
 
@@ -246,11 +252,52 @@ def run_modeler(source, target="saved_model.cubesmodel", port=5000):
 
     modeler.run(host="0.0.0.0", port=port, debug=True)
 
+
+# TODO: make slicer to be extensible with objects like this one:
+class ModelEditorSlicerCommand(object):
+    def configure_parser(self, parser):
+        """Return argument parser for the modeler tool."""
+
+        parser.add_argument('-p', '--port',
+                                    dest='port',
+                                    default=5000,
+                                    help='port to run the editor web server on')
+        parser.add_argument("-s", "--store-type",
+                            dest="store_type", default="sql",
+                            help="Store type for mappings and joins editors")
+        parser.add_argument("model", nargs="?",
+                            help="Path to the model to be edited")
+        parser.add_argument("target", nargs="?",
+                             help="optional target path to write model to "
+                                  "(otherwise saved_model in current directory "
+                                  "will be used)")
+        return parser
+
+    def __call__(self, args):
+        """Run the modeler."""
+        global saved_model_filename
+        global SOURCE
+        global MODEL
+
+        saved_model_filename = args.target or "saved_model.cubesmodel"
+
+        if args.model:
+            import_model(args.model)
+            SOURCE = args.model
+
+        MODEL = MODEL or {}
+        MODEL["__modeler_options__"] = {"store_type": args.store_type}
+
+        modeler.run(host="0.0.0.0", port=args.port, debug=True)
+
+
 if __name__ == '__main__':
     import sys
     import webbrowser
-    if len(sys.argv) > 1:
-        source = sys.argv[1]
-    else:
-        source = None
-    run_modeler(source)
+
+    command = ModelEditorSlicerCommand()
+    parser = argparse.ArgumentParser(description='Cubes Model Editor')
+    command.configure_parser(parser)
+    args = parser.parse_args(sys.argv[1:])
+    command(args)
+
