@@ -180,6 +180,7 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
         PhysicalObject($scope);
 
         $scope.save = function() {
+            // TODO: same code is in CubeController.save
             var mappings = {}
 
             for(var i in $scope.mappings) {
@@ -197,9 +198,6 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             $scope.model.joins = $scope.joins;
 
             console.log("Saving model...");
-            console.debug($scope.mappings)
-            console.debug(mappings)
-            console.debug($scope.model)
             console.debug("scope: " + $scope.$id);
             $http.put("model", $scope.model);
 
@@ -365,10 +363,26 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
         PhysicalObject($scope);
 
         $scope.save = function(){
-            // TODO: Mappings and joins
+            // FIXME: Same code is in the model controller
+            var mappings = {}
+
+            for(var i in $scope.mappings) {
+                mapping = $scope.mappings[i];
+                if(mapping.type == "string"){
+                    value = mapping.stringValue;
+                }
+                else {
+                    value = mapping.value;
+                }
+                mappings[mapping.key] = value;
+            }
+
+            $scope.cube.mappings = mappings;
             console.log("Saving cube " + $scope.cubeId);
             $http.put("cube/" + $scope.cubeId, $scope.cube);
-        }
+        };
+
+        $scope.$on("save", $scope.save);
 
     }
 ]);
