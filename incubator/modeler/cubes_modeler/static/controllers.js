@@ -21,14 +21,36 @@ PhysicalObject = function($scope){
     };
 }
 
+CubesModelerApp.directive("jsonEditor", function() {
+    console.log("initializing json editor");
+    return {
+        templateUrl: 'views/partials/json_editor.html',
+        scope: {
+            jsonString: "=jsonAttribute"
+        },
+        link: function($scope, element, attrs){
+            $scope.jsonIsValid = true;
+            $scope.jsonEdited = function() {
+                console.debug($scope[attrs.jsonAttribute])
+                try {
+                    JSON.parse($scope.jsonString);
+                    $scope.jsonIsValid = true;
+                }
+                catch(err) {
+                    $scope.jsonIsValid = false;
+                    $scope.jsonError = err.message;
+                };
+            };
+        }
+    }
+});
 
-ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
-    function ($scope, $http, $q) {
+
+ModelerControllers.controller('ModelController', ['$rootScope', '$scope', '$http', '$q',
+    function ($rootScope, $scope, $http, $q) {
         var cubes = $http.get('cubes');
         var dimensions = $http.get('dimensions');
         var model = $http.get('model');
-
-        $scope.storeType = "sql";
 
         $q.all([cubes, dimensions, model]).then(function(results){
             console.log("Loading model...");
@@ -37,6 +59,9 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             $scope.cubes = results[0].data;
             $scope.dimensions = results[1].data;
             $scope.model = results[2].data;
+            options = $scope.model["__modeler_options__"] || {}
+            $rootScope.modelOptions = options
+            $rootScope.storeType = options.store_type
 
             var mappings = $scope.model.mappings
 
@@ -71,13 +96,7 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             });
 
             // Convert joins into a list
-            $scope.joins = [];
-            for(var i in $scope.model.joins) {
-                var join = $scope.model.joins[i]
-
-                join["__label__"] = JSON.stringify(join.detail)
-                $scope.joins.push(join);
-            };
+            $scope.joins = $scope.model.joins || [];
 
             // Every controller should have `content` object set – this will
             // be used by reusable views
@@ -119,7 +138,7 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             {"name": "string", "label": "String"},
             {"name": "sql", "label": "SQL"},
             {"name": "mongo", "label": "Mongo"},
-            {"name": "jsonstr", "label": "JSON (text)"}
+            {"name": "json", "label": "JSON (text)"}
         ]
 
         $scope.providers = [
@@ -316,13 +335,7 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             // Convert joins into a list
 
             // Convert joins into a list
-            $scope.joins = [];
-            for(var i in cube.joins) {
-                var join = cube.joins[i]
-
-                join["__label__"] = JSON.stringify(join.detail)
-                $scope.joins.push(join);
-            };
+            $scope.joins = cube.joins || [];
 
             $scope.$broadcast('cubeLoaded');
         });
@@ -444,6 +457,9 @@ ModelerControllers.controller('CubeMeasureListController', ['$scope',
 
 ModelerControllers.controller('CubeAggregateListController', ['$scope',
                               AttributeListController("aggregate", "Aggregate")]);
+
+ModelerControllers.controller('CubeDetailListController', ['$scope',
+                              AttributeListController("detail", "Detail")]);
 
 ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', '$http',
     function ($scope, $routeParams, $http) {
@@ -739,8 +755,8 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
 ]);
 
 
-ModelerControllers.controller('MappingListController', ['$scope',
-    function ($scope) {
+ModelerControllers.controller('MappingListController', ['$rootScope', '$scope',
+    function ($rootScope, $scope) {
         // Note: We are operating on parent's mappings, but we preserve our
         // scope content
 
@@ -760,9 +776,8 @@ ModelerControllers.controller('MappingListController', ['$scope',
             // TODO: somehow this does not select the edit list
             $scope.contentType = "mapping";
             $scope.content = mapping;
-            $scope.selectedType = mapping.type || $scope.storeType;
             $scope.jsonIsValid = true;
-            console.log("Selected type: " + $scope.selectedType)
+            console.log("Selected type (from root): " + $rootScope.storeType)
         };
 
         $scope.mappingTypeChanged = function(selection) {
@@ -804,8 +819,6 @@ ModelerControllers.controller('JoinListController', ['$scope',
             // TODO: somehow this does not select the edit list
             $scope.contentType = "join";
             $scope.content = join;
-            // TODO: hardwired SQL-only joins
-            $scope.selectedType = "sql";
         };
 
         $scope.addJoin = function() {
@@ -827,6 +840,10 @@ ModelerControllers.controller('JoinListController', ['$scope',
 
         $scope.moveJoin = function(offset, join){
             _.relativeMoveItem($scope.joins, join, offset);
+        };
+
+        if($scope.joins && $scope.joins.length > 0){
+            $scope.selectJoin($scope.joins[0]);
         };
 
     }
