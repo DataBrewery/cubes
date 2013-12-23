@@ -1,0 +1,10 @@
+<textarea
+       class="form-control"
+       rows="10"
+       ng-model="jsonString"
+       ng-change="jsonEdited()">
+</textarea>
+<span ng-if="jsonIsValid" class="label label-success">Valid</span>
+<span ng-if="!jsonIsValid" class="label label-danger">Invalid</span>
+<span ng-if="!jsonIsValid">{{jsonError}}</span>
+
