@@ -1,5 +1,16 @@
 <form class="form-horizontal" role="form">
 <div class="form-group">
+    <label class="col-sm-3 control-label">Edit as</label>
+    <div class="col-sm-9">
+    <select class="form-control"
+            ng-change="mappingTypeChanged(storeType)"
+            ng-model="storeType"
+            ng-options="f.name as f.label for f in mappingTypes">
+    </select>
+    </div>
+</div>
+
+<div class="form-group">
     <label class="col-sm-2 control-label">Key</label>
     <div class="col-sm-10">
     <input type="text"
@@ -8,21 +19,10 @@
            ng-model="content.key">
     </div>
 </div>
-
-<div class="form-group">
-    <label class="col-sm-3 control-label">Edit as</label>
-    <div class="col-sm-9">
-    <select class="form-control"
-            ng-change="mappingTypeChanged(selectedType)"
-            ng-model="selectedType"
-            ng-options="f.name as f.label for f in mappingTypes">
-    </select>
-    </div>
-</div>
 </form>
 
 <form class="form-horizontal" role="form">
-<div ng-if="(!selectedType) || (selectedType == 'string')">
+<div ng-if="(!storeType) || (storeType == 'string')">
     <div class="form-group">
         <label class="col-sm-2 control-label">Value</label>
         <div class="col-sm-10">
@@ -34,7 +34,7 @@
     </div>
 </div>
 
-<div ng-if="selectedType == 'sql'">
+<div ng-if="storeType == 'sql'">
     <div class="form-group">
         <label class="col-sm-2 control-label">Column</label>
         <div class="col-sm-10">
@@ -107,7 +107,7 @@
     </div>
 </div>
 
-<div ng-if="selectedType == 'mongo'">
+<div ng-if="storeType == 'mongo'">
     <div class="form-group">
         <label class="col-sm-2 control-label">Field</label>
         <div class="col-sm-10">
@@ -181,7 +181,7 @@
         </div>
     </div>
 </div>
-<div ng-if="selectedType == 'jsonstr'">
+<div ng-if="storeType == 'json'">
     <div class="form-group">
         <label class="col-sm-2 control-label">JSON</label>
         <div class="col-sm-10">
