@@ -17,6 +17,9 @@
     <li ng-class="{active: active_tab == 'aggregates'}">
         <a ng-click="active_tab = 'aggregates'; loadAttributes()">Aggregates</a>
     </li>
+    <li ng-class="{active: active_tab == 'details'}">
+        <a ng-click="active_tab = 'details'; loadAttributes()">Details</a>
+    </li>
     <li ng-class="{active: active_tab == 'mappings'}">
         <a ng-click="active_tab = 'mappings';">Mappings</a>
     </li>
@@ -38,6 +41,9 @@
              <ng-include src="'views/attribute-list-editor.html'"></ng-include>
         </div>
         <div ng-switch-when='aggregates' ng-controller="CubeAggregateListController">
+             <ng-include src="'views/attribute-list-editor.html'"></ng-include>
+        </div>
+        <div ng-switch-when='details' ng-controller="CubeDetailListController">
              <ng-include src="'views/attribute-list-editor.html'"></ng-include>
         </div>
         <div ng-switch-when='mappings'>
