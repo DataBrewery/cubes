@@ -105,6 +105,9 @@ CubesModelerApp.config(
         when('/mappings', {
             templateUrl: 'views/model-mappings.html',
         }).
+        when('/info', {
+            templateUrl: 'views/model-info.html',
+        }).
         otherwise({
             templateUrl: 'views/model-overview.html',
             redirectTo: '/'
