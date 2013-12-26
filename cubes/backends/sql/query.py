@@ -1037,7 +1037,13 @@ class QueryBuilder(object):
 
         aggregate_selection = self.builtin_aggregate_expressions(aggregates,
                                                        coalesce_measures=coalesce_measures)
-        selection += aggregate_selection
+
+        if summary_only:
+            # Don't include the group-by part (see issue #157 for more
+            # information)
+            selection = aggregate_selection
+        else:
+            selection += aggregate_selection
 
         # condition = None
         statement = sql.expression.select(selection,

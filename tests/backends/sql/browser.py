@@ -390,6 +390,14 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         details = self.browser.cell_details(cell)
         self.assertEqual(1, len(details))
 
+    @unittest.skip("this needs to be tested on non-sqlite database")
+    def test_issue_157(self):
+        cut = PointCut("date", [2000])
+        cell = Cell(self.cube, [cut])
+        self.browser.logger.setLevel("DEBUG")
+        result = self.browser.aggregate(cell, drilldown=["product:category"])
+        # import pdb; pdb.set_trace()
+
     def test_aggregate(self):
         self.browser.logger.setLevel("DEBUG")
         result = self.browser.aggregate()
@@ -465,6 +473,7 @@ class HierarchyTestCase(CubesTestCaseBase):
                                         fact_prefix="ft_")
         self.browser.debug = True
         self.browser.logger.setLevel("DEBUG")
+
     def test_cell(self):
         cell = Cell(self.cube)
         result = self.browser.aggregate(cell)
