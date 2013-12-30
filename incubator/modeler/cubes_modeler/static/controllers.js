@@ -25,15 +25,21 @@ CubesModelerApp.directive("jsonEditor", function() {
     console.log("initializing json editor");
     return {
         templateUrl: 'views/partials/json_editor.html',
+        require: "ngModel",
         scope: {
-            jsonString: "=jsonAttribute"
+            jsonObject: "=ngModel"
         },
-        link: function($scope, element, attrs){
+        link: function($scope, $element, $attrs) {
+            console.debug("linking model:");
+            console.debug($scope.jsonObject);
+            $scope.jsonString = JSON.stringify($scope.jsonObject, null, "    ")
+            console.debug($scope.jsonString);
             $scope.jsonIsValid = true;
+
             $scope.jsonEdited = function() {
-                console.debug($scope[attrs.jsonAttribute])
                 try {
-                    JSON.parse($scope.jsonString);
+                    obj = JSON.parse($scope.jsonString);
+                    $scope.jsonObject = obj;
                     $scope.jsonIsValid = true;
                 }
                 catch(err) {
@@ -59,6 +65,10 @@ ModelerControllers.controller('ModelController', ['$rootScope', '$scope', '$http
             $scope.cubes = results[0].data;
             $scope.dimensions = results[1].data;
             $scope.model = results[2].data;
+
+            $scope.info = $scope.model.info || {}
+            $scope.browser_options = $scope.model.browser_options || {}
+
             options = $scope.model["__modeler_options__"] || {}
             $rootScope.modelOptions = options
             $rootScope.storeType = options.store_type
@@ -848,3 +858,4 @@ ModelerControllers.controller('JoinListController', ['$scope',
 
     }
 ]);
+
