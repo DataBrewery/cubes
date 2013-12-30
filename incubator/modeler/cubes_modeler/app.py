@@ -240,6 +240,29 @@ def get_dimension(id):
     info = DIMENSIONS[str(id)]
     return json.dumps(info)
 
+@modeler.route("/new_dimension", methods=["PUT"])
+def new_cube():
+    dim_id = dimension_id_sequence.next()
+    level = {
+        "name": "default",
+        "attributes": [
+            {"name":"attribute"}
+        ]
+    };
+    hier = {"name":"default", "levels": ["default"]}
+    dim = {
+        "id": dim_id,
+        "name": "dim%d" % dim_id,
+        "label": "New Dimension %s" % dim_id,
+        "levels": [level],
+        "hierarchies": [hier]
+    }
+
+    DIMENSIONS[str(dim_id)] = dim
+
+    return json.dumps(dim)
+
+
 def run_modeler(source, target="saved_model.cubesmodel", port=5000):
     global saved_model_filename
 

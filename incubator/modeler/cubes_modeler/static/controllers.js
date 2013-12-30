@@ -37,14 +37,20 @@ CubesModelerApp.directive("jsonEditor", function() {
             $scope.jsonIsValid = true;
 
             $scope.jsonEdited = function() {
-                try {
-                    obj = JSON.parse($scope.jsonString);
-                    $scope.jsonObject = obj;
+                if($scope.jsonString == "") {
+                    $scope.jsonObject = null;
                     $scope.jsonIsValid = true;
                 }
-                catch(err) {
-                    $scope.jsonIsValid = false;
-                    $scope.jsonError = err.message;
+                else {
+                    try {
+                        obj = JSON.parse($scope.jsonString);
+                        $scope.jsonObject = obj;
+                        $scope.jsonIsValid = true;
+                    }
+                    catch(err) {
+                        $scope.jsonIsValid = false;
+                        $scope.jsonError = err.message;
+                    };
                 };
             };
         }
@@ -57,6 +63,12 @@ ModelerControllers.controller('ModelController', ['$rootScope', '$scope', '$http
         var cubes = $http.get('cubes');
         var dimensions = $http.get('dimensions');
         var model = $http.get('model');
+
+        $rootScope.advancedInterface = true;
+
+        $rootScope.setInterfaceType = function(ifaceType) {
+            $rootScope.advancedInterface = (ifaceType == "advanced");
+        }
 
         $q.all([cubes, dimensions, model]).then(function(results){
             console.log("Loading model...");
@@ -264,9 +276,9 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http', '$q',
     }
 ]);
 
-ModelerControllers.controller('DimensionListController', ['$scope', '$http',
+ModelerControllers.controller('DimensionListController', ['$scope', '$http', '$q',
 
-    function ($scope, $http) {
+    function ($scope, $http, $q) {
         $http.get('dimensions').success(function(data) {
             $scope.dimensions = data;
             // TODO: set content = dimensions
@@ -275,17 +287,14 @@ ModelerControllers.controller('DimensionListController', ['$scope', '$http',
         $scope.idSequence = 1;
 
         $scope.addDimension = function() {
-            var level = {"name": "default", "attributes": [ {"name":"attribute"} ]};
-            var dim = {
-                id: $scope.idSequence,
-                name:"new_dimension",
-                label: "New Dimension",
-                levels: [ level ],
-                hierarchies: [ {"name": "default", "levels": ["default"]} ]
-            };
-            $scope.idSequence += 1;
-            $scope.dimensions.push(dim);
-        };
+            var new_dimension = $http.put('new_dimension');
+
+            $q.all([new_dimension]).then(function(results){
+                var dim = results[0].data;
+
+                $scope.dimensions.push(cube);
+            });
+        };    
 
     }
 ]);
