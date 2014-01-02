@@ -13,8 +13,13 @@ from ...errors import *
 from ...logging import get_logger
 from ...stores import Store
 from ...providers import ModelProvider
-from apiclient.discovery import build
 from ...model import Cube, create_dimension, aggregate_list
+from .mapper import ga_id_to_identifier
+import pkgutil
+
+from apiclient.errors import HttpError
+from apiclient.discovery import build
+from oauth2client.client import AccessTokenRefreshError
 
 from collections import OrderedDict
 
@@ -32,6 +37,22 @@ try:
 except ImportError:
     from ...common import MissingPackage
     httplib2 = MissingPackage("httplib2", "Google Analytics Backend")
+
+
+GA_TIME_DIM_METADATA = {
+    "name": "time",
+    "role": "time",
+    "levels": [
+        { "name": "year", "label": "Year" },
+        { "name": "month", "label": "Month", "info": { "aggregation_units": 3 }},
+        { "name": "day", "label": "Day", "info": { "aggregation_units": 7 } },
+    ],
+    "hierarchies": [
+        {"name": "ymd", "levels": ["year", "month", "day"]},
+    ],
+    "default_hierarchy_name": "ymd"
+}
+
 
 class GoogleAnalyticsModelProvider(ModelProvider):
     __identifier__ = "ga"
@@ -86,7 +107,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         aggregates = []
         for metric in metrics:
             aggregate = {
-                "name": metric["id"],
+                "name": ga_id_to_identifier(metric["id"]),
                 "label": metric["uiName"],
                 "description": metric.get("description")
             }
@@ -95,7 +116,8 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         aggregates = aggregate_list(aggregates)
 
         dims = [d for d in self.store.dimensions.values() if d["group"] == group]
-        dims = [d["id"] for d in dims]
+        dims = [ga_id_to_identifier(d["id"]) for d in dims]
+        dims = ["time"] + dims
 
         cube = Cube(name=name,
                     label=metadata.get("label", group),
@@ -113,7 +135,17 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         except KeyError:
             metadata = {}
 
-        ga_dim = self.store.dimensions[name]
+        if name == "time":
+            return create_dimension(GA_TIME_DIM_METADATA)
+
+        # TODO: this should be in the mapper
+        ga_id = "ga:" + name
+
+        try:
+            ga_dim = self.store.dimensions[ga_id]
+        except KeyError:
+            raise NoSuchDimensionError("No GA dimension %s" % name,
+                                       name=name)
 
         dim = {
             "name": name,
@@ -150,7 +182,7 @@ class GoogleAnalyticsStore(Store):
     __identifier__ = "ga"
 
     def __init__(self, email=None, key_file=None, account_id=None,
-                 account_name=None, **options):
+                 account_name=None, web_property=None, **options):
 
         self.logger = get_logger()
 
@@ -160,7 +192,8 @@ class GoogleAnalyticsStore(Store):
         if not email:
             raise ConfigurationError("Google Analytics: email is required")
         if not key_file:
-            raise ConfigurationError("Google Analytics: key file is required")
+            raise ConfigurationError("Google Analytics: key_file is required")
+
         if account_name and account_id:
             raise ConfigurationError("Both account_name and account_id "
                                      "provided. Use only one or none.")
@@ -169,6 +202,7 @@ class GoogleAnalyticsStore(Store):
             self.key = f.read()
 
         self.email = email
+        self.web_property = web_property
 
         self.account_id = None
         self.credentials = SignedJwtAssertionCredentials(self.email,
@@ -220,9 +254,22 @@ class GoogleAnalyticsStore(Store):
         self.account_id = self.account["id"]
         self.logger.debug("Using GA account id %s" % self.account_id)
 
+        if not self.web_property:
+            base = self.service.management().webproperties()
+            props = base.list(accountId=self.account_id).execute()
+            self.web_property = props["items"][0]["id"]
+
+        base = self.service.management().profiles()
+        profiles = base.list(accountId=self.account_id,
+                           webPropertyId=self.web_property).execute()
+        self.profile_id = profiles["items"][0]["id"]
+
     def refresh_metadata(self):
         """Load GA metadata. Group metrics and dimensions by `group`"""
         md = self.service.metadata().columns().list(reportType='ga').execute()
+
+        # Note: no Cubes model related logic should be here (such as name
+        # mangling)
 
         self.metrics = OrderedDict()
         self.dimensions = OrderedDict()
@@ -247,3 +294,19 @@ class GoogleAnalyticsStore(Store):
             if group not in self.groups:
                 self.groups.append(group)
 
+    def get_data(self, **kwargs):
+        ga = self.service.data().ga()
+
+        try:
+            response = ga.get(ids='ga:%s' % self.profile_id,
+                              **kwargs).execute()
+        except TypeError as e:
+            raise ArgumentError("Google Analytics Error: %s"
+                                % str(e))
+        except HttpError as e:
+            raise BrowserError("Google Analytics HTTP Error: %s"
+                                % str(e))
+        except AccessTokenRefreshError as e:
+            raise NotImplementedError("Re-authorization not implemented yet")
+
+        return response
