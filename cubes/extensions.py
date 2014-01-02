@@ -9,6 +9,7 @@ _default_modules = {
         "mongo2":"cubes.backends.mongo2",
         "mixpanel":"cubes.backends.mixpanel.store",
         "slicer":"cubes.backends.slicer.store",
+        "ga":"cubes.backends.ga.store",
     },
     "browsers": {
         "snowflake":"cubes.backends.sql.browser",
@@ -19,6 +20,7 @@ _default_modules = {
     "model_providers": {
         "mixpanel":"cubes.backends.mixpanel.store",
         "slicer":"cubes.backends.slicer.store",
+        "ga":"cubes.backends.ga.store",
     },
     "request_log_handlers": {
         "sql":"cubes.backends.sql.logging",
