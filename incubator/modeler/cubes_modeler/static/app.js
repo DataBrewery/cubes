@@ -17,17 +17,29 @@ _.filter = function(ary, f) {
 };
 
 _.find = function(ary, f) {
-  var i;
-  if (Object.prototype.toString.call(ary) === '[object Array]') {
-    for (i = 0; i < ary.length; i++) {
-      if ( f(ary[i]) ) return ary[i];
+    var i;
+    if (Object.prototype.toString.call(ary) === '[object Array]') {
+        for (i = 0; i < ary.length; i++) {
+            if ( f(ary[i]) ) return ary[i];
+        }
     }
-  } else {
-    for (i in ary) {
-      if ( f(ary[i]) ) return ary[i];
+    else {
+        for (i in ary) {
+            if ( f(ary[i]) ) return ary[i];
+        }
     }
-  }
-  return null;
+    return null;
+};
+
+_.find_by_name = function(ary, name) {
+    return _.find(ary, function(o) {
+        if(o) {
+            return o.name == name;
+        }
+        else {
+            return false;
+        };
+    } ); 
 };
 
 _.isString = function(o) {
@@ -114,4 +126,57 @@ CubesModelerApp.config(
         });
     }
 ]);
+
+
+// Cubes Model Utils
+// TODO: Make this separate or integrate in cubes.js/cubes_model.js as modeler
+// utils
+//
+
+var CM = {};
+
+CM.cube_attribute = function(cube, name) {
+    // Return cube attribute
+    // TODO: this is same as Cube.attribute()
+    //
+    if(cube.aggregates) {
+        attr = _.find_by_name(cube.aggregates, name);
+        if(attr) {
+            return attr;
+        }
+    }
+    if(cube.measures) {
+        attr = _.find_by_name(cube.measures, name);
+        if(attr) {
+            return attr;
+        }
+    }
+    if(cube.details) {
+        attr = _.find_by_name(cube.details, name);
+        if(attr) {
+            return attr;
+        }
+    }
+    return null;
+};
+
+CM.dimension_attribute = function(dim, name) {
+    // Return cube attribute
+    // TODO: this is same as Cube.attribute()
+    //
+    if(!dim.levels) {
+        return null;
+    }
+
+    for(i in dim.levels) {
+        level = dim.levels[i];
+
+        attr = _.find_by_name(level.attributes, name);
+        if(attr) {
+            return attr;
+        }
+    }
+
+    return null;
+};
 

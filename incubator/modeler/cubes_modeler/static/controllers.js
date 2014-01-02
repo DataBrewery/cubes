@@ -22,7 +22,6 @@ PhysicalObject = function($scope){
 }
 
 CubesModelerApp.directive("jsonEditor", function() {
-    console.log("initializing json editor");
     return {
         templateUrl: 'views/partials/json_editor.html',
         require: "ngModel",
@@ -30,10 +29,7 @@ CubesModelerApp.directive("jsonEditor", function() {
             jsonObject: "=ngModel"
         },
         link: function($scope, $element, $attrs) {
-            console.debug("linking model:");
-            console.debug($scope.jsonObject);
             $scope.jsonString = JSON.stringify($scope.jsonObject, null, "    ")
-            console.debug($scope.jsonString);
             $scope.jsonIsValid = true;
 
             $scope.jsonEdited = function() {
@@ -53,6 +49,22 @@ CubesModelerApp.directive("jsonEditor", function() {
                     };
                 };
             };
+        }
+    }
+});
+
+CubesModelerApp.directive("mappingEditor", function() {
+    return {
+        templateUrl: 'views/partials/mapping.html',
+        require: "ngModel",
+        scope: {
+            content: "=ngModel",
+            mappingTypes: "@mappingTypes"
+        },
+        link: function($scope, $element, $attrs) {
+            $scope.mappingTypes = $scope.$parent.mappingTypes;
+            console.debug("CONTENT:")
+            console.debug($scope.content)
         }
     }
 });
@@ -335,6 +347,7 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
 
             // Convert mappings into a list
             var mapping_list = [];
+
             for(var key in mappings) {
                 value = mappings[key];
                 mapping = {
@@ -347,6 +360,13 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
                 };
                 mapping["jsonString"] = JSON.stringify(value, null, "    ");
                 mapping_list.push(mapping);
+
+
+                // Assign the mapping to an attribute
+                attr = CM.cube_attribute(cube, key);
+                if(attr) {
+                    attr.mapping = mapping;
+                };
             };
 
             $scope.mappings = mapping_list;
@@ -457,6 +477,9 @@ function AttributeListController(type, label){
 
         $scope.selectAttribute = function(attribute) {
             $scope.content = attribute;
+            if(!attribute.mapping){
+                attribute.mapping = {"key": attribute.name};
+            };
         };
 
         $scope.removeAttribute = function(index) {
@@ -465,8 +488,9 @@ function AttributeListController(type, label){
 
         $scope.addAttribute = function() {
             attribute = {"name": "new_"+type}
+            attribute.mapping = {};
             $scope.content = attribute;
-            $scope.attributes.push(attribute)
+            $scope.attributes.push(attribute);
         };
     };      
 };
@@ -710,7 +734,8 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
         $scope.addAttribute = function() {
             attr = {
                 name: "new_attribute",
-                label: "New Attribute"
+                label: "New Attribute",
+                mapping: {}
             };
             $scope.attributes.push(attr);
 
