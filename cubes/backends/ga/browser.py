@@ -80,8 +80,8 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         metrics = ",".join(metrics)
 
         if page is not None and page_size is not None:
-            max_results = page_size or None
-            start_index = (page * page_size) or None
+            max_results = page_size
+            start_index = (page * page_size) + 1
         else:
             max_results = None
             start_index = None
