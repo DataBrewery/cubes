@@ -66,6 +66,7 @@ Backends
 
     backends/sql
     backends/mongo
+    backends/google_analytics
     backends/mixpanel
     backends/slicer
 
