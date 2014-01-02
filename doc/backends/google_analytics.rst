@@ -32,17 +32,18 @@ type is ``ga``
 * ``key_file`` (required) – path to a private key file of the service account
 * ``account_id`` – ID of the account to be used
 * ``account_name`` – name of the account to be used
+* ``web_property`` – web property ID (first will be used by default)
 
 Specify either ``account_id`` or ``account_name``, not both. If none is
 specified then the first account in the account list is used.
 
 Example::
 
-
     [datastore]
     type: ga
     email: 123456789012-abcdefghijklmnopqrstuvwxyzabcdef@developer.gserviceaccount.com
     key_file: key.p12
+    web_property: UA-123456-7
 
 Model
 -----
