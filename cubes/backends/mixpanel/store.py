@@ -18,6 +18,7 @@ DEFAULT_TIME_HIERARCHY = "ymdh"
 
 MXP_TIME_DIM_METADATA = {
     "name": "time",
+    "role": "time",
     "levels": [
         { "name": "year", "label": "Year" },
         { "name": "month", "label": "Month", "info": { "aggregation_units": 3 }},
