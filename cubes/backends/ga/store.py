@@ -14,6 +14,7 @@ from ...logging import get_logger
 from ...stores import Store
 from ...providers import ModelProvider
 from apiclient.discovery import build
+from ...model import Cube, create_dimension, aggregate_list
 
 from collections import OrderedDict
 
@@ -54,6 +55,73 @@ class GoogleAnalyticsModelProvider(ModelProvider):
             name = re.sub("[^\w0-9_]", "_", group.lower())
             self.name_to_group[name] = group
             self.group_to_name[group] = name
+
+    def cube(self, name, locale=None):
+        """Create a GA cube:
+
+        * cube is a GA group
+        * GA metric is cube aggregate
+        * GA dimension is cube dimension
+        """
+
+        # TODO: preliminary implementation
+
+        try:
+            metadata = self.cube_metadata(name)
+        except NoSuchCubeError:
+            metadata = {}
+
+        group = self.name_to_group[name]
+
+        cube = {
+            "name": name,
+            "label": metadata.get("label", group),
+            "category": metadata.get("category")
+        }
+
+        # Gather aggregates
+
+        metrics = [m for m in self.store.metrics.values() if m["group"] == group]
+
+        aggregates = []
+        for metric in metrics:
+            aggregate = {
+                "name": metric["id"],
+                "label": metric["uiName"],
+                "description": metric.get("description")
+            }
+            aggregates.append(aggregate)
+
+        aggregates = aggregate_list(aggregates)
+
+        dims = [d for d in self.store.dimensions.values() if d["group"] == group]
+        dims = [d["id"] for d in dims]
+
+        cube = Cube(name=name,
+                    label=metadata.get("label", group),
+                    aggregates=aggregates,
+                    category=metadata.get("category"),
+                    info=metadata.get("info"),
+                    linked_dimensions=dims,
+                    datastore=self.store_name)
+
+        return cube
+
+    def dimension(self, name, dimensions=[], locale=None):
+        try:
+            metadata = self.dimension_metadata(name)
+        except KeyError:
+            metadata = {}
+
+        ga_dim = self.store.dimensions[name]
+
+        dim = {
+            "name": name,
+            "label": metadata.get("label", ga_dim["uiName"]),
+            "description": metadata.get("description", ga_dim["description"])
+        }
+
+        return create_dimension(dim)
 
     def list_cubes(self):
         """List GA cubes – groups of metrics and dimensions."""
@@ -165,6 +233,7 @@ class GoogleAnalyticsStore(Store):
             # dictionary
             item_id = item["id"]
             item = item["attributes"]
+            item["id"] = item_id
 
             if item["type"] == "METRIC":
                 self.metrics[item_id] = item

@@ -16,6 +16,7 @@ _default_modules = {
         "snapshot": "cubes.backends.sql.browser",
         "mixpanel":"cubes.backends.mixpanel.browser",
         "slicer":"cubes.backends.slicer.browser",
+        "ga":"cubes.backends.ga.browser",
     },
     "model_providers": {
         "mixpanel":"cubes.backends.mixpanel.store",
