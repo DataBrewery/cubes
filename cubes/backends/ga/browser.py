@@ -39,7 +39,8 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         }
 
     def aggregate(self, cell=None, measures=None, aggregates=None,
-                  drilldown=None, split=None, order=None, **options):
+                  drilldown=None, split=None, order=None,
+                  page=None, page_size=None, **options):
 
         if measures:
             raise ArgumentError("Google Analytics does not provide non-aggregated "
@@ -78,12 +79,21 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         metrics = [self.mapper.physical(a) for a in aggregates]
         metrics = ",".join(metrics)
 
+        if page is not None and page_size is not None:
+            max_results = page_size or None
+            start_index = (page * page_size) or None
+        else:
+            max_results = None
+            start_index = None
+
         response = self.store.get_data(
                 start_date=start_date,
                 end_date=end_date,
                 filters=filters,
                 dimensions=dimensions,
-                metrics=metrics
+                metrics=metrics,
+                start_index=start_index,
+                max_results=max_results
                 )
 
         import json
