@@ -168,6 +168,25 @@ CM.cube_attribute = function(cube, name) {
     return null;
 };
 
+CM.dimension_attributes = function(dim){
+    // Collect dimension attributes
+    // TODO: this should be in cubes.js
+    //
+    var attrs = [];
+
+    if(!dim.levels) {
+        return [];
+    };
+
+    for(i in dim.levels) {
+        level = dim.levels[i];
+
+        attrs = attrs.concat(level.attributes);
+    }
+
+    return attrs;
+}
+
 CM.dimension_attribute = function(dim, name) {
     // Return cube attribute
     // TODO: this is same as Cube.attribute()
@@ -188,7 +207,7 @@ CM.dimension_attribute = function(dim, name) {
     return null;
 };
 
-CM.collect_attribute_mappings = function(attr_list) {
+CM.collect_attribute_mappings = function(attr_list, dim, simplify) {
     // Removes mappings from attributes and returns an array of mappings that
     // have non-empty keys
     // WARNING: use this on a cube copy before save
@@ -197,7 +216,12 @@ CM.collect_attribute_mappings = function(attr_list) {
         attr = attr_list[i];
         if(attr.mapping && !_.hasEmptyValues(attr.mapping.value)) {
             mapping = attr.mapping;
-            mapping.key = attr.name;
+            if(dim && !simplify) {
+                mapping.key = dim + "." + attr;
+            }
+            else {
+                mapping.key = attr.name;
+            }
             mappings.push(attr.mapping);
             delete attr["mapping"]
         }

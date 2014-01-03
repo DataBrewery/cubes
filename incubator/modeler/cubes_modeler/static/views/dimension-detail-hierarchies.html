@@ -136,12 +136,22 @@
         <label class="col-sm-2 control-label">Cardinality</label>
         <div class="col-sm-10">
             <select class="form-control"
-                    ng-model="dimension.cardinality"
+                    ng-model="content.cardinality"
                     ng-options="r.name as r.label for r in cardinalities">
             </select>
         </div>
     </div>
     </form>
+
+    
+    <div ng-if="contentType == 'attribute'" class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">Physical Mapping</h3>
+        </div>
+        <div class="panel-body">
+            <mapping-editor ng-model='content.mapping'></mapping-editor>
+        </div>
+    </div>
 
     <form class="form-horizontal" role="form">
     <div class="form-group">

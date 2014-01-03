@@ -110,9 +110,10 @@ ModelerControllers.controller('ModelController', ['$rootScope', '$scope', '$http
             var mappings = $scope.model.mappings
 
             if(!mappings){
+                console.debug("No model mappings.")
                 mappings = {}
             };
-
+            console.debug(mappings)
             // Convert mappings into a list
             $scope.mappings = [];
             for(var key in mappings) {
@@ -437,9 +438,9 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             cube = angular.copy($scope.cube)
 
             maplist = maplist.concat($scope.mappings);
-            maplist = maplist.concat(CM.collect_attribute_mappings($scope.cube.aggregates));
-            maplist = maplist.concat(CM.collect_attribute_mappings($scope.cube.measures));
-            maplist = maplist.concat(CM.collect_attribute_mappings($scope.cube.details));
+            maplist = maplist.concat(CM.collect_attribute_mappings(cube.aggregates));
+            maplist = maplist.concat(CM.collect_attribute_mappings(cube.measures));
+            maplist = maplist.concat(CM.collect_attribute_mappings(cube.details));
 
             for(var i in maplist) {
                 mapping = maplist[i];
@@ -568,6 +569,23 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
                 $scope.defaultHierarchy = null;
             };
 
+            var attrs = CM.dimension_attributes(dim);
+            var simplify = (attrs.length == 1)
+
+            for(var i in attrs){
+                attr = attrs[i];
+                if(simplify) {
+                    key = dim.name;
+                }
+                else {
+                    key = dim.name + "." + attr.name;
+                }
+                value = $scope.model.mappings[key];
+                mapping = {};
+                mapping.value = value || {};
+                attr.mapping = mapping;
+            }
+
             $scope.$broadcast('dimensionLoaded');
         });
 
@@ -579,7 +597,7 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
         $scope.save = function(){
             // Remove relationships
 
-            dim = angular.copy($scope.dimension);
+            var dim = angular.copy($scope.dimension);
 
             for(var i in dim.levels) {
                 level = dim.levels[i];
@@ -590,6 +608,19 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
                     level.labelAttribute = level.labelAttribute.name;
                 };
             };
+
+            var attrs = CM.dimension_attributes(dim);
+            var simplify = (attrs.length == 1);
+            var mappings;
+
+            mappings = CM.collect_attribute_mappings(attrs,
+                                                     dim.name,
+                                                     simplify);
+            for(m in mappings) {
+                mapping = mappings[m];
+                $scope.model.mappings[mapping.key] = mapping.value;
+            };
+            // TODO: save the model as well, if mappings have changed
 
             for(var h in dim.hierarchies) {
                 hier = dim.hierarchies[h];
@@ -749,6 +780,7 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
         $scope.selectAttribute = function(attribute) {
             $scope.contentType = "attribute";
             $scope.content = attribute;
+            attribute.mapping = attribute.mapping || {};
         };
 
         $scope.moveAttribute = function(offset, attr){
@@ -759,7 +791,7 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
             attr = {
                 name: "new_attribute",
                 label: "New Attribute",
-                mapping: {}
+                mapping: { value: {} }
             };
             $scope.attributes.push(attr);
 
