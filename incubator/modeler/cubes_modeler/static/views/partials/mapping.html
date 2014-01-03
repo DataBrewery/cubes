@@ -1,15 +1,5 @@
-<form class="form-horizontal" role="form">
-<div class="form-group">
-    <label class="col-sm-3 control-label">Edit as</label>
-    <div class="col-sm-9">
-    <select class="form-control"
-            ng-change="mappingTypeChanged(storeType)"
-            ng-model="storeType"
-            ng-options="f.name as f.label for f in mappingTypes">
-    </select>
-    </div>
-</div>
-
+<div ng-if="!isAttributeMapping">
+<form  class="form-horizontal" role="form">
 <div class="form-group">
     <label class="col-sm-2 control-label">Key</label>
     <div class="col-sm-10">
@@ -20,17 +10,14 @@
     </div>
 </div>
 </form>
+</div>
 
 <form class="form-horizontal" role="form">
-<div ng-if="(!storeType) || (storeType == 'string')">
+
+<div ng-if="!storeType">
     <div class="form-group">
-        <label class="col-sm-2 control-label">Value</label>
-        <div class="col-sm-10">
-        <input type="text"
-               class="form-control"
-               placeholder="Mapping value"
-               ng-model="content.stringValue">
-        </div>
+        <label class="col-sm-2 control-label">JSON</label>
+        <div json-editor ng-model="content.value"> </div>
     </div>
 </div>
 

@@ -26,11 +26,14 @@ CubesModelerApp.directive("jsonEditor", function() {
         templateUrl: 'views/partials/json_editor.html',
         require: "ngModel",
         scope: {
-            jsonObject: "=ngModel"
+            jsonObject: "=ngModel",
+            foo: "@"
         },
         link: function($scope, $element, $attrs) {
             $scope.jsonString = JSON.stringify($scope.jsonObject, null, "    ")
             $scope.jsonIsValid = true;
+            console.debug("linking json editor")
+            console.debug($scope.foo)
 
             $scope.jsonEdited = function() {
                 if($scope.jsonString == "") {
@@ -53,18 +56,25 @@ CubesModelerApp.directive("jsonEditor", function() {
     }
 });
 
+
 CubesModelerApp.directive("mappingEditor", function() {
     return {
         templateUrl: 'views/partials/mapping.html',
+        restrict: 'E',
         require: "ngModel",
         scope: {
             content: "=ngModel",
-            mappingTypes: "@mappingTypes"
         },
         link: function($scope, $element, $attrs) {
-            $scope.mappingTypes = $scope.$parent.mappingTypes;
-            console.debug("CONTENT:")
-            console.debug($scope.content)
+            $scope.storeType = $scope.$parent.storeType;
+
+            // Keep the type if we have an editor for it, otherwise default
+            // JSON editor will be used
+            if($scope.$parent.mappingEditors.indexOf($scope.storeType) == -1) {
+                $scope.storeType = null;
+            }
+
+            $scope.isAttributeMapping = true;
         }
     }
 });
@@ -77,7 +87,7 @@ ModelerControllers.controller('ModelController', ['$rootScope', '$scope', '$http
         var model = $http.get('model');
 
         $rootScope.advancedInterface = true;
-
+        $scope.foo = "bar";
         $rootScope.setInterfaceType = function(ifaceType) {
             $rootScope.advancedInterface = (ifaceType == "advanced");
         }
@@ -228,6 +238,10 @@ ModelerControllers.controller('ModelController', ['$rootScope', '$scope', '$http
             {"name": "slicer", "label": "Slicer"},
             {"name": "sql", "label": "SQL"}, 
             {"name": "", "label": "Other"}
+        ];
+
+        $scope.mappingEditors = [
+            "sql", "mongo"
         ];
 
         PhysicalObject($scope);
@@ -417,9 +431,18 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
         $scope.save = function(){
             // FIXME: Same code is in the model controller
             var mappings = {}
+            var maplist = []
+            var cube;
 
-            for(var i in $scope.mappings) {
-                mapping = $scope.mappings[i];
+            cube = angular.copy($scope.cube)
+
+            maplist = maplist.concat($scope.mappings);
+            maplist = maplist.concat(CM.collect_attribute_mappings($scope.cube.aggregates));
+            maplist = maplist.concat(CM.collect_attribute_mappings($scope.cube.measures));
+            maplist = maplist.concat(CM.collect_attribute_mappings($scope.cube.details));
+
+            for(var i in maplist) {
+                mapping = maplist[i];
                 if(mapping.type == "string"){
                     value = mapping.stringValue;
                 }
@@ -428,6 +451,7 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
                 }
                 mappings[mapping.key] = value;
             }
+
 
             $scope.cube.mappings = mappings;
             console.log("Saving cube " + $scope.cubeId);

@@ -46,6 +46,14 @@ _.isString = function(o) {
   return Object.prototype.toString.call(o) === '[object String]';
 };
 
+_.hasEmptyValues = function(o) {
+    for(key in o) {
+        if(o[key] != null && o[key] != ""){
+            return false;
+        }
+    }
+    return true;
+}
 
 // Move item in array from from_index to to_index
 _.moveItem = function (array, from_index, to_index) {
@@ -180,3 +188,19 @@ CM.dimension_attribute = function(dim, name) {
     return null;
 };
 
+CM.collect_attribute_mappings = function(attr_list) {
+    // Removes mappings from attributes and returns an array of mappings that
+    // have non-empty keys
+    // WARNING: use this on a cube copy before save
+    var mappings = []
+    for(var i in attr_list){
+        attr = attr_list[i];
+        if(attr.mapping && !_.hasEmptyValues(attr.mapping.value)) {
+            mapping = attr.mapping;
+            mapping.key = attr.name;
+            mappings.push(attr.mapping);
+            delete attr["mapping"]
+        }
+    }
+    return mappings;
+}
