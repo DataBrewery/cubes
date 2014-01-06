@@ -150,7 +150,7 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
                     sublist.append(cond)
                 condition = ",".join(sublist)
 
-            conditions.append(cond)
+            conditions.append(condition)
 
         if conditions:
             return ";".join(conditions)
