@@ -585,10 +585,11 @@ class Workspace(object):
         store_type = self.store_infos[store_name][0]
         store_info = self.store_infos[store_name][1]
 
-        options = self._browser_options(cube)
+        cube_options = self._browser_options(cube)
 
         # TODO: merge only keys that are relevant to the browser!
-        options.update(store_info)
+        options = dict(store_info)
+        options.update(cube_options)
 
         # TODO: Construct options for the browser from cube's options dictionary and
         # workspece default configuration
