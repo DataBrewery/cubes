@@ -97,20 +97,32 @@ class RequestLogger(object):
         record = {
             "timestamp": datetime.datetime.now(),
             "method": method,
-            "cube": browser.cube.name,
+            "cube": browser.cube,
             "identity": identity,
-            "elapsed_time": elapsed or 0
+            "elapsed_time": elapsed or 0,
+            "cell": cell
         }
         record.update(other)
 
-        record["cell"] = str(cell) if cell is not None else None
-
-        if "split" in record and record["split"] is not None:
-            record["split"] = str(record["split"])
+        record = self._stringify_record(record)
 
         for handler in self.handlers:
-            handler.write_record(record)
+            handler.write_record(browser.cube, cell, record)
 
+
+    def _stringify_record(self, record):
+        """Return a log rectord with object attributes converted to strings"""
+        record = dict(record)
+
+        record["cube"] = str(record["cube"])
+
+        cell = record.get("cell")
+        record["cell"] = str(cell) if cell is not None else None
+
+        split = record.get("split")
+        record["split"] = str(split) if split is not None else None
+
+        return record
 
 class RequestLogHandler(object):
     def write_record(self, record):
@@ -121,9 +133,9 @@ class DefaultRequestLogHandler(RequestLogHandler):
     def __init__(self, logger=None, **options):
         self.logger = logger
 
-    def write_record(self, record):
-        if record.get("cell"):
-            cell_str = "'%s'" % record["cell"]
+    def write_record(self, cube, cell, record, **options):
+        if cell:
+            cell_str = "'%s'" % str(cell)
         else:
             cell_str = "none"
 
@@ -141,7 +153,7 @@ class CSVFileRequestLogHandler(RequestLogHandler):
     def __init__(self, path=None, **options):
         self.path = path
 
-    def write_record(self, record):
+    def write_record(self, cube, cell, record):
         out = []
 
         for key in REQUEST_LOG_ITEMS:
