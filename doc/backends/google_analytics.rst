@@ -32,6 +32,10 @@ private key file.
     The email address you need is the email address generated for the *Service
     Account*, not your account email address. 
 
+
+Add the generated service account email address to the list of permissions in
+the Account User Management in the Google Analytics Admin page.
+
 Configuration
 -------------
 
