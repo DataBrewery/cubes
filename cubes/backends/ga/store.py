@@ -30,8 +30,9 @@ try:
     from oauth2client.client import SignedJwtAssertionCredentials
 except ImportError:
     from ...common import MissingPackage
-    SignedJwtAssertionCredentials = MissingPackage("oauth2client",
-                                                    "Google Analytics Backend")
+    SignedJwtAssertionCredentials = MissingPackage("oauth2client.crypt",
+        "Google Analytics Backend with SignedJwtAssertionCredentials; " +
+        "you may need to install pyopenssl and OpenSSL")
 
 try:
     import httplib2
