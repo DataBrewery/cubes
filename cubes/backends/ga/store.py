@@ -107,6 +107,10 @@ class GoogleAnalyticsModelProvider(ModelProvider):
             self.logger.debug("GA concept: %s" % item_id)
             self.ga_concepts[item_id] = item
 
+            if item.get('status') == 'DEPRECATED':
+                self.logger.debug("Discarding deprecated item %s" % item_id)
+                continue
+
             if item["type"] == "METRIC":
                 self.ga_metrics[item_id] = item
             elif item["type"] == "DIMENSION":
