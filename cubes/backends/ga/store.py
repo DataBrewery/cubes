@@ -198,7 +198,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         cube = Cube(name=name,
                     label=metadata.get("label", name),
                     aggregates=aggregates,
-                    category=metadata.get("category"),
+                    category=metadata.get("category", self.store.category),
                     info=metadata.get("info"),
                     linked_dimensions=dims,
                     datastore=self.store_name)
@@ -246,7 +246,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
             cube = {
                 "name": cube_name,
                 "label": metadata.get("label", cube_name),
-                "category": metadata.get("category")
+                "category": metadata.get("category", self.store.category)
             }
             cubes.append(cube)
 
@@ -257,12 +257,14 @@ class GoogleAnalyticsStore(Store):
     __identifier__ = "ga"
 
     def __init__(self, email=None, key_file=None, account_id=None,
-                 account_name=None, web_property=None, **options):
+                 account_name=None, web_property=None,
+                 category=None, **options):
 
         self.logger = get_logger()
 
         self.service = None
         self.credentials = None
+        self.category = category
 
         if not email:
             raise ConfigurationError("Google Analytics: email is required")
