@@ -9,6 +9,19 @@ from ...logging import get_logger
 
 _REFERENCE_DATE = (2013, 1, 1)
 
+_TYPE_FUNCS = {
+    'STRING': str,
+    'INTEGER': int,
+    'FLOAT': float,
+    'PERCENT': lambda x: float(x) / 100.0,
+    'TIME': float
+}
+
+def _type_func(ga_datatype):
+    if ga_datatype is None:
+        ga_datatype = 'STRING'
+    return _TYPE_FUNCS.get(ga_datatype.upper(), str)
+
 def path_to_date(path):
     """Converts YMD path into a YYYY-MM-DD date."""
     # TODO: use Calendar
@@ -102,6 +115,9 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         attributes = dimension_attrs + aggregates
         labels = [attr.ref() for attr in attributes]
         rows = response["rows"]
+        data_types = [ _type_func(c.get('dataType')) for c in response['columnHeaders'] ]
+        rows = [ map(lambda i: i[0](i[1]), zip(data_types, row)) for row in rows ]
+
         result.cells = [dict(zip(labels, row)) for row in rows]
 
         # Set the result cells iterator (required)
