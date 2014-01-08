@@ -209,3 +209,30 @@ Built-in server authentication methods:
     indentity, then you have to specify the authentication method in the
     server. Otherwise the authorizer will not receive any identity and might
     refuse any access.
+
+
+Server Query Logging
+====================
+
+Logging handlers for server requests have sections with name prefix
+`query_log`. All sections with this prefix (including section named as the
+prefix) are collected and chained into a list of logging handlers. Required
+option is `type`. You might have multiple handlers of the same time.
+
+Logging types:
+
+* `default` – log using Cubes logger
+* `csv_file` – log into a CSV file
+* `sql` – log into a SQL table
+
+CSV request logger options:
+
+* `path` – path to a CSV file that will be appended (and created if necessary)
+
+SQL request logger options:
+
+* `url` – database URL
+* `table` – database table
+* `dimensions_table` – table with dimension use (optional)
+
+Tables are created automatically.
