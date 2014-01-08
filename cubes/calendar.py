@@ -279,11 +279,10 @@ class CalendarMemberConverter(object):
         self.calendar = calendar
 
     def __call__(self, dimension, hierarchy, path):
-        units = hierarchy.level_names
-
         if len(path) != 1:
             return path
 
+        units = hierarchy.level_names
         value = path[0]
         try:
             path = self.calendar.named_relative_path(value, units)
