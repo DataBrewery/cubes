@@ -140,16 +140,16 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
             dim = self.mapper.physical(cut.dimension.all_attributes[0])
 
             if isinstance(cut, PointCut):
-                condition = "%s==%s" % (dim, cut.path[0])
+                condition = "%s%s%s" % (dim, "!=" if cut.invert else "==", cut.path[0])
             elif isinstance(cut, RangeCut):
 
                 if cut.from_path:
-                    cond_from = "%s>=%s" % (dim, cut.from_path[0])
+                    cond_from = "%s%s%s" % (dim, "<" if cut.invert else ">=", cut.from_path[0])
                 else:
                     cond_from = None
 
                 if cut.to_path:
-                    cond_to = "%s<=%s" % (dim, cut.to_path[0])
+                    cond_to = "%s%s%s" % (dim, ">" if cut.invert else "<=", cut.to_path[0])
                 else:
                     cond_to = None
 
@@ -161,7 +161,7 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
             elif isinstance(cut, SetCut):
                 sublist = []
                 for value in cut.paths:
-                    cond = "%s==%s" % (dim, value)
+                    cond = "%s%s%s" % (dim, "!=" if cut.invert else "==", value)
                     sublist.append(cond)
                 condition = ",".join(sublist)
 
