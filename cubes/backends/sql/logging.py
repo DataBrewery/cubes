@@ -69,9 +69,13 @@ class SQLRequestLogHandler(RequestLogHandler):
     def write_record(self, cube, cell, record):
         drilldown = record.get("drilldown")
 
-        if drilldown:
-            drilldown = Drilldown(drilldown, cell)
-            record["drilldown"] = str(drilldown)
+        if drilldown is not None:
+            if cell:
+                drilldown = Drilldown(drilldown, cell)
+                record["drilldown"] = str(drilldown)
+            else:
+                drilldown = []
+                record["drilldown"] = None
 
         insert = self.table.insert().values(record)
         result = self.engine.execute(insert)
@@ -83,7 +87,7 @@ class SQLRequestLogHandler(RequestLogHandler):
             cuts = cell.cuts if cell else []
             cuts = cuts or []
 
-            for cut in cell.cuts:
+            for cut in cuts:
                 dim = cube.dimension(cut.dimension)
                 depth = cut.level_depth()
                 if depth:
@@ -121,5 +125,6 @@ class SQLRequestLogHandler(RequestLogHandler):
                     uses.append(use)
 
 
-            insert = self.dims_table.insert().values(uses)
-            self.engine.execute(insert)
+            if uses:
+                insert = self.dims_table.insert().values(uses)
+                self.engine.execute(insert)

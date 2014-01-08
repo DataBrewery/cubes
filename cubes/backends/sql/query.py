@@ -258,6 +258,7 @@ class SnowflakeSchema(object):
         tables = self.mapper.tables_for_attributes(attributes)
         tables = dict(zip(attributes, tables))
         mapping = {}
+
         for attribute in attributes:
             try:
                 table_ref = tables[attribute]
