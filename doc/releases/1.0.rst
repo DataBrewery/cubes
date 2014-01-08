@@ -372,6 +372,7 @@ New Backends
 * `Mixpanel`: :doc:`../backends/mixpanel`
 * `Slicer`: :doc:`../backends/slicer`
 * `Mongo`: :doc:`../backends/mongo`
+* `Google Analytics`: :doc:`../backends/google_analytics`
 
 
 .. seealso::
