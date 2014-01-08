@@ -59,6 +59,7 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         order = self.prepare_order(order, is_aggregate=True)
 
         result = AggregationResult(cell=cell, aggregates=aggregates)
+        result.levels = drilldown.result_levels()
 
         #
         # Prepare the request:
@@ -67,11 +68,9 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         start_date, end_date = self.time_condition_for_cell(cell)
 
         # Prepare drilldown:
-        # NOTE: We consider all dims to be flat
         dimension_attrs = []
         for item in drilldown:
-            attr = item.dimension.all_attributes[0]
-            dimension_attrs.append(attr)
+            dimension_attrs += [l.key for l in item.levels]
 
         refs = [self.mapper.physical(attr) for attr in dimension_attrs]
         dimensions = ",".join(refs)
