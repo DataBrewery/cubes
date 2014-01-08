@@ -2,6 +2,15 @@
 Google Analytics Backend
 ************************
 
+Package Requirements
+--------------------
+
+Required packages:
+
+* `google-api-python-client`
+* `openssl`
+* `httplib2`
+
 store configuration and model
 =============================
 
