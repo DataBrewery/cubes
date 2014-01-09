@@ -62,6 +62,10 @@ GA_TIME_DIM_METADATA = {
 }
 
 
+_MEASUREMENT_TYPES = {
+    'PERCENT': 'percent'
+    }
+
 class GoogleAnalyticsModelProvider(ModelProvider):
     __identifier__ = "ga"
     def __init__(self, *args, **kwargs):
@@ -83,6 +87,9 @@ class GoogleAnalyticsModelProvider(ModelProvider):
 
     def initialize_from_store(self):
         self._refresh_metadata()
+
+    def _measurement_type_for(self, datatype):
+        return _MEASUREMENT_TYPES.get(datatype, None)
 
     def _refresh_metadata(self):
         """Load GA metadata. Group metrics and dimensions by `group`"""
@@ -192,6 +199,9 @@ class GoogleAnalyticsModelProvider(ModelProvider):
                 "label": metric["uiName"],
                 "description": metric.get("description")
             }
+            mtype = self._measurement_type_for(metric.get('dataType'))
+            if mtype:
+                aggregate['info'] = { 'measurement_type':  mtype }
             aggregates.append(aggregate)
 
         aggregates = aggregate_list(aggregates)
