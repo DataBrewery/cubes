@@ -272,7 +272,7 @@ class GoogleAnalyticsStore(Store):
     __identifier__ = "ga"
 
     def __init__(self, email=None, key_file=None, account_id=None,
-                 account_name=None, web_property=None,
+                 account_name=None, web_property=None, profile_id=None,
                  category=None, **options):
 
         self.logger = get_logger()
@@ -295,6 +295,7 @@ class GoogleAnalyticsStore(Store):
 
         self.email = email
         self.web_property = web_property
+        self.profile_id = profile_id
 
         self.account_id = None
         self.credentials = SignedJwtAssertionCredentials(self.email,
@@ -345,11 +346,11 @@ class GoogleAnalyticsStore(Store):
             props = base.list(accountId=self.account_id).execute()
             self.web_property = props["items"][0]["id"]
 
-        base = self.service.management().profiles()
-        profiles = base.list(accountId=self.account_id,
-                           webPropertyId=self.web_property).execute()
-        self.profile_id = profiles["items"][0]["id"]
-
+        if not self.profile_id:
+            base = self.service.management().profiles()
+            profiles = base.list(accountId=self.account_id,
+                               webPropertyId=self.web_property).execute()
+            self.profile_id = profiles["items"][0]["id"]
 
     def get_data(self, **kwargs):
         # Documentation:
