@@ -290,6 +290,17 @@ class GoogleAnalyticsStore(Store):
         self.profile_id = view_id
         self.profile = None
 
+        date = options.get("default_start_date")
+        if date:
+            self.default_start_date = date.split("-")
+        else:
+            self.default_start_date = None
+        date = options.get("default_start_date")
+        if date:
+            self.default_end_date = date.split("-")
+        else:
+            self.default_end_date = None
+
         self.credentials = SignedJwtAssertionCredentials(self.email,
                               self.key,
                               scope="https://www.googleapis.com/auth/analytics.readonly")

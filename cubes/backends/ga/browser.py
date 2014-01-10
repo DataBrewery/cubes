@@ -3,11 +3,12 @@
 from ...browser import *
 from .mapper import GoogleAnalyticsMapper
 from ...logging import get_logger
+from ...calendar import Calendar
 
 # Google Python API Documentation:
 # https://developers.google.com/api-client-library/python/start/get_started
 
-_REFERENCE_DATE = (2013, 1, 1)
+_DEFAULT_START_DATE = (2005, 1, 1)
 
 _TYPE_FUNCS = {
     'STRING': str,
@@ -22,15 +23,17 @@ def _type_func(ga_datatype):
         ga_datatype = 'STRING'
     return _TYPE_FUNCS.get(ga_datatype.upper(), str)
 
-def path_to_date(path):
+def date_string(path, default_date):
     """Converts YMD path into a YYYY-MM-DD date."""
     # TODO: use Calendar
 
+    path = path or []
+
     (year, month, day) = tuple(path + [0]*(3-len(path)))
 
-    year = int(year) or _REFERENCE_DATE[0]
-    month = int(month) or _REFERENCE_DATE[1]
-    day = int(day) or _REFERENCE_DATE[2]
+    year = int(year) or default_date[0]
+    month = int(month) or default_date[1]
+    day = int(day) or default_date[2]
 
     return "%04d-%02d-%02d" % (year, month, day)
 
@@ -45,6 +48,15 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         self.logger = get_logger()
         self.logger.setLevel("DEBUG")
         self.mapper = GoogleAnalyticsMapper(cube, locale)
+
+        # Note: Make sure that we have our own calendar copy, not workspace
+        # calendar (we don't want to rewrite anything shared)
+        self.calendar = Calendar(timezone=self.store.timezone)
+
+
+        self.default_start_date = self.store.default_start_date \
+                                        or _DEFAULT_START_DATE
+        self.default_end_date = self.store.default_end_date
 
     def featuers(self):
         return {
@@ -98,6 +110,8 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
             max_results = None
             start_index = None
 
+        self.logger.debug("GA query: date from %s to %s, dims:%s metrics:%s"
+                          % (start_date, end_date, dimensions, metrics))
         response = self.store.get_data(
                 start_date=start_date,
                 end_date=end_date,
@@ -175,17 +189,25 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
     def time_condition_for_cell(self, cell):
         cut = cell.cut_for_dimension("time")
         if not cut:
-            self.logger.debug("Using default time range for last month")
-            raise NotImplementedError("No time dim specified, not handled yet")
-
-        if isinstance(cut, RangeCut):
-            start = path_to_date(cut.from_path)
-            end = path_to_date(cut.to_path)
-        elif isinstance(cut, PointCut):
-            start = path_to_date(cut.path)
-            end = start
+            from_path = None
+            to_path = None
         else:
-            raise ArgumentError("Unsupported time cut type %s"
-                                % str(type(cut)))
+            if isinstance(cut, RangeCut):
+                from_path = cut.from_path
+                to_path = cut.to_path
+            elif isinstance(cut, PointCut):
+                from_path = cut.path
+                to_path = cut.path
+            else:
+                raise ArgumentError("Unsupported time cut type %s"
+                                    % str(type(cut)))
+
+        units = ("year", "month", "day")
+        start = date_string(from_path, self.default_start_date)
+
+        if self.default_end_date:
+            end = date_string(to_path, self.default_end_date)
+        else:
+            end = date_string(to_path, self.calendar.now_path(units))
 
         return (start, end)

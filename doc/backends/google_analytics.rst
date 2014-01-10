@@ -50,6 +50,11 @@ type is ``ga``
 * ``category`` – category of cubes (property and view name will be used as
   default)
 
+* ``default_start_date`` – start date to be used if no bottom date range is
+  specified. Format: ``yyyy-mm-dd``
+* ``default_end_date`` – end date to be used if no end date is specified.
+  Format: ``yyyy-mm-dd``.
+
 Specify either ``account_id`` or ``account_name``, not both. If none is
 specified then the first account in the account list is used.
 
