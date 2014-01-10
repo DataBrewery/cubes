@@ -46,6 +46,9 @@ type is ``ga``
 * ``account_id`` – ID of the account to be used
 * ``account_name`` – name of the account to be used
 * ``web_property`` – web property ID (first will be used by default)
+* ``view_id`` – Reporting view (profile) ID (first will be used by default) 
+* ``category`` – category of cubes (property and view name will be used as
+  default)
 
 Specify either ``account_id`` or ``account_name``, not both. If none is
 specified then the first account in the account list is used.

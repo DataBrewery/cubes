@@ -262,7 +262,7 @@ class GoogleAnalyticsStore(Store):
 
     def __init__(self, email=None, key_file=None, account_id=None,
                  account_name=None, web_property=None,
-                 category=None, **options):
+                 category=None, view_id=None, **options):
 
         self.logger = get_logger()
 
@@ -283,9 +283,13 @@ class GoogleAnalyticsStore(Store):
             self.key = f.read()
 
         self.email = email
-        self.web_property = web_property
 
-        self.account_id = None
+        self.account_id = account_id
+        self.web_property_id = web_property
+        self.web_property = None
+        self.profile_id = view_id
+        self.profile = None
+
         self.credentials = SignedJwtAssertionCredentials(self.email,
                               self.key,
                               scope="https://www.googleapis.com/auth/analytics.readonly")
@@ -327,18 +331,57 @@ class GoogleAnalyticsStore(Store):
                                      (key, value))
 
         self.account_id = self.account["id"]
-        self.logger.debug("Using GA account id %s" % self.account_id)
+
+        # Get the web property ID and object
+        # ---
+
+        base = self.service.management().webproperties()
+        props = base.list(accountId=self.account_id).execute()
+        props = props["items"]
+        self.web_property = None
+
+        if self.web_property_id:
+            for p in props:
+                if p["id"] == self.web_property_id:
+                    self.web_property = p
+                    break
+        else:
+            self.web_property = props[0]
+            self.web_property_id = props[0]["id"]
 
         if not self.web_property:
-            base = self.service.management().webproperties()
-            props = base.list(accountId=self.account_id).execute()
-            self.web_property = props["items"][0]["id"]
+            raise ConfigurationError("Unknown GA property '%s'"
+                                     % self.web_property_id)
+        # Get the Profile/View ID and object
+        # ---
 
         base = self.service.management().profiles()
         profiles = base.list(accountId=self.account_id,
-                           webPropertyId=self.web_property).execute()
-        self.profile_id = profiles["items"][0]["id"]
+                           webPropertyId=self.web_property_id).execute()
 
+        profiles = profiles["items"]
+
+        if self.profile_id:
+            for p in profiles:
+                if p["id"] == self.profile_id:
+                    self.profile = p
+                    break
+        else:
+            self.profile = profiles[0]
+            self.profile_id = profiles[0]["id"]
+
+        if not self.profile:
+            raise ConfigurationError("Unknown GA profile/view '%s'"
+                                     % self.profile_id)
+
+        self.timezone = self.profile["timezone"]
+        self.logger.debug("GA account:%s property:%s profile:%s"
+                          % (self.account_id, self.web_property_id,
+                             self.profile_id))
+
+        if not self.category:
+            self.category = "GA: %s / %s" % (self.web_property["name"],
+                                           self.profile["name"])
 
     def get_data(self, **kwargs):
         # Documentation:
