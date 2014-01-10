@@ -70,6 +70,7 @@ class AggregationBrowser(object):
             raise ArgumentError("No cube given for aggregation browser")
 
         self.cube = cube
+        self.calendar = None
 
     def features(self):
         """Returns a dictionary of available features for the browsed cube.

@@ -606,6 +606,8 @@ class Workspace(object):
         browser = create_browser(browser_name, cube, store=store,
                                  locale=locale, **options)
 
+        browser.calendar = self.calendar
+
         return browser
 
     def cube_features(self, cube, identity=None):
