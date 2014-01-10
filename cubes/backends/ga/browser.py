@@ -130,16 +130,19 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
         labels = [attr.ref() for attr in attributes]
         rows = response["rows"]
         data_types = [ _type_func(c.get('dataType')) for c in response['columnHeaders'] ]
-        rows = [ map(lambda i: i[0](i[1]), zip(data_types, row)) for row in rows ]
 
-        result.cells = [dict(zip(labels, row)) for row in rows]
+        rows = [ map(lambda i: i[0](i[1]), zip(data_types, row)) for row in rows ]
+        if drilldown:
+            result.cells = [dict(zip(labels, row)) for row in rows]
+            # TODO: Use totalsForAllResults
+            result.summary = None
+        else:
+            result.summary = dict(zip(labels, rows[0]))
 
         # Set the result cells iterator (required)
         result.labels = labels
 
         result.total_cell_count = response["totalResults"]
-        # TODO: Use totalsForAllResults
-        result.summary = None
 
         return result
 
