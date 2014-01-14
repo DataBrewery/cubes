@@ -516,6 +516,8 @@ hierarchy              if dimension has only one hierarchy, you can
                        specify it under this key 
 default_hierarchy_name name of a hierarchy that will be used as default
 cardinality            dimension cardinality (see Level for more info)
+role                   dimension role
+category               logical category (user oriented metadata)
 info                   custom info, such as formatting. Not used by cubes 
                        framework.
 template               name of a dimension that will be used as template 
@@ -533,6 +535,13 @@ Example:
     }
 
 Use either ``hierarchies`` or ``hierarchy``, using both results in an error.
+
+Role
+----
+
+Some dimension have special roles and their levels or attributes might have
+special meaning and treatment. Currently there is only one supported dimension
+role: ``time``.
 
 Dimension Templates
 -------------------

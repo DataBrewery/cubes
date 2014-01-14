@@ -195,6 +195,9 @@ The dimension description dictionary:
 * ``levels`` – list of level descriptions
 * ``hierarchies`` – list of dimension hierarchies
 * ``info`` – additional custom information (unspecified)
+* ``cardinality`` – dimension cardinality
+* ``role`` – dimension role (special treatment, for example ``time``)
+* ``category`` – dimension category
 
 The level description:
 
@@ -207,7 +210,8 @@ The level description:
 * ``order_attribute`` – name of an attribute that the level should be ordered
   by (optional)
 * ``order`` – order direction ``asc``, ``desc`` or none.
-* ``cardinality`` – symbolic approximation of the number of level's members 
+* ``cardinality`` – symbolic approximation of the number of level's members
+* ``role`` – level role (special treatment)
 * ``info`` – additional custom information (unspecified)
 
 Cardinality values and their meaning:
