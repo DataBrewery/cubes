@@ -22,9 +22,13 @@ class SlicerBrowser(AggregationBrowser):
 
     def features(self):
 
-        features = {
-            "actions": ["aggregate", "facts"],
-        }
+        # Get the original features as provided by the Slicer server.
+        # They are stored in browser_options in the Slicer model provider's
+        # cube().
+        features = dict(self.cube.browser_options.get("features", {}))
+
+        # Replace only the actions, as we are not just a simple proxy.
+        features["actions"] = ["aggregate", "facts"]
 
         return features
 

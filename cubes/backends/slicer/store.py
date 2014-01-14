@@ -116,6 +116,15 @@ class SlicerModelProvider(ModelProvider):
         # later, the Slicer returns whole dimension descriptions
 
         dimensions = cube_desc.pop("dimensions")
+        features = cube_desc.pop("features")
+
+        if features:
+            # Note: if there are "features" in the browser options, they are
+            # eaten here. Is this ok? They should not be there as they should
+            # have been processed by the original browser/workspace.
+            browser_options = cube_desc.pop("browser_options", {})
+            browser_options["features"] = features
+            cube_desc["browser_options"] = browser_options
 
         cube_desc['datastore'] = self.store_name
         cube = create_cube(cube_desc)
