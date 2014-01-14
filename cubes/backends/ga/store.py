@@ -293,7 +293,8 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         dim = {
             "name": name,
             "label": metadata.get("label", ga_dim["uiName"]),
-            "description": metadata.get("description", ga_dim["description"])
+            "description": metadata.get("description", ga_dim["description"]),
+            "category": metadata.get("category", ga_dim["group"])
         }
 
         return create_dimension(dim)
