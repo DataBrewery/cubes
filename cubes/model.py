@@ -741,7 +741,7 @@ class Dimension(object):
 
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
-                 info=None, role=None, cardinality=None, **desc):
+                 info=None, role=None, cardinality=None, category=None, **desc):
 
         """Create a new dimension
 
@@ -764,6 +764,7 @@ class Dimension(object):
           better auto-generated front-ends. See :class:`Level` for more
           information, as this attribute is inherited by the levels, if not
           specified explicitly in the level.
+        * `category` – logical dimension group (user-oriented metadata)
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -780,6 +781,7 @@ class Dimension(object):
         self.info = info or {}
         self.role = role
         self.cardinality = cardinality
+        self.category = category
 
         if not levels:
             raise ModelError("No levels specified for dimension %s"
@@ -833,7 +835,8 @@ class Dimension(object):
                 or self.role != other.role \
                 or self.label != other.label \
                 or self.description != other.description \
-                or self.cardinality != other.cardinality:
+                or self.cardinality != other.cardinality \
+                or self.category != other.category:
             return False
 
         elif self._default_hierarchy() != other._default_hierarchy():
@@ -1006,7 +1009,8 @@ class Dimension(object):
                          description=self.description,
                          info=self.info,
                          role=self.role,
-                         cardinality=self.cardinality)
+                         cardinality=self.cardinality,
+                         group=self.group)
 
     def to_dict(self, hierarchy_limits=None, **options):
         """Return dictionary representation of the dimension"""
@@ -1017,6 +1021,7 @@ class Dimension(object):
         out["default_hierarchy_name"] = self.hierarchy().name
         out["role"] = self.role
         out["cardinality"] = self.cardinality
+        out["category"] = self.category
 
         if options.get("create_label"):
             out["label"] = self.label or to_label(self.name)
@@ -2302,6 +2307,7 @@ def create_dimension(metadata, dimensions=None, name=None):
         info = template.info
         cardinality = template.cardinality
         role = template.role
+        category = template.category
     else:
         levels = []
         hierarchies = []
@@ -2310,6 +2316,7 @@ def create_dimension(metadata, dimensions=None, name=None):
         description = None
         cardinality = None
         role = None
+        category = None
         info = {}
 
     # Fix the metadata, but don't create default level if the template
@@ -2327,6 +2334,7 @@ def create_dimension(metadata, dimensions=None, name=None):
     description = metadata.get("description") or description
     info = metadata.get("info") or info
     role = metadata.get("role") or role
+    category = metadata.get("category") or category
 
     # Backward compatibility with an experimental feature
     cardinality = metadata.get("cardinality", cardinality)
@@ -2361,7 +2369,8 @@ def create_dimension(metadata, dimensions=None, name=None):
                      description=description,
                      info=info,
                      cardinality=cardinality,
-                     role=role
+                     role=role,
+                     category=category
                      )
 
 
