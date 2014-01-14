@@ -49,10 +49,17 @@ class MixpanelBrowser(AggregationBrowser):
         other factors."""
 
         features = {
-            "actions": ["aggregate", "facts"],
             "aggregate_functions": [],
             "post_aggregate_functions": available_calculators()
         }
+
+        default_actions = ["aggregate", "facts"]
+        cube_actions = self.cube.browser_options.get("actions")
+        if cube_actions:
+            cube_actions = set(default_actions) & set(cube_actions)
+            features["actions"] = list(cube_actions)
+        else:
+            features["actions"] = default_actions
 
         return features
 
