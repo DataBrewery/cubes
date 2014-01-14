@@ -17,6 +17,7 @@ from ...model import Cube, create_dimension, aggregate_list
 from .mapper import ga_id_to_identifier
 import pkgutil
 import json
+from collections import defaultdict
 
 from apiclient.errors import HttpError
 from apiclient.discovery import build
@@ -66,6 +67,12 @@ _MEASUREMENT_TYPES = {
     'PERCENT': 'percent'
     }
 
+def is_dimension(item):
+    return item["type"] == "DIMENSION"
+
+def is_metric(item):
+    return item["type"] == "METRIC"
+
 class GoogleAnalyticsModelProvider(ModelProvider):
     __identifier__ = "ga"
     def __init__(self, *args, **kwargs):
@@ -78,6 +85,8 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         self.ga_measures = {};
         self.ga_dimensions = {};
         self.ga_cubes = []
+        self.cube_to_group = {}
+        self.group_to_cube = {}
 
     def requires_store(self):
         return True
@@ -103,6 +112,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         self.ga_metrics = OrderedDict()
         self.ga_dimensions = OrderedDict()
         self.ga_concepts = OrderedDict()
+        self.ga_group_metrics = OrderedDict()
 
         for item in columns["items"]:
             # Get the id from the "outer" dictionary and keep juts the "inner"
@@ -117,16 +127,63 @@ class GoogleAnalyticsModelProvider(ModelProvider):
                 self.logger.debug("Discarding deprecated item %s" % item_id)
                 continue
 
+            if item_id.find("XX") != -1:
+                self.logger.debug("Discarding template item %s (not implemented)" % item_id)
+                continue
+
             self.ga_concepts[item_id] = item
 
-            if item["type"] == "METRIC":
+            group = item["group"]
+            if group not in self.ga_group_metrics:
+                self.ga_group_metrics[group] = []
+
+            if is_metric(item):
+                self.ga_group_metrics[group].append(item)
                 self.ga_metrics[item_id] = item
-            elif item["type"] == "DIMENSION":
+            elif is_dimension(item):
                 self.ga_dimensions[item_id] = item
             else:
                 self.logger.debug("Unknown metadata item type: %s (id: %s)"
                                   % (item["type"], item["id"]))
 
+        self.ga_group_dims = OrderedDict()
+
+        # TODO: enable this for dimension filtering
+        # self._get_ga_cubes()
+
+        self.cube_to_group = {}
+        self.group_to_cube = {}
+        self.ga_cubes = []
+
+        for group, items in self.ga_group_metrics.items():
+            dims = OrderedDict(self.ga_dimensions)
+
+            name = re.sub("[^\w0-9_]", "_", group.lower())
+            self.cube_to_group[name] = group
+            self.group_to_cube[group] = name
+            self.ga_cubes.append(name)
+
+            # TODO: filter the dimensions here using _ga_cubes
+
+
+            # self.ga_group_dims[group] = dims
+            # metrics = set(metric["id"] for metric in items)
+
+            # print "=== GROUP: %s" % group
+
+            # for cube, cube_items in self.cube_concepts.items():
+            #     diff = metrics - cube_items
+            #     if not diff:
+            #         continue
+
+            #     if len(diff) != len(metrics):
+            #         dstr = ", ".join(list(diff))
+            #         print "---    incompatible metrics: %s" % (dstr, )
+
+            self.ga_group_dims[group] = dims.values()
+
+    def _get_ga_cubes(self):
+        """Download ga cubes"""
         # Fetch cubes
         http = httplib2.Http()
         (response, content) = http.request(_GA_CUBES_JS)
@@ -143,6 +200,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         groups = result.groups()
         struct = result.group("struct")
 
+        cube_concepts = defaultdict(set)
         self.ga_cubes = []
         # Convert the quotes and parse as JSON string
         cubes = json.loads(struct.replace("'", "\""))
@@ -157,15 +215,13 @@ class GoogleAnalyticsModelProvider(ModelProvider):
                 except KeyError:
                     continue
 
-                self.logger.debug("    concept '%s'" % concept_name)
                 if "cubes" not in concept:
                     concept["cubes"] = set()
                 concept["cubes"].add(name)
 
-        for concept in self.ga_concepts.values():
-            if not "cubes" in concept:
-                self.logger.debug("GA: Orphaned concept '%s'" % concept["id"])
-                concept["cubes"] = set()
+                cube_concepts[name].add(concept["id"])
+
+        self.cube_concepts = cube_concepts
 
     def cube(self, name, locale=None):
         """Create a GA cube:
@@ -182,15 +238,11 @@ class GoogleAnalyticsModelProvider(ModelProvider):
         except NoSuchCubeError:
             metadata = {}
 
-        cube = {
-            "name": name,
-            "label": metadata.get("label", name),
-            "category": metadata.get("category")
-        }
+        group = self.cube_to_group[name]
 
         # Gather aggregates
 
-        metrics = [m for m in self.ga_metrics.values() if name in m["cubes"]]
+        metrics = self.ga_group_metrics[group]
 
         aggregates = []
         for metric in metrics:
@@ -206,12 +258,12 @@ class GoogleAnalyticsModelProvider(ModelProvider):
 
         aggregates = aggregate_list(aggregates)
 
-        dims = [d for d in self.ga_dimensions.values() if name in d["cubes"]]
+        dims = self.ga_group_dims[group]
         dims = [ga_id_to_identifier(d["id"]) for d in dims]
         dims = ["time"] + dims
 
         cube = Cube(name=name,
-                    label=metadata.get("label", name),
+                    label=metadata.get("label", group),
                     aggregates=aggregates,
                     category=metadata.get("category", self.store.category),
                     info=metadata.get("info"),
@@ -258,9 +310,10 @@ class GoogleAnalyticsModelProvider(ModelProvider):
             except NoSuchCubeError:
                 metadata = {}
 
+            label = self.cube_to_group[cube_name]
             cube = {
                 "name": cube_name,
-                "label": metadata.get("label", cube_name),
+                "label": metadata.get("label", label),
                 "category": metadata.get("category", self.store.category)
             }
             cubes.append(cube)
