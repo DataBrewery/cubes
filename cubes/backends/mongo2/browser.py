@@ -64,12 +64,21 @@ class Mongo2Browser(AggregationBrowser):
         """Return SQL features."""
 
         features = {
-            # TODO: missing "cell"
-            "actions": ["aggregate", "members", "fact", "facts"],
             "facts": ["fields", "missing_values"],
             "aggregate_functions": available_aggregate_functions(),
             "post_aggregate_functions": available_calculators()
         }
+
+        cube_actions = self.cube.browser_options.get("actions")
+
+        default_actions = ["aggregate", "members", "fact", "facts"]
+        cube_actions = self.cube.browser_options.get("actions")
+
+        if cube_actions:
+            cube_actions = set(default_actions) & set(cube_actions)
+            features["actions"] = list(cube_actions)
+        else:
+            features["actions"] = default_actions
 
         return features
 
