@@ -611,6 +611,10 @@ class Workspace(object):
 
         cube = ns.cube(ns_cube)
 
+        # Set cube name to the full cube reference that includes namespace as
+        # well
+        cube.name = name
+
         if not cube:
             raise NoSuchCubeError(name, "No cube '%s' returned from "
                                      "provider." % name)

@@ -51,6 +51,15 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         # self.assertEqual(6, len(cube.dimensions))
         self.assertEqual(1, len(cube.measures))
 
+    def test_get_namespace_cube(self):
+        ws = Workspace()
+        ws.import_model(self.model_path("model.json"), namespace="local")
+        with self.assertRaises(NoSuchCubeError):
+            cube = ws.cube("contracts")
+
+        cube = ws.cube("local.contracts")
+        self.assertEqual("local.contracts", cube.name)
+
     def test_get_dimension(self):
         ws = self.default_workspace()
         dim = ws.dimension("date")
