@@ -5,12 +5,13 @@ from sqlalchemy import create_engine, Table, MetaData, Column
 from sqlalchemy import Integer, Sequence, DateTime, String, Float
 from sqlalchemy.exc import NoSuchTableError
 from ...browser import string_to_drilldown, Drilldown
+from .store import create_sqlalchemy_engine
 
 class SQLRequestLogHandler(RequestLogHandler):
     def __init__(self, url=None, table=None, dimensions_table=None, **options):
 
         self.url = url
-        self.engine = create_engine(url)
+        self.engine = create_sqlalchemy_engine(url, options)
 
         metadata = MetaData(bind=self.engine)
 

@@ -17,7 +17,12 @@ except ImportError:
     from cubes.common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
-__all__ = []
+
+__all__ = [
+    "create_sqlalchemy_engine",
+    "SQLStore"
+]
+
 
 # Data types of options passed to sqlalchemy.create_engine
 # This is used to coalesce configuration string values into appropriate types
@@ -75,6 +80,20 @@ def ddl_for_model(url, model, fact_prefix=None,
     """
     raise NotImplementedError
 
+def create_sqlalchemy_engine(url, options, prefix="sqlalchemy_"):
+    """Create a SQLAlchemy engine from `options`. Options have prefix
+    ``sqlalchemy_``"""
+    sa_keys = [key for key in options.keys() if key.startswith(prefix)]
+    sa_options = {}
+    for key in sa_keys:
+        sa_key = key[11:]
+        sa_options[sa_key] = options.pop(key)
+
+    sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
+    engine = sqlalchemy.create_engine(url, **sa_options)
+
+    return engine
+
 class SQLStore(Store):
 
     def model_provider_name(self):
@@ -130,14 +149,7 @@ class SQLStore(Store):
 
         if not engine:
             # Process SQLAlchemy options
-            sa_keys = [key for key in options.keys() if key.startswith("sqlalchemy_")]
-            sa_options = {}
-            for key in sa_keys:
-                sa_key = key[11:]
-                sa_options[sa_key] = options.pop(key)
-
-            sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
-            engine = sqlalchemy.create_engine(url, **sa_options)
+            engine = create_sqlalchemy_engine(url, options)
 
         # TODO: get logger from workspace that opens this store
         self.logger = get_logger()
