@@ -80,6 +80,8 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         self.assertEqual("another_date", dim.name)
         self.assertEqual(3, len(dim.levels))
 
+    @unittest.skip("We are lazy now, we don't want to ping the provider for "
+                   "nothing")
     def test_duplicate_dimension(self):
         ws = Workspace()
         ws.add_model(self.model_path("templated_dimension.json"))
@@ -92,8 +94,8 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         # Test whether we can use local dimension with the same name as the
         # public one
         ws = Workspace()
-        ws.add_model(self.model_path("model_public_dimensions.json"))
-        ws.add_model(self.model_path("model_private_dimensions.json"))
+        ws.import_model(self.model_path("model_public_dimensions.json"))
+        ws.import_model(self.model_path("model_private_dimensions.json"))
 
         dim = ws.dimension("date")
         self.assertEqual(3, len(dim.levels))

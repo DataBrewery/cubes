@@ -81,21 +81,19 @@ class Namespace(object):
         if not path:
             return (self, [])
 
-        split = path.split(".")
+        if isinstance(path, basestring):
+            path = path.split(".")
 
         namespace = self
-        found = True
-        for i, element in enumerate(split):
-            remainder = split[i+1:]
+        found = False
+        for i, element in enumerate(path):
+            remainder = path[i+1:]
             if element in namespace.namespaces:
                 namespace = namespace.namespaces[element]
+                found = True
             else:
-                found = False
+                remainder = path[i:]
                 break
-
-        # Nothing found
-        if not found:
-            remainder = split
 
         if not create:
             return (namespace, remainder)
@@ -110,6 +108,82 @@ class Namespace(object):
         namespace = Namespace()
         self.namespaces[name] = namespace
         return namespace
+
+    def namespace_for_cube(self, cube):
+        """Returns a tuple (`namespace`, `relative_cube`) where `namespace` is
+        a namespace conaining `cube` and `relative_cube` is a name of the
+        `cube` within the `namespace`. For example: if cube is
+        ``slicer.nested.cube`` and there is namespace ``slicer`` then that
+        namespace is returned and the `relative_cube` will be ``nested.cube``"""
+
+        cube = str(cube)
+        split = cube.split(".")
+        if len(split) > 1:
+            path = split[0:-1]
+            cube = split[-1]
+        else:
+            path = []
+            cube = cube
+
+        (namespace, remainder) = self.namespace(path)
+
+        if remainder:
+            relative_cube = "%s.%s" % (".".join(remainder), cube)
+        else:
+            relative_cube = cube
+
+        return (namespace, relative_cube)
+
+    def list_cubes(self, recursive=False):
+        """Retursn a list of cube info dictionaries with keys: `name`,
+        `label`, `description`, `category` and `info`."""
+
+        all_cubes = []
+        for provider in self.providers:
+            # TODO: check for cube uniqueness
+            all_cubes += provider.list_cubes()
+
+        if recursive:
+            for name, ns in self.namespaces.items():
+                cubes = ns.list_cubes(recursive=True)
+                for cube in cubes:
+                    cube.name = "%s.%s" % (name, cube["name"])
+                all_cubes += cubes
+
+        return all_cubes
+
+    def cube(self, name, locale=None):
+        """Return cube named `name`"""
+        cube = None
+
+        for provider in self.providers:
+            # TODO: use locale
+            try:
+                cube = provider.cube(name)
+            except NoSuchCubeError:
+                pass
+            else:
+                return cube
+
+        raise NoSuchCubeError("Unknown cube '%s'" % str(name), name)
+
+    def dimension(self, name, locale=None, templates=None):
+        dim = None
+
+        for provider in self.providers:
+            # TODO: use locale
+            try:
+                dim = provider.dimension(name, templates)
+            except NoSuchDimensionError:
+                pass
+            else:
+                return dim
+
+        raise NoSuchDimensionError("Unknown dimension '%s'" % str(name), name)
+
+    def add_provider(self, provider):
+        self.providers.append(provider)
+
 
 class ModelObjectInfo(object):
     def __init__(self, name, scope, metadata, provider, model_metadata,
@@ -414,6 +488,10 @@ class Workspace(object):
         if isinstance(provider, basestring):
             provider = create_model_provider(provider, metadata)
 
+        if not provider:
+            provider_name = metadata.get("provider", "default")
+            provider = create_model_provider(provider_name, metadata)
+
         if provider.requires_store():
             if not isinstance(store, basestring):
                 raise ArgumentError("Store should be a name, not an object")
@@ -455,47 +533,8 @@ class Workspace(object):
 
         """
 
-        self.logger.warn("add_model is depreciated, use import_model")
-
-        # Model -> Store -> Provider
-
-        if isinstance(model, basestring):
-            metadata = read_model_metadata(model)
-        elif isinstance(model, dict):
-            metadata = model
-        else:
-            raise ConfigurationError("Unknown model source reference '%s'" % model)
-
-        model_name = name or metadata.get("name")
-
-        # Get a provider as specified in the model by "provider" or get the
-        # "default provider"
-        provider_name = metadata.get("provider", "default")
-        provider = create_model_provider(provider_name, metadata)
-
-        if provider.requires_store():
-            store_name = store or self._store_for_model(metadata)
-            store = self.get_store(store_name)
-            provider.set_store(store, store_name)
-
-        model_object = Model(metadata=metadata,
-                             provider=provider,
-                             translations=translations)
-        model_object.name = metadata.get("name")
-
-        self._models.append(model_object)
-
-        # Get list of static or known cubes
-        # "cubes" might be a list or a dictionary, depending on the provider
-        for cube in provider.list_cubes():
-            name = _get_name(cube, "Cube")
-            # self.logger.debug("registering public cube '%s'" % name)
-            self._register_public_cube(name, model_object)
-
-        # Register public dimensions
-        for dim in provider.public_dimensions():
-            if dim:
-                self._register_public_dimension(dim, model_object)
+        # self.logger.warn("add_model() is depreciated, use import_model()")
+        return self.import_model(model, store=store, translations=translations)
 
     def _register_public_dimension(self, name, model):
         if name in self.dimension_models:
@@ -540,9 +579,8 @@ class Workspace(object):
         If the workspace has an authorizer, then it is used to authorize the
         cubes for `identity` and only authorized list of cubes is returned.
         """
-        all_cubes = []
-        for model in self._models:
-            all_cubes += model.provider.list_cubes()
+
+        all_cubes = self.namespace.list_cubes(recursive=True)
 
         if self.authorizer:
             by_name = dict((cube["name"], cube) for cube in all_cubes)
@@ -553,7 +591,7 @@ class Workspace(object):
 
         return all_cubes
 
-    def cube(self, name, identity=None):
+    def cube(self, name, identity=None, locale=None):
         """Returns a cube with `name`"""
 
         if not isinstance(name, basestring):
@@ -565,27 +603,21 @@ class Workspace(object):
             if not authorized:
                 raise NotAuthorized
 
+        cube_key = (name, identity, locale)
         if name in self._cubes:
-            return self._cubes[name]
+            return self._cubes[cube_key]
 
-        # Requirements:
-        #    all dimensions in the cube should exist in the model
-        #    if not they will be created
-        try:
-            model = self.cube_models[name]
-        except KeyError:
-            model = self._model_for_cube(name)
+        (ns, ns_cube) = self.namespace.namespace_for_cube(name)
 
-        provider = model.provider
-        cube = provider.cube(name)
+        cube = ns.cube(ns_cube)
 
         if not cube:
             raise NoSuchCubeError(name, "No cube '%s' returned from "
                                      "provider." % name)
 
-        self.link_cube(cube, model, provider)
+        self.link_cube(cube, ns)
 
-        self._cubes[name] = cube
+        self._cubes[cube_key] = cube
 
         return cube
 
@@ -608,7 +640,7 @@ class Workspace(object):
 
         return model
 
-    def link_cube(self, cube, model, provider):
+    def link_cube(self, cube, namespace):
         """Links dimensions to the cube in the context of `model` with help of
         `provider`."""
 
@@ -616,7 +648,7 @@ class Workspace(object):
 
         for dim_name in cube.linked_dimensions:
             try:
-                dim = self.dimension(dim_name, model.provider)
+                dim = self.dimension(dim_name, namespace)
             except TemplateRequired as e:
                 # FIXME: handle this special case
                 raise ModelError("Template required in private dimension "
@@ -624,7 +656,7 @@ class Workspace(object):
 
             cube.add_dimension(dim)
 
-    def dimension(self, name, provider=None):
+    def dimension(self, name, namespace=None):
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
         no model published the dimension. Raises `RequiresTemplate` error when
         model provider requires a template to be able to provide the
@@ -633,11 +665,13 @@ class Workspace(object):
 
         # Return a public dimension if no provider for private dimensions is
         # specified.
-        if not provider and name in self._dimensions:
+        if not namespace and name in self._dimensions:
             return self._dimensions[name]
 
         # Create a copy of public dimension list
         dimensions = dict(self._dimensions)
+
+        namespace = namespace or self.namespace
 
         # Assumption: all dimensions that are to be used as templates should
         # be public dimensions. If it is a private dimension, then the
@@ -654,14 +688,14 @@ class Workspace(object):
 
             # Required template name
             required_template = None
-            if provider:
-                try:
-                    dimension = provider.dimension(name, dimensions)
-                except NoSuchDimensionError:
-                    dimension = None
-                except TemplateRequired as e:
-                    dimension = None
-                    required_template = e.template
+
+            try:
+                dimension = namespace.dimension(name, templates=dimensions)
+            except NoSuchDimensionError:
+                dimension = None
+            except TemplateRequired as e:
+                dimension = None
+                required_template = e.template
 
             if not dimension and name in self._dimensions:
                 # Get cached dimension
@@ -669,18 +703,17 @@ class Workspace(object):
 
             # Now we try to look-up public dimension
             if not dimension and not required_template:
-                if name not in self.dimension_models:
+                if namespace == self.namespace:
                     raise NoSuchDimensionError("No public dimension '%s'" % name)
 
-                public_provider = self.dimension_models[name].provider
+                # Get dimension from "default" (global) namespace
                 try:
-                    dimension = public_provider.dimension(name, dimensions)
+                    dimension = self.namespace.dimension(name,
+                                                         templates=dimensions)
                 except TemplateRequired as e:
                     required_template = e.template
                 except NoSuchDimensionError:
-                    raise InternalError("Provider %s promised public dimension "
-                            "'%s' but did not provide it."
-                            % (public_provider, name))
+                    raise InternalError("No global dimension '%s'" % name)
                 else:
                     # Register the public dimension
                     self._dimensions[name] = dimension

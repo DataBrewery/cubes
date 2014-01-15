@@ -446,9 +446,9 @@ class ModelProvider(object):
         raise NotImplementedError("Subclasses should implement list_cubes()")
         return []
 
-    def cube(self, name):
+    def cube(self, name, locale=None):
         """Returns a cube with `name` provided by the receiver. If receiver
-        does not have the cube `ModelError` exception is raised.
+        does not have the cube `NoSuchCube` exception is raised.
 
         Returned cube has no dimensions assigned. You should assign the
         dimensions according to the cubes `linked_dimensions` list of
