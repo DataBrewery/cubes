@@ -43,3 +43,37 @@ class NamespaceTestCase(CubesTestCaseBase):
         self.assertIn("three", ns.namespaces)
         (ns, remainder) = ns.namespace("three")
         self.assertEqual([], remainder)
+
+        (last, remainder) = base.namespace("one.two.three.four.five")
+        self.assertEqual(["four", "five"], remainder)
+
+    def test_namespace_for_cube(self):
+        base = Namespace()
+
+        (ns, relative) = base.namespace_for_cube("cube")
+        self.assertEqual(ns, base)
+        self.assertEqual(relative, "cube")
+
+        (ns, relative) = base.namespace_for_cube("extern.cube")
+        self.assertEqual(ns, base)
+        self.assertEqual(relative, "extern.cube")
+
+        (ns, relative) = base.namespace_for_cube("even.deeper.extern.cube")
+        self.assertEqual(ns, base)
+        self.assertEqual(relative, "even.deeper.extern.cube")
+
+        extern = base.create_namespace("extern")
+        (ns, relative) = base.namespace_for_cube("extern.cube")
+        self.assertEqual(ns, extern)
+        self.assertEqual(relative, "cube")
+
+        (ns, relative) = base.namespace_for_cube("extern.deeper.cube")
+        # import pdb; pdb.set_trace()
+        self.assertEqual(ns, extern)
+        self.assertEqual(relative, "deeper.cube")
+
+        (deep, remainder) = base.namespace("even.deeper.extern", create=True)
+        (ns, relative) = base.namespace_for_cube("even.deeper.extern.cube")
+        self.assertEqual(ns, deep)
+        self.assertEqual(relative, "cube")
+
