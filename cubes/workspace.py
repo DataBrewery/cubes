@@ -244,6 +244,15 @@ class Workspace(object):
         if config.has_option("workspace", "log_level"):
             self.logger.setLevel(config.get("workspace", "log_level").upper())
 
+        # Set the default models path
+
+        if config.has_option("workspace", "models_path"):
+            self.models_path = config.get("workspace", "models_path")
+            self.logger.debug("Models root: %s" % self.models_path)
+        else:
+            self.logger.debug("Models root set to current directory")
+            self.models_path = None
+
         # Namespaces and Model Objects
         # ============================
 
@@ -378,14 +387,6 @@ class Workspace(object):
         # Configure and load models
         # =========================
 
-        # Set the default models path
-
-        if config.has_option("workspace", "models_path"):
-            self.models_path = config.get("workspace", "models_path")
-            self.logger.debug("Models root: %s" % self.models_path)
-        else:
-            self.logger.debug("Models root set to current directory")
-            self.models_path = None
 
         # TODO: remove this depreciation code
         if config.has_section("model"):
@@ -447,6 +448,8 @@ class Workspace(object):
     def register_store(self, name, type_, include_model=True, **config):
         """Adds a store configuration."""
 
+        config = dict(config)
+
         if name in self.store_infos:
             raise ConfigurationError("Store %s already registered" % name)
 
@@ -468,7 +471,7 @@ class Workspace(object):
 
         # If store brings a model, then include it...
         if include_model and "model" in config:
-            model = config["model"]
+            model = config.pop("model")
         else:
             model = None
 
@@ -478,7 +481,7 @@ class Workspace(object):
                                      "is_model_provider specified for store "
                                      "'%s'. Use only one." % name)
         if "model_provider" in config:
-            provider = config["model_provider"]
+            provider = config.pop("model_provider")
         else:
             provider = None
 
