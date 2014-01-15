@@ -512,6 +512,26 @@ class Workspace(object):
     def import_model(self, metadata=None, provider=None, store=None,
                      translations=None, namespace=None):
 
+        """Registers the model `metadata` in the workspace. `metadata` can be
+        a metadata dictionary, filename, path to a model bundle directory or a
+        URL.
+
+        If `namespace` is specified, then the model's objects are stored in a
+        the namespace of that name.
+
+        `store` is an optional name of data store associated with the model.
+        If not specified, then the one from the metadata dictionary will be
+        used.
+
+        Model's provider is registered together with loaded metadata. By
+        default the objects are registered in default global namespace.
+
+        Note: No actual cubes or dimensions are created at the time of calling
+        this method. The creation is deffered until
+        :meth:`cubes.Workspace.cube` or :meth:`cubes.Workspace.dimension` is
+        called.
+        """
+
         if isinstance(metadata, basestring):
             path = metadata
             if self.models_path and not os.path.isabs(path):
@@ -532,6 +552,8 @@ class Workspace(object):
         if not provider:
             provider_name = metadata.get("provider", "default")
             provider = create_model_provider(provider_name, metadata)
+
+        store = store or metadata.get("store", metadata.get("datastore"))
 
         if provider.requires_store():
             if store and not isinstance(store, basestring):
