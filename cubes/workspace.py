@@ -230,10 +230,10 @@ class Workspace(object):
         self.store_infos = {}
         self.stores = {}
 
-        self.logger = get_logger()
+        # Logging
+        # =======
 
-        self.namespace = Namespace()
-        self.default_namespace_name = None
+        self.logger = get_logger()
 
         if config.has_option("workspace", "log"):
             formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
@@ -244,10 +244,15 @@ class Workspace(object):
         if config.has_option("workspace", "log_level"):
             self.logger.setLevel(config.get("workspace", "log_level").upper())
 
-        self.locales = []
-        self.translations = []
+        # Namespaces and Model Objects
+        # ============================
 
-        self.info = OrderedDict()
+        self.namespace = Namespace()
+
+        # Cache of created global objects
+        self._cubes = {}
+        self._dimensions = {}
+        # Note: providers are responsible for their own caching
 
         if config.has_option("workspace", "default_namespace"):
             name = config.get("workspace", "default_namespace")
@@ -255,12 +260,20 @@ class Workspace(object):
                 self.default_namespace_name = None
             else:
                 self.default_namespace_name = name
+        else:
+            self.default_namespace_name = None
+
+        # Info
+        # ====
+
+        self.info = OrderedDict()
 
         if config.has_option("workspace", "info"):
             path = config.get("workspace", "info_file")
             info = read_json_file(path, "Slicer info")
             for key in SLICER_INFO_KEYS:
                 self.info[key] = info.get(key)
+
         elif config.has_section("info"):
             info = dict(config.items("info"))
             if "visualizer" in info:
@@ -269,19 +282,6 @@ class Workspace(object):
                                          "url": info["visualizer"]} ]
             for key in SLICER_INFO_KEYS:
                 self.info[key] = info.get(key)
-
-        #
-        # Model objects
-        self._models = []
-
-        # Object ownership – model providers will be asked for the objects
-        self.cube_models = {}
-        self.dimension_models = {}
-
-        # Cache of created global objects
-        self._cubes = {}
-        self._dimensions = {}
-        # Note: providers are responsible for their own caching
 
         # Register stores from external stores.ini file or a dictionary
         if isinstance(stores, basestring):
@@ -322,7 +322,8 @@ class Workspace(object):
         self.calendar = Calendar(timezone=timezone,
                                  first_weekday=first_weekday)
 
-        # Register stores
+        # Register Stores
+        # ===============
         #
         # * Default store is [datastore] in main config file
         # * Stores are also loaded from main config file from sections with
@@ -365,6 +366,8 @@ class Workspace(object):
             self.options = {}
 
         # Authorizer
+        # ==========
+
         if config.has_option("workspace", "authorization"):
             auth_type = config.get("workspace", "authorization")
             options = dict(config.items("authorization"))
@@ -372,8 +375,19 @@ class Workspace(object):
         else:
             self.authorizer = None
 
-        # Load models
+        # Configure and load models
+        # =========================
 
+        # Set the default models path
+
+        if config.has_option("workspace", "models_path"):
+            self.models_path = config.get("workspace", "models_path")
+            self.logger.debug("Models root: %s" % self.models_path)
+        else:
+            self.logger.debug("Models root set to current directory")
+            self.models_path = None
+
+        # TODO: remove this depreciation code
         if config.has_section("model"):
             self.logger.warn("Section [model] is depreciated. Use 'model' in "
                              "[workspace] for single default model or use "
@@ -381,12 +395,7 @@ class Workspace(object):
             if config.has_option("model", "path"):
                 source = config.get("model", "path")
                 self.logger.debug("Loading model from %s" % source)
-                self.add_model(source)
-
-        if config.has_option("workspace", "models_path"):
-            models_path = config.get("workspace", "models_path")
-        else:
-            models_path = None
+                self.import_model(source)
 
         models = []
         if config.has_option("workspace", "model"):
@@ -394,21 +403,9 @@ class Workspace(object):
         if config.has_section("models"):
             models += [path for name, path in config.items("models")]
 
-        self._load_models(models_path, models)
-
-    def _load_models(self, root, paths):
-        """Load `models` with root path `models_path`."""
-
-        if root:
-            self.logger.debug("Models root: %s" % root)
-        else:
-            self.logger.debug("Models root set to current directory")
-
-        for path in paths:
-            self.logger.debug("Loading model %s" % path)
-            if root and not os.path.isabs(path):
-                path = os.path.join(root, path)
-            self.import_model(path)
+        for model in models:
+            self.logger.debug("Loading model %s" % model)
+            self.import_model(model)
 
     def _register_store_dict(self, name, info):
         info = dict(info)
@@ -431,8 +428,16 @@ class Workspace(object):
         self.register_store("default", type_, **config)
 
     def default_namespace(self):
-        # TODO: this fails when default name is "store"
-        if not self.default_namespace_name:
+        """Return default namespace. If no namespace is set, return the global
+        namespace
+
+        If special value ``store`` is set, then return the global namespace as
+        well, as it is the default namespace. The ``store`` value means only
+        that objects store models will belong to namespaces with same name as
+        the store """
+
+        if not self.default_namespace_name \
+                or self.default_namespace_name == "store":
             ns = self.namespace
         else:
             (ns, _) = self.namespace.namespace(self.default_namespace_name,
@@ -447,17 +452,39 @@ class Workspace(object):
 
         self.store_infos[name] = (type_, config)
 
+        # Model and provider
+        # ------------------
+
+        # Get the namespace name: either default or store name, depending on
+        # the configuration
+
+        if self.default_namespace_name == "store":
+            nsname = name
+        else:
+            nsname = config.get("namespace", self.default_namespace_name)
+
+        if nsname == "default":
+            nsname = None
+
+        # If store brings a model, then include it...
         if include_model and "model" in config:
             model = config["model"]
-            if self.default_namespace_name == "store":
-                nsname = name
-            else:
-                nsname = config.get("namespace", self.default_namespace_name)
+        else:
+            model = None
 
-            if nsname == "default":
-                nsname = None
+        # If store suggests a model provider, then register it ...
+        if "model_provider" in config:
+            provider = config["model_provider"]
+        else:
+            provider = None
 
-            self.import_model(model, store=name, namespace=nsname)
+        if model:
+            self.import_model(model, store=name, namespace=nsname,
+                              provider=provider)
+        elif provider:
+            # Import empty model and register the provider
+            self.import_model({}, store=name, namespace=nsname,
+                              provider=provider)
 
     def _store_for_model(self, metadata):
         """Returns a store for model specified in `metadata`. """
@@ -476,7 +503,11 @@ class Workspace(object):
                      translations=None, namespace=None):
 
         if isinstance(metadata, basestring):
-            metadata = read_model_metadata(metadata)
+            path = metadata
+            if self.models_path and not os.path.isabs(path):
+                path = os.path.join(self.models_path, path)
+            metadata = read_model_metadata(path)
+
         elif not isinstance(metadata, dict):
             raise ConfigurationError("Unknown model '%s' "
                                      "(should be a filename or a dictionary)"
@@ -535,28 +566,6 @@ class Workspace(object):
 
         # self.logger.warn("add_model() is depreciated, use import_model()")
         return self.import_model(model, store=store, translations=translations)
-
-    def _register_public_dimension(self, name, model):
-        if name in self.dimension_models:
-            model_name = model.name or "(unknown)"
-            previous_name = self.dimension_models[name].name or "(unknown)"
-
-            raise ModelError("Duplicate public dimension '%s' in model %s, "
-                             "previous model: %s" %
-                                        (name, model_name, previous_name))
-
-        self.dimension_models[name] = model
-
-    def _register_public_cube(self, name, model):
-        if name in self.cube_models:
-            model_name = model.name or "(unknown)"
-            previous_name = self.cube_models[name].name or "(unknown)"
-
-            raise ModelError("Duplicate public cube '%s' in model %s, "
-                             "previous model: %s" %
-                                        (name, model_name, previous_name))
-
-        self.cube_models[name] = model
 
     def add_slicer(self, name, url, **options):
         """Register a slicer as a model and data provider."""
@@ -624,25 +633,6 @@ class Workspace(object):
         self._cubes[cube_key] = cube
 
         return cube
-
-    def _model_for_cube(self, name):
-        """Discovers the first model that can provide cube with `name`"""
-
-        # Note: this will go through all model providers and gets a list of
-        # provider's cubes. Might be a bit slow, if the providers get the
-        # models remotely.
-
-        model = None
-        for model in self._models:
-            cubes = model.provider.list_cubes()
-            names = [cube["name"] for cube in cubes]
-            if name in names:
-                break
-
-        if not model:
-            raise ModelError("No model for cube '%s'" % name)
-
-        return model
 
     def link_cube(self, cube, namespace):
         """Links dimensions to the cube in the context of `model` with help of
