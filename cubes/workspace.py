@@ -63,6 +63,75 @@ def _get_name(obj, object_type="Object"):
 
     return name
 
+class Namespace(object):
+    def __init__(self):
+        self.namespaces = {}
+        self.providers = []
+        self.objects = {}
+
+    def namespace(self, path, create=False):
+        """Returns a tuple (`namespace`, `remainder`) where `namespace` is
+        the deepest namespace in the namespace hierarchy and `remainder` is
+        the remaining part of the path that has no namespace (is an object
+        name or contains part of external namespace).
+
+        If path is empty or not provided then returns self.
+        """
+
+        if not path:
+            return (self, [])
+
+        split = path.split(".")
+
+        namespace = self
+        found = True
+        for i, element in enumerate(split):
+            remainder = split[i+1:]
+            if element in namespace.namespaces:
+                namespace = namespace.namespaces[element]
+            else:
+                found = False
+                break
+
+        # Nothing found
+        if not found:
+            remainder = split
+
+        if not create:
+            return (namespace, remainder)
+        else:
+            for element in remainder:
+                namespace = namespace.create_namespace(element)
+
+            return (namespace, [])
+
+    def create_namespace(self, name):
+        """Create a namespace `name` in the receiver."""
+        namespace = Namespace()
+        self.namespaces[name] = namespace
+        return namespace
+
+class ModelObjectInfo(object):
+    def __init__(self, name, scope, metadata, provider, model_metadata,
+                  locale, translations):
+        self.name = name
+        self.scope = scope
+        self.metadata = metadata
+        self.provider = provider
+        self.model_metadata = model_metadata
+        self.locale = locale
+        self.translations = translations
+        self.master = None
+        self.instances = {}
+
+    def add_instance(self, instance, locale=None, identity=None):
+        key = (locale, identity)
+        self.instances[key] = instance
+
+    def instance(self, locale=None, identity=None):
+        key = (locale, identity)
+        return self.instances[key]
+
 
 class Workspace(object):
     def __init__(self, config=None, stores=None):
@@ -89,6 +158,9 @@ class Workspace(object):
 
         self.logger = get_logger()
 
+        self.namespace = Namespace()
+        self.default_namespace_name = None
+
         if config.has_option("workspace", "log"):
             formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
             handler = logging.FileHandler(config.get("workspace", "log"))
@@ -102,6 +174,13 @@ class Workspace(object):
         self.translations = []
 
         self.info = OrderedDict()
+
+        if config.has_option("workspace", "default_namespace"):
+            name = config.get("workspace", "default_namespace")
+            if name == "default":
+                self.default_namespace_name = None
+            else:
+                self.default_namespace_name = name
 
         if config.has_option("workspace", "info"):
             path = config.get("workspace", "info_file")
@@ -277,13 +356,34 @@ class Workspace(object):
         information see `register_store()`"""
         self.register_store("default", type_, **config)
 
-    def register_store(self, name, type_, **config):
+    def default_namespace(self):
+        # TODO: this fails when default name is "store"
+        if not self.default_namespace_name:
+            ns = self.namespace
+        else:
+            (ns, _) = self.namespace.namespace(self.default_namespace_name,
+                                             create=True)
+        return ns
+
+    def register_store(self, name, type_, include_model=True, **config):
         """Adds a store configuration."""
 
         if name in self.store_infos:
             raise ConfigurationError("Store %s already registered" % name)
 
         self.store_infos[name] = (type_, config)
+
+        if include_model and "model" in config:
+            model = config["model"]
+            if self.default_namespace_name == "store":
+                nsname = config.get("namespace")
+            else:
+                nsname = self.default_namespace_name
+
+            if nsname == "default":
+                nsname = None
+
+            self.import_model(model, store=name, namespace=namespace)
 
     def _store_for_model(self, metadata):
         """Returns a store for model specified in `metadata`. """
@@ -295,6 +395,47 @@ class Workspace(object):
 
         return store_name
 
+    # TODO: This is new method, replaces add_model. "import" is more
+    # appropriate as it denotes that objects are imported and the model is
+    # "dissolved"
+    def import_model(self, metadata=None, provider=None, store=None,
+                     translations=None, namespace=None):
+
+        if isinstance(metadata, basestring):
+            metadata = read_model_metadata(metadata)
+        elif not isinstance(metadata, dict):
+            raise ConfigurationError("Unknown model '%s' "
+                                     "(should be a filename or a dictionary)"
+                                     % model)
+
+        # Create a model provider if name is given. Otherwise assume that the
+        # `provider` is a ModelProvider subclass instance
+        # TODO: add translations
+        if isinstance(provider, basestring):
+            provider = create_model_provider(provider, metadata)
+
+        if provider.requires_store():
+            if not isinstance(store, basestring):
+                raise ArgumentError("Store should be a name, not an object")
+
+            store_name = store
+            store = self.get_store(store_name)
+
+            provider.set_store(store, store_name)
+
+        # We are not getting list of cubes here, we are lazy
+
+        if namespace:
+            if isinstance(namespace, basestring):
+                (ns, _) = self.namespace.namespace(namespace, create=True)
+            else:
+                ns = namepsace
+        else:
+            ns = self.namespace
+
+        ns.add_provider(provider)
+
+    # TODO: depreciated
     def add_model(self, model, name=None, store=None, translations=None):
         """Registers the `model` in the workspace. `model` can be a metadata
         dictionary, filename, path to a model bundle directory or a URL.
@@ -313,6 +454,8 @@ class Workspace(object):
         :meth:`cubes.Workspace.dimension` is called.
 
         """
+
+        self.logger.warn("add_model is depreciated, use import_model")
 
         # Model -> Store -> Provider
 
