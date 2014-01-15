@@ -473,10 +473,17 @@ class Workspace(object):
             model = None
 
         # If store suggests a model provider, then register it ...
+        if "model_provider" in config and "is_model_provider" in config:
+            raise ConfigurationError("Both model_provider and "
+                                     "is_model_provider specified for store "
+                                     "'%s'. Use only one." % name)
         if "model_provider" in config:
             provider = config["model_provider"]
         else:
             provider = None
+
+        if "is_model_provider" in config:
+            provider = type_
 
         if model:
             self.import_model(model, store=name, namespace=nsname,

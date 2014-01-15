@@ -127,9 +127,13 @@ configuration file might be specified in a variable ``stores`` of the
 The store configuration has to have at least one property: ``type``. Rest of
 the properties are handled by the actual data store.
 
-Other store options:
+Other optional store options:
 
 * ``model`` – name of the model for the store
+* ``model_provider`` – type of the model provider for the store (the model
+  provider will be connected this store)
+* ``is_model_provider`` – if set then the model provider of the same type as
+  the store will be created and connected to the store
 * ``namespace`` – namespace that will be used for objects in the model for the
   store
 
