@@ -51,6 +51,11 @@ Workspace
 
 * ``authorization`` – authorization method to be used
 
+* ``default_namespace_name`` – default name of namespace for store models (see
+  ``[store] model`` for more information). If set to ``default`` then global
+  namepsace will be used, if set to ``store`` then store's name will be used
+  as namespace.
+
 Models
 ======
 
@@ -121,6 +126,12 @@ configuration file might be specified in a variable ``stores`` of the
 
 The store configuration has to have at least one property: ``type``. Rest of
 the properties are handled by the actual data store.
+
+Other store options:
+
+* ``model`` – name of the model for the store
+* ``namespace`` – namespace that will be used for objects in the model for the
+  store
 
 SQL store
 ---------
