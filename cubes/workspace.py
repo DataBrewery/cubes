@@ -147,7 +147,7 @@ class Namespace(object):
             for name, ns in self.namespaces.items():
                 cubes = ns.list_cubes(recursive=True)
                 for cube in cubes:
-                    cube.name = "%s.%s" % (name, cube["name"])
+                    cube["name"] = "%s.%s" % (name, cube["name"])
                 all_cubes += cubes
 
         return all_cubes
@@ -408,7 +408,7 @@ class Workspace(object):
             self.logger.debug("Loading model %s" % path)
             if root and not os.path.isabs(path):
                 path = os.path.join(root, path)
-            self.add_model(path)
+            self.import_model(path)
 
     def _register_store_dict(self, name, info):
         info = dict(info)
@@ -450,14 +450,14 @@ class Workspace(object):
         if include_model and "model" in config:
             model = config["model"]
             if self.default_namespace_name == "store":
-                nsname = config.get("namespace")
+                nsname = name
             else:
-                nsname = self.default_namespace_name
+                nsname = config.get("namespace", self.default_namespace_name)
 
             if nsname == "default":
                 nsname = None
 
-            self.import_model(model, store=name, namespace=namespace)
+            self.import_model(model, store=name, namespace=nsname)
 
     def _store_for_model(self, metadata):
         """Returns a store for model specified in `metadata`. """
@@ -493,7 +493,7 @@ class Workspace(object):
             provider = create_model_provider(provider_name, metadata)
 
         if provider.requires_store():
-            if not isinstance(store, basestring):
+            if store and not isinstance(store, basestring):
                 raise ArgumentError("Store should be a name, not an object")
 
             store_name = store
@@ -797,9 +797,11 @@ class Workspace(object):
         # method for that
         return self.browser(cube, identity).features()
 
-    def get_store(self, name="default"):
+    def get_store(self, name=None):
         """Opens a store `name`. If the store is already open, returns the
         existing store."""
+
+        name = name or "default"
 
         if name in self.stores:
             return self.stores[name]
