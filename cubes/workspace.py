@@ -163,6 +163,7 @@ class Namespace(object):
             except NoSuchCubeError:
                 pass
             else:
+                cube.provider = provider
                 return cube
 
         raise NoSuchCubeError("Unknown cube '%s'" % str(name), name)
@@ -170,10 +171,11 @@ class Namespace(object):
     def dimension(self, name, locale=None, templates=None):
         dim = None
 
+        # TODO: cache dimensions
         for provider in self.providers:
             # TODO: use locale
             try:
-                dim = provider.dimension(name, templates)
+                dim = provider.dimension(name, templates=templates)
             except NoSuchDimensionError:
                 pass
             else:
@@ -260,7 +262,6 @@ class Workspace(object):
 
         # Cache of created global objects
         self._cubes = {}
-        self._dimensions = {}
         # Note: providers are responsible for their own caching
 
         if config.has_option("workspace", "default_namespace"):
@@ -672,32 +673,66 @@ class Workspace(object):
 
         # Assumption: empty cube
 
+        if cube.provider:
+            providers = [cube.provider]
+        else:
+            providers = []
+        if namespace:
+            providers.append(namespace)
+
+        # Add the default namespace as the last look-up place, if not present
+        providers.append(self.namespace)
+
         for dim_name in cube.linked_dimensions:
             try:
-                dim = self.dimension(dim_name, namespace)
+                dim = self.dimension(dim_name, locale=cube.locale,
+                                     providers=providers)
             except TemplateRequired as e:
-                # FIXME: handle this special case
-                raise ModelError("Template required in private dimension "
-                                 "'%s'" % dim_name)
+                raise ModelError("Dimension template '%s' missing" % dim_name)
 
             cube.add_dimension(dim)
 
-    def dimension(self, name, namespace=None):
+    def _lookup_dimension(self, name, providers, templates):
+        """Look-up a dimension `name` in chain of `providers` which might
+        include a mix of providers and namespaces.
+
+        `templates` is an optional dictionary with already instantiated
+        dimensions that can be used as templates.
+        """
+
+        dimension = None
+        required_template = None
+
+        # FIXME: cube's provider might be hit at least twice: once as provider,
+        # second time as part of cube's namespace
+
+        for provider in providers:
+            try:
+                dimension = provider.dimension(name, templates=templates)
+            except NoSuchDimensionError:
+                pass
+            else:
+                return dimension
+            # We are passing the TemplateRequired exception
+        raise NoSuchDimensionError("Dimension '%s' not found" % name,
+                                   name=name)
+
+    def dimension(self, name, locale=None, providers=None):
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
         no model published the dimension. Raises `RequiresTemplate` error when
         model provider requires a template to be able to provide the
         dimension, but such template is not a public dimension.
         """
 
-        # Return a public dimension if no provider for private dimensions is
-        # specified.
-        if not namespace and name in self._dimensions:
-            return self._dimensions[name]
+        # Collected dimensions – to be used as templates
+        templates = {}
 
-        # Create a copy of public dimension list
-        dimensions = dict(self._dimensions)
-
-        namespace = namespace or self.namespace
+        if providers:
+            providers = list(providers)
+        else:
+            # If no providers are given then use the default namespace
+            # (otherwise we would end up without any dimension)
+            providers = [self.namespace]
 
         # Assumption: all dimensions that are to be used as templates should
         # be public dimensions. If it is a private dimension, then the
@@ -709,40 +744,19 @@ class Workspace(object):
 
             name = missing.pop()
 
-            # First give a chance to provider
+            # First give a chance to provider, then to namespace
             dimension = None
-
-            # Required template name
             required_template = None
 
             try:
-                dimension = namespace.dimension(name, templates=dimensions)
-            except NoSuchDimensionError:
-                dimension = None
+                dimension = self._lookup_dimension(name, providers, templates)
             except TemplateRequired as e:
-                dimension = None
                 required_template = e.template
 
-            if not dimension and name in self._dimensions:
-                # Get cached dimension
-                dimension = self._dimensions[name]
-
-            # Now we try to look-up public dimension
-            if not dimension and not required_template:
-                if namespace == self.namespace:
-                    raise NoSuchDimensionError("No public dimension '%s'" % name)
-
-                # Get dimension from "default" (global) namespace
-                try:
-                    dimension = self.namespace.dimension(name,
-                                                         templates=dimensions)
-                except TemplateRequired as e:
-                    required_template = e.template
-                except NoSuchDimensionError:
-                    raise InternalError("No global dimension '%s'" % name)
-                else:
-                    # Register the public dimension
-                    self._dimensions[name] = dimension
+            if required_template in templates:
+                raise BackendError("Some model provider didn't make use of "
+                                   "dimension template '%s' for '%s'"
+                                   % (required_template, name))
 
             if required_template:
                 missing.add(name)
@@ -750,13 +764,10 @@ class Workspace(object):
                     raise ModelError("Dimension templates cycle in '%s'" %
                                      required_template)
                 missing.add(required_template)
-                continue
 
-            if not dimension:
-                raise NoSuchDimensionError("Missing dimension: %s" % name, name)
-
-            # We store the newly created public dimension
-            dimensions[name] = dimension
+            # Store the created dimension to be used as template
+            if dimension:
+                templates[name] = dimension
 
         return dimension
 

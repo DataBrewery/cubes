@@ -272,7 +272,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
 
         return cube
 
-    def dimension(self, name, dimensions=[], locale=None):
+    def dimension(self, name, templates=[], locale=None):
         try:
             metadata = self.dimension_metadata(name)
         except KeyError:

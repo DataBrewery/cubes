@@ -458,7 +458,7 @@ class ModelProvider(object):
         """
         raise NotImplementedError("Subclasses should implement cube() method")
 
-    def dimension(self, name, dimensions=[]):
+    def dimension(self, name, templates=[]):
         """Returns a dimension with `name` provided by the receiver.
         `dimensions` is a dictionary of dimension objects where the receiver
         can look for templates. If the dimension requires a template and the
@@ -508,56 +508,17 @@ class StaticModelProvider(ModelProvider):
         metadata = self.cube_metadata(name)
         return create_cube(metadata)
 
-    def dimension(self, name, dimensions=None):
-        """Create a dimension `name` from provider's metadata within
-        `context` (usualy a `Workspace` object)."""
+    def dimension(self, name, locale=None, templates=None):
+        """Create a dimension `name` from provider's metadata. `templates` is
+        a dictionary with already instantiated dimensions to be used as
+        templates"""
 
-        # Old documentation
-        """Creates a `Dimension` instance from `obj` which can be a `Dimension`
-        instance or a string or a dictionary. If it is a string, then it
-        represents dimension name, the only level name and the only attribute.
-
-        Keys of a dictionary representation:
-
-        * `name`: dimension name
-        * `levels`: list of dimension levels (see: :class:`cubes.Level`)
-        * `hierarchies` or `hierarchy`: list of dimension hierarchies or
-           list of level names of a single hierarchy. Only one of the two
-           should be specified, otherwise an exception is raised.
-        * `default_hierarchy_name`: name of a hierarchy that will be used when
-          no hierarchy is explicitly specified
-        * `label`: dimension name that will be displayed (human readable)
-        * `description`: human readable dimension description
-        * `info` - custom information dictionary, might be used to store
-          application/front-end specific information (icon, color, ...)
-        * `template` – name of a dimension to be used as template. The dimension
-          is taken from `dimensions` argument which should be a dictionary
-          of already created dimensions.
-
-        **Defaults**
-
-        * If no levels are specified during initialization, then dimension
-          name is considered flat, with single attribute.
-        * If no hierarchy is specified and levels are specified, then default
-          hierarchy will be created from order of levels
-        * If no levels are specified, then one level is created, with name
-          `default` and dimension will be considered flat
-
-        String representation of a dimension ``str(dimension)`` is equal to
-        dimension name.
-
-        Class is not meant to be mutable.
-
-        Raises `ModelInconsistencyError` when both `hierarchy` and
-        `hierarchies` is specified.
-
-        """
         try:
             metadata = dict(self.dimensions_metadata[name])
         except KeyError:
             raise NoSuchDimensionError(name)
 
-        return create_dimension(metadata, dimensions, name)
+        return create_dimension(metadata, templates, name)
 
 
 # TODO: is this still necessary?

@@ -323,6 +323,9 @@ class Cube(object):
         self.linked_dimensions = linked_dimensions or []
         self.dimension_hierarchies = hierarchies or {}
 
+        # Used by workspace internally
+        self.provider = None
+
         self._dimensions = OrderedDict()
 
         if dimensions:
@@ -2284,15 +2287,15 @@ def fix_attribute_metadata(metadata):
     return metadata
 
 
-def create_dimension(metadata, dimensions=None, name=None):
+def create_dimension(metadata, templates=None, name=None):
     """Create a dimension from a `metadata` dictionary."""
 
-    dimensions = dimensions or {}
+    templates = templates or {}
 
     if "template" in metadata:
         template_name = metadata["template"]
         try:
-            template = dimensions[template_name]
+            template = templates[template_name]
         except KeyError:
             raise TemplateRequired(template_name)
 

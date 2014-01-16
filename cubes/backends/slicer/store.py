@@ -126,6 +126,7 @@ class SlicerModelProvider(ModelProvider):
             browser_options["features"] = features
             cube_desc["browser_options"] = browser_options
 
+        # Link the cube in-place
         cube_desc['datastore'] = self.store_name
         cube = create_cube(cube_desc)
         for dim in dimensions:
@@ -134,5 +135,5 @@ class SlicerModelProvider(ModelProvider):
 
         return cube
 
-    def dimension(self, name):
+    def dimension(self, name, locale=None, tempaltes=None):
         raise NoSuchDimensionError(name)
