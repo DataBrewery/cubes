@@ -772,6 +772,9 @@ class Dimension(object):
         Note that the dimension will claim ownership of levels and their
         attributes. You should make sure that you pass a copy of levels if you
         are cloning another dimension.
+
+
+        Note: The hierarchy will be owned by the dimension.
         """
 
         self.name = name
@@ -791,6 +794,9 @@ class Dimension(object):
 
         if hierarchies:
             self.hierarchies = dict((hier.name, hier) for hier in hierarchies)
+            # Own the hierarchy
+            for hier in hierarchies:
+                hier.set_dimension(self)
         else:
             hier = Hierarchy("default", self.levels)
             self.hierarchies = {"default": hier}
@@ -1235,6 +1241,10 @@ class Hierarchy(object):
         for level in levels:
             level = self.dimension.level(level)
             self._levels[level.name] = level
+
+    def set_dimension(self, dimension):
+        self.dimension = dimension
+        self._set_levels(self._level_refs)
 
     @property
     def levels(self):
