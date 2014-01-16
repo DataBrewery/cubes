@@ -209,6 +209,7 @@ def get_info():
     info["cubes_version"] = __version__
     info["timezone"] = workspace.calendar.timezone_name
     info["first_weekday"] = workspace.calendar.first_weekday
+    info["api_version"] = API_VERSION
 
     return info
 
