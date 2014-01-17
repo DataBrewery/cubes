@@ -142,7 +142,6 @@ class Namespace(object):
         cube_names = set()
         for provider in self.providers:
             cubes = provider.list_cubes()
-
             # Cehck for duplicity
             for cube in cubes:
                 name = cube["name"]
@@ -529,12 +528,19 @@ class Workspace(object):
         """
 
         if isinstance(metadata, basestring):
+            self.logger.debug("Importing model from %s. "
+                              "Provider: %s Store: %s NS: %s"
+                              % (metadata, provider, store, namespace))
             path = metadata
             if self.models_path and not os.path.isabs(path):
                 path = os.path.join(self.models_path, path)
             metadata = read_model_metadata(path)
+        elif isinstance(metadata, dict):
+            self.logger.debug("Importing model from dictionary. "
+                              "Provider: %s Store: %s NS: %s"
+                              % (provider, store, namespace))
 
-        elif not isinstance(metadata, dict):
+        else:
             raise ConfigurationError("Unknown model '%s' "
                                      "(should be a filename or a dictionary)"
                                      % model)
@@ -563,10 +569,12 @@ class Workspace(object):
                 (ns, _) = self.namespace.namespace(namespace, create=True)
             else:
                 ns = namepsace
-        else:
+        elif store != "default":
             # Store in store's namespace
             # TODO: use default namespace
             (ns, _) = self.namespace.namespace(store, create=True)
+        else:
+            ns = self.namespace
 
         ns.add_provider(provider)
 
