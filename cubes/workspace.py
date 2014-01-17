@@ -139,9 +139,18 @@ class Namespace(object):
         `label`, `description`, `category` and `info`."""
 
         all_cubes = []
+        cube_names = set()
         for provider in self.providers:
-            # TODO: check for cube uniqueness
-            all_cubes += provider.list_cubes()
+            cubes = provider.list_cubes()
+
+            # Cehck for duplicity
+            for cube in cubes:
+                name = cube["name"]
+                if name in cube_names:
+                    raise ModelError("Duplicate cube '%s'" % name)
+                cube_names.add(name)
+
+            all_cubes += cubes
 
         if recursive:
             for name, ns in self.namespaces.items():
@@ -722,6 +731,12 @@ class Workspace(object):
         no model published the dimension. Raises `RequiresTemplate` error when
         model provider requires a template to be able to provide the
         dimension, but such template is not a public dimension.
+
+        The standard lookup is:
+
+        1. look in the cube's provider
+        2. look in the cube's namespace (all providers)
+        3. look in the default (global) namespace
         """
 
         # Collected dimensions – to be used as templates
@@ -790,8 +805,6 @@ class Workspace(object):
 
         if isinstance(cube, basestring):
             cube = self.cube(cube, identity=identity)
-
-        # TODO: check if the cube is "our" cube
 
         store_name = cube.datastore or "default"
         store = self.get_store(store_name)
