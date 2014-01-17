@@ -30,7 +30,7 @@ _default_modules = {
     }
 }
 
-class Namespace(dict):
+class ExtensionsNamespace(dict):
     def __init__(self, name, objects=None, root_class=None, suffix=None,
                  option_checking=False):
         self.name = name
@@ -57,7 +57,7 @@ class Namespace(dict):
 
     def __getitem__(self, value):
         try:
-            return super(Namespace, self).__getitem__(value)
+            return super(ExtensionsNamespace, self).__getitem__(value)
         except KeyError:
             # Lazily load module that might contain the object
             modules = _default_modules.get(self.name)
@@ -66,7 +66,7 @@ class Namespace(dict):
                 self.discover_objects()
 
             # Retry after loading
-            return super(Namespace, self).__getitem__(value)
+            return super(ExtensionsNamespace, self).__getitem__(value)
 
 class _FactoryOptionChecker(object):
     def __init__(self, class_, options=None):
@@ -114,7 +114,7 @@ def initialize_namespace(name, objects=None, root_class=None, suffix=None,
     subclasses of `root_class` where the class name is decamelized, changet do
     an identifier and with `suffix` removed."""
 
-    ns = Namespace(name, objects, root_class, suffix,
+    ns = ExtensionsNamespace(name, objects, root_class, suffix,
                    option_checking=option_checking)
     ns.discover_objects()
     _namespaces[name] = ns
