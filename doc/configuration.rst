@@ -51,10 +51,9 @@ Workspace
 
 * ``authorization`` – authorization method to be used
 
-* ``default_namespace_name`` – default name of namespace for store models (see
-  ``[store] model`` for more information). If set to ``default`` then global
-  namepsace will be used, if set to ``store`` then store's name will be used
-  as namespace.
+* ``lookup_method`` – cube lookup method: ``recursive`` – look for cubes
+  recursively in namespaces; ``global`` – cube has to have globally unique
+  reference 
 
 Models
 ======

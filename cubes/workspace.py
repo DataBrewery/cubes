@@ -161,8 +161,11 @@ class Namespace(object):
 
         return all_cubes
 
-    def cube(self, name, locale=None):
-        """Return cube named `name`"""
+    def cube(self, name, locale=None, recursive=False):
+        """Return cube named `name`.
+
+        If `recursive` is ``True`` then look for cube in child namespaces.
+        """
         cube = None
 
         for provider in self.providers:
@@ -174,6 +177,16 @@ class Namespace(object):
             else:
                 cube.provider = provider
                 return cube
+
+        if recursive:
+            for key, namespace in self.namespaces.items():
+                try:
+                    cube = namespace.cube(name, locale, recursive=True)
+                except NoSuchCubeError:
+                    # Just continue with sibling
+                    pass
+                else:
+                    return cube
 
         raise NoSuchCubeError("Unknown cube '%s'" % str(name), name)
 
@@ -273,14 +286,15 @@ class Workspace(object):
         self._cubes = {}
         # Note: providers are responsible for their own caching
 
-        if config.has_option("workspace", "default_namespace"):
-            name = config.get("workspace", "default_namespace")
-            if name == "default":
-                self.default_namespace_name = None
-            else:
-                self.default_namespace_name = name
+        if config.has_option("workspace", "lookup_method"):
+            method = config.get("workspace", "lookup_method")
+            if method not in ["exact", "recursive"]:
+                raise ConfigurationError("Unknown namespace lookup method '%s'"
+                                         % method)
+            self.lookup_method = method
         else:
-            self.default_namespace_name = None
+            # TODO: make this "global"
+            self.lookup_method = "recursive"
 
         # Info
         # ====
@@ -438,23 +452,6 @@ class Workspace(object):
         information see `register_store()`"""
         self.register_store("default", type_, **config)
 
-    def default_namespace(self):
-        """Return default namespace. If no namespace is set, return the global
-        namespace
-
-        If special value ``store`` is set, then return the global namespace as
-        well, as it is the default namespace. The ``store`` value means only
-        that objects store models will belong to namespaces with same name as
-        the store """
-
-        if not self.default_namespace_name \
-                or self.default_namespace_name == "store":
-            ns = self.namespace
-        else:
-            (ns, _) = self.namespace.namespace(self.default_namespace_name,
-                                             create=True)
-        return ns
-
     def register_store(self, name, type_, include_model=True, **config):
         """Adds a store configuration."""
 
@@ -468,17 +465,6 @@ class Workspace(object):
         # Model and provider
         # ------------------
 
-        # Get the namespace name: either default or store name, depending on
-        # the configuration
-
-        if self.default_namespace_name == "store":
-            nsname = name
-        else:
-            nsname = config.get("namespace", self.default_namespace_name)
-
-        if nsname == "default":
-            nsname = None
-
         # If store brings a model, then include it...
         if include_model and "model" in config:
             model = config.pop("model")
@@ -490,10 +476,9 @@ class Workspace(object):
             raise ConfigurationError("Both model_provider and "
                                      "is_model_provider specified for store "
                                      "'%s'. Use only one." % name)
-        if "model_provider" in config:
-            provider = config.pop("model_provider")
-        else:
-            provider = None
+
+        provider = config.pop("model_provider", None)
+        nsname = config.pop("namespace", None)
 
         if "is_model_provider" in config:
             config.pop("is_model_provider")
@@ -569,11 +554,7 @@ class Workspace(object):
         if provider.requires_store():
             if store and not isinstance(store, basestring):
                 raise ArgumentError("Store should be a name, not an object")
-
-            store_name = store
-            store = self.get_store(store_name)
-
-            provider.set_store(store, store_name)
+            provider.set_store(self.get_store(store), store)
 
         # We are not getting list of cubes here, we are lazy
 
@@ -583,7 +564,9 @@ class Workspace(object):
             else:
                 ns = namepsace
         else:
-            ns = self.namespace
+            # Store in store's namespace
+            # TODO: use default namespace
+            (ns, _) = self.namespace.namespace(store, create=True)
 
         ns.add_provider(provider)
 
@@ -655,21 +638,19 @@ class Workspace(object):
             if not authorized:
                 raise NotAuthorized
 
-        cube_key = (name, identity, locale)
+        cube_key = (name, locale)
         if name in self._cubes:
             return self._cubes[cube_key]
 
         (ns, ns_cube) = self.namespace.namespace_for_cube(name)
 
-        cube = ns.cube(ns_cube)
+        recursive = (self.lookup_method == "recursive")
+        cube = ns.cube(ns_cube, locale=locale, recursive=recursive)
 
         # Set cube name to the full cube reference that includes namespace as
         # well
         cube.name = name
-
-        if not cube:
-            raise NoSuchCubeError(name, "No cube '%s' returned from "
-                                     "provider." % name)
+        cube.basename = name.split(".")[-1]
 
         self.link_cube(cube, ns)
 
