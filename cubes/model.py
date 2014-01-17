@@ -325,6 +325,8 @@ class Cube(object):
 
         # Used by workspace internally
         self.provider = None
+        # Used by backends
+        self.basename = None
 
         self._dimensions = OrderedDict()
 
