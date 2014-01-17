@@ -496,6 +496,7 @@ class Workspace(object):
             provider = None
 
         if "is_model_provider" in config:
+            config.pop("is_model_provider")
             provider = type_
 
         if model:
