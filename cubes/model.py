@@ -387,7 +387,7 @@ class Cube(object):
 
         return [agg for agg in self.aggregates if agg.measure == name]
 
-    def get_aggregates(self, names):
+    def get_aggregates(self, names=None):
         """Get a list of aggregates with `names`"""
         if not names:
             return self.aggregates
