@@ -470,18 +470,12 @@ class Workspace(object):
         else:
             model = None
 
-        # If store suggests a model provider, then register it ...
-        if "model_provider" in config and "is_model_provider" in config:
-            raise ConfigurationError("Both model_provider and "
-                                     "is_model_provider specified for store "
-                                     "'%s'. Use only one." % name)
+        # Get related model provider or override it with configuration
+        ext = extensions.store.get(type_)
+        provider = ext.related_model_provider
+        provider = config.pop("model_provider", provider)
 
-        provider = config.pop("model_provider", None)
         nsname = config.pop("namespace", None)
-
-        if "is_model_provider" in config:
-            config.pop("is_model_provider")
-            provider = type_
 
         if model:
             self.import_model(model, store=name, namespace=nsname,

@@ -119,12 +119,12 @@ class ExtensionsFactory(object):
         """Creates an extension. First argument should be extension's name."""
         kwargs = coalesce_options(dict(kwargs), self.option_types)
 
-        extension = self.extension(_extension_name)
+        extension = self.get(_extension_name)
 
         return extension(*args, **kwargs)
 
 
-    def extension(self, name):
+    def get(self, name):
         if name in self.extensions:
             return self.extensions[name]
 

@@ -8,4 +8,6 @@ __all__ = (
 
 class Store(Extensible):
     """Abstract class to find other stores through the class hierarchy."""
-    pass
+
+    """Name of a model provider type associated with this store."""
+    related_model_provider = None

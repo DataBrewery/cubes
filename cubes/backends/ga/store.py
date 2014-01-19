@@ -324,6 +324,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
 
 class GoogleAnalyticsStore(Store):
     __extension_name__ = "ga"
+    related_model_provider = "ga"
 
     def __init__(self, email=None, key_file=None, account_id=None,
                  account_name=None, web_property=None,
