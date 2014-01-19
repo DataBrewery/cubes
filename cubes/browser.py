@@ -15,6 +15,7 @@ from .common import IgnoringDictionary, to_unicode_string
 from .logging import get_logger
 from .extensions import Extensible
 
+
 __all__ = [
     "AggregationBrowser",
     "AggregationResult",
@@ -91,19 +92,21 @@ class AggregationBrowser(Extensible):
         """
         return {}
 
-    def aggregate(self, cell=None, aggregates=None, drilldown=None,
-                  split=None, measures=None, **options):
+    def aggregate(self, cell=None, aggregates=None, drilldown=None, split=None,
+                  order=None, page=None, page_size=None, **options):
 
         """Return aggregate of a cell.
 
-        Subclasses of aggregation browser should implement this method.
+        Arguments:
 
-        Attributes:
-
-        * `drilldown` - dimensions and levels through which to drill-down,
-          default `None`
+        * `cell` – cell to aggregate
         * `aggregates` - list of aggregate measures. By default all
           cube's aggregates are included in the result.
+        * `drilldown` - dimensions and levels through which to drill-down
+        * `split` – cell for alternate 'split' dimension
+        * `order` – attribute order specification (see below)
+        * `page` – page index when requesting paginated results
+        * `page_size` – number of result items per page
 
         Drill down can be specified in two ways: as a list of dimensions or as
         a dictionary. If it is specified as list of dimensions, then cell is
@@ -121,7 +124,46 @@ class AggregationBrowser(Extensible):
         `year`, `month`, `day` and you try to drill down by `date` at the next
         level then ``ValueError`` will be raised.
 
-        Retruns a :class:AggregationResult object.
+        Retruns a :class:`AggregationResult` object.
+
+        Note: subclasses should implement `provide_aggregate()` method.
+        """
+
+        if "measures" in options:
+            raise ArgumentError("measures in aggregate are depreciated")
+
+        aggregates = self.prepare_aggregates(aggregates)
+        order = self.prepare_order(order, is_aggregate=True)
+
+        if cell is None:
+            cell = Cell(self.cube)
+
+        drilldon = Drilldown(drilldown, cell)
+
+        result = self.provide_aggregate(cell,
+                                        aggregates=aggregates,
+                                        drilldown=drilldon,
+                                        split=split,
+                                        order=order,
+                                        page=page,
+                                        page_size=page_size,
+                                        **options)
+        return result
+
+    def provide_aggregate(self, cell=None, measures=None, aggregates=None,
+                          drilldown=None, split=None, order=None, page=None,
+                          page_size=None, **options):
+        """Method to be implemented by subclasses. The arguments are prepared
+        by the superclass. Arguments:
+
+        * `cell` – cell to be drilled down. Guaranteed to be a `Cell` object
+          even for an empty cell
+        * `aggregates` – list of aggregates to aggregate. Contains list of cube
+          aggregate attribute objects.
+        * `drilldown` – `Drilldown` instance
+        * `split` – `Cell` instance
+        * `order` – list of tuples: (`attribute`, `order`)
+
         """
         raise NotImplementedError
 
@@ -161,13 +203,9 @@ class AggregationBrowser(Extensible):
             aggregates = []
             for measure in measures:
                 aggregates += self.cube.aggregates_for_measure(measure)
-        else:
-            # If no aggregate is specified, then all are used
-            aggregates = self.cube.aggregates
 
-        if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty. If "
-                                "you used measures, check their aggregates.")
+        # If no aggregate is specified, then all are used
+        aggregates = aggregates or self.cube.aggregates
 
         seen = set(a.name for a in aggregates)
         dependencies = []
@@ -192,7 +230,9 @@ class AggregationBrowser(Extensible):
         return aggregates
 
     def prepare_order(self, order, is_aggregate=False):
-        """Prepares an order list."""
+        """Prepares an order list. Returns list of tuples (`attribute`,
+        `order_direction`). `attribute` is cube's attribute object."""
+
         order = order or []
         new_order = []
 
@@ -245,7 +285,7 @@ class AggregationBrowser(Extensible):
             names = ", ".join(names)
             raise ArgumentError("Can not drilldown on high-cardinality "
                                 "levels (%s) without including both page_size "
-                                "and page arguments, or else a point/set cut on the level" 
+                                "and page arguments, or else a point/set cut on the level"
                                 % names)
 
 
@@ -1443,11 +1483,15 @@ class AggregationResult(object):
         `measures` and `levels` from the aggregate query.
 
     """
-    def __init__(self, cell=None, aggregates=None):
+    def __init__(self, cell=None, aggregates=None, drilldown=None):
         super(AggregationResult, self).__init__()
         self.cell = cell
         self.aggregates = aggregates
-        self.levels = None
+
+        if drilldown:
+            self.levels = drilldown.result_levels()
+        else:
+            self.levels = None
 
         self.summary = {}
         self._cells = []
