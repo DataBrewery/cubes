@@ -7,7 +7,7 @@ import time
 import csv
 import io
 
-from ..extensions import get_namespace, initialize_namespace
+from ..extensions import extensions, Extensible
 from ..logging import get_logger
 from ..errors import *
 
@@ -40,23 +40,6 @@ REQUEST_LOG_ITEMS = [
 ]
 
 
-def create_request_log_handler(type_, *args, **kwargs):
-    """Gets a new instance of a query logger."""
-
-    ns = get_namespace("request_log_handlers")
-    if not ns:
-        ns = initialize_namespace("request_log_handlers",
-                                  root_class=RequestLogHandler,
-                                  suffix="_request_log_handler",
-                                  option_checking=True)
-    try:
-        factory = ns[type_]
-    except KeyError:
-        raise ConfigurationError("Unknown request log handler '%s'" % type_)
-
-    return factory(*args, **kwargs)
-
-
 def configured_request_log_handlers(config, prefix="query_log",
                                     default_logger=None):
     """Returns configured query loggers as defined in the `config`."""
@@ -69,9 +52,9 @@ def configured_request_log_handlers(config, prefix="query_log",
             type_ = options.pop("type")
             if type_ == "default":
                 logger = default_logger or get_logger()
-                handler = create_request_log_handler("default", logger)
+                handler = extensions.request_log_handler("default", logger)
             else:
-                handler = create_request_log_handler(type_, **options)
+                handler = extensions.request_log_handler(type_, **options)
 
             handlers.append(handler)
 
@@ -124,7 +107,7 @@ class RequestLogger(object):
 
         return record
 
-class RequestLogHandler(object):
+class RequestLogHandler(Extensible):
     def write_record(self, record):
         pass
 

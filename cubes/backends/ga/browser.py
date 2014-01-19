@@ -38,7 +38,7 @@ def date_string(path, default_date):
     return "%04d-%02d-%02d" % (year, month, day)
 
 class GoogleAnalyticsBrowser(AggregationBrowser):
-    __identifier__ = "ga"
+    __extension_name__ = "ga"
 
     def __init__(self, cube, store, locale=None, **options):
 

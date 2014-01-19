@@ -1,13 +1,13 @@
 # -*- coding=utf -*-
 import sys
-from .providers import read_model_metadata, create_model_provider
-from .auth import create_authorizer, NotAuthorized
+from .providers import read_model_metadata
+from .auth import NotAuthorized
 from .model import Model
 from .common import read_json_file
 from .logging import get_logger
 from .errors import *
-from .stores import open_store, create_browser
 from .calendar import Calendar
+from .extensions import extensions
 import os.path
 import ConfigParser
 from collections import OrderedDict
@@ -403,7 +403,7 @@ class Workspace(object):
         if config.has_option("workspace", "authorization"):
             auth_type = config.get("workspace", "authorization")
             options = dict(config.items("authorization"))
-            self.authorizer = create_authorizer(auth_type, **options)
+            self.authorizer = extensions.authorizer(auth_type, **options)
         else:
             self.authorizer = None
 
@@ -549,11 +549,11 @@ class Workspace(object):
         # `provider` is a ModelProvider subclass instance
         # TODO: add translations
         if isinstance(provider, basestring):
-            provider = create_model_provider(provider, metadata)
+            provider = extensions.model_provider(provider, metadata)
 
         if not provider:
             provider_name = metadata.get("provider", "default")
-            provider = create_model_provider(provider_name, metadata)
+            provider = extensions.model_provider(provider_name, metadata)
 
         store = store or metadata.get("store", metadata.get("datastore"))
 
@@ -819,8 +819,8 @@ class Workspace(object):
         if not browser_name:
             raise ConfigurationError("No store specified for cube '%s'" % cube)
 
-        browser = create_browser(browser_name, cube, store=store,
-                                 locale=locale, **options)
+        browser = extensions.browser(browser_name, cube, store=store,
+                                     locale=locale, **options)
 
         browser.calendar = self.calendar
 
@@ -847,7 +847,7 @@ class Workspace(object):
         except KeyError:
             raise ConfigurationError("No info for store %s" % name)
 
-        store = open_store(type_, **options)
+        store = extensions.store(type_, **options)
         self.stores[name] = store
         return store
 

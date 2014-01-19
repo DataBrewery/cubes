@@ -13,6 +13,7 @@ from cubes.errors import *
 from .model import Dimension, Cube
 from .common import IgnoringDictionary, to_unicode_string
 from .logging import get_logger
+from .extensions import Extensible
 
 __all__ = [
     "AggregationBrowser",
@@ -49,7 +50,7 @@ SPLIT_DIMENSION_NAME = '__within_split__'
 NULL_PATH_VALUE = '__null__'
 
 
-class AggregationBrowser(object):
+class AggregationBrowser(Extensible):
     """Class for browsing data cube aggregations
 
     :Attributes:
@@ -58,6 +59,9 @@ class AggregationBrowser(object):
     """
 
     """List of browser features as strings."""
+
+    __extension_type__ = "browser"
+    __extension_suffix__ = "Browser"
 
     builtin_functions = []
 

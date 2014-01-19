@@ -6,12 +6,13 @@ from functools import wraps
 from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..browser import Cell, SPLIT_DIMENSION_NAME
 from ..errors import *
+from ..extensions import extensions
 from .logging import configured_request_log_handlers, RequestLogger
 from .utils import *
 from .errors import *
 from .decorators import *
 from .local import *
-from .auth import create_authenticator, NotAuthenticated
+from .auth import NotAuthenticated
 
 from collections import OrderedDict
 
@@ -103,8 +104,8 @@ def initialize_slicer(state):
             else:
                 options = {}
 
-            current_app.slicer.authenticator = create_authenticator(method,
-                                                                    **options)
+            current_app.slicer.authenticator = extensions.authenticator(method,
+                                                                        **options)
         logger.debug("Server authentication method: %s" % (method or "none"))
 
         if not current_app.slicer.authenticator and workspace.authorizer:
