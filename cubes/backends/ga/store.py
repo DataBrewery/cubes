@@ -121,8 +121,6 @@ class GoogleAnalyticsModelProvider(ModelProvider):
             item = item["attributes"]
             item["id"] = item_id
 
-            self.logger.debug("GA concept: %s" % item_id)
-
             if item.get('status') == 'DEPRECATED':
                 self.logger.debug("Discarding deprecated item %s" % item_id)
                 continue
