@@ -28,12 +28,11 @@ tz_utc = pytz.timezone('UTC')
 SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
 
 def is_date_dimension(dim):
-    if hasattr(dim, 'role'):
-        return (dim.role == 'time')
-    elif hasattr(dim, 'info'):
-        return (not not dim.info.get('is_date'))
-    else:
-        return False
+    if hasattr(dim, 'role') and (dim.role == 'time'):
+        return True
+    if hasattr(dim, 'info') and (dim.info.get('is_date')):
+        return True
+    return False
 
 class Mongo2Browser(AggregationBrowser):
     def __init__(self, cube, store, locale=None, metadata={}, url=None, **options):
