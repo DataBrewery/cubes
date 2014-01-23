@@ -338,7 +338,7 @@ def cube_facts(cube_name):
 
     fields_str = request.args.get("fields")
     if fields_str:
-        fields = fields_str.lower().split(',')
+        fields = fields_str.split(',')
     else:
         fields = None
 

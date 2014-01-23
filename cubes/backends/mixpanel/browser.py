@@ -75,7 +75,7 @@ class MixpanelBrowser(AggregationBrowser):
             self.logger.debug("facts: getting fields: %s" % fields)
 
         # TODO: use mapper
-        params = {"event":[self.cube.name]}
+        params = {"event":[self.cube.basename]}
 
         params.update(self.condition_for_cell(cell))
         response = self.store.request(["export"], params, is_data=True)
@@ -185,7 +185,7 @@ class MixpanelBrowser(AggregationBrowser):
         # Perform one request per measure aggregate.
         #
         # TODO: use mapper
-        event_name = self.cube.name
+        event_name = self.cube.basename
 
         # Collect responses for each measure aggregate
         #

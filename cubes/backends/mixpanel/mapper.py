@@ -36,6 +36,11 @@ class MixpanelMapper(Mapper):
         self.event_name = self.mappings.get(cube_event_key(cube.name),
                                             cube.name)
 
+    def physical(self, attr):
+        phys = super(MixpanelMapper, self).physical(attr)
+        if phys is None:
+            return attr.ref()
+
     def logical_from_physical(self, physical):
         try:
             logical = self.property_to_dimension[physical]
