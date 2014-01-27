@@ -1206,7 +1206,7 @@ class QueryBuilder(object):
 
         join_attributes = set(attributes) | self.attributes_for_cell(cell)
 
-        join_product = self.snowflake.join_expression(attributes)
+        join_product = self.snowflake.join_expression(join_attributes)
         join_expression = join_product.expression
 
         columns = self.snowflake.columns(attributes, expand_locales=expand_locales)
