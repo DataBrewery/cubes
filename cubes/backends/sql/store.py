@@ -379,7 +379,7 @@ class SQLStore(Store):
 
         table_name = "%s%s%s_%s" % (dimension_prefix or "", dimension_suffix or "",
                                     str(dimension), str(level))
-        self._create_table_from_statement(table_name, statement, schema,
+        self.create_table_from_statement(table_name, statement, schema,
                                             replace, insert=True)
 
     def create_conformed_rollups(self, cube, dimensions, grain=None, schema=None,
@@ -409,7 +409,7 @@ class SQLStore(Store):
                                     dimension_suffix=dimension_suffix or "",
                                     replace=replace)
 
-    def _create_table_from_statement(self, table_name, statement, schema,
+    def create_table_from_statement(self, table_name, statement, schema,
                                      replace=False, insert=False):
         """Creates or replaces a table from statement.
 
@@ -441,7 +441,8 @@ class SQLStore(Store):
                 col_type = sqlalchemy.String(255)
             else:
                 col_type = col.type
-            new_col = sqlalchemy.Column(str(col), col_type)
+
+            new_col = sqlalchemy.Column(col.name, col_type)
             table.append_column(new_col)
 
         self.logger.info("creating table '%s'" % str(table))
@@ -451,7 +452,7 @@ class SQLStore(Store):
             self.logger.debug("inserting into table '%s'" % str(table))
             insert_statement = InsertIntoAsSelect(table, statement,
                                                   columns=statement.columns)
-            self.connectable.execute(str(insert_statement))
+            self.connectable.execute(insert_statement)
 
         return table
 
@@ -518,7 +519,7 @@ class SQLStore(Store):
         #
         # Create table
         #
-        table = self._create_table_from_statement(table_name,
+        table = self.create_table_from_statement(table_name,
                                                   statement,
                                                   schema=schema,
                                                   replace=replace,
