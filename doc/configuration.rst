@@ -52,7 +52,7 @@ Workspace
 * ``authorization`` – authorization method to be used
 
 * ``lookup_method`` – cube lookup method: ``recursive`` – look for cubes
-  recursively in namespaces; ``global`` – cube has to have globally unique
+  recursively in namespaces; ``exact`` – cube has to have globally unique
   reference 
 
 Models
