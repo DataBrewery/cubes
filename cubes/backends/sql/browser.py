@@ -9,6 +9,7 @@ from .mapper import SnowflakeMapper, DenormalizedMapper
 from .functions import get_aggregate_function, available_aggregate_functions
 from .query import QueryBuilder
 
+import itertools
 import collections
 
 try:
@@ -104,6 +105,10 @@ class SnowflakeBrowser(AggregationBrowser):
         self.include_cell_count = options.get("include_cell_count", True)
         self.safe_labels = options.get("safe_labels", False)
         self.label_counter = 1
+
+        # Whether to ignore cells where at least one aggregate is NULL
+        self.exclude_null_agregates = options.get("exclude_null_agregates",
+                                                 True)
 
         # Mapper
         # ------
@@ -403,6 +408,15 @@ class SnowflakeBrowser(AggregationBrowser):
                                                     available_aggregate_functions())
             for calc in calculators:
                 calc(result.summary)
+
+        # If exclude_null_aggregates is True then don't include cells where
+        # at least one of the bult-in aggregates is NULL
+        if result.cells is not None and self.exclude_null_agregates:
+            afuncs = available_aggregate_functions()
+            aggregates = [agg for agg in aggregates if agg.function in afuncs]
+            names = [str(agg) for agg in aggregates]
+            cond = lambda cell: not any(cell[agg] is None for agg in names)
+            result.cells = itertools.ifilter(cond, result.cells)
 
         return result
 
