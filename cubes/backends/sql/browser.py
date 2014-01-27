@@ -45,8 +45,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
     ]
 
-    def __init__(self, cube, store, locale=None, metadata=None,
-                 debug=False, **options):
+    def __init__(self, cube, store, locale=None, debug=False, **options):
         """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
         can aggregate star and snowflake schemas without need of having
         explicit view or physical denormalized table.

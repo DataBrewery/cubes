@@ -61,7 +61,7 @@ class AggregationBrowser(object):
 
     builtin_functions = []
 
-    def __init__(self, cube, store=None, locale=None, metadata=None, **options):
+    def __init__(self, cube, store=None, locale=None, **options):
         """Creates and initializes the aggregation browser. Subclasses should
         override this method. """
         super(AggregationBrowser, self).__init__()
@@ -70,6 +70,7 @@ class AggregationBrowser(object):
             raise ArgumentError("No cube given for aggregation browser")
 
         self.cube = cube
+        self.store = store
         self.calendar = None
 
     def features(self):
@@ -241,7 +242,7 @@ class AggregationBrowser(object):
             names = ", ".join(names)
             raise ArgumentError("Can not drilldown on high-cardinality "
                                 "levels (%s) without including both page_size "
-                                "and page arguments, or else a point/set cut on the level" 
+                                "and page arguments, or else a point/set cut on the level"
                                 % names)
 
 
