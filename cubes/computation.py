@@ -35,7 +35,7 @@ def combined_cuboids(dimensions, required=None):
 
     return cuboids
 
-def combined_levels(dimensions):
+def combined_levels(dimensions, default_only=False):
     """Create a cartesian product of levels from all `dimensions`. For
     example, if dimensions are _date_, _product_ then result will be:
     levels of _date_ X levels of _product_. Each element of the returned list
@@ -43,18 +43,24 @@ def combined_levels(dimensions):
     """
     groups = []
     for dim in dimensions:
-        group = [(str(dim), str(level)) for level in dim.levels]
+        if default_only:
+            levels = dim.hierarchy().levels
+        else:
+            levels = dim.levels
+
+        group = [(str(dim), str(level)) for level in levels]
         groups.append(group)
+
     return tuple(itertools.product(*groups))
 
 
-def hierarchical_cuboids(dimensions, required=None):
+def hierarchical_cuboids(dimensions, required=None, default_only=False):
     """Returns a list of cuboids with all hierarchical level combinations."""
     cuboids = combined_cuboids(dimensions, required)
 
     result = []
     for cuboid in cuboids:
-        result += list(combined_levels(cuboid))
+        result += list(combined_levels(cuboid, default_only))
 
     return result
 
