@@ -16,7 +16,7 @@ The following code will add all Slicer's end-points to your application:
     from cubes.server import slicer
 
     app = Flask(__name__)
-    app.register_blueprint(slicerm, config="slicer.ini")
+    app.register_blueprint(slicer, config="slicer.ini")
 
 To have a separate sub-path for Slicer add `url_prefix`:
 
