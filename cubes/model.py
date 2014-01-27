@@ -1020,8 +1020,7 @@ class Dimension(object):
                          description=self.description,
                          info=self.info,
                          role=self.role,
-                         cardinality=self.cardinality,
-                         group=self.group)
+                         cardinality=self.cardinality)
 
     def to_dict(self, hierarchy_limits=None, **options):
         """Return dictionary representation of the dimension"""
