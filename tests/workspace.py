@@ -54,6 +54,14 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
     def test_get_namespace_cube(self):
         ws = Workspace()
         ws.import_model(self.model_path("model.json"), namespace="local")
+
+        # This should pass
+        cube = ws.cube("contracts")
+
+        self.assertIsInstance(cube, Cube)
+        self.assertEqual(cube.name, "contracts")
+        ws.lookup_method = "exact"
+
         with self.assertRaises(NoSuchCubeError):
             cube = ws.cube("contracts")
 
