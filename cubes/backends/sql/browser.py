@@ -134,7 +134,7 @@ class SnowflakeBrowser(AggregationBrowser):
         other factors."""
 
         features = {
-            "actions": ["aggregate", "fact", "facts", "cell"],
+            "actions": ["aggregate", "fact", "members", "facts", "cell"],
             "aggregate_functions": available_aggregate_functions(),
             "post_aggregate_functions": available_calculators()
         }
@@ -413,7 +413,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # at least one of the bult-in aggregates is NULL
         if result.cells is not None and self.exclude_null_agregates:
             afuncs = available_aggregate_functions()
-            aggregates = [agg for agg in aggregates if agg.function in afuncs]
+            aggregates = [agg for agg in aggregates if not agg.function or agg.function in afuncs]
             names = [str(agg) for agg in aggregates]
             cond = lambda cell: not any(cell[agg] is None for agg in names)
             result.cells = itertools.ifilter(cond, result.cells)
