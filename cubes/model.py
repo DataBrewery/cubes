@@ -2172,6 +2172,7 @@ def create_cube(metadata):
             implicit_aggregates += measure.default_aggregates()
 
         for aggregate in implicit_aggregates:
+            # an existing aggregate either has the same name,
             existing = aggregate_dict.get(aggregate.name)
             if existing:
                 if existing.function != aggregate.function:
@@ -2180,9 +2181,13 @@ def create_cube(metadata):
                                      " %s." % (aggregate.name,
                                                aggregate.function,
                                                existing.function))
-            else:
-                aggregates.append(aggregate)
-                aggregate_dict[aggregate.name] = aggregate
+                continue
+            # or the same function and measure
+            existing = [ agg for agg in aggregates if agg.function == aggregate.function and agg.measure == measure.name ]
+            if existing:
+                continue
+            aggregates.append(aggregate)
+            aggregate_dict[aggregate.name] = aggregate
 
     # Assign implicit aggregate labels
     # TODO: make this configurable
