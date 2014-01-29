@@ -4,7 +4,6 @@
 import copy
 
 from collections import OrderedDict, defaultdict
-
 from .common import IgnoringDictionary, to_label
 from .common import assert_instance, assert_all_instances
 from .logging import get_logger
@@ -746,7 +745,8 @@ class Dimension(object):
 
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
-                 info=None, role=None, cardinality=None, category=None, **desc):
+                 info=None, role=None, cardinality=None, category=None,
+                 parent=None, **desc):
 
         """Create a new dimension
 
@@ -791,6 +791,13 @@ class Dimension(object):
         self.cardinality = cardinality
         self.category = category
 
+        # Parent dimension – dimension that this one was derived from, for
+        # example by limiting hierarchies
+        # TODO: not yet documented
+        # TODO: probably replace the limit using limits in-dimension instead
+        # of replacement of instance variables with limited content (?)
+        self.parent = parent
+
         if not levels:
             raise ModelError("No levels specified for dimension %s"
                              % self.name)
@@ -812,9 +819,6 @@ class Dimension(object):
 
         self._flat_hierarchy = None
         self.default_hierarchy_name = default_hierarchy_name
-
-        # FIXME: is this needed anymore?
-        self.key_field = desc.get("key_field")
 
     def _set_levels(self, levels):
         """Set dimension levels. `levels` should be a list of `Level`
@@ -868,6 +872,9 @@ class Dimension(object):
     def has_details(self):
         """Returns ``True`` when each level has only one attribute, usually
         key."""
+
+        if self.parent:
+            return self.parent.has_details
 
         return any([level.has_details for level in self._levels.values()])
 
@@ -968,6 +975,9 @@ class Dimension(object):
     @property
     def is_flat(self):
         """Is true if dimension has only one level"""
+        if self.parent:
+            return self.parent.is_flat
+
         return len(self.levels) == 1
 
     def key_attributes(self):
@@ -1020,7 +1030,8 @@ class Dimension(object):
                          description=self.description,
                          info=self.info,
                          role=self.role,
-                         cardinality=self.cardinality)
+                         cardinality=self.cardinality,
+                         parent=self)
 
     def to_dict(self, hierarchy_limits=None, **options):
         """Return dictionary representation of the dimension"""
