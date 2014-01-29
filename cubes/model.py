@@ -462,7 +462,7 @@ class Cube(object):
     def measure(self, name):
         """Get measure object. If `obj` is a string, then measure with given
         name is returned, otherwise measure object is returned if it belongs
-        to the cube. Returned object is of `Attribute` type.
+        to the cube. Returned object is of `Measure` type.
 
         Raises `NoSuchAttributeError` when there is no such measure or when
         there are multiple measures with the same name (which also means that
@@ -474,6 +474,22 @@ class Cube(object):
             return self._measures[name]
         except KeyError:
             raise NoSuchAttributeError("cube '%s' has no measure '%s'" %
+                                            (self.name, name))
+    def aggregate(self, name):
+        """Get aggregate object. If `obj` is a string, then aggregate with
+        given name is returned, otherwise aggregate object is returned if it
+        belongs to the cube. Returned object is of `MeasureAggregate` type.
+
+        Raises `NoSuchAttributeError` when there is no such aggregate or when
+        there are multiple aggregates with the same name (which also means
+        that the model is not valid).
+        """
+
+        name = str(name)
+        try:
+            return self._aggregates[name]
+        except KeyError:
+            raise NoSuchAttributeError("cube '%s' has no aggregate '%s'" %
                                             (self.name, name))
 
     def measure_aggregate(self, name):
