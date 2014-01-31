@@ -8,6 +8,7 @@ from ..browser import Cell, SPLIT_DIMENSION_NAME
 from ..errors import *
 from ..extensions import extensions
 from .logging import configured_request_log_handlers, RequestLogger
+from .logging import AsyncRequestLogger
 from .utils import *
 from .errors import *
 from .decorators import *
@@ -114,7 +115,16 @@ def initialize_slicer(state):
 
         # Collect query loggers
         handlers = configured_request_log_handlers(config)
-        current_app.slicer.request_logger = RequestLogger(handlers)
+
+        if config.has_option('server', 'asynchronous_logging'):
+            async_logging = config.getboolean("server", "asynchronous_logging")
+        else:
+            async_logging = False
+
+        if async_logging:
+            current_app.slicer.request_logger = AsyncRequestLogger(handlers)
+        else:
+            current_app.slicer.request_logger = RequestLogger(handlers)
 
 # Before and After
 # ================

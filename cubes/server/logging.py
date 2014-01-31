@@ -1,6 +1,8 @@
 # -*- coding=utf -*-
 from contextlib import contextmanager
 from collections import namedtuple
+from threading import Thread
+from Queue import Queue
 
 import datetime
 import time
@@ -16,6 +18,7 @@ __all__ = [
     "configured_request_log_handlers",
 
     "RequestLogger",
+    "AsyncRequestLogger",
     "RequestLogHandler",
     "DefaultRequestLogHandler",
     "CSVFileRequestLogHandler",
@@ -106,6 +109,24 @@ class RequestLogger(object):
         record["split"] = str(split) if split is not None else None
 
         return record
+
+
+class AsyncRequestLogger(RequestLogger):
+    def __init__(self, handlers=None):
+        super(AsyncRequestLogger, self).__init__(handlers)
+        self.queue = Queue()
+        self.thread = Thread(target=self.log_consumer,
+                              name="slicer_logging")
+        self.thread.daemon = True
+        self.thread.start()
+
+    def log(self, *args, **kwargs):
+        self.queue.put( (args, kwargs) )
+
+    def log_consumer(self):
+        while True:
+            (args, kwargs) = self.queue.get()
+            super(AsyncRequestLogger, self).log(*args, **kwargs)
 
 class RequestLogHandler(Extensible):
     def write_record(self, record):
