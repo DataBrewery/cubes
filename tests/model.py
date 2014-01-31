@@ -272,10 +272,9 @@ class MeasuresTestsCase(CubesTestCaseBase):
         self.assertIsNone(measures[0].expression)
 
         aggregates = cube.aggregates
-        self.assertEqual(4, len(aggregates))
+        self.assertEqual(3, len(aggregates))
         names = [a.name for a in aggregates]
         self.assertSequenceEqual(["total",
-                                  "amount_sum",
                                   "amount_min",
                                   "amount_max"], names)
 
