@@ -18,10 +18,12 @@ _TYPE_FUNCS = {
     'TIME': float
 }
 
+
 def _type_func(ga_datatype):
     if ga_datatype is None:
         ga_datatype = 'STRING'
     return _TYPE_FUNCS.get(ga_datatype.upper(), str)
+
 
 def date_string(path, default_date):
     """Converts YMD path into a YYYY-MM-DD date."""
@@ -29,7 +31,7 @@ def date_string(path, default_date):
 
     path = path or []
 
-    (year, month, day) = tuple(path + [0]*(3-len(path)))
+    (year, month, day) = tuple(path + [0] * (3 - len(path)))
 
     year = int(year) or default_date[0]
     month = int(month) or default_date[1]
@@ -37,8 +39,9 @@ def date_string(path, default_date):
 
     return "%04d-%02d-%02d" % (year, month, day)
 
+
 class GoogleAnalyticsBrowser(AggregationBrowser):
-    __identifier__ = "ga"
+    __extension_name__ = "ga"
 
     def __init__(self, cube, store, locale=None, **options):
 
@@ -63,28 +66,15 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
             "actions": ["aggregate"]
         }
 
-    def aggregate(self, cell=None, measures=None, aggregates=None,
-                  drilldown=None, split=None, order=None,
-                  page=None, page_size=None, **options):
-
-        if measures:
-            raise ArgumentError("Google Analytics does not provide non-aggregated "
-                                "measures")
-
-        aggregates = self.prepare_aggregates(aggregates)
+    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
+                          page, page_size, **options):
 
         aggregate_names = [a.name for a in aggregates]
         native_aggregates = [a for a in aggregates if not a.function]
         native_aggregate_names = [a.name for a in native_aggregates]
 
-        # Get the cell and prepare cut parameters
-        cell = cell or Cell(self.cube)
-
-        drilldown = Drilldown(drilldown, cell)
-        order = self.prepare_order(order, is_aggregate=True)
-
-        result = AggregationResult(cell=cell, aggregates=aggregates)
-        result.levels = drilldown.result_levels()
+        result = AggregationResult(cell=cell, aggregates=aggregates,
+                                   drilldown=drilldown)
 
         #
         # Prepare the request:
@@ -112,16 +102,16 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
 
         self.logger.debug("GA query: date from %s to %s, dims:%s metrics:%s"
                           % (start_date, end_date, dimensions, metrics))
-        response = self.store.get_data(
-                start_date=start_date,
-                end_date=end_date,
-                filters=filters,
-                dimensions=dimensions,
-                metrics=metrics,
-                start_index=start_index,
-                max_results=max_results
-                )
 
+        response = self.store.get_data(start_date=start_date,
+                                       end_date=end_date,
+                                       filters=filters,
+                                       dimensions=dimensions,
+                                       metrics=metrics,
+                                       start_index=start_index,
+                                       max_results=max_results)
+
+        # TODO: remove this debug once satisfied
         import json
         print "=== RESPONSE:"
         print json.dumps(response, indent=4)

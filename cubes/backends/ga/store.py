@@ -74,7 +74,7 @@ def is_metric(item):
     return item["type"] == "METRIC"
 
 class GoogleAnalyticsModelProvider(ModelProvider):
-    __identifier__ = "ga"
+    __extension_name__ = "ga"
     def __init__(self, *args, **kwargs):
         super(GoogleAnalyticsModelProvider, self).__init__(*args, **kwargs)
 
@@ -120,8 +120,6 @@ class GoogleAnalyticsModelProvider(ModelProvider):
             item_id = item["id"]
             item = item["attributes"]
             item["id"] = item_id
-
-            self.logger.debug("GA concept: %s" % item_id)
 
             if item.get('status') == 'DEPRECATED':
                 self.logger.debug("Discarding deprecated item %s" % item_id)
@@ -323,7 +321,8 @@ class GoogleAnalyticsModelProvider(ModelProvider):
 
 
 class GoogleAnalyticsStore(Store):
-    __identifier__ = "ga"
+    __extension_name__ = "ga"
+    related_model_provider = "ga"
 
     def __init__(self, email=None, key_file=None, account_id=None,
                  account_name=None, web_property=None,

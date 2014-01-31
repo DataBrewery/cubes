@@ -11,18 +11,17 @@ import os
 import re
 
 from collections import namedtuple
-from .extensions import get_namespace, initialize_namespace
 from .logging import get_logger
 from .common import IgnoringDictionary, to_label
 from .errors import *
 from .model import *
+from .extensions import Extensible
 
 __all__ = [
     "read_model_metadata",
     "read_model_metadata_bundle",
     "write_model_metadata_bundle",
 
-    "create_model_provider",
     "ModelProvider",
     "StaticModelProvider",
     "validate_model",
@@ -34,23 +33,6 @@ __all__ = [
     "merge_models",
 ]
 
-
-def create_model_provider(name, metadata):
-    """Gets a new instance of a model provider with name `name`."""
-
-    ns = get_namespace("model_providers")
-    if not ns:
-    # FIXME: depreciated. affected: formatter.py
-        ns = initialize_namespace("model_providers", root_class=ModelProvider,
-                                  suffix="_model_provider")
-        ns["default"] = StaticModelProvider
-
-    try:
-        factory = ns[name]
-    except KeyError:
-        raise CubesError("Unable to find model provider of type '%s'" % name)
-
-    return factory(metadata)
 
 def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
@@ -201,7 +183,7 @@ def load_model(resource, translations=None):
                     "please refer to the documentation for more information")
 
 
-class ModelProvider(object):
+class ModelProvider(Extensible):
     """Abstract class. Currently empty and used only to find other model
     providers."""
 
@@ -476,6 +458,8 @@ class ModelProvider(object):
 
 class StaticModelProvider(ModelProvider):
 
+    __extension_aliases__ = ["default"]
+
     dynamic_cubes = False
     dynamic_dimensions = False
 
@@ -577,32 +561,6 @@ def model_from_path(path):
     """Load logical model from a file or a directory specified by `path`.
     Returs instance of `Model`. """
     raise NotImplementedError("model_from_path is depreciated. use Workspace.add_model()")
-
-# TODO: modernize
-def simple_model(cube_name, dimensions, measures):
-    """Create a simple model with only one cube with name `cube_name`and flat
-    dimensions. `dimensions` is a list of dimension names as strings and
-    `measures` is a list of measure names, also as strings. This is
-    convenience method mostly for quick model creation for denormalized views
-    or tables with data from a single CSV file.
-
-    Example:
-
-    .. code-block:: python
-
-        model = simple_model("contracts",
-                             dimensions=["year", "supplier", "subject"],
-                             measures=["amount"])
-        cube = model.cube("contracts")
-        browser = workspace.create_browser(cube)
-    """
-    dim_instances = []
-    for dim_name in dimensions:
-        dim_instances.append(create_dimension(dim_name))
-
-    cube = Cube(cube_name, dim_instances, measures)
-
-    return Model(cubes=[cube])
 
 
 ValidationError = namedtuple("ValidationError",
