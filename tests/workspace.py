@@ -4,8 +4,8 @@ import json
 import re
 from cubes.errors import *
 from cubes.workspace import *
+from cubes.stores import Store
 from cubes.model import *
-from cubes.extensions import get_namespace
 
 from common import CubesTestCaseBase
 # FIXME: remove this once satisfied
@@ -24,6 +24,9 @@ class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
         self.assertEqual(0, len(ws.store_infos))
 
     def test_stores(self):
+        class ImaginaryStore(Store):
+            pass
+
         ws = Workspace(stores={"default":{"type":"imaginary"}})
         self.assertTrue("default" in ws.store_infos)
 
