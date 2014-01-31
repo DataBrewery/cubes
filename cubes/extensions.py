@@ -100,26 +100,30 @@ class ExtensionsFactory(object):
         if not self.suffix:
             self.suffix = name
 
-        options = root.__options__
 
         self.options = {}
         self.option_types = {}
 
-        for option in options or []:
+        self.extensions = {}
+
+        for option in root.__options__ or []:
             name = option["name"]
             self.options[name] = option
             self.option_types[name] = option.get("type", "string")
-
-        self.extensions = {}
 
     def __call__(self, _extension_name, *args, **kwargs):
         return self.create(_extension_name, *args, **kwargs)
 
     def create(self, _extension_name, *args, **kwargs):
         """Creates an extension. First argument should be extension's name."""
-        kwargs = coalesce_options(dict(kwargs), self.option_types)
-
         extension = self.get(_extension_name)
+
+        option_types = dict(self.option_types)
+        for option in extension.__options__ or []:
+            name = option["name"]
+            option_types[name] = option.get("type", "string")
+
+        kwargs = coalesce_options(dict(kwargs), option_types)
 
         return extension(*args, **kwargs)
 
