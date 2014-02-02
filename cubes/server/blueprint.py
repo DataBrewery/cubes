@@ -461,8 +461,11 @@ def cube_members(cube_name, dimension_name):
 @requires_browser
 def cube_cell(cube_name):
     details = g.browser.cell_details(g.cell)
-    cell_dict = g.cell.to_dict()
 
+    if not g.cell:
+        g.cell = Cell(g.cube)
+
+    cell_dict = g.cell.to_dict()
     for cut, detail in zip(cell_dict["cuts"], details):
         cut["details"] = detail
 
