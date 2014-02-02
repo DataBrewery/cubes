@@ -593,6 +593,20 @@ class AggregationBrowser(Extensible):
 
         return result
 
+    def path_details(self, dimension, path, hierarchy):
+        """Returns empty path details. Default fall-back for backends that do
+        not support the path details. The level key and label are the same
+        derived from the key."""
+
+        detail = {}
+        for level, key in zip(hierarchy.levels, path):
+            for attr in level.attributes:
+                if attr == level.key or attr == level.label_attribute:
+                    detail[attr.ref()] = key
+                else:
+                    detail[attr.ref()] = None
+
+        return detail
 
 class Facts(object):
     def __init__(self, facts, attributes):
