@@ -28,7 +28,7 @@ class SlicerBrowser(AggregationBrowser):
         features = dict(self.cube.browser_options.get("features", {}))
 
         # Replace only the actions, as we are not just a simple proxy.
-        features["actions"] = ["aggregate", "facts", "fact", "cell"]
+        features["actions"] = ["aggregate", "facts", "fact", "cell", "members"]
 
         return features
 
