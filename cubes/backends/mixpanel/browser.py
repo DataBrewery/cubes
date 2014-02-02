@@ -53,7 +53,7 @@ class MixpanelBrowser(AggregationBrowser):
             "post_aggregate_functions": available_calculators()
         }
 
-        default_actions = ["aggregate", "facts"]
+        default_actions = ["aggregate", "facts", "cell"]
         cube_actions = self.cube.browser_options.get("actions")
         if cube_actions:
             cube_actions = set(default_actions) & set(cube_actions)
