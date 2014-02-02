@@ -339,14 +339,6 @@ def aggregate(cube_name):
 @log_request("facts", "fields")
 def cube_facts(cube_name):
     # Request parameters
-    output_format = validated_parameter(request.args, "format",
-                                        values=["json", "json_lines", "csv"],
-                                        default="json")
-
-    header_type = validated_parameter(request.args, "header",
-                                      values=["names", "labels", "none"],
-                                      default="labels")
-
     fields_str = request.args.get("fields")
     if fields_str:
         fields = fields_str.split(',')
@@ -370,40 +362,13 @@ def cube_facts(cube_name):
                              page_size=g.page_size)
 
     # Add cube key to the fields (it is returned in the result)
-    fields.insert(0, g.cube.key)
+    fields.insert(0, g.cube.key or "id")
 
     # Construct the header
-    if header_type == "names":
-        header = fields
-    elif header_type == "labels":
-        header = [attr.label or attr.name for attr in attributes]
-        header.insert(0, g.cube.key or "id")
-    else:
-        header = None
+    labels = [attr.label or attr.name for attr in attributes]
+    labels.insert(0, g.cube.key or "id")
 
-    # Get the facts iterator. `result` is expected to be an iterable Facts
-    # object
-
-    if output_format == "json":
-        return jsonify(facts)
-    elif output_format == "json_lines":
-        return Response(JSONLinesGenerator(facts),
-                        mimetype='application/x-json-lines')
-    elif output_format == "csv":
-        if not fields:
-            fields = result.labels
-
-        generator = CSVGenerator(facts,
-                                 fields,
-                                 include_header=bool(header),
-                                 header=header)
-
-        headers = {"Content-Disposition": 'attachment; filename="facts.csv"'}
-
-        return Response(generator.csvrows(),
-                        mimetype='text/csv',
-                        headers=headers)
-
+    return formated_response(facts, fields, labels)
 
 @slicer.route("/cube/<cube_name>/fact/<fact_id>")
 @requires_browser
@@ -421,7 +386,13 @@ def cube_fact(cube_name, fact_id):
 @requires_browser
 @log_request("members")
 def cube_members(cube_name, dimension_name):
+    # TODO: accept level name
     depth = request.args.get("depth")
+    level = request.args.get("level")
+
+    if depth and level:
+        raise RequestError("Both depth and level provided, use only one "
+                           "(preferably level)")
 
     if depth:
         try:
@@ -438,14 +409,17 @@ def cube_members(cube_name, dimension_name):
     hier_name = request.args.get("hierarchy")
     hierarchy = dimension.hierarchy(hier_name)
 
+    if not depth and not level:
+        depth = len(hierarchy)
+    elif level:
+        depth = hierarchy.level_index(level) + 1
+
     values = g.browser.members(g.cell,
                                dimension,
                                depth=depth,
                                hierarchy=hierarchy,
                                page=g.page,
                                page_size=g.page_size)
-
-    depth = depth or len(hierarchy)
 
     result = {
         "dimension": dimension.name,
@@ -454,7 +428,15 @@ def cube_members(cube_name, dimension_name):
         "data": values
     }
 
-    return jsonify(result)
+    # Collect fields and labels
+    attributes = []
+    for level in hierarchy.levels_for_depth(depth):
+        attributes += level.attributes
+
+    fields = [attr.ref() for attr in attributes]
+    labels = [attr.label or attr.name for attr in attributes]
+
+    return formated_response(result, fields, labels, iterable=values)
 
 
 @slicer.route("/cube/<cube_name>/cell")
