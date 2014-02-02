@@ -114,6 +114,42 @@ class SlicerBrowser(AggregationBrowser):
 
         return Facts(response, attributes)
 
+    def provide_members(self, cell=None, dimension=None, levels=None,
+                        hierarchy=None, attributes=None, page=None,
+                        page_size=None, order=None, **options):
+
+        order = self.prepare_order(order, is_aggregate=False)
+
+        params = {}
+
+        if cell:
+            params["cut"] = string_from_cuts(cell.cuts)
+
+        if order:
+            params["order"] = self._order_param(order)
+
+        if levels:
+            params["level"] = str(levels[-1])
+
+        if hierarchy:
+            params["hierarchy"] = str(hierarchy)
+
+        if page is not None:
+            params["page"] = str(page)
+
+        if page_size is not None:
+            params["page_size"] = str(page_size)
+
+        if attributes:
+            params["fields"] = ",".join(str(attr) for attr in attributes)
+
+        params["format"] = "json_lines"
+
+        action = "/cube/%s/members/%s" % (self.cube.basename, str(dimension))
+        response = self.store.request(action, params, is_lines=True)
+
+        return response
+
     def cell(self, fact_id):
         cell = cell or Cell(self.cube)
 
@@ -134,7 +170,4 @@ class SlicerBrowser(AggregationBrowser):
         """Prepare an order string in form: ``attribute:direction``"""
         string = ",".join("%s:%s" % (o[0], o[1]) for o in order)
         return string
-
-    def fact(self, key):
-        raise NotImplementedError
 
