@@ -311,12 +311,44 @@ class AggregationBrowser(Extensible):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def members(self, cell, dimension, depth=None, hierarchy=None):
+    def members(self, cell, dimension, depth=None, level=None, hierarchy=None,
+                attributes=None, page=None, page_size=None, order=None,
+                **options):
         """Return members of `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned. If no `hierarchy` is specified,
         then default dimension hierarchy is used.
         """
-        raise NotImplementedError
+        order = self.prepare_order(order, is_aggregate=True)
+
+        if cell is None:
+            cell = Cell(self.cube)
+
+        dimension = self.cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
+
+        if depth is not None and level:
+            raise ArgumentError("Both depth and level used, provide only one.")
+
+        if not depth and not level:
+            levels = hierarchy.levels
+        elif depth == 0:
+            raise ArgumentError("Depth for dimension members should not be 0")
+        elif depth:
+            levels = hierarchy.levels_for_depth(depth)
+        else:
+            index = hierarchy.level_index(level)
+            levels = hierarchy.levels_for_depth(index+1)
+
+        result = self.provide_members(cell,
+                                      dimension=dimension,
+                                      hierarchy=hierarchy,
+                                      levels=levels,
+                                      attributes=attributes,
+                                      order=order,
+                                      page=page,
+                                      page_size=page_size,
+                                      **options)
+        return result
 
     def values(self, *args, **kwargs):
         # TODO: depreciated
