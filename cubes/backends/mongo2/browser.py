@@ -68,7 +68,7 @@ class Mongo2Browser(AggregationBrowser):
 
         cube_actions = self.cube.browser_options.get("actions")
 
-        default_actions = ["aggregate", "members", "fact", "facts"]
+        default_actions = ["aggregate", "members", "fact", "facts", "cell"]
         cube_actions = self.cube.browser_options.get("actions")
 
         if cube_actions:
@@ -190,30 +190,30 @@ class Mongo2Browser(AggregationBrowser):
             item = to_json_safe(item)
         return item
 
-    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None,
-               order=None, page=None, page_size=None, **options):
-        cell = cell or Cell(self.cube)
-        dimension = self.cube.dimension(dimension)
-        hierarchy = dimension.hierarchy(hierarchy)
-        levels = hierarchy.levels
-        if depth is None:
-            depth = len(levels)
-        if depth < 1 or depth > len(levels):
-            raise ArgumentError("depth may not be less than 1 or more than %d, the maximum depth of dimension %s" % (len(levels), dimension.name))
-        levels = levels[0:depth]
+    def provide_members(self, cell, dimension, depth=None, hierarchy=None,
+                        levels=None, attributes=None, page=None,
+                        page_size=None, order=None):
+        """Provide dimension members. The arguments are already prepared by
+        superclass `members()` method."""
 
-        level_attributes = []
+        attributes = []
         for level in levels:
-           level_attributes += level.attributes
-        summary, cursor = self._do_aggregation_query(cell=cell, aggregates=None,
-                                                     attributes=level_attributes,
-                                                     drilldown=[(dimension,
-                                                                 hierarchy,
-                                                                 levels)],
-                                                     order=order, page=page,
+           attributes += level.attributes
+
+        drilldown = Drilldown([(dimension, hierarchy, levels[-1])], cell)
+
+        summary, cursor = self._do_aggregation_query(cell=cell,
+                                                     aggregates=None,
+                                                     attributes=attributes,
+                                                     drilldown=drilldown,
+                                                     split=None,
+                                                     order=order,
+                                                     page=page,
                                                      page_size=page_size)
 
+        # TODO: return iterator
         data = []
+
         for item in cursor:
             new_item = {}
             for level in levels:
@@ -262,7 +262,7 @@ class Mongo2Browser(AggregationBrowser):
             if for_project:
                 expr = phys.project_expression()
             else:
-                expr = phys.match_expression()
+                expr = phys.match_expression(True)
 
             fields[escape_level(attribute.ref())] = expr
 
@@ -276,15 +276,17 @@ class Mongo2Browser(AggregationBrowser):
 
         # If no drilldown or split, only one measure, and only aggregations to
         # do on it are count or identity, no aggregation pipeline needed.
-        if not aggregates:
-            raise ArgumentError("No aggregates provided.")
-
         if (not drilldown and not split) \
                 and len(aggregates) == 1 \
                 and aggregates[0].function in ("count", "identity"):
 
             self.logger.debug("doing plain aggregation")
             return (self.data_store.find(query_obj).count(), [])
+
+        # TODO: do we need this check here?
+        # if not aggregates:
+        #     raise ArgumentError("No aggregates provided.")
+
 
         group_id = {}
 
@@ -370,7 +372,7 @@ class Mongo2Browser(AggregationBrowser):
 
         aggregate_fn_pairs = []
 
-        for agg in aggregates:
+        for agg in aggregates or []:
             if agg.function:
                 try:
                     function = get_aggregate_function(agg.function)
