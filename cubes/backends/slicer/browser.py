@@ -28,7 +28,7 @@ class SlicerBrowser(AggregationBrowser):
         features = dict(self.cube.browser_options.get("features", {}))
 
         # Replace only the actions, as we are not just a simple proxy.
-        features["actions"] = ["aggregate", "facts", "fact"]
+        features["actions"] = ["aggregate", "facts", "fact", "cell"]
 
         return features
 
@@ -113,6 +113,17 @@ class SlicerBrowser(AggregationBrowser):
                                            is_lines=True)
 
         return Facts(response, attributes)
+
+    def cell(self, fact_id):
+        cell = cell or Cell(self.cube)
+
+        params = {}
+        if cell:
+            params["cut"] = string_from_cuts(cell.cuts)
+
+        response = self.store.cube_request("cell", self.cube.basename, params) 
+
+        return response
 
     def fact(self, fact_id):
         action = "/cube/%s/fact/%s" % (self.cube.basename, str(fact_id))
