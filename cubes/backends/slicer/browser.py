@@ -28,7 +28,7 @@ class SlicerBrowser(AggregationBrowser):
         features = dict(self.cube.browser_options.get("features", {}))
 
         # Replace only the actions, as we are not just a simple proxy.
-        features["actions"] = ["aggregate", "facts"]
+        features["actions"] = ["aggregate", "facts", "fact"]
 
         return features
 
@@ -63,7 +63,7 @@ class SlicerBrowser(AggregationBrowser):
 
 
         response = self.store.cube_request("aggregate",
-                                           self.cube.name, params)
+                                           self.cube.basename, params)
 
         result = AggregationResult()
 
@@ -109,10 +109,15 @@ class SlicerBrowser(AggregationBrowser):
 
         params["format"] = "json_lines"
 
-        response = self.store.cube_request("facts", self.cube.name, params,
+        response = self.store.cube_request("facts", self.cube.basename, params,
                                            is_lines=True)
 
         return Facts(response, attributes)
+
+    def fact(self, fact_id):
+        action = "/cube/%s/fact/%s" % (self.cube.basename, str(fact_id))
+        response = self.store.request(action)
+        return response
 
     def _order_param(self, order):
         """Prepare an order string in form: ``attribute:direction``"""

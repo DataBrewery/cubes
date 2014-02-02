@@ -84,7 +84,6 @@ class Extensible(object):
     """
     __options__ = None
 
-import sys
 class ExtensionsFactory(object):
     def __init__(self, root):
         """Creates an extension factory for extension root class `root`."""

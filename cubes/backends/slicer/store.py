@@ -19,6 +19,8 @@ class _default_opener:
         return urllib2.urlopen(url, *args, **kwargs)
 
 class SlicerStore(Store):
+    related_model_provider = "slicer"
+
     def __init__(self, url=None, authentication=None,
                  auth_identity=None, auth_parameter=None,
                  **options):
