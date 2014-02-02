@@ -200,29 +200,18 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return ResultIterator(cursor, builder.labels)
 
-    def members(self, cell, dimension, depth=None, hierarchy=None, page=None,
-                page_size=None, order=None):
+    def provide_members(self, cell, dimension, depth=None, hierarchy=None,
+                        levels=None, attributes=None, page=None,
+                        page_size=None, order=None):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
         Number of database queries: 1.
         """
-        cell = cell or Cell(self.cube)
-        order = self.prepare_order(order, is_aggregate=False)
-
-        dimension = self.cube.dimension(dimension)
-        hierarchy = dimension.hierarchy(hierarchy)
-
-        if depth == 0:
-            raise ArgumentError("Depth for dimension members should not be 0")
-        elif depth is None:
-            levels = hierarchy.levels
-        else:
-            levels = hierarchy.levels[0:depth]
-
-        attributes = []
-        for level in levels:
-            attributes += level.attributes
+        if not attributes:
+            attributes = []
+            for level in levels:
+                attributes += level.attributes
 
         builder = QueryBuilder(self)
         builder.members_statement(cell, attributes)
@@ -507,7 +496,7 @@ class SnowflakeBrowser(AggregationBrowser):
             except sqlalchemy.exc.NoSuchTableError:
                 issues.append(("join", "table %s.%s does not exist" % table, join))
 
-        # Check attributes
+        # check attributes
 
         attributes = self.mapper.all_attributes()
         physical = self.mapper.map_attributes(attributes)
