@@ -150,12 +150,15 @@ class SlicerBrowser(AggregationBrowser):
 
         return response
 
-    def cell(self, fact_id):
+    def cell_details(self, cell, dimension=None):
         cell = cell or Cell(self.cube)
 
         params = {}
         if cell:
             params["cut"] = string_from_cuts(cell.cuts)
+
+        if dimension:
+            params["dimension"] = str(dimension)
 
         response = self.store.cube_request("cell", self.cube.basename, params) 
 
