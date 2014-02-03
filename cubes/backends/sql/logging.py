@@ -1,11 +1,15 @@
 # -*- coding=utf -*-
 
+from __future__ import absolute_import
+
 from ...server.logging import RequestLogHandler, REQUEST_LOG_ITEMS
 from sqlalchemy import create_engine, Table, MetaData, Column
 from sqlalchemy import Integer, Sequence, DateTime, String, Float
 from sqlalchemy.exc import NoSuchTableError
 from ...browser import string_to_drilldown, Drilldown
 from .store import create_sqlalchemy_engine
+
+import logging
 
 class SQLRequestLogHandler(RequestLogHandler):
     def __init__(self, url=None, table=None, dimensions_table=None, **options):
@@ -14,6 +18,9 @@ class SQLRequestLogHandler(RequestLogHandler):
         self.engine = create_sqlalchemy_engine(url, options)
 
         metadata = MetaData(bind=self.engine)
+
+        logging.getLogger('sqlalchemy.engine').setLevel("DEBUG")
+        logging.getLogger('sqlalchemy.pool').setLevel("DEBUG")
 
         try:
             self.table = Table(table, metadata, autoload=True)
@@ -78,8 +85,11 @@ class SQLRequestLogHandler(RequestLogHandler):
                 drilldown = []
                 record["drilldown"] = None
 
+        connection = self.engine.connect()
+        trans = connection.begin()
+
         insert = self.table.insert().values(record)
-        result = self.engine.execute(insert)
+        result = connection.execute(insert)
         query_id = result.inserted_primary_key[0]
 
         if self.dims_table is not None:
@@ -128,4 +138,8 @@ class SQLRequestLogHandler(RequestLogHandler):
 
             if uses:
                 insert = self.dims_table.insert().values(uses)
-                self.engine.execute(insert)
+                connection.execute(insert)
+
+        trans.commit()
+        connection.close()
+
