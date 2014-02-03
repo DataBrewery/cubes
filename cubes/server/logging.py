@@ -124,9 +124,14 @@ class AsyncRequestLogger(RequestLogger):
         self.queue.put( (args, kwargs) )
 
     def log_consumer(self):
+        import time
         while True:
             (args, kwargs) = self.queue.get()
+            print "\n=== =================== LOG REQUEST RECEIVED\n"
+            start = time.time()
             super(AsyncRequestLogger, self).log(*args, **kwargs)
+            end = time.time() - start
+            print "\n^^^ =================== LOGING FINISHED IN %s" % str(end)
 
 class RequestLogHandler(Extensible):
     def write_record(self, record):
