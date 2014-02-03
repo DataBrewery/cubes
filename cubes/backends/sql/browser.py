@@ -1,6 +1,8 @@
 # -*- coding=utf -*-
 # Actually, this is a furry snowflake, not a nice star
 
+from __future__ import absolute_import
+
 from ...browser import *
 from ...logging import get_logger
 from ...statutils import calculators_for_aggregates, available_calculators
@@ -23,6 +25,31 @@ except ImportError:
 __all__ = [
     "SnowflakeBrowser",
 ]
+
+#### DEBUG ### DEBUG ### DEBUG ### DEBUG ### DEBUG ### DEBUG ### DEBUG ###  
+
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+import time
+import logging
+
+
+@event.listens_for(Engine, "before_cursor_execute")
+def before_cursor_execute(conn, cursor, statement,
+                        parameters, context, executemany):
+    context._query_start_time = time.time()
+    logger = get_logger()
+    logger.debug(">>> Start Query: %s" % statement)
+
+@event.listens_for(Engine, "after_cursor_execute")
+def after_cursor_execute(conn, cursor, statement,
+                        parameters, context, executemany):
+    total = time.time() - context._query_start_time
+    logger = get_logger()
+    logger.debug("--- Query Complete!")
+    logger.debug("<<< Total Time: %f" % total)
+
+#### DEBUG ### DEBUG ### DEBUG ### DEBUG ### DEBUG ### DEBUG ### DEBUG ###  
 
 
 class SnowflakeBrowser(AggregationBrowser):
@@ -91,6 +118,11 @@ class SnowflakeBrowser(AggregationBrowser):
         self.connectable = store.connectable
         self.metadata = store.metadata or sqlalchemy.MetaData(bind=self.connectable)
 
+        print "\n--------------- BROWSER ---------------\n"
+        print "CONNECTABLE: %s" % self.connectable
+        print "POOL:        %s" % self.connectable.pool
+        print "POOL SIZE:   %s" % self.connectable.pool.size()
+        print "\n---------------------------------------\n"
         # Options
         # -------
 
