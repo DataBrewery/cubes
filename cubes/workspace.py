@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
 import sys
-from .providers import read_model_metadata
+from .metadata import read_model_metadata
 from .auth import NotAuthorized
 from .model import Model
 from .common import read_json_file
