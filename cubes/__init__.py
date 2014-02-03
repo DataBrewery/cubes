@@ -5,6 +5,7 @@ __version__ = "1.0alpha"
 from .common import *
 from .browser import *
 from .model import *
+from .metadata import *
 from .workspace import *
 from .errors import *
 from .formatter import *

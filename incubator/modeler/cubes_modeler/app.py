@@ -11,7 +11,7 @@ Note: Use only as local server with slicer:
 from flask import Flask, render_template, request
 from cubes import Model, read_model_metadata, create_model_provider
 from cubes import get_logger, write_model_metadata_bundle
-from cubes import fix_dimension_metadata
+from cubes import expand_dimension_metadata
 import json
 from collections import OrderedDict
 from itertools import count
@@ -58,7 +58,7 @@ def import_model(path):
 
     dim_list = metadata.pop("dimensions", [])
     for i, dim in enumerate(dim_list):
-        dim = fix_dimension_metadata(dim)
+        dim = expand_dimension_metadata(dim)
 
         dim_id = dimension_id_sequence.next()
         dim["id"] = dim_id
