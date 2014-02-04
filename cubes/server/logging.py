@@ -8,10 +8,12 @@ import datetime
 import time
 import csv
 import io
+import json
 
 from ..extensions import extensions, Extensible
 from ..logging import get_logger
 from ..errors import *
+from ..browser import Drilldown
 
 __all__ = [
     "create_request_log_handler",
@@ -124,14 +126,9 @@ class AsyncRequestLogger(RequestLogger):
         self.queue.put( (args, kwargs) )
 
     def log_consumer(self):
-        import time
         while True:
             (args, kwargs) = self.queue.get()
-            print "\n=== =================== LOG REQUEST RECEIVED\n"
-            start = time.time()
             super(AsyncRequestLogger, self).log(*args, **kwargs)
-            end = time.time() - start
-            print "\n^^^ =================== LOGING FINISHED IN %s" % str(end)
 
 class RequestLogHandler(Extensible):
     def write_record(self, record):
@@ -174,4 +171,71 @@ class CSVFileRequestLogHandler(RequestLogHandler):
         with io.open(self.path, 'ab') as f:
             writer = csv.writer(f)
             writer.writerow(out)
+
+class JSONRequestLogHandler(RequestLogHandler):
+    def __init__(self, path=None, dimension_use_path=None, **options):
+        self.path = path
+        self.dim_path = dimension_use_path
+
+    def write_record(self, cube, cell, record):
+        out = []
+
+        drilldown = record.get("drilldown")
+
+        if drilldown is not None:
+            if cell:
+                drilldown = Drilldown(drilldown, cell)
+                record["drilldown"] = str(drilldown)
+            else:
+                drilldown = []
+                record["drilldown"] = None
+
+        record["timestamp"] = record["timestamp"].isoformat()
+        # Collect dimension uses
+        uses = []
+
+        cuts = cell.cuts if cell else []
+
+        for cut in cuts:
+            dim = cube.dimension(cut.dimension)
+            depth = cut.level_depth()
+            if depth:
+                level = dim.hierarchy(cut.hierarchy)[depth-1]
+                level_name = str(level)
+            else:
+                level_name = None
+
+            use = {
+                "dimension": str(dim),
+                "hierarchy": str(cut.hierarchy),
+                "level": str(level_name),
+                "value": str(cut)
+            }
+            uses.append(use)
+
+        record["cell_dimensions"] = uses
+
+        uses = []
+
+        for item in drilldown or []:
+            (dim, hier, levels) = item[0:3]
+            if levels:
+                level = str(levels[-1])
+            else:
+                level = None
+
+            use = {
+                "dimension": str(dim),
+                "hierarchy": str(hier),
+                "level": str(level),
+                "value": None
+            }
+            uses.append(use)
+
+        record["drilldown_dimensions"] = uses
+        line = json.dumps(record)
+
+        with io.open(self.path, 'ab') as f:
+            json.dump(record, f)
+            f.write("\n")
 
