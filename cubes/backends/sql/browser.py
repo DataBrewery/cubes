@@ -121,7 +121,6 @@ class SnowflakeBrowser(AggregationBrowser):
         print "\n--------------- BROWSER ---------------\n"
         print "CONNECTABLE: %s" % self.connectable
         print "POOL:        %s" % self.connectable.pool
-        print "POOL SIZE:   %s" % self.connectable.pool.size()
         print "\n---------------------------------------\n"
         # Options
         # -------

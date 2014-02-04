@@ -1,4 +1,9 @@
-import logging
+# -*- coding=utf -*-
+
+from __future__ import absolute_import
+
+# TODO: this requires a replacement (it is depreciated)
+
 import sets
 import cubes.model as model
 from .mapper import DEFAULT_KEY_FIELD
