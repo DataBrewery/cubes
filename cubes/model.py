@@ -776,7 +776,7 @@ class Dimension(ModelObject):
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, category=None,
-                 parent=None, **desc):
+                 master=None, **desc):
 
         """Create a new dimension
 
@@ -818,12 +818,12 @@ class Dimension(ModelObject):
         self.cardinality = cardinality
         self.category = category
 
-        # Parent dimension – dimension that this one was derived from, for
+        # Master dimension – dimension that this one was derived from, for
         # example by limiting hierarchies
         # TODO: not yet documented
         # TODO: probably replace the limit using limits in-dimension instead
         # of replacement of instance variables with limited content (?)
-        self.parent = parent
+        self.master = master
 
         if not levels:
             raise ModelError("No levels specified for dimension %s"
@@ -840,7 +840,7 @@ class Dimension(ModelObject):
             hier = Hierarchy("default", self.levels)
             self.hierarchies = {"default": hier}
 
-        # Claim ownership of hierarchies
+        # Claim ownership of the hierarchies
         for hier in self.hierarchies.values():
             hier.dimension = self
 
@@ -900,8 +900,8 @@ class Dimension(ModelObject):
         """Returns ``True`` when each level has only one attribute, usually
         key."""
 
-        if self.parent:
-            return self.parent.has_details
+        if self.master:
+            return self.master.has_details
 
         return any([level.has_details for level in self._levels.values()])
 
@@ -1002,8 +1002,8 @@ class Dimension(ModelObject):
     @property
     def is_flat(self):
         """Is true if dimension has only one level"""
-        if self.parent:
-            return self.parent.is_flat
+        if self.master:
+            return self.master.is_flat
 
         return len(self.levels) == 1
 
@@ -1058,23 +1058,20 @@ class Dimension(ModelObject):
                          info=self.info,
                          role=self.role,
                          cardinality=self.cardinality,
-                         parent=self)
+                         master=self)
 
-    def to_dict(self, hierarchy_limits=None, **options):
+    def to_dict(self, **options):
         """Return dictionary representation of the dimension"""
 
-        out = IgnoringDictionary()
-        out["name"] = self.name
-        out["info"] = self.info
+        out = super(Dimension, self).to_dict(**options)
+
+        hierarchy_limits = options.get("hierarchy_limits")
+
         out["default_hierarchy_name"] = self.hierarchy().name
+
         out["role"] = self.role
         out["cardinality"] = self.cardinality
         out["category"] = self.category
-
-        if options.get("create_label"):
-            out["label"] = self.label or to_label(self.name)
-        else:
-            out["label"] = self.label
 
         out["levels"] = [level.to_dict(**options) for level in self.levels]
 
@@ -1456,9 +1453,8 @@ class Hierarchy(ModelObject):
 
         """
 
-        out = IgnoringDictionary()
+        out = super(Hierarchy, self).to_dict(**options)
 
-        out["name"] = self.name
         levels = [str(l) for l in self.levels]
 
         if depth:
@@ -1466,11 +1462,6 @@ class Hierarchy(ModelObject):
         else:
             out["levels"] = levels
         out["info"] = self.info
-
-        if options.get("create_label"):
-            out["label"] = self.label or to_label(self.name)
-        else:
-            out["label"] = self.label
 
         return out
 
@@ -1629,15 +1620,9 @@ class Level(ModelObject):
     def to_dict(self, full_attribute_names=False, **options):
         """Convert to dictionary"""
 
-        out = IgnoringDictionary()
-        out["name"] = self.name
-        out["role"] = self.role
-        out["info"] = self.info
+        out = super(Level, self).to_dict(**options)
 
-        if options.get("create_label"):
-            out["label"] = self.label or to_label(self.name)
-        else:
-            out["label"] = self.label
+        out["role"] = self.role
 
         if full_attribute_names:
             out["key"] = self.key.ref()
@@ -1778,17 +1763,8 @@ class AttributeBase(ModelObject):
         return hash(self.ref())
 
     def to_dict(self, **options):
-        # Use ordered dict for nicer JSON output
-        d = IgnoringDictionary()
-        d["name"] = self.name
+        d = super(AttributeBase, self).to_dict(**options)
 
-        if options.get("create_label"):
-            d["label"] = self.label or to_label(self.name)
-        else:
-            d["label"] = self.label
-
-        d["description"] = self.description
-        d["info"] = self.info
         d["format"] = self.format
         d["order"] = self.order
         d["missing_value"] = self.missing_value

@@ -8,7 +8,6 @@ import re
 
 from collections import namedtuple
 from .logging import get_logger
-from .common import IgnoringDictionary, to_label
 from .errors import *
 from .model import *
 from .extensions import Extensible
