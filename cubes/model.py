@@ -237,13 +237,37 @@ class ModelObject(object):
     """Base classs for all model objects."""
 
     def __init__(self, name=None, label=None, description=None, info=None):
+        """Initializes model object basics. Assures that the `info` is a
+        dictionary."""
+
         self.name = name
         self.label = label
         self.description = description
-        self.info = info
+        self.info = info or {}
+
+    def to_dict(self, create_label=None, **options):
+        """Convert to a dictionary. If `with_mappings` is ``True`` (which is
+        default) then `joins`, `mappings`, `fact` and `options` are included.
+        Should be set to ``False`` when returning a dictionary that will be
+        provided in an user interface or through server API.
+        """
+
+        out = IgnoringDictionary()
+
+        out["name"] = self.name
+        out["info"] = self.info
+
+        if create_label:
+            out["label"] = self.label or to_label(self.name)
+        else:
+            out["label"] = self.label
+
+        out["description"] = self.description
+
+        return out
 
 
-class Cube(object):
+class Cube(ModelObject):
     def __init__(self, name, dimensions=None, measures=None, aggregates=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
@@ -297,13 +321,10 @@ class Cube(object):
 
         """
 
-        self.name = name
+        super(Cube, self).__init__(name, label, description, info)
+
         self.locale = locale
 
-        # User-oriented metadata
-        self.label = label
-        self.description = description
-        self.info = info or {}
         # backward compatibility
         self.category = category or self.info.get("category")
 
@@ -597,23 +618,16 @@ class Cube(object):
 
         return result
 
-    def to_dict(self, expand_dimensions=False, with_mappings=True,
-                hierarchy_limits=None, **options):
+    def to_dict(self, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
         default) then `joins`, `mappings`, `fact` and `options` are included.
         Should be set to ``False`` when returning a dictionary that will be
         provided in an user interface or through server API.
         """
 
-        out = IgnoringDictionary()
-        out["name"] = self.name
-        out["info"] = self.info
-        out["category"] = self.category
+        out = super(Cube, self).to_dict(**options)
 
-        if options.get("create_label"):
-            out["label"] = self.label or to_label(self.name)
-        else:
-            out["label"] = self.label
+        out["category"] = self.category
 
         aggregates = [m.to_dict(**options) for m in self.aggregates]
         out["aggregates"] = aggregates
@@ -624,12 +638,15 @@ class Cube(object):
         details = [a.to_dict(**options) for a in self.details]
         out["details"] = details
 
-        if expand_dimensions:
+        if options.get("expand_dimensions"):
             limits = defaultdict(dict)
-            if hierarchy_limits:
-                # Convert from (dim,hier,level) to a dict
-                for dim, hier, level in hierarchy_limits:
-                    limits[dim][hier] = level
+
+            # TODO: move this to metadata as strip_hierarchies()
+            hierarchy_limits = options.get("hierarchy_limits")
+            hierarchy_limits = hierarchy_limits or []
+
+            for dim, hier, level in hierarchy_limits:
+                limits[dim][hier] = level
 
             dims = []
 
@@ -643,7 +660,7 @@ class Cube(object):
 
         out["dimensions"] = dims
 
-        if with_mappings:
+        if options.get("with_mappings"):
             out["mappings"] = self.mappings
             out["fact"] = self.fact
             out["joins"] = self.joins
@@ -749,7 +766,7 @@ class Cube(object):
         return self.name
 
 
-class Dimension(object):
+class Dimension(ModelObject):
     """
     Cube dimension.
 
@@ -795,11 +812,8 @@ class Dimension(object):
         Note: The hierarchy will be owned by the dimension.
         """
 
-        self.name = name
+        super(Dimension, self).__init__(name, label, description, info)
 
-        self.label = label
-        self.description = description
-        self.info = info or {}
         self.role = role
         self.cardinality = cardinality
         self.category = category
@@ -1228,27 +1242,27 @@ class Dimension(object):
         return locale
 
 
-class Hierarchy(object):
-    """Dimension hierarchy - specifies order of dimension levels.
+class Hierarchy(ModelObject):
+    def __init__(self, name, levels, dimension=None, label=None, info=None,
+                 description=None):
+        """Dimension hierarchy - specifies order of dimension levels.
 
-    Attributes:
+        Attributes:
 
-    * `name`: hierarchy name
-    * `dimension`: dimension the hierarchy belongs to
-    * `label`: human readable name
-    * `levels`: ordered list of levels or level names from `dimension`
-    * `info` - custom information dictionary, might be used to store
-      application/front-end specific information
+        * `name`: hierarchy name
+        * `dimension`: dimension the hierarchy belongs to
+        * `label`: human readable name
+        * `levels`: ordered list of levels or level names from `dimension`
+        * `info` - custom information dictionary, might be used to store
+          application/front-end specific information
 
-    Some collection operations might be used, such as ``level in hierarchy``
-    or ``hierarchy[index]``. String value ``str(hierarchy)`` gives the
-    hierarchy name.
+        Some collection operations might be used, such as ``level in hierarchy``
+        or ``hierarchy[index]``. String value ``str(hierarchy)`` gives the
+        hierarchy name.
 
-    """
-    def __init__(self, name, levels, dimension=None, label=None, info=None):
-        self.name = name
-        self.label = label
-        self.info = info or {}
+        """
+
+        super(Hierarchy, self).__init__(name, label, description, info)
 
         # if not dimension:
         #     raise ModelInconsistencyError("No dimension specified for "
@@ -1470,7 +1484,7 @@ class Hierarchy(object):
         return locale
 
 
-class Level(object):
+class Level(ModelObject):
     """Object representing a hierarchy level. Holds all level attributes.
 
     This object is immutable, except localization. You have to set up all
@@ -1515,13 +1529,12 @@ class Level(object):
 
     def __init__(self, name, attributes, dimension=None, key=None,
                  order_attribute=None, order=None, label_attribute=None,
-                 label=None, info=None, cardinality=None, role=None):
+                 label=None, info=None, cardinality=None, role=None,
+                 description=None):
 
-        self.name = name
-        self.dimension = dimension
+        super(Level, self).__init__(name, label, description, info)
+
         self.cardinality = cardinality
-        self.label = label
-        self.info = info or {}
         self.role = role
 
         if not attributes:
@@ -1689,7 +1702,7 @@ class Level(object):
         return locale
 
 
-class AttributeBase(object):
+class AttributeBase(ModelObject):
     ASC = 'asc'
     DESC = 'desc'
 
@@ -1720,10 +1733,8 @@ class AttributeBase(object):
         `cubes.ArgumentError` is raised when unknown ordering type is
         specified.
         """
-        self.name = name
-        self.label = label
-        self.description = description
-        self.info = info or {}
+        super(AttributeBase, self).__init__(name, label, description, info)
+
         self.format = format
         self.missing_value = missing_value
         # TODO: temporarily preserved, this should be present only in
