@@ -337,7 +337,8 @@ class Cube(ModelObject):
         self.datastore = datastore or options.get("datastore")
         self.browser = options.get("browser")
 
-        self.dimension_links = dimension_links or []
+        # Be graceful here
+        self.dimension_links = expand_dimension_links(dimension_links or [])
         self.dimension_hierarchies = hierarchies or {}
 
         # Used by workspace internally
