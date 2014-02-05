@@ -28,6 +28,8 @@ __all__ = (
     "read_model_metadata_bundle",
     "write_model_metadata_bundle",
 
+    "expand_cube_metadata",
+    "expand_dimension_links",
     "expand_dimension_metadata",
     "expand_level_metadata",
     "expand_attribute_metadata",
@@ -193,6 +195,31 @@ def expand_cube_metadata(metadata):
 
     if not "name" in metadata:
         raise ModelError("Cube has no name")
+
+    if "dimensions" in metadata:
+        metadata["dimensions"] = expand_dimension_links(metadata["dimensions"])
+
+    return metadata
+
+
+def expand_dimension_links(metadata):
+    """Expands links to dimensions. `metadata` should be a list of strings or
+    dictionaries (might be mixed). Returns a list of dictionaries with at
+    least one key `name`. Other keys are: `hierarchies`,
+    `default_hierarchy_name`, `nonadditive`, `cardinality`, `template`"""
+
+    links = []
+
+    for link in metadata:
+        if isinstance(link, basestring):
+            link = {"name": link}
+        elif "name" not in link:
+            raise ModelError("Dimension link has no name")
+
+        links.append(link)
+
+    return links
+
 
 def expand_dimension_metadata(metadata, expand_levels=False):
     """
