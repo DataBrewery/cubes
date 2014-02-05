@@ -18,7 +18,7 @@ DIM_DATE_DESC = {
     ],
     "hierarchies": [
         {"name": "ymd", "levels": ["year", "month", "day"]},
-        {"name": "ymd", "levels": ["year", "month"]},
+        {"name": "ym", "levels": ["year", "month"]},
     ]
 }
 
@@ -773,6 +773,47 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(self.cube.dimensions, cube.dimensions)
         self.assertEqual(self.cube.measures, cube.measures)
         self.assertEqual(self.cube, cube)
+
+    def test_links(self):
+        dims = dict((d.name, d) for d in self.dimensions)
+
+        links = [{"name": "date"}]
+        cube = cubes.Cube("contracts",
+                          dimension_links=links,
+                          measures=self.measures)
+        cube.link_dimensions(dims)
+        self.assertEqual(len(cube.dimensions), 1)
+        dim = cube.dimension("date")
+        self.assertEqual(len(dim.hierarchies), 2)
+
+        links = [{"name": "date"}, "product", "flag"]
+        cube = cubes.Cube("contracts",
+                          dimension_links=links,
+                          measures=self.measures)
+        cube.link_dimensions(dims)
+        self.assertEqual(len(cube.dimensions), 3)
+        self.assertIsInstance(cube.dimension("flag"), Dimension)
+
+    def test_link_hierarchies(self):
+        dims = dict((d.name, d) for d in self.dimensions)
+
+        links = [{"name": "date"}]
+        cube = cubes.Cube("contracts",
+                          dimension_links=links,
+                          measures=self.measures)
+        cube.link_dimensions(dims)
+        dim = cube.dimension("date")
+        self.assertEqual(len(dim.hierarchies), 2)
+        self.assertEqual(dim.hierarchy().name, "ymd")
+
+        links = [{"name": "date", "hierarchies": ["ym"]}]
+        cube = cubes.Cube("contracts",
+                          dimension_links=links,
+                          measures=self.measures)
+        cube.link_dimensions(dims)
+        dim = cube.dimension("date")
+        self.assertEqual(len(dim.hierarchies), 1)
+        self.assertEqual(dim.hierarchy().name, "ym")
 
 
 class OldModelValidatorTestCase(unittest.TestCase):

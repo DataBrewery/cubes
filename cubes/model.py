@@ -880,10 +880,10 @@ class Dimension(ModelObject):
 
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
-            self.hierarchies = dict((hier.name, hier) for hier in hierarchies)
+            self.hierarchies = OrderedDict((h.name, h) for h in hierarchies)
         else:
             hier = Hierarchy("default", self.levels)
-            self.hierarchies = {"default": hier}
+            self.hierarchies = OrderedDict( [("default", hier)] )
 
         self._flat_hierarchy = None
         self.default_hierarchy_name = default_hierarchy_name
@@ -1051,14 +1051,17 @@ class Dimension(ModelObject):
                                           % self.name)
 
         if hierarchies:
-            hierarchies = []
-
+            linked = []
             for name in hierarchies:
-                hierarchies.append(self.hierarchy(name))
+                linked.append(self.hierarchy(name))
+            hierarchies = linked
         else:
             hierarchies = self.hierarchies.values()
 
         hierarchies = [copy.deepcopy(hier) for hier in hierarchies]
+
+        if not hierarchies:
+            raise ModelError("No hierarchies to clone. %s")
 
         # Get relevant levels
         levels = []
