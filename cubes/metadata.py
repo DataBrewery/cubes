@@ -250,6 +250,20 @@ def expand_dimension_metadata(metadata, expand_levels=False):
     return metadata
 
 
+def expand_hierarchy_metadata(metadata):
+    """Returns a hierarchy metadata as a dictionary. Makes sure that required
+    properties are present. Raises exception on missing values."""
+
+    try:
+        name = metadata["name"]
+    except KeyError:
+        raise ModelError("Hierarchy has no name")
+
+    if not "levels" in metadata:
+        raise ModelError("Hierarchy '%s' has no levels" % name)
+
+    return metadata
+
 def expand_level_metadata(metadata):
     """Returns a level description as a dictionary. If provided as string,
     then it is going to be used as level name and as its only attribute. If a

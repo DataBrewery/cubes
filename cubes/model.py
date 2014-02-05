@@ -840,31 +840,9 @@ class Dimension(ModelObject):
         self.nonadditive = nonadditive
 
         if not levels:
-            raise ModelError("No levels specified for dimension %s"
-                             % self.name)
+            raise ModelError("No levels specified for dimension %s" % name)
 
-        self._set_levels(levels)
-
-        if hierarchies:
-            self.hierarchies = dict((hier.name, hier) for hier in hierarchies)
-            # Own the hierarchy
-            for hier in hierarchies:
-                hier.set_dimension(self)
-        else:
-            hier = Hierarchy("default", self.levels)
-            self.hierarchies = {"default": hier}
-
-        # Claim ownership of the hierarchies
-        for hier in self.hierarchies.values():
-            hier.dimension = self
-
-        self._flat_hierarchy = None
-        self.default_hierarchy_name = default_hierarchy_name
-
-    def _set_levels(self, levels):
-        """Set dimension levels. `levels` should be a list of `Level`
-        instances."""
-
+        # Own the levels and their attributes
         self._levels = OrderedDict()
         self._attributes = OrderedDict()
         self._attributes_by_ref = OrderedDict()
@@ -880,9 +858,25 @@ class Dimension(ModelObject):
         self._attributes = OrderedDict()
         for level in self.levels:
             for a in level.attributes:
+                # Own the attribute
+                if a.dimension is not None and a.dimension is not self:
+                    raise ModelError("Dimension '%s' can not claim attribute "
+                                     "'%s' because it is owned by another "
+                                     "dimension '%s'."
+                                     % (self.name, a.name, a.dimension.name))
                 a.dimension = self
                 self._attributes[a.name] = a
                 self._attributes_by_ref[a.ref()] = a
+
+        # The hierarchies receive levels with already owned attributes
+        if hierarchies:
+            self.hierarchies = dict((hier.name, hier) for hier in hierarchies)
+        else:
+            hier = Hierarchy("default", self.levels)
+            self.hierarchies = {"default": hier}
+
+        self._flat_hierarchy = None
+        self.default_hierarchy_name = default_hierarchy_name
 
     def __eq__(self, other):
         if other is None or type(other) != type(self):
@@ -1265,16 +1259,16 @@ class Dimension(ModelObject):
 
 
 class Hierarchy(ModelObject):
-    def __init__(self, name, levels, dimension=None, label=None, info=None,
-                 description=None):
+    def __init__(self, name, levels, label=None, info=None, description=None):
         """Dimension hierarchy - specifies order of dimension levels.
 
         Attributes:
 
         * `name`: hierarchy name
-        * `dimension`: dimension the hierarchy belongs to
-        * `label`: human readable name
         * `levels`: ordered list of levels or level names from `dimension`
+
+        * `label`: human readable name
+        * `description`: user description of the hierarchy
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
 
@@ -1282,51 +1276,38 @@ class Hierarchy(ModelObject):
         or ``hierarchy[index]``. String value ``str(hierarchy)`` gives the
         hierarchy name.
 
+        Note: The `levels` should have attributes already owned by a
+        dimension.
         """
 
         super(Hierarchy, self).__init__(name, label, description, info)
 
-        # if not dimension:
-        #     raise ModelInconsistencyError("No dimension specified for "
-        #                                   "hierarchy %s" % self.name)
-        self._level_refs = levels
-        self._levels = None
-
-        if dimension:
-            self.dimension = dimension
-            self._set_levels(levels)
-
-    def _set_levels(self, levels):
         if not levels:
             raise ModelInconsistencyError("Hierarchy level list should not be "
                                           "empty (in %s)" % self.name)
 
+        if any(isinstance(level, basestring) for level in levels):
+            raise ModelInconsistencyError("Levels should not be provided as "
+                                          "strings to Hierarchy.")
+
         self._levels = OrderedDict()
         for level in levels:
-            level = self.dimension.level(level)
             self._levels[level.name] = level
 
-    def set_dimension(self, dimension):
-        self.dimension = dimension
-        self._set_levels(self._level_refs)
+    def __deepcopy__(self, memo):
+        return Hierarchy(self.name,
+                         label=self.label,
+                         description=self.description,
+                         info=copy.deepcopy(self.info, memo),
+                         levels=copy.deepcopy(self._levels.values(), memo))
 
     @property
     def levels(self):
-        if not self._levels:
-            self._set_levels(self._level_refs)
-
         return self._levels.values()
 
     @property
     def level_names(self):
         return self._levels.keys()
-
-    @property
-    def levels_dict(self):
-        if not self._levels:
-            self._set_levels(self._level_refs)
-
-        return self._levels
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
@@ -1388,7 +1369,7 @@ class Hierarchy(ModelObject):
         if not level:
             return self.levels[0]
 
-        index = self.levels_dict.keys().index(str(level))
+        index = self._levels.keys().index(str(level))
         if index + 1 >= len(self.levels):
             return None
         else:
@@ -1401,7 +1382,7 @@ class Hierarchy(ModelObject):
         if level is None:
             return None
 
-        index = self.levels_dict.keys().index(str(level))
+        index = self._levels.keys().index(str(level))
         if index == 0:
             return None
         else:
@@ -1411,7 +1392,7 @@ class Hierarchy(ModelObject):
         """Get order index of level. Can be used for ordering and comparing
         levels within hierarchy."""
         try:
-            return self.levels_dict.keys().index(str(level))
+            return self._levels.keys().index(str(level))
         except ValueError:
             raise HierarchyError("Level %s is not part of hierarchy %s"
                                  % (str(level), self.name))
@@ -1432,10 +1413,9 @@ class Hierarchy(ModelObject):
         if level:
             last = self.level_index(level) + 1
             if last > len(path):
-                raise HierarchyError("Can not roll-up: level '%s' in "
-                                     "dimension '%s' is deeper than deepest "
-                                     "element of path %s" %
-                                     (str(level), self.dimension.name, path))
+                raise HierarchyError("Can not roll-up: level '%s' – it is "
+                                     "deeper than deepest element of path %s" %
+                                     (str(level), path))
         else:
             if len(path) > 0:
                 last = len(path) - 1
@@ -1509,7 +1489,6 @@ class Level(ModelObject):
     Attributes:
 
     * `name`: level name
-    * `dimension`: dimnesion the level is associated with
     * `attributes`: list of all level attributes. Raises `ModelError` when
       `attribute` list is empty.
     * `key`: name of level key attribute (for example: ``customer_number`` for
@@ -1541,12 +1520,13 @@ class Level(ModelObject):
     * ``high`` – backends might refuse to yield results without explicit
       pagination or cut through this level.
 
+    Note: the `attributes` are going to be owned by the `dimension`.
+
     """
 
-    def __init__(self, name, attributes, dimension=None, key=None,
-                 order_attribute=None, order=None, label_attribute=None,
-                 label=None, info=None, cardinality=None, role=None,
-                 description=None):
+    def __init__(self, name, attributes, key=None, order_attribute=None,
+                 order=None, label_attribute=None, label=None, info=None,
+                 cardinality=None, role=None, description=None):
 
         super(Level, self).__init__(name, label, description, info)
 
@@ -1557,11 +1537,6 @@ class Level(ModelObject):
             raise ModelError("Attribute list should not be empty")
 
         self.attributes = attribute_list(attributes)
-
-        # TODO: don't do this
-        # NOTE: Affected by removal: mapper (mostly in SQL)
-        for attribute in self.attributes:
-            attribute.dimension = dimension
 
         if key:
             self.key = self.attribute(key)
@@ -2255,6 +2230,11 @@ def create_dimension(metadata, templates=None, name=None):
 
         levels = copy.deepcopy(template.levels)
 
+        # Dis-own the level attributes
+        for level in levels:
+            for attribute in level.attributes:
+                attribute.dimension = None
+
         # Create copy of template's hierarchies, but reference newly
         # created copies of level objects
         hierarchies = []
@@ -2275,6 +2255,7 @@ def create_dimension(metadata, templates=None, name=None):
         cardinality = template.cardinality
         role = template.role
         category = template.category
+        nonadditive = template.nonadditive
     else:
         levels = []
         hierarchies = []
@@ -2285,6 +2266,7 @@ def create_dimension(metadata, templates=None, name=None):
         role = None
         category = None
         info = {}
+        nonadditive = None
 
     # Fix the metadata, but don't create default level if the template
     # provides levels.
@@ -2302,6 +2284,7 @@ def create_dimension(metadata, templates=None, name=None):
     info = metadata.get("info") or info
     role = metadata.get("role") or role
     category = metadata.get("category") or category
+    nonadditive = metadata.get("nonadditive") or nonadditive
 
     # Backward compatibility with an experimental feature
     cardinality = metadata.get("cardinality", cardinality)
@@ -2323,7 +2306,16 @@ def create_dimension(metadata, templates=None, name=None):
     # Hierarchies
     # -----------
     if "hierarchies" in metadata:
-        hierarchies = [Hierarchy(**md) for md in metadata["hierarchies"]]
+        levels_dict = OrderedDict((level.name, level) for level in levels)
+        hierarches = []
+
+        # Construct hierarchies and assign actual level objects
+        for md in metadata["hierarchies"]:
+            md = dict(md)
+            level_names = md.pop("levels")
+            hier_levels = [levels_dict[level] for level in level_names]
+            hier = Hierarchy(levels=hier_levels, **md)
+            hierarchies.append(hier)
 
     default_hierarchy_name = metadata.get("default_hierarchy_name",
                                           default_hierarchy_name)
@@ -2337,8 +2329,9 @@ def create_dimension(metadata, templates=None, name=None):
                      info=info,
                      cardinality=cardinality,
                      role=role,
-                     category=category
-                     )
+                     category=category,
+                     nonadditive=nonadditive
+                    )
 
 
 def create_level(metadata, name=None, dimension=None):
@@ -2360,7 +2353,6 @@ def create_level(metadata, name=None, dimension=None):
 
     return Level(name=name,
                  attributes=attributes,
-                 dimension=dimension,
                  **metadata)
 
 
