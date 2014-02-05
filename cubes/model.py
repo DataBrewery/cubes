@@ -1035,7 +1035,8 @@ class Dimension(ModelObject):
         return list(self._attributes.values())
 
     def clone(self, hierarchies=None, nonadditive=None,
-              default_hierarchy_name=None, cardinality=None):
+              default_hierarchy_name=None, cardinality=None,
+              alias=None):
         """Returns a clone of the receiver with some modifications. `master`
         of the clone is set to the receiver.
 
@@ -1099,7 +1100,8 @@ class Dimension(ModelObject):
                 default_hierarchy_name = hierarchies[0].name
 
         # TODO: should we do deppcopy on info?
-        return Dimension(name=self.name,
+        name = alias or self.name
+        return Dimension(name=alias,
                          levels=levels,
                          hierarchies=hierarchies,
                          default_hierarchy_name=default_hierarchy_name,
