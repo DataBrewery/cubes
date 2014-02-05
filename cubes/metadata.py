@@ -196,8 +196,30 @@ def expand_cube_metadata(metadata):
     if not "name" in metadata:
         raise ModelError("Cube has no name")
 
-    if "dimensions" in metadata:
-        metadata["dimensions"] = expand_dimension_links(metadata["dimensions"])
+    links = metadata.get("dimensions", [])
+
+    if links:
+        links = expand_dimension_links(metadata["dimensions"])
+
+    # TODO: depreciate this
+    if "hierarchies" in metadata:
+        dim_hiers = dict(metadata["hierarchies"])
+
+        for link in links:
+            try:
+                hiers = dim_hiers.pop(link["name"])
+            except KeyError:
+                continue
+
+            link["hierarchies"] = hiers
+
+        if dim_hiers:
+            raise ModelError("There are hierarchies specified for non-linked "
+                             "dimensions: %s." % (dim_hiers.keys()))
+
+    # Replace the dimensions
+    if links:
+        metadata["dimensions"] = links
 
     return metadata
 
