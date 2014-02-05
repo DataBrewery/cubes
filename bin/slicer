@@ -22,7 +22,7 @@ from collections import OrderedDict
 from cubes.common import MissingPackageError
 from cubes.logging import create_logger
 from cubes.errors import CubesError
-from cubes.providers import read_model_metadata, write_model_metadata_bundle
+from cubes.metadata import read_model_metadata, write_model_metadata_bundle
 
 try:
     from cubes_modeler import ModelEditorSlicerCommand
