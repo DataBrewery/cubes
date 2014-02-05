@@ -10,6 +10,7 @@ from collections import namedtuple
 from .logging import get_logger
 from .errors import *
 from .model import *
+from .metadata import *
 from .extensions import Extensible
 
 __all__ = [
@@ -280,7 +281,7 @@ class ModelProvider(Extensible):
         does not have the cube `NoSuchCube` exception is raised.
 
         Returned cube has no dimensions assigned. You should assign the
-        dimensions according to the cubes `linked_dimensions` list of
+        dimensions according to the cubes `dimension_links` list of
         dimension names.
 
         Subclassees should implement this method.
@@ -328,18 +329,19 @@ class StaticModelProvider(ModelProvider):
 
         return cubes
 
-    def cube(self, name):
+    def cube(self, name, locale=None):
         """
         Creates a cube `name` in context of `workspace` from provider's
         metadata. The created cube has no dimensions attached. You sohuld link
-        the dimensions afterwards according to the `linked_dimensions`
+        the dimensions afterwards according to the `dimension_links`
         property of the cube.
         """
 
         metadata = self.cube_metadata(name)
+        metadata = expand_cube_metadata(metadata)
         return create_cube(metadata)
 
-    def dimension(self, name, locale=None, templates=None):
+    def dimension(self, name, locale=None, templates=None, link=None):
         """Create a dimension `name` from provider's metadata. `templates` is
         a dictionary with already instantiated dimensions to be used as
         templates"""

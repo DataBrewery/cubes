@@ -271,7 +271,7 @@ class Cube(ModelObject):
     def __init__(self, name, dimensions=None, measures=None, aggregates=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
-                 info=None, linked_dimensions=None,
+                 info=None, dimension_links=None,
                  locale=None, category=None, datastore=None,
                  hierarchies=None, **options):
 
@@ -291,7 +291,7 @@ class Cube(ModelObject):
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information
         * `locale`: cube's locale
-        * `linked_dimensions` – dimensions to be linked after the cube is
+        * `dimension_links` – dimensions to be linked after the cube is
           created
         * `hierarchies` – a dictionary of relevant dimension hierarchies for
           this cube. Keys are dimension names, values are hierarchy names. If
@@ -300,7 +300,7 @@ class Cube(ModelObject):
 
         There are two ways how to assign dimensions to the cube: specify them
         during cube initialization in `dimensions` by providing a list of
-        `Dimension` objects. Alternatively you can set `linked_dimensions`
+        `Dimension` objects. Alternatively you can set `dimension_links`
         list with dimension names and the link the dimension using
         :meth:`cubes.Cube.add_dimension()`.
 
@@ -337,7 +337,7 @@ class Cube(ModelObject):
         self.datastore = datastore or options.get("datastore")
         self.browser = options.get("browser")
 
-        self.linked_dimensions = linked_dimensions or []
+        self.dimension_links = dimension_links or []
         self.dimension_hierarchies = hierarchies or {}
 
         # Used by workspace internally
@@ -1029,7 +1029,8 @@ class Dimension(ModelObject):
 
         return list(self._attributes.values())
 
-    def clone(self, hierarchies=None, nonadditive=None):
+    def clone(self, hierarchies=None, nonadditive=None,
+              default_hierarchy_name=None, cardinality=None):
         """Returns a clone of the receiver with some modifications. `master`
         of the clone is set to the receiver.
 
@@ -1040,42 +1041,60 @@ class Dimension(ModelObject):
         """
 
         if hierarchies:
-            limited_hiers = []
+            hierarchies = []
 
             for name in hierarchies:
-                limited_hiers.append(self.hierarchy(name))
-
-            levels = []
-            seen = set()
-
-            # Get only levels used in the hierarchies
-            for hier in limited_hiers:
-                for level in hier.levels:
-                    if level.name in seen:
-                        continue
-
-                    levels.append(level)
-                    seen.add(level.name)
+                hierarchies.append(self.hierarchy(name))
         else:
-            hierarchies = self.hierarchies
+            hierarchies = self.hierarchies.values()
 
-        nonadditive = self.nonadditive or nonadditive
+        hierarchies = [copy.deepcopy(hier) for hier in hierarchies]
 
-        if self.default_hierarchy_name in hierarchies:
-            default_hier = self.default_hierarchy_name
-        else:
-            default_hier = hierarchies[0]
+        # Get relevant levels
+        levels = []
+        seen = set()
 
+        # Get only levels used in the hierarchies
+        for hier in hierarchies:
+            for level in hier.levels:
+                if level.name in seen:
+                    continue
 
+                levels.append(level)
+                seen.add(level.name)
+
+        # Dis-own the level attributes (we already have a copy)
+        for level in levels:
+            for attribute in level.attributes:
+                attribute.dimension = None
+
+        nonadditive = nonadditive or self.nonadditive
+        cardinality = cardinality or self.cardinality
+
+        # We are not checking whether the default hierarchy name provided is
+        # valid here, as it was specified explicitly with user's knowledge and
+        # we might fail later. However, we need to check the existing default
+        # hierarchy name and replace it with first available hierarchy if it
+        # is invalid.
+
+        if not default_hierarchy_name:
+            hier = self.default_hierarchy_name
+
+            if any(hier.name == self.default_hierarchy_name for hier in hierarchies):
+                default_hierarchy_name = self.default_hierarchy_name
+            else:
+                default_hierarchy_name = hierarchies[0].name
+
+        # TODO: should we do deppcopy on info?
         return Dimension(name=self.name,
                          levels=levels,
-                         hierarchies=limited_hiers,
-                         default_hierarchy_name=default_hier,
+                         hierarchies=hierarchies,
+                         default_hierarchy_name=default_hierarchy_name,
                          label=self.label,
                          description=self.description,
                          info=self.info,
                          role=self.role,
-                         cardinality=self.cardinality,
+                         cardinality=cardinality,
                          master=self,
                          nonadditive=nonadditive)
 
@@ -2141,14 +2160,14 @@ def measure_list(measures):
 def create_cube(metadata):
     """Create a cube object from `metadata` dictionary. The cube has no
     dimensions attached after creation. You should link the dimensions to the
-    cube according to the `Cube.linked_dimensions` property using
+    cube according to the `Cube.dimension_links` property using
     `Cube.add_dimension()`"""
 
     if "name" not in metadata:
         raise ModelError("Cube has no name")
 
-    metadata = dict(metadata)
-    dimensions = metadata.pop("dimensions", [])
+    metadata = expand_dimension_metadata(metadata)
+    dimension_links = metadata.pop("dimensions", [])
 
     if "measures" not in metadata and "aggregates" not in metadata:
         metadata["aggregates"] = [DEFAULT_RECORD_COUNT_AGGREGATE]
@@ -2198,7 +2217,7 @@ def create_cube(metadata):
             aggregate.label = _measure_aggregate_label(aggregate, measure)
 
     return Cube(measures=measures, aggregates=aggregates,
-                linked_dimensions=dimensions, **metadata)
+                dimension_links=dimension_links, **metadata)
 
 def _measure_aggregate_label(aggregate, measure):
     function = aggregate.function

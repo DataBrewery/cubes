@@ -676,13 +676,18 @@ class Workspace(object):
         # Add the default namespace as the last look-up place, if not present
         providers.append(self.namespace)
 
-        for dim_name in cube.linked_dimensions:
+        for link in cube.dimension_links:
+            link = dict(link)
+            # TODO: use template as well
+            dim_name = link.pop("name")
             try:
-                dim = self.dimension(dim_name, locale=cube.locale,
+                dim = self.dimension(dim_name,
+                                     locale=cube.locale,
                                      providers=providers)
             except TemplateRequired as e:
                 raise ModelError("Dimension template '%s' missing" % dim_name)
 
+            dim = dim.clone(**link)
             cube.add_dimension(dim)
 
     def _lookup_dimension(self, name, providers, templates):
