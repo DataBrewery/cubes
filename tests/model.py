@@ -483,8 +483,9 @@ class HierarchyTestCase(unittest.TestCase):
         ]
         self.level_names = [level.name for level in self.levels]
         self.dimension = cubes.Dimension("date", levels=self.levels)
+        levels = [self.levels[0], self.levels[1], self.levels[2]]
         self.hierarchy = cubes.Hierarchy("default",
-                                         ["year", "month", "day"],
+                                         levels,
                                          self.dimension)
 
     def test_initialization(self):
@@ -492,12 +493,11 @@ class HierarchyTestCase(unittest.TestCase):
         with self.assertRaises(ModelError):
             cubes.Hierarchy("default", [], self.dimension)
 
-        hier = cubes.Hierarchy("default", [])
+        with self.assertRaisesRegexp(ModelInconsistencyError, "not be empty"):
+            cubes.Hierarchy("default", [])
 
-        try:
-            hier.levels
-        except ModelInconsistencyError:
-            pass
+        with self.assertRaisesRegexp(ModelInconsistencyError, "as strings"):
+            cubes.Hierarchy("default", ["iamastring"])
 
     def test_operators(self):
         """Hierarchy operators len(), hier[] and level in hier"""
@@ -573,6 +573,26 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual(["year", "month", "month_name", "month_sname", "day"],
                          attrs)
 
+    def test_copy(self):
+        class DummyDimension(object):
+            def __init__(self):
+                self.name = "dummy"
+                self.is_flat = False
+
+        left = self.hierarchy.levels[0].attributes[0]
+        left.dimension = DummyDimension()
+
+        clone = copy.deepcopy(self.hierarchy)
+
+        left = self.hierarchy.levels[0].attributes[0]
+        right = clone.levels[0].attributes[0]
+        # Make sure that the dimension is not copied
+        self.assertIsNotNone(right.dimension)
+        self.assertIs(left.dimension, right.dimension)
+
+        self.assertEqual(self.hierarchy.levels, clone.levels)
+        self.assertEqual(self.hierarchy, clone)
+
 
 class DimensionTestCase(unittest.TestCase):
     def setUp(self):
@@ -585,8 +605,9 @@ class DimensionTestCase(unittest.TestCase):
         ]
         self.level_names = [level.name for level in self.levels]
         self.dimension = cubes.Dimension("date", levels=self.levels)
-        self.hierarchy = cubes.Hierarchy("default", ["year", "month", "day"],
-                                         self.dimension)
+
+        levels = [self.levels[0], self.levels[1], self.levels[2]]
+        self.hierarchy = cubes.Hierarchy("default", levels)
 
     def test_create(self):
         """Dimension from a dictionary"""
