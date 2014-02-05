@@ -420,6 +420,19 @@ class Cube(ModelObject):
 
         return [self._aggregates[str(name)] for name in names]
 
+    def link_dimensions(self, dimensions):
+        """Links `dimensions` according to cube's `dimension_links`. The
+        `dimensions` should be a dictionary with keys as dimension names and
+        values as `Dimension` instances."""
+
+        for link in self.dimension_links:
+            link = dict(link)
+            # TODO: use template/rename as well
+            dim_name = link.pop("name")
+            dim = dimensions[dim_name]
+            dim = dim.clone(**link)
+            self.add_dimension(dim)
+
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name. Raises
         `ModelInconsistencyError` when dimension with same name already exists
