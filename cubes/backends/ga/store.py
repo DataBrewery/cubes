@@ -265,7 +265,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
                     aggregates=aggregates,
                     category=metadata.get("category", self.store.category),
                     info=metadata.get("info"),
-                    linked_dimensions=dims,
+                    dimension_links=dims,
                     datastore=self.store_name)
 
         return cube

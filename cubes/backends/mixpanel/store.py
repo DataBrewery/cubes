@@ -118,7 +118,7 @@ class MixpanelModelProvider(ModelProvider):
 
         * `name` – cube name
         * `measures` – cube measures: `total` and `uniques`
-        * `linked_dimensions` – list of linked dimension names
+        * `dimension_links` – list of linked dimension names
         * `mappings` – mapping of corrected dimension names
 
         Dimensions are Mixpanel's properties where ``$`` character is replaced
@@ -172,15 +172,12 @@ class MixpanelModelProvider(ModelProvider):
                     label=label,
                     description=category,
                     info=metadata.get("info"),
-                    linked_dimensions=dims,
+                    dimension_links=dims,
                     datastore=self.store_name,
                     mappings=mappings,
                     category=category)
 
-        # TODO: required_drilldowns might be a cube's attribute (fixed_dd?)
-        cube.info = {
-            "required_drilldowns": ["time"]
-        }
+        cube.info["required_drilldowns"] = ["time"]
 
         return cube
 
