@@ -271,9 +271,8 @@ class Cube(ModelObject):
     def __init__(self, name, dimensions=None, measures=None, aggregates=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
-                 info=None, dimension_links=None,
-                 locale=None, category=None, datastore=None,
-                 hierarchies=None, **options):
+                 info=None, dimension_links=None, locale=None, category=None,
+                 datastore=None, **options):
 
         """Create a new Cube model object.
 
@@ -293,10 +292,6 @@ class Cube(ModelObject):
         * `locale`: cube's locale
         * `dimension_links` – dimensions to be linked after the cube is
           created
-        * `hierarchies` – a dictionary of relevant dimension hierarchies for
-          this cube. Keys are dimension names, values are hierarchy names. If
-          a dimension is not in this dictionary, then all hierarchies are
-          used.
 
         There are two ways how to assign dimensions to the cube: specify them
         during cube initialization in `dimensions` by providing a list of
@@ -319,6 +314,20 @@ class Cube(ModelObject):
           (for example SQL browser might look here for ``denormalized_view``
           in case of denormalized browsing)
 
+
+        The dimension links are either dimension names or dictionaries
+        specifying how the dimension will be linked to the cube. The keys of
+        the link dictionary are:
+
+        * `name` – name of the dimension to be linked
+        * `hierarchies` – list of hierarchy names to be kept from the
+          dimension
+        * `nonadditive` – additivity of the linked dimension (overrides the
+          dimension's value)
+        * `cardinality` – cardinality of the linked dimension in the cube's
+          context (overrides the dimension's value)
+        * `default_hierarchy_name` – which hierarchy will be used as default
+          in the linked dimension
         """
 
         super(Cube, self).__init__(name, label, description, info)
@@ -339,7 +348,6 @@ class Cube(ModelObject):
 
         # Be graceful here
         self.dimension_links = expand_dimension_links(dimension_links or [])
-        self.dimension_hierarchies = hierarchies or {}
 
         # Used by workspace internally
         self.provider = None
@@ -424,18 +432,6 @@ class Cube(ModelObject):
         if dimension.name in self._dimensions:
             raise ModelError("Dimension with name %s already exits "
                              "in cube %s" % (dimension.name, self.name))
-
-        if dimension.name in self.dimension_hierarchies:
-            hierarchies = self.dimension_hierarchies[dimension.name]
-
-            if not hierarchies:
-                raise ModelInconsistencyError("Can not remove all hierarchies"
-                                              "from a dimension. In cube '%s' "
-                                              "dimension '%s'"
-                                              % (self.name, dimension.name))
-
-            dimension = dimension.clone(hierarchies=hierarchies)
-
 
         self._dimensions[dimension.name] = dimension
 
@@ -982,9 +978,9 @@ class Dimension(ModelObject):
         hierarchy = self.hierarchies.get(hierarchy_name)
 
         if not hierarchy:
-            if len(self.hierarchies) == 1:
+            if self.hierarchies:
                 hierarchy = self.hierarchies.values()[0]
-            elif not self.hierarchies:
+            else:
                 if len(self.levels) == 1:
                     if not self._flat_hierarchy:
                         self._flat_hierarchy = Hierarchy(name=level.name,
@@ -1000,11 +996,6 @@ class Dimension(ModelObject):
                     raise ModelError("There are no hierarchies in dimenson "
                                      "%s and there are no levels to make "
                                      "hierarchy from" % self.name)
-            else:
-                raise ModelError("No default hierarchy specified in dimension"
-                                 " '%s' and there is more (%d) than one "
-                                 "hierarchy defined" %
-                                 (self.name, len(self.hierarchies)))
 
         return hierarchy
 
@@ -1040,6 +1031,11 @@ class Dimension(ModelObject):
           list, then the first hierarchy from the list is used.
         * `nonadditive` – non-additive value for the dimension
         """
+
+        if hierarchies == []:
+            raise ModelInconsistencyError("Can not remove all hierarchies"
+                                          "from a dimension (%s)."
+                                          % self.name)
 
         if hierarchies:
             hierarchies = []
