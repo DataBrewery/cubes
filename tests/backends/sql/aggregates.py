@@ -47,8 +47,6 @@ class AggregatesTestCase(CubesTestCaseBase):
         self.load_data(self.facts, data)
         self.workspace = self.create_workspace(model="aggregates.json")
 
-        self.workspace.logger.setLevel("DEBUG")
-
     def test_unknown_function(self):
         browser = self.workspace.browser("unknown_function")
 

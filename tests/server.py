@@ -120,7 +120,6 @@ class SlicerModelTestCase(SlicerTestCaseBase):
     def test_cube_dimensions(self):
         response, status = self.get("cube/sales/model")
         # Dimensions
-        print "===RESPONSE: ", response
         dims = response["dimensions"]
         self.assertIsInstance(dims, list)
         self.assertIsInstance(dims[0], dict)

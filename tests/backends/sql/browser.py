@@ -186,8 +186,6 @@ class RelevantJoinsTestCase(StarSQLTestCase):
                 "product.subcategory_name.sk": "dim_subcategory.subcategory_name_sk"
             }
         )
-        self.logger = get_logger()
-        self.logger.setLevel("DEBUG")
 
     def attributes(self, *attrs):
         return self.cube.get_attributes(attrs)
@@ -328,8 +326,6 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
     def test_get_facts(self):
         """Get single fact"""
         # TODO: remove this when happy
-        self.browser.logger.setLevel("DEBUG")
-
         self.assertEqual(True, self.mapper.simplify_dimension_references)
 
         facts = list(self.browser.facts())
@@ -394,12 +390,10 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
     def test_issue_157(self):
         cut = PointCut("date", [2000])
         cell = Cell(self.cube, [cut])
-        self.browser.logger.setLevel("DEBUG")
         result = self.browser.aggregate(cell, drilldown=["product:category"])
         # import pdb; pdb.set_trace()
 
     def test_aggregate(self):
-        self.browser.logger.setLevel("DEBUG")
         result = self.browser.aggregate()
         keys = sorted(result.summary.keys())
         self.assertEqual(4, len(keys))
@@ -472,7 +466,6 @@ class HierarchyTestCase(CubesTestCaseBase):
                                         dimension_prefix="dim_",
                                         fact_prefix="ft_")
         self.browser.debug = True
-        self.browser.logger.setLevel("DEBUG")
 
     def test_cell(self):
         cell = Cell(self.cube)
@@ -633,7 +626,6 @@ class SQLBrowserTestCase(CubesTestCaseBase):
 
         workspace = self.create_workspace(model=model)
         self.browser = workspace.browser("facts")
-        self.browser.logger.setLevel("DEBUG")
         self.cube = self.browser.cube
 
     def test_aggregate_empty_cell(self):
