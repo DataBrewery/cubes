@@ -433,7 +433,7 @@ class Cube(ModelObject):
                                               "dimension '%s'"
                                               % (self.name, dimension.name))
 
-            dimension = dimension.limited_clone(hierarchies)
+            dimension = dimension.clone(hierarchies=hierarchies)
 
 
         self._dimensions[dimension.name] = dimension
@@ -776,7 +776,7 @@ class Dimension(ModelObject):
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, category=None,
-                 master=None, **desc):
+                 master=None, nonadditive=None, **desc):
 
         """Create a new dimension
 
@@ -800,6 +800,9 @@ class Dimension(ModelObject):
           information, as this attribute is inherited by the levels, if not
           specified explicitly in the level.
         * `category` – logical dimension group (user-oriented metadata)
+        * `nonadditive` – kind of non-additivity of the dimension. Possible
+          values: `None` (fully additive, default), ``time`` (non-additive for
+          time dimensions) or ``any`` (non-additive for any other dimension)
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -824,6 +827,17 @@ class Dimension(ModelObject):
         # TODO: probably replace the limit using limits in-dimension instead
         # of replacement of instance variables with limited content (?)
         self.master = master
+
+        # Note: synchronize with Measure.__init__ if relevant/necessary
+        if not nonadditive or nonadditive == "none":
+            self.nonadditive = None
+        elif nonadditive in ["all", "any"]:
+            self.nonadditive = "any"
+        else:
+            raise ModelError("Unknown non-additive diension type '%s'"
+                             % nonadditive)
+
+        self.nonadditive = nonadditive
 
         if not levels:
             raise ModelError("No levels specified for dimension %s"
@@ -1021,33 +1035,43 @@ class Dimension(ModelObject):
 
         return list(self._attributes.values())
 
-    def limited_clone(self, hierarchies):
-        """Returns a shallow copy of the receiver and limit hierarchies only
-        to those specified in `hierarchies`. If default hierarchy name is not
-        in the new hierarchy list, then the first hierarchy from the list is
-        used."""
+    def clone(self, hierarchies=None, nonadditive=None):
+        """Returns a clone of the receiver with some modifications. `master`
+        of the clone is set to the receiver.
 
-        limited_hiers = []
+        * `hierarchies` – limit hierarchies only to those specified in
+          `hierarchies`. If default hierarchy name is not in the new hierarchy
+          list, then the first hierarchy from the list is used.
+        * `nonadditive` – non-additive value for the dimension
+        """
 
-        for name in hierarchies:
-            limited_hiers.append(self.hierarchy(name))
+        if hierarchies:
+            limited_hiers = []
+
+            for name in hierarchies:
+                limited_hiers.append(self.hierarchy(name))
+
+            levels = []
+            seen = set()
+
+            # Get only levels used in the hierarchies
+            for hier in limited_hiers:
+                for level in hier.levels:
+                    if level.name in seen:
+                        continue
+
+                    levels.append(level)
+                    seen.add(level.name)
+        else:
+            hierarchies = self.hierarchies
+
+        nonadditive = self.nonadditive or nonadditive
 
         if self.default_hierarchy_name in hierarchies:
             default_hier = self.default_hierarchy_name
         else:
             default_hier = hierarchies[0]
 
-        levels = []
-        seen = set()
-
-        # Get only levels used in the hierarchies
-        for hier in limited_hiers:
-            for level in hier.levels:
-                if level.name in seen:
-                    continue
-
-                levels.append(level)
-                seen.add(level.name)
 
         return Dimension(name=self.name,
                          levels=levels,
@@ -1058,7 +1082,8 @@ class Dimension(ModelObject):
                          info=self.info,
                          role=self.role,
                          cardinality=self.cardinality,
-                         master=self)
+                         master=self,
+                         nonadditive=nonadditive)
 
     def to_dict(self, **options):
         """Return dictionary representation of the dimension"""
@@ -1898,19 +1923,21 @@ def create_measure(md):
     return Measure(**md)
 
 
-# TODO: give it a proper name
 class Measure(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, aggregates=None,
-                 formula=None, expression=None, **kwargs):
+                 formula=None, expression=None, nonadditive=None, **kwargs):
         """Fact measure attribute.
 
-        Properties:
+        Properties in addition to the attribute base properties:
 
         * `formula` – name of a formula for the measure
         * `aggregates` – list of default (relevant) aggregate functions that
           can be applied to this measure attribute.
+        * `nonadditive` – kind of non-additivity of the dimension. Possible
+          values: `None` (fully additive, default), ``time`` (non-additive for
+          time dimensions) or ``any`` (non-additive for any other dimension)
 
         Note that if the `formula` is specified, it should not refer to any
         other measure that refers to this one (no circular reference).
@@ -1929,6 +1956,15 @@ class Measure(AttributeBase):
         self.formula = formula
         self.aggregates = aggregates
 
+        # Note: synchronize with Dimension.__init__ if relevant/necessary
+        if not nonadditive or nonadditive == "none":
+            self.nonadditive = None
+        elif nonadditive in ["all", "any"]:
+            self.nonadditive = "any"
+        else:
+            raise ModelError("Unknown non-additive measure type '%s'"
+                             % nonadditive)
+
     def __deepcopy__(self, memo):
         return Measure(self.name, self.label,
                        order=copy.deepcopy(self.order, memo),
@@ -1938,7 +1974,8 @@ class Measure(AttributeBase):
                        missing_value=self.missing_value,
                        aggregates=self.aggregates,
                        expression=self.expression,
-                       formula=self.formula)
+                       formula=self.formula,
+                       nonadditive=self.nonadditive)
 
     def __eq__(self, other):
         if not super(Measure, self).__eq__(other):
