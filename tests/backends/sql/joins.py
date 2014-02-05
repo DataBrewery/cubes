@@ -91,9 +91,6 @@ class JoinsTestCaseBase(CubesTestCaseBase):
         self.cube = self.workspace.cube("facts")
 
 
-        self.workspace.logger.setLevel("DEBUG")
-        self.engine.echo = "debug"
-
 class JoinsTestCase(JoinsTestCaseBase):
     def setUp(self):
         super(JoinsTestCase, self).setUp()
