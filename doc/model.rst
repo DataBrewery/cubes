@@ -552,25 +552,40 @@ Dimension descriptions are stored in model dictionary under the key
 
 The dimension description contains keys:
 
-====================== ===================================================
-Key                    Description
-====================== ===================================================
-**name**               dimension name, used as identifier
-label                  human readable name - can be used in an application
-description            longer human-readable description of the dimension
-                       *(optional)*
-levels                 list of level descriptions
-hierarchies            list of dimension hierarchies
-hierarchy              if dimension has only one hierarchy, you can
-                       specify it under this key 
-default_hierarchy_name name of a hierarchy that will be used as default
-cardinality            dimension cardinality (see Level for more info)
-role                   dimension role
-category               logical category (user oriented metadata)
-info                   custom info, such as formatting. Not used by cubes 
-                       framework.
-template               name of a dimension that will be used as template 
-====================== ===================================================
+.. list-table::
+    :widths: 1 5
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - **Basic**
+      -
+    * - ``name``
+      - dimension name, used as identifier
+    * - ``label``
+      - human readable name - can be used in an application
+    * - ``description``
+      - longer human-readable description of the dimension *(optional)*
+    * - ``info``
+      - custom info, such as formatting. Passed to the front-end.
+    * - ``levels``
+      - list of level descriptions
+    * - ``hierarchies``
+      - list of dimension hierarchies
+    * - ``default_hierarchy_name``
+      - name of a hierarchy that will be used as default
+    * - **Advanced**
+      -
+    * - ``cardinality``
+      - dimension cardinality (see Level for more info)
+    * - ``nonadditive``
+      - used when the dimension is nonadditive or semiadditive
+    * - ``role``
+      - dimension role
+    * - ``category``
+      - logical category (user oriented metadata)
+    * - ``template``
+      - name of a dimension that will be used as template 
 
 Example:
 
@@ -633,6 +648,17 @@ hierarchies to omit unnecessary levels.
     if cube uses the `creation_date` and `closing_date` dimensions and any
     mappings would be necessary, then they should be for those two dimensions,
     not for the `date` dimension.
+
+Nonadditive
+-----------
+
+There are cases where it is not meaningful to add values over certain
+dimension. For example it has no sense to add account balance over time. For
+such dimension the ``nonadditive`` value can be specified:
+
+* ``any`` – dimension can not be added dimension
+* ``time`` – dimension can not be added over dimensions with role `time`
+* ``none`` – dimension is fully additive (same as if no value was specified)
 
 Level
 -----

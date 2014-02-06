@@ -345,11 +345,21 @@ It can be named and labelled in any way.
     :doc:`../model`
 
 
-Other
------
+Dimension Links
+---------------
 
-* The dimension hierarchies can be specified per-cube using cube's
-  ``"hierarchies"`` property
+Linkin of dimensions to cubes can be fine-tuned by specifying multiple
+properties of the dimension in the cube's context:
+
+* `hierarchies` – cube's dimension can have only certain hierarchies from the
+  original dimension
+* `detault_hierarchy_name` – it is possible to specify different default
+  hierarchy
+* `nonadditive` – override the dimensions' nonadditive property
+* `cardinality` – use if dimension might have different cardinality in the new
+  context
+* `alias` – reuse dimensions in a cube but give them different names
+
 
 Backends
 ========
