@@ -1038,8 +1038,8 @@ class Dimension(ModelObject):
 
         return list(self._attributes.values())
 
-    def clone(self, hierarchies=None, nonadditive=None,
-              default_hierarchy_name=None, cardinality=None,
+    def clone(self, hierarchies=None, exclude_hierarchies=None,
+              nonadditive=None, default_hierarchy_name=None, cardinality=None,
               alias=None):
         """Returns a clone of the receiver with some modifications. `master`
         of the clone is set to the receiver.
@@ -1047,6 +1047,8 @@ class Dimension(ModelObject):
         * `hierarchies` – limit hierarchies only to those specified in
           `hierarchies`. If default hierarchy name is not in the new hierarchy
           list, then the first hierarchy from the list is used.
+        * `exclude_hierarchies` – all hierarchies are preserved except the
+          hierarchies in this list
         * `nonadditive` – non-additive value for the dimension
         """
 
@@ -1059,11 +1061,15 @@ class Dimension(ModelObject):
             linked = []
             for name in hierarchies:
                 linked.append(self.hierarchy(name))
-            hierarchies = linked
+        elif exclude_hierarchies:
+            linked = []
+            for hierarchy in self.hierarchies.values():
+                if hierarchy.name not in exclude_hierarchies:
+                    linked.append(hierarchy)
         else:
-            hierarchies = self.hierarchies.values()
+            linked = self.hierarchies.values()
 
-        hierarchies = [copy.deepcopy(hier) for hier in hierarchies]
+        hierarchies = [copy.deepcopy(hier) for hier in linked]
 
         if not hierarchies:
             raise ModelError("No hierarchies to clone. %s")

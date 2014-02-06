@@ -507,6 +507,9 @@ specification might contain:
   example the `date` dimension might be defined as having `day` granularity,
   but some cubes might be only at the `month` level.  To specify only relevant
   hierarchies use ``hierarchies`` metadata property:
+* ``exclude_hierarchies`` – hierarchies to be excluded when cloning the
+  original dimension. Use this instead of ``hierarchies`` if you would like to
+  preserve most of the hierarchies and remove just a few.
 * ``default_hierarchy_name`` – name of default hierarchy for a dimension in
   the context of the cube
 * ``cardinality`` – cardinality of the dimension with regards to the cube. For
