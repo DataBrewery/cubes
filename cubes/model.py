@@ -328,6 +328,7 @@ class Cube(ModelObject):
           context (overrides the dimension's value)
         * `default_hierarchy_name` – which hierarchy will be used as default
           in the linked dimension
+
         """
 
         super(Cube, self).__init__(name, label, description, info)
@@ -366,17 +367,17 @@ class Cube(ModelObject):
         #
         # Prepare measures and aggregates
         #
+        measures = measures or []
         assert_all_instances(measures, Measure, "Measure")
+        self.measures = measures
+
+        aggregates = aggregates or []
         assert_all_instances(aggregates, MeasureAggregate, "Aggregate")
+        self.aggregates = aggregates
 
-        # Note: we do not generate aggregates from measure defaults here. We
-        # are expected to receive them. They should be generated in the
-        # provider.
-
-        self.measures = measure_list(measures)
-        self.aggregates = aggregate_list(aggregates)
-
-        self.details = attribute_list(details, Attribute)
+        details = details or []
+        assert_all_instances(details, Attribute, "Detail")
+        self.details = details
 
     @property
     def measures(self):
@@ -827,6 +828,9 @@ class Dimension(ModelObject):
 
         super(Dimension, self).__init__(name, label, description, info)
 
+        if not name:
+            import pdb; pdb.set_trace()
+
         self.role = role
         self.cardinality = cardinality
         self.category = category
@@ -1101,7 +1105,8 @@ class Dimension(ModelObject):
 
         # TODO: should we do deppcopy on info?
         name = alias or self.name
-        return Dimension(name=alias,
+
+        return Dimension(name=name,
                          levels=levels,
                          hierarchies=hierarchies,
                          default_hierarchy_name=default_hierarchy_name,
@@ -2189,7 +2194,15 @@ def create_cube(metadata):
 
     # Prepare aggregate and measure lists, do implicit merging
 
+    details = attribute_list(metadata.pop("details", []), Attribute)
     measures = measure_list(metadata.pop("measures", []))
+
+    # Inherit the nonadditive property in each measure
+    nonadditive = metadata.pop("nonadditive", None)
+    if nonadditive:
+        for measure in measures:
+            measure.nonadditive = nonadditive
+
     aggregates = metadata.pop("aggregates", [])
     aggregates = aggregate_list(aggregates)
     aggregate_dict = dict((a.name, a) for a in aggregates)

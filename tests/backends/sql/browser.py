@@ -321,7 +321,10 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertEqual(True, self.mapper.simplify_dimension_references)
         fact = self.browser.fact(1)
         self.assertIsNotNone(fact)
-        self.assertEqual(18, len(fact.keys()))
+
+        self.assertEqual(16, len(fact.keys()))
+        self.assertEqual(len(self.browser.cube.all_attributes) + 1,
+                         len(fact.keys()))
 
     def test_get_facts(self):
         """Get single fact"""
@@ -336,7 +339,10 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
 
         self.assertIsNotNone(facts)
         self.assertEqual(82, len(facts))
-        self.assertEqual(18, len(facts[0]))
+
+        self.assertEqual(16, len(facts[0]))
+        self.assertEqual(len(self.browser.cube.all_attributes) + 1,
+                         len(facts[0].keys()))
 
         attrs = ["date.year", "amount"]
         facts = list(self.browser.facts(fields=attrs))
