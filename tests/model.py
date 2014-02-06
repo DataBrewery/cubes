@@ -717,10 +717,12 @@ class CubeTestCase(unittest.TestCase):
     def setUp(self):
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
         self.measures = cubes.attribute_list(["amount", "discount"], Measure)
+        self.details = cubes.attribute_list(["detail"], Attribute)
         self.dimensions = [cubes.create_dimension(desc) for desc in a]
         self.cube = cubes.Cube("contracts",
                                 dimensions=self.dimensions,
-                                measures=self.measures)
+                                measures=self.measures,
+                                details=self.details)
 
     def test_get_dimension(self):
         self.assertListEqual(self.dimensions, self.cube.dimensions)
@@ -739,6 +741,7 @@ class CubeTestCase(unittest.TestCase):
 
     def test_attributes(self):
         all_attributes = self.cube.all_attributes
+
         refs = [a.ref() for a in all_attributes]
         expected = [
             'date.year',
@@ -749,6 +752,7 @@ class CubeTestCase(unittest.TestCase):
             'product.name',
             'product.description',
             'flag',
+            'detail',
             'amount',
             'discount']
         self.assertSequenceEqual(expected, refs)
