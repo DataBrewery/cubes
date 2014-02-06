@@ -322,7 +322,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         fact = self.browser.fact(1)
         self.assertIsNotNone(fact)
 
-        self.assertEqual(16, len(fact.keys()))
+        self.assertEqual(18, len(fact.keys()))
         self.assertEqual(len(self.browser.cube.all_attributes) + 1,
                          len(fact.keys()))
 
@@ -340,7 +340,7 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertIsNotNone(facts)
         self.assertEqual(82, len(facts))
 
-        self.assertEqual(16, len(facts[0]))
+        self.assertEqual(18, len(facts[0]))
         self.assertEqual(len(self.browser.cube.all_attributes) + 1,
                          len(facts[0].keys()))
 

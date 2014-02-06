@@ -823,6 +823,15 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(len(dim.hierarchies), 2)
         self.assertEqual(dim.hierarchy().name, "ymd")
 
+        links = [{"name": "date", "nonadditive":None}]
+        cube = cubes.Cube("contracts",
+                          dimension_links=links,
+                          measures=self.measures)
+        cube.link_dimensions(dims)
+        dim = cube.dimension("date")
+        self.assertEqual(len(dim.hierarchies), 2)
+        self.assertEqual(dim.hierarchy().name, "ymd")
+
         links = [{"name": "date", "hierarchies": ["ym"]}]
         cube = cubes.Cube("contracts",
                           dimension_links=links,

@@ -431,7 +431,10 @@ class Cube(ModelObject):
             # TODO: use template/rename as well
             dim_name = link.pop("name")
             dim = dimensions[dim_name]
-            dim = dim.clone(**link)
+
+            if link:
+                dim = dim.clone(**link)
+
             self.add_dimension(dim)
 
     def add_dimension(self, dimension):
@@ -827,9 +830,6 @@ class Dimension(ModelObject):
         """
 
         super(Dimension, self).__init__(name, label, description, info)
-
-        if not name:
-            import pdb; pdb.set_trace()
 
         self.role = role
         self.cardinality = cardinality
