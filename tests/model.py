@@ -724,6 +724,19 @@ class CubeTestCase(unittest.TestCase):
                                 measures=self.measures,
                                 details=self.details)
 
+    def test_create_cube(self):
+        cube = {
+                "name": "cube",
+                "dimensions": ["date"],
+                "aggregates": ["record_count"],
+                "details": ["some_detail", "another_detail"]
+        }
+        cube = create_cube(cube)
+
+        self.assertEqual(cube.name, "cube")
+        self.assertEqual(len(cube.aggregates), 1)
+        self.assertEqual(len(cube.details), 2)
+
     def test_get_dimension(self):
         self.assertListEqual(self.dimensions, self.cube.dimensions)
 

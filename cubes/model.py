@@ -2250,8 +2250,11 @@ def create_cube(metadata):
         if aggregate.label is None:
             aggregate.label = _measure_aggregate_label(aggregate, measure)
 
-    return Cube(measures=measures, aggregates=aggregates,
-                dimension_links=dimension_links, **metadata)
+    return Cube(measures=measures,
+                aggregates=aggregates,
+                dimension_links=dimension_links,
+                details=details,
+                **metadata)
 
 def _measure_aggregate_label(aggregate, measure):
     function = aggregate.function
