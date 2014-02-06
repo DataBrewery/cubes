@@ -815,6 +815,23 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(len(dim.hierarchies), 1)
         self.assertEqual(dim.hierarchy().name, "ym")
 
+    def test_inherit_nonadditive(self):
+        dims = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
+
+        cube = {
+            "name": "contracts",
+            "dimensions": ["date", "product"],
+            "nonadditive": "time",
+            "measures": ["amount", "discount"]
+        }
+
+        dims = [cubes.create_dimension(md) for md in dims]
+        dims = dict((dim.name, dim) for dim in dims)
+
+        cube = cubes.create_cube(cube)
+
+        measures = cube.measures
+        self.assertEqual(measures[0].nonadditive, "time")
 
 class OldModelValidatorTestCase(unittest.TestCase):
     def setUp(self):
