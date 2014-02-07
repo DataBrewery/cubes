@@ -435,8 +435,7 @@ class SnowflakeBrowser(AggregationBrowser):
             afuncs = available_aggregate_functions()
             aggregates = [agg for agg in aggregates if not agg.function or agg.function in afuncs]
             names = [str(agg) for agg in aggregates]
-            cond = lambda cell: not any(cell[agg] is None for agg in names)
-            result.cells = itertools.ifilter(cond, result.cells)
+            result.exclude_if_null = names
 
         return result
 
@@ -556,16 +555,20 @@ class ResultIterator(object):
         self.result = result
         self.batch = None
         self.labels = labels
+        self.exclude_if_null = None
 
     def __iter__(self):
-        return self
+        while True:
+            if not self.batch:
+                many = self.result.fetchmany()
+                if not many:
+                    break
+                self.batch = collections.deque(many)
 
-    def next(self):
-        if not self.batch:
-            many = self.result.fetchmany()
-            if not many:
-                raise StopIteration
-            self.batch = collections.deque(many)
+            row = self.batch.popleft()
 
-        row = self.batch.popleft()
-        return dict(zip(self.labels, row))
+            if self.exclude_if_null \
+                    and any(cell[agg] is None for agg in self.exclude_if_nul):
+                continue
+
+            yield dict(zip(self.labels, row))
