@@ -1,0 +1,121 @@
+{
+    "name": "time",
+    "label": "Time",
+    "role": "time",
+
+    "levels": [
+        {
+            "name": "year",
+            "label": "Year"
+        },
+        {
+            "name": "quarter",
+            "label": "Quarter"
+        },
+        {
+            "name": "month",
+            "label": "Month",
+            "attributes": [
+                {"name": "month", "label": "Month Number"},
+                {"name": "month_name", "label": "Month Name"},
+                {"name": "month_sname", "label": "Month Short Name"}
+            ]
+        },
+        {
+            "name": "year_month",
+            "label": "Month of Year"
+        },
+        {
+            "name": "week",
+            "label": "Week"
+        },
+        {
+            "name": "iso_week",
+            "label": "ISO Week"
+        },
+        {
+            "name": "day",
+            "label": "Day"
+        },
+        {
+            "name": "hour",
+            "label": "Hour"
+        },
+        {
+            "name": "minute",
+            "label": "Minute"
+        },
+        {
+            "name": "week",
+            "label": "Week"
+        },
+        {
+            "name": "dow",
+            "label": "Day of Week",
+            "attributes": [
+                {"name": "dow", "label": "Day of Week"},
+                {"name": "dow_name", "label": "Day of Week Name"}
+            ]
+        }
+    ],
+    "hierarchies": [
+        {
+            "name": "y",
+            "levels": ["year"]
+        },
+        {
+            "name": "yq",
+            "levels": ["year", "quarter"]
+        },
+        {
+            "name": "yqm",
+            "levels": ["year", "quarter", "month"]
+        },
+        {
+            "name": "ym",
+            "levels": ["year", "month"]
+        },
+        {
+            "name": "ymd",
+            "levels": ["year", "month", "day"]
+        },
+        {
+            "name": "yqmd",
+            "levels": ["year", "quarter", "month", "day"]
+        },
+        {
+            "name": "hour",
+            "levels": ["year", "month", "day", "hour"]
+        },
+        {
+            "name": "minute",
+            "levels": ["year", "month", "day", "hour"]
+        },
+        {
+            "name": "year_month",
+            "levels": ["year_month"]
+        },
+        {
+            "name": "qhour",
+            "levels": ["year", "quarter", "month", "day", "hour"]
+        },
+        {
+            "name": "qminute",
+            "levels": ["year", "quarter", "month", "day", "hour", "minute"]
+        },
+        {
+            "name": "week"
+        },
+        {
+            "name": "wkdh",
+            "levels": ["week", "dow", "hour"]
+        },
+        {
+            "name": "dow",
+            "levels": ["dow"]
+        }
+    ],
+
+    "default_hierarchy_name": "ymd"
+}
+

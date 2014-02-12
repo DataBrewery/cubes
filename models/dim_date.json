@@ -1,0 +1,16 @@
+{
+    "name": "date",
+    "template": "time",
+
+    "hierarchies": [
+        "y",
+        "yq",
+        "yqm",
+        "ym",
+        "ymd",
+        "yqmd",
+        "year_month",
+        "week",
+        "dow"
+    ]
+}
