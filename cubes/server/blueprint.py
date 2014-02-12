@@ -42,6 +42,8 @@ __all__ = (
 
 API_VERSION = 2
 
+# Cross-origin resource sharing – 20 days cache
+CORS_MAX_AGE = 1728000
 
 slicer = Blueprint("slicer", __name__, template_folder="templates")
 
@@ -93,7 +95,7 @@ def initialize_slicer(state):
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
         _store_option(config, "hide_private_cuts", False, "bool")
-        _store_option(config, "allow_cors", None, "str")
+        _store_option(config, "allow_cors_origin", None, "str")
 
         _store_option(config, "authentication", "none")
 
@@ -539,10 +541,12 @@ def logout():
 
 @slicer.after_request
 def add_cors_headers(response):
-    if current_app.slicer.allow_cors and len(current_app.slicer.allow_cors):
-        response.headers['Access-Control-Allow-Origin'] = current_app.slicer.allow_cors
+    """Add Cross-origin resource sharing headers."""
+    origin = current_app.slicer.allow_cors_origin
+    if origin and len(origin):
+        response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Max-Age'] = 1728000 # 20 days cache
+        response.headers['Access-Control-Max-Age'] = CORS_MAX_AGE
         response.headers['Access-Control-Allow-Headers'] = 'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type'
     return response
