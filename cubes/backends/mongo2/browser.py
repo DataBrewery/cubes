@@ -403,7 +403,7 @@ class Mongo2Browser(AggregationBrowser):
 
             group_obj[ escape_level(agg.ref()) ] = group
 
-        pipeline = []
+        pipeline = self.cube.mappings.get("__pipeline__", [])
         pipeline.append({ "$match": query_obj })
         if fields_obj:
             pipeline.append({ "$project": fields_obj })

@@ -33,6 +33,14 @@ _aggregate_functions = {
         'group_by': (lambda field: { '$sum': "$%s" % field }),
         'aggregate_fn': sum,
     },
+    'first': {
+        'group_by': (lambda field: { '$first': "$%s" % field }),
+        'aggregate_fn': None,                                       # Is this used?
+    },
+    'last': {
+        'group_by': (lambda field: { '$last': "$%s" % field }),
+        'aggregate_fn': None,                                       # Is this used?
+    },
     'custom': {
         'group_by' : (lambda field: { '$sum': 1 }),
         'aggregate_fn': len
