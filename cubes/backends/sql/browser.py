@@ -118,10 +118,6 @@ class SnowflakeBrowser(AggregationBrowser):
         self.connectable = store.connectable
         self.metadata = store.metadata or sqlalchemy.MetaData(bind=self.connectable)
 
-        print "\n--------------- BROWSER ---------------\n"
-        print "CONNECTABLE: %s" % self.connectable
-        print "POOL:        %s" % self.connectable.pool
-        print "\n---------------------------------------\n"
         # Options
         # -------
 
