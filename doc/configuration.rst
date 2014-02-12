@@ -55,6 +55,8 @@ Workspace
   recursively in namespaces; ``exact`` – cube has to have globally unique
   reference 
 
+* ``info_file`` – path to JSON file containing additional server info
+
 Models
 ======
 

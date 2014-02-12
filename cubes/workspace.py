@@ -300,7 +300,7 @@ class Workspace(object):
 
         self.info = OrderedDict()
 
-        if config.has_option("workspace", "info"):
+        if config.has_option("workspace", "info_file"):
             path = config.get("workspace", "info_file")
             info = read_json_file(path, "Slicer info")
             for key in SLICER_INFO_KEYS:
