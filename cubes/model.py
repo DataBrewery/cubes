@@ -847,7 +847,7 @@ class Dimension(ModelObject):
             self.nonadditive = None
         elif nonadditive in ["all", "any"]:
             self.nonadditive = "any"
-        else:
+        elif nonadditive != "time":
             raise ModelError("Unknown non-additive diension type '%s'"
                              % nonadditive)
 

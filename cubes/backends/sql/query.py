@@ -1132,6 +1132,7 @@ class QueryBuilder(object):
         if not items:
             return self.semiadditive_attribute
 
+        # FIXME: this looks broken
         item = items[0]
 
         return self.semiadditive_attribute
