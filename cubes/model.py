@@ -2363,14 +2363,21 @@ def create_dimension(metadata, templates=None, name=None):
     # -----------
     if "hierarchies" in metadata:
         levels_dict = OrderedDict((level.name, level) for level in levels)
-        hierarches = []
+        hierarchies = []
 
         # Construct hierarchies and assign actual level objects
         for md in metadata["hierarchies"]:
-            md = dict(md)
-            level_names = md.pop("levels")
-            hier_levels = [levels_dict[level] for level in level_names]
-            hier = Hierarchy(levels=hier_levels, **md)
+            if isinstance(md, basestring):
+                if not template:
+                    raise ModelError("Can not specify just a hierarchy name "
+                                     "(%s) if there is no template for "
+                                     "dimension %s" % (md, name))
+                hier = template.hierarchy(md)
+            else:
+                md = dict(md)
+                level_names = md.pop("levels")
+                hier_levels = [levels_dict[level] for level in level_names]
+                hier = Hierarchy(levels=hier_levels, **md)
             hierarchies.append(hier)
 
     default_hierarchy_name = metadata.get("default_hierarchy_name",

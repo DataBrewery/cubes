@@ -713,6 +713,35 @@ class DimensionTestCase(unittest.TestCase):
         self.assertEqual(["ym", "ymd"],
                          [hier.name for hier in dim.hierarchies.values()])
 
+    def test_template_hierarchies(self):
+        md = {
+            "name": "time",
+            "levels": ["year", "month", "day", "hour"],
+            "hierarchies": [
+                {"name": "full", "levels": ["year", "month", "day", "hour"]},
+                {"name": "ymd", "levels": ["year", "month", "day"]},
+                {"name": "ym", "levels": ["year", "month"]},
+                {"name": "y", "levels": ["year"]},
+            ]
+        }
+        dim_time = cubes.create_dimension(md)
+        templates = {"time": dim_time}
+        md = {
+            "name": "date",
+            "template": "time",
+            "hierarchies": [
+                "ymd", "ym", "y"
+            ]
+        }
+
+        dim_date = cubes.create_dimension(md, templates)
+
+        self.assertEqual(dim_date.name, "date")
+        self.assertEqual(len(dim_date.hierarchies), 3)
+        names = [h.name for h in dim_date.hierarchies.values()]
+        self.assertEqual(["ymd", "ym", "y"], names)
+
+
 class CubeTestCase(unittest.TestCase):
     def setUp(self):
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
