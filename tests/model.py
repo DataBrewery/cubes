@@ -687,6 +687,7 @@ class DimensionTestCase(unittest.TestCase):
     def test_template(self):
         dims = {"date": self.dimension}
         desc = {"template": "date", "name": "date"}
+
         dim = cubes.create_dimension(desc, dims)
         self.assertEqual(self.dimension, dim)
         hier = dim.hierarchy()
@@ -1002,6 +1003,12 @@ class BaseModelTestCase(ModelTestCaseBase):
         ws = cubes.Workspace()
         dim = ws.dimension("base_time")
         self.assertEqual(dim.name, "base_time")
+
+    def test_select_hierarchies(self):
+        ws = cubes.Workspace()
+        dim_time = ws.dimension("base_time")
+        dim_date = ws.dimension("base_date")
+        self.assertLess(len(dim_date.hierarchies), len(dim_time.hierarchies))
 
 def test_suite():
     suite = unittest.TestSuite()

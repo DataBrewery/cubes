@@ -260,7 +260,7 @@ def expand_dimension_metadata(metadata, expand_levels=False):
     name = metadata["name"]
 
     # Fix levels
-    levels = metadata.get("levels")
+    levels = metadata.get("levels", [])
     if not levels and expand_levels:
         attributes = ["attributes", "key", "order_attribute", "order",
                       "label_attribute"]

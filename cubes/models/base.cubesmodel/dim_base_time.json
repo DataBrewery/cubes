@@ -171,9 +171,13 @@
         {
             "name": "dow",
             "levels": ["dow"]
+        },
+        {
+            "name": "default",
+            "levels": ["year", "month", "day", "hour", "minute", "second"]
         }
     ],
 
-    "default_hierarchy_name": "ymd"
+    "default_hierarchy_name": "default"
 }
 
