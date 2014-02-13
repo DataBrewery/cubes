@@ -992,6 +992,17 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
             path = self.model_path("model.json")
             desc = cubes.read_model_metadata_bundle(path)
 
+class BaseModelTestCase(ModelTestCaseBase):
+    def test_base_ignorance(self):
+        ws = cubes.Workspace(load_base_model=False)
+        with self.assertRaises(NoSuchDimensionError):
+            ws.dimension("base_time")
+
+    def test_base_existence(self):
+        ws = cubes.Workspace()
+        dim = ws.dimension("base_time")
+        self.assertEqual(dim.name, "base_time")
+
 def test_suite():
     suite = unittest.TestSuite()
 
