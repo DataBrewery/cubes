@@ -231,7 +231,7 @@ class ModelObjectInfo(object):
 
 
 class Workspace(object):
-    def __init__(self, config=None, stores=None):
+    def __init__(self, config=None, stores=None, load_base_model=True):
         """Creates a workspace. `config` should be a `ConfigParser` or a
         path to a config file. `stores` should be a dictionary of store
         configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
@@ -410,6 +410,17 @@ class Workspace(object):
         # Configure and load models
         # =========================
 
+        # Load base model (default)
+        import pkgutil
+        if config.has_option("workspace", "load_base_model"):
+            load_base = config.getboolean("workspace", "load_base_model")
+        else:
+            load_base = load_base_model
+
+        if load_base:
+            loader = pkgutil.get_loader("cubes")
+            path = os.path.join(loader.filename, "models/base.cubesmodel")
+            self.import_model(path)
 
         # TODO: remove this depreciation code
         if config.has_section("model"):
