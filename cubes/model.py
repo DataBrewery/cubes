@@ -2192,7 +2192,7 @@ def create_cube(metadata):
     if "name" not in metadata:
         raise ModelError("Cube has no name")
 
-    metadata = expand_dimension_metadata(metadata)
+    metadata = expand_cube_metadata(metadata)
     dimension_links = metadata.pop("dimensions", [])
 
     if "measures" not in metadata and "aggregates" not in metadata:
@@ -2273,7 +2273,16 @@ def _measure_aggregate_label(aggregate, measure):
 
 
 def create_dimension(metadata, templates=None, name=None):
-    """Create a dimension from a `metadata` dictionary."""
+    """Create a dimension from a `metadata` dictionary.
+    Some rules:
+
+    * ``levels`` might contain level names as strings – names of levels to
+      inherit from the template
+    * ``hierarchies`` might contain hierarchies as strings – names of
+      hierarchies to inherit from the template
+    * all levels that are not covered by hierarchies are not included in the
+      final dimension
+    """
 
     templates = templates or {}
 
@@ -2376,26 +2385,37 @@ def create_dimension(metadata, templates=None, name=None):
     # Hierarchies
     # -----------
     if "hierarchies" in metadata:
-        levels_dict = OrderedDict((level.name, level) for level in levels)
-        hierarchies = []
-
-        # Construct hierarchies and assign actual level objects
-        for md in metadata["hierarchies"]:
-            if isinstance(md, basestring):
-                if not template:
-                    raise ModelError("Can not specify just a hierarchy name "
-                                     "(%s) if there is no template for "
-                                     "dimension %s" % (md, name))
-                hier = template.hierarchy(md)
+        hierarchies_defined = True
+        hierarchies = _create_hierarchies(metadata["hierarchies"],
+                                          levels,
+                                          template)
+    else:
+        hierarchies_defined = False
+        # Keep only hierarchies which include existing levels
+        level_names = set([level.name for level in levels])
+        keep = []
+        for hier in hierarchies:
+            if any(level.name not in level_names for level in hier.levels):
+                continue
             else:
-                md = dict(md)
-                level_names = md.pop("levels")
-                hier_levels = [levels_dict[level] for level in level_names]
-                hier = Hierarchy(levels=hier_levels, **md)
-            hierarchies.append(hier)
+                keep.append(hier)
+        hierarchies = keep
+
 
     default_hierarchy_name = metadata.get("default_hierarchy_name",
                                           default_hierarchy_name)
+
+    if not hierarchies:
+        # Create single default hierarchy
+        hierarchies = [Hierarchy("default", levels=levels)]
+
+    # Recollect levels – keep only those levels that are present in
+    # hierarchies. Retain the original level order
+    used_levels = set()
+    for hier in hierarchies:
+        used_levels |= set(level.name for level in hier.levels)
+
+    levels = [level for level in levels if level.name in used_levels]
 
     return Dimension(name=name,
                      levels=levels,
@@ -2410,6 +2430,31 @@ def create_dimension(metadata, templates=None, name=None):
                      nonadditive=nonadditive
                     )
 
+def _create_hierarchies(metadata, levels, template):
+    """Create dimension hierarchies from `metadata` (a list of dictionaries or
+    strings) and possibly inherit from `template` dimension."""
+
+    # Convert levels do an ordered dictionary for access by name
+    levels = OrderedDict((level.name, level) for level in levels)
+    hierarchies = []
+
+    # Construct hierarchies and assign actual level objects
+    for md in metadata:
+        if isinstance(md, basestring):
+            if not template:
+                raise ModelError("Can not specify just a hierarchy name "
+                                 "(%s) if there is no template for "
+                                 "dimension %s" % (md, name))
+            hier = template.hierarchy(md)
+        else:
+            md = dict(md)
+            level_names = md.pop("levels")
+            hier_levels = [levels[level] for level in level_names]
+            hier = Hierarchy(levels=hier_levels, **md)
+
+        hierarchies.append(hier)
+
+    return hierarchies
 
 def create_level(metadata, name=None, dimension=None):
     """Create a level object from metadata. `name` can override level name in
