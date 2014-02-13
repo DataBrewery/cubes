@@ -1,6 +1,6 @@
 {
-    "name": "date",
-    "template": "time",
+    "name": "base_date",
+    "template": "base_time",
 
     "hierarchies": [
         "y",
