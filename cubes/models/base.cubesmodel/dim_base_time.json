@@ -104,7 +104,8 @@
             "levels": ["year", "quarter", "month", "day", "hour", "minute"]
         },
         {
-            "name": "week"
+            "name": "week",
+            "levels": ["week"]
         },
         {
             "name": "wkdh",
