@@ -2313,6 +2313,7 @@ def create_dimension(metadata, templates=None, name=None):
         category = template.category
         nonadditive = template.nonadditive
     else:
+        template = None
         levels = []
         hierarchies = []
         default_hierarchy_name = None
@@ -2356,8 +2357,21 @@ def create_dimension(metadata, templates=None, name=None):
 
     # We are guaranteed to have "levels" key from expand_dimension_metadata()
 
-    if not levels:
-        levels = [create_level(level) for level in metadata["levels"]]
+    if "levels" in metadata:
+        # Assure level inheritance
+        levels = []
+        for level_md in metadata["levels"]:
+            if isinstance(level_md, basestring):
+                if not template:
+                    raise ModelError("Can not specify just a level name "
+                                     "(%s) if there is no template for "
+                                     "dimension %s" % (md, name))
+                level = template.level(level_md)
+            else:
+                level = create_level(level_md)
+                # raise NotImplementedError("Merging of levels is not yet supported")
+
+            levels.append(level)
 
     # Hierarchies
     # -----------
