@@ -27,23 +27,80 @@
         },
         {
             "name": "week",
-            "label": "Week"
+            "label": "Week",
+            "description": "Last day of a week"
         },
         {
-            "name": "iso_week",
+            "name": "weeknum",
+            "label": "Week Number"
+        },
+        {
+            "name": "isoyear",
+            "label": "ISO Year"
+        },
+        {
+            "name": "isoweek",
             "label": "ISO Week"
+        },
+        {
+            "name": "isoweekday",
+            "label": "ISO Week Day"
         },
         {
             "name": "day",
             "label": "Day"
         },
         {
+            "name": "date",
+            "label": "Date",
+            "description": "Full Date"
+        },
+        {
             "name": "hour",
             "label": "Hour"
         },
         {
+            "name": "30minute",
+            "label": "30-Minute",
+            "description": "First minute of 30 minute period"
+        },
+        {
+            "name": "20minute",
+            "label": "20-Minute",
+            "description": "First minute of 20 minute period"
+        },
+        {
+            "name": "15minute",
+            "label": "15-Minute",
+            "description": "First minute of 15 minute period"
+        },
+        {
+            "name": "10minute",
+            "label": "10-Minute",
+            "description": "First minute of 10 minute period"
+        },
+        {
+            "name": "5minute",
+            "label": "5-Minute",
+            "description": "First minute of 5 minute period"
+        },
+        {
             "name": "minute",
             "label": "Minute"
+        },
+        {
+            "name": "30second",
+            "label": "30-Second",
+            "description": "First second of 30 second period"
+        },
+        {
+            "name": "15second",
+            "label": "15-Second",
+            "description": "First second of 15 second period"
+        },
+        {
+            "name": "second",
+            "label": "Second"
         },
         {
             "name": "week",
