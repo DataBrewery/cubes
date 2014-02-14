@@ -548,5 +548,6 @@ def add_cors_headers(response):
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
         response.headers['Access-Control-Max-Age'] = CORS_MAX_AGE
-        response.headers['Access-Control-Allow-Headers'] = 'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type'
+        if request.method == 'OPTIONS':
+            response.headers['Access-Control-Allow-Headers'] = '*'
     return response
