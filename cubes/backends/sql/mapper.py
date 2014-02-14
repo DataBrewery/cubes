@@ -142,7 +142,8 @@ class SnowflakeMapper(Mapper):
 
         fact_prefix = options.get("fact_prefix") or ""
         fact_suffix = options.get("fact_suffix") or ""
-        self.fact_name = fact_name or self.cube.fact or "%s%s%s" % (fact_prefix, self.cube.name, fact_suffix)
+        self.fact_name = fact_name or self.cube.fact or "%s%s%s" % \
+                            (fact_prefix, self.cube.basename, fact_suffix)
         self.schema = schema
 
         self._collect_joins(joins or cube.joins)
@@ -402,7 +403,8 @@ class DenormalizedMapper(Mapper):
 
         # FIXME: this hides original fact name, we do not want that
 
-        self.fact_name = options.get("denormalized_view") or dview_prefix + self.cube.name
+        self.fact_name = options.get("denormalized_view") or dview_prefix + \
+                            self.cube.basename
         self.fact_schema = self.schema
         self.schema = self.schema or denormalized_view_schema
 
