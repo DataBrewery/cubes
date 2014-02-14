@@ -175,7 +175,8 @@ class ModelProvider(Extensible):
 
         # merge datastore from model if datastore not present
         if not metadata.get("datastore"):
-            metadata['datastore'] = self.metadata.get("datastore")
+            metadata['datastore'] = self.metadata.get("datastore",
+                                                      self.store_name)
 
         # merge browser_options
         browser_options = self.metadata.get('browser_options', {})

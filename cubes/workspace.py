@@ -316,6 +316,9 @@ class Workspace(object):
                 self.info[key] = info.get(key)
 
         # Register stores from external stores.ini file or a dictionary
+        if not stores and config.has_option("workspace", "stores"):
+            stores = config.get("workspace", "stores")
+
         if isinstance(stores, basestring):
             store_config = ConfigParser.SafeConfigParser()
             try:
@@ -562,7 +565,7 @@ class Workspace(object):
 
         store = store or metadata.get("store", metadata.get("datastore"))
 
-        if provider.requires_store():
+        if store or provider.requires_store():
             if store and not isinstance(store, basestring):
                 raise ArgumentError("Store should be a name, not an object")
             provider.set_store(self.get_store(store), store)
