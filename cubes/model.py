@@ -2272,7 +2272,7 @@ def _measure_aggregate_label(aggregate, measure):
     return label
 
 
-def create_dimension(metadata, templates=None, name=None):
+def create_dimension(metadata, templates=None):
     """Create a dimension from a `metadata` dictionary.
     Some rules:
 
@@ -2339,11 +2339,7 @@ def create_dimension(metadata, templates=None, name=None):
     metadata = expand_dimension_metadata(metadata,
                                          expand_levels=not bool(levels))
 
-    name = metadata.get("name") or name
-    if not name:
-        raise ModelError("Dimension has no name, "
-                         "neither explicit name provided")
-
+    name = metadata.get("name")
 
     label = metadata.get("label") or label
     description = metadata.get("description") or description
@@ -2400,6 +2396,7 @@ def create_dimension(metadata, templates=None, name=None):
             else:
                 keep.append(hier)
         hierarchies = keep
+
 
     default_hierarchy_name = metadata.get("default_hierarchy_name",
                                           default_hierarchy_name)

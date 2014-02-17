@@ -196,7 +196,8 @@ class Namespace(object):
         for provider in self.providers:
             # TODO: use locale
             try:
-                dim = provider.dimension(name, templates=templates)
+                dim = provider.dimension(name, locale=locale,
+                                         templates=templates)
             except NoSuchDimensionError:
                 pass
             else:

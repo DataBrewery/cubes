@@ -58,8 +58,8 @@ class MissingObjectError(UserError):
     error_type = "missing_object"
 
     def __init__(self, message=None, name=None):
-        self.name = name
         self.message = message
+        self.name = name
 
     def __str__(self):
         return self.message or self.name

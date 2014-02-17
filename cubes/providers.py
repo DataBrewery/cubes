@@ -158,20 +158,31 @@ class ModelProvider(Extensible):
 
         return options
 
-    def dimension_metadata(self, name):
-        """Returns a metadata dictionary for dimension `name`."""
-        return self.dimensions_metadata[name]
+    def dimension_metadata(self, name, locale=None):
+        """Returns a metadata dictionary for dimension `name` and optional
+        `locale`.
 
-    def cube_metadata(self, name):
+        Subclasses should override this method and call the super if they
+        would like to merge metadata provided in a model file."""
+
+        try:
+            return self.dimensions_metadata[name]
+        except KeyError:
+            raise NoSuchDimensionError("No such dimension '%s'" % name, name)
+
+    def cube_metadata(self, name, locale=None):
         """Returns a cube metadata by combining model's global metadata and
         cube's metadata. Merged metadata dictionaries: `browser_options`,
         `mappings`, `joins`.
+
+        Subclasses should override this method and call the super if they
+        would like to merge metadata provided in a model file.
         """
 
         if name in self.cubes_metadata:
             metadata = dict(self.cubes_metadata[name])
         else:
-            raise NoSuchCubeError("Unknown cube '%s'" % name, name)
+            raise NoSuchCubeError("No such cube '%s'" % name, name)
 
         # merge datastore from model if datastore not present
         if not metadata.get("datastore"):
@@ -275,21 +286,23 @@ class ModelProvider(Extensible):
         Subclassees should implement this method.
         """
         raise NotImplementedError("Subclasses should implement list_cubes()")
-        return []
 
     def cube(self, name, locale=None):
         """Returns a cube with `name` provided by the receiver. If receiver
         does not have the cube `NoSuchCube` exception is raised.
 
-        Returned cube has no dimensions assigned. You should assign the
-        dimensions according to the cubes `dimension_links` list of
-        dimension names.
+        Note: The returned cube will not have the dimensions assigned.
+        It is up to the caller's responsibility to assign appropriate
+        dimensions based on the cube's `dimension_links`.
 
-        Subclassees should implement this method.
+        Subclasses of `ModelProvider` might override this method if they would
+        like to create the `Cube` object directly.
         """
-        raise NotImplementedError("Subclasses should implement cube() method")
 
-    def dimension(self, name, templates=[]):
+        metadata = self.cube_metadata(name, locale)
+        return create_cube(metadata)
+
+    def dimension(self, name, templates=[], locale=None):
         """Returns a dimension with `name` provided by the receiver.
         `dimensions` is a dictionary of dimension objects where the receiver
         can look for templates. If the dimension requires a template and the
@@ -299,21 +312,18 @@ class ModelProvider(Extensible):
 
         If the receiver does not provide the dimension `NoSuchDimension`
         exception is raised.
-
-        Subclassees should implement this method.
         """
-        raise NotImplementedError("Subclasses are required to implement this")
+        metadata = self.dimension_metadata(name, locale)
+        return create_dimension(metadata, templates)
 
 
 class StaticModelProvider(ModelProvider):
 
     __extension_aliases__ = ["default"]
 
-    dynamic_cubes = False
-    dynamic_dimensions = False
-
     def __init__(self, *args, **kwargs):
         super(StaticModelProvider, self).__init__(*args, **kwargs)
+        # Initialization code goes here...
 
     def list_cubes(self):
         """Returns a list of cubes from the metadata."""
@@ -329,30 +339,6 @@ class StaticModelProvider(ModelProvider):
             cubes.append(info)
 
         return cubes
-
-    def cube(self, name, locale=None):
-        """
-        Creates a cube `name` in context of `workspace` from provider's
-        metadata. The created cube has no dimensions attached. You sohuld link
-        the dimensions afterwards according to the `dimension_links`
-        property of the cube.
-        """
-
-        metadata = self.cube_metadata(name)
-        metadata = expand_cube_metadata(metadata)
-        return create_cube(metadata)
-
-    def dimension(self, name, locale=None, templates=None, link=None):
-        """Create a dimension `name` from provider's metadata. `templates` is
-        a dictionary with already instantiated dimensions to be used as
-        templates"""
-
-        try:
-            metadata = dict(self.dimensions_metadata[name])
-        except KeyError:
-            raise NoSuchDimensionError(name)
-
-        return create_dimension(metadata, templates, name)
 
 
 # TODO: is this still necessary?
