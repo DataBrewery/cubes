@@ -166,13 +166,15 @@ def prepare_authorization():
 @slicer.errorhandler(UserError)
 def user_error_handler(e):
     error_type = e.__class__.error_type
-    error = {
-        "error": error_type,
-        "message": str(e)
-    }
+    error = OrderedDict()
+    error["error"] = error_type
+    error["message"] = str(e)
 
     if hasattr(e, "hint") and e.hint:
         error["hint"] = e.hint
+
+    if hasattr(e, "to_dict"):
+        error.update(e.to_dict())
 
     code = server_error_codes.get(error_type, 400)
 
