@@ -113,7 +113,7 @@ class MixpanelModelProvider(ModelProvider):
         """Return an empty list. Mixpanel does not export any dimensions."""
         return []
 
-    def cube(self, name):
+    def cube(self, name, locale=None):
         """Creates a mixpanel cube with following variables:
 
         * `name` – cube name

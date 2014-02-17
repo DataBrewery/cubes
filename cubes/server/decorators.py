@@ -92,6 +92,12 @@ def requires_browser(f):
         else:
             g.page_size = None
 
+
+        if "lang" in request.args:
+            g.locale = request.args.get("lang")
+        else:
+            g.locale = None
+
         # Collect orderings:
         # order is specified as order=<field>[:<direction>]
         #
