@@ -187,7 +187,7 @@ class MixpanelModelProvider(ModelProvider):
 
         try:
             metadata = self.dimension_metadata(name)
-        except KeyError:
+        except NoSuchDimensionError:
             metadata = {"name": name}
 
         return create_dimension(metadata)
