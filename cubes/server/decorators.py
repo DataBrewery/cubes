@@ -48,9 +48,14 @@ def prepare_cell(argname="cut", target="cell", restrict=False):
 def requires_cube(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
+        if "lang" in request.args:
+            g.locale = request.args.get("lang")
+        else:
+            g.locale = None
+
         cube_name = request.view_args.get("cube_name")
         try:
-            g.cube = authorized_cube(cube_name)
+            g.cube = authorized_cube(cube_name, locale=g.locale)
         except NoSuchCubeError:
             raise NotFoundError(cube_name, "cube",
                                 "Unknown cube '%s'" % cube_name)
@@ -65,9 +70,14 @@ def requires_browser(f):
 
     @wraps(f)
     def wrapper(*args, **kwargs):
+        if "lang" in request.args:
+            g.locale = request.args.get("lang")
+        else:
+            g.locale = None
+
         cube_name = request.view_args.get("cube_name")
         if cube_name:
-            cube = authorized_cube(cube_name)
+            cube = authorized_cube(cube_name, g.locale)
         else:
             cube = None
 
@@ -92,12 +102,6 @@ def requires_browser(f):
         else:
             g.page_size = None
 
-
-        if "lang" in request.args:
-            g.locale = request.args.get("lang")
-        else:
-            g.locale = None
-
         # Collect orderings:
         # order is specified as order=<field>[:<direction>]
         #
@@ -118,11 +122,11 @@ def requires_browser(f):
 # Get authorized cube
 # ===================
 
-def authorized_cube(cube_name):
+def authorized_cube(cube_name, locale):
     """Returns a cube `cube_name`. Handle cube authorization if required."""
 
     try:
-        cube = workspace.cube(cube_name, g.auth_identity)
+        cube = workspace.cube(cube_name, g.auth_identity, locale=locale)
     except NotAuthorized:
         ident = "'%s'" % g.auth_identity if g.auth_identity \
                         else "unspecified identity"

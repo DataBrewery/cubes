@@ -641,6 +641,7 @@ class Cube(ModelObject):
 
         out = super(Cube, self).to_dict(**options)
 
+        out["locale"] = self.locale
         out["category"] = self.category
 
         aggregates = [m.to_dict(**options) for m in self.aggregates]

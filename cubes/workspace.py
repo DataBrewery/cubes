@@ -649,7 +649,6 @@ class Workspace(object):
         if not isinstance(name, basestring):
             raise TypeError("Name is not a string, is %s" % type(name))
 
-
         if self.authorizer:
             authorized = self.authorizer.authorize(identity, [name])
             if not authorized:
@@ -809,6 +808,8 @@ class Workspace(object):
 
         if isinstance(cube, basestring):
             cube = self.cube(cube, identity=identity)
+
+        locale = locale or cube.locale
 
         store_name = cube.datastore or "default"
         store = self.get_store(store_name)
