@@ -173,9 +173,10 @@ class CSVFileRequestLogHandler(RequestLogHandler):
             writer.writerow(out)
 
 class JSONRequestLogHandler(RequestLogHandler):
-    def __init__(self, path=None, dimension_use_path=None, **options):
+    def __init__(self, path=None, **options):
+        """Creates a JSON logger which logs requests in a JSON lines. It
+        includes two lists: `cell_dimensions` and `drilldown_dimensions`."""
         self.path = path
-        self.dim_path = dimension_use_path
 
     def write_record(self, cube, cell, record):
         out = []
