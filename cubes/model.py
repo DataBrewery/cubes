@@ -2401,7 +2401,6 @@ def create_dimension(metadata, templates=None, name=None):
                 keep.append(hier)
         hierarchies = keep
 
-
     default_hierarchy_name = metadata.get("default_hierarchy_name",
                                           default_hierarchy_name)
 
