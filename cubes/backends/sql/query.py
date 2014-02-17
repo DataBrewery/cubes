@@ -675,7 +675,12 @@ class QueryBuilder(object):
             self.semiadditive_dimension = dim
 
             name = info.get("attribute")
-            self.semiadditive_attribute = dim.attribute(name)
+            try:
+                self.semiadditive_attribute = dim.attribute(name)
+            except NoSuchAttributeError:
+                raise NoSuchAttributeError("No attribute '%s' in dimension "
+                                           "%s for semi-additive behavior."
+                                           % (name, dimname))
             self.semiadditive_function = info.get("function", "max")
         else:
             self.semiadditive_dimension = None
