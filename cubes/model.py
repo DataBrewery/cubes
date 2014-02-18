@@ -505,7 +505,7 @@ class Cube(ModelObject):
         try:
             return self._measures[name]
         except KeyError:
-            raise NoSuchAttributeError("cube '%s' has no measure '%s'" %
+            raise NoSuchAttributeError("Cube '%s' has no measure '%s'" %
                                             (self.name, name))
     def aggregate(self, name):
         """Get aggregate object. If `obj` is a string, then aggregate with
@@ -899,7 +899,12 @@ class Dimension(ModelObject):
         # Set the unique dimension key attribute – it has to be an existing
         # attribute (belonging to a level)
         if key:
-            self.key = self.attribute(key)
+            try:
+                self.key = self.attribute(key)
+            except NoSuchAttributeError:
+                raise ModelError("Dimension key should exist as an attribute "
+                                 "(in dimension '%s', key '%s'"
+                                 % (self.name, key))
         else:
             self.key = None
 
