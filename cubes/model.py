@@ -848,7 +848,6 @@ class Dimension(ModelObject):
         self.role = role
         self.cardinality = cardinality
         self.category = category
-        self.key = key
 
         # Master dimension – dimension that this one was derived from, for
         # example by limiting hierarchies
@@ -896,6 +895,13 @@ class Dimension(ModelObject):
                 a.dimension = self
                 self._attributes[a.name] = a
                 self._attributes_by_ref[a.ref()] = a
+
+        # Set the unique dimension key attribute – it has to be an existing
+        # attribute (belonging to a level)
+        if key:
+            self.key = self.attribute(key)
+        else:
+            self.key = None
 
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
@@ -1056,7 +1062,7 @@ class Dimension(ModelObject):
 
     def clone(self, hierarchies=None, exclude_hierarchies=None,
               nonadditive=None, default_hierarchy_name=None, cardinality=None,
-              alias=None):
+              alias=None, key=None):
         """Returns a clone of the receiver with some modifications. `master`
         of the clone is set to the receiver.
 
@@ -1066,6 +1072,9 @@ class Dimension(ModelObject):
         * `exclude_hierarchies` – all hierarchies are preserved except the
           hierarchies in this list
         * `nonadditive` – non-additive value for the dimension
+        * `alias` – name of the cloned dimension
+        * `key` – key of the cloned dimension (for example if it is of bigger
+          granularity than parent)
         """
 
         if hierarchies == []:
@@ -1128,6 +1137,8 @@ class Dimension(ModelObject):
         # TODO: should we do deppcopy on info?
         name = alias or self.name
 
+        key = key or self.key
+
         return Dimension(name=name,
                          levels=levels,
                          hierarchies=hierarchies,
@@ -1138,7 +1149,8 @@ class Dimension(ModelObject):
                          role=self.role,
                          cardinality=cardinality,
                          master=self,
-                         nonadditive=nonadditive)
+                         nonadditive=nonadditive,
+                         key=key)
 
     def to_dict(self, **options):
         """Return dictionary representation of the dimension"""
