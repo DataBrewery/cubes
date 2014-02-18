@@ -530,7 +530,7 @@ class Cube(ModelObject):
         is returned."""
 
         try:
-            measure = self.measre(aggregate.measure)
+            measure = self.measure(aggregate.measure)
         except NoSuchAttributeError:
             return None
 
@@ -2352,6 +2352,7 @@ def create_dimension(metadata, templates=None):
         role = template.role
         category = template.category
         nonadditive = template.nonadditive
+        key = template.key
     else:
         template = None
         levels = []
@@ -2364,6 +2365,7 @@ def create_dimension(metadata, templates=None):
         category = None
         info = {}
         nonadditive = None
+        key = None
 
     # Fix the metadata, but don't create default level if the template
     # provides levels.
@@ -2372,12 +2374,13 @@ def create_dimension(metadata, templates=None):
 
     name = metadata.get("name")
 
-    label = metadata.get("label") or label
+    label = metadata.get("label", label)
     description = metadata.get("description") or description
-    info = metadata.get("info") or info
-    role = metadata.get("role") or role
-    category = metadata.get("category") or category
-    nonadditive = metadata.get("nonadditive") or nonadditive
+    info = metadata.get("info", info)
+    role = metadata.get("role", role)
+    category = metadata.get("category", category)
+    nonadditive = metadata.get("nonadditive", nonadditive)
+    key = metadata.get("key", key)
 
     # Backward compatibility with an experimental feature
     cardinality = metadata.get("cardinality", cardinality)
@@ -2454,7 +2457,8 @@ def create_dimension(metadata, templates=None):
                      cardinality=cardinality,
                      role=role,
                      category=category,
-                     nonadditive=nonadditive
+                     nonadditive=nonadditive,
+                     key=key
                     )
 
 def _create_hierarchies(metadata, levels, template):
