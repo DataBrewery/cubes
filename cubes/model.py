@@ -804,7 +804,7 @@ class Dimension(ModelObject):
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, category=None,
-                 master=None, nonadditive=None, **desc):
+                 master=None, nonadditive=None, key=None, **desc):
 
         """Create a new dimension
 
@@ -848,6 +848,7 @@ class Dimension(ModelObject):
         self.role = role
         self.cardinality = cardinality
         self.category = category
+        self.key = key
 
         # Master dimension – dimension that this one was derived from, for
         # example by limiting hierarchies
@@ -914,6 +915,7 @@ class Dimension(ModelObject):
                 or self.label != other.label \
                 or self.description != other.description \
                 or self.cardinality != other.cardinality \
+                or self.key != other.key \
                 or self.category != other.category:
             return False
 
@@ -1150,6 +1152,7 @@ class Dimension(ModelObject):
         out["role"] = self.role
         out["cardinality"] = self.cardinality
         out["category"] = self.category
+        out["key"] = self.key
 
         out["levels"] = [level.to_dict(**options) for level in self.levels]
 
@@ -1995,6 +1998,8 @@ class Measure(AttributeBase):
             self.nonadditive = None
         elif nonadditive in ["all", "any"]:
             self.nonadditive = "any"
+        elif nonadditive == "time":
+            self.nonadditive = "time"
         else:
             raise ModelError("Unknown non-additive measure type '%s'"
                              % nonadditive)
