@@ -668,22 +668,19 @@ class QueryBuilder(object):
         # TODO: move this to model (this is ported from the original
         # SnapshotBrowser)
 
-        info = self.cube.info.get("semiadditive", {})
-        dimname = info.get('dimension')
-        if dimname:
-            dim = self.cube.dimension(dimname)
-            self.semiadditive_dimension = dim
+        # TODO: remove this later
+        if "semiadditive" in self.cube.info:
+            raise NotImplementedError("'semiadditive' in 'info' is not "
+                                      "supported any more")
 
-            name = info.get("attribute")
-            try:
-                self.semiadditive_attribute = dim.attribute(name)
-            except NoSuchAttributeError:
-                raise NoSuchAttributeError("No attribute '%s' in dimension "
-                                           "%s for semi-additive behavior."
-                                           % (name, dimname))
-            self.semiadditive_function = info.get("function", "max")
-        else:
-            self.semiadditive_dimension = None
+        for dim in self.cube.dimensions:
+            if dim.nonadditive:
+                raise NotImplementedError("Non-additive behavior for "
+                                          "dimensions is not yet implemented."
+                                          "(cube '%s', dimension '%s')" %
+                                          (self.cube.name, dim.name))
+        # TODO: make this configurable
+        self.semiadditive_function = "max"
 
     def aggregation_statement(self, cell, drilldown=None, aggregates=None,
                               split=None, attributes=None, summary_only=False):
@@ -806,8 +803,17 @@ class QueryBuilder(object):
             required = self.cube.get_attributes(required)
             master.ptd_attributes += required
 
+        # Check the non-additiveness
+        # TODO: this should belong to the cube
+        for aggregate in aggregates:
+            measure = self.cube.measure(aggregate.measure)
+            self.logger.debug("=== SEMI? %s:%s" % (measure.name,
+                measure.nonadditive))
+
+
         # Semi-additive attribute
-        semiadditive_attribute = self.get_semiadditive_attribute(drilldown)
+        semiadditive_attribute = self.get_semiadditive_attribute(aggregates,
+                                                                 drilldown)
         if semiadditive_attribute:
             if self.snowflake.is_outer_detail(semiadditive_attribute):
                 detail.other_attributes.append(semiadditive_attribute)
@@ -1123,24 +1129,40 @@ class QueryBuilder(object):
 
         return split_column.label(label)
 
-    def get_semiadditive_attribute(self, drilldown):
+    def get_semiadditive_attribute(self, aggregates, drilldown):
         """Returns an attribute from a semi-additive dimension, if defined for
         the cube. Cubes allows one semi-additive dimension. """
 
-        if not self.semiadditive_dimension:
+        nonadds = set(self.cube.nonadditive_type(agg) for agg in aggregates)
+        # If there is no nonadditive aggregate, we skip
+        if not any(nonaddtype for nonaddtype in nonadds):
             return None
 
-        dim = self.semiadditive_dimension
+        if None in nonadds:
+            nonadds.remove(None)
+
+        if "time" not in nonadds:
+            raise NotImplementedError("Nonadditive aggregates for other than "
+                                      "time dimension are not supported.")
+
+        # Here we expect to have time-only nonadditive
+        # TODO: What to do if we have more?
+
+        # Find first time drill-down, if any
         items = [item for item in drilldown \
-                       if item.dimension.name == dim.name]
+                       if item.dimension.role == "time"]
 
         if not items:
-            return self.semiadditive_attribute
+            return None
 
-        # FIXME: this looks broken
-        item = items[0]
+        dim = items[0].dimension
 
-        return self.semiadditive_attribute
+        if not dim.key:
+            raise ModelError("Semi-additive aggregate requires a "
+                             "time dimension, however the time dimension "
+                             "'%s' (in cube '%s') does not have a key set."
+                             % (dim.name, self.cube.name))
+        return dim.key
 
     def _semiadditive_subquery(self, semiadditive_attribute, selection,
                                from_obj, condition, group_by):
@@ -1151,9 +1173,8 @@ class QueryBuilder(object):
             func = getattr(sql.expression.func, self.semiadditive_function)
         except AttributeError:
             raise ModelError("Unknown function '%s' for semiadditive "
-                             "dimension '%s'."
-                             % (self.semiadditive_function,
-                                self.semiadditive_dimension.name))
+                             "dimension."
+                             % self.semiadditive_function)
 
         column = self.column(semiadditive_attribute)
         column = func(column).label("__semiadditive_key")
