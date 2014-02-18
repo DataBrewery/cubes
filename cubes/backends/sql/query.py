@@ -803,14 +803,6 @@ class QueryBuilder(object):
             required = self.cube.get_attributes(required)
             master.ptd_attributes += required
 
-        # Check the non-additiveness
-        # TODO: this should belong to the cube
-        for aggregate in aggregates:
-            measure = self.cube.measure(aggregate.measure)
-            self.logger.debug("=== SEMI? %s:%s" % (measure.name,
-                measure.nonadditive))
-
-
         # Semi-additive attribute
         semiadditive_attribute = self.get_semiadditive_attribute(aggregates,
                                                                  drilldown)
