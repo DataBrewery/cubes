@@ -524,6 +524,19 @@ class Cube(ModelObject):
             raise NoSuchAttributeError("cube '%s' has no aggregate '%s'" %
                                             (self.name, name))
 
+    def nonadditive_type(self, aggregate):
+        """Returns non-additive type of `aggregate`'s measure. If aggregate
+        has no measure specified or is unknown (backend-specific) then `None`
+        is returned."""
+
+        try:
+            measure = self.measre(aggregate.measure)
+        except NoSuchAttributeError:
+            return None
+
+        return measure.nonadditive
+
+
     def measure_aggregate(self, name):
         """Returns a measure aggregate by name."""
         name = str(name)
