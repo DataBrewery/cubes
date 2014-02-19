@@ -18,6 +18,18 @@ dialects:
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
 
 
+Supported aggregate functions:
+
+* `sum`
+* `count` – equivalend to ``COUNT(1)``
+* `count_nonempty` – equivalent to ``COUNT(measure)``
+* `count_distinct` – equivalent to ``COUNT(DISTINCT measure)``
+* `min`
+* `max`
+* `avg`
+* `stddev`
+* `variance`
+
 Store Configuration
 ===================
 
@@ -401,6 +413,12 @@ might write:
                 "column": "id"
             }
     ]
+
+
+Join Order
+----------
+
+Order of joins has to be from the master tables towards the details.
 
 Aliases
 -------
