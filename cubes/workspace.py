@@ -520,7 +520,7 @@ class Workspace(object):
         a metadata dictionary, filename, path to a model bundle directory or a
         URL.
 
-        If `namespace` is specified, then the model's objects are stored in a
+        If `namespace` is specified, then the model's objects are stored in 
         the namespace of that name.
 
         `store` is an optional name of data store associated with the model.
@@ -531,7 +531,7 @@ class Workspace(object):
         default the objects are registered in default global namespace.
 
         Note: No actual cubes or dimensions are created at the time of calling
-        this method. The creation is deffered until
+        this method. The creation is deferred until
         :meth:`cubes.Workspace.cube` or :meth:`cubes.Workspace.dimension` is
         called.
         """
@@ -589,25 +589,7 @@ class Workspace(object):
 
     # TODO: depreciated
     def add_model(self, model, name=None, store=None, translations=None):
-        """Registers the `model` in the workspace. `model` can be a metadata
-        dictionary, filename, path to a model bundle directory or a URL.
-
-        If `name` is specified, then it is used instead of name in the
-        model. `store` is an optional name of data store associated with the
-        model.
-
-        Model is added to the list of workspace models. Model provider is
-        determined and associated with the model. Provider is then asked to
-        list public cubes and public dimensions which are registered in the
-        workspace.
-
-        No actual cubes or dimensions are created at the time of calling this
-        method. The creation is deffered until :meth:`cubes.Workspace.cube` or
-        :meth:`cubes.Workspace.dimension` is called.
-
-        """
-
-        # self.logger.warn("add_model() is depreciated, use import_model()")
+        self.logger.warn("add_model() is depreciated, use import_model()")
         return self.import_model(model, store=store, translations=translations)
 
     def add_slicer(self, name, url, **options):
@@ -619,7 +601,7 @@ class Workspace(object):
             "provider": "slicer",
             "datastore": name
         }
-        self.add_model(model)
+        self.import_model(model)
 
     def list_cubes(self, identity=None):
         """Get a list of metadata for cubes in the workspace. Result is a list
