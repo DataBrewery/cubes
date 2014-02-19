@@ -233,7 +233,8 @@ class SnowflakeSchema(object):
             master_rs = relationships[master_key]
 
             if master_rs is None:
-                raise InternalError("Joining to unclassified master. %s->%s"
+                raise InternalError("Joining to unclassified master. %s->%s "
+                                    "Hint: check your joins or mappings."
                                     % (master_key, detail_key))
             elif master_rs == MATCH_MASTER_RSHIP \
                     and join.method in ("match", "master"):
