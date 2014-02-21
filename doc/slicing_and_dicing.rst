@@ -114,6 +114,15 @@ Aggregate of a cell:
 
 Slicer: ``/cube/sales/aggregate?cut=geography:sk|date:2010,6-2012,6``
 
+
+It is possible to select only specific aggregates to be aggregated:
+
+.. code-block:: python
+
+    result = browser.aggregate(cell, aggregates=["amount"])
+
+Slicer: ``/cube/sales/aggregate?aggregates=amount``
+
 Drilldown
 ---------
 
@@ -132,16 +141,84 @@ For example "sales by month in 2010":
 
 Slicer: ``/cube/sales/aggregate?cut=date:2010&drilldown=date``
 
-.. todo::
 
-    * implicit/explicit drilldown
-    * `aggregate(cell, drilldown)`
-    * `aggregate(cell, aggregates, drilldown)`
-    * `aggregate(cell, drilldown, page, page_size)`
+Implicit
+''''''''
 
-    * ``dim``
-    * ``dim:level``
-    * ``dim@hierarchy:level``
+If not stated otherwise, the cubes drills-down to the next level of the
+drilled dimension. For example, if there is no cell constraint and the
+drilldown is `["date"]`, that means to use the first level of dimension date,
+usually `year`. If there is already a cut by year: `PointCut("date", [2010])`
+then the next level is by `month`.
+
+The "next level" is determined as the next level after the deepest level used
+in a cut. Consider hierarchies for date: `year`, `month` and `day`, for
+geography: `region`, `country`, `city`. The implicit drilldown will be as
+follows:
+
+.. list-table::
+    :widths: 1 1 1
+    :header-rows: 1
+
+    * - Drilldown
+      - Cut
+      - Result levels
+    * - `date`
+      - –
+      - `date:year`
+    * - `date`
+      - `date` point `[2010]`
+      - `date:month`
+    * - `date`
+      - `date` point `[2010, 4, 1]`
+      - error
+    * - `country`, `date`
+      - `date` range `[2010, 1] - [2010, 4]`
+      - `date:day`, `geo:region`
+
+If the cut is at its deepest level, then it is not possible to drill-down
+deeper which results in an error.
+
+Explicit
+''''''''
+
+If the implicit behavior is not satisfying, then the drill-down levels might
+be specified explicitly. In this case, the cut is not considered for the
+drilldown level.
+
+You might want to specify drill-down levels explicitly for example if a cut
+range spans between multiple months and you don't want to have the next level
+to be `day`, but `month`. Another use is whe you want to use another hierarchy
+for drill-don than the default hierarchy.
+
+.. list-table::
+    :widths: 1 1 1
+    :header-rows: 1
+
+    * - Drilldown
+      - Python
+      - Server
+    * - by `year`
+      - ``("date", None, "year")``
+      - ``drilldown=date:year``
+    * - by `month` and `city`
+      - ``("date", None, "month"), ("geo", None, "city")``
+      - ``drilldown=date:month,geo:city``
+    * - by `month` but with quarter included
+      - ``("date", "yqmd", "month")``
+      - ``drilldown=date@yqmd:month``
+
+Pagination
+----------
+
+Results can be paginated by specifying `page` and `page_size` arguments:
+
+.. code-block:: python
+
+    result = browser.aggregate(cell, drilldown, page=0, page_size=10)
+
+Server: ``/cube/sales/aggregate?cell=...&drilldown=...&page=0&pagesize=10``
+
 
 Split
 -----
@@ -154,21 +231,46 @@ Provisional:
 Facts
 =====
 
-* `facts()`
-* `facts(cell)`
-* `facts(cell, fields)`
+To get list of facts within a cell use :meth:`cubes.AggregationBrowser.facts`:
+
+.. code-block:: python
+
+    facts = browser.facts(cell)
+
+Server: ``/cube/sales/facts?cell=...``
+
+You can also paginate the result as in the aggregation.
+
+
+Note that not all backends might support fact listing. Please refer to the
+backend's documentation for more information.
 
 Fact
 ====
 
-* `fact(id)`
+A single fact can be fetched using :meth:`cubes.AggregationBrowser.fact` as
+in `fact(123)` or with the server as ``/cube/sales/fact/123``.
+
+Note that not all backends might support fact listing. Please refer to the
+backend's documentation for more information.
 
 Members
 =======
 
-* `members(cell, dimension)`
-* `members(cell, dimension, depth)`
-* `members(cell, dimension, depth, hierarchy)`
+Getting dimension members might be useful for example for populating
+drill-downs or for providing an information to the user what he can use for
+slicing and dicing. In python tehre is :meth:`cubes.AggregationBrowser.members`.
+
+For example to get all countries present in a cell:
+
+.. code-block:: python
+
+    members = browser.members(cell, "country")
+
+Same query with the server would be: ``/cube/sales/dimension/country?cut=...``
+
+It is also possible to specify hierarchy and level depth for the dimension
+members.
 
 Cell Details
 ============
@@ -237,4 +339,16 @@ Which is equivalent to:
 
 Note that this might change a bit: either full detail will be returned or just
 key and label, depending on an option argument (not yet decided).
+
+Supported Methods
+=================
+
+Not all browsers might provide full functionality. For example a browser, such
+as Google Analytics, might provide aggregations, but might not provide fact
+details.
+
+To learn what features are provided by the browser for particular cube use the
+:meth:`cubes.AggregationBrowser.features` method which returns a dictionary with
+more detailed description of what can be done with the cube.
+
 
