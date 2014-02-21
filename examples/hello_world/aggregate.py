@@ -3,7 +3,7 @@ from cubes import Workspace, Cell, PointCut
 # 1. Create a workspace
 workspace = Workspace()
 workspace.register_default_store("sql", url="sqlite:///data.sqlite")
-workspace.add_model("model.json")
+workspace.import_model("model.json")
 
 # 2. Get a browser
 browser = workspace.browser("irbd_balance")
