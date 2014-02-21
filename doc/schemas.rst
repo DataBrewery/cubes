@@ -628,31 +628,26 @@ Full localization with detailed dictionaries looks like this:
     }
 
 
-To create a model with translations:
+.. comment::
 
-.. code-block:: python
+    To create a model with translations:
 
-    translations = {"sk": "model-sk.json"}
-    model = create_model("model.json", translations)
+    .. code-block:: python
 
-The model created this way will be in the default locale. To get localized
-version of the master model:
+        translations = {"sk": "model-sk.json"}
+        model = create_model("model.json", translations)
 
-.. code-block:: python
+    The model created this way will be in the default locale. To get localized
+    version of the master model:
 
-    localized_model = model.localize("sk")
+    .. code-block:: python
 
-.. note::
+        localized_model = model.localize("sk")
 
-    The :meth:`cubes.Workspace.browser` method creates a browser with
-    appropriate model localization, no explicit request for localization is
-    needed.
+    .. note::
 
-.. seealso::
+        The :meth:`cubes.Workspace.browser` method creates a browser with
+        appropriate model localization, no explicit request for localization is
+        needed.
 
-    :func:`cubes.load_model`
-        Designated model loading function which accepts model translations.
-
-    :meth:`cubes.Model.localize`
-        Get localized version of the model.
 
