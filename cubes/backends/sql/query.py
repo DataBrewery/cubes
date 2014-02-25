@@ -46,6 +46,11 @@ _EXPR_EVAL_NS = {
     "or_": sql.expression.or_
 }
 
+def table_str(key):
+    """Make (`schema`, `table`) tuple printable."""
+    table, schema = key
+    return "%s.%s" % (str(schema), (table)) if schema else str(table)
+
 
 MATCH_MASTER_RSHIP = 1
 OUTER_DETAIL_RSHIP = 2
@@ -149,6 +154,11 @@ class SnowflakeSchema(object):
           type
         * if a table is connected through outer detail to any kind of table,
           then it will stay as detail
+
+        Input: schema, fact name, fact table, joins
+
+        Output: tables[table_key] = SonwflakeTable()
+
         """
 
         # Collect the fact table as the root master table
@@ -189,7 +199,7 @@ class SnowflakeSchema(object):
                 master = self.tables[key]
             except KeyError:
                 raise ModelError("Unknown table (or join alias) '%s'"
-                                 % (key, ))
+                                 % table_str(key))
             master.detail_keys.add(join.master.column)
 
     def _analyse_table_relationships(self):
@@ -234,8 +244,9 @@ class SnowflakeSchema(object):
 
             if master_rs is None:
                 raise InternalError("Joining to unclassified master. %s->%s "
-                                    "Hint: check your joins or mappings."
-                                    % (master_key, detail_key))
+                                    "Hint: check your joins, their order or "
+                                    "mappings." % (table_str(master_key),
+                                                   table_str(detail_key)))
             elif master_rs == MATCH_MASTER_RSHIP \
                     and join.method in ("match", "master"):
                 relationship = MATCH_MASTER_RSHIP
@@ -245,8 +256,8 @@ class SnowflakeSchema(object):
             else:
                 raise InternalError("Unknown relationship combination for "
                                     "%s(%s)->%s(%s)"
-                                    % (master_key, master_rs,
-                                       detail_key, join.method))
+                                    % (table_str(master_key), master_rs,
+                                       table_str(detail_key), join.method))
 
             relationships[detail_key] = relationship
             self.tables[detail_key].relationship = relationship
@@ -794,7 +805,7 @@ class QueryBuilder(object):
             detail.ptd_attributes = ptd_detail
 
         # TODO: PTD workaround #2
-        # We need to know which attriutes have to be included for JOINs,
+        # We need to know which attributes have to be included for JOINs,
         # however we can know this only when "condition" in mapping is
         # evaluated, which can be evaluated only after joins and when the
         # master-fact is ready.

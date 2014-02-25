@@ -59,8 +59,6 @@ class AggregationBrowser(Extensible):
 
     """
 
-    """List of browser features as strings."""
-
     __extension_type__ = "browser"
     __extension_suffix__ = "Browser"
 
