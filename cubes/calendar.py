@@ -211,7 +211,7 @@ class Calendar(object):
             time = time.replace(day=1, hour=0)
 
         elif unit == 'quarter':
-            month = (month_to_quarter(time.month) * 3) + 1
+            month = (month_to_quarter(time.month) - 1) * 3 + 1
             time = time.replace(month=month, day=1, hour=0)
 
         elif unit == 'year':
@@ -221,6 +221,28 @@ class Calendar(object):
             raise ValueError("Unrecognized unit: %s" % unit)
 
         return time
+
+    def since_period_start(self, period, unit, time=None):
+        """Returns distance between `time` and the nearest `period` start
+        relative to `time` in `unit` units. For example: distance between
+        today and start of this year."""
+
+        if not time:
+            time = self.now()
+
+        start = self.truncate_time(time, period)
+        diff = time - start
+
+        if unit == "day":
+            return diff.days
+        elif unit == "hour":
+            return diff.days * 24 + (diff.seconds / 3600)
+        elif unit == "minute":
+            return diff.days * 1440 + (diff.seconds / 60)
+        elif unit == "second":
+            return diff.days * 86400 + diff.seconds
+        else:
+            raise ValueError("Unrecognized period unit: %s" % unit)
 
     def named_relative_path(self, reference, units, date=None):
         """"""
