@@ -900,8 +900,9 @@ class Dimension(ModelObject):
         # attribute (belonging to a level)
         if key:
             try:
-                self.key = self.attribute(key)
+                self.key = self.attribute(str(key))
             except NoSuchAttributeError:
+                import pdb; pdb.set_trace()
                 raise ModelError("Dimension key should exist as an attribute "
                                  "(in dimension '%s', key '%s'"
                                  % (self.name, key))
@@ -1142,7 +1143,7 @@ class Dimension(ModelObject):
         # TODO: should we do deppcopy on info?
         name = alias or self.name
 
-        key = key or self.key
+        key = key or self.key.name
 
         return Dimension(name=name,
                          levels=levels,
