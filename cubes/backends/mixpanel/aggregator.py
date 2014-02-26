@@ -7,6 +7,8 @@ from .store import DEFAULT_TIME_HIERARCHY
 from .utils import *
 
 from collections import defaultdict
+from datetime import datetime
+import pytz
 
 class _MixpanelResponseAggregator(object):
     def __init__(self, browser, responses, aggregate_names, drilldown, split,
@@ -174,11 +176,20 @@ class _MixpanelResponseAggregator(object):
         cells = self.time_cells.items()
         cells.sort(order)
 
+        # compute the current datetime, convert to path
+        current_time_path = time_to_path(
+                pytz.timezone('UTC').localize(datetime.utcnow()).astimezone(self.browser.timezone).strftime("%Y-%m-%d %H:00:00"), 
+                self.last_time_level, 
+                self.time_hierarchy)
+
         self.cells = []
         for key, cell in cells:
             # If we are aggregating at finer granularity than "all":
             time_key = key[0]
             if time_key:
+                # if time_key ahead of current time path, discard
+                if time_key > current_time_path:
+                    continue
                 cell.update(zip(self.time_levels, time_key))
 
             # append the drilldown_on attribute ref

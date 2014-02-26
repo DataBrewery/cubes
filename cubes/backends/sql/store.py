@@ -7,7 +7,7 @@ from ...stores import Store
 from ...errors import *
 from ...browser import *
 from ...computation import *
-
+from .query import QueryBuilder
 from .utils import CreateTableAsSelect, InsertIntoAsSelect
 
 try:
@@ -17,7 +17,12 @@ except ImportError:
     from cubes.common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
-__all__ = []
+
+__all__ = [
+    "create_sqlalchemy_engine",
+    "SQLStore"
+]
+
 
 # Data types of options passed to sqlalchemy.create_engine
 # This is used to coalesce configuration string values into appropriate types
@@ -46,7 +51,9 @@ OPTION_TYPES = {
 ####
 # Backend related functions
 ###
-def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_type=None):
+def ddl_for_model(url, model, fact_prefix=None,
+                  fact_suffix=None, dimension_prefix=None,
+                  dimension_suffix=None, schema_type=None):
     """Create a star schema DDL for a model.
 
     Parameters:
@@ -55,6 +62,7 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
        SQLAlchemy to determine appropriate engine backend
     * `cube` - cube to be described
     * `dimension_prefix` - prefix used for dimension tables
+    * `dimension_suffix` - suffix used for dimension tables
     * `schema_type` - ``logical``, ``physical``, ``denormalized``
 
     As model has no data storage type information, following simple rule is
@@ -71,6 +79,20 @@ def ddl_for_model(url, model, fact_prefix=None, dimension_prefix=None, schema_ty
 
     """
     raise NotImplementedError
+
+def create_sqlalchemy_engine(url, options, prefix="sqlalchemy_"):
+    """Create a SQLAlchemy engine from `options`. Options have prefix
+    ``sqlalchemy_``"""
+    sa_keys = [key for key in options.keys() if key.startswith(prefix)]
+    sa_options = {}
+    for key in sa_keys:
+        sa_key = key[11:]
+        sa_options[sa_key] = options.pop(key)
+
+    sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
+    engine = sqlalchemy.create_engine(url, **sa_options)
+
+    return engine
 
 class SQLStore(Store):
 
@@ -99,6 +121,10 @@ class SQLStore(Store):
           cube, when no explicit fact table name is specified
         * `dimension_prefix` - used by snowflake mapper to find dimension tables
           when no explicit mapping is specified
+        * `fact_suffix` - used by the snowflake mapper to find fact table for a
+          cube, when no explicit fact table name is specified
+        * `dimension_suffix` - used by snowflake mapper to find dimension tables
+          when no explicit mapping is specified
         * `dimension_schema` – schema where dimension tables are stored, if
           different than common schema.
 
@@ -123,14 +149,7 @@ class SQLStore(Store):
 
         if not engine:
             # Process SQLAlchemy options
-            sa_keys = [key for key in options.keys() if key.startswith("sqlalchemy_")]
-            sa_options = {}
-            for key in sa_keys:
-                sa_key = key[11:]
-                sa_options[sa_key] = options.pop(key)
-
-            sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
-            engine = sqlalchemy.create_engine(url, **sa_options)
+            engine = create_sqlalchemy_engine(url, options)
 
         # TODO: get logger from workspace that opens this store
         self.logger = get_logger()
@@ -148,34 +167,25 @@ class SQLStore(Store):
 
         self.options = coalesce_options(options, OPTION_TYPES)
 
-    def browser(self, cube, locale=None):
-        """Returns a browser for a `cube`."""
-        model = self.localized_model(locale)
-        cube = model.cube(cube)
-
-        return SnowflakeBrowser(cube, self.engine, locale=locale,
-                                 metadata=self.metadata,
-                                 **self.options)
-
     def _drop_table(self, table, schema, force=False):
         """Drops `table` in `schema`. If table exists, exception is raised
         unless `force` is ``True``"""
 
         view_name = str(table)
-        preparer = self.engine.dialect.preparer(self.engine.dialect)
+        preparer = self.connectable.dialect.preparer(self.connectable.dialect)
         full_name = preparer.format_table(table)
 
         if table.exists() and not force:
             raise WorkspaceError("View or table %s (schema: %s) already exists." % \
                                (view_name, schema))
 
-        inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.engine)
+        inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.connectable)
         view_names = inspector.get_view_names(schema=schema)
 
         if view_name in view_names:
             # Table reflects a view
             drop_statement = "DROP VIEW %s" % full_name
-            self.engine.execute(drop_statement)
+            self.connectable.execute(drop_statement)
         else:
             # Table reflects a table
             table.drop(checkfirst=False)
@@ -322,7 +332,8 @@ class SQLStore(Store):
         raise NotImplementedError
 
     def create_conformed_rollup(self, cube, dimension, level=None, hierarchy=None,
-                                schema=None, dimension_prefix=None, replace=False):
+                                schema=None, dimension_prefix=None, dimension_suffix=None,
+                                replace=False):
         """Extracts dimension values at certain level into a separate table.
         The new table name will be composed of `dimension_prefix`, dimension
         name and suffixed by dimension level. For example a product dimension
@@ -336,6 +347,7 @@ class SQLStore(Store):
         * `hierarchy` – hierarchy to be used
         * `schema` – target schema
         * `dimension_prefix` – prefix used for the dimension table
+        * `dimension_suffix` – suffix used for the dimension table
         * `replace` – if ``True`` then existing table will be replaced,
           otherwise an exception is raised if table already exists.
         """
@@ -365,13 +377,14 @@ class SQLStore(Store):
         group_by = [context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
 
-        table_name = "%s%s_%s" % (dimension_prefix or "",
-                                  str(dimension), str(level))
-        self._create_table_from_statement(table_name, statement, schema,
+        table_name = "%s%s%s_%s" % (dimension_prefix or "", dimension_suffix or "",
+                                    str(dimension), str(level))
+        self.create_table_from_statement(table_name, statement, schema,
                                             replace, insert=True)
 
     def create_conformed_rollups(self, cube, dimensions, grain=None, schema=None,
-                                 dimension_prefix=None, replace=False):
+                                 dimension_prefix=None, dimension_suffix=None,
+                                 replace=False):
         """Extract multiple dimensions from a snowflake. See
         `extract_dimension()` for more information. `grain` is a dictionary
         where keys are dimension names and values are levels, if level is
@@ -392,10 +405,11 @@ class SQLStore(Store):
                 level = hierarchy[depth]
                 self.create_conformed_rollup(cube, dim, level=level,
                                     schema=schema,
-                                    dimension_prefix=dimension_prefix,
+                                    dimension_prefix=dimension_prefix or "",
+                                    dimension_suffix=dimension_suffix or "",
                                     replace=replace)
 
-    def _create_table_from_statement(self, table_name, statement, schema,
+    def create_table_from_statement(self, table_name, statement, schema,
                                      replace=False, insert=False):
         """Creates or replaces a table from statement.
 
@@ -420,7 +434,15 @@ class SQLStore(Store):
             self._drop_table(table, schema, force=replace)
 
         for col in statement.columns:
-            new_col = sqlalchemy.Column(str(col), col.type)
+            # mysql backend requires default string length
+            if self.connectable.name == "mysql" \
+                    and isinstance(col.type, sqlalchemy.String) \
+                    and not col.type.length:
+                col_type = sqlalchemy.String(255)
+            else:
+                col_type = col.type
+
+            new_col = sqlalchemy.Column(col.name, col_type)
             table.append_column(new_col)
 
         self.logger.info("creating table '%s'" % str(table))
@@ -430,13 +452,13 @@ class SQLStore(Store):
             self.logger.debug("inserting into table '%s'" % str(table))
             insert_statement = InsertIntoAsSelect(table, statement,
                                                   columns=statement.columns)
-            self.engine.execute(str(insert_statement))
+            self.connectable.execute(insert_statement)
 
         return table
 
-    def create_cube_aggregate(self, cube, table_name=None, dimensions=None,
-                                linked_dimensions=None, schema=None,
-                                replace=False):
+    def create_cube_aggregate(self, browser, table_name=None, dimensions=None,
+                              dimension_links=None, schema=None,
+                              replace=False):
         """Creates an aggregate table. If dimensions is `None` then all cube's
         dimensions are considered.
 
@@ -444,31 +466,39 @@ class SQLStore(Store):
 
         * `dimensions`: list of dimensions to use in the aggregated cuboid, if
           `None` then all cube dimensions are used
-        * `linked_dimensions`: list of dimensions that are required for each
+        * `dimension_links`: list of dimensions that are required for each
           aggregation (for example a date dimension in most of the cases). The
-          list should be a subsed of `dimensions`.
+          list should be a subset of `dimensions`.
         * `aggregates_prefix`: aggregated table prefix
         * `aggregates_schema`: schema where aggregates are stored
 
         """
 
-        schema = schema or self.options.get("aggregates_schema") or self.schema
+        if browser.store != self:
+            raise ArgumentError("Can create aggregate table only within "
+                                "the same store")
+
+        schema = schema or self.options.get("aggregates_schema", self.schema)
         prefix = self.options.get("aggregates_prefix","")
         table_name = table_name or prefix + cube.name
 
-        cube = self.model.cube(cube)
-        dimensions = dimensions or cube.dimensions
+        # Just a shortcut
+        cube = browser.cube
+        if dimensions:
+            dimensions = [cube.dimension(dim) for dim in dimensions]
+        else:
+            dimensions = cube.dimensions
 
         # Collect keys that are going to be used for aggregations
         keys = []
         for dimension in dimensions:
             keys += [level.key for level in dimension.hierarchy().levels]
 
-        mapper = SnowflakeMapper(cube, cube.mappings, schema=schema, **self.options)
-        context = QueryContext(cube, mapper, schema=schema, metadata=self.metadata)
+        builder = QueryBuilder(browser)
 
-        if mapper.fact_name == table_name and schema == mapper.schema:
-            raise WorkspaceError("target is the same as source fact table")
+        if builder.snowflake.fact_name == table_name \
+                and builder.snowflake.schema == schema:
+            raise ArgumentError("target is the same as source fact table")
 
         drilldown = {}
 
@@ -477,25 +507,26 @@ class SQLStore(Store):
             drilldown[str(dim)] = level
 
         cell = Cell(cube)
-        drilldown = coalesce_drilldown(cell, drilldown)
+        drilldown = Drilldown(drilldown, cell)
 
         # Create dummy statement of all dimension level keys for
         # getting structure for table creation
-        statement = context.aggregation_statement(cell,
-                                                  attributes=keys,
-                                                  drilldown=drilldown)
-
+        # TODO: attributes/keys?
+        statement = builder.aggregation_statement(cell,
+                                                  drilldown,
+                                                  cube.aggregates)
 
         #
         # Create table
         #
-        table = self._create_table_from_statement(table_name, statement,
-                                schema=schema, replace=replace, insert=False)
-
-        connection = self.engine.connect()
+        table = self.create_table_from_statement(table_name,
+                                                  statement,
+                                                  schema=schema,
+                                                  replace=replace,
+                                                  insert=False)
 
         cuboids = hierarchical_cuboids(dimensions,
-                                        required=linked_dimensions)
+                                        required=dimension_links)
 
         for cuboid in cuboids:
 
@@ -513,14 +544,13 @@ class SQLStore(Store):
                 levels = hier.levels_for_depth(hier.level_index(level)+1)
                 keys = [l.key for l in levels]
 
-            dd = coalesce_drilldown(cell, dd)
+            dd = Drilldown(dd, cell)
 
-            statement = context.aggregation_statement(cell,
+            statement = builder.aggregation_statement(cell,
+                                                      aggregates=cube.aggregates,
                                                       attributes=keys,
                                                       drilldown=drilldown)
             self.logger.info("inserting")
             insert = InsertIntoAsSelect(table, statement,
-                                  columns=statement.columns)
-            connection.execute(str(insert))
-
-
+                                        columns=statement.columns)
+            self.connectable.execute(str(insert))

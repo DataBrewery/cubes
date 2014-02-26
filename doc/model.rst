@@ -260,41 +260,67 @@ Cubes
 
 Cube descriptions are stored as a dictionary for key ``cubes`` in the model
 description dictionary or in json files with prefix ``cube_`` like
-``cube_contracts``, or 
+``cube_contracts``. 
 
-============== ====================================================
-Key            Description
-============== ====================================================
-**name**       cube name
-**measures**   list of cube measures (recommended, but might be
-               empty for measure-less, record count only cubes)
-**aggregates** list of aggregated measures
-**dimensions** list of cube dimension names (recommended, but might
-               be empty for dimension-less cubes)
-hierarchies    optional dictionary of allowed dimension
-               hierarchies
-label          human readable name - can be used in an application
-description    longer human-readable description of the cube
-               *(optional)*
-details        list of fact details (as Attributes) - attributes
-               that are not relevant to aggregation, but are
-               nice-to-have when displaying facts (might be
-               separately stored)
-joins          specification of physical table joins (required for
-               star/snowflake schema)
-mappings       mapping of logical attributes to physical attributes
-options        browser options
-info           custom info, such as formatting. Not used by cubes 
-               framework.
-============== ====================================================
+
+.. list-table::
+    :widths: 1 5
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - **Basic**
+      -
+    * - ``name``
+      - cube name, unique identifier
+    * - ``label``
+      - human readable name - can be used in an application
+    * - ``description``
+      - longer human-readable description of the cube *(optional)*
+    * - ``info``
+      - custom info, such as formatting. Not used by cubes framework.
+    * - ``dimensions``
+      - list of dimension names or dimension links (recommended, but might be
+        empty for dimension-less cubes)
+    * - ``measures``
+      - list of cube measures (recommended, but might be empty for
+        measure-less, record count only cubes)
+    * - ``aggregates``
+      - list of aggregated measures
+    * - ``details``
+      - list of fact details (as Attributes) - attributes that are not
+        relevant to aggregation, but are nice-to-have when displaying facts
+        (might be separately stored)
+    * - **Physical**
+      -
+    * - ``joins``
+      - specification of physical table joins (required for star/snowflake
+        schema)
+    * - ``mappings``
+      - mapping of logical attributes to physical attributes
+    * - ``key``
+      - fact key field or column name. If not spcified, backends might either
+        refuse to generate facts or might use some default column name such as
+        ``id``
+    * - ``fact``
+      - fact table, collection or source name – interpreted by the backend.
+        The fact table does not have to be specified, as most of the backends
+        will derive the name from the cube's name.
+    * - **Advanced**
+      -
+    * - ``browser_options``
+      - browser specific options, consult the backend for more information
+    * - ``datastore``
+      - name of a datastore where the cube is stored. Use this only when
+        default store assignment is different from your requirements.
 
 Example:
 
 .. code-block:: javascript
 
     {
-        "name": "date",
-        "label": "Dátum",
+        "name": "sales",
+        "label": "Sales",
         "dimensions": [ "date", ... ]
 
     	"measures": [...],
@@ -469,27 +495,53 @@ aggregate should be added:
         Measure Aggregate class reference.
 
 
-Per-cube Dimension Hierarchies
-------------------------------
+Customized Dimension Linking
+----------------------------
 
-It is possible to customize the list of dimension hierarchies that are
-relevant for the cube. For example the `date` dimension might be defined as
-having `day` granularity, but some cubes might be only at the `month` level.
-To specify only relevant hierarchies use ``hierarchies`` metadata property:
+It is possible to specify how dimensions are linked to the cube. The
+``dimensions`` list might contain, besides dimension names, also a
+specification how the dimension is going to be used in the cube's context. The
+specification might contain:
+
+* ``hierarchies`` – list of hierarchies that are relevant for the cube. For
+  example the `date` dimension might be defined as having `day` granularity,
+  but some cubes might be only at the `month` level.  To specify only relevant
+  hierarchies use ``hierarchies`` metadata property:
+* ``exclude_hierarchies`` – hierarchies to be excluded when cloning the
+  original dimension. Use this instead of ``hierarchies`` if you would like to
+  preserve most of the hierarchies and remove just a few.
+* ``default_hierarchy_name`` – name of default hierarchy for a dimension in
+  the context of the cube
+* ``cardinality`` – cardinality of the dimension with regards to the cube. For
+  example one cube might contain housands product types, another might have
+  only a few, but they both share the same `products` dimension
+* ``nonadditive`` – nonadditive behavior of the dimension in the cube
+* ``alias`` – how the dimension is going to be called in the cube. For
+  example, you might have two date dimensions and name them `start_date` and
+  `end_date` using the alias
+
+Example:
 
 .. code-block:: javascript
 
     {
         "name": "churn",
 
-        "dimensions": ["date", "customer_type"],
-
-        "hierarchies": {
-            "date": ["ym", "yqm"]
-        },
+        "dimensions": [
+            {"name": "date", "hierarchies": ["ym", "yqm"]},
+            "customer",
+            {"name": "date", "alias": "contract_date"}
+        ],
 
         ...
     }
+
+The above cube will have three dimensions: `date`, `customer` and
+`contract_date`. The `date` dimension will have only two hierarchies with
+lowest granularity of `month`, the `customer` dimension will be assigned as-is
+and the `contract_date` dimension will be the same as the original `date`
+dimension.
+
 
 Dimensions
 ==========
@@ -503,23 +555,40 @@ Dimension descriptions are stored in model dictionary under the key
 
 The dimension description contains keys:
 
-====================== ===================================================
-Key                    Description
-====================== ===================================================
-**name**               dimension name, used as identifier
-label                  human readable name - can be used in an application
-description            longer human-readable description of the dimension
-                       *(optional)*
-levels                 list of level descriptions
-hierarchies            list of dimension hierarchies
-hierarchy              if dimension has only one hierarchy, you can
-                       specify it under this key 
-default_hierarchy_name name of a hierarchy that will be used as default
-cardinality            dimension cardinality (see Level for more info)
-info                   custom info, such as formatting. Not used by cubes 
-                       framework.
-template               name of a dimension that will be used as template 
-====================== ===================================================
+.. list-table::
+    :widths: 1 5
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - **Basic**
+      -
+    * - ``name``
+      - dimension name, used as identifier
+    * - ``label``
+      - human readable name - can be used in an application
+    * - ``description``
+      - longer human-readable description of the dimension *(optional)*
+    * - ``info``
+      - custom info, such as formatting. Passed to the front-end.
+    * - ``levels``
+      - list of level descriptions
+    * - ``hierarchies``
+      - list of dimension hierarchies
+    * - ``default_hierarchy_name``
+      - name of a hierarchy that will be used as default
+    * - **Advanced**
+      -
+    * - ``cardinality``
+      - dimension cardinality (see Level for more info)
+    * - ``nonadditive``
+      - used when the dimension is nonadditive or semiadditive
+    * - ``role``
+      - dimension role
+    * - ``category``
+      - logical category (user oriented metadata)
+    * - ``template``
+      - name of a dimension that will be used as template 
 
 Example:
 
@@ -533,6 +602,13 @@ Example:
     }
 
 Use either ``hierarchies`` or ``hierarchy``, using both results in an error.
+
+Role
+----
+
+Some dimension have special roles and their levels or attributes might have
+special meaning and treatment. Currently there is only one supported dimension
+role: ``time``.
 
 Dimension Templates
 -------------------
@@ -575,6 +651,17 @@ hierarchies to omit unnecessary levels.
     if cube uses the `creation_date` and `closing_date` dimensions and any
     mappings would be necessary, then they should be for those two dimensions,
     not for the `date` dimension.
+
+Nonadditive
+-----------
+
+There are cases where it is not meaningful to add values over certain
+dimension. For example it has no sense to add account balance over time. For
+such dimension the ``nonadditive`` value can be specified:
+
+* ``any`` – dimension can not be added dimension
+* ``time`` – dimension can not be added over dimensions with role `time`
+* ``none`` – dimension is fully additive (same as if no value was specified)
 
 Level
 -----

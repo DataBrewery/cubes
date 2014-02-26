@@ -10,7 +10,7 @@ Overview
 
 The biggest new feature in cubes is the "pluggable" model. You are no longer
 limited to one one model, one type of data store (database) and one set of
-cubes. The new `Workspace` is now famework-level controller object that
+cubes. The new `Workspace` is now framework-level controller object that
 manages models (model sources), cubes and datastores. To the future more
 features will be added to the workspace.
 
@@ -302,7 +302,7 @@ represents a numerical fact property, *aggregate* represents aggregated value
 (applied aggregate function on a property, or provided natively by the
 backend).
 
-This new approach of *aggregates* makes development of backends and cliends
+This new approach of *aggregates* makes development of backends and clients
 much easier. There is no need to construct and guess aggregate measures or
 splitting the names from the functions. Backends receive concrete objects with
 sufficient information to perform the aggregation (either by a function or
@@ -359,11 +359,21 @@ It can be named and labelled in any way.
     :doc:`../model`
 
 
-Other
------
+Dimension Links
+---------------
 
-* The dimension hierarchies can be specified per-cube using cube's
-  ``"hierarchies"`` property
+Linking of dimensions to cubes can be fine-tuned by specifying multiple
+properties of the dimension in the cube's context:
+
+* `hierarchies` – cube's dimension can have only certain hierarchies from the
+  original dimension
+* `detault_hierarchy_name` – it is possible to specify different default
+  hierarchy
+* `nonadditive` – override the dimensions' non-additive property
+* `cardinality` – use if dimension might have different cardinality in the new
+  context
+* `alias` – reuse dimensions in a cube but give them different names
+
 
 Backends
 ========
@@ -386,6 +396,7 @@ New Backends
 * `Mixpanel`: :doc:`../backends/mixpanel`
 * `Slicer`: :doc:`../backends/slicer`
 * `Mongo`: :doc:`../backends/mongo`
+* `Google Analytics`: :doc:`../backends/google_analytics`
 
 
 .. seealso::

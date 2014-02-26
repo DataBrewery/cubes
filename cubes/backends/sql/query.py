@@ -258,6 +258,7 @@ class SnowflakeSchema(object):
         tables = self.mapper.tables_for_attributes(attributes)
         tables = dict(zip(attributes, tables))
         mapping = {}
+
         for attribute in attributes:
             try:
                 table_ref = tables[attribute]
@@ -674,7 +675,12 @@ class QueryBuilder(object):
             self.semiadditive_dimension = dim
 
             name = info.get("attribute")
-            self.semiadditive_attribute = dim.attribute(name)
+            try:
+                self.semiadditive_attribute = dim.attribute(name)
+            except NoSuchAttributeError:
+                raise NoSuchAttributeError("No attribute '%s' in dimension "
+                                           "%s for semi-additive behavior."
+                                           % (name, dimname))
             self.semiadditive_function = info.get("function", "max")
         else:
             self.semiadditive_dimension = None
@@ -1037,7 +1043,13 @@ class QueryBuilder(object):
 
         aggregate_selection = self.builtin_aggregate_expressions(aggregates,
                                                        coalesce_measures=coalesce_measures)
-        selection += aggregate_selection
+
+        if summary_only:
+            # Don't include the group-by part (see issue #157 for more
+            # information)
+            selection = aggregate_selection
+        else:
+            selection += aggregate_selection
 
         # condition = None
         statement = sql.expression.select(selection,
@@ -1125,17 +1137,10 @@ class QueryBuilder(object):
         if not items:
             return self.semiadditive_attribute
 
+        # FIXME: this looks broken
         item = items[0]
 
-        # FIXME: the 'dow' is hard-wired
-
-        if len(item.hierarchy.levels) > len(item.levels):
-            return self.semiadditive_attribute
-        elif len(item.hierarchy.levels) == len(item.levels):
-            if len(item.levels) == 1 and item.levels[0].name == 'dow':
-                return self.semiadditive_attribute
-            else:
-                return None
+        return self.semiadditive_attribute
 
     def _semiadditive_subquery(self, semiadditive_attribute, selection,
                                from_obj, condition, group_by):
@@ -1199,7 +1204,7 @@ class QueryBuilder(object):
 
         join_attributes = set(attributes) | self.attributes_for_cell(cell)
 
-        join_product = self.snowflake.join_expression(attributes)
+        join_product = self.snowflake.join_expression(join_attributes)
         join_expression = join_product.expression
 
         columns = self.snowflake.columns(attributes, expand_locales=expand_locales)

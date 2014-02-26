@@ -44,7 +44,7 @@ list of authorized cubes.
     The custom authorizer has to be a subclass of `Authorizer` so Cubes can
     find it. The name will be derived from the class name: `CustomAuthorizer`
     will become `custom`, `DatabaseACLAuthorizer` will become `database_acl`.
-    To explicitly specify an authorizer name, set the `__identifier__` class
+    To explicitly specify an authorizer name, set the `__extension_name__` class
     variable.
 
 

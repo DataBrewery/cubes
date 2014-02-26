@@ -186,8 +186,6 @@ class RelevantJoinsTestCase(StarSQLTestCase):
                 "product.subcategory_name.sk": "dim_subcategory.subcategory_name_sk"
             }
         )
-        self.logger = get_logger()
-        self.logger.setLevel("DEBUG")
 
     def attributes(self, *attrs):
         return self.cube.get_attributes(attrs)
@@ -323,13 +321,14 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertEqual(True, self.mapper.simplify_dimension_references)
         fact = self.browser.fact(1)
         self.assertIsNotNone(fact)
+
         self.assertEqual(18, len(fact.keys()))
+        self.assertEqual(len(self.browser.cube.all_attributes) + 1,
+                         len(fact.keys()))
 
     def test_get_facts(self):
         """Get single fact"""
         # TODO: remove this when happy
-        self.browser.logger.setLevel("DEBUG")
-
         self.assertEqual(True, self.mapper.simplify_dimension_references)
 
         facts = list(self.browser.facts())
@@ -340,7 +339,10 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
 
         self.assertIsNotNone(facts)
         self.assertEqual(82, len(facts))
+
         self.assertEqual(18, len(facts[0]))
+        self.assertEqual(len(self.browser.cube.all_attributes) + 1,
+                         len(facts[0].keys()))
 
         attrs = ["date.year", "amount"]
         facts = list(self.browser.facts(fields=attrs))
@@ -390,8 +392,14 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         details = self.browser.cell_details(cell)
         self.assertEqual(1, len(details))
 
+    @unittest.skip("this needs to be tested on non-sqlite database")
+    def test_issue_157(self):
+        cut = PointCut("date", [2000])
+        cell = Cell(self.cube, [cut])
+        result = self.browser.aggregate(cell, drilldown=["product:category"])
+        # import pdb; pdb.set_trace()
+
     def test_aggregate(self):
-        self.browser.logger.setLevel("DEBUG")
         result = self.browser.aggregate()
         keys = sorted(result.summary.keys())
         self.assertEqual(4, len(keys))
@@ -464,7 +472,7 @@ class HierarchyTestCase(CubesTestCaseBase):
                                         dimension_prefix="dim_",
                                         fact_prefix="ft_")
         self.browser.debug = True
-        self.browser.logger.setLevel("DEBUG")
+
     def test_cell(self):
         cell = Cell(self.cube)
         result = self.browser.aggregate(cell)
@@ -624,7 +632,6 @@ class SQLBrowserTestCase(CubesTestCaseBase):
 
         workspace = self.create_workspace(model=model)
         self.browser = workspace.browser("facts")
-        self.browser.logger.setLevel("DEBUG")
         self.cube = self.browser.cube
 
     def test_aggregate_empty_cell(self):

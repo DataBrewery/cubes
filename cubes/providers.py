@@ -1,28 +1,19 @@
 # -*- coding=utf -*-
 """Logical model model providers."""
 import jsonschema
-import urlparse
-import urllib2
 import pkgutil
-import shutil
 import copy
 import json
-import os
 import re
 
 from collections import namedtuple
-from .extensions import get_namespace, initialize_namespace
 from .logging import get_logger
-from .common import IgnoringDictionary, to_label
 from .errors import *
 from .model import *
+from .metadata import *
+from .extensions import Extensible
 
 __all__ = [
-    "read_model_metadata",
-    "read_model_metadata_bundle",
-    "write_model_metadata_bundle",
-
-    "create_model_provider",
     "ModelProvider",
     "StaticModelProvider",
     "validate_model",
@@ -35,173 +26,12 @@ __all__ = [
 ]
 
 
-def create_model_provider(name, metadata):
-    """Gets a new instance of a model provider with name `name`."""
-
-    ns = get_namespace("model_providers")
-    if not ns:
-    # FIXME: depreciated. affected: formatter.py
-        ns = initialize_namespace("model_providers", root_class=ModelProvider,
-                                  suffix="_model_provider")
-        ns["default"] = StaticModelProvider
-
-    try:
-        factory = ns[name]
-    except KeyError:
-        raise CubesError("Unable to find model provider of type '%s'" % name)
-
-    return factory(metadata)
-
-def _json_from_url(url):
-    """Opens `resource` either as a file with `open()`or as URL with
-    `urllib2.urlopen()`. Returns opened handle. """
-
-    parts = urlparse.urlparse(url)
-    if parts.scheme in ('', 'file'):
-        handle = open(parts.path)
-    else:
-        handle = urllib2.urlopen(url)
-
-    try:
-        desc = json.load(handle)
-    except ValueError as e:
-        raise SyntaxError("Syntax error in %s: %s" % (url, e.args))
-    finally:
-        handle.close()
-
-    return desc
-
-
-def read_model_metadata(source):
-    """Reads a model description from `source` which can be a filename, URL,
-    file-like object or a path to a directory. Returns a model description
-    dictionary."""
-
-    if isinstance(source, basestring):
-        parts = urlparse.urlparse(source)
-        if parts.scheme in ('', 'file') and os.path.isdir(parts.path):
-            source = parts.path
-            return read_model_metadata_bundle(source)
-        else:
-            return _json_from_url(source)
-    else:
-        return json.load(source)
-
-
-def read_model_metadata_bundle(path):
-    """Load logical model a directory specified by `path`.  Returns a model
-    description dictionary. Model directory bundle has structure:
-
-    * ``model.cubesmodel/``
-        * ``model.json``
-        * ``dim_*.json``
-        * ``cube_*.json``
-
-    The dimensions and cubes lists in the ``model.json`` are concatenated with
-    dimensions and cubes from the separate files.
-    """
-
-    if not os.path.isdir(path):
-        raise ArgumentError("Path '%s' is not a directory.")
-
-    info_path = os.path.join(path, 'model.json')
-
-    if not os.path.exists(info_path):
-        raise ModelError('main model info %s does not exist' % info_path)
-
-    model = _json_from_url(info_path)
-
-    # Find model object files and load them
-
-    if not "dimensions" in model:
-        model["dimensions"] = []
-
-    if not "cubes" in model:
-        model["cubes"] = []
-
-    for dirname, dirnames, filenames in os.walk(path):
-        for filename in filenames:
-            if os.path.splitext(filename)[1] != '.json':
-                continue
-
-            split = re.split('_', filename)
-            prefix = split[0]
-            obj_path = os.path.join(dirname, filename)
-
-            if prefix in ('dim', 'dimension'):
-                desc = _json_from_url(obj_path)
-                try:
-                    name = desc["name"]
-                except KeyError:
-                    raise ModelError("Dimension file '%s' has no name key" %
-                                                                     obj_path)
-                if name in model["dimensions"]:
-                    raise ModelError("Dimension '%s' defined multiple times " %
-                                        "(in '%s')" % (name, obj_path) )
-                model["dimensions"].append(desc)
-
-            elif prefix == 'cube':
-                desc = _json_from_url(obj_path)
-                try:
-                    name = desc["name"]
-                except KeyError:
-                    raise ModelError("Cube file '%s' has no name key" %
-                                                                     obj_path)
-                if name in model["cubes"]:
-                    raise ModelError("Cube '%s' defined multiple times "
-                                        "(in '%s')" % (name, obj_path) )
-                model["cubes"].append(desc)
-
-    return model
-
-
-def write_model_metadata_bundle(path, metadata, replace=False):
-    """Writes a model metadata bundle into new directory `target` from
-    `metadata`. Directory should not exist."""
-
-    if os.path.exists(path):
-        if not os.path.isdir(path):
-            raise CubesError("Target exists and is a file, "
-                                "can not replace")
-        elif not os.path.exists(os.path.join(path, "model.json")):
-            raise CubesError("Target is not a model directory, "
-                                "can not replace.")
-        if replace:
-            shutil.rmtree(path)
-        else:
-            raise CubesError("Target already exists. "
-                                "Remove it or force replacement.")
-
-    os.makedirs(path)
-
-    metadata = dict(metadata)
-
-    dimensions = metadata.pop("dimensions", [])
-    cubes = metadata.pop("cubes", [])
-
-    for dim in dimensions:
-        name = dim["name"]
-        filename = os.path.join(path, "dim_%s.json" % name)
-        with open(filename, "w") as f:
-            json.dump(dim, f, indent=4)
-
-    for cube in cubes:
-        name = cube["name"]
-        filename = os.path.join(path, "cube_%s.json" % name)
-        with open(filename, "w") as f:
-            json.dump(cube, f, indent=4)
-
-    filename = os.path.join(path, "model.json")
-    with open(filename, "w") as f:
-        json.dump(metadata, f, indent=4)
-
-
 def load_model(resource, translations=None):
     raise Exception("load_model() was replaced by Workspace.add_model(), "
                     "please refer to the documentation for more information")
 
 
-class ModelProvider(object):
+class ModelProvider(Extensible):
     """Abstract class. Currently empty and used only to find other model
     providers."""
 
@@ -345,7 +175,8 @@ class ModelProvider(object):
 
         # merge datastore from model if datastore not present
         if not metadata.get("datastore"):
-            metadata['datastore'] = self.metadata.get("datastore")
+            metadata['datastore'] = self.metadata.get("datastore",
+                                                      self.store_name)
 
         # merge browser_options
         browser_options = self.metadata.get('browser_options', {})
@@ -446,19 +277,19 @@ class ModelProvider(object):
         raise NotImplementedError("Subclasses should implement list_cubes()")
         return []
 
-    def cube(self, name):
+    def cube(self, name, locale=None):
         """Returns a cube with `name` provided by the receiver. If receiver
-        does not have the cube `ModelError` exception is raised.
+        does not have the cube `NoSuchCube` exception is raised.
 
         Returned cube has no dimensions assigned. You should assign the
-        dimensions according to the cubes `linked_dimensions` list of
+        dimensions according to the cubes `dimension_links` list of
         dimension names.
 
         Subclassees should implement this method.
         """
         raise NotImplementedError("Subclasses should implement cube() method")
 
-    def dimension(self, name, dimensions=[]):
+    def dimension(self, name, templates=[]):
         """Returns a dimension with `name` provided by the receiver.
         `dimensions` is a dictionary of dimension objects where the receiver
         can look for templates. If the dimension requires a template and the
@@ -475,6 +306,8 @@ class ModelProvider(object):
 
 
 class StaticModelProvider(ModelProvider):
+
+    __extension_aliases__ = ["default"]
 
     dynamic_cubes = False
     dynamic_dimensions = False
@@ -497,67 +330,29 @@ class StaticModelProvider(ModelProvider):
 
         return cubes
 
-    def cube(self, name):
+    def cube(self, name, locale=None):
         """
         Creates a cube `name` in context of `workspace` from provider's
         metadata. The created cube has no dimensions attached. You sohuld link
-        the dimensions afterwards according to the `linked_dimensions`
+        the dimensions afterwards according to the `dimension_links`
         property of the cube.
         """
 
         metadata = self.cube_metadata(name)
+        metadata = expand_cube_metadata(metadata)
         return create_cube(metadata)
 
-    def dimension(self, name, dimensions=None):
-        """Create a dimension `name` from provider's metadata within
-        `context` (usualy a `Workspace` object)."""
+    def dimension(self, name, locale=None, templates=None, link=None):
+        """Create a dimension `name` from provider's metadata. `templates` is
+        a dictionary with already instantiated dimensions to be used as
+        templates"""
 
-        # Old documentation
-        """Creates a `Dimension` instance from `obj` which can be a `Dimension`
-        instance or a string or a dictionary. If it is a string, then it
-        represents dimension name, the only level name and the only attribute.
-
-        Keys of a dictionary representation:
-
-        * `name`: dimension name
-        * `levels`: list of dimension levels (see: :class:`cubes.Level`)
-        * `hierarchies` or `hierarchy`: list of dimension hierarchies or
-           list of level names of a single hierarchy. Only one of the two
-           should be specified, otherwise an exception is raised.
-        * `default_hierarchy_name`: name of a hierarchy that will be used when
-          no hierarchy is explicitly specified
-        * `label`: dimension name that will be displayed (human readable)
-        * `description`: human readable dimension description
-        * `info` - custom information dictionary, might be used to store
-          application/front-end specific information (icon, color, ...)
-        * `template` – name of a dimension to be used as template. The dimension
-          is taken from `dimensions` argument which should be a dictionary
-          of already created dimensions.
-
-        **Defaults**
-
-        * If no levels are specified during initialization, then dimension
-          name is considered flat, with single attribute.
-        * If no hierarchy is specified and levels are specified, then default
-          hierarchy will be created from order of levels
-        * If no levels are specified, then one level is created, with name
-          `default` and dimension will be considered flat
-
-        String representation of a dimension ``str(dimension)`` is equal to
-        dimension name.
-
-        Class is not meant to be mutable.
-
-        Raises `ModelInconsistencyError` when both `hierarchy` and
-        `hierarchies` is specified.
-
-        """
         try:
             metadata = dict(self.dimensions_metadata[name])
         except KeyError:
             raise NoSuchDimensionError(name)
 
-        return create_dimension(metadata, dimensions, name)
+        return create_dimension(metadata, templates, name)
 
 
 # TODO: is this still necessary?
@@ -616,32 +411,6 @@ def model_from_path(path):
     """Load logical model from a file or a directory specified by `path`.
     Returs instance of `Model`. """
     raise NotImplementedError("model_from_path is depreciated. use Workspace.add_model()")
-
-# TODO: modernize
-def simple_model(cube_name, dimensions, measures):
-    """Create a simple model with only one cube with name `cube_name`and flat
-    dimensions. `dimensions` is a list of dimension names as strings and
-    `measures` is a list of measure names, also as strings. This is
-    convenience method mostly for quick model creation for denormalized views
-    or tables with data from a single CSV file.
-
-    Example:
-
-    .. code-block:: python
-
-        model = simple_model("contracts",
-                             dimensions=["year", "supplier", "subject"],
-                             measures=["amount"])
-        cube = model.cube("contracts")
-        browser = workspace.create_browser(cube)
-    """
-    dim_instances = []
-    for dim_name in dimensions:
-        dim_instances.append(create_dimension(dim_name))
-
-    cube = Cube(cube_name, dim_instances, measures)
-
-    return Model(cubes=[cube])
 
 
 ValidationError = namedtuple("ValidationError",

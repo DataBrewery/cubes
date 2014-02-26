@@ -13,6 +13,8 @@ from cubes.errors import *
 from .model import Dimension, Cube
 from .common import IgnoringDictionary, to_unicode_string
 from .logging import get_logger
+from .extensions import Extensible
+
 
 __all__ = [
     "AggregationBrowser",
@@ -49,7 +51,7 @@ SPLIT_DIMENSION_NAME = '__within_split__'
 NULL_PATH_VALUE = '__null__'
 
 
-class AggregationBrowser(object):
+class AggregationBrowser(Extensible):
     """Class for browsing data cube aggregations
 
     :Attributes:
@@ -59,9 +61,12 @@ class AggregationBrowser(object):
 
     """List of browser features as strings."""
 
+    __extension_type__ = "browser"
+    __extension_suffix__ = "Browser"
+
     builtin_functions = []
 
-    def __init__(self, cube, store=None, locale=None, metadata=None, **options):
+    def __init__(self, cube, store=None, locale=None, **options):
         """Creates and initializes the aggregation browser. Subclasses should
         override this method. """
         super(AggregationBrowser, self).__init__()
@@ -70,6 +75,8 @@ class AggregationBrowser(object):
             raise ArgumentError("No cube given for aggregation browser")
 
         self.cube = cube
+        self.store = store
+        self.calendar = None
 
     def features(self):
         """Returns a dictionary of available features for the browsed cube.
@@ -86,19 +93,21 @@ class AggregationBrowser(object):
         """
         return {}
 
-    def aggregate(self, cell=None, aggregates=None, drilldown=None,
-                  split=None, measures=None, **options):
+    def aggregate(self, cell=None, aggregates=None, drilldown=None, split=None,
+                  order=None, page=None, page_size=None, **options):
 
         """Return aggregate of a cell.
 
-        Subclasses of aggregation browser should implement this method.
+        Arguments:
 
-        Attributes:
-
-        * `drilldown` - dimensions and levels through which to drill-down,
-          default `None`
+        * `cell` – cell to aggregate
         * `aggregates` - list of aggregate measures. By default all
           cube's aggregates are included in the result.
+        * `drilldown` - dimensions and levels through which to drill-down
+        * `split` – cell for alternate 'split' dimension
+        * `order` – attribute order specification (see below)
+        * `page` – page index when requesting paginated results
+        * `page_size` – number of result items per page
 
         Drill down can be specified in two ways: as a list of dimensions or as
         a dictionary. If it is specified as list of dimensions, then cell is
@@ -116,7 +125,46 @@ class AggregationBrowser(object):
         `year`, `month`, `day` and you try to drill down by `date` at the next
         level then ``ValueError`` will be raised.
 
-        Retruns a :class:AggregationResult object.
+        Retruns a :class:`AggregationResult` object.
+
+        Note: subclasses should implement `provide_aggregate()` method.
+        """
+
+        if "measures" in options:
+            raise ArgumentError("measures in aggregate are depreciated")
+
+        aggregates = self.prepare_aggregates(aggregates)
+        order = self.prepare_order(order, is_aggregate=True)
+
+        if cell is None:
+            cell = Cell(self.cube)
+
+        drilldon = Drilldown(drilldown, cell)
+
+        result = self.provide_aggregate(cell,
+                                        aggregates=aggregates,
+                                        drilldown=drilldon,
+                                        split=split,
+                                        order=order,
+                                        page=page,
+                                        page_size=page_size,
+                                        **options)
+        return result
+
+    def provide_aggregate(self, cell=None, measures=None, aggregates=None,
+                          drilldown=None, split=None, order=None, page=None,
+                          page_size=None, **options):
+        """Method to be implemented by subclasses. The arguments are prepared
+        by the superclass. Arguments:
+
+        * `cell` – cell to be drilled down. Guaranteed to be a `Cell` object
+          even for an empty cell
+        * `aggregates` – list of aggregates to aggregate. Contains list of cube
+          aggregate attribute objects.
+        * `drilldown` – `Drilldown` instance
+        * `split` – `Cell` instance
+        * `order` – list of tuples: (`attribute`, `order`)
+
         """
         raise NotImplementedError
 
@@ -156,13 +204,9 @@ class AggregationBrowser(object):
             aggregates = []
             for measure in measures:
                 aggregates += self.cube.aggregates_for_measure(measure)
-        else:
-            # If no aggregate is specified, then all are used
-            aggregates = self.cube.aggregates
 
-        if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty. If "
-                                "you used measures, check their aggregates.")
+        # If no aggregate is specified, then all are used
+        aggregates = aggregates or self.cube.aggregates
 
         seen = set(a.name for a in aggregates)
         dependencies = []
@@ -187,7 +231,9 @@ class AggregationBrowser(object):
         return aggregates
 
     def prepare_order(self, order, is_aggregate=False):
-        """Prepares an order list."""
+        """Prepares an order list. Returns list of tuples (`attribute`,
+        `order_direction`). `attribute` is cube's attribute object."""
+
         order = order or []
         new_order = []
 
@@ -240,7 +286,7 @@ class AggregationBrowser(object):
             names = ", ".join(names)
             raise ArgumentError("Can not drilldown on high-cardinality "
                                 "levels (%s) without including both page_size "
-                                "and page arguments, or else a point/set cut on the level" 
+                                "and page arguments, or else a point/set cut on the level"
                                 % names)
 
 
@@ -265,12 +311,44 @@ class AggregationBrowser(object):
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError
 
-    def members(self, cell, dimension, depth=None, hierarchy=None):
+    def members(self, cell, dimension, depth=None, level=None, hierarchy=None,
+                attributes=None, page=None, page_size=None, order=None,
+                **options):
         """Return members of `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned. If no `hierarchy` is specified,
         then default dimension hierarchy is used.
         """
-        raise NotImplementedError
+        order = self.prepare_order(order, is_aggregate=True)
+
+        if cell is None:
+            cell = Cell(self.cube)
+
+        dimension = self.cube.dimension(dimension)
+        hierarchy = dimension.hierarchy(hierarchy)
+
+        if depth is not None and level:
+            raise ArgumentError("Both depth and level used, provide only one.")
+
+        if not depth and not level:
+            levels = hierarchy.levels
+        elif depth == 0:
+            raise ArgumentError("Depth for dimension members should not be 0")
+        elif depth:
+            levels = hierarchy.levels_for_depth(depth)
+        else:
+            index = hierarchy.level_index(level)
+            levels = hierarchy.levels_for_depth(index+1)
+
+        result = self.provide_members(cell,
+                                      dimension=dimension,
+                                      hierarchy=hierarchy,
+                                      levels=levels,
+                                      attributes=attributes,
+                                      order=order,
+                                      page=page,
+                                      page_size=page_size,
+                                      **options)
+        return result
 
     def values(self, *args, **kwargs):
         # TODO: depreciated
@@ -515,6 +593,20 @@ class AggregationBrowser(object):
 
         return result
 
+    def path_details(self, dimension, path, hierarchy):
+        """Returns empty path details. Default fall-back for backends that do
+        not support the path details. The level key and label are the same
+        derived from the key."""
+
+        detail = {}
+        for level, key in zip(hierarchy.levels, path):
+            for attr in level.attributes:
+                if attr == level.key or attr == level.label_attribute:
+                    detail[attr.ref()] = key
+                else:
+                    detail[attr.ref()] = None
+
+        return detail
 
 class Facts(object):
     def __init__(self, facts, attributes):
@@ -1438,11 +1530,15 @@ class AggregationResult(object):
         `measures` and `levels` from the aggregate query.
 
     """
-    def __init__(self, cell=None, aggregates=None):
+    def __init__(self, cell=None, aggregates=None, drilldown=None):
         super(AggregationResult, self).__init__()
         self.cell = cell
         self.aggregates = aggregates
-        self.levels = None
+
+        if drilldown:
+            self.levels = drilldown.result_levels()
+        else:
+            self.levels = None
 
         self.summary = {}
         self._cells = []

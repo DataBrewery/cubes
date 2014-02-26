@@ -6,8 +6,9 @@ Cubes framework provides easy to install web service WSGI server with API that
 covers most of the Cubes logical model metadata and aggregation browsing 
 functionality.
 
-For more information about how to run the server, please refer to the
-:mod:`server` module.
+.. seealso::
+
+    :doc:`configuration`, :doc:`deployment`
 
 Server Requests
 ===============
@@ -195,6 +196,9 @@ The dimension description dictionary:
 * ``levels`` – list of level descriptions
 * ``hierarchies`` – list of dimension hierarchies
 * ``info`` – additional custom information (unspecified)
+* ``cardinality`` – dimension cardinality
+* ``role`` – dimension role (special treatment, for example ``time``)
+* ``category`` – dimension category
 
 The level description:
 
@@ -207,7 +211,8 @@ The level description:
 * ``order_attribute`` – name of an attribute that the level should be ordered
   by (optional)
 * ``order`` – order direction ``asc``, ``desc`` or none.
-* ``cardinality`` – symbolic approximation of the number of level's members 
+* ``cardinality`` – symbolic approximation of the number of level's members
+* ``role`` – level role (special treatment)
 * ``info`` – additional custom information (unspecified)
 
 Cardinality values and their meaning:
@@ -791,107 +796,13 @@ Roll-up can be:
     * a dictionary where keys are dimension names and values are levels to be
       rolled up-to
 
-Running and Deployment
-======================
-
 Local Server
 ------------
 
-To run your local server, prepare server configuration ``grants_config.ini``::
+To run your local server, prepare server :doc:`configuration` and run the
+server using the Slicer tool (see :doc:`/slicer`)::
 
-    [server]
-    host: localhost
-    port: 5000
-    reload: yes
-    log_level: info
-
-    [workspace]
-    url: postgres://localhost/mydata"
-
-    [model]
-    path: grants_model.json
-
-
-Run the server using the Slicer tool (see :doc:`/slicer`)::
-
-    slicer serve grants_config.ini
-
-Apache mod_wsgi deployment
---------------------------
-
-Deploying Cubes OLAP Web service server (for analytical API) can be done in
-four very simple steps:
-
-1. Create server configuration json file
-2. Create WSGI script
-3. Prepare apache site configuration
-4. Reload apache configuration
-
-Create server configuration file ``procurements.ini``::
-
-    [server]
-    backend: sql.browser
-
-    [model]
-    path: /path/to/model.json
-
-    [workspace]
-    view_prefix: mft_
-    schema: datamarts
-    url: postgres://localhost/transparency
-
-    [translations]
-    en: /path/to/model-en.json
-    hu: /path/to/model-hu.json
-
-
-.. note::
-
-    the `path` in `[model]` has to be full path to the model, not relative to
-    the configuration file.
-
-Place the file in the same directory as the following WSGI script (for
-convenience).
-
-Create a WSGI script ``/var/www/wsgi/olap/procurements.wsgi``:
-
-.. code-block:: python
-
-    import os.path
-    import cubes
-
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Set the configuration file name (and possibly whole path) here
-    CONFIG_PATH = os.path.join(CURRENT_DIR, "slicer.ini")
-
-    application = cubes.server.create_server(CONFIG_PATH)
-
-
-Apache site configuration (for example in ``/etc/apache2/sites-enabled/``)::
-
-    <VirtualHost *:80>
-        ServerName olap.democracyfarm.org
-
-        WSGIScriptAlias /vvo /var/www/wsgi/olap/procurements.wsgi
-
-        <Directory /var/www/wsgi/olap>
-            WSGIProcessGroup olap
-            WSGIApplicationGroup %{GLOBAL}
-            Order deny,allow
-            Allow from all
-        </Directory>
-
-        ErrorLog /var/log/apache2/olap.democracyfarm.org.error.log
-        CustomLog /var/log/apache2/olap.democracyfarm.org.log combined
-
-    </VirtualHost>
-
-Reload apache configuration::
-
-    sudo /etc/init.d/apache2 reload
-
-And you are done.
+    slicer serve slicer.ini
 
 Server requests
 ---------------

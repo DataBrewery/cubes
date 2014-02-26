@@ -48,7 +48,7 @@ A `Store` class:
     The custom store has to be a subclass of `Store` so Cubes can find it. The
     name will be derived from the class name: `MyStore` will become `my`,
     `AnotherSQLStore` will become `another_sql`. To explicitly specify a store
-    name, set the `__identifier__` class variable.
+    name, set the `__extension_name__` class variable.
 
 Configuration
 -------------
@@ -129,12 +129,12 @@ For example:
             # browser initialization...
 
 Name of the example store will be ``snowflake``. To explicitly set the browser
-name set the `__identifier__` class property:
+name set the `__extension_name__` class property:
 
 .. code-block:: python
 
     class SnowflakeBrowser(AggregationBrowser):
-        __identifier__ = "sql"
+        __extension_name__ = "sql"
 
 In this case, the browser will be known by the name ``sql``.
 

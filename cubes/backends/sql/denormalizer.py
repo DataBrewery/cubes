@@ -1,4 +1,9 @@
-import logging
+# -*- coding=utf -*-
+
+from __future__ import absolute_import
+
+# TODO: this requires a replacement (it is depreciated)
+
 import sets
 import cubes.model as model
 from .mapper import DEFAULT_KEY_FIELD
@@ -22,7 +27,8 @@ class SQLDenormalizer(object):
 
     capabilities = ["localization"]
 
-    def __init__(self, cube, connection = None, schema = None, dimension_table_prefix = None):
+    def __init__(self, cube, connection=None, schema=None,
+                 dimension_table_prefix=None, dimension_table_suffix=None):
         """Creates a simple SQL view builder.
 
         :Parameters:
@@ -32,6 +38,10 @@ class SQLDenormalizer(object):
               mapping for dimension attribute. Say you have dimension `supplier` and field `name` and
               dimension table prefix ``dm_`` then default physical mapping for that field would be:
               ``dm_supplier.name``
+            * `dimension_table_suffix` - default suffix for dimension tables - used if there is no
+              mapping for dimension attribute. Say you have dimension `supplier` and field `name` and
+              dimension table suffix ``_dm`` then default physical mapping for that field would be:
+              ``supplier_dm.name``. Can be combined with `dimension_table_prefix` if desired.
 
         """
         if not cube:
@@ -66,7 +76,8 @@ class SQLDenormalizer(object):
             # print "APPENDING MEASURE: %s: %s" % (measure, str(measure))
             self.cube_attributes.append(str(measure))
 
-        self.dimension_table_prefix = dimension_table_prefix
+        self.dimension_table_prefix = dimension_table_prefix or ""
+        self.dimension_table_suffix = dimension_table_suffix or ""
 
         if connection:
             self.connection = connection
@@ -260,10 +271,6 @@ class SQLDenormalizer(object):
         else:
             localized_alias = attribute.alias
 
-        if self.dimension_table_prefix:
-            prefix = self.dimension_table_prefix
-        else:
-            prefix = ""
         self.logger.debug("looking for mapping %s (%s)" % (localized_alias, attribute.alias))
 
         if self.cube.mappings and localized_alias in self.cube.mappings:
@@ -277,7 +284,7 @@ class SQLDenormalizer(object):
         else:
             original_mapping = None
             if attribute.dimension:
-                mapping = prefix + attribute.alias
+                mapping = "%s%s%s" % (self.dimension_table_prefix, attribute.alias, self.dimension_table_suffix)
             else:
                 mapping = attribute.alias
 

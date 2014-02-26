@@ -10,6 +10,7 @@ from .mixpanel import *
 from .mapper import cube_event_key
 from string import capwords
 import pkgutil
+import time, pytz
 
 DIMENSION_COUNT_LIMIT = 100
 
@@ -17,6 +18,7 @@ DEFAULT_TIME_HIERARCHY = "ymdh"
 
 MXP_TIME_DIM_METADATA = {
     "name": "time",
+    "role": "time",
     "levels": [
         { "name": "year", "label": "Year" },
         { "name": "month", "label": "Month", "info": { "aggregation_units": 3 }},
@@ -116,7 +118,7 @@ class MixpanelModelProvider(ModelProvider):
 
         * `name` – cube name
         * `measures` – cube measures: `total` and `uniques`
-        * `linked_dimensions` – list of linked dimension names
+        * `dimension_links` – list of linked dimension names
         * `mappings` – mapping of corrected dimension names
 
         Dimensions are Mixpanel's properties where ``$`` character is replaced
@@ -170,19 +172,16 @@ class MixpanelModelProvider(ModelProvider):
                     label=label,
                     description=category,
                     info=metadata.get("info"),
-                    linked_dimensions=dims,
+                    dimension_links=dims,
                     datastore=self.store_name,
                     mappings=mappings,
                     category=category)
 
-        # TODO: required_drilldowns might be a cube's attribute (fixed_dd?)
-        cube.info = {
-            "required_drilldowns": ["time"]
-        }
+        cube.info["required_drilldowns"] = ["time"]
 
         return cube
 
-    def dimension(self, name):
+    def dimension(self, name, locale=None, templates=[]):
         if name == "time":
             return _time_dimension
 
@@ -218,9 +217,16 @@ class MixpanelModelProvider(ModelProvider):
 
 
 class MixpanelStore(Store):
-    def __init__(self, api_key, api_secret, category=None):
+    related_model_provider = "mixpanel"
+
+    def __init__(self, api_key, api_secret, category=None, tz=None):
         self.mixpanel = Mixpanel(api_key, api_secret)
         self.category = category or "Mixpanel Events"
+        if tz is not None:
+            tz = pytz.timezone(tz)
+        else:
+            tz = pytz.timezone(time.strftime('%Z', time.localtime()))
+        self.tz = tz
         self.logger = get_logger()
 
     def request(self, *args, **kwargs):

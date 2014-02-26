@@ -149,6 +149,14 @@ class FactCountFunction(AggregateFunction):
         else:
             return sql.functions.count(1)
 
+
+class FactCountDistinctFunction(AggregateFunction):
+    def __init__(self, name):
+        """Creates a function that provides distinct fact (record) counts."""
+        function = lambda x: sql.functions.count(sql.expression.distinct(x))
+        super(FactCountDistinctFunction, self).__init__(name, function)
+
+
 class avg(ReturnTypeFromArgs):
     pass
 
@@ -166,6 +174,7 @@ _functions = (
     SummaryCoalescingFunction("sum", sql.functions.sum),
     SummaryCoalescingFunction("count_nonempty", sql.functions.count),
     FactCountFunction("count"),
+    FactCountDistinctFunction("count_distinct"),
     ValueCoalescingFunction("min", sql.functions.min),
     ValueCoalescingFunction("max", sql.functions.max),
     ValueCoalescingFunction("avg", avg),

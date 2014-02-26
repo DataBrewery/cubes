@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 import pytz
 
-from flask import Request, Response, g
+from flask import Request, Response, request, g
 from time import gmtime, strftime
 from datetime import datetime
 
@@ -237,6 +237,48 @@ def jsonify(obj):
 
     return Response(data, mimetype='application/json')
 
+
+def formated_response(response, fields, labels, iterable=None):
+    """Wraps request which returns response that can be formatted. The
+    `data_attribute` is name of data attribute or key in the response that
+    contains formateable data."""
+
+    output_format = validated_parameter(request.args, "format",
+                                        values=["json", "json_lines", "csv"],
+                                        default="json")
+
+    header_type = validated_parameter(request.args, "header",
+                                      values=["names", "labels", "none"],
+                                      default="labels")
+
+    # Construct the header
+    if header_type == "names":
+        header = fields
+    elif header_type == "labels":
+        header = labels
+    else:
+        header = None
+
+
+    # If no iterable is provided, we assume the response to be iterable
+    iterable = iterable or response
+
+    if output_format == "json":
+        return jsonify(response)
+    elif output_format == "json_lines":
+        return Response(JSONLinesGenerator(iterable),
+                        mimetype='application/x-json-lines')
+    elif output_format == "csv":
+        generator = CSVGenerator(iterable,
+                                 fields,
+                                 include_header=bool(header),
+                                 header=header)
+
+        headers = {"Content-Disposition": 'attachment; filename="facts.csv"'}
+
+        return Response(generator.csvrows(),
+                        mimetype='text/csv',
+                        headers=headers)
 
 def read_server_config(config):
     if not config:

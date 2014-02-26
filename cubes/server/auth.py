@@ -1,5 +1,5 @@
 # -*- coding=utf -*-
-from ..extensions import get_namespace, initialize_namespace
+from ..extensions import Extensible
 from ..errors import *
 from flask import Response, redirect
 import re
@@ -16,25 +16,7 @@ class NotAuthenticated(Exception):
     pass
 
 
-def create_authenticator(name, **options):
-    """Gets a new instance of an authorizer with name `name`."""
-
-    ns = get_namespace("slicer_authenticators")
-    if not ns:
-        ns = initialize_namespace("slicer_authenticators",
-                                  root_class=Authenticator,
-                                  suffix="_authenticator",
-                                  option_checking=True)
-
-    try:
-        factory = ns[name]
-    except KeyError:
-        raise ConfigurationError("Unknown authenticator '%s'" % name)
-
-    return factory(**options)
-
-
-class Authenticator(object):
+class Authenticator(Extensible):
     def authenticate(self, request):
         raise NotImplementedError
 

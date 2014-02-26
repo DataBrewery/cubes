@@ -2,6 +2,11 @@
 
 import json
 
+server_error_codes = {
+    "unknown": 400,
+    "missing_object": 404
+}
+
 try:
     from werkzeug.exceptions import HTTPException
 except:
@@ -87,7 +92,4 @@ class NotFoundError(ServerError):
         else:
             self.message = message
 
-
-class AggregationError(ServerError):
-    code = 400
 

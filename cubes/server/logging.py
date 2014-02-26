@@ -1,21 +1,26 @@
 # -*- coding=utf -*-
 from contextlib import contextmanager
 from collections import namedtuple
+from threading import Thread
+from Queue import Queue
 
 import datetime
 import time
 import csv
 import io
+import json
 
-from ..extensions import get_namespace, initialize_namespace
+from ..extensions import extensions, Extensible
 from ..logging import get_logger
 from ..errors import *
+from ..browser import Drilldown
 
 __all__ = [
     "create_request_log_handler",
     "configured_request_log_handlers",
 
     "RequestLogger",
+    "AsyncRequestLogger",
     "RequestLogHandler",
     "DefaultRequestLogHandler",
     "CSVFileRequestLogHandler",
@@ -40,23 +45,6 @@ REQUEST_LOG_ITEMS = [
 ]
 
 
-def create_request_log_handler(type_, *args, **kwargs):
-    """Gets a new instance of a query logger."""
-
-    ns = get_namespace("request_log_handlers")
-    if not ns:
-        ns = initialize_namespace("request_log_handlers",
-                                  root_class=RequestLogHandler,
-                                  suffix="_request_log_handler",
-                                  option_checking=True)
-    try:
-        factory = ns[type_]
-    except KeyError:
-        raise ConfigurationError("Unknown request log handler '%s'" % type_)
-
-    return factory(*args, **kwargs)
-
-
 def configured_request_log_handlers(config, prefix="query_log",
                                     default_logger=None):
     """Returns configured query loggers as defined in the `config`."""
@@ -69,9 +57,9 @@ def configured_request_log_handlers(config, prefix="query_log",
             type_ = options.pop("type")
             if type_ == "default":
                 logger = default_logger or get_logger()
-                handler = create_request_log_handler("default", logger)
+                handler = extensions.request_log_handler("default", logger)
             else:
-                handler = create_request_log_handler(type_, **options)
+                handler = extensions.request_log_handler(type_, **options)
 
             handlers.append(handler)
 
@@ -97,22 +85,52 @@ class RequestLogger(object):
         record = {
             "timestamp": datetime.datetime.now(),
             "method": method,
-            "cube": browser.cube.name,
+            "cube": browser.cube,
             "identity": identity,
-            "elapsed_time": elapsed or 0
+            "elapsed_time": elapsed or 0,
+            "cell": cell
         }
         record.update(other)
 
-        record["cell"] = str(cell) if cell is not None else None
-
-        if "split" in record and record["split"] is not None:
-            record["split"] = str(record["split"])
+        record = self._stringify_record(record)
 
         for handler in self.handlers:
-            handler.write_record(record)
+            handler.write_record(browser.cube, cell, record)
 
 
-class RequestLogHandler(object):
+    def _stringify_record(self, record):
+        """Return a log rectord with object attributes converted to strings"""
+        record = dict(record)
+
+        record["cube"] = str(record["cube"])
+
+        cell = record.get("cell")
+        record["cell"] = str(cell) if cell is not None else None
+
+        split = record.get("split")
+        record["split"] = str(split) if split is not None else None
+
+        return record
+
+
+class AsyncRequestLogger(RequestLogger):
+    def __init__(self, handlers=None):
+        super(AsyncRequestLogger, self).__init__(handlers)
+        self.queue = Queue()
+        self.thread = Thread(target=self.log_consumer,
+                              name="slicer_logging")
+        self.thread.daemon = True
+        self.thread.start()
+
+    def log(self, *args, **kwargs):
+        self.queue.put( (args, kwargs) )
+
+    def log_consumer(self):
+        while True:
+            (args, kwargs) = self.queue.get()
+            super(AsyncRequestLogger, self).log(*args, **kwargs)
+
+class RequestLogHandler(Extensible):
     def write_record(self, record):
         pass
 
@@ -121,9 +139,9 @@ class DefaultRequestLogHandler(RequestLogHandler):
     def __init__(self, logger=None, **options):
         self.logger = logger
 
-    def write_record(self, record):
-        if record.get("cell"):
-            cell_str = "'%s'" % record["cell"]
+    def write_record(self, cube, cell, record, **options):
+        if cell:
+            cell_str = "'%s'" % str(cell)
         else:
             cell_str = "none"
 
@@ -141,7 +159,7 @@ class CSVFileRequestLogHandler(RequestLogHandler):
     def __init__(self, path=None, **options):
         self.path = path
 
-    def write_record(self, record):
+    def write_record(self, cube, cell, record):
         out = []
 
         for key in REQUEST_LOG_ITEMS:
@@ -153,4 +171,72 @@ class CSVFileRequestLogHandler(RequestLogHandler):
         with io.open(self.path, 'ab') as f:
             writer = csv.writer(f)
             writer.writerow(out)
+
+class JSONRequestLogHandler(RequestLogHandler):
+    def __init__(self, path=None, **options):
+        """Creates a JSON logger which logs requests in a JSON lines. It
+        includes two lists: `cell_dimensions` and `drilldown_dimensions`."""
+        self.path = path
+
+    def write_record(self, cube, cell, record):
+        out = []
+
+        drilldown = record.get("drilldown")
+
+        if drilldown is not None:
+            if cell:
+                drilldown = Drilldown(drilldown, cell)
+                record["drilldown"] = str(drilldown)
+            else:
+                drilldown = []
+                record["drilldown"] = None
+
+        record["timestamp"] = record["timestamp"].isoformat()
+        # Collect dimension uses
+        uses = []
+
+        cuts = cell.cuts if cell else []
+
+        for cut in cuts:
+            dim = cube.dimension(cut.dimension)
+            depth = cut.level_depth()
+            if depth:
+                level = dim.hierarchy(cut.hierarchy)[depth-1]
+                level_name = str(level)
+            else:
+                level_name = None
+
+            use = {
+                "dimension": str(dim),
+                "hierarchy": str(cut.hierarchy),
+                "level": str(level_name),
+                "value": str(cut)
+            }
+            uses.append(use)
+
+        record["cell_dimensions"] = uses
+
+        uses = []
+
+        for item in drilldown or []:
+            (dim, hier, levels) = item[0:3]
+            if levels:
+                level = str(levels[-1])
+            else:
+                level = None
+
+            use = {
+                "dimension": str(dim),
+                "hierarchy": str(hier),
+                "level": str(level),
+                "value": None
+            }
+            uses.append(use)
+
+        record["drilldown_dimensions"] = uses
+        line = json.dumps(record)
+
+        with io.open(self.path, 'ab') as f:
+            json.dump(record, f)
+            f.write("\n")
 

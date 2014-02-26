@@ -30,7 +30,9 @@ Features:
 Documentation
 -------------
 
-Documentation can be found at: http://packages.python.org/cubes
+Latest release documentation: http://packages.python.org/cubes
+
+Development documentation: http://cubes.databrewery.org/dev/doc
 
 See `examples` directory for simple examples and use-cases. Also see:
 

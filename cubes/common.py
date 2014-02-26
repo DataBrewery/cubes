@@ -20,7 +20,6 @@ __all__ = [
     "get_localizable_attributes",
     "decamelize",
     "to_identifier",
-    "collect_subclasses",
     "assert_instance",
     "assert_all_instances",
     "read_json_file",
@@ -154,36 +153,15 @@ def get_localizable_attributes(obj):
         pass
     return locale
 
-def subclass_iterator(cls, _seen=None):
-    """
-    Generator over all subclasses of a given class, in depth first order.
-
-    Source: http://code.activestate.com/recipes/576949-find-all-subclasses-of-a-given-class/
-    """
-
-    if not isinstance(cls, type):
-        raise TypeError('_subclass_iterator must be called with '
-                        'new-style classes, not %.100r' % cls)
-
-    _seen = _seen or set()
-
-    try:
-        subs = cls.__subclasses__()
-    except TypeError: # fails only when cls is type
-        subs = cls.__subclasses__(cls)
-    for sub in subs:
-        if sub not in _seen:
-            _seen.add(sub)
-            yield sub
-            for sub in subclass_iterator(sub, _seen):
-                yield sub
 
 def decamelize(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1 \2', s1)
 
+
 def to_identifier(name):
     return re.sub(r' ', r'_', name).lower()
+
 
 def to_label(name, capitalize=True):
     """Converts `name` into label by replacing underscores by spaces. If
@@ -196,18 +174,6 @@ def to_label(name, capitalize=True):
 
     return label
 
-def collect_subclasses(parent, suffix=None):
-    """Collect all subclasses of `parent` and return a dictionary where keys
-    are decamelized class names transformed to identifiers and with
-    `suffix` removed."""
-    subclasses = {}
-    for c in subclass_iterator(parent):
-        name = to_identifier(decamelize(c.__name__))
-        if suffix and name.endswith(suffix):
-            name = name[:-len(suffix)]
-        subclasses[name] = c
-
-    return subclasses
 
 def coalesce_option_value(value, value_type, label=None):
     """Convert string into an object value of `value_type`. The type might be:

@@ -1,12 +1,12 @@
 <div class="row">
     <div class="col-xs-3 col-sm-4">
         <div class="panel panel-default">
+            <div class="panel-heading">
+                {{attributeLabel}}s
+                <span class="pull-right glyphicon glyphicon-plus"
+                      ng-click="addAttribute()"></span>
+            </div>
             <div class="panel-body">
-                <button type="button"
-                        class="btn btn-default"
-                        ng-click="addAttribute()">
-                    New {{attributeLabel}}
-                </button>
                 <div class="input-group">
                     <span class="input-group-addon">
                         <span class="glyphicon glyphicon-search"></span>

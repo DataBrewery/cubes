@@ -14,7 +14,7 @@
     <div class="list-group">
         <a class="list-group-item"
             ng-repeat="cube in cubes | filter:query"
-            href="#/cubes/{{cube.id}}">
+            href="#/cube/{{cube.id}}">
             {{cube.label || cube.name || "(no name)"}}
             <small>({{cube.name || "no name"}})</small>
         </a>

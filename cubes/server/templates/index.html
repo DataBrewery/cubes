@@ -23,9 +23,11 @@
 
   {% if has_about %}
   <h2>About</h2>
+
+  {% if description %}<p>{{description}}</p>{% endif %}
+
   <table id="info">
       {% if name %}<tr><th>Name</th><td>{{name}}</td></tr>{% endif %}
-      {% if description %}<tr><th>Description</th><td>{{description}}</td></tr>{% endif %}
       {% if copyright %}<tr><th>Copyright</th><td>{{copyright}}</td></tr>{% endif %}
       {% if license %}<tr><th>License</th><td>{{license}}</td></tr>{% endif %}
       {% if maintainer %}<tr><th>Maintainer</th><td>{{maintainer}}</td></tr>{% endif %}
@@ -60,11 +62,17 @@
       <tr><th>JSON Record Limit</th><td>{{json_record_limit}}</td></tr>
   </table>
 
+  {% if contributors %}
+  <h2>Contributors</h2>
+  <p>{{ contributors|join(', ') }}</p>
+  {% endif %}
+
+
   <footer>
   For more information see:
   <ul>
       <li><a href="http://packages.python.org/cubes/server.html">HTTP API documentation</a></li>
-      <li><a href="http://cubes.databrewery.org">Cubes Poroject Home</a></li>
+      <li><a href="http://cubes.databrewery.org">Cubes Project Home</a></li>
   </ul>
   </footer>
 </body>

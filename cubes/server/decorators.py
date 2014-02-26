@@ -118,8 +118,10 @@ def authorized_cube(cube_name):
     try:
         cube = workspace.cube(cube_name, g.auth_identity)
     except NotAuthorized:
+        ident = "'%s'" % g.auth_identity if g.auth_identity \
+                        else "unspecified identity"
         raise NotAuthorizedError("Authorization of cube '%s' failed for "
-                                 "'%s'" % (cube_name, g.auth_identity))
+                                 "%s" % (cube_name, ident))
     return cube
 
 
@@ -132,9 +134,16 @@ def log_request(action, attrib_field="attributes"):
         def wrapper(*args, **kwargs):
             rlogger = current_app.slicer.request_logger
 
+            # TODO: move this to request wrapper (same code as in aggregate)
+            ddlist = request.args.getlist("drilldown")
+            drilldown = []
+            if ddlist:
+                for ddstring in ddlist:
+                    drilldown += ddstring.split("|")
+
             other = {
                 "split": request.args.get("split"),
-                "drilldown": request.args.get("drilldown"),
+                "drilldown": drilldown,
                 "page": g.page,
                 "page_size": g.page_size,
                 "format": request.args.get("format"),

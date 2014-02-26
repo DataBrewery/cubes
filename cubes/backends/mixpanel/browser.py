@@ -37,6 +37,7 @@ class MixpanelBrowser(AggregationBrowser):
         self.cube = cube
         self.options = options
         self.logger = get_logger()
+        self.timezone = self.store.tz
 
         dim_names = [dim.name for dim in cube.dimensions]
         self.mapper = MixpanelMapper(cube, cube.mappings,
@@ -48,10 +49,17 @@ class MixpanelBrowser(AggregationBrowser):
         other factors."""
 
         features = {
-            "actions": ["aggregate", "facts"],
             "aggregate_functions": [],
             "post_aggregate_functions": available_calculators()
         }
+
+        default_actions = ["aggregate", "facts", "cell"]
+        cube_actions = self.cube.browser_options.get("actions")
+        if cube_actions:
+            cube_actions = set(default_actions) & set(cube_actions)
+            features["actions"] = list(cube_actions)
+        else:
+            features["actions"] = default_actions
 
         return features
 
@@ -67,7 +75,7 @@ class MixpanelBrowser(AggregationBrowser):
             self.logger.debug("facts: getting fields: %s" % fields)
 
         # TODO: use mapper
-        params = {"event":[self.cube.name]}
+        params = {"event":[self.cube.basename]}
 
         params.update(self.condition_for_cell(cell))
         response = self.store.request(["export"], params, is_data=True)
@@ -177,7 +185,7 @@ class MixpanelBrowser(AggregationBrowser):
         # Perform one request per measure aggregate.
         #
         # TODO: use mapper
-        event_name = self.cube.name
+        event_name = self.cube.basename
 
         # Collect responses for each measure aggregate
         #

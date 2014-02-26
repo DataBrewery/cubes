@@ -15,18 +15,19 @@ import cubes
 import cubes.server
 import ConfigParser
 import shlex
+import os
 
 from collections import OrderedDict
 
 from cubes.common import MissingPackageError
 from cubes.logging import create_logger
 from cubes.errors import CubesError
-from cubes.providers import read_model_metadata, write_model_metadata_bundle
+from cubes.metadata import read_model_metadata, write_model_metadata_bundle
 
 try:
-    from cubes_modeler import run_modeler
+    from cubes_modeler import ModelEditorSlicerCommand
 except ImportError:
-    run_modeler = None
+    ModelEditorSlicerCommand = None
 
 def validate_model(args):
     """docstring for validate_model"""
@@ -183,7 +184,9 @@ def generate_ddl(args):
         backend = cubes.backends.sql.browser
 
     ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix,
-                        dimension_prefix=args.dimension_prefix)
+                                dimension_prefix=args.dimension_prefix,
+                                fact_suffix=args.fact_suffix,
+                                dimension_suffix=args.dimension_suffix)
 
     print ddl
 
@@ -197,6 +200,15 @@ def run_server(args):
         modules = shlex.split(config.get("server", "modules"))
         for module in modules:
             e = __import__(module)
+
+    if config.has_option("server", "pid_file"):
+        path = config.get("server", "pid_file")
+        try:
+            with open(path, "w") as f:
+                f.write("%s\n" % os.getpid())
+        except IOError:
+            raise CubesError("Unable to write PID file '%s'. Check the "
+                             "directory existence or permissions." % path)
 
     cubes.server.run_server(config, debug=args.debug)
 
@@ -362,17 +374,12 @@ parser_validate.set_defaults(func=validate_model)
 ################################################################################
 # Command: edit
 
-subparser = model_subparsers.add_parser("edit", help="edit model")
-subparser.add_argument('-p', '--port',
-                            dest='port',
-                            default=5000,
-                            help='port to run the editor web server on')
-subparser.add_argument("model", help="model file or URL")
-subparser.add_argument("target", nargs="?",
-                       help="optional target path to write model to "
-                            "(otherwise saved_model in current directory "
-                            "will be used)")
-subparser.set_defaults(func=edit_model)
+if ModelEditorSlicerCommand:
+    subparser = model_subparsers.add_parser("edit", help="edit model")
+
+    command = ModelEditorSlicerCommand()
+    command.configure_parser(subparser)
+    subparser.det_defaults(func=command)
 
 ################################################################################
 # Command: translate_model
@@ -486,6 +493,13 @@ subparser.add_argument('--fact-prefix',
                             dest='fact_prefix',
                             default="",
                             help='prefix for fact tables')
+subparser.add_argument('--dimension-suffix',
+                       dest='dimension_suffix',
+                       help='suffix for dimension tables')
+subparser.add_argument('--fact-suffix',
+                       dest='fact_suffix',
+                       default="",
+                       help='suffix for fact tables')
 subparser.add_argument('--backend',
                             dest='backend',
                             help='backend name (currently limited only to SQL backends)')

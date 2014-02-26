@@ -32,6 +32,27 @@ class InsertIntoAsSelect(Executable, ClauseElement):
         self.select = select
         self.columns = columns
 
+
+@compiles(InsertIntoAsSelect, "mysql")
+def visit_insert_into_as_select(element, compiler, **kw):
+    preparer = compiler.dialect.preparer(compiler.dialect)
+    full_name = preparer.format_table(element.table)
+
+    if element.columns:
+        qcolumns = [preparer.format_column(c) for c in element.columns]
+        col_list = "(%s) " % ", ".join([str(c) for c in qcolumns])
+    else:
+        col_list = ""
+
+    stmt = "INSERT INTO %s %s %s" % (
+        full_name,
+        col_list,
+        compiler.process(element.select)
+    )
+
+    return stmt
+
+
 @compiles(InsertIntoAsSelect)
 def visit_insert_into_as_select(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
@@ -50,6 +71,7 @@ def visit_insert_into_as_select(element, compiler, **kw):
     )
 
     return stmt
+
 
 def condition_conjunction(conditions):
     """Do conjuction of conditions if there are more than one, otherwise just

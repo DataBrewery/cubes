@@ -103,8 +103,13 @@ Server
     ``true`` for demonstration purposes.
 * ``host`` - host where the server runs, defaults to ``localhost``
 * ``port`` - port on which the server listens, defaults to ``5000``
+* ``allow_cors_origin`` – Cross-origin resource sharing header. Other related
+  headers are added as well, if this option is present.
 
 * ``authentication`` – authentication method (see below for more information)
+
+* ``pid_file`` – path to a file where PID of the running server will be
+  written. If not provided, no PID file is created.
 
 Model
 =====
@@ -134,7 +139,6 @@ Properties of the datastore:
 * ``model`` – model related to the datastore
 * ``namespace`` – namespace where the store's cubes will be registered
 * ``model_provider`` – model provider type for the datastore
-
 
 Example SQL store::
 
@@ -221,6 +225,16 @@ Built-in authorization methods:
 * ``none`` – no authorization
 * ``simple`` – uses a JSON file with per-user access rights
 
+The simple authorization has following options:
+
+* ``rights_file`` – path to the file with access rights
+* ``roles_file`` – path to the file with roles
+* ``identity_dimension`` – name of a flat dimension that will be used for cell
+  restriction. Key of that dimension should match the identity.
+* ``order`` – ``allow_deny`` or ``deny_allow`` (default)
+* ``guest`` – name of a guest role. If specified, then this role will be used
+  for all unknown (not specified in the file) roles.
+
 Configure authentication:
 
 .. code-block:: ini
@@ -246,3 +260,30 @@ Built-in server authentication methods:
     indentity, then you have to specify the authentication method in the
     server. Otherwise the authorizer will not receive any identity and might
     refuse any access.
+
+
+Server Query Logging
+====================
+
+Logging handlers for server requests have sections with name prefix
+`query_log`. All sections with this prefix (including section named as the
+prefix) are collected and chained into a list of logging handlers. Required
+option is `type`. You might have multiple handlers of the same time.
+
+Logging types:
+
+* `default` – log using Cubes logger
+* `csv_file` – log into a CSV file
+* `sql` – log into a SQL table
+
+CSV request logger options:
+
+* `path` – path to a CSV file that will be appended (and created if necessary)
+
+SQL request logger options:
+
+* `url` – database URL
+* `table` – database table
+* `dimensions_table` – table with dimension use (optional)
+
+Tables are created automatically.

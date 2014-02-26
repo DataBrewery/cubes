@@ -19,6 +19,8 @@ class _default_opener:
         return urllib2.urlopen(url, *args, **kwargs)
 
 class SlicerStore(Store):
+    related_model_provider = "slicer"
+
     def __init__(self, url=None, authentication=None,
                  auth_identity=None, auth_parameter=None,
                  **options):
@@ -116,7 +118,17 @@ class SlicerModelProvider(ModelProvider):
         # later, the Slicer returns whole dimension descriptions
 
         dimensions = cube_desc.pop("dimensions")
+        features = cube_desc.pop("features")
 
+        if features:
+            # Note: if there are "features" in the browser options, they are
+            # eaten here. Is this ok? They should not be there as they should
+            # have been processed by the original browser/workspace.
+            browser_options = cube_desc.pop("browser_options", {})
+            browser_options["features"] = features
+            cube_desc["browser_options"] = browser_options
+
+        # Link the cube in-place
         cube_desc['datastore'] = self.store_name
         cube = create_cube(cube_desc)
         for dim in dimensions:
@@ -125,5 +137,5 @@ class SlicerModelProvider(ModelProvider):
 
         return cube
 
-    def dimension(self, name):
+    def dimension(self, name, locale=None, tempaltes=None):
         raise NoSuchDimensionError(name)

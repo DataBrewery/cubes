@@ -17,23 +17,43 @@ _.filter = function(ary, f) {
 };
 
 _.find = function(ary, f) {
-  var i;
-  if (Object.prototype.toString.call(ary) === '[object Array]') {
-    for (i = 0; i < ary.length; i++) {
-      if ( f(ary[i]) ) return ary[i];
+    var i;
+    if (Object.prototype.toString.call(ary) === '[object Array]') {
+        for (i = 0; i < ary.length; i++) {
+            if ( f(ary[i]) ) return ary[i];
+        }
     }
-  } else {
-    for (i in ary) {
-      if ( f(ary[i]) ) return ary[i];
+    else {
+        for (i in ary) {
+            if ( f(ary[i]) ) return ary[i];
+        }
     }
-  }
-  return null;
+    return null;
+};
+
+_.find_by_name = function(ary, name) {
+    return _.find(ary, function(o) {
+        if(o) {
+            return o.name == name;
+        }
+        else {
+            return false;
+        };
+    } ); 
 };
 
 _.isString = function(o) {
   return Object.prototype.toString.call(o) === '[object String]';
 };
 
+_.hasEmptyValues = function(o) {
+    for(key in o) {
+        if(o[key] != null && o[key] != ""){
+            return false;
+        }
+    }
+    return true;
+}
 
 // Move item in array from from_index to to_index
 _.moveItem = function (array, from_index, to_index) {
@@ -50,6 +70,20 @@ _.relativeMoveItem = function(array, obj, offset){
     _.moveItem(array, from_index, to_index);
 };
 
+// Remove `item` from `array` and return item just before the one removed or
+// nothing if no items are left.
+// This is UI helper function.
+_.removeListItem = function(array, item) {
+    var index = array.indexOf(item);
+    if(index != -1){
+        array.splice(index, 1)
+    };
+    if(array.length > 0) {
+        return array[Math.max(0, index-1)]
+    };
+    return null;
+}
+
 
 
 var CubesModelerApp = angular.module('CubesModelerApp', [
@@ -65,7 +99,7 @@ CubesModelerApp.config(
             templateUrl: 'views/cube-list.html',
             controller: 'CubeListController'
         }).
-        when('/cubes/:cubeId', {
+        when('/cube/:cubeId', {
             templateUrl: 'views/cube-detail.html',
             controller: 'CubeController'
         }).
@@ -86,12 +120,13 @@ CubesModelerApp.config(
             controller: 'DimensionController'
         }).
         when('/joins', {
-            templateUrl: 'views/model-joins.html',
-            controller: 'ModelController'
+            templateUrl: 'views/model-joins.html'
         }).
         when('/mappings', {
             templateUrl: 'views/model-mappings.html',
-            controller: 'ModelController'
+        }).
+        when('/info', {
+            templateUrl: 'views/model-info.html',
         }).
         otherwise({
             templateUrl: 'views/model-overview.html',
@@ -99,3 +134,97 @@ CubesModelerApp.config(
         });
     }
 ]);
+
+
+// Cubes Model Utils
+// TODO: Make this separate or integrate in cubes.js/cubes_model.js as modeler
+// utils
+//
+
+var CM = {};
+
+CM.cube_attribute = function(cube, name) {
+    // Return cube attribute
+    // TODO: this is same as Cube.attribute()
+    //
+    if(cube.aggregates) {
+        attr = _.find_by_name(cube.aggregates, name);
+        if(attr) {
+            return attr;
+        }
+    }
+    if(cube.measures) {
+        attr = _.find_by_name(cube.measures, name);
+        if(attr) {
+            return attr;
+        }
+    }
+    if(cube.details) {
+        attr = _.find_by_name(cube.details, name);
+        if(attr) {
+            return attr;
+        }
+    }
+    return null;
+};
+
+CM.dimension_attributes = function(dim){
+    // Collect dimension attributes
+    // TODO: this should be in cubes.js
+    //
+    var attrs = [];
+
+    if(!dim.levels) {
+        return [];
+    };
+
+    for(i in dim.levels) {
+        level = dim.levels[i];
+
+        attrs = attrs.concat(level.attributes);
+    }
+
+    return attrs;
+}
+
+CM.dimension_attribute = function(dim, name) {
+    // Return cube attribute
+    // TODO: this is same as Cube.attribute()
+    //
+    if(!dim.levels) {
+        return null;
+    }
+
+    for(i in dim.levels) {
+        level = dim.levels[i];
+
+        attr = _.find_by_name(level.attributes, name);
+        if(attr) {
+            return attr;
+        }
+    }
+
+    return null;
+};
+
+CM.collect_attribute_mappings = function(attr_list, dim, simplify) {
+    // Removes mappings from attributes and returns an array of mappings that
+    // have non-empty keys
+    // WARNING: use this on a cube copy before save
+    var mappings = []
+    for(var i in attr_list){
+        attr = attr_list[i];
+        if(attr.mapping && !_.hasEmptyValues(attr.mapping.value)) {
+            mapping = attr.mapping;
+            if(dim && !simplify) {
+                mapping.key = dim + "." + attr;
+            }
+            else {
+                mapping.key = attr.name;
+            }
+            mappings.push(attr.mapping);
+            delete attr["mapping"]
+        }
+    }
+    return mappings;
+}

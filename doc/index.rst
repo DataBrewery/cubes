@@ -56,6 +56,7 @@ Slicer Server and Tool
     :maxdepth: 2
 
     server
+    deployment
     slicer
 
 Backends
@@ -66,6 +67,7 @@ Backends
 
     backends/sql
     backends/mongo
+    backends/google_analytics
     backends/mixpanel
     backends/slicer
 

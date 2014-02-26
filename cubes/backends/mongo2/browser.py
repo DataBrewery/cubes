@@ -28,14 +28,11 @@ tz_utc = pytz.timezone('UTC')
 SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
 
 def is_date_dimension(dim):
-    if isinstance(dim, basestring):
-        return 'date' in dim.lower()
-    elif hasattr(dim, 'info'):
-        return (not not dim.info.get('is_date'))
-    elif hasattr(dim, 'name'):
-        return 'date' in dim.name
-    else:
-        return False
+    if hasattr(dim, 'role') and (dim.role == 'time'):
+        return True
+    if hasattr(dim, 'info') and (dim.info.get('is_date')):
+        return True
+    return False
 
 class Mongo2Browser(AggregationBrowser):
     def __init__(self, cube, store, locale=None, metadata={}, url=None, **options):
@@ -64,12 +61,21 @@ class Mongo2Browser(AggregationBrowser):
         """Return SQL features."""
 
         features = {
-            # TODO: missing "cell"
-            "actions": ["aggregate", "members", "fact", "facts"],
             "facts": ["fields", "missing_values"],
             "aggregate_functions": available_aggregate_functions(),
             "post_aggregate_functions": available_calculators()
         }
+
+        cube_actions = self.cube.browser_options.get("actions")
+
+        default_actions = ["aggregate", "members", "fact", "facts", "cell"]
+        cube_actions = self.cube.browser_options.get("actions")
+
+        if cube_actions:
+            cube_actions = set(default_actions) & set(cube_actions)
+            features["actions"] = list(cube_actions)
+        else:
+            features["actions"] = default_actions
 
         return features
 
@@ -184,30 +190,30 @@ class Mongo2Browser(AggregationBrowser):
             item = to_json_safe(item)
         return item
 
-    def values(self, cell, dimension, depth=None, paths=None, hierarchy=None,
-               order=None, page=None, page_size=None, **options):
-        cell = cell or Cell(self.cube)
-        dimension = self.cube.dimension(dimension)
-        hierarchy = dimension.hierarchy(hierarchy)
-        levels = hierarchy.levels
-        if depth is None:
-            depth = len(levels)
-        if depth < 1 or depth > len(levels):
-            raise ArgumentError("depth may not be less than 1 or more than %d, the maximum depth of dimension %s" % (len(levels), dimension.name))
-        levels = levels[0:depth]
+    def provide_members(self, cell, dimension, depth=None, hierarchy=None,
+                        levels=None, attributes=None, page=None,
+                        page_size=None, order=None):
+        """Provide dimension members. The arguments are already prepared by
+        superclass `members()` method."""
 
-        level_attributes = []
+        attributes = []
         for level in levels:
-           level_attributes += level.attributes
-        summary, cursor = self._do_aggregation_query(cell=cell, aggregates=None,
-                                                     attributes=level_attributes,
-                                                     drilldown=[(dimension,
-                                                                 hierarchy,
-                                                                 levels)],
-                                                     order=order, page=page,
+           attributes += level.attributes
+
+        drilldown = Drilldown([(dimension, hierarchy, levels[-1])], cell)
+
+        summary, cursor = self._do_aggregation_query(cell=cell,
+                                                     aggregates=None,
+                                                     attributes=attributes,
+                                                     drilldown=drilldown,
+                                                     split=None,
+                                                     order=order,
+                                                     page=page,
                                                      page_size=page_size)
 
+        # TODO: return iterator
         data = []
+
         for item in cursor:
             new_item = {}
             for level in levels:
@@ -256,7 +262,7 @@ class Mongo2Browser(AggregationBrowser):
             if for_project:
                 expr = phys.project_expression()
             else:
-                expr = phys.match_expression()
+                expr = phys.match_expression(True)
 
             fields[escape_level(attribute.ref())] = expr
 
@@ -270,15 +276,17 @@ class Mongo2Browser(AggregationBrowser):
 
         # If no drilldown or split, only one measure, and only aggregations to
         # do on it are count or identity, no aggregation pipeline needed.
-        if not aggregates:
-            raise ArgumentError("No aggregates provided.")
-
         if (not drilldown and not split) \
                 and len(aggregates) == 1 \
                 and aggregates[0].function in ("count", "identity"):
 
             self.logger.debug("doing plain aggregation")
             return (self.data_store.find(query_obj).count(), [])
+
+        # TODO: do we need this check here?
+        # if not aggregates:
+        #     raise ArgumentError("No aggregates provided.")
+
 
         group_id = {}
 
@@ -364,7 +372,7 @@ class Mongo2Browser(AggregationBrowser):
 
         aggregate_fn_pairs = []
 
-        for agg in aggregates:
+        for agg in aggregates or []:
             if agg.function:
                 try:
                     function = get_aggregate_function(agg.function)
@@ -395,7 +403,14 @@ class Mongo2Browser(AggregationBrowser):
 
             group_obj[ escape_level(agg.ref()) ] = group
 
-        pipeline = []
+        pipeline = self.cube.mappings.get("__pipeline__")
+
+        if pipeline:
+            # Get a copy of pipeline
+            pipeline = list(pipeline)
+        else:
+            pipeline = []
+
         pipeline.append({ "$match": query_obj })
         if fields_obj:
             pipeline.append({ "$project": fields_obj })
@@ -518,7 +533,7 @@ class Mongo2Browser(AggregationBrowser):
         for val, date_part in zip(path, date_levels):
             physical = self.mapper.physical(date_part.key)
             date_dict[date_part.key.name] = physical.convert_value(val)
-            min_part = date_part
+            min_part = date_part.key.name
 
         dt = None
         if 'year' in date_dict:

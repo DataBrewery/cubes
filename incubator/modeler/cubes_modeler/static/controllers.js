@@ -5,27 +5,156 @@ var ModelerControllers = angular.module('ModelerControllers', []);
 
 // TODO: use "content" concept everywhere where possible
 
+PhysicalObject = function($scope){
+    // Joins
+    // =====
 
-ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
-    function ($scope, $http, $q) {
+    $scope.jsonEdited = function() {
+        try {
+            JSON.parse($scope.content.jsonString);
+            $scope.jsonIsValid = true;
+        }
+        catch(err) {
+            $scope.jsonIsValid = false;
+            $scope.jsonError = err.message;
+        };
+    };
+}
+
+CubesModelerApp.directive("jsonEditor", function() {
+    return {
+        templateUrl: 'views/partials/json_editor.html',
+        require: "ngModel",
+        scope: {
+            jsonObject: "=ngModel",
+            foo: "@"
+        },
+        link: function($scope, $element, $attrs) {
+            $scope.jsonString = JSON.stringify($scope.jsonObject, null, "    ")
+            $scope.jsonIsValid = true;
+            console.debug("linking json editor")
+            console.debug($scope.foo)
+
+            $scope.jsonEdited = function() {
+                if($scope.jsonString == "") {
+                    $scope.jsonObject = null;
+                    $scope.jsonIsValid = true;
+                }
+                else {
+                    try {
+                        obj = JSON.parse($scope.jsonString);
+                        $scope.jsonObject = obj;
+                        $scope.jsonIsValid = true;
+                    }
+                    catch(err) {
+                        $scope.jsonIsValid = false;
+                        $scope.jsonError = err.message;
+                    };
+                };
+            };
+        }
+    }
+});
+
+
+CubesModelerApp.directive("mappingEditor", function() {
+    return {
+        templateUrl: 'views/partials/mapping.html',
+        restrict: 'E',
+        require: "ngModel",
+        scope: {
+            content: "=ngModel",
+        },
+        link: function($scope, $element, $attrs) {
+            $scope.storeType = $scope.$parent.storeType;
+
+            // Keep the type if we have an editor for it, otherwise default
+            // JSON editor will be used
+            if($scope.$parent.mappingEditors.indexOf($scope.storeType) == -1) {
+                $scope.storeType = null;
+            }
+
+            $scope.isAttributeMapping = true;
+        }
+    }
+});
+
+
+ModelerControllers.controller('ModelController', ['$rootScope', '$scope', '$http', '$q',
+    function ($rootScope, $scope, $http, $q) {
         var cubes = $http.get('cubes');
         var dimensions = $http.get('dimensions');
         var model = $http.get('model');
 
+        $rootScope.advancedInterface = true;
+        $scope.foo = "bar";
+        $rootScope.setInterfaceType = function(ifaceType) {
+            $rootScope.advancedInterface = (ifaceType == "advanced");
+        }
+
         $q.all([cubes, dimensions, model]).then(function(results){
+            console.log("Loading model...");
+            console.debug("scope: " + $scope.$id);
+
             $scope.cubes = results[0].data;
             $scope.dimensions = results[1].data;
             $scope.model = results[2].data;
 
+            $scope.info = $scope.model.info || {}
+            $scope.browser_options = $scope.model.browser_options || {}
+
+            options = $scope.model["__modeler_options__"] || {}
+            $rootScope.modelOptions = options
+            $rootScope.storeType = options.store_type
+
+            var mappings = $scope.model.mappings
+
+            if(!mappings){
+                console.debug("No model mappings.")
+                mappings = {}
+            };
+            console.debug(mappings)
+            // Convert mappings into a list
+            $scope.mappings = [];
+            for(var key in mappings) {
+                value = mappings[key];
+                mapping = {
+                    "key": key,
+                    "value": mappings[key]
+                };
+                if(_.isString(value)) {
+                    mapping["string"] = value;
+                    mapping["type"] = "string";
+                };
+                mapping["jsonString"] = JSON.stringify(value, null, "    ");
+                $scope.mappings.push(mapping);
+            };
+
+            $scope.mappings.sort(function(a,b) {
+                if(a.key < b.key){
+                    return -1;
+                }
+                else if (b.key > a.key) {
+                    return 1;
+                }
+                return 0
+            });
+
+            // Convert joins into a list
+            $scope.joins = $scope.model.joins || [];
+
             // Every controller should have `content` object set – this will
             // be used by reusable views
+            $scope.contentType = "model";
             $scope.content = $scope.model;
             $scope.dims_by_id = {}
 
             for(i in $scope.dimensions){
                 dim = $scope.dimensions[i]
                 $scope.dims_by_id[dim.id] = dim
-            }    
+            };    
+
+            $scope.$broadcast('modelLoaded');
         });
 
         $scope.modelObject = null;
@@ -54,7 +183,7 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
             {"name": "string", "label": "String"},
             {"name": "sql", "label": "SQL"},
             {"name": "mongo", "label": "Mongo"},
-            {"name": "jsonstr", "label": "JSON (text)"}
+            {"name": "json", "label": "JSON (text)"}
         ]
 
         $scope.providers = [
@@ -96,12 +225,65 @@ ModelerControllers.controller('ModelController', ['$scope', '$http', '$q',
                 {"name": "minute", "label": "Minute"}
             ]
         };
+
+        $scope.joinMethods = [
+            {"name": "", "label": "Default"}, 
+            {"name": "match", "label": "Match (inner)"},
+            {"name": "master", "label": "Master (left outer)"},
+            {"name": "detail", "label": "Detail (right outer)"}
+        ];
+
+        $scope.storeTypes = [
+            {"name": "mixpanel", "label": "Mixpanel"},
+            {"name": "mongo", "label": "Mongo"},
+            {"name": "slicer", "label": "Slicer"},
+            {"name": "sql", "label": "SQL"}, 
+            {"name": "", "label": "Other"}
+        ];
+
+        $scope.mappingEditors = [
+            "sql", "mongo"
+        ];
+
+        PhysicalObject($scope);
+
+        $scope.save = function() {
+            // TODO: same code is in CubeController.save
+            var mappings = {}
+
+            for(var i in $scope.mappings) {
+                mapping = $scope.mappings[i];
+                if(mapping.type == "string"){
+                    value = mapping.stringValue;
+                }
+                else {
+                    value = mapping.value;
+                }
+                mappings[mapping.key] = value;
+            }
+
+            $scope.model.mappings = mappings;
+            $scope.model.joins = $scope.joins;
+
+            console.log("Saving model...");
+            console.debug("scope: " + $scope.$id);
+            $http.put("model", $scope.model);
+
+            $scope.$broadcast("save");
+
+        };
+        $scope.reset = function() {
+            console.log("Reseting the model, reload required.")
+            $http.get("reset");
+            $scope.$digest()
+        };
     }
 ]);
 
-ModelerControllers.controller('CubeListController', ['$scope', '$http',
 
-    function ($scope, $http) {
+ModelerControllers.controller('CubeListController', ['$scope', '$http', '$q',
+
+    function ($scope, $http, $q) {
         $http.get('cubes').success(function(data) {
             $scope.cubes = data;
             // TODO: set content = cubes
@@ -110,24 +292,20 @@ ModelerControllers.controller('CubeListController', ['$scope', '$http',
         $scope.idSequence = 1;
 
         $scope.addCube = function() {
-            cube = {
-                id: $scope.idSequence,
-                name:"new_cube",
-                label: "New Cube",
-                measures: [],
-                aggregates: [],
-                details: []
-            };
-            $scope.idSequence += 1;
-            $scope.cubes.push(cube);
-        };
+            var new_cube = $http.put('new_cube');
 
+            $q.all([new_cube]).then(function(results){
+                var cube = results[0].data;
+
+                $scope.cubes.push(cube);
+            });
+        };    
     }
 ]);
 
-ModelerControllers.controller('DimensionListController', ['$scope', '$http',
+ModelerControllers.controller('DimensionListController', ['$scope', '$http', '$q',
 
-    function ($scope, $http) {
+    function ($scope, $http, $q) {
         $http.get('dimensions').success(function(data) {
             $scope.dimensions = data;
             // TODO: set content = dimensions
@@ -136,17 +314,14 @@ ModelerControllers.controller('DimensionListController', ['$scope', '$http',
         $scope.idSequence = 1;
 
         $scope.addDimension = function() {
-            var level = {"name": "default", "attributes": [ {"name":"attribute"} ]};
-            var dim = {
-                id: $scope.idSequence,
-                name:"new_dimension",
-                label: "New Dimension",
-                levels: [ level ],
-                hierarchies: [ {"name": "default", "levels": ["default"]} ]
-            };
-            $scope.idSequence += 1;
-            $scope.dimensions.push(dim);
-        };
+            var new_dimension = $http.put('new_dimension');
+
+            $q.all([new_dimension]).then(function(results){
+                var dim = results[0].data;
+
+                $scope.dimensions.push(cube);
+            });
+        };    
 
     }
 ]);
@@ -178,6 +353,43 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             $scope.available_dimensions = _.filter($scope.dimensions, function(d) {
                 return names.indexOf(d.name) === -1;
             });
+
+            var mappings = cube.mappings
+
+            if(!mappings){
+                mappings = {}
+            };
+
+            // Convert mappings into a list
+            var mapping_list = [];
+
+            for(var key in mappings) {
+                value = mappings[key];
+                mapping = {
+                    "key": key,
+                    "value": mappings[key]
+                };
+                if(_.isString(value)) {
+                    mapping["string"] = value;
+                    mapping["type"] = "string";
+                };
+                mapping["jsonString"] = JSON.stringify(value, null, "    ");
+                mapping_list.push(mapping);
+
+
+                // Assign the mapping to an attribute
+                attr = CM.cube_attribute(cube, key);
+                if(attr) {
+                    attr.mapping = mapping;
+                };
+            };
+
+            $scope.mappings = mapping_list;
+            //
+            // Convert joins into a list
+
+            // Convert joins into a list
+            $scope.joins = cube.joins || [];
 
             $scope.$broadcast('cubeLoaded');
         });
@@ -215,12 +427,43 @@ ModelerControllers.controller('CubeController', ['$scope', '$routeParams', '$htt
             });
         };
 
+        PhysicalObject($scope);
+
         $scope.save = function(){
+            // FIXME: Same code is in the model controller
+            var mappings = {}
+            var maplist = []
+            var cube;
+
+            cube = angular.copy($scope.cube)
+
+            maplist = maplist.concat($scope.mappings);
+            maplist = maplist.concat(CM.collect_attribute_mappings(cube.aggregates));
+            maplist = maplist.concat(CM.collect_attribute_mappings(cube.measures));
+            maplist = maplist.concat(CM.collect_attribute_mappings(cube.details));
+
+            for(var i in maplist) {
+                mapping = maplist[i];
+                if(mapping.type == "string"){
+                    value = mapping.stringValue;
+                }
+                else {
+                    value = mapping.value;
+                }
+                mappings[mapping.key] = value;
+            }
+
+
+            $scope.cube.mappings = mappings;
+            console.log("Saving cube " + $scope.cubeId);
             $http.put("cube/" + $scope.cubeId, $scope.cube);
-        }
+        };
+
+        $scope.$on("save", $scope.save);
 
     }
 ]);
+
 
 function AttributeListController(type, label){
     return function($scope, modelObject) {
@@ -259,6 +502,9 @@ function AttributeListController(type, label){
 
         $scope.selectAttribute = function(attribute) {
             $scope.content = attribute;
+            if(!attribute.mapping){
+                attribute.mapping = {"key": attribute.name};
+            };
         };
 
         $scope.removeAttribute = function(index) {
@@ -267,8 +513,9 @@ function AttributeListController(type, label){
 
         $scope.addAttribute = function() {
             attribute = {"name": "new_"+type}
+            attribute.mapping = {};
             $scope.content = attribute;
-            $scope.attributes.push(attribute)
+            $scope.attributes.push(attribute);
         };
     };      
 };
@@ -278,6 +525,9 @@ ModelerControllers.controller('CubeMeasureListController', ['$scope',
 
 ModelerControllers.controller('CubeAggregateListController', ['$scope',
                               AttributeListController("aggregate", "Aggregate")]);
+
+ModelerControllers.controller('CubeDetailListController', ['$scope',
+                              AttributeListController("detail", "Detail")]);
 
 ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', '$http',
     function ($scope, $routeParams, $http) {
@@ -319,6 +569,23 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
                 $scope.defaultHierarchy = null;
             };
 
+            var attrs = CM.dimension_attributes(dim);
+            var simplify = (attrs.length == 1)
+
+            for(var i in attrs){
+                attr = attrs[i];
+                if(simplify) {
+                    key = dim.name;
+                }
+                else {
+                    key = dim.name + "." + attr.name;
+                }
+                value = $scope.model.mappings[key];
+                mapping = {};
+                mapping.value = value || {};
+                attr.mapping = mapping;
+            }
+
             $scope.$broadcast('dimensionLoaded');
         });
 
@@ -327,11 +594,10 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
 
         // Save!
         // =====
-
         $scope.save = function(){
             // Remove relationships
 
-            dim = angular.copy($scope.dimension);
+            var dim = angular.copy($scope.dimension);
 
             for(var i in dim.levels) {
                 level = dim.levels[i];
@@ -343,15 +609,30 @@ ModelerControllers.controller('DimensionController', ['$scope', '$routeParams', 
                 };
             };
 
+            var attrs = CM.dimension_attributes(dim);
+            var simplify = (attrs.length == 1);
+            var mappings;
+
+            mappings = CM.collect_attribute_mappings(attrs,
+                                                     dim.name,
+                                                     simplify);
+            for(m in mappings) {
+                mapping = mappings[m];
+                $scope.model.mappings[mapping.key] = mapping.value;
+            };
+            // TODO: save the model as well, if mappings have changed
+
             for(var h in dim.hierarchies) {
                 hier = dim.hierarchies[h];
                 names = _.map(hier.levels, function(level) { return level.name; })
                 hier.levels = names;
             };
 
+            console.log("Saving dimension " + $scope.dimId)
             $http.put("dimension/" + $scope.dimId, dim);
         };
 
+        $scope.$on('save', $scope.save);
     }
 ]);
 
@@ -499,6 +780,7 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
         $scope.selectAttribute = function(attribute) {
             $scope.contentType = "attribute";
             $scope.content = attribute;
+            attribute.mapping = attribute.mapping || {};
         };
 
         $scope.moveAttribute = function(offset, attr){
@@ -508,7 +790,8 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
         $scope.addAttribute = function() {
             attr = {
                 name: "new_attribute",
-                label: "New Attribute"
+                label: "New Attribute",
+                mapping: { value: {} }
             };
             $scope.attributes.push(attr);
 
@@ -568,32 +851,101 @@ ModelerControllers.controller('HierarchiesController', ['$scope',
             };
         };
 
-        // Save!
-        // =====
+    }
+]);
 
-        $scope.save = function(){
-            // Remove relationships
 
-            dim = angular.copy($scope.dimension);
+ModelerControllers.controller('MappingListController', ['$rootScope', '$scope',
+    function ($rootScope, $scope) {
+        // Note: We are operating on parent's mappings, but we preserve our
+        // scope content
 
-            for(var i in dim.levels) {
-                level = dim.levels[i];
-                if(level.key) {
-                    level.key = level.key.name;
-                };
-                if(level.labelAttribute) {
-                    level.labelAttribute = level.labelAttribute.name;
-                };
+        $scope.reload = function() {
+            if($scope.mappings && $scope.mappings.lenghth > 0) {
+                $scope.content = $scope.mappings[0];
+            }
+            else {
+                $scope.content = null;
+            }
+        };
+
+        $scope.$on("modelLoaded", $scope.reload);
+        $scope.$on("cubeLoaded", $scope.reload);
+
+        $scope.selectMapping = function(mapping) {
+            // TODO: somehow this does not select the edit list
+            $scope.contentType = "mapping";
+            $scope.content = mapping;
+            $scope.jsonIsValid = true;
+            console.log("Selected type (from root): " + $rootScope.storeType)
+        };
+
+        $scope.mappingTypeChanged = function(selection) {
+            if($scope.content && $scope.contentType == "mapping") {
+                // TODO: add JSON string validation
+                if(selection == "jsonstr") {
+                    $scope.content.jsonString = JSON.stringify($scope.content.value, null, "    ");
+                    $scope.jsonIsValid = true;
+                }
+                else if($scope.content.type == "jsonstr") {
+                    $scope.content.value = JSON.parse($scope.content.jsonString);
+                }
+                $scope.content.type = selection;
+            }
+        };
+
+        $scope.addMapping = function() {
+            mapping = {
+                key: "unnamed"
             };
 
-            for(var h in dim.hierarchies) {
-                hier = dim.hierarchies[h];
-                names = _.map(hier.levels, function(level) { return level.name; })
-                hier.levels = names;
-            };
+            $scope.mappings.push(mapping);
+            $scope.selectMapping(mapping);
+        };
 
-            $http.put("dimension/" + $scope.dimId, dim);
+        $scope.removeMapping = function(obj) {
+            var last = _.removeListItem($scope.mappings, obj);
+            if(obj === $scope.content) {
+                $scope.selectMapping(last);
+            }
         };
 
     }
 ]);
+
+ModelerControllers.controller('JoinListController', ['$scope',
+    function ($scope) {
+        $scope.selectJoin = function(join) {
+            // TODO: somehow this does not select the edit list
+            $scope.contentType = "join";
+            $scope.content = join;
+        };
+
+        $scope.addJoin = function() {
+            join = {
+                master: {},
+                detail: {}
+            };
+
+            $scope.joins.push(join);
+            $scope.selectJoin(join);
+        };
+
+        $scope.removeJoin = function(join) {
+            var last = _.removeListItem($scope.joins, join);
+            if(join === $scope.content) {
+                $scope.selectJoin(last);
+            }
+        };
+
+        $scope.moveJoin = function(offset, join){
+            _.relativeMoveItem($scope.joins, join, offset);
+        };
+
+        if($scope.joins && $scope.joins.length > 0){
+            $scope.selectJoin($scope.joins[0]);
+        };
+
+    }
+]);
+

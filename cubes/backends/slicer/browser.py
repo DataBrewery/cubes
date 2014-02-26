@@ -22,9 +22,13 @@ class SlicerBrowser(AggregationBrowser):
 
     def features(self):
 
-        features = {
-            "actions": ["aggregate", "facts"],
-        }
+        # Get the original features as provided by the Slicer server.
+        # They are stored in browser_options in the Slicer model provider's
+        # cube().
+        features = dict(self.cube.browser_options.get("features", {}))
+
+        # Replace only the actions, as we are not just a simple proxy.
+        features["actions"] = ["aggregate", "facts", "fact", "cell", "members"]
 
         return features
 
@@ -59,7 +63,7 @@ class SlicerBrowser(AggregationBrowser):
 
 
         response = self.store.cube_request("aggregate",
-                                           self.cube.name, params)
+                                           self.cube.basename, params)
 
         result = AggregationResult()
 
@@ -105,16 +109,68 @@ class SlicerBrowser(AggregationBrowser):
 
         params["format"] = "json_lines"
 
-        response = self.store.cube_request("facts", self.cube.name, params,
+        response = self.store.cube_request("facts", self.cube.basename, params,
                                            is_lines=True)
 
         return Facts(response, attributes)
+
+    def provide_members(self, cell=None, dimension=None, levels=None,
+                        hierarchy=None, attributes=None, page=None,
+                        page_size=None, order=None, **options):
+
+        order = self.prepare_order(order, is_aggregate=False)
+
+        params = {}
+
+        if cell:
+            params["cut"] = string_from_cuts(cell.cuts)
+
+        if order:
+            params["order"] = self._order_param(order)
+
+        if levels:
+            params["level"] = str(levels[-1])
+
+        if hierarchy:
+            params["hierarchy"] = str(hierarchy)
+
+        if page is not None:
+            params["page"] = str(page)
+
+        if page_size is not None:
+            params["page_size"] = str(page_size)
+
+        if attributes:
+            params["fields"] = ",".join(str(attr) for attr in attributes)
+
+        params["format"] = "json_lines"
+
+        action = "/cube/%s/members/%s" % (self.cube.basename, str(dimension))
+        response = self.store.request(action, params, is_lines=True)
+
+        return response
+
+    def cell_details(self, cell, dimension=None):
+        cell = cell or Cell(self.cube)
+
+        params = {}
+        if cell:
+            params["cut"] = string_from_cuts(cell.cuts)
+
+        if dimension:
+            params["dimension"] = str(dimension)
+
+        response = self.store.cube_request("cell", self.cube.basename, params) 
+
+        return response
+
+    def fact(self, fact_id):
+        action = "/cube/%s/fact/%s" % (self.cube.basename, str(fact_id))
+        response = self.store.request(action)
+        return response
 
     def _order_param(self, order):
         """Prepare an order string in form: ``attribute:direction``"""
         string = ",".join("%s:%s" % (o[0], o[1]) for o in order)
         return string
-
-    def fact(self, key):
-        raise NotImplementedError
 

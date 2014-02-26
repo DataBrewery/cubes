@@ -3,14 +3,13 @@
 import os.path
 import json
 from collections import namedtuple, defaultdict
-from .extensions import get_namespace, initialize_namespace
+from .extensions import Extensible
 from .browser import Cell, cut_from_string, cut_from_dict, PointCut
 from .browser import string_to_drilldown
 from .errors import *
 from .common import read_json_file, sorted_dependencies
 
 __all__ = (
-    "create_authorizer",
     "Authorizer",
     "SimpleAuthorizer",
     "NotAuthorized",
@@ -25,23 +24,7 @@ class NotAuthorized(UserError):
     # error, it is just type of signal.
 
 
-def create_authorizer(name, **options):
-    """Gets a new instance of an authorizer with name `name`."""
-
-    ns = get_namespace("authorizers")
-    if not ns:
-        ns = initialize_namespace("authorizers", root_class=Authorizer,
-                                  suffix="_authorizer",
-                                  option_checking=True)
-    try:
-        factory = ns[name]
-    except KeyError:
-        raise ConfigurationError("Unknown authorizer '%s'" % name)
-
-    return factory(**options)
-
-
-class Authorizer(object):
+class Authorizer(Extensible):
     def authorize(self, token, cubes):
         """Returns list of authorized cubes from `cubes`. If none of the cubes
         are authorized an empty list is returned.
@@ -220,11 +203,17 @@ class SimpleAuthorizer(Authorizer):
             "type": "string",
             "values": ["allow_deny", "deny_allow"]
         },
+        {
+            "name": "guest",
+            "description": "Name of the 'guest' role",
+            "type": "string",
+        },
 
     ]
 
     def __init__(self, rights_file=None, roles_file=None, roles=None,
-                 rights=None, identity_dimension=None, order=None, **options):
+                 rights=None, identity_dimension=None, order=None,
+                 guest=None, **options):
         """Creates a simple JSON-file based authorizer. Reads data from
         `rights_file` and `roles_file` and merge them with `roles` and
         `rights` dictionaries respectively."""
@@ -244,6 +233,7 @@ class SimpleAuthorizer(Authorizer):
 
         self.roles = {}
         self.rights = {}
+        self.guest = guest or None
 
         order = order or "deny_allow"
 
@@ -292,7 +282,12 @@ class SimpleAuthorizer(Authorizer):
         try:
             right = self.rights[token]
         except KeyError:
-            raise NotAuthorized("Unknown access right '%s'" % token)
+            # if guest role exists, use it
+            if self.guest and self.guest in self.roles:
+                return self.roles[self.guest]
+            else:
+                raise NotAuthorized("Unknown access right '%s'" % token)
+
         return right
 
     def authorize(self, token, cubes):

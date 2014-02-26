@@ -1,10 +1,11 @@
 """OLAP Cubes"""
 
-__version__ = "1.0alpha"
+__version__ = "1.0alpha2"
 
 from .common import *
 from .browser import *
 from .model import *
+from .metadata import *
 from .workspace import *
 from .errors import *
 from .formatter import *

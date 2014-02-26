@@ -1,0 +1,12 @@
+{
+    "name": "base_date",
+    "template": "base_time",
+
+    "levels": [
+        "year", "quarter", "month", "day",
+        "week", "weeknum", "dow",
+        "isoyear", "isoweek", "isoweekday",
+        "date"
+    ],
+    "default_hierarchy_name": "ymd"
+}

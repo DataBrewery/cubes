@@ -4,8 +4,8 @@ import json
 import re
 from cubes.errors import *
 from cubes.workspace import *
+from cubes.stores import Store
 from cubes.model import *
-from cubes.extensions import get_namespace
 
 from common import CubesTestCaseBase
 # FIXME: remove this once satisfied
@@ -24,6 +24,9 @@ class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
         self.assertEqual(0, len(ws.store_infos))
 
     def test_stores(self):
+        class ImaginaryStore(Store):
+            pass
+
         ws = Workspace(stores={"default":{"type":"imaginary"}})
         self.assertTrue("default" in ws.store_infos)
 
@@ -50,6 +53,23 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         self.assertEqual("contracts", cube.name)
         # self.assertEqual(6, len(cube.dimensions))
         self.assertEqual(1, len(cube.measures))
+
+    def test_get_namespace_cube(self):
+        ws = Workspace()
+        ws.import_model(self.model_path("model.json"), namespace="local")
+
+        # This should pass
+        cube = ws.cube("contracts")
+
+        self.assertIsInstance(cube, Cube)
+        self.assertEqual(cube.name, "contracts")
+        ws.lookup_method = "exact"
+
+        with self.assertRaises(NoSuchCubeError):
+            cube = ws.cube("contracts")
+
+        cube = ws.cube("local.contracts")
+        self.assertEqual("local.contracts", cube.name)
 
     def test_get_dimension(self):
         ws = self.default_workspace()
@@ -80,6 +100,8 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         self.assertEqual("another_date", dim.name)
         self.assertEqual(3, len(dim.levels))
 
+    @unittest.skip("We are lazy now, we don't want to ping the provider for "
+                   "nothing")
     def test_duplicate_dimension(self):
         ws = Workspace()
         ws.add_model(self.model_path("templated_dimension.json"))
@@ -92,8 +114,8 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         # Test whether we can use local dimension with the same name as the
         # public one
         ws = Workspace()
-        ws.add_model(self.model_path("model_public_dimensions.json"))
-        ws.add_model(self.model_path("model_private_dimensions.json"))
+        ws.import_model(self.model_path("model_public_dimensions.json"))
+        ws.import_model(self.model_path("model_private_dimensions.json"))
 
         dim = ws.dimension("date")
         self.assertEqual(3, len(dim.levels))
