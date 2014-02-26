@@ -528,7 +528,7 @@ class SnowflakeSchema(object):
             # the query)
             getter = _TableGetter(self)
             context["table"] = getter
-            getter = _AttributeGetter(self, table)
+            getter = _AttributeGetter(self, attribute.dimension)
             context["dim"] = getter
             getter = _AttributeGetter(self, self.cube)
             context["fact"] = getter
