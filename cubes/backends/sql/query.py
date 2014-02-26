@@ -1595,8 +1595,6 @@ class QueryBuilder(object):
         """Returns either a physical column for the attribute or a reference to
         a column from the master fact if it exists."""
 
-        if attribute.name.startswith("hour"):
-            import pdb; pdb.set_trace()
         if self.master_fact is not None:
             ref = self.mapper.physical(attribute, locale)
             self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))

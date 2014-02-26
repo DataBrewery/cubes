@@ -16,6 +16,7 @@ class UserError(CubesError):
 class InternalError(CubesError):
     """Superclass for all errors that happened internally: configuration
     issues, connection problems, model inconsistencies..."""
+    error_type = "internal_error"
 
 class ConfigurationError(InternalError):
     """Raised when there is a problem with workspace configuration assumed."""

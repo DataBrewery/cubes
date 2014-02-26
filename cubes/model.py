@@ -902,7 +902,6 @@ class Dimension(ModelObject):
             try:
                 self.key = self.attribute(str(key))
             except NoSuchAttributeError:
-                import pdb; pdb.set_trace()
                 raise ModelError("Dimension key should exist as an attribute "
                                  "(in dimension '%s', key '%s'"
                                  % (self.name, key))

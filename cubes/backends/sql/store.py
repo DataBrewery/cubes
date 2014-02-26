@@ -28,6 +28,7 @@ __all__ = [
 # This is used to coalesce configuration string values into appropriate types
 SQLALCHEMY_OPTION_TYPES = {
         "case_sensitive":"bool",
+        "case_insensitive":"bool",
         "convert_unicode":"bool",
         "echo":"bool",
         "echo_pool":"bool",
