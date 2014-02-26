@@ -508,7 +508,6 @@ class SnowflakeSchema(object):
         if ref.func:
             column = getattr(sql.expression.func, ref.func)(column)
         if ref.expr:
-            # TODO: see _ptd_condition()
             compiled_expr = compile(ref.expr, '__expr__', 'eval')
             context = _EXPR_EVAL_NS.copy()
 
@@ -520,12 +519,13 @@ class SnowflakeSchema(object):
             context["dim"] = dim_getter
             fact_getter = _ColumnGetter(self, self.cube)
             context["fact"] = fact_getter
+            context["column"] = column
 
-            expr_func = eval(compiled_expr, context)
-            if not callable(expr_func):
-                raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
+            column = eval(compiled_expr, context)
 
-            column = expr_func(column)
+            if not isinstance(column, sql.expression.ColumnElement):
+                raise BrowserError("Cannot evaluate a ColumnElement object from "
+                                   "reference's expr property: %r" % ref)
 
         if self.safe_labels:
             label = "a%d" % self.label_counter
@@ -1543,14 +1543,14 @@ class QueryBuilder(object):
             context["dim"] = dim_getter
             fact_getter = _ColumnGetter(self, self.cube)
             context["fact"] = fact_getter
+            context["column"] = column
 
-            function = eval(compiled_expr, context)
+            condition = eval(compiled_expr, context)
 
-            if not callable(function):
-                raise BrowserError("Cannot evaluate a callable object from "
+            if not isinstance(condition, sql.expression.ColumnElement):
+                raise BrowserError("Cannot evaluate a ColumnElement object from "
                                    "reference's condition expr: %r" % ref)
 
-            condition = function(column)
             conditions.append(condition)
 
         # TODO: What about invert?
