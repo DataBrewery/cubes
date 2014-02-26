@@ -564,7 +564,7 @@ Then use the join in a cube:
             "name": "events",
             "joins": [
                 { "name": "date", "master": "event_date_id" },
-                { "name": "company", "detail": "company_id" }
+                { "name": "company", "master": "company_id" }
             ]
         }
     ]
