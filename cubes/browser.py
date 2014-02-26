@@ -353,6 +353,11 @@ class AggregationBrowser(Extensible):
         self.logger.warn("values() is depreciated, use members()")
         return self.members(*args, **kwargs)
 
+    def test(self):
+        """Tests whether the cube can be used. Refer to the backend's
+        documentation for more information about what is being tested."""
+        raise NotImplementedError
+
     def report(self, cell, queries):
         """Bundle multiple requests from `queries` into a single one.
 
