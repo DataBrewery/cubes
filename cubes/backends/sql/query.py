@@ -5,7 +5,7 @@ from ...browser import SPLIT_DIMENSION_NAME
 from ...errors import *
 from ...logging import get_logger
 from collections import namedtuple, OrderedDict
-from .mapper import DEFAULT_KEY_FIELD
+from .mapper import DEFAULT_KEY_FIELD, PhysicalAttribute
 from .utils import condition_conjunction, order_column
 import datetime
 import re
@@ -526,12 +526,12 @@ class SnowflakeSchema(object):
 
             # Provide columns for attributes (according to current state of
             # the query)
-            table = attribute.dimension or self.cube
-            dim_getter = _ColumnGetter(self, table)
-            context["table"] = dim_getter
-            context["dim"] = dim_getter
-            fact_getter = _ColumnGetter(self, self.cube)
-            context["fact"] = fact_getter
+            getter = _TableGetter(self)
+            context["table"] = getter
+            getter = _AttributeGetter(self, table)
+            context["dim"] = getter
+            getter = _AttributeGetter(self, self.cube)
+            context["fact"] = getter
 
             expr_func = eval(compiled_expr, context)
             if not callable(expr_func):
@@ -1563,11 +1563,12 @@ class QueryBuilder(object):
 
             # Provide columns for attributes (according to current state of
             # the query)
-            dim_getter = _ColumnGetter(self, attribute.dimension)
-            context["table"] = dim_getter
-            context["dim"] = dim_getter
-            fact_getter = _ColumnGetter(self, self.cube)
-            context["fact"] = fact_getter
+            getter = _TableGetter(self)
+            context["table"] = getter
+            getter = _AttributeGetter(self, attribute.dimension)
+            context["dim"] = getter
+            getter = _AttributeGetter(self, self.cube)
+            context["fact"] = getter
 
             function = eval(compiled_expr, context)
 
@@ -1594,6 +1595,8 @@ class QueryBuilder(object):
         """Returns either a physical column for the attribute or a reference to
         a column from the master fact if it exists."""
 
+        if attribute.name.startswith("hour"):
+            import pdb; pdb.set_trace()
         if self.master_fact is not None:
             ref = self.mapper.physical(attribute, locale)
             self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))
@@ -1701,7 +1704,7 @@ class QueryBuilder(object):
 # Used as a workaround for "condition" attribute mapping property
 # TODO: temp solution
 # Assumption: every other attribute is from the same dimension
-class _ColumnGetter(object):
+class _AttributeGetter(object):
     def __init__(self, owner, context):
         self._context = context
         self._owner = owner
@@ -1714,6 +1717,42 @@ class _ColumnGetter(object):
 
     def _column(self, name):
         attribute = self._context.attribute(name)
+        return self._owner.column(attribute)
+
+    # Backward-compatibility for table.c.foo
+    @property
+    def c(self):
+        return self
+
+class _TableGetter(object):
+    def __init__(self, owner):
+        self._owner = owner
+
+    def __getattr__(self, attr):
+        return self._table(attr)
+
+    def __getitem__(self, item):
+        return self._table(item)
+
+    def _table(self, name):
+        # Create a dummy attribute
+        return _ColumnGetter(self._owner, name)
+
+
+class _ColumnGetter(object):
+    def __init__(self, owner, table):
+        self._owner = owner
+        self._table = table
+
+    def __getattr__(self, attr):
+        return self._column(attr)
+
+    def __getitem__(self, item):
+        return self._column(item)
+
+    def _column(self, name):
+        # Create a dummy attribute
+        attribute = PhysicalAttribute(name, table=self._table)
         return self._owner.column(attribute)
 
     # Backward-compatibility for table.c.foo
