@@ -523,6 +523,7 @@ class SnowflakeSchema(object):
         if ref.expr:
             # Provide columns for attributes (according to current state of
             # the query)
+            context = dict(_SQL_EXPR_CONTEXT)
             getter = _TableGetter(self)
             context["table"] = getter
             getter = _AttributeGetter(self, attribute.dimension)
@@ -531,7 +532,6 @@ class SnowflakeSchema(object):
             context["fact"] = getter
             context["column"] = column
 
-            context.update(_SQL_EXPR_CONTEXT)
 
             column = evaluate_expression(ref.expr, context, 'expr', sql.expression.ColumnElement)
 
@@ -1555,6 +1555,7 @@ class QueryBuilder(object):
 
             # Provide columns for attributes (according to current state of
             # the query)
+            context = dict(_SQL_EXPR_CONTEXT)
             getter = _TableGetter(self)
             context["table"] = getter
             getter = _AttributeGetter(self, attribute.dimension)
