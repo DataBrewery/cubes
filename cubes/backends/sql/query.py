@@ -3,6 +3,7 @@
 from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...browser import SPLIT_DIMENSION_NAME
 from ...errors import *
+from ...expr import evaluate_expression
 from ...logging import get_logger
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD
@@ -508,9 +509,6 @@ class SnowflakeSchema(object):
         if ref.func:
             column = getattr(sql.expression.func, ref.func)(column)
         if ref.expr:
-            compiled_expr = compile(ref.expr, '__expr__', 'eval')
-            context = _EXPR_EVAL_NS.copy()
-
             # Provide columns for attributes (according to current state of
             # the query)
             table = attribute.dimension or self.cube
@@ -521,11 +519,7 @@ class SnowflakeSchema(object):
             context["fact"] = fact_getter
             context["column"] = column
 
-            column = eval(compiled_expr, context)
-
-            if not isinstance(column, sql.expression.ColumnElement):
-                raise BrowserError("Cannot evaluate a ColumnElement object from "
-                                   "reference's expr property: %r" % ref)
+            column = evaluate_expression(ref.expr, _EVAL_EXPR_NS, context, 'expr', sql.expression.ColumnElement)
 
         if self.safe_labels:
             label = "a%d" % self.label_counter
@@ -1530,11 +1524,7 @@ class QueryBuilder(object):
             if not ref.condition:
                 continue
 
-            # TODO: see column() and "expr" mapping
             column = self.column(attribute)
-            compiled_expr = compile(ref.condition, '__expr__', 'eval')
-
-            context = _EXPR_EVAL_NS.copy()
 
             # Provide columns for attributes (according to current state of
             # the query)
@@ -1545,11 +1535,12 @@ class QueryBuilder(object):
             context["fact"] = fact_getter
             context["column"] = column
 
-            condition = eval(compiled_expr, context)
-
-            if not isinstance(condition, sql.expression.ColumnElement):
-                raise BrowserError("Cannot evaluate a ColumnElement object from "
-                                   "reference's condition expr: %r" % ref)
+            condition = evaluate_expression(
+                    ref.condition, 
+                    _EVAL_EXPR_NS, 
+                    context, 
+                    'condition', 
+                    sql.expression.ColumnElement)
 
             conditions.append(condition)
 
