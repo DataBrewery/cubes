@@ -1142,7 +1142,12 @@ class Dimension(ModelObject):
         # TODO: should we do deppcopy on info?
         name = alias or self.name
 
-        key = key or self.key.name
+        if key:
+            key = key
+        elif self.key:
+            key = self.key.name
+        else:
+            key = None
 
         return Dimension(name=name,
                          levels=levels,

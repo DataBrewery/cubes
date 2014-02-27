@@ -98,3 +98,7 @@ class HierarchyError(UserError):
     hierarchy"""
     error_type = "hierarchy"
 
+class ExpressionError(ModelError):
+    """Raised when attribute expression is invalid.
+    """
+

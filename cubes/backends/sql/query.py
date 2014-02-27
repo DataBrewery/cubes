@@ -3,6 +3,7 @@
 from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...browser import SPLIT_DIMENSION_NAME
 from ...errors import *
+from ...expr import evaluate_expression
 from ...logging import get_logger
 from collections import namedtuple, OrderedDict
 from .mapper import DEFAULT_KEY_FIELD, PhysicalAttribute
@@ -33,7 +34,7 @@ JoinedProduct = namedtuple("JoinedProduct",
         ["expression", "tables"])
 
 
-_EXPR_EVAL_NS = {
+_SQL_EXPR_CONTEXT = {
     "sqlalchemy": sqlalchemy,
     "sql": sql,
     "func": sql.expression.func,
@@ -520,10 +521,6 @@ class SnowflakeSchema(object):
         if ref.func:
             column = getattr(sql.expression.func, ref.func)(column)
         if ref.expr:
-            # TODO: see _ptd_condition()
-            compiled_expr = compile(ref.expr, '__expr__', 'eval')
-            context = _EXPR_EVAL_NS.copy()
-
             # Provide columns for attributes (according to current state of
             # the query)
             getter = _TableGetter(self)
@@ -532,12 +529,11 @@ class SnowflakeSchema(object):
             context["dim"] = getter
             getter = _AttributeGetter(self, self.cube)
             context["fact"] = getter
+            context["column"] = column
 
-            expr_func = eval(compiled_expr, context)
-            if not callable(expr_func):
-                raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
+            context.update(_SQL_EXPR_CONTEXT)
 
-            column = expr_func(column)
+            column = evaluate_expression(ref.expr, context, 'expr', sql.expression.ColumnElement)
 
         if self.safe_labels:
             label = "a%d" % self.label_counter
@@ -1555,11 +1551,7 @@ class QueryBuilder(object):
             if not ref.condition:
                 continue
 
-            # TODO: see column() and "expr" mapping
             column = self.column(attribute)
-            compiled_expr = compile(ref.condition, '__expr__', 'eval')
-
-            context = _EXPR_EVAL_NS.copy()
 
             # Provide columns for attributes (according to current state of
             # the query)
@@ -1569,14 +1561,13 @@ class QueryBuilder(object):
             context["dim"] = getter
             getter = _AttributeGetter(self, self.cube)
             context["fact"] = getter
+            context["column"] = column
 
-            function = eval(compiled_expr, context)
+            condition = evaluate_expression(ref.condition,
+                                            context,
+                                            'condition',
+                                            sql.expression.ColumnElement)
 
-            if not callable(function):
-                raise BrowserError("Cannot evaluate a callable object from "
-                                   "reference's condition expr: %r" % ref)
-
-            condition = function(column)
             conditions.append(condition)
 
         # TODO: What about invert?
