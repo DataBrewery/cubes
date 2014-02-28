@@ -185,6 +185,70 @@ For the :doc:`server` the dimension schema is specifiedn in the
     schema="facts"
     dimension_schema="dimensions"
 
+Many-to-Many Relationship
+-------------------------
+
+*Synopsis: One fact might have multiple dimension members assigned*
+
+There are several options how the case of multiple dimension members per fact
+can be solved. Each has it advantages and disadvantages. Here is one of them:
+using a bridge table.
+
+This is our logical intention: there might be multiple representatives
+involved in an interaction cases:
+
+.. image:: images/schemas/schema-many_to_many-intention.png
+    :align: center
+
+We can solve the problem with adding a bridge table and by creating artificial
+level `representative_group`. This group is unique combination of
+representatives that were involved in an interaction.
+
+.. image:: images/schemas/schema-many_to_many.png
+    :align: center
+
+
+The model looks like:
+
+.. code-block:: javascript
+
+    "cubes": [
+        {
+            "dimensions": ["representative", ...],
+            "joins": [
+                {
+                    "master":"representative_group_id",
+                    "detail":"bridge_representative.group_id"
+                },
+                {
+                    "master":"bridge_representative.representative_id",
+                    "detail":"representative.id"
+                }
+            ]
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "representative",
+            "levels": [
+                { "name":"team" },
+                { "name":"name", "nonadditive": "any"}
+            ]
+        }
+    ]
+
+You might have noticed that the bridge table is hidden – you can't see it's
+contents anywhere in the cube.
+
+There is one problem with aggregations when such dimension is involved: by
+aggregating over any level that is not the most detailed (deepest) we might
+get double (multiple) counting of the dimension members. For this reason it is
+important to specify all higher levels as `nonadditive` for ``any`` other
+dimension. It his case, backends that are aware of the issue, might handle it
+appropriately.
+
+Some front-ends might not even allow to aggregate by levels that are marked as
+`nonadditivy`.
 
 Mappings
 ========
@@ -676,7 +740,7 @@ Full localization with detailed dictionaries looks like this:
     }
 
 
-.. comment::
+..
 
     To create a model with translations:
 
