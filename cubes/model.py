@@ -2101,7 +2101,8 @@ class MeasureAggregate(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, measure=None,
-                 function=None, formula=None, expression=None, **kwargs):
+                 function=None, formula=None, expression=None,
+                 nonadditive=None, **kwargs):
         """Masure aggregate
 
         Attributes:
@@ -2111,6 +2112,8 @@ class MeasureAggregate(AttributeBase):
           expression (optional)
         * `measure` – measure name for this aggregate (optional)
         * `expression` – arithmetic expression (only if bacend supported)
+        * `nonadditive` – additive behavior for the aggregate (inherited from
+          the measure in most of the times)
         """
 
         super(MeasureAggregate, self).__init__(name=name, label=label,
@@ -2123,6 +2126,7 @@ class MeasureAggregate(AttributeBase):
         self.formula = formula
         self.expression = expression
         self.measure = measure
+        self.nonadditive = nonadditive
 
     def __deepcopy__(self, memo):
         return MeasureAggregate(self.name,
@@ -2135,7 +2139,8 @@ class MeasureAggregate(AttributeBase):
                                 measure=self.measure,
                                 function=self.function,
                                 formula=self.formula,
-                                expression=self.expression)
+                                expression=self.expression,
+                                nonadditive=self.nonadditive)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
@@ -2144,7 +2149,8 @@ class MeasureAggregate(AttributeBase):
         return str(self.function) == str(other.function) \
             and self.measure == other.measure \
             and self.formula == other.formula \
-            and self.expression == other.expression
+            and self.expression == other.expression \
+            and self.nonadditive == other.nonadditive
 
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)
@@ -2152,6 +2158,7 @@ class MeasureAggregate(AttributeBase):
         d["formula"] = self.formula
         d["expression"] = self.expression
         d["measure"] = self.measure
+        d["nonadditive"] = self.nonadditive
 
         return d
 
@@ -2290,6 +2297,10 @@ def create_cube(metadata):
 
         if aggregate.label is None:
             aggregate.label = _measure_aggregate_label(aggregate, measure)
+
+        # Inherit nonadditive property from the measure
+        if measure and aggregate.nonadditive is None:
+            aggregate.nonadditive = measure.nonadditive
 
     return Cube(measures=measures,
                 aggregates=aggregates,
