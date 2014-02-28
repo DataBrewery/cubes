@@ -804,7 +804,7 @@ class Dimension(ModelObject):
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, category=None,
-                 master=None, nonadditive=None, key=None, **desc):
+                 master=None, nonadditive=None, **desc):
 
         """Create a new dimension
 
@@ -830,7 +830,7 @@ class Dimension(ModelObject):
         * `category` – logical dimension group (user-oriented metadata)
         * `nonadditive` – kind of non-additivity of the dimension. Possible
           values: `None` (fully additive, default), ``time`` (non-additive for
-          time dimensions) or ``any`` (non-additive for any other dimension)
+          time dimensions) or ``all`` (non-additive for any other dimension)
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -860,7 +860,7 @@ class Dimension(ModelObject):
         if not nonadditive or nonadditive == "none":
             self.nonadditive = None
         elif nonadditive in ["all", "any"]:
-            self.nonadditive = "any"
+            self.nonadditive = "all"
         elif nonadditive != "time":
             raise ModelError("Unknown non-additive diension type '%s'"
                              % nonadditive)
@@ -896,18 +896,6 @@ class Dimension(ModelObject):
                 self._attributes[a.name] = a
                 self._attributes_by_ref[a.ref()] = a
 
-        # Set the unique dimension key attribute – it has to be an existing
-        # attribute (belonging to a level)
-        if key:
-            try:
-                self.key = self.attribute(str(key))
-            except NoSuchAttributeError:
-                raise ModelError("Dimension key should exist as an attribute "
-                                 "(in dimension '%s', key '%s'"
-                                 % (self.name, key))
-        else:
-            self.key = None
-
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
             self.hierarchies = OrderedDict((h.name, h) for h in hierarchies)
@@ -926,7 +914,6 @@ class Dimension(ModelObject):
                 or self.label != other.label \
                 or self.description != other.description \
                 or self.cardinality != other.cardinality \
-                or self.key != other.key \
                 or self.category != other.category:
             return False
 
@@ -1067,7 +1054,7 @@ class Dimension(ModelObject):
 
     def clone(self, hierarchies=None, exclude_hierarchies=None,
               nonadditive=None, default_hierarchy_name=None, cardinality=None,
-              alias=None, key=None):
+              alias=None):
         """Returns a clone of the receiver with some modifications. `master`
         of the clone is set to the receiver.
 
@@ -1078,8 +1065,6 @@ class Dimension(ModelObject):
           hierarchies in this list
         * `nonadditive` – non-additive value for the dimension
         * `alias` – name of the cloned dimension
-        * `key` – key of the cloned dimension (for example if it is of bigger
-          granularity than parent)
         """
 
         if hierarchies == []:
@@ -1142,13 +1127,6 @@ class Dimension(ModelObject):
         # TODO: should we do deppcopy on info?
         name = alias or self.name
 
-        if key:
-            key = key
-        elif self.key:
-            key = self.key.name
-        else:
-            key = None
-
         return Dimension(name=name,
                          levels=levels,
                          hierarchies=hierarchies,
@@ -1159,8 +1137,7 @@ class Dimension(ModelObject):
                          role=self.role,
                          cardinality=cardinality,
                          master=self,
-                         nonadditive=nonadditive,
-                         key=key)
+                         nonadditive=nonadditive)
 
     def to_dict(self, **options):
         """Return dictionary representation of the dimension"""
@@ -1174,7 +1151,6 @@ class Dimension(ModelObject):
         out["role"] = self.role
         out["cardinality"] = self.cardinality
         out["category"] = self.category
-        out["key"] = self.key
 
         out["levels"] = [level.to_dict(**options) for level in self.levels]
 
@@ -1595,7 +1571,7 @@ class Level(ModelObject):
       optionally by backends and front ends.
     * `nonadditive` – kind of non-additivity of the level. Possible
       values: `None` (fully additive, default), ``time`` (non-additive for
-      time dimensions) or ``any`` (non-additive for any other dimension)
+      time dimensions) or ``all`` (non-additive for any other dimension)
 
     Cardinality values:
 
@@ -1630,7 +1606,7 @@ class Level(ModelObject):
         if not nonadditive or nonadditive == "none":
             self.nonadditive = None
         elif nonadditive in ["all", "any"]:
-            self.nonadditive = "any"
+            self.nonadditive = "all"
         elif nonadditive != "time":
             raise ModelError("Unknown non-additive diension type '%s'"
                              % nonadditive)
@@ -2390,7 +2366,6 @@ def create_dimension(metadata, templates=None):
         role = template.role
         category = template.category
         nonadditive = template.nonadditive
-        key = template.key
     else:
         template = None
         levels = []
@@ -2403,7 +2378,6 @@ def create_dimension(metadata, templates=None):
         category = None
         info = {}
         nonadditive = None
-        key = None
 
     # Fix the metadata, but don't create default level if the template
     # provides levels.
@@ -2418,7 +2392,6 @@ def create_dimension(metadata, templates=None):
     role = metadata.get("role", role)
     category = metadata.get("category", category)
     nonadditive = metadata.get("nonadditive", nonadditive)
-    key = metadata.get("key", key)
 
     # Backward compatibility with an experimental feature
     cardinality = metadata.get("cardinality", cardinality)
@@ -2495,8 +2468,7 @@ def create_dimension(metadata, templates=None):
                      cardinality=cardinality,
                      role=role,
                      category=category,
-                     nonadditive=nonadditive,
-                     key=key
+                     nonadditive=nonadditive
                     )
 
 def _create_hierarchies(metadata, levels, template):
