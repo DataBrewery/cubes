@@ -1593,6 +1593,9 @@ class Level(ModelObject):
       application/front-end specific information
     * `cardinality` – approximation of the number of level's members. Used
       optionally by backends and front ends.
+    * `nonadditive` – kind of non-additivity of the level. Possible
+      values: `None` (fully additive, default), ``time`` (non-additive for
+      time dimensions) or ``any`` (non-additive for any other dimension)
 
     Cardinality values:
 
@@ -1610,7 +1613,8 @@ class Level(ModelObject):
 
     def __init__(self, name, attributes, key=None, order_attribute=None,
                  order=None, label_attribute=None, label=None, info=None,
-                 cardinality=None, role=None, description=None):
+                 cardinality=None, role=None, nonadditive=None,
+                 description=None):
 
         super(Level, self).__init__(name, label, description, info)
 
@@ -1621,6 +1625,16 @@ class Level(ModelObject):
             raise ModelError("Attribute list should not be empty")
 
         self.attributes = attribute_list(attributes)
+
+        # Note: synchronize with Measure.__init__ if relevant/necessary
+        if not nonadditive or nonadditive == "none":
+            self.nonadditive = None
+        elif nonadditive in ["all", "any"]:
+            self.nonadditive = "any"
+        elif nonadditive != "time":
+            raise ModelError("Unknown non-additive diension type '%s'"
+                             % nonadditive)
+        self.nonadditive = nonadditive
 
         if key:
             self.key = self.attribute(key)
@@ -1669,6 +1683,7 @@ class Level(ModelObject):
                 or self.role != other.role \
                 or self.label_attribute != other.label_attribute \
                 or self.order_attribute != other.order_attribute \
+                or self.nonadditive != other.nonadditive \
                 or self.attributes != other.attributes:
             return False
 
@@ -1698,6 +1713,7 @@ class Level(ModelObject):
                      info=copy.copy(self.info),
                      label=copy.copy(self.label),
                      cardinality=self.cardinality,
+                     nonadditive=self.nonadditive,
                      role=self.role
                      )
 
@@ -1719,6 +1735,7 @@ class Level(ModelObject):
 
         out["order"] = self.order
         out["cardinality"] = self.cardinality
+        out["nonadditive"] = self.nonadditive
 
         out["attributes"] = [attr.to_dict(**options) for attr in
                              self.attributes]
