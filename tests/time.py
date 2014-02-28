@@ -125,7 +125,7 @@ class DateTimeTestCase(CubesTestCaseBase):
         self.assertEqual([2013, 3, 1,0 ], path)
 
         path = self.cal.named_relative_path("lastquarter", units, date)
-        self.assertEqual([2012, 1, 1, 0], path)
+        self.assertEqual([2011,10, 1, 0], path)
 
         path = self.cal.named_relative_path("lastyear", units, date)
         self.assertEqual([2011, 1, 1,0 ], path)
