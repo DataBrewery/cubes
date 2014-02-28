@@ -687,8 +687,6 @@ class QueryBuilder(object):
                                           "dimensions is not yet implemented."
                                           "(cube '%s', dimension '%s')" %
                                           (self.cube.name, dim.name))
-        # TODO: make this configurable
-        self.semiadditive_function = "max"
 
     def aggregation_statement(self, cell, drilldown=None, aggregates=None,
                               split=None, attributes=None, summary_only=False):
@@ -812,13 +810,10 @@ class QueryBuilder(object):
             master.ptd_attributes += required
 
         # Semi-additive attribute
-        semiadditive_attribute = self.get_semiadditive_attribute(aggregates,
-                                                                 drilldown)
-        if semiadditive_attribute:
-            if self.snowflake.is_outer_detail(semiadditive_attribute):
-                detail.other_attributes.append(semiadditive_attribute)
-            else:
-                master.other_attributes.append(semiadditive_attribute)
+        semiadditives = self.semiadditive_attributes(aggregates, drilldown)
+        sa_master, sa_detail = self._split_attributes_by_relationship(semiadditives)
+        master.other_attributes += sa_master
+        detail.other_attributes += sa_detail
 
         # Pick the method:
         #
@@ -1037,11 +1032,12 @@ class QueryBuilder(object):
 
         # Include the semi-additive dimension, if required
         #
-        if semiadditive_attribute:
+        if semiadditives:
             self.logger.debug("preparing semiadditive subquery for "
-                              "attribute: %s" % semiadditive_attribute)
+                              "attributes: %s"
+                              % [a.name for a in semiadditives])
 
-            join_expression = self._semiadditive_subquery(semiadditive_attribute,
+            join_expression = self._semiadditive_subquery(semiadditives,
                                                      selection,
                                                      from_obj=join_expression,
                                                      condition=condition,
@@ -1078,6 +1074,10 @@ class QueryBuilder(object):
         attributes that have master/match relationship towards the fact and
         `detail` is a list of attributes with outer detail relationship
         towards the fact."""
+
+        if not attributes:
+            return ([],[])
+
         master = []
         detail = []
         for attribute in attributes:
@@ -1129,7 +1129,7 @@ class QueryBuilder(object):
 
         return split_column.label(label)
 
-    def get_semiadditive_attribute(self, aggregates, drilldown):
+    def semiadditive_attributes(self, aggregates, drilldown):
         """Returns an attribute from a semi-additive dimension, if defined for
         the cube. Cubes allows one semi-additive dimension. """
 
@@ -1152,33 +1152,21 @@ class QueryBuilder(object):
         items = [item for item in drilldown \
                        if item.dimension.role == "time"]
 
-        if not items:
-            return None
+        attributes = []
+        for item in drilldown:
+            if item.dimension.role != "time":
+                continue
+            attribute = Attribute("__key__", dimension=item.dimension)
+            attributes.append(attribute)
 
-        dim = items[0].dimension
+        return attributes
 
-        if not dim.key:
-            raise ModelError("Semi-additive aggregate requires a "
-                             "time dimension, however the time dimension "
-                             "'%s' (in cube '%s') does not have a key set."
-                             % (dim.name, self.cube.name))
-        return dim.key
-
-    def _semiadditive_subquery(self, semiadditive_attribute, selection,
+    def _semiadditive_subquery(self, attributes, selection,
                                from_obj, condition, group_by):
         """Prepare the semi-additive subquery"""
         sub_selection = selection[:]
 
-        try:
-            func = getattr(sql.expression.func, self.semiadditive_function)
-        except AttributeError:
-            raise ModelError("Unknown function '%s' for semiadditive "
-                             "dimension."
-                             % self.semiadditive_function)
-
-        column = self.column(semiadditive_attribute)
-        column = func(column).label("__semiadditive_key")
-        sub_selection.append(column)
+        sub_selection += [self.column(attr) for attr in attributes]
 
         # This has to be the same as the final SELECT, except the subquery
         # selection
@@ -1194,14 +1182,9 @@ class QueryBuilder(object):
         # Skipt the last subquery selection which we have created just
         # recently
         join_conditions = []
-        sub_selection = list(sub_statement.columns)[:-1]
 
-        for left, right in zip(selection, sub_selection):
+        for left, right in zip(selection, sub_statement.columns):
             join_conditions.append(left == right)
-
-        original_column = self.column(semiadditive_attribute)
-        subquery_column = sub_statement.c["__semiadditive_key"]
-        join_conditions.append(original_column == subquery_column)
 
         join_condition = condition_conjunction(join_conditions)
         join_expression = from_obj.join(sub_statement, join_condition)
