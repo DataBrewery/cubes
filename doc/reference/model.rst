@@ -31,6 +31,7 @@ Following methods are used to create model objects from a metadata dicitonary.
 .. autofunction:: cubes.create_measure_aggregate
 .. autofunction:: cubes.attribute_list
 
+
 Model components
 ================
 

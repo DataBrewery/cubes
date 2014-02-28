@@ -2,9 +2,6 @@
 Formatters Reference
 ####################
 
-.. autofunction:: cubes.create_formatter
-.. autofunction:: cubes.register_formatter
-
 Formatters
 ==========
 
