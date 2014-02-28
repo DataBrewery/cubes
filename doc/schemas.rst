@@ -363,6 +363,54 @@ The code example below is in the “dimensions” section of the model:
 The ``default_hierarchy_name`` specifies which hierarchy will be used if not
 mentioned explicitly.
 
+Multiple Tables for Dimension Levels
+------------------------------------
+
+*Synopsis: Each dimension level has a separate table*
+
+.. image:: images/schemas/schema-two_joins.png
+    :align: center
+
+We have to join additional tables and map the attributes that are not in the
+"main" dimension table (table with the same name as the dimension):
+
+.. code-block:: javascript
+
+    "cubes": [
+        {
+            "dimensions": ["product", ...],
+            "measures": ["amount"],
+            "joins": [
+                {"master":"product_id", "detail":"product.id"},
+                {"master":"product.category_id", "detail":"category.id"}
+            ],
+            "mappings": {
+                "product.category_code": "category.code",
+                "product.category": "category.name"
+            }
+        }
+    ],
+    "dimensions": [
+        {
+            "name": "product",
+            "levels": [
+                {
+                    "name":"category",
+                    "attributes": ["category_code", "category"]
+                },
+                {
+                    "name":"product",
+                    "attributes": ["code", "name"]
+                }
+            ]
+        }
+    ]
+
+.. note::
+
+    Joins should be ordered "from the master towards the details". That means
+    that always join tables closer to the fact table before the other tables.
+
 
 User-oriented Metadata
 ======================
