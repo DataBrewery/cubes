@@ -13,7 +13,6 @@ the future.
 
 """
 
-import jsonschema
 import pkgutil
 import urlparse
 import urllib2
@@ -24,6 +23,12 @@ import re
 
 from collections import OrderedDict, namedtuple
 from .errors import *
+
+try:
+    import jsonschema
+except ImportError:
+    from cubes.common import MissingPackage
+    jsonschema = MissingPackage("jsonschema", "Model validation")
 
 __all__ = (
     "read_model_metadata",

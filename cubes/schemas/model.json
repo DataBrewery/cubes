@@ -17,7 +17,7 @@
         "dimensions": {"type": "array"},
 
         "schema": {"type": "string"},
-        "datastore": {"type": "string"},
+        "store": {"type": "string"},
         "mappings": {"type": "object"},
         "joins": {"type": "array"}
     },

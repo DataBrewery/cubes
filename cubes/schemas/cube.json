@@ -33,7 +33,7 @@
 
         "fact": {"type": "string"},
         "key": {"type": "string"},
-        "datastore": {"type": "string"},
+        "store": {"type": "string"},
 
         "browser_options": {"type": "object"},
 
@@ -48,6 +48,7 @@
                             {
                                 "properties": {
                                     "aggregates": {"type": "array"},
+                                    "nonadditive": {"type": "string"},
                                     "expression": {"type": "string"}
                                 }
                             }
@@ -72,6 +73,7 @@
                                     "expression": {"type": "string"},
                                     "function": {"type": "string"},
                                     "formula": {"type": "string"},
+                                    "nonadditive": {"type": "string"},
                                     "measure": {"type": "string"}
                                 }
                             }
@@ -115,7 +117,7 @@
             "type": "array",
             "items": {
                 "title": "Dimension name",
-                "type": "string"
+                "type": ["string", "object"]
             }
         },
 

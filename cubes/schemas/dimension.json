@@ -38,6 +38,7 @@
 
         "role": {"type": "string"},
 
+        "nonadditive": {"type": "string"},
         "cardinality": {
             "type": "string",
             "enum":["tiny", "low", "medium", "high"]
