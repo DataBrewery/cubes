@@ -45,7 +45,7 @@ Content related keys:
 * ``keywords`` – list of keywords that describe the data
 * ``related`` – list of related or "friendly" Slicer servers with other open
   data – a dictionary with keys ``label`` and ``url``.
-* ``visualizations`` – list of links to prepared visualisations of the
+* ``visualizers`` – list of links to prepared visualisations of the
   server's data – a dictionary with keys ``label`` and ``url``.
 
 Server related keys:

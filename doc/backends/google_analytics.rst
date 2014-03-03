@@ -60,7 +60,7 @@ specified then the first account in the account list is used.
 
 Example::
 
-    [datastore]
+    [store]
     type: ga
     email: 123456789012-abcdefghijklmnopqrstuvwxyzabcdef@developer.gserviceaccount.com
     key_file: key.p12

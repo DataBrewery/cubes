@@ -17,7 +17,7 @@ Type is ``mongo2``
 
 Example::
 
-    [datastore]
+    [store]
     type: mongo2
     url: mongodb://localhost:37017/
     database: MongoBI

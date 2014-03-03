@@ -29,7 +29,7 @@ Type is ``slicer``
 
 Example::
 
-    [datastore]
+    [store]
     type: slicer
     url: http://slicer.databrewery.org/webshop-example
 
@@ -54,7 +54,7 @@ the data store:
 
     {
         "provider": "slicer",
-        "datastore": "slicer_2"
+        "store": "slicer_2"
     }
 
 Example
@@ -75,7 +75,7 @@ Create a ``slicer.ini``:
     [workspace]
     model: slicer_model.json
 
-    [datastore]
+    [store]
     type: slicer
     url: http://slicer.databrewery.org/webshop-example
 

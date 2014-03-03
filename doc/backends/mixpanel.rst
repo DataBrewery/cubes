@@ -30,7 +30,7 @@ you will see a list of key/secret pairs for your projects.
 
 Example::
 
-    [datastore]
+    [store]
     type: mixpanel
     api_key: 0123456789abcdef0123456789abcdef
     api_secret: 0123456789abcdef0123456789abcdef
@@ -140,7 +140,7 @@ Create a ``slicer.ini``:
     [workspace]
     model: model.json
 
-    [datastore]
+    [store]
     type: mixpanel
     api_key: YOUR_API_KEY
     api_secret: YOUR_API_SECRET

@@ -361,33 +361,20 @@ class Workspace(object):
         # Register Stores
         # ===============
         #
-        # * Default store is [datastore] in main config file
+        # * Default store is [store] in main config file
         # * Stores are also loaded from main config file from sections with
         #   name [store_*] (not documented feature)
 
         default = None
-        if config.has_section("datastore"):
-            default = dict(config.items("datastore"))
-        elif config.has_section("workspace"):
-            self.logger.warn("No [datastore] configuration found, using old "
-                             "backend & [workspace]. Update you config file.")
-            default = {}
-            default = dict(config.items("workspace"))
-            default["type"] = config.get("server", "backend") if config.has_option("server", "backend") else None
-
-            if not default.get("type"):
-                self.logger.warn("No store type specified, assuming 'sql'")
-                default["type"] = "sql"
+        if config.has_section("store"):
+            default = dict(config.items("store"))
 
         if default:
             self._register_store_dict("default",default)
 
         # Register [store_*] from main config (not documented)
         for section in config.sections():
-            if section.startswith("datastore_"):
-                name = section[10:]
-                self._register_store_dict(name, dict(config.items(section)))
-            elif section.startswith("store_"):
+            if section.startswith("store_"):
                 name = section[6:]
                 self._register_store_dict(name, dict(config.items(section)))
 
@@ -454,10 +441,10 @@ class Workspace(object):
             try:
                 type_ = info.pop("backend")
             except KeyError:
-                raise ConfigurationError("Datastore '%s' has no type specified" % name)
+                raise ConfigurationError("Store '%s' has no type specified" % name)
             else:
                 self.logger.warn("'backend' is depreciated, use 'type' for "
-                                 "datastore (in %s)." % str(name))
+                                 "store (in %s)." % str(name))
 
         self.register_store(name, type_, **info)
 
@@ -502,9 +489,9 @@ class Workspace(object):
 
     def _store_for_model(self, metadata):
         """Returns a store for model specified in `metadata`. """
-        store_name = metadata.get("datastore")
+        store_name = metadata.get("store")
         if not store_name and "info" in metadata:
-            store_name = metadata["info"].get("datastore")
+            store_name = metadata["info"].get("store")
 
         store_name = store_name or "default"
 
@@ -564,7 +551,7 @@ class Workspace(object):
             provider_name = metadata.get("provider", "default")
             provider = extensions.model_provider(provider_name, metadata)
 
-        store = store or metadata.get("store", metadata.get("datastore"))
+        store = store or metadata.get("store")
 
         if store or provider.requires_store():
             if store and not isinstance(store, basestring):
@@ -599,7 +586,7 @@ class Workspace(object):
         model = {
             "store": name,
             "provider": "slicer",
-            "datastore": name
+            "store": name
         }
         self.import_model(model)
 

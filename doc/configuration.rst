@@ -8,7 +8,7 @@ Cubes workspace configuration is stored in a ``.ini`` file with sections:
 * ``[workspace]`` – Cubes workspace configuration
 * ``[server]`` - server related configuration, such as host, port
 * ``[models]`` - list of models to be loaded 
-* ``[datastore]`` – default datastore configuration
+* ``[store]`` – default datastore configuration
 * ``[translations]`` - model translation files, option keys in this section
   are locale names and values are paths to model translation files. See
   :doc:`localization` for more information.
@@ -17,7 +17,7 @@ Cubes workspace configuration is stored in a ``.ini`` file with sections:
 .. note::
 
     The configuration has changed. Since Cubes supports multiple data stores,
-    their type (backend) is specifien in the datastore configuration as
+    their type (backend) is specifien in the store configuration as
     ``type`` property, for example ``type=sql``.
 
 Quick Start
@@ -28,7 +28,7 @@ Simple configuration might look like this::
     [workspace]
     model: model.json
 
-    [datastore]
+    [store]
     type: sql
     url: postgresql://localhost/database
 
@@ -56,6 +56,25 @@ Workspace
   reference 
 
 * ``info_file`` – path to JSON file containing additional server info
+
+Info
+----
+
+The info JSON file might contain:
+
+* ``label`` – server's name or label
+* ``description`` – description of the served data
+* ``copyright`` – copyright of the data, if any
+* ``license`` – data license
+* ``maintainer`` – name of the data maintainer, might be in format ``Name
+  Surname <namesurname@domain.org>``
+* ``contributors`` - list of contributors
+* ``keywords`` – list of keywords that describe the data
+* ``related`` – list of related or "friendly" Slicer servers with other open
+  data – a dictionary with keys ``label`` and ``url``.
+* ``visualizers`` – list of links to prepared visualisations of the
+  server's data – a dictionary with keys ``label`` and ``url``.
+
 
 Models
 ======
@@ -121,7 +140,7 @@ Model
 Data stores
 ===========
 
-There might be one or more datastores configured. The section ``[datastore]``
+There might be one or more store configured. The section ``[store]``
 of the ``cubes.ini`` file describes the default store. Multiple stores are
 configured in a separate ``stores.ini`` file. The path to the stores
 configuration file might be specified in a variable ``stores`` of the
@@ -143,7 +162,7 @@ SQL store
 
 Example SQL store::
 
-    [datastore]
+    [store]
     type: sql
     url: postgresql://localhost/data
     schema: cubes
@@ -164,7 +183,7 @@ Example configuration file::
     log: /var/log/cubes.log
     log_level: info
 
-    [datastore]
+    [store]
     type: sql
     url: postgresql://localhost/data
     schema: cubes

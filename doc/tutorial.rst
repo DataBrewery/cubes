@@ -77,7 +77,7 @@ database where are the cube's data:
 
 .. code-block:: ini
 
-    [datastore]
+    [store]
     type: sql
     url: sqlite:///data.sqlite
 

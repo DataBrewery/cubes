@@ -111,12 +111,12 @@ Python code we specify the prefix during the data store registration in
                              fact_suffix="_fact",
                              fact_prefix="fact_")
 
-When using the :doc:`server` we specify the prefixes in the ``[datastore]``
+When using the :doc:`server` we specify the prefixes in the ``[store]``
 section of the `slicer.ini` configuration file:
 
 .. code-block:: ini
 
-    [datastore]
+    [store]
     ...
     dimension_prefix="dim_"
     fact_prefix="fact_"
@@ -142,12 +142,12 @@ it in the `schema` argument of :meth:`cubes.Workspace.register_store`:
                              url=DATABASE_URL,
                              schema="sales_datamart")
 
-For the :doc:`server` the schema is specifiedn in the ``[datastore]`` section
+For the :doc:`server` the schema is specifiedn in the ``[store]`` section
 of the `slicer.ini` configuration file:
 
 .. code-block:: ini
 
-    [datastore]
+    [store]
     ...
     schema="sales_datamart"
 
@@ -176,11 +176,11 @@ Python pass it in the `dimension_schema` argument of
                                        dimension_schema="dimensions")
 
 For the :doc:`server` the dimension schema is specifiedn in the
-``[datastore]`` section of the `slicer.ini` configuration file:
+``[store]`` section of the `slicer.ini` configuration file:
 
 .. code-block:: ini
 
-    [datastore]
+    [store]
     ...
     schema="facts"
     dimension_schema="dimensions"

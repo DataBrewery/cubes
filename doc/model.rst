@@ -310,7 +310,7 @@ description dictionary or in json files with prefix ``cube_`` like
       -
     * - ``browser_options``
       - browser specific options, consult the backend for more information
-    * - ``datastore``
+    * - ``store``
       - name of a datastore where the cube is stored. Use this only when
         default store assignment is different from your requirements.
 
