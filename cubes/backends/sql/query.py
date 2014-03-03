@@ -2,6 +2,7 @@
 
 from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...browser import SPLIT_DIMENSION_NAME
+from ...model import Attribute
 from ...errors import *
 from ...expr import evaluate_expression
 from ...logging import get_logger
@@ -308,6 +309,11 @@ class SnowflakeSchema(object):
 
         try:
             return lookup[attribute] == OUTER_DETAIL_RSHIP
+        except KeyError:
+            # Retry as raw table (used by internally generated attributes)
+            ref = self.mapper.physical(attribute)
+            key = (ref.schema, ref.table)
+            return self.tables[key].relationship
         except KeyError:
             raise InternalError("No fact relationship for attribute %s "
                                 "(aggregate: %s)"
