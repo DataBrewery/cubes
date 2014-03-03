@@ -73,6 +73,8 @@ class RequestLogger(object):
         else:
             self.handlers = []
 
+        self.logger = get_logger()
+
     @contextmanager
     def log_time(self, method, browser, cell, identity=None, **other):
         start = time.time()
@@ -95,7 +97,11 @@ class RequestLogger(object):
         record = self._stringify_record(record)
 
         for handler in self.handlers:
-            handler.write_record(browser.cube, cell, record)
+            try:
+                handler.write_record(browser.cube, cell, record)
+            except Exception as e:
+                self.logger.error("Server log handler error (%s): %s"
+                                  % (type(handler).__name__, str(e)))
 
 
     def _stringify_record(self, record):
