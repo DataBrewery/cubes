@@ -5,6 +5,7 @@ import re
 import pytz
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import MO, TU, WE, TH, FR, SA, SU
+from dateutil.tz import *
 from datetime import datetime, timedelta
 from time import strftime, gmtime
 
@@ -95,11 +96,6 @@ def calendar_hierarchy_units(hierarchy):
     return units
 
 
-def local_timezone_name():
-    """Return system's local timezone"""
-    return strftime("%Z", gmtime())
-
-
 def add_time_units(time, unit, amount):
     """Subtract `amount` number of `unit`s from datetime object `time`."""
 
@@ -141,14 +137,14 @@ class Calendar(object):
 
         if timezone:
             self.timezone_name = timezone
+            self.timezone = gettz(timezone) or tzstr(timezone)
         else:
-            self.timezone_name = local_timezone_name()
-        self.timezone = pytz.timezone(self.timezone_name)
+            self.timezone_name = datetime.now(tzlocal()).tzname()
+            self.timezone = tzlocal()
 
     def now(self):
         """Returns current date in the calendar's timezone."""
-        current_moment = _UTC.localize(datetime.utcnow())
-        return current_moment.astimezone(self.timezone)
+        return datetime.now(self.timezone)
 
     def path(self, time, units):
         """Returns a path from `time` containing date/time `units`. `units`
