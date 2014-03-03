@@ -5,6 +5,7 @@ from ...logging import get_logger
 from ...errors import *
 from ...mapper import Mapper
 from collections import namedtuple
+from ...model import AttributeBase
 
 __all__ = (
     "SnowflakeMapper",
@@ -12,6 +13,7 @@ __all__ = (
     "TableColumnReference",
     "TableJoin",
     "coalesce_physical",
+    "PhysicalAttribute",
     "DEFAULT_KEY_FIELD"
 )
 
@@ -34,6 +36,24 @@ SnowflakeTable = namedtuple("SnowflakeTable",
                             ["schema", "table", "outlets"])
 
 _join_method_order = {"detail":0, "master":1, "match": 2}
+
+# Note to developers: Used for internal purposes to represent a physical table
+# column. Currently used only in the PTD condition.
+class PhysicalAttribute(AttributeBase):
+    def __init__(self, name, label=None, description=None, order=None,
+                 info=None, format=None, table=None, missing_value=None,
+                 **kwargs):
+        super(PhysicalAttribute, self).__init__(name=name, label=label,
+                                        description=description, order=order,
+                                        info=info, format=format,
+                                        missing_value=missing_value)
+        self.table = table
+
+    def ref(self, simplify=True, locale=None):
+        if self.table is not None:
+            return "%s.%s" % (self.table, self.name)
+        else:
+            return self.name
 
 def coalesce_physical(ref, default_table=None, schema=None):
     """Coalesce physical reference `ref` which might be:
@@ -211,6 +231,15 @@ class SnowflakeMapper(Mapper):
                     table name is fact table name
         """
 
+        schema = self.dimension_schema or self.schema
+
+        if isinstance(attribute, PhysicalAttribute):
+            reference = TableColumnReference(schema,
+                                             attribute.table,
+                                             attribute.name,
+                                             None, None, None, None)
+            return reference
+
         reference = None
 
         # Fix locale: if attribute is not localized, use none, if it is
@@ -253,7 +282,6 @@ class SnowflakeMapper(Mapper):
             else:
                 table_name = self.fact_name
 
-            schema = self.dimension_schema or self.schema
             reference = TableColumnReference(schema, table_name, column_name, None, None, None, None)
 
         return reference

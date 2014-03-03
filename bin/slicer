@@ -93,7 +93,7 @@ def convert_model(args):
 
     path = args.target
 
-    workspace = Workspace()
+    workspace = cubes.Workspace()
     for model in args.models:
         workspace.add_model(model)
 
@@ -190,6 +190,7 @@ def generate_ddl(args):
 
     print ddl
 
+
 def run_server(args):
     """Run Slicer HTTP server."""
     config = read_config(args.config)
@@ -212,19 +213,49 @@ def run_server(args):
 
     cubes.server.run_server(config, debug=args.debug)
 
-def run_test(args):
-    """Run test of Slicer HTTP server configuration."""
-    raise NotImplementedError("Temporarily disabled.")
-    config = read_config(args.config)
-    workspace = Workspace(config)
 
-    results = workspace.validate_model()
-    if results:
-        print("\nvalidation results:\n")
-        for result in results:
-            print("%s: %s" % (result[0], result[1]) )
+def run_test(args):
+    """Test every cube in the model."""
+    workspace = cubes.Workspace(args.config)
+
+    errors = []
+
+    print workspace.list_cubes()
+    for info in workspace.list_cubes():
+        name = info["name"]
+        cube = workspace.cube(name)
+
+        sys.stdout.write("testing %s: " % name)
+        if cube.datastore in args.exclude_stores:
+            sys.stdout.write("pass\n")
+            continue
+
+        try:
+            browser = workspace.browser(name)
+        except Exception as e:
+            errors.append((name, e))
+            sys.stdout.write("BROWSER ERROR\n")
+            continue
+
+        try:
+            facts = browser.test()
+        except NotImplementedError:
+            sys.stdout.write("pass - no test\n")
+        except Exception as e:
+            errors.append((name, e))
+            sys.stdout.write("ERROR\n")
+
+    if errors:
+        print "\n%d ERRORS:" % len(errors)
+        for (cube, e) in errors:
+            if hasattr(e, "error_type"):
+                etype = e.error_type
+            else:
+                etype = str(type(e))
+
+            print "%s: %s - %s" % (cube, etype, str(e))
     else:
-        print("model test was successful")
+        print "test passed"
 
 def denormalize(args):
     raise NotImplementedError("Temporarily disabled.")
@@ -268,19 +299,6 @@ def convert_model(args):
     elif args.format == "bundle":
         write_model_metadata_bundle(path, model, replace=args.force)
 
-def run_test(args):
-    """Run test of Slicer HTTP server configuration."""
-    raise NotImplementedError("Temporarily disabled.")
-    config = read_config(args.config)
-    workspace = Workspace(config)
-
-    results = workspace.validate_model()
-    if results:
-        print("\nvalidation results:\n")
-        for result in results:
-            print("%s: %s" % (result[0], result[1]) )
-    else:
-        print("model test was successful")
 
 def denormalize(args):
     raise NotImplementedError("Temporarily disabled.")
@@ -453,6 +471,9 @@ subparser.add_argument('--debug',
 subparser = subparsers.add_parser('test', help="test the configuration and model with backend")
 subparser.add_argument('config', help='server confuguration .ini file')
 subparser.set_defaults(func=run_test)
+
+subparser.add_argument('-E', '--exclude-store',
+                            dest='exclude_stores', action='append')
 
 ################################################################################
 # Command: denormalize

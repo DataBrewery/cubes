@@ -147,30 +147,21 @@ In this case, the browser will be known by the name ``sql``.
 Aggregate
 ---------
 
-Arguments:
+Implement the `provider_aggregate()` method with the following arguments:
 
 * `cell` – cube cell to be aggregated
-* `aggregates` – list of aggregates to be considered (needs to be prepared)
-* `drilldown` – drill-down specification (needs to be prepared, see
-  :class:`cubes.Drilldown`)
+* `aggregates` – list of aggregates to be considered 
+* `drilldown` – :class:`cubes.Drilldown` instance (already prepared)
 * `split` (optional browser feature) – virtual cell-based dimension to split
   the aggregation cell into two: within the split cell or outside of the split
   cell
 * `page`, `page_size` – page number and size of the page for paginated results
-* `order` – order specification (needs to be prepared)
+* `order` – order specification: list of tuples (`attribute`, `order`)
 
 .. code-block:: python
 
-    def aggregate(self, cell=None, aggregates=None, drilldown=None, split=None,
-                  attributes=None, page=None, page_size=None, order=None,
-                  **options):
-
-        # Preparation of arguments:
-        if not cell:
-            cell = Cell(self.cube)
-        aggregates = self.prepare_aggregates(aggregates)
-        drilldown = Drilldown(drilldown, cell)
-        order = self.prepare_order(order, is_aggregate=True)
+    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
+                          page, page_size, **options):
 
         #
         # ... do the aggregation here ...
@@ -192,7 +183,6 @@ Arguments:
 
     :class:`cubes.AggregationResult`, :class:`cubes.Drilldown`,
     :class:`cubes.Cell`
-
 
 Facts
 -----

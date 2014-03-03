@@ -505,7 +505,7 @@ class Cube(ModelObject):
         try:
             return self._measures[name]
         except KeyError:
-            raise NoSuchAttributeError("cube '%s' has no measure '%s'" %
+            raise NoSuchAttributeError("Cube '%s' has no measure '%s'" %
                                             (self.name, name))
     def aggregate(self, name):
         """Get aggregate object. If `obj` is a string, then aggregate with
@@ -523,6 +523,19 @@ class Cube(ModelObject):
         except KeyError:
             raise NoSuchAttributeError("cube '%s' has no aggregate '%s'" %
                                             (self.name, name))
+
+    def nonadditive_type(self, aggregate):
+        """Returns non-additive type of `aggregate`'s measure. If aggregate
+        has no measure specified or is unknown (backend-specific) then `None`
+        is returned."""
+
+        try:
+            measure = self.measure(aggregate.measure)
+        except NoSuchAttributeError:
+            return None
+
+        return measure.nonadditive
+
 
     def measure_aggregate(self, name):
         """Returns a measure aggregate by name."""
@@ -641,6 +654,7 @@ class Cube(ModelObject):
 
         out = super(Cube, self).to_dict(**options)
 
+        out["locale"] = self.locale
         out["category"] = self.category
 
         aggregates = [m.to_dict(**options) for m in self.aggregates]
@@ -816,7 +830,7 @@ class Dimension(ModelObject):
         * `category` – logical dimension group (user-oriented metadata)
         * `nonadditive` – kind of non-additivity of the dimension. Possible
           values: `None` (fully additive, default), ``time`` (non-additive for
-          time dimensions) or ``any`` (non-additive for any other dimension)
+          time dimensions) or ``all`` (non-additive for any other dimension)
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -846,7 +860,7 @@ class Dimension(ModelObject):
         if not nonadditive or nonadditive == "none":
             self.nonadditive = None
         elif nonadditive in ["all", "any"]:
-            self.nonadditive = "any"
+            self.nonadditive = "all"
         elif nonadditive != "time":
             raise ModelError("Unknown non-additive diension type '%s'"
                              % nonadditive)
@@ -1050,6 +1064,7 @@ class Dimension(ModelObject):
         * `exclude_hierarchies` – all hierarchies are preserved except the
           hierarchies in this list
         * `nonadditive` – non-additive value for the dimension
+        * `alias` – name of the cloned dimension
         """
 
         if hierarchies == []:
@@ -1554,6 +1569,9 @@ class Level(ModelObject):
       application/front-end specific information
     * `cardinality` – approximation of the number of level's members. Used
       optionally by backends and front ends.
+    * `nonadditive` – kind of non-additivity of the level. Possible
+      values: `None` (fully additive, default), ``time`` (non-additive for
+      time dimensions) or ``all`` (non-additive for any other dimension)
 
     Cardinality values:
 
@@ -1571,7 +1589,8 @@ class Level(ModelObject):
 
     def __init__(self, name, attributes, key=None, order_attribute=None,
                  order=None, label_attribute=None, label=None, info=None,
-                 cardinality=None, role=None, description=None):
+                 cardinality=None, role=None, nonadditive=None,
+                 description=None):
 
         super(Level, self).__init__(name, label, description, info)
 
@@ -1582,6 +1601,16 @@ class Level(ModelObject):
             raise ModelError("Attribute list should not be empty")
 
         self.attributes = attribute_list(attributes)
+
+        # Note: synchronize with Measure.__init__ if relevant/necessary
+        if not nonadditive or nonadditive == "none":
+            self.nonadditive = None
+        elif nonadditive in ["all", "any"]:
+            self.nonadditive = "all"
+        elif nonadditive != "time":
+            raise ModelError("Unknown non-additive diension type '%s'"
+                             % nonadditive)
+        self.nonadditive = nonadditive
 
         if key:
             self.key = self.attribute(key)
@@ -1630,6 +1659,7 @@ class Level(ModelObject):
                 or self.role != other.role \
                 or self.label_attribute != other.label_attribute \
                 or self.order_attribute != other.order_attribute \
+                or self.nonadditive != other.nonadditive \
                 or self.attributes != other.attributes:
             return False
 
@@ -1659,6 +1689,7 @@ class Level(ModelObject):
                      info=copy.copy(self.info),
                      label=copy.copy(self.label),
                      cardinality=self.cardinality,
+                     nonadditive=self.nonadditive,
                      role=self.role
                      )
 
@@ -1680,6 +1711,7 @@ class Level(ModelObject):
 
         out["order"] = self.order
         out["cardinality"] = self.cardinality
+        out["nonadditive"] = self.nonadditive
 
         out["attributes"] = [attr.to_dict(**options) for attr in
                              self.attributes]
@@ -1981,6 +2013,8 @@ class Measure(AttributeBase):
             self.nonadditive = None
         elif nonadditive in ["all", "any"]:
             self.nonadditive = "any"
+        elif nonadditive == "time":
+            self.nonadditive = "time"
         else:
             raise ModelError("Unknown non-additive measure type '%s'"
                              % nonadditive)
@@ -2060,7 +2094,8 @@ class MeasureAggregate(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, measure=None,
-                 function=None, formula=None, expression=None, **kwargs):
+                 function=None, formula=None, expression=None,
+                 nonadditive=None, **kwargs):
         """Masure aggregate
 
         Attributes:
@@ -2070,6 +2105,8 @@ class MeasureAggregate(AttributeBase):
           expression (optional)
         * `measure` – measure name for this aggregate (optional)
         * `expression` – arithmetic expression (only if bacend supported)
+        * `nonadditive` – additive behavior for the aggregate (inherited from
+          the measure in most of the times)
         """
 
         super(MeasureAggregate, self).__init__(name=name, label=label,
@@ -2082,6 +2119,7 @@ class MeasureAggregate(AttributeBase):
         self.formula = formula
         self.expression = expression
         self.measure = measure
+        self.nonadditive = nonadditive
 
     def __deepcopy__(self, memo):
         return MeasureAggregate(self.name,
@@ -2094,7 +2132,8 @@ class MeasureAggregate(AttributeBase):
                                 measure=self.measure,
                                 function=self.function,
                                 formula=self.formula,
-                                expression=self.expression)
+                                expression=self.expression,
+                                nonadditive=self.nonadditive)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
@@ -2103,7 +2142,8 @@ class MeasureAggregate(AttributeBase):
         return str(self.function) == str(other.function) \
             and self.measure == other.measure \
             and self.formula == other.formula \
-            and self.expression == other.expression
+            and self.expression == other.expression \
+            and self.nonadditive == other.nonadditive
 
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)
@@ -2111,6 +2151,7 @@ class MeasureAggregate(AttributeBase):
         d["formula"] = self.formula
         d["expression"] = self.expression
         d["measure"] = self.measure
+        d["nonadditive"] = self.nonadditive
 
         return d
 
@@ -2250,6 +2291,10 @@ def create_cube(metadata):
         if aggregate.label is None:
             aggregate.label = _measure_aggregate_label(aggregate, measure)
 
+        # Inherit nonadditive property from the measure
+        if measure and aggregate.nonadditive is None:
+            aggregate.nonadditive = measure.nonadditive
+
     return Cube(measures=measures,
                 aggregates=aggregates,
                 dimension_links=dimension_links,
@@ -2272,7 +2317,7 @@ def _measure_aggregate_label(aggregate, measure):
     return label
 
 
-def create_dimension(metadata, templates=None, name=None):
+def create_dimension(metadata, templates=None):
     """Create a dimension from a `metadata` dictionary.
     Some rules:
 
@@ -2339,18 +2384,14 @@ def create_dimension(metadata, templates=None, name=None):
     metadata = expand_dimension_metadata(metadata,
                                          expand_levels=not bool(levels))
 
-    name = metadata.get("name") or name
-    if not name:
-        raise ModelError("Dimension has no name, "
-                         "neither explicit name provided")
+    name = metadata.get("name")
 
-
-    label = metadata.get("label") or label
+    label = metadata.get("label", label)
     description = metadata.get("description") or description
-    info = metadata.get("info") or info
-    role = metadata.get("role") or role
-    category = metadata.get("category") or category
-    nonadditive = metadata.get("nonadditive") or nonadditive
+    info = metadata.get("info", info)
+    role = metadata.get("role", role)
+    category = metadata.get("category", category)
+    nonadditive = metadata.get("nonadditive", nonadditive)
 
     # Backward compatibility with an experimental feature
     cardinality = metadata.get("cardinality", cardinality)

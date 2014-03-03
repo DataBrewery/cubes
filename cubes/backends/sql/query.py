@@ -2,10 +2,12 @@
 
 from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...browser import SPLIT_DIMENSION_NAME
+from ...model import Attribute
 from ...errors import *
+from ...expr import evaluate_expression
 from ...logging import get_logger
 from collections import namedtuple, OrderedDict
-from .mapper import DEFAULT_KEY_FIELD
+from .mapper import DEFAULT_KEY_FIELD, PhysicalAttribute
 from .utils import condition_conjunction, order_column
 import datetime
 import re
@@ -33,7 +35,7 @@ JoinedProduct = namedtuple("JoinedProduct",
         ["expression", "tables"])
 
 
-_EXPR_EVAL_NS = {
+_SQL_EXPR_CONTEXT = {
     "sqlalchemy": sqlalchemy,
     "sql": sql,
     "func": sql.expression.func,
@@ -45,6 +47,11 @@ _EXPR_EVAL_NS = {
     "and_": sql.expression.and_,
     "or_": sql.expression.or_
 }
+
+def table_str(key):
+    """Make (`schema`, `table`) tuple printable."""
+    table, schema = key
+    return "%s.%s" % (str(schema), (table)) if schema else str(table)
 
 
 MATCH_MASTER_RSHIP = 1
@@ -149,6 +156,11 @@ class SnowflakeSchema(object):
           type
         * if a table is connected through outer detail to any kind of table,
           then it will stay as detail
+
+        Input: schema, fact name, fact table, joins
+
+        Output: tables[table_key] = SonwflakeTable()
+
         """
 
         # Collect the fact table as the root master table
@@ -189,7 +201,7 @@ class SnowflakeSchema(object):
                 master = self.tables[key]
             except KeyError:
                 raise ModelError("Unknown table (or join alias) '%s'"
-                                 % (key, ))
+                                 % table_str(key))
             master.detail_keys.add(join.master.column)
 
     def _analyse_table_relationships(self):
@@ -233,8 +245,10 @@ class SnowflakeSchema(object):
             master_rs = relationships[master_key]
 
             if master_rs is None:
-                raise InternalError("Joining to unclassified master. %s->%s"
-                                    % (master_key, detail_key))
+                raise InternalError("Joining to unclassified master. %s->%s "
+                                    "Hint: check your joins, their order or "
+                                    "mappings." % (table_str(master_key),
+                                                   table_str(detail_key)))
             elif master_rs == MATCH_MASTER_RSHIP \
                     and join.method in ("match", "master"):
                 relationship = MATCH_MASTER_RSHIP
@@ -244,8 +258,8 @@ class SnowflakeSchema(object):
             else:
                 raise InternalError("Unknown relationship combination for "
                                     "%s(%s)->%s(%s)"
-                                    % (master_key, master_rs,
-                                       detail_key, join.method))
+                                    % (table_str(master_key), master_rs,
+                                       table_str(detail_key), join.method))
 
             relationships[detail_key] = relationship
             self.tables[detail_key].relationship = relationship
@@ -295,6 +309,11 @@ class SnowflakeSchema(object):
 
         try:
             return lookup[attribute] == OUTER_DETAIL_RSHIP
+        except KeyError:
+            # Retry as raw table (used by internally generated attributes)
+            ref = self.mapper.physical(attribute)
+            key = (ref.schema, ref.table)
+            return self.tables[key].relationship
         except KeyError:
             raise InternalError("No fact relationship for attribute %s "
                                 "(aggregate: %s)"
@@ -508,24 +527,19 @@ class SnowflakeSchema(object):
         if ref.func:
             column = getattr(sql.expression.func, ref.func)(column)
         if ref.expr:
-            # TODO: see _ptd_condition()
-            compiled_expr = compile(ref.expr, '__expr__', 'eval')
-            context = _EXPR_EVAL_NS.copy()
-
             # Provide columns for attributes (according to current state of
             # the query)
-            table = attribute.dimension or self.cube
-            dim_getter = _ColumnGetter(self, table)
-            context["table"] = dim_getter
-            context["dim"] = dim_getter
-            fact_getter = _ColumnGetter(self, self.cube)
-            context["fact"] = fact_getter
+            context = dict(_SQL_EXPR_CONTEXT)
+            getter = _TableGetter(self)
+            context["table"] = getter
+            getter = _AttributeGetter(self, attribute.dimension)
+            context["dim"] = getter
+            getter = _AttributeGetter(self, self.cube)
+            context["fact"] = getter
+            context["column"] = column
 
-            expr_func = eval(compiled_expr, context)
-            if not callable(expr_func):
-                raise BrowserError("Cannot evaluate a callable object from reference's expr: %r" % ref)
 
-            column = expr_func(column)
+            column = evaluate_expression(ref.expr, context, 'expr', sql.expression.ColumnElement)
 
         if self.safe_labels:
             label = "a%d" % self.label_counter
@@ -668,22 +682,17 @@ class QueryBuilder(object):
         # TODO: move this to model (this is ported from the original
         # SnapshotBrowser)
 
-        info = self.cube.info.get("semiadditive", {})
-        dimname = info.get('dimension')
-        if dimname:
-            dim = self.cube.dimension(dimname)
-            self.semiadditive_dimension = dim
+        # TODO: remove this later
+        if "semiadditive" in self.cube.info:
+            raise NotImplementedError("'semiadditive' in 'info' is not "
+                                      "supported any more")
 
-            name = info.get("attribute")
-            try:
-                self.semiadditive_attribute = dim.attribute(name)
-            except NoSuchAttributeError:
-                raise NoSuchAttributeError("No attribute '%s' in dimension "
-                                           "%s for semi-additive behavior."
-                                           % (name, dimname))
-            self.semiadditive_function = info.get("function", "max")
-        else:
-            self.semiadditive_dimension = None
+        for dim in self.cube.dimensions:
+            if dim.nonadditive:
+                raise NotImplementedError("Non-additive behavior for "
+                                          "dimensions is not yet implemented."
+                                          "(cube '%s', dimension '%s')" %
+                                          (self.cube.name, dim.name))
 
     def aggregation_statement(self, cell, drilldown=None, aggregates=None,
                               split=None, attributes=None, summary_only=False):
@@ -796,7 +805,7 @@ class QueryBuilder(object):
             detail.ptd_attributes = ptd_detail
 
         # TODO: PTD workaround #2
-        # We need to know which attriutes have to be included for JOINs,
+        # We need to know which attributes have to be included for JOINs,
         # however we can know this only when "condition" in mapping is
         # evaluated, which can be evaluated only after joins and when the
         # master-fact is ready.
@@ -807,12 +816,10 @@ class QueryBuilder(object):
             master.ptd_attributes += required
 
         # Semi-additive attribute
-        semiadditive_attribute = self.get_semiadditive_attribute(drilldown)
-        if semiadditive_attribute:
-            if self.snowflake.is_outer_detail(semiadditive_attribute):
-                detail.other_attributes.append(semiadditive_attribute)
-            else:
-                master.other_attributes.append(semiadditive_attribute)
+        semiadditives = self.semiadditive_attributes(aggregates, drilldown)
+        sa_master, sa_detail = self._split_attributes_by_relationship(semiadditives)
+        master.other_attributes += sa_master
+        detail.other_attributes += sa_detail
 
         # Pick the method:
         #
@@ -1031,11 +1038,12 @@ class QueryBuilder(object):
 
         # Include the semi-additive dimension, if required
         #
-        if semiadditive_attribute:
+        if semiadditives:
             self.logger.debug("preparing semiadditive subquery for "
-                              "attribute: %s" % semiadditive_attribute)
+                              "attributes: %s"
+                              % [a.name for a in semiadditives])
 
-            join_expression = self._semiadditive_subquery(semiadditive_attribute,
+            join_expression = self._semiadditive_subquery(semiadditives,
                                                      selection,
                                                      from_obj=join_expression,
                                                      condition=condition,
@@ -1072,6 +1080,10 @@ class QueryBuilder(object):
         attributes that have master/match relationship towards the fact and
         `detail` is a list of attributes with outer detail relationship
         towards the fact."""
+
+        if not attributes:
+            return ([],[])
+
         master = []
         detail = []
         for attribute in attributes:
@@ -1123,41 +1135,44 @@ class QueryBuilder(object):
 
         return split_column.label(label)
 
-    def get_semiadditive_attribute(self, drilldown):
+    def semiadditive_attributes(self, aggregates, drilldown):
         """Returns an attribute from a semi-additive dimension, if defined for
         the cube. Cubes allows one semi-additive dimension. """
 
-        if not self.semiadditive_dimension:
+        nonadds = set(self.cube.nonadditive_type(agg) for agg in aggregates)
+        # If there is no nonadditive aggregate, we skip
+        if not any(nonaddtype for nonaddtype in nonadds):
             return None
 
-        dim = self.semiadditive_dimension
+        if None in nonadds:
+            nonadds.remove(None)
+
+        if "time" not in nonadds:
+            raise NotImplementedError("Nonadditive aggregates for other than "
+                                      "time dimension are not supported.")
+
+        # Here we expect to have time-only nonadditive
+        # TODO: What to do if we have more?
+
+        # Find first time drill-down, if any
         items = [item for item in drilldown \
-                       if item.dimension.name == dim.name]
+                       if item.dimension.role == "time"]
 
-        if not items:
-            return self.semiadditive_attribute
+        attributes = []
+        for item in drilldown:
+            if item.dimension.role != "time":
+                continue
+            attribute = Attribute("__key__", dimension=item.dimension)
+            attributes.append(attribute)
 
-        # FIXME: this looks broken
-        item = items[0]
+        return attributes
 
-        return self.semiadditive_attribute
-
-    def _semiadditive_subquery(self, semiadditive_attribute, selection,
+    def _semiadditive_subquery(self, attributes, selection,
                                from_obj, condition, group_by):
         """Prepare the semi-additive subquery"""
         sub_selection = selection[:]
 
-        try:
-            func = getattr(sql.expression.func, self.semiadditive_function)
-        except AttributeError:
-            raise ModelError("Unknown function '%s' for semiadditive "
-                             "dimension '%s'."
-                             % (self.semiadditive_function,
-                                self.semiadditive_dimension.name))
-
-        column = self.column(semiadditive_attribute)
-        column = func(column).label("__semiadditive_key")
-        sub_selection.append(column)
+        sub_selection += [self.column(attr) for attr in attributes]
 
         # This has to be the same as the final SELECT, except the subquery
         # selection
@@ -1173,14 +1188,9 @@ class QueryBuilder(object):
         # Skipt the last subquery selection which we have created just
         # recently
         join_conditions = []
-        sub_selection = list(sub_statement.columns)[:-1]
 
-        for left, right in zip(selection, sub_selection):
+        for left, right in zip(selection, sub_statement.columns):
             join_conditions.append(left == right)
-
-        original_column = self.column(semiadditive_attribute)
-        subquery_column = sub_statement.c["__semiadditive_key"]
-        join_conditions.append(original_column == subquery_column)
 
         join_condition = condition_conjunction(join_conditions)
         join_expression = from_obj.join(sub_statement, join_condition)
@@ -1530,27 +1540,24 @@ class QueryBuilder(object):
             if not ref.condition:
                 continue
 
-            # TODO: see column() and "expr" mapping
             column = self.column(attribute)
-            compiled_expr = compile(ref.condition, '__expr__', 'eval')
-
-            context = _EXPR_EVAL_NS.copy()
 
             # Provide columns for attributes (according to current state of
             # the query)
-            dim_getter = _ColumnGetter(self, attribute.dimension)
-            context["table"] = dim_getter
-            context["dim"] = dim_getter
-            fact_getter = _ColumnGetter(self, self.cube)
-            context["fact"] = fact_getter
+            context = dict(_SQL_EXPR_CONTEXT)
+            getter = _TableGetter(self)
+            context["table"] = getter
+            getter = _AttributeGetter(self, attribute.dimension)
+            context["dim"] = getter
+            getter = _AttributeGetter(self, self.cube)
+            context["fact"] = getter
+            context["column"] = column
 
-            function = eval(compiled_expr, context)
+            condition = evaluate_expression(ref.condition,
+                                            context,
+                                            'condition',
+                                            sql.expression.ColumnElement)
 
-            if not callable(function):
-                raise BrowserError("Cannot evaluate a callable object from "
-                                   "reference's condition expr: %r" % ref)
-
-            condition = function(column)
             conditions.append(condition)
 
         # TODO: What about invert?
@@ -1676,7 +1683,7 @@ class QueryBuilder(object):
 # Used as a workaround for "condition" attribute mapping property
 # TODO: temp solution
 # Assumption: every other attribute is from the same dimension
-class _ColumnGetter(object):
+class _AttributeGetter(object):
     def __init__(self, owner, context):
         self._context = context
         self._owner = owner
@@ -1689,6 +1696,42 @@ class _ColumnGetter(object):
 
     def _column(self, name):
         attribute = self._context.attribute(name)
+        return self._owner.column(attribute)
+
+    # Backward-compatibility for table.c.foo
+    @property
+    def c(self):
+        return self
+
+class _TableGetter(object):
+    def __init__(self, owner):
+        self._owner = owner
+
+    def __getattr__(self, attr):
+        return self._table(attr)
+
+    def __getitem__(self, item):
+        return self._table(item)
+
+    def _table(self, name):
+        # Create a dummy attribute
+        return _ColumnGetter(self._owner, name)
+
+
+class _ColumnGetter(object):
+    def __init__(self, owner, table):
+        self._owner = owner
+        self._table = table
+
+    def __getattr__(self, attr):
+        return self._column(attr)
+
+    def __getitem__(self, item):
+        return self._column(item)
+
+    def _column(self, name):
+        # Create a dummy attribute
+        attribute = PhysicalAttribute(name, table=self._table)
         return self._owner.column(attribute)
 
     # Backward-compatibility for table.c.foo

@@ -108,9 +108,12 @@ class SlicerModelProvider(ModelProvider):
     def list_cubes(self):
         return self.store.request('cubes')
 
-    def cube(self, name):
+    def cube(self, name, locale=None):
+        params = {}
+        if locale:
+            params["lang"] = locale
         try:
-            cube_desc = self.store.cube_request("model", name)
+            cube_desc = self.store.cube_request("model", name, params)
         except MissingObjectError:
             raise NoSuchCubeError("Unknown cube '%s'" % name, name)
 

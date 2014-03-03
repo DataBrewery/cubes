@@ -22,7 +22,6 @@ __all__ = [
     "load_model",
     "model_from_path",
     "create_model",
-    "merge_models",
 ]
 
 
@@ -158,20 +157,31 @@ class ModelProvider(Extensible):
 
         return options
 
-    def dimension_metadata(self, name):
-        """Returns a metadata dictionary for dimension `name`."""
-        return self.dimensions_metadata[name]
+    def dimension_metadata(self, name, locale=None):
+        """Returns a metadata dictionary for dimension `name` and optional
+        `locale`.
 
-    def cube_metadata(self, name):
+        Subclasses should override this method and call the super if they
+        would like to merge metadata provided in a model file."""
+
+        try:
+            return self.dimensions_metadata[name]
+        except KeyError:
+            raise NoSuchDimensionError("No such dimension '%s'" % name, name)
+
+    def cube_metadata(self, name, locale=None):
         """Returns a cube metadata by combining model's global metadata and
         cube's metadata. Merged metadata dictionaries: `browser_options`,
         `mappings`, `joins`.
+
+        Subclasses should override this method and call the super if they
+        would like to merge metadata provided in a model file.
         """
 
         if name in self.cubes_metadata:
             metadata = dict(self.cubes_metadata[name])
         else:
-            raise NoSuchCubeError("Unknown cube '%s'" % name, name)
+            raise NoSuchCubeError("No such cube '%s'" % name, name)
 
         # merge datastore from model if datastore not present
         if not metadata.get("datastore"):
@@ -275,21 +285,23 @@ class ModelProvider(Extensible):
         Subclassees should implement this method.
         """
         raise NotImplementedError("Subclasses should implement list_cubes()")
-        return []
 
     def cube(self, name, locale=None):
         """Returns a cube with `name` provided by the receiver. If receiver
         does not have the cube `NoSuchCube` exception is raised.
 
-        Returned cube has no dimensions assigned. You should assign the
-        dimensions according to the cubes `dimension_links` list of
-        dimension names.
+        Note: The returned cube will not have the dimensions assigned.
+        It is up to the caller's responsibility to assign appropriate
+        dimensions based on the cube's `dimension_links`.
 
-        Subclassees should implement this method.
+        Subclasses of `ModelProvider` might override this method if they would
+        like to create the `Cube` object directly.
         """
-        raise NotImplementedError("Subclasses should implement cube() method")
 
-    def dimension(self, name, templates=[]):
+        metadata = self.cube_metadata(name, locale)
+        return create_cube(metadata)
+
+    def dimension(self, name, templates=[], locale=None):
         """Returns a dimension with `name` provided by the receiver.
         `dimensions` is a dictionary of dimension objects where the receiver
         can look for templates. If the dimension requires a template and the
@@ -299,21 +311,18 @@ class ModelProvider(Extensible):
 
         If the receiver does not provide the dimension `NoSuchDimension`
         exception is raised.
-
-        Subclassees should implement this method.
         """
-        raise NotImplementedError("Subclasses are required to implement this")
+        metadata = self.dimension_metadata(name, locale)
+        return create_dimension(metadata, templates)
 
 
 class StaticModelProvider(ModelProvider):
 
     __extension_aliases__ = ["default"]
 
-    dynamic_cubes = False
-    dynamic_dimensions = False
-
     def __init__(self, *args, **kwargs):
         super(StaticModelProvider, self).__init__(*args, **kwargs)
+        # Initialization code goes here...
 
     def list_cubes(self):
         """Returns a list of cubes from the metadata."""
@@ -329,78 +338,6 @@ class StaticModelProvider(ModelProvider):
             cubes.append(info)
 
         return cubes
-
-    def cube(self, name, locale=None):
-        """
-        Creates a cube `name` in context of `workspace` from provider's
-        metadata. The created cube has no dimensions attached. You sohuld link
-        the dimensions afterwards according to the `dimension_links`
-        property of the cube.
-        """
-
-        metadata = self.cube_metadata(name)
-        metadata = expand_cube_metadata(metadata)
-        return create_cube(metadata)
-
-    def dimension(self, name, locale=None, templates=None, link=None):
-        """Create a dimension `name` from provider's metadata. `templates` is
-        a dictionary with already instantiated dimensions to be used as
-        templates"""
-
-        try:
-            metadata = dict(self.dimensions_metadata[name])
-        except KeyError:
-            raise NoSuchDimensionError(name)
-
-        return create_dimension(metadata, templates, name)
-
-
-# TODO: is this still necessary?
-def merge_models(models):
-    """Merge multiple models into one."""
-
-    dimensions = {}
-    all_cubes = {}
-    name = None
-    label = None
-    description = None
-    info = {}
-    locale = None
-
-    for model in models:
-        if name is None and model.name:
-            name = model.name
-        if label is None and model.label:
-            label = model.label
-        if description is None and model.description:
-            description = model.description
-        if info is None and model.info:
-            info = copy.deepcopy(model.info)
-        if locale is None and model.locale:
-            locale = model.locale
-
-        # dimensions, fail on conflicting names
-        for dim in model.dimensions:
-            if dimensions.has_key(dim.name):
-                raise ModelError("Found duplicate dimension named '%s', cannot merge models" % dim.name)
-            dimensions[dim.name] = dim
-
-        # cubes, fail on conflicting names
-        for cube in model.cubes.values():
-            if all_cubes.has_key(cube.name):
-                raise ModelError("Found duplicate cube named '%s', cannot merge models" % cube.name)
-            model.remove_cube(cube)
-            if cube.info is None:
-                cube.info = {}
-            cube.info.update(model.info if model.info else {})
-            all_cubes[cube.name] = cube
-
-    return Model(name=name,
-                 label=label,
-                 description=description,
-                 info=info,
-                 dimensions=dimensions.values(),
-                 cubes=all_cubes.values())
 
 
 def create_model(source):

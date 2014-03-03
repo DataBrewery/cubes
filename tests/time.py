@@ -125,7 +125,25 @@ class DateTimeTestCase(CubesTestCaseBase):
         self.assertEqual([2013, 3, 1,0 ], path)
 
         path = self.cal.named_relative_path("lastquarter", units, date)
-        self.assertEqual([2012, 1, 1, 0], path)
+        self.assertEqual([2011,10, 1, 0], path)
 
         path = self.cal.named_relative_path("lastyear", units, date)
         self.assertEqual([2011, 1, 1,0 ], path)
+
+    def test_distance(self):
+        # Meniny (SK): Anna/Hana
+        time = datetime(2012, 7, 26, 12, 5)
+
+        self.assertEqual(207, self.cal.since_period_start("year", "day", time))
+        self.assertEqual(25, self.cal.since_period_start("quarter", "day", time))
+        self.assertEqual(25, self.cal.since_period_start("month", "day", time))
+        self.assertEqual(612, self.cal.since_period_start("month", "hour", time))
+        self.assertEqual(12, self.cal.since_period_start("day", "hour", time))
+
+        time = datetime(2012, 1, 1, 1, 1)
+
+        self.assertEqual(0, self.cal.since_period_start("year", "day", time))
+        self.assertEqual(0, self.cal.since_period_start("quarter", "day", time))
+        self.assertEqual(0, self.cal.since_period_start("month", "day", time))
+        self.assertEqual(1, self.cal.since_period_start("month", "hour", time))
+        self.assertEqual(1, self.cal.since_period_start("day", "hour", time))

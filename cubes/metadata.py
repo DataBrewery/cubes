@@ -217,6 +217,17 @@ def expand_cube_metadata(metadata):
             raise ModelError("There are hierarchies specified for non-linked "
                              "dimensions: %s." % (dim_hiers.keys()))
 
+    nonadditive = metadata.pop("nonadditive", None)
+    if "measures" in metadata:
+        measures = []
+        for attr in metadata["measures"]:
+            attr = expand_attribute_metadata(attr)
+            if nonadditive:
+                attr["nonadditive"] = attr.get("nonadditive", nonadditive)
+            measures.append(attr)
+
+        metadata["measures"] = measures
+
     # Replace the dimensions
     if links:
         metadata["dimensions"] = links

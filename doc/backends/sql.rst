@@ -18,6 +18,18 @@ dialects:
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
 
 
+Supported aggregate functions:
+
+* `sum`
+* `count` – equivalend to ``COUNT(1)``
+* `count_nonempty` – equivalent to ``COUNT(measure)``
+* `count_distinct` – equivalent to ``COUNT(DISTINCT measure)``
+* `min`
+* `max`
+* `avg`
+* `stddev`
+* `variance`
+
 Store Configuration
 ===================
 
@@ -402,6 +414,12 @@ might write:
             }
     ]
 
+
+Join Order
+----------
+
+Order of joins has to be from the master tables towards the details.
+
 Aliases
 -------
 
@@ -546,7 +564,7 @@ Then use the join in a cube:
             "name": "events",
             "joins": [
                 { "name": "date", "master": "event_date_id" },
-                { "name": "company", "detail": "company_id" }
+                { "name": "company", "master": "company_id" }
             ]
         }
     ]

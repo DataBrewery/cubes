@@ -2,6 +2,8 @@
 
 The base exception calss is :class:`.CubesError`."""
 
+from collections import OrderedDict
+
 class CubesError(Exception):
     """Generic error class."""
 
@@ -14,6 +16,7 @@ class UserError(CubesError):
 class InternalError(CubesError):
     """Superclass for all errors that happened internally: configuration
     issues, connection problems, model inconsistencies..."""
+    error_type = "internal_error"
 
 class ConfigurationError(InternalError):
     """Raised when there is a problem with workspace configuration assumed."""
@@ -56,22 +59,35 @@ class TemplateRequired(ModelError):
 
 class MissingObjectError(UserError):
     error_type = "missing_object"
+    object_type = None
 
     def __init__(self, message=None, name=None):
-        self.name = name
         self.message = message
+        self.name = name
 
     def __str__(self):
         return self.message or self.name
 
+    def to_dict(self):
+        d = OrderedDict()
+        d["object"] = self.name
+        d["message"] = self.message
+        if self.object_type:
+            d["object_type"] = self.object_type
+
+        return d
+
 class NoSuchDimensionError(MissingObjectError):
     """Raised when an unknown dimension is requested."""
+    object_type = "dimension"
 
 class NoSuchCubeError(MissingObjectError):
     """Raised when an unknown cube is requested."""
+    object_type = "cube"
 
 class NoSuchAttributeError(UserError):
     """Raised when an unknown attribute, measure or detail requested."""
+    object_type = "attribute"
 
 class ArgumentError(UserError):
     """Raised when an invalid or conflicting function argument is supplied.
@@ -81,4 +97,8 @@ class HierarchyError(UserError):
     """Raised when attemt to get level deeper than deepest level in a
     hierarchy"""
     error_type = "hierarchy"
+
+class ExpressionError(ModelError):
+    """Raised when attribute expression is invalid.
+    """
 

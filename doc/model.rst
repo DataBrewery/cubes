@@ -729,6 +729,11 @@ Example of supplier level of supplier dimension:
    :func:`cubes.create_level`
         Create level object from a description dictionary.
 
+.. note::
+
+    Level attribute names have to be unique within a dimension that owns the
+    level.
+
 Cardinality
 ~~~~~~~~~~~
 

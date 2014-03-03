@@ -273,7 +273,7 @@ class GoogleAnalyticsModelProvider(ModelProvider):
     def dimension(self, name, templates=[], locale=None):
         try:
             metadata = self.dimension_metadata(name)
-        except KeyError:
+        except NoSuchDimensionError:
             metadata = {}
 
         if name == "time":
