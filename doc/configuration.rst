@@ -51,11 +51,17 @@ Workspace
 
 * ``authorization`` – authorization method to be used
 
-* ``lookup_method`` – cube lookup method: ``recursive`` – look for cubes
-  recursively in namespaces; ``exact`` – cube has to have globally unique
-  reference 
+Namespaces
+----------
 
-* ``info_file`` – path to JSON file containing additional server info
+If not specified otherwise, all cubes share the same default namespace. There
+names within namespace should be unique. For simplicity and for backward
+compatibility reasons there are two cube lookup methods: `recursive` and
+`exact`. `recursive` method looks for cube name in the global namespace first
+then traverses all namespaces and returns the first cube found. `exact`
+requires exact cube name with namespace included as well. The option that
+affects this behavior is: ``lookup_method`` which can be ``exact`` or
+``recursive``.
 
 Info
 ----
@@ -146,19 +152,12 @@ configured in a separate ``stores.ini`` file. The path to the stores
 configuration file might be specified in a variable ``stores`` of the
 ``[workspace]`` section
 
-The store configuration has to have at least one property: ``type``. Rest of
-the properties are handled by the actual data store.
+Properties of the datastore:
 
-Other optional store options:
-
-* ``model`` – name of the model for the store
-* ``model_provider`` – type of the model provider for the store (the model
-  provider will be connected this store)
-* ``namespace`` – namespace that will be used for objects in the model for the
-  store
-
-SQL store
----------
+* ``type`` (required) – data store type, such as ``sql``
+* ``model`` – model related to the datastore
+* ``namespace`` – namespace where the store's cubes will be registered
+* ``model_provider`` – model provider type for the datastore
 
 Example SQL store::
 
@@ -169,6 +168,42 @@ Example SQL store::
 
 For more information and configuration options see :doc:`backends/sql`.
 
+Example mixpanel store::
+
+    [datastore]
+    type: mixpanel
+    model: mixpanel.json
+    api_key: 123456abcd
+    api_secret: 12345abcd
+
+Multiple Slicer stores::
+
+    [datastore_slicer1]
+    type: slicer
+    url: http://some.host:5000
+
+    [datastore_slicer2]
+    type: slicer
+    url: http://other.host:5000
+
+The cubes will be named `slicer1.*` and `slicer2.*`. To use specific
+namespace, different from the store name::
+
+    [datastore_slicer3]
+    type: slicer
+    namespace: external
+    url: http://some.host:5000
+
+Cubes will be named `external.*`
+
+To specify default namespace::
+
+    [datastore_slicer4]
+    type: slicer
+    namespace: default.
+    url: http://some.host:5000
+
+Cubes will be named without namespace prefix.
 
 Example
 =======

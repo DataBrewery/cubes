@@ -179,6 +179,9 @@ Parameter changes:
 * dimension path elements can contain special characters if they are escaped
   by a backslash ``\`` such as ``cut=city:Nové\ Mesto``
 
+Many actions now accept ``format=`` parameter, which can be ``json``, ``csv``
+or ``json_lines`` (new-line separated JSON).
+
 Response changes:
 
 * ``/cubes`` (replacement for ``/model``) returns a list of basic cubes info:
@@ -255,6 +258,7 @@ Model and modeling related changes are:
 * dimension roles
 * attribute missing values
 * `format` property of a measure and aggregate
+* namespaces
 
 
 .. note::
@@ -279,6 +283,16 @@ creates cubes objects from JSON files and dictionaries.
     :doc:`../extensions/providers`, :doc:`../reference/providers`
 
 .. _measure_aggregates_1_0:
+
+
+Namespaces
+----------
+
+Cubes from stores can be wrapped in a model namespace. By-default, the
+namespace is the same as the name of the store. The cubes are referenced as
+`NAMESPACE.CUBE` such as `foreign.sales`. For backward compatibility reasons
+and for simplicity there are two cube lookup methods: `recursive` and
+`global`.
 
 Measures and Aggregates
 -----------------------
