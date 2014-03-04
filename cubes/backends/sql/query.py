@@ -1180,14 +1180,9 @@ class QueryBuilder(object):
 
         semiadd_selection = []
         for attr in attributes:
-            funcname = attr.dimension.info.get("semiadditive_function", "max")
-            try:
-                func = getattr(sql.expression.func, fucname)
-            except AttributeError:
-                raise ModelError("Unknown function '%s' for semiadditive "
-                                 "dimension."
-                                 % funcname)
             col = self.column(attr)
+            # Only one function is supported for now: max()
+            func = sql.expression.func.max
             col = func(col)
             semiadd_selection.append(col)
 
