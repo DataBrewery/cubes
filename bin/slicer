@@ -226,7 +226,8 @@ def run_test(args):
         cube = workspace.cube(name)
 
         sys.stdout.write("testing %s: " % name)
-        if cube.datastore in args.exclude_stores:
+        exclude = args.exclude_stores or []
+        if cube.datastore in exclude:
             sys.stdout.write("pass\n")
             continue
 
