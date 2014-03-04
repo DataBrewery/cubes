@@ -282,9 +282,15 @@ class SnowflakeSchema(object):
             try:
                 mapping[attribute] = relationships[table_ref]
             except KeyError:
+                attr, table = table_ref
+                if table:
+                    message = "Missing join for table '%s'?" % table
+                else:
+                    message = "Missing mapping or join?"
+
                 raise ModelError("Can not determine to-fact relationship for "
-                                 "table %s (attribute '%s'). Missing join?"
-                                 % (table_ref, str(attribute)))
+                                 "attribute '%s'. %s"
+                                 % (attribute.ref(), message))
         self.fact_relationships = mapping
 
         attributes = self.cube.get_attributes(aggregated=True)
@@ -1172,7 +1178,20 @@ class QueryBuilder(object):
         """Prepare the semi-additive subquery"""
         sub_selection = selection[:]
 
-        sub_selection += [self.column(attr) for attr in attributes]
+        semiadd_selection = []
+        for attr in attributes:
+            funcname = attr.dimension.info.get("semiadditive_function", "max")
+            try:
+                func = getattr(sql.expression.func, fucname)
+            except AttributeError:
+                raise ModelError("Unknown function '%s' for semiadditive "
+                                 "dimension."
+                                 % funcname)
+            col = self.column(attr)
+            col = func(col)
+            semiadd_selection.append(col)
+
+        sub_selection += semiadd_selection
 
         # This has to be the same as the final SELECT, except the subquery
         # selection
@@ -1190,6 +1209,11 @@ class QueryBuilder(object):
         join_conditions = []
 
         for left, right in zip(selection, sub_statement.columns):
+            join_conditions.append(left == right)
+
+        remainder = sub_statement.columns[len(selection):]
+        for attr, right in zip(attributes, remainder):
+            left = self.column(attr)
             join_conditions.append(left == right)
 
         join_condition = condition_conjunction(join_conditions)
