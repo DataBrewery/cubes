@@ -1206,7 +1206,7 @@ class QueryBuilder(object):
         for left, right in zip(selection, sub_statement.columns):
             join_conditions.append(left == right)
 
-        remainder = sub_statement.columns[len(selection):]
+        remainder = list(sub_statement.columns)[len(selection):]
         for attr, right in zip(attributes, remainder):
             left = self.column(attr)
             join_conditions.append(left == right)
