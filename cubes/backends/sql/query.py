@@ -1171,6 +1171,13 @@ class QueryBuilder(object):
             attribute = Attribute("__key__", dimension=item.dimension)
             attributes.append(attribute)
 
+        if not attributes:
+            time_dims = [ d for d in self.cube.dimensions if d.role == "time" ]
+            if not time_dims:
+                raise BrowserError("Cannot locate a time dimension to apply for semiadditive aggregates: %r" % nonadds)
+            attribute = Attribute("__key__", dimension=time_dims[0])
+            attributes.append(attribute)
+
         return attributes
 
     def _semiadditive_subquery(self, attributes, selection,
