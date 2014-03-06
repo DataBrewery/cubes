@@ -546,13 +546,14 @@ def add_cors_headers(response):
     """Add Cross-origin resource sharing headers."""
     origin = current_app.slicer.allow_cors_origin
     if origin and len(origin):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Max-Age'] = CORS_MAX_AGE
         if request.method == 'OPTIONS':
             response.headers['Access-Control-Allow-Headers'] = 'X-Requested-With'
             # OPTIONS preflight requests need to receive origin back instead of wildcard
-            if origin == '*':
-                response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', origin)
+        if origin == '*':
+            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', origin)
+        else: 
+            response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Max-Age'] = CORS_MAX_AGE
     return response
