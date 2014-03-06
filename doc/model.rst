@@ -272,46 +272,46 @@ description dictionary or in json files with prefix ``cube_`` like
     * - **Basic**
       -
     * - ``name``
-      - cube name, unique identifier
+      - Cube name, unique identifier. Required.
     * - ``label``
-      - human readable name - can be used in an application
+      - Human readable name - can be used in an application
     * - ``description``
-      - longer human-readable description of the cube *(optional)*
+      - Longer human-readable description of the cube *(optional)*
     * - ``info``
-      - custom info, such as formatting. Not used by cubes framework.
+      - Custom info, such as formatting. Not used by cubes framework.
     * - ``dimensions``
-      - list of dimension names or dimension links (recommended, but might be
-        empty for dimension-less cubes)
+      - List of dimension names or dimension links (recommended, but might be
+        empty for dimension-less cubes). Recommended.
     * - ``measures``
-      - list of cube measures (recommended, but might be empty for
-        measure-less, record count only cubes)
+      - List of cube measures (recommended, but might be empty for
+        measure-less, record count only cubes). Recommended.
     * - ``aggregates``
-      - list of aggregated measures
+      - List of aggregated measures. Required, if no measures are specified.
     * - ``details``
-      - list of fact details (as Attributes) - attributes that are not
+      - List of fact details (as Attributes) - attributes that are not
         relevant to aggregation, but are nice-to-have when displaying facts
         (might be separately stored)
     * - **Physical**
       -
     * - ``joins``
-      - specification of physical table joins (required for star/snowflake
+      - Specification of physical table joins (required for star/snowflake
         schema)
     * - ``mappings``
-      - mapping of logical attributes to physical attributes
+      - Mapping of logical attributes to physical attributes
     * - ``key``
-      - fact key field or column name. If not spcified, backends might either
+      - Fact key field or column name. If not specified, backends might either
         refuse to generate facts or might use some default column name such as
-        ``id``
+        ``id``.
     * - ``fact``
-      - fact table, collection or source name – interpreted by the backend.
+      - Fact table, collection or source name – interpreted by the backend.
         The fact table does not have to be specified, as most of the backends
         will derive the name from the cube's name.
     * - **Advanced**
       -
     * - ``browser_options``
-      - browser specific options, consult the backend for more information
+      - Browser specific options, consult the backend for more information
     * - ``store``
-      - name of a datastore where the cube is stored. Use this only when
+      - Name of a datastore where the cube is stored. Use this only when
         default store assignment is different from your requirements.
 
 Example:
@@ -331,6 +331,13 @@ Example:
     	"mappings": { ... },
     	"joins": [ ... ]
     }
+
+
+.. note::
+
+    The ``key`` might be required by some backends, such as SQL, to be able to
+    generate detailed facts or to get a single fact. Please refer to the
+    backend's documentation for more information.
 
 .. _measures-and-aggregates:
 

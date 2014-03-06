@@ -77,6 +77,13 @@ Please refer to the create_engine_ documentation for more information.
 
 .. _create_engine: http://docs.sqlalchemy.org/en/rel_0_8/core/engines.html?highlight=engine#sqlalchemy.create_engine
 
+Model Requirements
+==================
+
+Cube has to have ``key`` property set to the fact table key column to be able
+to provide list of facts. Default key is ``id``.
+
+
 Mappings
 ========
 
