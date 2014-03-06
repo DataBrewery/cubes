@@ -32,17 +32,9 @@ Simple configuration might look like this::
     type: sql
     url: postgresql://localhost/database
 
+
 Workspace
 =========
-
-* ``stores`` – path to a file containing store descriptions – every section is
-  a store with same name as the section
-* ``models_path`` – path to a directory containing models. If this is set to
-  non-empty value, then all model paths specified in ``[models]`` are prefixed
-  with this path
-* ``log`` - path to a log file
-* ``log_level`` - level of log details, from least to most: ``error``, 
-    ``warn``, ``info``, ``debug``
 
 * ``timezone`` - name of default time zone. Used in date and time operations,
   such as :ref:`named relative time <named_relative_time>`.
@@ -50,6 +42,28 @@ Workspace
   where 0 is Monday, 6 is Sunday
 
 * ``authorization`` – authorization method to be used
+
+
+File Locations
+--------------
+
+* ``root_directory`` – Workspace root path: all paths, such as
+  ``models_directory`` or ``info_file`` are considered relative to the
+  ``root_directory`` it they are not specified as absolute.
+* ``models_directory`` – path to a directory containing models. If this is set
+  to non-empty value, then all model paths specified in ``[models]`` are
+  prefixed with this path
+* ``stores_file`` – path to a file (with `.ini` config syntax) containing
+  store descriptions – every section is a store with same name as the section
+* ``info_file`` – path to a file containing user info metadata
+
+Logging
+-------
+
+* ``log`` - path to a log file
+* ``log_level`` - level of log details, from least to most: ``error``, 
+    ``warn``, ``info``, ``debug``
+
 
 Namespaces
 ----------
@@ -95,11 +109,11 @@ Example::
     main: model.json
     mixpanel: mixpanel.json
 
-If root ``models_path`` is specified in ``[workspace]`` then the relative
+If root ``models_directory`` is specified in ``[workspace]`` then the relative
 model paths are combined with the root. Example::
 
     [workspace]
-    models_path: /dwh/cubes/models
+    models_directory: /dwh/cubes/models
 
     [models]
     main: model.json
@@ -107,6 +121,16 @@ model paths are combined with the root. Example::
 
 The models are loaded from ``/dwh/cubes/models/model.json`` and
 ``/dwh/cubes/models/events.json``.
+
+.. note::
+
+    If the ``root_directory`` is set, then the ``models_directory`` is
+    relative to the ``root_directory``. For example if the workspace root is
+    ``/var/lib/cubes`` and ``models_directory`` is ``models`` then the search
+    path for models will be ``/var/lib/cubes/models``. If the
+    ``models_directory`` is absolute, for example ``/cubes/models`` then the
+    absolute path will be used regardless of the workspace root directory
+    settings.
 
 
 Server

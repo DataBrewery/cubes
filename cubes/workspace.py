@@ -259,6 +259,11 @@ class Workspace(object):
 
         self.logger = get_logger()
 
+        if config.has_option("workspace", "root_directory"):
+            self.root_dir = config.get("workspace", "root_directory")
+        else:
+            self.root_dir = ""
+
         if config.has_option("workspace", "log"):
             formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
             handler = logging.FileHandler(config.get("workspace", "log"))
@@ -270,13 +275,20 @@ class Workspace(object):
 
         # Set the default models path
 
-        if config.has_option("workspace", "models_path"):
-            self.models_path = config.get("workspace", "models_path")
-            self.logger.debug("Models root: %s" % self.models_path)
+        if config.has_option("workspace", "models_directory"):
+            self.models_dir = config.get("workspace", "models_directory")
+        elif config.has_option("workspace", "models_path"):
+            self.models_dir = config.get("workspace", "models_path")
+        else:
+            self.models_dir = ""
+
+        if self.root_dir and not os.path.isabs(self.models_dir):
+            self.models_dir = os.path.join(self.root_dir, self.models_dir)
+
+        if self.models_dir:
+            self.logger.debug("Models root: %s" % self.models_dir)
         else:
             self.logger.debug("Models root set to current directory")
-            self.models_path = None
-
         # Namespaces and Model Objects
         # ============================
 
@@ -303,6 +315,10 @@ class Workspace(object):
 
         if config.has_option("workspace", "info_file"):
             path = config.get("workspace", "info_file")
+
+            if self.root_dir and not os.path.isabs(path):
+                path = os.path.join(self.root_dir, path)
+
             info = read_json_file(path, "Slicer info")
             for key in SLICER_INFO_KEYS:
                 self.info[key] = info.get(key)
@@ -317,8 +333,12 @@ class Workspace(object):
                 self.info[key] = info.get(key)
 
         # Register stores from external stores.ini file or a dictionary
-        if not stores and config.has_option("workspace", "stores"):
-            stores = config.get("workspace", "stores")
+        if not stores and config.has_option("workspace", "stores_file"):
+            stores = config.get("workspace", "stores_file")
+
+            # Prepend the root directory if stores is relative
+            if self.root_dir and not os.path.isabs(stores):
+                stores = os.path.join(self.root_dir, stores)
 
         if isinstance(stores, basestring):
             store_config = ConfigParser.SafeConfigParser()
@@ -528,8 +548,8 @@ class Workspace(object):
                               "Provider: %s Store: %s NS: %s"
                               % (metadata, provider, store, namespace))
             path = metadata
-            if self.models_path and not os.path.isabs(path):
-                path = os.path.join(self.models_path, path)
+            if self.models_dir and not os.path.isabs(path):
+                path = os.path.join(self.models_dir, path)
             metadata = read_model_metadata(path)
         elif isinstance(metadata, dict):
             self.logger.debug("Importing model from dictionary. "
