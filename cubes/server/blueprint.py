@@ -220,19 +220,25 @@ def get_info():
     else:
         info = OrderedDict()
 
-    info["authentication"] = (current_app.slicer.authentication or "none")
     info["json_record_limit"] = current_app.slicer.json_record_limit
     info["cubes_version"] = __version__
     info["timezone"] = workspace.calendar.timezone_name
     info["first_weekday"] = workspace.calendar.first_weekday
     info["api_version"] = API_VERSION
 
+    # authentication
+    authinfo = {}
+
+    authinfo["type"] = (current_app.slicer.authentication or "none")
+
     if g.auth_identity:
-        info['authentication_identity'] = g.auth_identity
+        authinfo['identity'] = g.auth_identity
 
     if current_app.slicer.authenticator:
         ainfo = current_app.slicer.authenticator.info_dict(request)
-        info.update(ainfo)
+        authinfo.update(ainfo)
+
+    info['authentication'] = authinfo
 
     return info
 
