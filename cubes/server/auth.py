@@ -20,7 +20,7 @@ class Authenticator(Extensible):
     def authenticate(self, request):
         raise NotImplementedError
 
-    def info_dict(self):
+    def info_dict(self, request):
         return {}
 
     def logout(self, request, identity):

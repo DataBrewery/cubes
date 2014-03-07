@@ -201,7 +201,7 @@ def show_index():
     has_about = any(key in info for key in SLICER_INFO_KEYS)
 
     if current_app.slicer.authenticator:
-        ainfo = current_app.slicer.authenticator.info_dict()
+        ainfo = current_app.slicer.authenticator.info_dict(request)
         info.update(ainfo)
 
     return render_template("index.html",
