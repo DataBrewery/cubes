@@ -199,6 +199,11 @@ def show_index():
     info = get_info()
     info["authentication"] = info["authentication"] or "none"
     has_about = any(key in info for key in SLICER_INFO_KEYS)
+
+    if current_app.slicer.authenticator:
+        ainfo = current_app.slicer.authenticator.info_dict()
+        info.update(ainfo)
+
     return render_template("index.html",
                            has_about=has_about,
                            **info)
