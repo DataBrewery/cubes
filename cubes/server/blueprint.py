@@ -16,7 +16,6 @@ from .local import *
 from .auth import NotAuthenticated
 
 from collections import OrderedDict
-import re
 
 from cubes import __version__
 
@@ -547,23 +546,19 @@ def logout():
     else:
         return "logged out"
 
-_http_schemes_pattern = re.compile(r'^https?://', re.IGNORECASE)
-
 @slicer.after_request
 def add_cors_headers(response):
     """Add Cross-origin resource sharing headers."""
     origin = current_app.slicer.allow_cors_origin
     if origin and len(origin):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Max-Age'] = CORS_MAX_AGE
         if request.method == 'OPTIONS':
             response.headers['Access-Control-Allow-Headers'] = 'X-Requested-With'
             # OPTIONS preflight requests need to receive origin back instead of wildcard
-            if origin == '*':
-                origin_hostname = request.headers.get('Origin', '')
-                origin_hostname = _http_schemes_pattern.sub('', origin_hostname)
-                response.headers['Access-Control-Allow-Origin'] = (origin_hostname or origin)
-
+        if origin == '*':
+            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', origin)
+        else: 
+            response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Max-Age'] = CORS_MAX_AGE
     return response
