@@ -21,7 +21,7 @@ class Authenticator(Extensible):
         raise NotImplementedError
 
     def info_dict(self, request):
-        return {}
+        return { 'username' : self.authenticate(request) }
 
     def logout(self, request, identity):
         return "logged out"

@@ -196,12 +196,7 @@ def page_not_found(e):
 @slicer.route("/")
 def show_index():
     info = get_info()
-    info["authentication"] = info["authentication"] or "none"
     has_about = any(key in info for key in SLICER_INFO_KEYS)
-
-    if current_app.slicer.authenticator:
-        ainfo = current_app.slicer.authenticator.info_dict(request)
-        info.update(ainfo)
 
     return render_template("index.html",
                            has_about=has_about,
@@ -225,12 +220,19 @@ def get_info():
     else:
         info = OrderedDict()
 
-    info["authentication"] = current_app.slicer.authentication
+    info["authentication"] = (current_app.slicer.authentication or "none")
     info["json_record_limit"] = current_app.slicer.json_record_limit
     info["cubes_version"] = __version__
     info["timezone"] = workspace.calendar.timezone_name
     info["first_weekday"] = workspace.calendar.first_weekday
     info["api_version"] = API_VERSION
+
+    if g.auth_identity:
+        info['authentication_identity'] = g.auth_identity
+
+    if current_app.slicer.authenticator:
+        ainfo = current_app.slicer.authenticator.info_dict(request)
+        info.update(ainfo)
 
     return info
 
