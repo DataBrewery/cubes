@@ -1054,7 +1054,7 @@ class Dimension(ModelObject):
 
     def clone(self, hierarchies=None, exclude_hierarchies=None,
               nonadditive=None, default_hierarchy_name=None, cardinality=None,
-              alias=None):
+              alias=None, **extra):
         """Returns a clone of the receiver with some modifications. `master`
         of the clone is set to the receiver.
 
@@ -1137,7 +1137,8 @@ class Dimension(ModelObject):
                          role=self.role,
                          cardinality=cardinality,
                          master=self,
-                         nonadditive=nonadditive)
+                         nonadditive=nonadditive,
+                         **extra)
 
     def to_dict(self, **options):
         """Return dictionary representation of the dimension"""
