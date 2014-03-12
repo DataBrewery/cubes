@@ -218,34 +218,38 @@ class SQLStore(Store):
           otherwise default workspace schema is used (same schema as fact
           table schema).
         """
-        raise NotImplemented
 
-        cube = self.model.cube(cube)
+        # TODO: this method requires more attention, it is just appropriated
+        # for recent cubes achanges
 
-        mapper = SnowflakeMapper(cube, cube.mappings, schema=schema, **self.options)
-        context = QueryContext(cube, mapper, schema=schema, metadata=self.metadata)
+        engine = self.connectable
+
+        # TODO: we actually don't need browser, we are just reusing its
+        # __init__ for other objects. This should be recreated here.
+        browser = SnowflakeBrowser(cube, self, schema=schema)
+        builder = QueryBuilder(browser)
 
         key_attributes = []
         for dim in cube.dimensions:
             key_attributes += dim.key_attributes()
 
         if keys_only:
-            statement = context.denormalized_statement(attributes=key_attributes, expand_locales=True)
+            statement = builder.denormalized_statement(attributes=key_attributes, expand_locales=True)
         else:
-            statement = context.denormalized_statement(expand_locales=True)
+            statement = builder.denormalized_statement(expand_locales=True)
 
         schema = schema or self.options.get("denormalized_view_schema") or self.schema
 
         dview_prefix = self.options.get("denormalized_view_prefix","")
         view_name = view_name or dview_prefix + cube.name
 
-        if mapper.fact_name == view_name and schema == mapper.schema:
+        if browser.mapper.fact_name == view_name and schema == browser.mapper.schema:
             raise WorkspaceError("target denormalized view is the same as source fact table")
 
         table = sqlalchemy.Table(view_name, self.metadata,
                                  autoload=False, schema=schema)
 
-        preparer = self.engine.dialect.preparer(self.engine.dialect)
+        preparer = engine.dialect.preparer(engine.dialect)
         full_name = preparer.format_table(table)
 
         if table.exists():
@@ -260,7 +264,7 @@ class SQLStore(Store):
         self.logger.info("creating denormalized view %s (materialized: %s)" \
                                             % (full_name, materialize))
         # print("SQL statement:\n%s" % statement)
-        self.engine.execute(statement)
+        engine.execute(statement)
 
         if create_index:
             if not materialize:
@@ -269,7 +273,7 @@ class SQLStore(Store):
             # self.metadata.reflect(schema = schema, only = [view_name] )
             table = sqlalchemy.Table(view_name, self.metadata,
                                      autoload=True, schema=schema)
-            self.engine.reflecttable(table)
+            engine.reflecttable(table)
 
             for attribute in key_attributes:
                 label = attribute.ref()
@@ -277,7 +281,7 @@ class SQLStore(Store):
                 column = table.c[label]
                 name = "idx_%s_%s" % (view_name, label)
                 index = sqlalchemy.schema.Index(name, column)
-                index.create(self.engine)
+                index.create(engine)
 
         return statement
 
