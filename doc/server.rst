@@ -367,6 +367,11 @@ Parameters:
 * `page` - page number for paginated results
 * `pagesize` - size of a page for paginated results
 * `order` - list of attributes to be ordered by
+* `split` – split cell, same syntax as the `cut`, defines virtual binary
+  (flag) dimension that inticates whether a cell belongs to the `split` cut
+  (value of 1) or not (value of 0). The dimension attribute is called
+  `__within_split__`. Consult the backend you are using for more information,
+  whether this feature is supported or not.
 
 .. note::
 

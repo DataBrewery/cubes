@@ -125,6 +125,11 @@ class AggregationBrowser(Extensible):
 
         Retruns a :class:`AggregationResult` object.
 
+        If `split` is specified, then virtual dimension named
+        `__within_split__` will be created and will contain value 1 if
+        the cell is within the split cell and 0 if the cell is outside of the
+        split.
+
         Note: subclasses should implement `provide_aggregate()` method.
         """
 
