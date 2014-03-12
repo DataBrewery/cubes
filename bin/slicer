@@ -95,7 +95,7 @@ def convert_model(args):
 
     workspace = cubes.Workspace()
     for model in args.models:
-        workspace.add_model(model)
+        workspace.import_model(model)
 
     if args.format == "bundle":
         if os.path.exists(path):
@@ -119,25 +119,6 @@ def convert_model(args):
         else:
             with open(path, "w") as f:
                 json.dump(info, f)
-
-def merge_model(args):
-    # For more information, read Workspace.add_model() and Workspace.model()
-
-    master_model = OrderedDict()
-    master_model["__comment"] = "This is a master model. Do not edit."
-    master_model["__is_master"] = True
-
-    models = []
-    for model in args.models:
-        models.append(read_model_metadata(model))
-
-    master_model["parts"] = models
-
-    if not args.target:
-        print json.dumps(master_model)
-    else:
-        with open(args.target, "w") as f:
-            json.dump(master_model, f)
 
 def model_to_json(args):
     raise NotImplementedError("Temporarily disabled.")
@@ -258,34 +239,6 @@ def run_test(args):
     else:
         print "test passed"
 
-def denormalize(args):
-    raise NotImplementedError("Temporarily disabled.")
-    cube_list = args.cube
-    config = read_config(args.config)
-
-    workspace = Workspace(config)
-
-    model = workspace.model
-
-    if not cube_list:
-        cube_list = [cube.name for cube in model.cubes.values()]
-
-    view_schema = args.schema # or workspace.options.get("denormalized_view_schema")
-    view_prefix = args.prefix or workspace.options.get("denormalized_view_prefix")
-
-    for cube_name in cube_list:
-        cube = model.cube(cube_name)
-
-        view_name = view_prefix + cube_name if view_prefix else cube_name
-
-        print("denormalizing cube '%s' into '%s'" % (cube_name, view_name))
-
-        workspace.create_denormalized_view(cube, view_name,
-                                            materialize=args.materialize,
-                                            replace=args.replace,
-                                            create_index=args.index,
-                                            keys_only=False,
-                                            schema=view_schema)
 
 def convert_model(args):
     path = args.target
@@ -302,28 +255,27 @@ def convert_model(args):
 
 
 def denormalize(args):
-    raise NotImplementedError("Temporarily disabled.")
+    # raise NotImplementedError("Temporarily disabled.")
     cube_list = args.cube
     config = read_config(args.config)
 
-    workspace = Workspace(config)
-
-    model = workspace.model
+    workspace = cubes.Workspace(config)
 
     if not cube_list:
-        cube_list = [cube.name for cube in model.cubes.values()]
+        cube_list = [cube["name"] for cube in workspace.list_cubes()]
 
     view_schema = args.schema # or workspace.options.get("denormalized_view_schema")
     view_prefix = args.prefix or workspace.options.get("denormalized_view_prefix")
 
     for cube_name in cube_list:
-        cube = model.cube(cube_name)
+        cube = workspace.cube(cube_name)
+        store = workspace.get_store(cube.datastore or "default")
 
         view_name = view_prefix + cube_name if view_prefix else cube_name
 
         print("denormalizing cube '%s' into '%s'" % (cube_name, view_name))
 
-        workspace.create_denormalized_view(cube, view_name,
+        store.create_denormalized_view(cube, view_name,
                                             materialize=args.materialize,
                                             replace=args.replace,
                                             create_index=args.index,
@@ -400,29 +352,6 @@ if ModelEditorSlicerCommand:
     command.configure_parser(subparser)
     subparser.det_defaults(func=command)
 
-################################################################################
-# Command: translate_model
-
-subparser = model_subparsers.add_parser('translate', help="translate model")
-subparser.add_argument('model', help='model file or URL')
-subparser.add_argument('translation', help='translation file or URL')
-subparser.set_defaults(func=translate_model)
-
-################################################################################
-# Command: model_to_json
-
-subparser = model_subparsers.add_parser('json')
-subparser.add_argument('models', nargs='+', help='one or more model references - can be local file paths or URL')
-subparser.add_argument('target', nargs='?', help='optional target path to write json model to')
-subparser.set_defaults(func=merge_model)
-
-################################################################################
-# Command: merge
-
-subparser = model_subparsers.add_parser('merge')
-subparser.add_argument('models', nargs='+', help='one or more model references - can be local file paths or URL')
-subparser.add_argument('target', help='target output path', nargs='?', default=None)
-subparser.set_defaults(func=merge_model)
 
 ################################################################################
 # Command: convert
@@ -440,20 +369,6 @@ subparser.add_argument('model', help='model reference - can be a path or URL')
 subparser.add_argument('target', help='target output path', nargs='?', default=None)
 subparser.set_defaults(func=convert_model)
 
-################################################################################
-# Command: extract_locale
-
-subparser = model_subparsers.add_parser('extract_locale', help="extract model localization dictionary")
-subparser.add_argument('model', help='model reference - can be a local file path or URL')
-subparser.set_defaults(func=extract_locale)
-
-################################################################################
-# Command: update_locale
-
-subparser = model_subparsers.add_parser('update_locale', help="update model localization dictionary")
-subparser.add_argument('model', help='model reference - can be a local file path or URL')
-subparser.add_argument('translation', help='translation file or URL')
-subparser.set_defaults(func=update_locale)
 
 ################################################################################
 # Command: serve
