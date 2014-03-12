@@ -1989,8 +1989,8 @@ class Measure(AttributeBase):
         * `aggregates` – list of default (relevant) aggregate functions that
           can be applied to this measure attribute.
         * `nonadditive` – kind of non-additivity of the dimension. Possible
-          values: `None` (fully additive, default), ``time`` (non-additive for
-          time dimensions) or ``any`` (non-additive for any other dimension)
+          values: `none` (fully additive, default), ``time`` (non-additive for
+          time dimensions) or ``all`` (non-additive for any other dimension)
 
         Note that if the `formula` is specified, it should not refer to any
         other measure that refers to this one (no circular reference).

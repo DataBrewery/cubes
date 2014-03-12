@@ -271,7 +271,7 @@ description dictionary or in json files with prefix ``cube_`` like
       - Description
     * - **Basic**
       -
-    * - ``name``
+    * - ``name`` *
       - Cube name, unique identifier. Required.
     * - ``label``
       - Human readable name - can be used in an application
@@ -279,7 +279,7 @@ description dictionary or in json files with prefix ``cube_`` like
       - Longer human-readable description of the cube *(optional)*
     * - ``info``
       - Custom info, such as formatting. Not used by cubes framework.
-    * - ``dimensions``
+    * - ``dimensions`` *
       - List of dimension names or dimension links (recommended, but might be
         empty for dimension-less cubes). Recommended.
     * - ``measures``
@@ -313,6 +313,8 @@ description dictionary or in json files with prefix ``cube_`` like
     * - ``store``
       - Name of a datastore where the cube is stored. Use this only when
         default store assignment is different from your requirements.
+
+Fields marked with * are required.
 
 Example:
 
@@ -354,13 +356,16 @@ Measures and Aggregates
 example, as a table column. Measures are aggregated into measure aggregates.
 The measure is described as:
 
-* ``name`` – measure identifier
+* ``name`` – measure identifier (required)
 * ``label`` – human readable name to be displayed (localized)
 * ``info`` – additional custom information (unspecified)
 * ``aggregates`` – list of aggregate functions that are provided for this
   measure. This property is for generating default aggregates automatically.
   It is highly recommended to list the aggregates explicitly and avoid using
   this property.
+* ``nonadditive`` – can be `all` (non-additive for any dimension), `time`
+  (non-additive for time dimension, for example account balance) or `none`
+  (default, fully additive)
 
 .. ``formula`` – name of formula
 .. ``expression`` – arithmetic expression
@@ -492,9 +497,6 @@ aggregate should be added:
    :class:`cubes.Cube`
         Cube class reference.
 
-   :func:`cubes.create_cube`
-        Create cube from a description dictionary.
-
    :class:`cubes.Measure`
         Measure class reference.
 
@@ -570,7 +572,7 @@ The dimension description contains keys:
       - Description
     * - **Basic**
       -
-    * - ``name``
+    * - ``name`` *
       - dimension name, used as identifier
     * - ``label``
       - human readable name - can be used in an application
@@ -596,6 +598,13 @@ The dimension description contains keys:
       - logical category (user oriented metadata)
     * - ``template``
       - name of a dimension that will be used as template 
+
+Fields marked with * are required.
+
+If no levels are specified, then one default level will be created.
+
+If no hierarchy is specified, then the default hierarchy will contain all
+levels of the dimension.
 
 Example:
 
@@ -666,7 +675,7 @@ There are cases where it is not meaningful to add values over certain
 dimension. For example it has no sense to add account balance over time. For
 such dimension the ``nonadditive`` value can be specified:
 
-* ``any`` – dimension can not be added dimension
+* ``all`` – dimension is nonadditive
 * ``time`` – dimension can not be added over dimensions with role `time`
 * ``none`` – dimension is fully additive (same as if no value was specified)
 
@@ -675,27 +684,47 @@ Level
 
 Dimension hierarchy levels are described as:
 
+.. list-table::
+    :widths: 1 5
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - ``name`` *
+      - level name, used as identifier
+    * - ``label``
+      - human readable name - can be used in an application
+    * - ``attributes``
+      - list of other additional attributes that are related to the level. The
+        attributes are not being used for aggregations, they provide
+        additional useful information.
+    * - ``key``
+      - key field of the level (customer number for customer level, region
+        code for region level, year-month for month level). key will be used
+        as a grouping field for aggregations. Key should be unique within
+        level.
+    * - ``label_attribute``
+      - name of attribute containing label to be displayed (customer name for
+        customer level, region name for region level, month name for month
+        level)
+    * - ``order_attribute``
+      - name of attribute that is used for sorting, default is the first
+        attribute (key)
+    * - ``cardinality``
+      - symbolic approximation of the number of level's members 
+    * - ``info``
+      - custom info, such as formatting. Not used by cubes framework.
 ================ ================================================================
-Key              Description
-================ ================================================================
-name             level name, used as identifier
-label            human readable name - can be used in an application
-attributes       list of other additional attributes that are related to the
-                 level. The attributes are not being used for aggregations, they
-                 provide additional useful information.
-key              key field of the level (customer number for customer level,
-                 region code for region level, year-month for month level). key
-                 will be used as a grouping field for aggregations. Key should be
-                 unique within level.
-label_attribute  name of attribute containing label to be displayed (customer
-                 name for customer level, region name for region level,
-                 month name for month level)
-order_attribute  name of attribute that is used for sorting, default is the
-                 first attribute (key)
-cardinality      symbolic approximation of the number of level's members 
-info             custom info, such as formatting. Not used by cubes 
-                 framework.
-================ ================================================================
+
+Fields marked with * are required.
+
+If no attributes are specified then only one attribute is assumed with the
+same name as the level.
+
+If no `key` is specified, then first attribute is assumed.
+
+If no `label_attribute` is specified, then second attribute is assumed if
+level has more than one attribute, otherwise the first attribute is used.
 
 Example of month level of date dimension:
 
@@ -763,12 +792,14 @@ Hierarchies are described as:
 ================ ================================================================
 Key              Description
 ================ ================================================================
-name             hierarchy name, used as identifier
-label            human readable name - can be used in an application
-levels           ordered list of level names from top to bottom - from least
+``name``         hierarchy name, used as identifier
+``label``        human readable name - can be used in an application
+``levels``       ordered list of level names from top to bottom - from least
                  detailed to most detailed (for example: from year to day, from
                  country to city)
 ================ ================================================================
+
+Required is only `name`.
 
 Example:
 
