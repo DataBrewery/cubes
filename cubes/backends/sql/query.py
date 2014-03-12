@@ -1236,7 +1236,7 @@ class QueryBuilder(object):
         """
 
         if attributes is None:
-            attributes = self.cube.all_attributes()
+            attributes = self.cube.all_attributes
 
         join_attributes = set(attributes) | self.attributes_for_cell(cell)
 
