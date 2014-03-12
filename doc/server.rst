@@ -498,15 +498,16 @@ property of an attribute).
 Dimension members
 -----------------
 
-Request: ``GET /cube/<cube>/dimension/<dimension>``
+Request: ``GET /cube/<cube>/members/<dimension>``
 
-Get values for attributes of a `dimension`.
+Get `dimension` members used in `cube`.
 
 **Parameters:**
 
 * `cut` - see ``/aggregate``
 * `depth` - specify depth (number of levels) to retrieve. If not
-    specified, then all levels are returned
+    specified, then all levels are returned. Use this or `level`.
+* `level` - deepest level to be retrieved – use this or `depth`.
 * `hierarchy` – name of hierarchy to be considered, if not specified, then
     dimension's default hierarchy is used 
 * `page`, `pagesize` - paginate results
@@ -515,7 +516,7 @@ Get values for attributes of a `dimension`.
 **Response:** dictionary with keys ``dimension`` – dimension name,
 ``depth`` – level depth and ``data`` – list of records.
 
-Example for ``/dimension/item?depth=1``:
+Example for ``/cube/facts/members/item?depth=1``:
 
 .. code-block:: javascript
 
