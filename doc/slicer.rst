@@ -17,24 +17,25 @@ or::
 
 Commands are:
 
-+-----------------------+----------------------------------------------------------------------+
-| Command               | Description                                                          |
-+=======================+======================================================================+
-|``serve``              | Start OLAP server                                                    |
-+-----------------------+----------------------------------------------------------------------+
-|``model validate``     | Validates logical model for OLAP cubes                               |
-+-----------------------+----------------------------------------------------------------------+
-|``model json``         | Create JSON representation of a model (can be used)                  |
-|                       | when model is a directory.                                           |
-+-----------------------+----------------------------------------------------------------------+
-|``extract_locale``     | Get localizable part of the model                                    |
-+-----------------------+----------------------------------------------------------------------+
-|``translate``          | Translate model with translation file                                |
-+-----------------------+----------------------------------------------------------------------+
-|``test``               | Test the model against backend database *(experimental)*             |
-+-----------------------+----------------------------------------------------------------------+
-|``ddl``                | Generate DDL for SQL backend *(experimental)*                        |
-+-----------------------+----------------------------------------------------------------------+
+.. list-table::
+    :widths: 1 5
+    :header-rows: 1
+
+    * - Command
+      - Description
+    * - ``serve``
+      - Start OLAP server
+    * - ``model validate``
+      - Validates logical model for OLAP cubes
+    * - ``model json``
+      - Create JSON representation of a model (can be used)
+        when model is a directory.
+    * - ``test``
+      - Test the configuration and model against backends
+    * - ``ddl``
+      - Generate DDL for SQL backend *(experimental)*
+    * - ``edit``
+      - Launches the cubes modeller (if installed) *(experimental)*
 
 serve
 -----
@@ -69,6 +70,18 @@ be specified under option ``modules``::
 
 For more information about OLAP HTTP server see :doc:`/server`
 
+model convert
+-------------
+
+Usage::
+
+    slicer model convert --format bundle model.json model.cubesmodel
+    slicer model convert model.cubesmodel > model.json
+
+Optional arguments::
+
+      --format              model format: json or bundle
+      --force               replace the target if exists
 
 model validate
 --------------
@@ -121,23 +134,24 @@ The tool output contains recommendation whether the model can be used:
 * `model can not be used` - model contain errors and it is unusable
 
 
-model json
-----------
+test
+----
 
-For any given input model produce reusable JSON model.
+Every cube in the model is tested through the backend whether it can be
+accessed and whether the mappings reflect reality.
 
-model extract_locale
---------------------
+Usage::
 
-Extract localizable parts of the model. Use this before you start translating the model to get
-translation template.
+    slicer test [-h] [-E EXCLUDE_STORES] config
 
-model translate
----------------
+Positional arguments::
 
-Translate model using translation file::
+    config                server confuguration .ini file
 
-    slicer model translate model.json translation.json
+Optional arguments::
+
+    -E EXCLUDE_STORES, --exclude-store EXCLUDE_STORES
+
 
 ddl
 ---
