@@ -14,6 +14,7 @@ from .model import Dimension, Cube
 from .common import IgnoringDictionary, to_unicode_string
 from .logging import get_logger
 from .extensions import Extensible
+from .calendar import CalendarMemberConverter
 
 
 __all__ = [
@@ -139,8 +140,21 @@ class AggregationBrowser(Extensible):
         aggregates = self.prepare_aggregates(aggregates)
         order = self.prepare_order(order, is_aggregate=True)
 
+        converters = {
+            "time": CalendarMemberConverter(self.calendar)
+        }
+
         if cell is None:
             cell = Cell(self.cube)
+        elif isinstance(cell, basestring):
+            cuts = cuts_from_string(self.cube, cell,
+                                    role_member_converters=converters)
+            cell = Cell(self.cube, cuts)
+
+        if isinstance(split, basestring):
+            cuts = cuts_from_string(self.cube, split,
+                                    role_member_converters=converters)
+            split = Cell(self.cube, cuts)
 
         drilldon = Drilldown(drilldown, cell)
 
