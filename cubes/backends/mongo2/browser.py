@@ -82,13 +82,9 @@ class Mongo2Browser(AggregationBrowser):
     def set_locale(self, locale):
         self.mapper.set_locale(locale)
 
-    def aggregate(self, cell=None, measures=None, aggregates=None,
-                  drilldown=None, split=None, attributes=None, order=None,
-                  page=None, page_size=None, **options):
+    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
+                          page, page_size, **options):
 
-        cell = cell or Cell(self.cube)
-
-        aggregates = self.prepare_aggregates(aggregates, measures)
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
         drilldown_levels = None
@@ -100,8 +96,6 @@ class Mongo2Browser(AggregationBrowser):
         # separate method and share
 
         if drilldown or split:
-            drilldown = Drilldown(drilldown, cell)
-
             if not (page_size and page is not None):
                 self.assert_low_cardinality(cell, drilldown)
 
@@ -416,7 +410,6 @@ class Mongo2Browser(AggregationBrowser):
             pipeline.append({ "$project": fields_obj })
         pipeline.append({ "$group": group_obj })
 
-        order = self.prepare_order(order, is_aggregate=True)
         if not timezone_shift_processing:
             if order:
                 obj = {
