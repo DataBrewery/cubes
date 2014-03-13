@@ -32,17 +32,15 @@ class SlicerBrowser(AggregationBrowser):
 
         return features
 
-    def aggregate(self, cell=None, aggregates=None, drilldown=None,
-                  split=None, page=None, page_size=None, order=None):
+    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
+                          page, page_size, **options):
 
         params = {}
-        cell = cell or Cell(self.cube)
 
         if cell:
             params["cut"] = string_from_cuts(cell.cuts)
 
         if drilldown:
-            drilldown = Drilldown(drilldown, cell)
             params["drilldown"] = ",".join(drilldown.items_as_strings())
 
         if split:
@@ -117,8 +115,6 @@ class SlicerBrowser(AggregationBrowser):
     def provide_members(self, cell=None, dimension=None, levels=None,
                         hierarchy=None, attributes=None, page=None,
                         page_size=None, order=None, **options):
-
-        order = self.prepare_order(order, is_aggregate=False)
 
         params = {}
 
