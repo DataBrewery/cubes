@@ -1,3 +1,4 @@
+# -*- coding=utf  -*-
 # Formatters example
 #
 # Requirements:
