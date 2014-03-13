@@ -84,14 +84,12 @@ class MixpanelBrowser(AggregationBrowser):
 
         return result
 
-    def aggregate(self, cell=None, measures=None, aggregates=None,
-                  drilldown=None, split=None, **options):
+    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
+                          page, page_size, **options):
 
         if measures:
             raise ArgumentError("Mixpanel does not provide non-aggregated "
                                 "measures")
-
-        aggregates = self.prepare_aggregates(aggregates)
 
         # All aggregates without a function can be considered as "native" as
         # they are handled specially.
@@ -101,13 +99,9 @@ class MixpanelBrowser(AggregationBrowser):
         native_aggregates = [a for a in aggregates if not a.function]
         native_aggregate_names = [a.name for a in native_aggregates]
 
-        # Get the cell and prepare cut parameters
-        cell = cell or Cell(self.cube)
-
         #
         # Prepare drilldown
         #
-        drilldown = Drilldown(drilldown, cell)
 
         time_drilldowns = drilldown.drilldown_for_dimension("time")
         if time_drilldowns and len(drilldown) > 2:
