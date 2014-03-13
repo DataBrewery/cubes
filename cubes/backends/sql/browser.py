@@ -276,10 +276,8 @@ class SnowflakeBrowser(AggregationBrowser):
         self._log_statement(statement, label)
         return self.connectable.execute(statement)
 
-    def aggregate(self, cell=None, measures=None, drilldown=None, split=None,
-                  attributes=None, page=None, page_size=None, order=None,
-                  include_summary=None, include_cell_count=None,
-                  aggregates=None, **options):
+    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
+                          page, page_size, **options):
         """Return aggregated result.
 
         Arguments:
@@ -316,22 +314,12 @@ class SnowflakeBrowser(AggregationBrowser):
 
         """
 
-        # Preparation
-        # -----------
-
-        if not cell:
-            cell = Cell(self.cube)
-
-        aggregates = self.prepare_aggregates(aggregates, measures)
-        drilldown = Drilldown(drilldown, cell)
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
         # Summary
         # -------
 
-        if include_summary or \
-                (include_summary is None and self.include_summary) or \
-                not (drilldown or split):
+        if self.include_summary or not (drilldown or split):
 
             builder = QueryBuilder(self)
             builder.aggregation_statement(cell,
@@ -353,9 +341,6 @@ class SnowflakeBrowser(AggregationBrowser):
             cursor.close()
             result.summary = record
 
-        if include_cell_count is None:
-            include_cell_count = self.include_cell_count
-
 
         # Drill-down
         # ----------
@@ -376,7 +361,6 @@ class SnowflakeBrowser(AggregationBrowser):
                                           aggregates=aggregates,
                                           split=split)
             builder.paginate(page, page_size)
-            order = self.prepare_order(order, is_aggregate=True)
             builder.order(order)
 
             cursor = self.execute_statement(builder.statement,
@@ -395,7 +379,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
             # TODO: Introduce option to disable this
 
-            if include_cell_count:
+            if self.include_cell_count:
                 count_statement = builder.statement.alias().count()
                 row_count = self.execute_statement(count_statement).fetchone()
                 total_cell_count = row_count[0]
