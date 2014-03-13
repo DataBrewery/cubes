@@ -335,7 +335,7 @@ class AggregationBrowser(Extensible):
         is ``None``, all levels are returned. If no `hierarchy` is specified,
         then default dimension hierarchy is used.
         """
-        order = self.prepare_order(order, is_aggregate=True)
+        order = self.prepare_order(order, is_aggregate=False)
 
         if cell is None:
             cell = Cell(self.cube)
