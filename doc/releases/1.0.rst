@@ -378,6 +378,10 @@ properties of the dimension in the cube's context:
 Backends
 ========
 
+* Backends should now implement `provide_aggregate()` method instead of
+  `aggregate()` – the later takes care of argument conversion and preparation.
+  See :doc:`../extensions/backends` for more information.
+
 SQL Backend
 -----------
 

@@ -99,11 +99,14 @@ class AggregationBrowser(Extensible):
 
         Arguments:
 
-        * `cell` – cell to aggregate
+        * `cell` – cell to aggregate. Can be either a :class:`cubes.Cell`
+          object or a string with same syntax as for the Slicer :doc:`server
+          <server>`
         * `aggregates` - list of aggregate measures. By default all
           cube's aggregates are included in the result.
         * `drilldown` - dimensions and levels through which to drill-down
-        * `split` – cell for alternate 'split' dimension
+        * `split` – cell for alternate 'split' dimension. Same type of
+          argument as `cell`.
         * `order` – attribute order specification (see below)
         * `page` – page index when requesting paginated results
         * `page_size` – number of result items per page

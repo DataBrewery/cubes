@@ -147,16 +147,17 @@ In this case, the browser will be known by the name ``sql``.
 Aggregate
 ---------
 
-Implement the `provider_aggregate()` method with the following arguments:
+Implement the `provide_aggregate()` method with the following arguments:
 
-* `cell` – cube cell to be aggregated
+* `cell` – cube cell to be aggregated, alwas a :class:`cubes.Cell` instance
 * `aggregates` – list of aggregates to be considered 
 * `drilldown` – :class:`cubes.Drilldown` instance (already prepared)
 * `split` (optional browser feature) – virtual cell-based dimension to split
   the aggregation cell into two: within the split cell or outside of the split
-  cell
+  cell. Can be either `None` or a :class:`cubes.Cell` instance
 * `page`, `page_size` – page number and size of the page for paginated results
-* `order` – order specification: list of tuples (`attribute`, `order`)
+* `order` – order specification: list of two-item tuples (`attribute`,
+  `order`)
 
 .. code-block:: python
 
@@ -178,6 +179,11 @@ Implement the `provider_aggregate()` method with the following arguments:
         result.summary = ...
 
         return result
+
+.. note::
+
+    Don't override the `aggregate()` method – it takes care of proper argument
+    conversions and set-up.
 
 .. seealso::
 
@@ -233,4 +239,3 @@ The browser is configured by merging:
 
 The browser instance receives the options as parameters to the `__init__()`
 method.
-
