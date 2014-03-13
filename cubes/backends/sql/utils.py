@@ -7,6 +7,7 @@ import sqlalchemy.sql as sql
 __all__ = [
     "CreateTableAsSelect",
     "InsertIntoAsSelect",
+    "CreateOrReplaceView",
     "condition_conjunction",
     "order_column"
 ]
@@ -23,6 +24,50 @@ def visit_create_table_as_select(element, compiler, **kw):
 
     return "CREATE TABLE %s AS (%s)" % (
         element.table,
+        compiler.process(element.select)
+    )
+@compiles(CreateTableAsSelect, "sqlite")
+def visit_create_table_as_select(element, compiler, **kw):
+    preparer = compiler.dialect.preparer(compiler.dialect)
+    full_name = preparer.format_table(element.table)
+
+    return "CREATE TABLE %s AS %s" % (
+        element.table,
+        compiler.process(element.select)
+    )
+
+class CreateOrReplaceView(Executable, ClauseElement):
+    def __init__(self, view, select):
+        self.view = view
+        self.select = select
+
+@compiles(CreateOrReplaceView)
+def visit_create_or_replace_view(element, compiler, **kw):
+    preparer = compiler.dialect.preparer(compiler.dialect)
+    full_name = preparer.format_table(element.view)
+
+    return "CREATE OR REPLACE VIEW %s AS (%s)" % (
+        full_name,
+        compiler.process(element.select)
+    )
+
+@compiles(CreateOrReplaceView, "sqlite")
+def visit_create_or_replace_view(element, compiler, **kw):
+    preparer = compiler.dialect.preparer(compiler.dialect)
+    full_name = preparer.format_table(element.view)
+
+    return "CREATE VIEW %s AS %s" % (
+        full_name,
+        compiler.process(element.select)
+    )
+
+@compiles(CreateOrReplaceView, "mysql")
+def visit_create_or_replace_view(element, compiler, **kw):
+    preparer = compiler.dialect.preparer(compiler.dialect)
+    full_name = preparer.format_table(element.view)
+
+    return "CREATE OR REPLACE VIEW %s AS %s" % (
+        full_name,
         compiler.process(element.select)
     )
 
