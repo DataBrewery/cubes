@@ -8,14 +8,15 @@ from ...errors import *
 from ...browser import *
 from ...computation import *
 from .query import QueryBuilder
-from .utils import CreateTableAsSelect, InsertIntoAsSelect
+from .utils import CreateTableAsSelect, InsertIntoAsSelect, CreateOrReplaceView
 
 try:
     import sqlalchemy
     import sqlalchemy.sql as sql
+    from sqlalchemy.engine import reflection
 except ImportError:
     from cubes.common import MissingPackage
-    sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
+    reflection = sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 
 __all__ = [
@@ -249,22 +250,19 @@ class SQLStore(Store):
         table = sqlalchemy.Table(view_name, self.metadata,
                                  autoload=False, schema=schema)
 
-        preparer = engine.dialect.preparer(engine.dialect)
-        full_name = preparer.format_table(table)
-
         if table.exists():
             self._drop_table(table, schema, force=replace)
 
         if materialize:
-            create_stat = "CREATE TABLE"
+            # TODO: Handle this differently for postgres
+            create_view = CreateTableAsSelect(table, statement)
         else:
-            create_stat = "CREATE OR REPLACE VIEW"
+            create_view = CreateOrReplaceView(table, statement)
 
-        statement = "%s %s AS %s" % (create_stat, full_name, str(statement))
         self.logger.info("creating denormalized view %s (materialized: %s)" \
-                                            % (full_name, materialize))
+                                            % (str(table), materialize))
         # print("SQL statement:\n%s" % statement)
-        engine.execute(statement)
+        engine.execute(create_view)
 
         if create_index:
             if not materialize:
@@ -273,7 +271,9 @@ class SQLStore(Store):
             # self.metadata.reflect(schema = schema, only = [view_name] )
             table = sqlalchemy.Table(view_name, self.metadata,
                                      autoload=True, schema=schema)
-            engine.reflecttable(table)
+
+            insp = reflection.Inspector.from_engine(engine)
+            insp.reflecttable(table, None)
 
             for attribute in key_attributes:
                 label = attribute.ref()
