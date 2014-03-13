@@ -2,7 +2,7 @@
 from StringIO import StringIO
 from collections import namedtuple
 
-from .extensions import Extensible
+from .extensions import Extensible, extensions
 from .errors import *
 
 try:
@@ -16,8 +16,14 @@ __all__ = [
             "SimpleDataTableFormatter",
             "SimpleHTMLTableFormatter",
             "CrossTableFormatter",
-            "HTMLCrossTableFormatter"
+            "HTMLCrossTableFormatter",
+            "create_formatter"
             ]
+
+def create_formatter(type_, *args, **kwargs):
+    """Creates a formatter of type `type`. Passes rest of the arguments to the
+    formatters initialization method."""
+    return extensions.formatter(type_, *args, **kwargs)
 
 
 def _jinja_env():
