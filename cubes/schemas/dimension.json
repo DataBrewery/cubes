@@ -33,6 +33,7 @@
     "properties": {
         "name": {"type": "string"},
         "label": {"type": "string"},
+        "template": {"type": "string"},
         "description": {"type": "string"},
         "info": {"type": "object"},
 
@@ -49,7 +50,7 @@
 
             "items": {
                 "title": "Level",
-                "type": "object",
+                "type": ["object", "string"],
 
                 "properties": {
                     "name": {"type": "string"},
