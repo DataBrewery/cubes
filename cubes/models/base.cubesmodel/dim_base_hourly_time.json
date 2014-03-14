@@ -1,0 +1,14 @@
+{
+    "name": "base_hourly_time",
+    "template": "base_time",
+
+    "levels": [
+        "year", "quarter", "month", "day", "hour",
+        "week", "weeknum", "dow",
+        "isoyear", "isoweek", "isoweekday",
+        "date"
+    ],
+
+    "default_hierarchy_name": "ymdh"
+}
+
