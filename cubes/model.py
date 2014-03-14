@@ -52,7 +52,9 @@ IMPLICIT_AGGREGATE_LABELS = {
 IMPLICIT_AGGREGATE_LABELS.update(aggregate_calculator_labels())
 
 _DEFAULT_LEVEL_ROLES = {
-    "time": ("year", "quarter", "month", "day", "hour", "minute", "second")
+    "time": ("year", "quarter", "month", "day", "hour", "minute", "second",
+             "week", "weeknum", "dow",
+             "isoyear", "isoweek", "isoweekday")
 }
 
 class Model(object):
