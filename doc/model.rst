@@ -619,12 +619,6 @@ Example:
 
 Use either ``hierarchies`` or ``hierarchy``, using both results in an error.
 
-Role
-----
-
-Some dimension have special roles and their levels or attributes might have
-special meaning and treatment. Currently there is only one supported dimension
-role: ``time``.
 
 Dimension Templates
 -------------------
@@ -712,9 +706,10 @@ Dimension hierarchy levels are described as:
         attribute (key)
     * - ``cardinality``
       - symbolic approximation of the number of level's members 
+    * - ``role``
+      - Level role (see below)
     * - ``info``
       - custom info, such as formatting. Not used by cubes framework.
-================ ================================================================
 
 Fields marked with * are required.
 
@@ -827,21 +822,28 @@ Dimension level attributes can be specified either as rich metadata or just
 simply as strings. If only string is specified, then all attribute metadata
 will have default values, label will be equal to the attribute name.
 
-================ ================================================================
-Key              Description
-================ ================================================================
-name             attribute name (should be unique within a dimension)
-label            human readable name - can be used in an application, localizable
-order            natural order of the attribute (optional), can be ``asc`` or 
-                 ``desc``
-format           application specific display format information
-missing_value    Value to be substituted when there is no value (NULL) in the
-                 source (backend has to support this feature)
-locales          list of locales in which the attribute values are available in
-                 (optional)
-info             custom info, such as formatting. Not used by cubes 
-                 framework.
-================ ================================================================
+.. list-table::
+    :widths: 1 5
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - name
+      - attribute name (should be unique within a dimension)
+    * - label
+      - human readable name - can be used in an application, localizable
+    * - order
+      - natural order of the attribute (optional), can be ``asc`` or ``desc``
+    * - format
+      - application specific display format information
+    * - missing_value
+      - Value to be substituted when there is no value (NULL) in the source
+        (backend has to support this feature)
+    * - locales
+      - list of locales in which the attribute values are available in
+        (optional)
+    * - info
+      - custom info, such as formatting. Not used by cubes framework.
 
 The optional `order` is used in aggregation browsing and reporting. If
 specified, then all queries will have results sorted by this field in
@@ -885,4 +887,35 @@ result will always be sorted by `group name` alphabetical in ascending order.
 In reports you do not specify locale for each localized attribute, you specify
 locale for whole report or browsing session. Report queries remain the same
 for all languages.
+
+Roles
+-----
+
+Some dimensions and levels might have special, but well known, roles. One
+example of a role is `time`. There might be more recognized roles in the future,
+for example `geography`.
+
+Front-ends that respect roles might provide different user interface elements,
+such as date and time pickers for selecting values of a date/time dimension.
+For the date picker to work, the front-end has to know, which dimension
+represents date and which levels of the dimension represent calendar units
+such as year, month or day.
+
+The role of a dimension has to be explicitly stated. Front-ends are not
+required to assume a dimension named `date` is really a full date dimension.
+
+The level roles do not have to be mentioned explicitly, if the level name
+can be recognized to match a particuliar role. For example, in a dimension
+with role `time` level with name `year` will have automatically role `year`.
+
+Level roles have to be specified when level names are in different language or
+for any reason don't match english calendar unit names.
+
+Currently there is only one recognized dimension role: ``time``. Recognized
+level roles with their default assignment by level name are: ``year``,
+``quarter``, ``month``, ``day``, ``hour``, ``minute``, ``second``, ``week``,
+``weeknum``, ``dow``, ``isoyear``, ``isoweek``, ``isoweekday``.
+
+The key value of level with role ``week`` is expected to have format
+``YYYY-MM-DD``.
 

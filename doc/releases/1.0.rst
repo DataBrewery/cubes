@@ -255,7 +255,7 @@ Model and modeling related changes are:
 * new concept of model providers (see :ref:`details below <model_providers_1_0>`)
 * measure aggregates (see :ref:`details below <measure_aggregates_1_0>`)
 * cardinality of dimensions and dimension levels
-* dimension roles
+* dimension and level roles
 * attribute missing values
 * `format` property of a measure and aggregate
 * namespaces

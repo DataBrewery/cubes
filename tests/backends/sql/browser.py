@@ -405,12 +405,13 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
         self.assertEqual(4, len(keys))
         self.assertEqual(["amount_min", "amount_sum", "discount_sum", "record_count"], keys)
 
-        result = self.browser.aggregate(None, measures=["amount"])
+        aggregates = ["amount_min", "amount_sum"]
+        result = self.browser.aggregate(None, aggregates=aggregates)
         keys = sorted(result.summary.keys())
         self.assertEqual(2, len(keys))
         self.assertEqual(["amount_min", "amount_sum"], keys)
 
-        result = self.browser.aggregate(None, measures=["discount"])
+        result = self.browser.aggregate(None, aggregates=["discount_sum"])
         keys = sorted(result.summary.keys())
         self.assertEqual(1, len(keys))
         self.assertEqual(["discount_sum"], keys)
