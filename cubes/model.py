@@ -32,8 +32,8 @@ __all__ = [
 ]
 
 
-DEFAULT_RECORD_COUNT_AGGREGATE = {
-    "name": "record_count",
+DEFAULT_FACT_COUNT_AGGREGATE = {
+    "name": "fact_count",
     "label": "Count",
     "function": "count"
 }
@@ -2240,7 +2240,7 @@ def create_cube(metadata):
     dimension_links = metadata.pop("dimensions", [])
 
     if "measures" not in metadata and "aggregates" not in metadata:
-        metadata["aggregates"] = [DEFAULT_RECORD_COUNT_AGGREGATE]
+        metadata["aggregates"] = [DEFAULT_FACT_COUNT_AGGREGATE]
 
     # Prepare aggregate and measure lists, do implicit merging
 

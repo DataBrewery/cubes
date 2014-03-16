@@ -1641,7 +1641,7 @@ class AggregationResult(object):
         Example use::
 
             for row in result.table_rows(dimension):
-                print "%s: %s" % (row.label, row.record["record_count"])
+                print "%s: %s" % (row.label, row.record["fact_count"])
 
         `dimension` has to be :class:`cubes.Dimension` object. Raises
         `TypeError` when cut for `dimension` is not `PointCut`.
@@ -1715,8 +1715,7 @@ def cross_table(drilldown, onrows, oncolumns, aggregates):
     Creates a cross table from a drilldown (might be any list of records).
     `onrows` contains list of attribute names to be placed at rows and
     `oncolumns` contains list of attribute names to be placet at columns.
-    `aggregates` is a list of aggregate measures to be put into cells. If
-    measures are not specified, then only ``record_count`` is used.
+    `aggregates` is a list of aggregate measures to be put into cells.
 
     Returns a named tuble with attributes:
 

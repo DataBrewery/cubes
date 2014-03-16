@@ -260,7 +260,6 @@ Model and modeling related changes are:
 * `format` property of a measure and aggregate
 * namespaces
 
-
 .. note::
 
     ``cubes``, ``dimensions``, ``levels`` and ``hierarchies`` can no longer be
@@ -352,6 +351,10 @@ has to be explicitly defined as an aggregate:
     ]
 
 It can be named and labelled in any way.
+
+
+If cube has no aggregates, then new default aggregate named `fact_count` is
+created.
 
 .. seealso::
 
