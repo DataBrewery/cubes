@@ -486,16 +486,30 @@ Join Methods and Outer Joins
 
 *(advanced topic)*
 
-Cubes supports three join methods:
+Cubes supports three join methods ``match``, ``detail`` and ``master``.
 
-* `match` (default) – the keys from both master and detail tables have to
-  match – INNER JOIN
-* `master` – the master might contain more keys than the detail, for example
-  the fact table (as a master) might contain unknown or new dimension entries
-  not in the dimension table yet. This is also known as LEFT OUTER JOIN.
-* `detail` – every member of the detail table will be always present. For
-  example every date from a date dimension table. Alskoknown as RIGHT OUTER
-  JOIN.
+`match` (default) – the keys from both master and detail tables have to match
+– INNER JOIN
+
+.. figure:: ../images/cubes-sql_joins-match.png
+    :align: center
+    :width: 300px
+
+`master` – the master might contain more keys than the detail, for example the
+fact table (as a master) might contain unknown or new dimension entries not in
+the dimension table yet. This is also known as LEFT OUTER JOIN.
+
+.. figure:: ../images/cubes-sql_joins-master.png
+    :align: center
+    :width: 300px
+
+`detail` – every member of the detail table will be always present. For
+example every date from a date dimension table. Alskoknown as RIGHT OUTER
+JOIN.
+
+.. figure:: ../images/cubes-sql_joins-detail.png
+    :align: center
+    :width: 300px
 
 To join a date dimension table so that every date will be present in the
 output reports, regardless whether there are any facts or not for given
