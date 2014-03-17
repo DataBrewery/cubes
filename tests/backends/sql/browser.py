@@ -477,22 +477,22 @@ class HierarchyTestCase(CubesTestCaseBase):
     def test_cell(self):
         cell = Cell(self.cube)
         result = self.browser.aggregate(cell)
-        self.assertEqual(366, result.summary["record_count"])
+        self.assertEqual(366, result.summary["fact_count"])
 
         cut = PointCut("date", [2000, 2])
         cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell)
-        self.assertEqual(29, result.summary["record_count"])
+        self.assertEqual(29, result.summary["fact_count"])
 
         cut = PointCut("date", [2000, 2], hierarchy="ywd")
         cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell)
-        self.assertEqual(7, result.summary["record_count"])
+        self.assertEqual(7, result.summary["fact_count"])
 
         cut = PointCut("date", [2000, 1], hierarchy="yqmd")
         cell = Cell(self.cube, [cut])
         result = self.browser.aggregate(cell)
-        self.assertEqual(91, result.summary["record_count"])
+        self.assertEqual(91, result.summary["fact_count"])
 
     def test_drilldown(self):
         cell = Cell(self.cube)

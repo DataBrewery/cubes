@@ -207,7 +207,7 @@ class MeasuresTestsCase(CubesTestCaseBase):
         self.assertEqual(1, len(cube.aggregates))
 
         aggregate = cube.aggregates[0]
-        self.assertEqual("record_count", aggregate.name)
+        self.assertEqual("fact_count", aggregate.name)
         self.assertEqual("count", aggregate.function)
         self.assertIsNone(aggregate.measure)
 
