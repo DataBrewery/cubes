@@ -9,7 +9,7 @@ Requirements: `pymongo`::
 Store Configuration
 ===================
 
-Type is ``mongo2``
+Type is ``mongo``
 
 * ``url`` – Mongo database URL, for example ``mongodb://localhost:37017/`` 
 * ``database`` – name of the Mongo database
@@ -18,7 +18,7 @@ Type is ``mongo2``
 Example::
 
     [store]
-    type: mongo2
+    type: mongo
     url: mongodb://localhost:37017/
     database: MongoBI
     collection: activations

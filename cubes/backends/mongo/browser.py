@@ -34,9 +34,9 @@ def is_date_dimension(dim):
         return True
     return False
 
-class Mongo2Browser(AggregationBrowser):
+class MongoBrowser(AggregationBrowser):
     def __init__(self, cube, store, locale=None, metadata={}, url=None, **options):
-        super(Mongo2Browser, self).__init__(cube, store)
+        super(MongoBrowser, self).__init__(cube, store)
 
         self.logger = get_logger()
 
@@ -617,7 +617,7 @@ class Mongo2Browser(AggregationBrowser):
                         conds.append(end_cond)
 
             if False:
-                raise ArgumentError("No support yet for non-date range cuts in mongo2 backend")
+                raise ArgumentError("No support yet for non-date range cuts in mongo backend")
                 if cut.from_path:
                     last_idx = len(cut.from_path) - 1
                     for idx, p in enumerate(cut.from_path):

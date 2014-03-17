@@ -16,7 +16,6 @@ _default_modules = {
     "store": {
         "sql":"cubes.backends.sql.store",
         "mongo":"cubes.backends.mongo",
-        "mongo2":"cubes.backends.mongo2",
         "mixpanel":"cubes.backends.mixpanel.store",
         "slicer":"cubes.backends.slicer.store",
         "ga":"cubes.backends.ga.store",
