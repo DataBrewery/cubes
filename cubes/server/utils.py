@@ -2,7 +2,6 @@
 import pytz
 
 from flask import Request, Response, request, g
-from time import gmtime, strftime
 from datetime import datetime
 
 import ConfigParser
@@ -14,23 +13,6 @@ import json
 import csv
 
 from .errors import *
-
-tz_utc = pytz.timezone('UTC')
-default_tz = pytz.timezone(strftime("%Z", gmtime()))
-
-
-def set_default_tz(tz):
-    default_tz = tz
-
-
-def get_default_tz():
-    return default_tz
-
-
-def now(tzinfo=default_tz):
-    n = datetime.utcnow()
-    n = tz_utc.localize(n)
-    return n.astimezone(tzinfo)
 
 
 def str_to_bool(string):

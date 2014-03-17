@@ -62,10 +62,6 @@ def run_server(config, debug=False):
     else:
         processes = 1
 
-    # TODO :replace this with [workspace]timezone in future calendar module
-    if config.has_option('server', 'tz'):
-        set_default_tz(pytz.timezone(config.get("server", "tz")))
-
     app.run(host, port, debug=debug, processes=processes,
             use_reloader=use_reloader)
 

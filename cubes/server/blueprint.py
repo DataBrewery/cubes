@@ -26,10 +26,6 @@ from cubes import __version__
 # * root / index
 # * response.headers.add("Access-Control-Allow-Origin", "*")
 
-# TODO: this belongs to the calendar
-from .utils import set_default_tz
-import pytz
-
 try:
     import cubes_search
 except ImportError:
