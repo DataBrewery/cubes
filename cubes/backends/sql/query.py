@@ -1433,7 +1433,7 @@ class QueryBuilder(object):
         condition = condition_conjunction(conditions)
 
         if invert:
-            condition = sql.expression.not_(condexpr)
+            condition = sql.expression.not_(condition)
 
         return condition
 
