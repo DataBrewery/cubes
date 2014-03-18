@@ -110,8 +110,8 @@ class SnowflakeSchema(object):
                 self.fact_key_column = list(self.fact_table.columns)[0]
             except Exception as e:
                 raise ModelError("Unable to get key column for fact "
-                                 " table '%s' in cube '%s'"
-                                 % (self.fact_name, self.cube.name))
+                                 "table '%s' in cube '%s'. Reason: %s"
+                                 % (self.fact_name, self.cube.name, str(e)))
 
         # Collect all tables and their aliases.
         #
