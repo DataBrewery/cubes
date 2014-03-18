@@ -35,7 +35,9 @@ def is_date_dimension(dim):
     return False
 
 class MongoBrowser(AggregationBrowser):
-    def __init__(self, cube, store, locale=None, metadata={}, url=None, **options):
+    def __init__(self, cube, store, locale=None, metadata={}, url=None,
+                 **options):
+
         super(MongoBrowser, self).__init__(cube, store)
 
         self.logger = get_logger()
@@ -55,6 +57,7 @@ class MongoBrowser(AggregationBrowser):
         self.timezone = pytz.timezone(cube.browser_options.get('timezone') or options.get('timezone') or 'UTC')
 
         self.datesupport = DateSupport(self.logger, self.timezone, options.get('week_start_weekday'))
+        self.query_filter = options.get("filter", None)
 
 
     def features(self):
@@ -112,7 +115,7 @@ class MongoBrowser(AggregationBrowser):
 
         summary, items = self._do_aggregation_query(cell=cell,
                                                     aggregates=aggregates,
-                                                    attributes=attributes,
+                                                    attributes=None,
                                                     drilldown=drilldown,
                                                     split=split, order=order,
                                                     page=page,
@@ -122,7 +125,8 @@ class MongoBrowser(AggregationBrowser):
         # add calculated measures w/o drilldown or split if no drilldown or split
         if not (drilldown or split):
             calculators = calculators_for_aggregates(self.cube,
-                                                     aggregates, drilldown,
+                                                     aggregates,
+                                                     drilldown,
                                                      split,
                                                      available_aggregate_functions())
             for calc in calculators:
@@ -231,12 +235,12 @@ class MongoBrowser(AggregationBrowser):
         query = {}
 
         if not for_project:
-            try:
-                query_base = copy.deepcopy(self.cube.mappings['__query__'])
-            except KeyError:
-                # We just ignore the missing __query__ mapping
-                pass
-            else:
+            # TODO: __query__ is for backward compatibility, might be removed
+            # later
+
+            query_base = self.cube.mappings.get("__query__", self.query_filter)
+            if query_base:
+                query_base = copy.deepcopy(query_base)
                 query.update(query_base)
 
         find_clauses = []
