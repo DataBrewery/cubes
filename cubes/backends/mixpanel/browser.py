@@ -87,10 +87,6 @@ class MixpanelBrowser(AggregationBrowser):
     def provide_aggregate(self, cell, aggregates, drilldown, split, order,
                           page, page_size, **options):
 
-        if measures:
-            raise ArgumentError("Mixpanel does not provide non-aggregated "
-                                "measures")
-
         # All aggregates without a function can be considered as "native" as
         # they are handled specially.
         # If there is an explicit aggregate fucntion it is a post-aggregate
