@@ -824,8 +824,10 @@ class Workspace(object):
             raise ConfigurationError("No store specified for cube '%s'" % cube)
 
         browser = extensions.browser(browser_name, cube, store=store,
-                                     locale=locale, **options)
+                                     locale=locale, calendar=self.calendar,
+                                     **options)
 
+        # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
 
         return browser
