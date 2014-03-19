@@ -227,7 +227,7 @@ def run_test(args):
             continue
 
         try:
-            facts = browser.test()
+            facts = browser.test(aggregate=args.aggregate)
         except NotImplementedError:
             sys.stdout.write("pass - no test\n")
         except CubesError as e:
@@ -395,6 +395,10 @@ subparser = subparsers.add_parser('test', help="test the configuration and model
 subparser.add_argument('config', help='server confuguration .ini file')
 subparser.add_argument('cube', help='cube to test', nargs='*', default=[])
 subparser.set_defaults(func=run_test)
+
+subparser.add_argument('--aggregate',
+                            dest='aggregate', action='store_true', default=False,
+                            help="Test aggregate of whole cube")
 
 subparser.add_argument('-E', '--exclude-store',
                             dest='exclude_stores', action='append')

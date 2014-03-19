@@ -202,7 +202,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return ResultIterator(cursor, builder.labels)
 
-    def test(self):
+    def test(self, aggregate=False, **options):
         """Tests whether the statement can be constructed."""
         cell = Cell(self.cube)
 
@@ -214,6 +214,9 @@ class SnowflakeBrowser(AggregationBrowser):
         statement = statement.limit(1)
         result = self.connectable.execute(statement)
         result.close()
+
+        if aggregate:
+            result = self.aggregate()
 
     def provide_members(self, cell, dimension, depth=None, hierarchy=None,
                         levels=None, attributes=None, page=None,
