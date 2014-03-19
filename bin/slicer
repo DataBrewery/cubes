@@ -226,7 +226,7 @@ def run_test(args):
             facts = browser.test()
         except NotImplementedError:
             sys.stdout.write("pass - no test\n")
-        except Exception as e:
+        except CubesError as e:
             errors.append((name, e))
             sys.stdout.write("ERROR\n")
 
