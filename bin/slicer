@@ -201,9 +201,12 @@ def run_test(args):
 
     errors = []
 
-    print workspace.list_cubes()
-    for info in workspace.list_cubes():
-        name = info["name"]
+    if args.cube:
+        cube_list = args.cube
+    else:
+        cube_list = [c["name"] for c in workspace.list_cubes()]
+
+    for name in cube_list:
         cube = workspace.cube(name)
 
         sys.stdout.write("testing %s: " % name)
@@ -386,6 +389,7 @@ subparser.add_argument('--debug',
 
 subparser = subparsers.add_parser('test', help="test the configuration and model with backend")
 subparser.add_argument('config', help='server confuguration .ini file')
+subparser.add_argument('cube', help='cube to test', nargs='*', default=[])
 subparser.set_defaults(func=run_test)
 
 subparser.add_argument('-E', '--exclude-store',
