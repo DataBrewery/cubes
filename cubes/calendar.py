@@ -133,6 +133,10 @@ class Calendar(object):
                 raise ConfigurationError("Unknown weekday name %s" %
                                          first_weekday)
         else:
+            value = int(first_weekday)
+            if value < 0 or value >= 7:
+                raise ConfigurationError("Invalid weekday number %s" %
+                                         value)
             self.first_weekday = int(first_weekday)
 
         if timezone:
