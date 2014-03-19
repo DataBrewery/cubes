@@ -1,12 +1,10 @@
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
+from dateutil.tz import *
+
 from functools import partial
 import pytz
 
-
-tz = pytz.timezone('America/New_York')
-tz_eastern = pytz.timezone('America/New_York')
-tz_utc = pytz.timezone('UTC')
 
 DATE_PARTS = ['year', 'month', 'day']
 TIME_PARTS = ['hour', 'minute', 'second', 'microsecond']
@@ -22,7 +20,9 @@ def enum(**enums):
 WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
                   FRIDAY=4, SATURDAY=5, SUNDAY=6)
 
+
 WEEK_DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
+
 
 class MongoDateSupport(object):
     def __init__(self, logger, calendar):
@@ -97,18 +97,14 @@ class MongoDateSupport(object):
         date = datetime(**dateparts)
         tzinfo.localize(date)
 
-        return date.astimezone(tz_utc)
+        return date.astimezone(tzutc())
 
 
     def get_date_for_week(self, year, week):
         if week < 1:
             raise ValueError('Week must be greater than 0')
 
-        dt = datetime(**{
-                'year': year,
-                'month': 1,
-                'day': 1
-            })
+        dt = datetime(year, 1, 1)
 
         while dt.weekday() != self.end_of_week_weekday:
             dt += timedelta(1)

@@ -2,7 +2,6 @@
 """Date and time utilities."""
 
 import re
-import pytz
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import MO, TU, WE, TH, FR, SA, SU
 from dateutil.tz import *
@@ -55,9 +54,6 @@ _WEEKDAY_NUMBERS = {
     "saturday": 5,
     "sunday": 6
 }
-
-_UTC = pytz.timezone('UTC')
-
 
 RELATIVE_FINE_TIME_RX = re.compile(r"(?P<offset>\d+)?"
                                     "(?P<unit>\w+)"
