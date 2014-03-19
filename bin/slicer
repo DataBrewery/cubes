@@ -206,12 +206,16 @@ def run_test(args):
     else:
         cube_list = [c["name"] for c in workspace.list_cubes()]
 
+    exclude = args.exclude_stores or []
+    include = args.include_stores or []
+
     for name in cube_list:
         cube = workspace.cube(name)
 
         sys.stdout.write("testing %s: " % name)
-        exclude = args.exclude_stores or []
-        if cube.datastore in exclude:
+
+        if cube.datastore in exclude \
+                or (include and cube.datastore not in include):
             sys.stdout.write("pass\n")
             continue
 
@@ -394,6 +398,9 @@ subparser.set_defaults(func=run_test)
 
 subparser.add_argument('-E', '--exclude-store',
                             dest='exclude_stores', action='append')
+
+subparser.add_argument('--store',
+                            dest='include_stores', action='append')
 
 ################################################################################
 # Command: denormalize
