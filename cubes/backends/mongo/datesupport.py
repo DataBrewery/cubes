@@ -24,31 +24,18 @@ WEEK_DAY = enum( MONDAY=0, TUESDAY=1, WEDNESDAY=2, THRUSDAY=3, \
 
 WEEK_DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
 
-def _determine_weekday(logger, arg):
-    rv = None
-    if isinstance(arg, int):
-        if arg >=0 and arg < len(WEEK_DAY):
-            rv = arg
-    elif isinstance(arg, basestring):
-        if arg in WEEK_DAY_NAMES:
-            rv = WEEK_DAY_NAMES.index(arg)
-        elif arg.lower().capitalize() in WEEK_DAY_NAMES:
-            rv = WEEK_DAY_NAMES.index(arg.lower().capitalize())
-
-    if rv is None:
-        rv = WEEK_DAY.SUNDAY
-        logger.warn("Weekday value %s not recognized, using default %s", arg, rv)
-    else:
-        logger.info("Weekday value %s resolved to weekday value %s", arg, rv)
-
-    return rv
-
-class DateSupport:
-    def __init__(self, logger, timezone, start_of_week_weekday=None):
+class MongoDateSupport(object):
+    def __init__(self, logger, calendar):
         self.logger = logger
-        self.timezone = timezone
-        self.start_of_week_weekday = _determine_weekday(logger, start_of_week_weekday) 
-        self.end_of_week_weekday = WEEK_DAY.SUNDAY if (self.start_of_week_weekday == 0) else (self.start_of_week_weekday - 1)
+        self.timezone = calendar.timezone_name
+
+        # calnedar.first_weekday is guaranteed to be a number
+        self.start_of_week_weekday = calendar.first_weekday
+
+        if (self.start_of_week_weekday == 0):
+            self.end_of_week_weekday = WEEK_DAY.SUNDAY
+        else:
+            self.end_of_week_weekday = (self.start_of_week_weekday - 1)
 
         self.logger.debug("DateSupport created with timezone %s and start_of_week_weekday %s and end_of_week_weekday %s", self.timezone, self.start_of_week_weekday, self.end_of_week_weekday)
 

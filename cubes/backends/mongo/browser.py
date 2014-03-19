@@ -5,7 +5,7 @@ from ...computation import *
 from ...statutils import calculators_for_aggregates, available_calculators
 from cubes import statutils
 from .mapper import MongoCollectionMapper
-from .datesupport import DateSupport
+from .datesupport import MongoDateSupport
 from .functions import get_aggregate_function, available_aggregate_functions
 from .util import to_json_safe, collapse_record
 
@@ -27,6 +27,7 @@ tz_utc = pytz.timezone('UTC')
 
 SO_FAR_DIMENSION_REGEX = re.compile(r"^.+_sf$", re.IGNORECASE)
 
+
 def is_date_dimension(dim):
     if hasattr(dim, 'role') and (dim.role == 'time'):
         return True
@@ -34,8 +35,9 @@ def is_date_dimension(dim):
         return True
     return False
 
+
 class MongoBrowser(AggregationBrowser):
-    def __init__(self, cube, store, locale=None, metadata={}, url=None,
+    def __init__(self, cube, store, locale=None, calendar=None,
                  **options):
 
         super(MongoBrowser, self).__init__(cube, store)
@@ -56,9 +58,9 @@ class MongoBrowser(AggregationBrowser):
 
         self.timezone = pytz.timezone(cube.browser_options.get('timezone') or options.get('timezone') or 'UTC')
 
-        self.datesupport = DateSupport(self.logger, self.timezone, options.get('week_start_weekday'))
-        self.query_filter = options.get("filter", None)
+        self.datesupport = MongoDateSupport(self.logger, calendar)
 
+        self.query_filter = options.get("filter", None)
 
     def features(self):
         """Return SQL features."""
