@@ -57,8 +57,13 @@ def _json_from_url(url):
     `urllib2.urlopen()`. Returns opened handle. """
 
     parts = urlparse.urlparse(url)
+
     if parts.scheme in ('', 'file'):
         handle = open(parts.path)
+    if len(parts.scheme) == 1:
+        # TODO: This is temporary hack which can be replaced by proper python
+        # 3.4 functionality later
+        handle = open(url)
     else:
         handle = urllib2.urlopen(url)
 
