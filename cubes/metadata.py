@@ -60,7 +60,7 @@ def _json_from_url(url):
 
     if parts.scheme in ('', 'file'):
         handle = open(parts.path)
-    if len(parts.scheme) == 1:
+    elif len(parts.scheme) == 1:
         # TODO: This is temporary hack which can be replaced by proper python
         # 3.4 functionality later
         handle = open(url)
