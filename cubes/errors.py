@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Exceptions used in Cubes.
 
 The base exception calss is :class:`.CubesError`."""

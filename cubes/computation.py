@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from cubes.errors import *
 import itertools
 

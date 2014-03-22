@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from .errors import *
 from .extensions import Extensible
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Data preparation for the hello_world example
 
 from sqlalchemy import create_engine

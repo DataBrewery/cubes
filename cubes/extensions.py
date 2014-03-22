@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 from .common import decamelize, to_identifier, coalesce_options
 from .errors import *
 from collections import defaultdict

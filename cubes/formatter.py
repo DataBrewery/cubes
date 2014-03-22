@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 from StringIO import StringIO
 from collections import namedtuple
 

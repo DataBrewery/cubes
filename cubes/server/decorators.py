@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 from flask import Blueprint, Flask, Response, request, g, current_app
 from functools import wraps
 

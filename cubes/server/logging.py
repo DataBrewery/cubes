@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 from contextlib import contextmanager
 from collections import namedtuple
 from threading import Thread

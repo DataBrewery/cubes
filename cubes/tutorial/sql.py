@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import sqlalchemy
 import csv
 import csv, codecs, cStringIO

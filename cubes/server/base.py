@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 from .blueprint import slicer
 from flask import Flask
 import ConfigParser

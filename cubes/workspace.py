@@ -1,4 +1,5 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
+
 import sys
 from .metadata import read_model_metadata
 from .auth import NotAuthorized

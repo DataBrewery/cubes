@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 from ..extensions import Extensible
 from ..errors import *
 from flask import Response, redirect

@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 """Functions for manipulating the model metadata in it's raw form –
 dictionary:
 

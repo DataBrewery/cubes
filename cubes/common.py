@@ -1,4 +1,5 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
+
 """Utility functions for computing combinations of dimensions and hierarchy
 levels"""
 
