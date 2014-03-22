@@ -468,7 +468,7 @@ def cube_cell(cube_name):
     return jsonify(cell_dict)
 
 
-@slicer.route("/cube/<cube>/report")
+@slicer.route("/cube/<cube>/report", methods=["GET", "POST"])
 @requires_browser
 def cube_report(cube):
     report_request = self.json_request()

@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- coding: utf-8 -*-
 
 import os
 from .base import create_server
