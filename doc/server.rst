@@ -667,7 +667,7 @@ Reports
 =======
 
 Report queries are done either by specifying a report name in the request URL
-or using HTTP ``POST`` request where posted data are JSON with report
+or using HTTP ``GET`` request where posted data are JSON with report
 specification.
 
 .. If report name is specified in ``GET`` request instead, then
