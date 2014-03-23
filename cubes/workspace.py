@@ -257,24 +257,22 @@ class Workspace(object):
 
         # Logging
         # =======
+        #Log to file or console
+        if config.has_option("workspace", "log"):
+            self.logger = get_logger(toFile = config.get("workspace", "log"))
+        else:
+            self.logger = get_logger()
+        
+        #Change to log level if necessary
+        if config.has_option("workspace", "log_level"):
+            self.logger.setLevel(config.get("workspace", "log_level").upper())
 
-        self.logger = get_logger()
 
+        # Set the default models path
         if config.has_option("workspace", "root_directory"):
             self.root_dir = config.get("workspace", "root_directory")
         else:
             self.root_dir = ""
-
-        if config.has_option("workspace", "log"):
-            formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
-            handler = logging.FileHandler(config.get("workspace", "log"))
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-
-        if config.has_option("workspace", "log_level"):
-            self.logger.setLevel(config.get("workspace", "log_level").upper())
-
-        # Set the default models path
 
         if config.has_option("workspace", "models_directory"):
             self.models_dir = config.get("workspace", "models_directory")
@@ -290,6 +288,7 @@ class Workspace(object):
             self.logger.debug("Models root: %s" % self.models_dir)
         else:
             self.logger.debug("Models root set to current directory")
+
         # Namespaces and Model Objects
         # ============================
 
