@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 from flask import Blueprint, Response, request, g, current_app
 from flask import render_template
+import json
 from functools import wraps
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
-from ..browser import Cell, SPLIT_DIMENSION_NAME
+from ..browser import Cell, SPLIT_DIMENSION_NAME, cut_from_dict
 from ..errors import *
 from ..extensions import extensions
 from .logging import configured_request_log_handlers, RequestLogger
@@ -468,10 +469,10 @@ def cube_cell(cube_name):
     return jsonify(cell_dict)
 
 
-@slicer.route("/cube/<cube>/report", methods=["GET", "POST"])
+@slicer.route("/cube/<cube_name>/report", methods=["GET", "POST"])
 @requires_browser
-def cube_report(cube):
-    report_request = self.json_request()
+def cube_report(cube_name):
+    report_request = json.loads(request.data)
 
     try:
         queries = report_request["queries"]
@@ -560,7 +561,7 @@ def add_cors_headers(response):
             # OPTIONS preflight requests need to receive origin back instead of wildcard
         if origin == '*':
             response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', origin)
-        else: 
+        else:
             response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
