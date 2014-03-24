@@ -487,6 +487,11 @@ def cube_report(cube_name):
         cell = Cell(g.cube, cuts)
         logger.info("using cell from report specification (URL parameters "
                     "are ignored)")
+
+        if workspace.authorizer:
+            cell = workspace.authorizer.restricted_cell(g.auth_identity,
+                                                        cube=g.cube,
+                                                        cell=cell)
     else:
         cell = g.cell
 
