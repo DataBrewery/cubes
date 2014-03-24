@@ -259,10 +259,10 @@ class Workspace(object):
         # =======
         #Log to file or console
         if config.has_option("workspace", "log"):
-            self.logger = get_logger(toFile = config.get("workspace", "log"))
+            self.logger = get_logger(path=config.get("workspace", "log"))
         else:
             self.logger = get_logger()
-        
+
         #Change to log level if necessary
         if config.has_option("workspace", "log_level"):
             self.logger.setLevel(config.get("workspace", "log_level").upper())

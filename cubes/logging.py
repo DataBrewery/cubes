@@ -14,30 +14,30 @@ __all__ = [
 logger_name = "cubes"
 logger = None
 
-def get_logger(toFile = False):
+def get_logger(path=None):
     """Get brewery default logger"""
     global logger
-    
+
     if logger:
         return logger
     else:
-        return create_logger(toFile)
+        return create_logger(path)
 
-def create_logger(toFile):
+def create_logger(path=None):
     """Create a default logger"""
     global logger
     logger = getLogger(logger_name)
     formatter = Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
-    
-    if not toFile:
+
+    if path:
+        #create a logger which logs to a file
+        handler = FileHandler(path)
+    else:
         #create a default logger
         handler = StreamHandler()
-    else:
-        #create a logger which logs to a file
-        handler = FileHandler(toFile)
-    
+
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    
+
     return logger
 
