@@ -742,6 +742,31 @@ class DimensionTestCase(unittest.TestCase):
         names = [h.name for h in dim_date.hierarchies.values()]
         self.assertEqual(["ymd", "ym", "y"], names)
 
+    def test_template_info(self):
+        md = {
+            "name": "template",
+            "levels": [
+                { "name": "one", "info": {"units":"$", "format": "foo"}}
+            ]
+        }
+        tempdim = cubes.create_dimension(md)
+
+        md = {
+            "name": "dim",
+            "levels": [
+                { "name": "one", "info": {"units":"USD"}}
+            ],
+            "template": "template"
+        }
+
+        templates = {"template": tempdim}
+        dim = cubes.create_dimension(md, templates)
+
+        level = dim.level("one")
+        self.assertIn("units", level.info)
+        self.assertIn("format", level.info)
+        self.assertEqual(level.info["units"], "USD")
+        self.assertEqual(level.info["format"], "foo")
 
 class CubeTestCase(unittest.TestCase):
     def setUp(self):

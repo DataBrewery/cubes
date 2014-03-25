@@ -2424,6 +2424,17 @@ def create_dimension(metadata, templates=None):
                 level = create_level(level_md)
                 # raise NotImplementedError("Merging of levels is not yet supported")
 
+            # Update the level's info dictionary
+            if template:
+                try:
+                    templevel = template.level(level.name)
+                except KeyError:
+                    pass
+                else:
+                    new_info = copy.deepcopy(templevel.info)
+                    new_info.update(level.info)
+                    level.info = new_info
+
             levels.append(level)
 
     # Hierarchies
