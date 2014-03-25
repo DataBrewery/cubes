@@ -2,6 +2,7 @@
 from .blueprint import slicer
 from flask import Flask
 import ConfigParser
+import shlex
 
 from .utils import *
 
@@ -30,6 +31,14 @@ def create_server(config=None):
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 
     config = read_server_config(config)
+
+    # Load extensions
+
+    if config.has_option("server", "modules"):
+        modules = shlex.split(config.get("server", "modules"))
+        for module in modules:
+            e = __import__(module)
+
     app = Flask("slicer")
     app.register_blueprint(slicer, config=config)
 

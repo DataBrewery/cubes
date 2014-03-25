@@ -14,7 +14,6 @@ import sys
 import cubes
 import cubes.server
 import ConfigParser
-import shlex
 import os
 
 from collections import OrderedDict
@@ -175,13 +174,6 @@ def generate_ddl(args):
 def run_server(args):
     """Run Slicer HTTP server."""
     config = read_config(args.config)
-
-    # Load extensions
-
-    if config.has_option("server", "modules"):
-        modules = shlex.split(config.get("server", "modules"))
-        for module in modules:
-            e = __import__(module)
 
     if config.has_option("server", "pid_file"):
         path = config.get("server", "pid_file")
