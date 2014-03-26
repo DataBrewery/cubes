@@ -493,7 +493,10 @@ def cube_report(cube_name):
                                                         cube=g.cube,
                                                         cell=cell)
     else:
-        cell = g.cell
+        if not g.cell:
+            cell = Cell(g.cube)
+        else:
+            cell = g.cell
 
     result = g.browser.report(cell, queries)
 
