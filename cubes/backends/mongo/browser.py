@@ -668,6 +668,19 @@ class MongoBrowser(AggregationBrowser):
         self.logger.debug("=== ORDER: %s" % order_by)
         return dict(order_by.values())
 
+    def test(self, aggregate=False, **options):
+        """Tests whether the statement can be constructed."""
+        cell = Cell(self.cube)
+
+        attributes = self.cube.all_attributes
+
+        facts = self.facts(cell, page=0, page_size=1)
+        # TODO: do something useful with the facts result
+
+        # TODO: this might be slow
+        if aggregate:
+            result = self.aggregate()
+
 
 def complex_sorted(items, sortings):
     if not sortings or not items:
