@@ -60,6 +60,10 @@ class MongoBrowser(AggregationBrowser):
 
         self.datesupport = MongoDateSupport(self.logger, calendar)
 
+        if "__query__" in self.cube.mappings:
+            self.logger.warn("mongo: __query__ in mappings is depreciated, "
+                             "use browser_options.filter instead")
+
         self.query_filter = options.get("filter", None)
 
     def features(self):
