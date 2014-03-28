@@ -201,6 +201,8 @@ def run_test(args):
     exclude = args.exclude_stores or []
     include = args.include_stores or []
 
+    tested = 0
+
     for name in cube_list:
         cube = workspace.cube(name)
 
@@ -218,6 +220,8 @@ def run_test(args):
             sys.stdout.write("BROWSER ERROR\n")
             continue
 
+        tested += 1
+
         try:
             facts = browser.test(aggregate=args.aggregate)
         except NotImplementedError:
@@ -226,8 +230,9 @@ def run_test(args):
             errors.append((name, e))
             sys.stdout.write("ERROR\n")
 
+    print "\ntested %d cubes" % tested
     if errors:
-        print "\n%d ERRORS:" % len(errors)
+        print "%d ERRORS:" % len(errors)
         for (cube, e) in errors:
             if hasattr(e, "error_type"):
                 etype = e.error_type
