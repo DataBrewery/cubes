@@ -231,6 +231,8 @@ Provided functions:
 The function are applied on the already computed aggregation results. Backends
 migh handle the function internally if they can.
 
+Window functions respect `window_size` property of aggregates.
+
 Browser
 -------
 

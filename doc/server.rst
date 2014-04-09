@@ -126,6 +126,8 @@ perspective. It is described as a dictionary with keys:
   known. Might be empty.
 * ``function`` - name of an aggregate function applied to the `measure`, if
   known. For example: `sum`, `min`, `max`.
+* ``window_size`` – number of elements within a window for window functions
+  such as moving average
 * ``info`` – additional custom information (unspecified)
 
 Aggregate names are used in the ``aggregates`` parameter of the ``/aggregate``
@@ -137,6 +139,8 @@ Measure dictionary contains:
 * ``label`` – human readable name to be displayed (localized)
 * ``aggregates`` – list of aggregate functions that are provided for this
   measure
+* ``window_size`` – number of elements within a window for window functions
+  such as moving average
 * ``info`` – additional custom information (unspecified)
 
 

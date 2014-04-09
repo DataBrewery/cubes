@@ -363,6 +363,9 @@ The measure is described as:
   measure. This property is for generating default aggregates automatically.
   It is highly recommended to list the aggregates explicitly and avoid using
   this property.
+* ``window_size`` – number of elements within a window for window functions
+  such as moving average. If not provided and function requires it then 1 (one
+  element) is assumed.
 * ``nonadditive`` – can be `all` (non-additive for any dimension), `time`
   (non-additive for time dimension, for example account balance) or `none`
   (default, fully additive)
@@ -395,6 +398,9 @@ It's properties are:
   known. Might be empty.
 * ``function`` - name of an aggregate function applied to the `measure`, if
   known. For example: `sum`, `min`, `max`.
+* ``window_size`` – number of elements within a window for window functions
+  such as moving average. If not provided and function requires it then 1 (one
+  element) is assumed.
 * ``info`` – additional custom information (unspecified)
 
 Example:
