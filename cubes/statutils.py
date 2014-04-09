@@ -103,23 +103,29 @@ def _window_function_factory(aggregate, source, drilldown_paths, split_cell, win
     # we're not doing any calculations
 
     key_drilldown_paths = []
-    num_units = None
+    window_size = None
     drilldown_paths = drilldown_paths or []
 
-    for path in drilldown_paths:
-        relevant_level = path.levels[-1]
-        these_num_units = None
-        if relevant_level.info:
-            these_num_units = relevant_level.info.get('aggregation_units', None)
-        if these_num_units is None:
-            key_drilldown_paths.append(path)
-        else:
-            num_units = these_num_units
+    if aggregate.window_size:
+        window_size = aggregate.window.size
+    else:
+        # TODO: this is the old depreciated way, remove when not needed
+        for path in drilldown_paths:
+            relevant_level = path.levels[-1]
+            these_num_units = None
+            if relevant_level.info:
+                these_num_units = relevant_level.info.get('aggregation_units', None)
+            if these_num_units is None:
+                key_drilldown_paths.append(path)
+            else:
+                window_size = these_num_units
 
-    # Coalesce the units
+    if window_size is None:
+        window_size = 1
 
-    if num_units is None or not isinstance(num_units, int) or num_units < 1:
-        num_units = 1
+    elif not isinstance(window_size, int) or window_size < 1:
+        raise ModelError("window size for aggregate '%s' sohuld be an integer "
+                         "greater than 1" % aggregate.name)
 
     # Create a composite key for grouping:
     #   * split dimension, if used
@@ -141,7 +147,7 @@ def _window_function_factory(aggregate, source, drilldown_paths, split_cell, win
     function = WindowFunction(window_function, window_key,
                               target_attribute=aggregate.name,
                               source_attribute=source,
-                              window_size=num_units,
+                              window_size=window_size,
                               label=label)
     return function
 
