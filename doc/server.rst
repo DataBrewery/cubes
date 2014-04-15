@@ -248,7 +248,7 @@ requests:
 
 * ``/cube/<name>/aggregate`` – aggregate measures, provide summary, generate
   drill-down, slice&dice, ...
-* ``/cube/<name>/dimension/<dim>`` – list dimension members
+* ``/cube/<name>/members/<dim>`` – list dimension members
 * ``/cube/<name>/facts`` – list facts within a cell
 * ``/cube/<name>/fact`` – return a single fact
 * ``/cube/<name>/cell`` – describe the cell
