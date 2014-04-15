@@ -107,7 +107,7 @@ def _window_function_factory(aggregate, source, drilldown_paths, split_cell, win
     drilldown_paths = drilldown_paths or []
 
     if aggregate.window_size:
-        window_size = aggregate.window.size
+        window_size = aggregate.window_size
     else:
         # TODO: this is the old depreciated way, remove when not needed
         for path in drilldown_paths:
@@ -125,7 +125,7 @@ def _window_function_factory(aggregate, source, drilldown_paths, split_cell, win
 
     elif not isinstance(window_size, int) or window_size < 1:
         raise ModelError("window size for aggregate '%s' sohuld be an integer "
-                         "greater than 1" % aggregate.name)
+                         "greater than or equeal 1" % aggregate.name)
 
     # Create a composite key for grouping:
     #   * split dimension, if used
