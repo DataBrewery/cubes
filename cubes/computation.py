@@ -11,7 +11,7 @@ __all__ = [
 
 def combined_cuboids(dimensions, required=None):
     """Returns a list of all combinations of `dimensions` as tuples. For
-    example, if `dimensions` is: ``['date', 'product']`` then it returs::
+    example, if `dimensions` is: ``['date', 'product']`` then it returns:
 
         ``[['date', 'cpv'], ['date'], ['cpv']]``
     """
