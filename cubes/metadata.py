@@ -89,7 +89,7 @@ def read_model_metadata(source):
             return read_model_metadata_bundle(source)
         elif len(parts.scheme) == 1 and os.path.isdir(source):
             # TODO: same hack as in _json_from_url
-            return read_model_metadata_bundle(source)			
+            return read_model_metadata_bundle(source)
         else:
             return _json_from_url(source)
     else:
