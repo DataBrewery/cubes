@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import pytz
-
 from flask import Request, Response, request, g
 from datetime import datetime
 
