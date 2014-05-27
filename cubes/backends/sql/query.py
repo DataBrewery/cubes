@@ -1410,7 +1410,7 @@ class QueryBuilder(object):
                 for path in cut.paths:
                     condition = self.condition_for_point(dim, path,
                                                          cut.hierarchy,
-                                                         cut.invert)
+                                                         invert=False)
                     set_conds.append(condition)
 
                 condition = sql.expression.or_(*set_conds)
