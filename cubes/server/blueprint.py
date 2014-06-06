@@ -187,6 +187,10 @@ def page_not_found(e):
     }
     return jsonify(error), 404
 
+@slicer.errorhandler(InternalError)
+def server_error(e):
+    logger.error("Internal error: %s" % e)
+
 # Endpoints
 # =========
 
