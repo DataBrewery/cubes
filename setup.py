@@ -9,6 +9,7 @@ extras = {
     'mongo': 'pymongo',
     'mongo2': ['mongo','pytz'], 
     'all': ['cubes[%s]' % extra for extra in ['sql','slicer','html','mongo2']],
+    'dev': ['cubes[all]', 'sphinx'],
 }
 
 setup(
