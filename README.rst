@@ -61,7 +61,6 @@ Build the documentation like so. ::
 
     cd doc
     make help
-    make doctest
     make html
 
 Outputs will go in ``doc/_*``.
