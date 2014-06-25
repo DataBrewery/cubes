@@ -2,6 +2,14 @@ import sys
 from setuptools import setup, find_packages
 
 requirements = ["pytz", "python-dateutil", "jsonschema"]
+extras = {
+    'sql': 'sqlalchemy>= 0.7.4',
+    'slicer': 'werkzeug',
+    'html': 'jinja',
+    'mongo': 'pymongo',
+    'mongo2': ['mongo','pytz'], 
+    'all': ['cubes[%s]' % extra for extra in ['sql','slicer','html','mongo2']],
+}
 
 setup(
     name = "cubes",
@@ -10,6 +18,7 @@ setup(
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
     install_requires = requirements,
+    extras_require = extras,
 
     packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     package_data = {
