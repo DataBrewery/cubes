@@ -38,6 +38,8 @@ or with all of the extras. ::
 
     pip install cubes[all]
 
+If you are developing cubes, you should install ``cubes[all]``.
+
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
 .. _Flask: http://flask.pocoo.org/
 .. _pip installer: http://www.pip-installer.org/en/latest/installing.html#install-or-upgrade-pip
