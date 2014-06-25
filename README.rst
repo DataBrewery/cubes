@@ -64,6 +64,8 @@ Build the documentation like so. ::
     make doctest
     make html
 
+Outputs will go in ``doc/_*``.
+
 Requirements
 ------------
 
