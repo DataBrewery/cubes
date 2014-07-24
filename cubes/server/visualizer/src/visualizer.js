@@ -25,7 +25,7 @@ YUI({
       fullpath: 'src/display.js'
     }
   }
-}).use('node', 'router', 'querystring', 'event-resize', 'event-key', 'gallery-y64', 'transition', 'cookie', 'get',
+}).use('node', 'router', 'querystring', 'event-resize', 'event-key', 'gallery-y64', 'transition', 'get',
   'visualizer-component-dialog', 'visualizer-component-spinner',
   'visualizer-datasource-cubes', 'visualizer-nav', 'visualizer-datalayer',
   function (Y)
@@ -307,7 +307,6 @@ YUI({
                 cubesUrl = 'http://' + cubesUrl;
               }
 
-              Y.Cookie.set('visualizer_cubes_url', cubesUrl);
               VisualizerConfig.cubesUrl = cubesUrl;
               VisualizerConfig.debug = Y.one('.splash-screen .debug input').get('checked');
 
@@ -329,13 +328,9 @@ YUI({
             Y.one('.splash-screen').setStyle('opacity', 1);
             Y.one('body').setStyle('overflow', 'hidden');
 
-            var cubesUrl = Y.Cookie.get('visualizer_cubes_url');
+            var cubesUrl = VisualizerConfig.cubesUrl;
             if (!cubesUrl) {
-              cubesUrl = VisualizerConfig.cubesUrl;
-
-              if (!cubesUrl) {
-                cubesUrl = Y.visualizer.Config.defaultCubesUrl;
-              }
+              cubesUrl = Y.visualizer.Config.defaultCubesUrl;
             }
 
             Y.one('.splash-screen .cubes-url input').set('value', cubesUrl);
