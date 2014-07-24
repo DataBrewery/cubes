@@ -4,8 +4,8 @@ var VisualizerConfig = {
     text: 'Cubes Visualizer'
   },
   splashScreen: true,
-  cubesUrl: 'http://slicer-demo.databrewery.org/',
-  defaultCubesUrl: 'http://slicer-demo.databrewery.org/',
+  cubesUrl: window.location.href.substring(0, window.location.href.indexOf('visualizer')),
+  defaultCubesUrl: window.location.href.substring(0, window.location.href.indexOf('visualizer')),
   debug: false,
   root: '/',
   yuiLocation: 'http://yui.yahooapis.com/3.15.0/build/yui/yui-min.js',
