@@ -42,7 +42,7 @@ API_VERSION = 2
 # Cross-origin resource sharing – 20 days cache
 CORS_MAX_AGE = 1728000
 
-slicer = Blueprint("slicer", __name__, template_folder="templates", static_folder="static")
+slicer = Blueprint("slicer", __name__, template_folder="templates")
 
 # Before
 # ------
