@@ -42,7 +42,7 @@ API_VERSION = 2
 # Cross-origin resource sharing – 20 days cache
 CORS_MAX_AGE = 1728000
 
-slicer = Blueprint("slicer", __name__, template_folder="templates")
+slicer = Blueprint("slicer", __name__, template_folder="templates", static_folder="visualizer")
 
 # Before
 # ------
@@ -562,6 +562,10 @@ def logout():
         return current_app.slicer.authenticator.logout(request, g.auth_identity)
     else:
         return "logged out"
+
+@slicer.route("/visualizer/")
+def get_visualizer():
+    return slicer.send_static_file("index.html")
 
 @slicer.after_request
 def add_cors_headers(response):
