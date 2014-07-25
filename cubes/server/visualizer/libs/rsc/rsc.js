@@ -2878,18 +2878,20 @@ rsc.charts.heatmap = function(parent) {
 
     xAxis = d3.svg.axis()
       .scale(x)
+      .tickSize(0)
       .orient('bottom');
 
     xAxis.tickFormat(this.xTickFormat());
 
     yAxis = d3.svg.axis()
       .scale(y)
+      .tickSize(0)
       .orient('left');
 
-    if (this.grid()) {
-      xAxis.tickSize(-h);
-      yAxis.tickSize(-w);
-    }
+    // if (this.grid()) {
+    //   xAxis.tickSize(-h);
+    //   yAxis.tickSize(-w);
+    // }
 
     chartData = this.data().filter(function(d) { return !d.disabled; });
 
