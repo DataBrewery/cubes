@@ -4,7 +4,7 @@ Cubes Visualizer
 Config
 ======
 
-All configuration that should be needed will be in [config.js](https://github.com/rberlew/cubes-visualizer/blob/master/config.js).
+All configuration that should be needed will be in [config.js](https://github.com/Stiivi/cubes/blob/master/cubes/server/visualizer/config.js).
 
 #### Logo and Title ####
 *img* : Logo image location. (Default: cubes logo)<br>
