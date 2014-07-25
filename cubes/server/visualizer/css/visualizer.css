@@ -568,8 +568,20 @@ body, html {
   background: transparent url(../images/icon-chart-line.png) center center no-repeat;
 }
 
+.sidebar .icon.line-pct {
+  background: transparent url(../images/icon-chart-line-pct.png) center center no-repeat;
+}
+
 .sidebar .icon.stacked {
   background: transparent url(../images/icon-chart-area.png) center center no-repeat;
+}
+
+.sidebar .icon.expanded {
+  background: transparent url(../images/icon-chart-expanded.png) center center no-repeat;
+}
+
+.sidebar .icon.stream {
+  background: transparent url(../images/icon-chart-stream.png) center center no-repeat;
 }
 
 .sidebar .icon.heatmap {
