@@ -233,7 +233,14 @@ def coalesce_options(options, types):
     return out
 
 def to_unicode_string(s):
-    s = str(s)
+    """Encode parameters from URL to unicode. First check if `s`
+    is unicode. If it is, then convert it to UTF-8. Otherwise make it a str"""
+
+    if isinstance(s, unicode):
+        s = s.encode('utf-8')
+    else:
+        s = str(s)
+
     for enc in ('utf8', 'latin-1'):
         try:
             return unicode(s, enc)
