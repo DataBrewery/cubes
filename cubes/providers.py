@@ -172,6 +172,11 @@ class ModelProvider(Extensible):
 
         Subclasses should override this method and call the super if they
         would like to merge metadata provided in a model file.
+
+        .. note:
+
+            If provider is caching a cube metadata, it should store a cache
+            for localized version of the cube metadata.
         """
 
         if name in self.cubes_metadata:
@@ -292,6 +297,11 @@ class ModelProvider(Extensible):
 
         Subclasses of `ModelProvider` might override this method if they would
         like to create the `Cube` object directly.
+
+        .. note:
+
+            If provider is caching a cube, it should store a cache for
+            localized version of the cube.
         """
 
         metadata = self.cube_metadata(name, locale)

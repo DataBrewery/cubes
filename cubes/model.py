@@ -268,6 +268,20 @@ class ModelObject(object):
 
         return out
 
+    def localize(self, translation):
+        """Localize common attributes: label and description. `trans` should
+        be a dictionary or a string. If it is just a string, then only `label`
+        will be localized."""
+
+        if isinstance(trans, basestring):
+            self.label = trans
+        else:
+            self.label = translation.get("label", self.label)
+            self.description = translation.get("description", self.description)
+
+            # TODO: deep merge?
+            self.info.update(translation.get("info", {}))
+
 
 class Cube(ModelObject):
     def __init__(self, name, dimensions=None, measures=None, aggregates=None,
@@ -751,27 +765,22 @@ class Cube(ModelObject):
 
         return results
 
-    def localize(self, locale):
-        # FIXME: this needs revision/testing – it might be broken
-        localize_common(self,locale)
+    def localize(self, trans):
+        super(Cube, self).localize(trans)
 
-        attr_locales = locale.get("measures")
-        if attr_locales:
-            for attrib in self.measures:
-                if attrib.name in attr_locales:
-                    localize_common(attrib, attr_locales[attrib.name])
+        self.category = trans.get("category", self.category)
 
-        attr_locales = locale.get("aggregates")
-        if attr_locales:
-            for attrib in self.aggregates:
-                if attrib.name in attr_locales:
-                    localize_common(attrib, attr_locales[attrib.name])
+        attr_trans = trans.get("measures", {})
+        for attrib in self.measures:
+            attrib.localize(attr_trans.get(attrib.name, {}))
 
-        attr_locales = locale.get("details")
-        if attr_locales:
-            for attrib in self.details:
-                if attrib.name in attr_locales:
-                    localize_common(attrib, attr_locales[attrib.name])
+        attr_trans = trans.get("aggregates", {})
+        for attrib in self.aggregates:
+            attrib.localize(attr_trans.get(attrib.name, {}))
+
+        attr_trans = trans.get("details", {})
+        for attrib in self.details:
+            attrib.localize(attr_trans.get(attrib.name, {}))
 
     def localizable_dictionary(self):
         # FIXME: this needs revision/testing – it might be broken
@@ -1281,26 +1290,22 @@ class Dimension(ModelObject):
         return "<dimension: {name: '%s', levels: %s}>" % (self.name,
                                                           self._levels.keys())
 
-    def localize(self, locale):
-        localize_common(self, locale)
+    def localize(self, trans):
+        super(Dimension, self).localize(trans)
 
-        attr_locales = locale.get("attributes", {})
+        self.category = trans.get("category", self.category)
 
+        attr_trans = trans.get("attributes", {})
         for attrib in self.all_attributes:
-            if attrib.name in attr_locales:
-                localize_common(attrib, attr_locales[attrib.name])
+            attrib.localize(attr_trans.get(attrib.name, {}))
 
-        level_locales = locale.get("levels") or {}
+        level_trans = locale.get("levels", {})
         for level in self.levels:
-            level_locale = level_locales.get(level.name)
-            if level_locale:
-                level.localize(level_locale)
+            level.localize(level_trans.get(level.name, {}))
 
-        hier_locales = locale.get("hierarcies")
-        if hier_locales:
-            for hier in self.hierarchies:
-                hier_locale = hier_locales.get(hier.name)
-                hier.localize(hier_locale)
+        hier_trans = locale.get("hierarchies", {})
+        for hier in self.hierarchies:
+            hier.localize(hier_trans.get(hier.name, {}))
 
     def localizable_dictionary(self):
         locale = {}
@@ -1533,9 +1538,6 @@ class Hierarchy(ModelObject):
 
         return out
 
-    def localize(self, locale):
-        localize_common(self, locale)
-
     def localizable_dictionary(self):
         locale = {}
         locale.update(get_localizable_attributes(self))
@@ -1737,8 +1739,8 @@ class Level(ModelObject):
 
         return len(self.attributes) > 1
 
-    def localize(self, locale):
-        localize_common(self, locale)
+    def localize(self, trans):
+        super(Level, self).localize(trans)
 
         if isinstance(locale, basestring):
             return
@@ -1861,6 +1863,11 @@ class AttributeBase(ModelObject):
 
     def is_localizable(self):
         return False
+
+    def localize(self, trans):
+        """Localize the attribute, allow localization of the format."""
+        super(AttributeBase, self).localize(trans)
+        self.format = trans.get("format", self.format)
 
     def ref(self, simplify=None, locale=None):
         return self.name
