@@ -171,14 +171,14 @@ class Namespace(object):
         for provider in self.providers:
             # TODO: use locale
             try:
-                cube = provider.cube(name)
+                cube = provider.cube(name, locale)
             except NoSuchCubeError:
                 pass
             else:
                 cube.provider = provider
-                return cube
+                break
 
-        if recursive:
+        if not cube and recursive:
             for key, namespace in self.namespaces.items():
                 try:
                     cube = namespace.cube(name, locale, recursive=True)
@@ -186,9 +186,17 @@ class Namespace(object):
                     # Just continue with sibling
                     pass
                 else:
-                    return cube
+                    break
 
-        raise NoSuchCubeError("Unknown cube '%s'" % str(name), name)
+        if not cube:
+            raise NoSuchCubeError("Unknown cube '%s'" % str(name), name)
+
+        translation = self.translations.get(locale)
+
+        if translation:
+            return cube.localize(translation)
+        else:
+            return cube
 
     def dimension(self, name, locale=None, templates=None):
         dim = None
@@ -517,9 +525,6 @@ class Workspace(object):
 
         return store_name
 
-    # TODO: This is new method, replaces add_model. "import" is more
-    # appropriate as it denotes that objects are imported and the model is
-    # "dissolved"
     def import_model(self, metadata=None, provider=None, store=None,
                      translations=None, namespace=None):
 
@@ -527,7 +532,7 @@ class Workspace(object):
         a metadata dictionary, filename, path to a model bundle directory or a
         URL.
 
-        If `namespace` is specified, then the model's objects are stored in 
+        If `namespace` is specified, then the model's objects are stored in
         the namespace of that name.
 
         `store` is an optional name of data store associated with the model.
