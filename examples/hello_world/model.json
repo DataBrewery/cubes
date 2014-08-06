@@ -20,7 +20,7 @@
                 }
             ]
         },
-        {"name":"year"}
+        {"name":"year", "role": "time"}
     ],
     "cubes": [
         {
@@ -44,7 +44,11 @@
                           "item.subcategory_label": "subcategory_label",
                           "item.category": "category",
                           "item.category_label": "category_label"
-                         }
+                         },
+            "info": {
+                "min_date": "2010-01-01",
+                "max_date": "2010-12-31"
+            }
         }
     ]
 }
