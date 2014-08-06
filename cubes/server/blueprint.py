@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from flask import Blueprint, Response, request, g, current_app
-from flask import render_template
+from flask import render_template, redirect
 import json
 from functools import wraps
 
@@ -42,7 +42,7 @@ API_VERSION = 2
 # Cross-origin resource sharing – 20 days cache
 CORS_MAX_AGE = 1728000
 
-slicer = Blueprint("slicer", __name__, template_folder="templates")
+slicer = Blueprint("slicer", __name__, template_folder="templates", static_folder="visualizer")
 
 # Before
 # ------
@@ -93,6 +93,7 @@ def initialize_slicer(state):
         _store_option(config, "json_record_limit", 1000, "int")
         _store_option(config, "hide_private_cuts", False, "bool")
         _store_option(config, "allow_cors_origin", None, "str")
+        _store_option(config, "visualizer", None, "str")
 
         _store_option(config, "authentication", "none")
 
@@ -562,6 +563,20 @@ def logout():
         return current_app.slicer.authenticator.logout(request, g.auth_identity)
     else:
         return "logged out"
+
+
+@slicer.route("/visualizer/")
+def get_visualizer():
+    viz = current_app.slicer.visualizer
+
+    # Use the default visualizer
+    if viz == "default":
+        return slicer.send_static_file("index.html")
+    elif viz:
+        return redirect(viz)
+    else:
+        raise PageNotFoundError("Visualizer not configured")
+
 
 @slicer.after_request
 def add_cors_headers(response):

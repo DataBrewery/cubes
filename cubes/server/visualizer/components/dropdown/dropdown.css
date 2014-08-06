@@ -1,0 +1,180 @@
+.dd-dropdown-container *,
+.dd-dropdown-container *:after,
+.dd-dropdown-container *:before {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown {
+  /* Size & position */
+  /*position: relative;*/
+  width: 200px;
+  margin: 0 auto;
+  padding: 5px 5px;
+  color: black;
+  height: 28px;
+
+  /* Styles */
+  background: #fff;
+  border: 1px solid black;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-radius: 5px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  -webkit-transition: all 0.3s ease-out;
+  -moz-transition: all 0.3s ease-out;
+  -ms-transition: all 0.3s ease-out;
+  -o-transition: all 0.3s ease-out;
+  transition: all 0.3s ease-out;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown span {
+  float: left;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-arrow { /* Little arrow */
+  float: right;
+  width: 0;
+  height: 0;
+  margin-top: 5px;
+  border-width: 6px 6px 0 6px;
+  border-style: solid;
+  border-color: black transparent;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown {
+  position: absolute;
+  width: 200px;
+  margin-top: 21px;
+  margin-left: -6px;
+  z-index: 10;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul {
+  list-style: none;
+  background: #fff;
+  width: 100%;
+  border-right: 1px solid black;
+  border-left: 1px solid black;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul.dd-hidden-list {
+  display: none;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown > ul {
+  /* Styles */
+  border-radius: 0 0 5px 5px;
+  border-top: none;
+  border-bottom: none;
+  -webkit-transition: all 0.3s ease-out;
+  -moz-transition: all 0.3s ease-out;
+  -ms-transition: all 0.3s ease-out;
+  -o-transition: all 0.3s ease-out;
+  transition: all 0.3s ease-out;
+
+  /* Hiding */
+  max-height: 0;
+  overflow: hidden;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul li {
+  display: block;
+  cursor: pointer;
+  text-transform: none;
+  text-decoration: none;
+  color: black;
+  font-weight: 400;
+  padding: 5px 5px 5px 11px;
+  transition: all 0.3s ease-out;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul li.dd-category {
+  cursor: default;
+  text-transform: uppercase;
+  color: #999;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown > ul li.dd-category:not(.dd-nested) {
+  padding-bottom: 0;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul li:not(.dd-nested) ul {
+  margin-left: -5px;
+  margin-right: -5px;
+  border: none;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul li:not(.dd-nested) ul li {
+  padding-left: 10px;
+  border: none;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul li.dd-nested ul {
+  display: none;
+  position: absolute;
+  left: 100%;
+  margin-left: -16px;
+  border-top: 1px solid black;
+  border-radius: 0 5px 5px 0;
+}
+
+/* Hover state */
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul li:hover ul {
+  display: block;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown .dd-dropdown ul li:not(.dd-category):hover {
+  background-color: whiteSmoke;
+}
+
+/* Active state */
+
+.dd-dropdown-container .dd-wrapper-dropdown.dd-active {
+  border-radius: 5px 5px 0 0;
+  background: whiteSmoke;
+  z-index: 11;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown.dd-active:after {
+  border-color: black transparent;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown.dd-active .dd-dropdown ul {
+  border-bottom: 1px solid black;
+  max-height: 400px;
+  
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown.dd-active .dd-dropdown ul li.dd-category.dd-nested:after {
+  content: "";
+  width: 0;
+  height: 0;
+  float: right;
+  margin-top: 2px;
+  border-width: 6px 0 6px 6px;
+  border-style: solid;
+  border-color: transparent black;
+}
+
+/* Selected state */
+
+.dd-dropdown-container .dd-wrapper-dropdown li.dd-selected {
+  background: whiteSmoke;
+  font-weight: 600 !important;
+  padding-left: 2px !important;
+}
+
+.dd-dropdown-container .dd-wrapper-dropdown li.dd-selected:before {
+  content: url(../../images/bulletpoint.png);
+  margin-right: 2px;
+}

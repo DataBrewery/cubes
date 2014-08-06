@@ -1,0 +1,61 @@
+.single-wrapper {
+	text-align: center;
+	font-size: 0;
+	height: 100%;
+}
+
+.single-wrapper:before {
+	content: '';
+	display: inline-block;
+	height: 100%;
+	vertical-align: middle;
+}
+
+.single-wrapper .single-content {
+	display: inline-block;
+	vertical-align: middle;
+	font-size: 100px;
+	font-weight: 400;
+	width: 100%;
+}
+
+.viz-table {
+	height: 100%;
+}
+
+.viz-table .viz-table-export {
+	position: absolute;
+	top: 0;
+	right: 0;
+	height: 27px;
+	width: 18px;
+	background: transparent url(../images/icon-exporting-14-dark.png) center center no-repeat;
+	z-index: 10;
+	cursor: pointer;
+}
+
+.viz-table .viz-table-export:hover {
+	opacity: 0.5;
+}
+
+/** Overrides for yui3 datatable **/
+.yui3-datatable-caption {
+	font-size: 100% !important;
+	font-style: normal !important;
+}
+
+.yui3-datatable table {
+	font-family: "Source Sans Pro", Helvetica, Arial, sans-serif !important;
+}
+
+.yui3-datatable-odd > * {
+	background-color: whiteSmoke !important;
+}
+
+.yui3-datatable-sort-indicator {
+	background-image: url(../images/sort-arrow-sprite.png) !important;
+}
+
+.row-highlight > td {
+	background-color: #C0FFC0 !important;
+}

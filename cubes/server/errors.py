@@ -77,9 +77,18 @@ class NotAuthenticatedError(ServerError):
         return headers
 
 
-class NotFoundError(ServerError):
+# TODO: Rename this to plain NotFoundError
+class PageNotFoundError(ServerError):
     code = 404
     error_type = "not_found"
+    def __init__(self, message=None):
+        super(PageNotFoundError, self).__init__(message)
+
+
+# TODO: Rename this to ObjectNotFoundError
+class NotFoundError(ServerError):
+    code = 404
+    error_type = "object_not_found"
     def __init__(self, obj, objtype=None, message=None):
         super(NotFoundError, self).__init__(message)
         self.details = { "object": obj }
