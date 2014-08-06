@@ -15,12 +15,6 @@ from collections import OrderedDict
 
 __all__ = [
     "Workspace",
-
-    # Depreciated
-    "get_backend",
-    "create_workspace",
-    "create_workspace_from_config",
-    "config_items_to_dict",
 ]
 
 
@@ -868,21 +862,3 @@ class Workspace(object):
 
         for store in self.open_stores:
             store.close()
-
-
-# TODO: Remove following depreciated functions
-
-def get_backend(name):
-    raise NotImplementedError("get_backend() is depreciated. "
-                              "Use Workspace instead." )
-
-
-def create_workspace(backend_name, model, **options):
-    raise NotImplemented("create_workspace() is depreciated, "
-                         "use Workspace(config) instead")
-
-
-def create_workspace_from_config(config):
-    raise NotImplemented("create_workspace_from_config() is depreciated, "
-                         "use Workspace(config) instead")
-
