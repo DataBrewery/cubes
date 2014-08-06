@@ -2,12 +2,16 @@
 
 from __future__ import absolute_import
 
+from .errors import NoSuchCubeError, NoSuchDimensionError
+
 __all__ = [
     "Namespace",
 ]
 
 class Namespace(object):
     def __init__(self):
+        """Creates a cubes namespace – an object that provides model objects
+        from the providers."""
         self.namespaces = {}
         self.providers = []
         self.objects = {}
@@ -19,6 +23,9 @@ class Namespace(object):
         name or contains part of external namespace).
 
         If path is empty or not provided then returns self.
+
+        If `create` is `True` then the deepest namespace is created if it does
+        not exist.
         """
 
         if not path:
@@ -53,11 +60,11 @@ class Namespace(object):
         return namespace
 
     def namespace_for_cube(self, cube):
-        """Returns a tuple (`namespace`, `relative_cube`) where `namespace` is
-        a namespace conaining `cube` and `relative_cube` is a name of the
-        `cube` within the `namespace`. For example: if cube is
-        ``slicer.nested.cube`` and there is namespace ``slicer`` then that
-        namespace is returned and the `relative_cube` will be ``nested.cube``"""
+        """Returns a tuple (`namespace`, `path`, `basename`) where `namespace`
+        is a namespace conaining `cube` and `basename` is a name of the `cube`
+        within the `namespace`. For example: if cube is ``slicer.nested.cube``
+        and there is namespace ``slicer`` then that namespace is returned and
+        the `basename` will be ``nested.cube``"""
 
         cube = str(cube)
         split = cube.split(".")
@@ -71,11 +78,15 @@ class Namespace(object):
         (namespace, remainder) = self.namespace(path)
 
         if remainder:
-            relative_cube = "%s.%s" % (".".join(remainder), cube)
+            basename = "%s.%s" % (".".join(remainder), cube)
         else:
-            relative_cube = cube
+            basename = cube
 
-        return (namespace, relative_cube)
+        # Create a namespace path
+        nspath = path[:-len(remainder)]
+        nsname = ".".join(nspath)
+
+        return (namespace, nspath, basename)
 
     def list_cubes(self, recursive=False):
         """Retursn a list of cube info dictionaries with keys: `name`,
@@ -110,8 +121,8 @@ class Namespace(object):
         """
         cube = None
 
+        # Find first provider that knows about the cube `name`
         for provider in self.providers:
-            # TODO: use locale
             try:
                 cube = provider.cube(name, locale)
             except NoSuchCubeError:
@@ -133,12 +144,7 @@ class Namespace(object):
         if not cube:
             raise NoSuchCubeError("Unknown cube '%s'" % str(name), name)
 
-        translation = self.translations.get(locale)
-
-        if translation:
-            return cube.localize(translation)
-        else:
-            return cube
+        return cube
 
     def dimension(self, name, locale=None, templates=None):
         dim = None

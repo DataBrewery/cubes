@@ -34,12 +34,6 @@ class ModelProvider(Extensible):
         """Base class for model providers. Initializes a model provider and
         sets `metadata` – a model metadata dictionary.
 
-        Instance variable `store` might be populated after the
-        initialization. If the model provider requires an open store, it
-        should advertise it through `True` value returned by provider's
-        `requires_store()` method.  Otherwise no store is opened for the model
-        provider. `store_name` is also set.
-
         Subclasses should call this method at the beginning of the custom
         `__init__()`.
 
@@ -49,11 +43,10 @@ class ModelProvider(Extensible):
 
         Subclasses should implement at least: :meth:`cubes.ModelProvider.cube`,
         :meth:`cubes.ModelProvider.dimension` and
-        :meth:`cubes.ModelProvider.list_cubes`
+        :meth:`cubes.ModelProvider.list_cubes` methods.
         """
 
         self.store = None
-        self.store_name = None
 
         # Get provider's defaults and pre-pend it to the user provided
         # metadtata.
@@ -122,20 +115,16 @@ class ModelProvider(Extensible):
         override this method. Default implementation returns `False`"""
         return False
 
-    def set_store(self, store, store_name):
-        """Set's the provider's `store` and `store_name`. The store can be used
-        to retrieve model's metadata. The store name is a handle that can be
-        passed to the Cube objects for workspace to know where to find cube's
-        data."""
+    def bind(self, store, store_name):
+        """Set's the provider's `store`. """
 
         self.store = store
-        self.store_name = store_name
         self.initialize_from_store()
 
     def initialize_from_store(self):
-        """Sets provider's store and store name. This method is called after
-        the provider's `store` and `store_name` were set. Override this method
-        if you would like to perform post-initialization from the store."""
+        """This method is called after the provider's `store` was set.
+        Override this method if you would like to perform post-initialization
+        from the store."""
         pass
 
     def cube_options(self, cube_name):
@@ -183,11 +172,6 @@ class ModelProvider(Extensible):
             metadata = dict(self.cubes_metadata[name])
         else:
             raise NoSuchCubeError("No such cube '%s'" % name, name)
-
-        # merge datastore from model if datastore not present
-        if not metadata.get("datastore"):
-            metadata['datastore'] = self.metadata.get("datastore",
-                                                      self.store_name)
 
         # merge browser_options
         browser_options = self.metadata.get('browser_options', {})
