@@ -12,7 +12,8 @@ from .extensions import extensions
 from .namespace import Namespace
 import os.path
 import ConfigParser
-from collections import OrderedDict
+from copy import copy
+from collections import OrderedDict, defaultdict
 
 __all__ = [
     "Workspace",
@@ -32,10 +33,6 @@ SLICER_INFO_KEYS = (
     "related"       # List of dicts with related servers
 )
 
-def config_items_to_dict(items):
-    return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
-
-
 def interpret_config_value(value):
     if value is None:
         return value
@@ -47,16 +44,8 @@ def interpret_config_value(value):
     return value
 
 
-def _get_name(obj, object_type="Object"):
-    if isinstance(obj, basestring):
-        name = obj
-    else:
-        try:
-            name = obj["name"]
-        except KeyError:
-            raise ModelError("%s has no name" % object_type)
-
-    return name
+def config_items_to_dict(items):
+    return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
 
 
 class ModelObjectInfo(object):
@@ -72,12 +61,12 @@ class ModelObjectInfo(object):
         self.master = None
         self.instances = {}
 
-    def add_instance(self, instance, locale=None, identity=None):
-        key = (locale, identity)
+    def add_instance(self, instance, lang=None, identity=None):
+        key = (lang, identity)
         self.instances[key] = instance
 
-    def instance(self, locale=None, identity=None):
-        key = (locale, identity)
+    def instance(self, lang=None, identity=None):
+        key = (lang, identity)
         return self.instances[key]
 
 
@@ -86,7 +75,23 @@ class Workspace(object):
         """Creates a workspace. `config` should be a `ConfigParser` or a
         path to a config file. `stores` should be a dictionary of store
         configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
+
+        Properties:
+
+        * `stores` – dictionary of stores
+        * `store_infos` – dictionary of store configurations
+        * `namespace` – default namespace
+        * `logger` – workspace logegr
+        * `rot_dir` – root directory where all relative paths are looked for
+        * `models_dir` – directory with models (if relative, then relative to
+          the root directory)
+
+        * `info` – info dictionary from the info file or info section
+        * `calendar` – calendar object providing date and time functions
+        * `ns_languages` – dictionary where keys are namespaces and values
+          are language to translation path mappings.
         """
+
         if isinstance(config, basestring):
             cp = ConfigParser.SafeConfigParser()
             try:
@@ -114,7 +119,8 @@ class Workspace(object):
 
         #Change to log level if necessary
         if config.has_option("workspace", "log_level"):
-            self.logger.setLevel(config.get("workspace", "log_level").upper())
+            level = config.get("workspace", "log_level").upper()
+            self.logger.setLevel(level)
 
 
         # Set the default models path
@@ -243,7 +249,7 @@ class Workspace(object):
 
         # Register [store_*] from main config (not documented)
         for section in config.sections():
-            if section.startswith("store_"):
+            if section.startswith("store"):
                 name = section[6:]
                 self._register_store_dict(name, dict(config.items(section)))
 
@@ -256,6 +262,19 @@ class Workspace(object):
             self.options = dict(config.items("main"))
         else:
             self.options = {}
+
+        # Register Languages
+        # ==================
+        #
+
+        # Register [language *]
+        self.ns_languages = defaultdict(dict)
+        for section in config.sections():
+            if section.startswith("language"):
+                lang = section[9:]
+                # model -> path
+                for ns, path in config.items(section):
+                    self.ns_languages[ns][lang] = path
 
         # Authorizer
         # ==========
@@ -282,25 +301,34 @@ class Workspace(object):
             path = os.path.join(loader.filename, "models/base.cubesmodel")
             self.import_model(path)
 
-        # TODO: remove this depreciation code
-        if config.has_section("model"):
-            self.logger.warn("Section [model] is depreciated. Use 'model' in "
-                             "[workspace] for single default model or use "
-                             "section [models] to list multiple models.")
-            if config.has_option("model", "path"):
-                source = config.get("model", "path")
-                self.logger.debug("Loading model from %s" % source)
-                self.import_model(source)
-
+        # Models are searched in:
+        # [model]
+        # [workspace] model <- depreciated!
+        # [models] * <- depreciated!
+        # TODO: add this for nicer zero-conf
+        # root/model.json
+        # root/main.cubesmodel
+        # models/*.cubesmodel
         models = []
-        if config.has_option("workspace", "model"):
-            models.append(config.get("workspace", "model"))
-        if config.has_section("models"):
-            models += [path for name, path in config.items("models")]
+        # Undepreciated
+        if config.has_section("model"):
+            if not config.has_option("model", "path"):
+                raise ConfigurationError("No model path specified")
 
-        for model in models:
+            path = config.get("model", "path")
+            models.append(("main", path))
+
+        # TODO: Depreciated before even being used
+        if config.has_option("workspace", "model"):
+            models.append( ("main", config.get("workspace", "model")) )
+
+        # TODO: Depreciate this too
+        if config.has_section("models"):
+            models += config.items("models")
+
+        for model, path in models:
             self.logger.debug("Loading model %s" % model)
-            self.import_model(model)
+            self.import_model(path)
 
     def _register_store_dict(self, name, info):
         info = dict(info)
@@ -366,6 +394,8 @@ class Workspace(object):
 
         return store_name
 
+    # TODO: this is very complicated method, needs simplification
+    # TODO: change this to: import(name, info, provider, store, languages, ns)
     def import_model(self, metadata=None, provider=None, store=None,
                      translations=None, namespace=None):
 
@@ -389,6 +419,16 @@ class Workspace(object):
         called.
         """
 
+        if store and not isinstance(store, basestring):
+            raise ArgumentError("Store should be provided by name "
+                                "(as a string).")
+
+        # 1. Metadata
+        # -----------
+        # Make sure that the metadata is a dictionary
+        # 
+        # TODO: Use "InlineModelProvider" and "FileBasedModelProvider"
+
         if isinstance(metadata, basestring):
             self.logger.debug("Importing model from %s. "
                               "Provider: %s Store: %s NS: %s"
@@ -407,9 +447,11 @@ class Workspace(object):
                                      "(should be a filename or a dictionary)"
                                      % model)
 
+        # 2. Model provider
+        # -----------------
         # Create a model provider if name is given. Otherwise assume that the
         # `provider` is a ModelProvider subclass instance
-        # TODO: add translations
+
         if isinstance(provider, basestring):
             provider = extensions.model_provider(provider, metadata)
 
@@ -417,33 +459,29 @@ class Workspace(object):
             provider_name = metadata.get("provider", "default")
             provider = extensions.model_provider(provider_name, metadata)
 
+        # 3. Store
+        # --------
+        # Link the model with store
         store = store or metadata.get("store")
 
         if store or provider.requires_store():
-            if store and not isinstance(store, basestring):
-                raise ArgumentError("Store should be a name, not an object")
-            provider.set_store(self.get_store(store), store)
+            provider.bind(self.get_store(store))
 
-        # We are not getting list of cubes here, we are lazy
+        # 4. Namespace
+        # ------------
 
         if namespace:
             if isinstance(namespace, basestring):
                 (ns, _) = self.namespace.namespace(namespace, create=True)
             else:
                 ns = namepsace
-        elif store != "default":
-            # Store in store's namespace
-            # TODO: use default namespace
-            (ns, _) = self.namespace.namespace(store, create=True)
-        else:
+        elif store == "default":
             ns = self.namespace
+        else:
+            # Namespace with the same name as the store.
+            (ns, _) = self.namespace.namespace(store, create=True)
 
         ns.add_provider(provider)
-
-    # TODO: depreciated
-    def add_model(self, model, name=None, store=None, translations=None):
-        self.logger.warn("add_model() is depreciated, use import_model()")
-        return self.import_model(model, store=store, translations=translations)
 
     def add_slicer(self, name, url, **options):
         """Register a slicer as a model and data provider."""
@@ -478,36 +516,75 @@ class Workspace(object):
 
         return all_cubes
 
-    def cube(self, name, identity=None, locale=None):
-        """Returns a cube with `name`"""
-
-        if not isinstance(name, basestring):
-            raise TypeError("Name is not a string, is %s" % type(name))
+    def cube(self, ref, identity=None, locale=None):
+        """Returns a cube with full cube namespace reference `ref`."""
+        self.logger.info("GET CUBE %s" % ref)
+        if not isinstance(ref, basestring):
+            raise TypeError("Reference is not a string, is %s" % type(ref))
 
         if self.authorizer:
-            authorized = self.authorizer.authorize(identity, [name])
+            authorized = self.authorizer.authorize(identity, [ref])
             if not authorized:
                 raise NotAuthorized
 
-        cube_key = (name, locale)
-        if name in self._cubes:
+        cube_key = (ref, identity, locale)
+        if cube_key in self._cubes:
             return self._cubes[cube_key]
 
-        (ns, ns_cube) = self.namespace.namespace_for_cube(name)
+        # Find the namespace containing the cube – we will need it for linking
+        # later
+        (ns, nsname, basename) = self.namespace.namespace_for_cube(ref)
 
         recursive = (self.lookup_method == "recursive")
-        cube = ns.cube(ns_cube, locale=locale, recursive=recursive)
+        cube = ns.cube(basename, locale=locale, recursive=recursive)
 
+        # TODO: use ref – full and name – relative
         # Set cube name to the full cube reference that includes namespace as
         # well
-        cube.name = name
-        cube.basename = name.split(".")[-1]
+        cube.name = ref
+        cube.basename = ref.split(".")[-1]
 
         self.link_cube(cube, ns)
 
+        nsname = nsname or "default"
+
+        # Get the translation
+        # 1. look if there is translation for the namespace
+        # 2. find cube in the translation
+        # 3. translate if we have something
+        translation = None
+        ns_translation = self.translation(locale, nsname)
+        if ns_translation:
+            cubes_translation = ns_translation.get("cubes")
+            if cubes_translation:
+                translation = cubes_translation.get(basename)
+
+        if translation:
+            cube = copy(cube)
+            cube.localize(translation)
+
+        # TODO: translate dimension
         self._cubes[cube_key] = cube
 
         return cube
+
+    # TODO: memoize
+    def translation(self, locale, nsname=None):
+        """Returns translation dictionary for `locale` in namespace `ns`"""
+        nsname = nsname or "default"
+        try:
+            nstrans = self.ns_languages[nsname]
+        except KeyError:
+            return
+
+        try:
+            path = nstrans[locale]
+        except KeyError:
+            return None
+        else:
+            translation = read_json_file(path)
+
+        return translation
 
     def link_cube(self, cube, namespace):
         """Links dimensions to the cube in the context of `model` with help of

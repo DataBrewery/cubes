@@ -273,8 +273,8 @@ class ModelObject(object):
         be a dictionary or a string. If it is just a string, then only `label`
         will be localized."""
 
-        if isinstance(trans, basestring):
-            self.label = trans
+        if isinstance(translation, basestring):
+            self.label = translation
         else:
             self.label = translation.get("label", self.label)
             self.description = translation.get("description", self.description)
