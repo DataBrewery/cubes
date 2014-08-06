@@ -1266,7 +1266,8 @@ class QueryBuilder(object):
     def members_statement(self, cell, attributes=None):
         """Prepares dimension members statement."""
         self.denormalized_statement(cell, attributes, include_fact_key=False)
-        self.statement = self.statement.group_by(*self.statement.columns)
+        group_by = self.snowflake.columns(attributes)
+        self.statement = self.statement.group_by(*group_by)
         return self.statement
 
     def fact(self, id_):
@@ -1409,7 +1410,7 @@ class QueryBuilder(object):
                 for path in cut.paths:
                     condition = self.condition_for_point(dim, path,
                                                          cut.hierarchy,
-                                                         cut.invert)
+                                                         invert=False)
                     set_conds.append(condition)
 
                 condition = sql.expression.or_(*set_conds)

@@ -1989,7 +1989,8 @@ class Measure(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, aggregates=None,
-                 formula=None, expression=None, nonadditive=None, **kwargs):
+                 formula=None, expression=None, nonadditive=None,
+                 window_size=None, **kwargs):
         """Fact measure attribute.
 
         Properties in addition to the attribute base properties:
@@ -2017,6 +2018,7 @@ class Measure(AttributeBase):
         self.expression = expression
         self.formula = formula
         self.aggregates = aggregates
+        self.window_size = window_size
 
         # Note: synchronize with Dimension.__init__ if relevant/necessary
         if not nonadditive or nonadditive == "none":
@@ -2039,20 +2041,23 @@ class Measure(AttributeBase):
                        aggregates=self.aggregates,
                        expression=self.expression,
                        formula=self.formula,
-                       nonadditive=self.nonadditive)
+                       nonadditive=self.nonadditive,
+                       window_size=self.window_size)
 
     def __eq__(self, other):
         if not super(Measure, self).__eq__(other):
             return False
 
         return self.aggregates == other.aggregates \
-               and self.formula == other.formula
+                and self.formula == other.formula \
+                and self.window_size == other.window_size
 
     def to_dict(self, **options):
         d = super(Measure, self).to_dict(**options)
         d["formula"] = self.formula
         d["aggregates"] = self.aggregates
         d["expression"] = self.expression
+        d["window_size"] = self.window_size
 
         return d
 
@@ -2082,7 +2087,8 @@ class Measure(AttributeBase):
                                          info=self.info,
                                          format=self.format,
                                          measure=measure,
-                                         function=function)
+                                         function=function,
+                                         window_size=self.window_size)
 
             aggregate.label = _measure_aggregate_label(aggregate, self)
             aggregates.append(aggregate)
@@ -2105,7 +2111,7 @@ class MeasureAggregate(AttributeBase):
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, measure=None,
                  function=None, formula=None, expression=None,
-                 nonadditive=None, **kwargs):
+                 nonadditive=None, window_size=None, **kwargs):
         """Masure aggregate
 
         Attributes:
@@ -2130,6 +2136,7 @@ class MeasureAggregate(AttributeBase):
         self.expression = expression
         self.measure = measure
         self.nonadditive = nonadditive
+        self.window_size = window_size
 
     def __deepcopy__(self, memo):
         return MeasureAggregate(self.name,
@@ -2143,7 +2150,8 @@ class MeasureAggregate(AttributeBase):
                                 function=self.function,
                                 formula=self.formula,
                                 expression=self.expression,
-                                nonadditive=self.nonadditive)
+                                nonadditive=self.nonadditive,
+                                window_size=self.window_size)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
@@ -2153,7 +2161,8 @@ class MeasureAggregate(AttributeBase):
             and self.measure == other.measure \
             and self.formula == other.formula \
             and self.expression == other.expression \
-            and self.nonadditive == other.nonadditive
+            and self.nonadditive == other.nonadditive \
+            and self.window_size == other.window_size
 
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)
@@ -2162,6 +2171,7 @@ class MeasureAggregate(AttributeBase):
         d["expression"] = self.expression
         d["measure"] = self.measure
         d["nonadditive"] = self.nonadditive
+        d["window_size"] = self.window_size
 
         return d
 
