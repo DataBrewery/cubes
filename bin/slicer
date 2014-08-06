@@ -184,6 +184,9 @@ def run_server(args):
             raise CubesError("Unable to write PID file '%s'. Check the "
                              "directory existence or permissions." % path)
 
+    if args.visualizer:
+        config.set("server", "visualizer", args.visualizer)
+
     cubes.server.run_server(config, debug=args.debug)
 
 
@@ -384,6 +387,11 @@ subparser.set_defaults(func=run_server)
 subparser.add_argument('--debug',
                             dest='debug', action='store_true', default=False,
                             help="Run the server in debug mode")
+
+subparser.add_argument('--visualizer',
+                            dest='visualizer',
+                            help="Visualizer URL or "
+                                 "'default' for built-in visualizer")
 
 ################################################################################
 # Command: serve
