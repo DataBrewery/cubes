@@ -158,10 +158,10 @@ class Workspace(object):
             if method not in ["exact", "recursive"]:
                 raise ConfigurationError("Unknown namespace lookup method '%s'"
                                          % method)
-            self.lookup_method = method
+            self._lookup_method = method
         else:
             # TODO: make this "global"
-            self.lookup_method = "recursive"
+            self._lookup_method = "recursive"
 
         # Info
         # ====
@@ -245,11 +245,11 @@ class Workspace(object):
             default = dict(config.items("store"))
 
         if default:
-            self._register_store_dict("default",default)
+            self._register_store_dict("default", default)
 
         # Register [store_*] from main config (not documented)
         for section in config.sections():
-            if section.startswith("store"):
+            if section != "store" and section.startswith("store"):
                 name = section[6:]
                 self._register_store_dict(name, dict(config.items(section)))
 
@@ -330,6 +330,20 @@ class Workspace(object):
             self.logger.debug("Loading model %s" % model)
             self.import_model(path)
 
+    @property
+    def lookup_method(self):
+        return self._lookup_method
+
+    @lookup_method.setter
+    def lookup_method(self, value):
+        self.flush_lookup_cache()
+        self._lookup_method = value
+
+    def flush_lookup_cache(self):
+        """Flushes the cube lookup cache."""
+        self._cubes.clear()
+        # TODO: flush also dimensions
+
     def _register_store_dict(self, name, info):
         info = dict(info)
         try:
@@ -398,7 +412,6 @@ class Workspace(object):
     # TODO: change this to: import(name, info, provider, store, languages, ns)
     def import_model(self, metadata=None, provider=None, store=None,
                      translations=None, namespace=None):
-
         """Registers the model `metadata` in the workspace. `metadata` can be
         a metadata dictionary, filename, path to a model bundle directory or a
         URL.
@@ -471,7 +484,9 @@ class Workspace(object):
         # ------------
 
         if namespace:
-            if isinstance(namespace, basestring):
+            if namespace == "default":
+                ns = self.namespace
+            elif isinstance(namespace, basestring):
                 (ns, _) = self.namespace.namespace(namespace, create=True)
             else:
                 ns = namepsace
@@ -533,6 +548,7 @@ class Workspace(object):
 
         # Find the namespace containing the cube – we will need it for linking
         # later
+        # FIXME: nsname is not a name, but a path!
         (ns, nsname, basename) = self.namespace.namespace_for_cube(ref)
 
         recursive = (self.lookup_method == "recursive")
@@ -563,7 +579,6 @@ class Workspace(object):
             cube = copy(cube)
             cube.localize(translation)
 
-        # TODO: translate dimension
         self._cubes[cube_key] = cube
 
         return cube
@@ -596,6 +611,7 @@ class Workspace(object):
             providers = [cube.provider]
         else:
             providers = []
+
         if namespace:
             providers.append(namespace)
 
