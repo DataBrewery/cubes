@@ -68,8 +68,8 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         table.append_column(Column("id", Integer))
         table.create()
 
-        ws.add_model(self.model_path("model.json"))
-        ws.add_model(self.model_path("sales_no_date.json"))
+        ws.import_model(self.model_path("model.json"))
+        ws.import_model(self.model_path("sales_no_date.json"))
 
     def test_cube_list(self):
         response, status = self.get("cubes")

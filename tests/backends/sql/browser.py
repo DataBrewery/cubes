@@ -64,7 +64,7 @@ class StarSQLTestCase(CubesTestCaseBase):
                                                "sql_star_test.json")
         # self.workspace = Workspace()
         # self.workspace.register_default_store("sql", engine=self.engine)
-        # self.workspace.add_model()
+        # self.workspace.import_model()
         self.cube = self.workspace.cube("sales")
         store = self.workspace.get_store("default")
 
