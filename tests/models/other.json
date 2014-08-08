@@ -1,0 +1,14 @@
+{
+    "cubes": [
+      {
+          "name":"other",
+          "dimensions": ["date", "model_local_dimension"]
+      }
+    ],
+    "dimensions": [
+      {
+          "name":"model_local_dimension"
+      }
+    ]
+}
+
