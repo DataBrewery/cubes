@@ -26,6 +26,9 @@ app = Flask(__name__)
 
 CUBE_NAME="irbd_balance"
 
+global workspace
+# = Workspace(config='slicer.ini')
+
 @app.route("/favicon.ico")
 def favicon():
     return make_response("")
@@ -99,8 +102,14 @@ def report(dim_name=None):
                             details=details)
 
 
-if __name__ == "__main__":
+# @app.before_first_request
+# def initialize_model():
+#     print 'initialize'
+#     workspace = Workspace(config='slicer.ini')
 
+if __name__ == "__main__":
+    workspace = Workspace(config='slicer.ini')
+    workspace.register_default_store("sql",url="sqlite:///../hello_world/data.sqlite")#,dimension_prefix="dm_")
     # Create a Slicer and register it at http://localhost:5000/slicer
     app.register_blueprint(slicer, url_prefix="/slicer", config="slicer.ini")
     app.run(debug=True)
