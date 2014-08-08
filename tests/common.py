@@ -53,7 +53,7 @@ class CubesTestCaseBase(unittest.TestCase):
         if model:
             if isinstance(model, basestring):
                 model = self.model_path(model)
-            workspace.add_model(model)
+            workspace.import_model(model)
 
         return workspace
 

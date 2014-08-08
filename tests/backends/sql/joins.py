@@ -87,7 +87,7 @@ class JoinsTestCaseBase(CubesTestCaseBase):
         self.workspace.register_default_store("sql", engine=self.engine,
                 dimension_prefix="dim_")
 
-        self.workspace.add_model(self.model_path("joins.json"))
+        self.workspace.import_model(self.model_path("joins.json"))
         self.cube = self.workspace.cube("facts")
 
 
