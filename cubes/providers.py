@@ -115,7 +115,7 @@ class ModelProvider(Extensible):
         override this method. Default implementation returns `False`"""
         return False
 
-    def bind(self, store, store_name):
+    def bind(self, store):
         """Set's the provider's `store`. """
 
         self.store = store
