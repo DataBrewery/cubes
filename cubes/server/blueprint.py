@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-from flask import Blueprint, Response, request, g, current_app
+from flask import Blueprint, Response, request, g, current_app, url_for, safe_join, make_response
 from flask import render_template, redirect
-import json
+from jinja2 import Template
+import json, re
 from functools import wraps
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
@@ -564,19 +565,29 @@ def logout():
     else:
         return "logged out"
 
+_VIS_CONFIG_PATTERN = re.compile(ur"<!--\s*VISUALIZER CONFIG.+?-->(?msu)")
+_VIS_CONFIG_SCRIPT_TEMPLATE = Template(u"""
+<script type="text/javascript">
+VisualizerConfig.cubesUrl = "{{serverUrl}}";
+VisualizerConfig.splashScreen = false;
+</script>
+""")
 
 @slicer.route("/visualizer/")
+@slicer.route("/visualizer/index.html")
 def get_visualizer():
     viz = current_app.slicer.visualizer
 
     # Use the default visualizer
     if viz == "default":
-        return slicer.send_static_file("index.html")
+        with open(safe_join(slicer.static_folder, 'index.html'), 'rb') as indexfd:
+            index_contents = indexfd.read().decode('utf8')
+        index_contents = _VIS_CONFIG_PATTERN.sub(_VIS_CONFIG_SCRIPT_TEMPLATE.render(serverUrl=url_for('.show_index', _external=True)), index_contents)
+        return make_response(index_contents)
     elif viz:
         return redirect(viz)
     else:
         raise PageNotFoundError("Visualizer not configured")
-
 
 @slicer.after_request
 def add_cors_headers(response):
