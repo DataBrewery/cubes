@@ -14,7 +14,7 @@ class WorkspaceTestCaseBase(CubesTestCaseBase):
     def default_workspace(self, model_name=None):
         model_name = model_name or "model.json"
         ws = Workspace(config=self.data_path("slicer.ini"))
-        ws.add_model(self.model_path("model.json"))
+        ws.import_model(self.model_path("model.json"))
         return ws
 
 class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
@@ -71,6 +71,22 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         cube = ws.cube("local.contracts")
         self.assertEqual("local.contracts", cube.name)
 
+    def test_cube_with_dimensions_in_two_namespaces(self):
+        ws = Workspace()
+        ws.import_model(self.model_path("model.json"), namespace="store1")
+        ws.import_model(self.model_path("other.json"), namespace="store2")
+
+        # This should not pass, since the dimension is in another namespace
+        with self.assertRaises(NoSuchDimensionError):
+            ws.cube("other")
+
+        ws = Workspace()
+        ws.import_model(self.model_path("model.json"), namespace="default")
+        ws.import_model(self.model_path("other.json"), namespace="store2")
+
+        # This should pass, since the dimension is in the default namespace
+        ws.cube("other")
+
     def test_get_dimension(self):
         ws = self.default_workspace()
         dim = ws.dimension("date")
@@ -78,7 +94,7 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
 
     def test_template(self):
         ws = Workspace()
-        ws.add_model(self.model_path("templated_dimension.json"))
+        ws.import_model(self.model_path("templated_dimension.json"))
 
         dim = ws.dimension("date")
         self.assertEqual("date", dim.name)
@@ -93,8 +109,8 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
 
     def test_external_template(self):
         ws = Workspace()
-        ws.add_model(self.model_path("templated_dimension.json"))
-        ws.add_model(self.model_path("templated_dimension_ext.json"))
+        ws.import_model(self.model_path("templated_dimension.json"))
+        ws.import_model(self.model_path("templated_dimension_ext.json"))
 
         dim = ws.dimension("another_date")
         self.assertEqual("another_date", dim.name)
@@ -104,11 +120,11 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
                    "nothing")
     def test_duplicate_dimension(self):
         ws = Workspace()
-        ws.add_model(self.model_path("templated_dimension.json"))
+        ws.import_model(self.model_path("templated_dimension.json"))
 
         model = {"dimensions": [{"name": "date"}]}
         with self.assertRaises(ModelError):
-            ws.add_model(model)
+            ws.import_model(model)
 
     def test_local_dimension(self):
         # Test whether we can use local dimension with the same name as the
