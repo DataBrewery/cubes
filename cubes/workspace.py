@@ -69,7 +69,6 @@ class ModelObjectInfo(object):
         key = (lang, identity)
         return self.instances[key]
 
-
 class Workspace(object):
     def __init__(self, config=None, stores=None, load_base_model=True):
         """Creates a workspace. `config` should be a `ConfigParser` or a
@@ -121,7 +120,6 @@ class Workspace(object):
         if config.has_option("workspace", "log_level"):
             level = config.get("workspace", "log_level").upper()
             self.logger.setLevel(level)
-
 
         # Set the default models path
         if config.has_option("workspace", "root_directory"):
@@ -397,6 +395,8 @@ class Workspace(object):
             # Import empty model and register the provider
             self.import_model({}, store=name, namespace=nsname,
                               provider=provider)
+
+        self.logger.debug("Registered store '%s'" % name)
 
     def _store_for_model(self, metadata):
         """Returns a store for model specified in `metadata`. """
