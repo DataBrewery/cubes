@@ -173,7 +173,7 @@ class MixpanelModelProvider(ModelProvider):
                     description=category,
                     info=metadata.get("info"),
                     dimension_links=dims,
-                    datastore=self.store_name,
+                    store=self.store,
                     mappings=mappings,
                     category=category)
 
