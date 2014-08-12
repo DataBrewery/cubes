@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-from .errors import NoSuchCubeError, NoSuchDimensionError
+from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 
 __all__ = [
     "Namespace",
