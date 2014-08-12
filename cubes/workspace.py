@@ -739,10 +739,17 @@ class Workspace(object):
 
         locale = locale or cube.locale
 
-        store_name = cube.datastore or "default"
-        store = self.get_store(store_name)
-        store_type = self.store_infos[store_name][0]
-        store_info = self.store_infos[store_name][1]
+        if isinstance(cube.store, basestring):
+            store_name = cube.store or "default"
+            store = self.get_store(store_name)
+            store_type = self.store_infos[store_name][0]
+            store_info = self.store_infos[store_name][1]
+        else:
+            store = cube.store
+            store_type = store.store_type
+            if not store_type:
+                raise CubesError("Store %s has no store_type set" % store)
+            store_info = store.options or {}
 
         cube_options = self._browser_options(cube)
 
@@ -750,9 +757,8 @@ class Workspace(object):
         options = dict(store_info)
         options.update(cube_options)
 
-        # TODO: Construct options for the browser from cube's options dictionary and
-        # workspece default configuration
-        #
+        # TODO: Construct options for the browser from cube's options
+        # dictionary and workspece default configuration
 
         browser_name = cube.browser
         if not browser_name and hasattr(store, "default_browser_name"):
@@ -792,7 +798,9 @@ class Workspace(object):
         except KeyError:
             raise ConfigurationError("No info for store %s" % name)
 
-        store = extensions.store(type_, **options)
+        # TODO: temporary hack to pass store name and store type
+        store = extensions.store(type_, store_type=type_, store_name=name,
+                                 **options)
         self.stores[name] = store
         return store
 

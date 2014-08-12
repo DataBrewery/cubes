@@ -328,6 +328,8 @@ class GoogleAnalyticsStore(Store):
                  account_name=None, web_property=None,
                  category=None, view_id=None, **options):
 
+        super(GoogleAnalyticsStore, self).__init__(**options)
+
         self.logger = get_logger()
 
         self.service = None

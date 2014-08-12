@@ -219,7 +219,9 @@ class MixpanelModelProvider(ModelProvider):
 class MixpanelStore(Store):
     related_model_provider = "mixpanel"
 
-    def __init__(self, api_key, api_secret, category=None, tz=None):
+    def __init__(self, api_key, api_secret, category=None, tz=None, **options):
+        super(MixpanelStore, self).__init__(**options)
+
         self.mixpanel = Mixpanel(api_key, api_secret)
         self.category = category or "Mixpanel Events"
         if tz is not None:

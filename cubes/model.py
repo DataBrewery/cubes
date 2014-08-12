@@ -288,7 +288,7 @@ class Cube(ModelObject):
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, dimension_links=None, locale=None, category=None,
-                 datastore=None, **options):
+                 store=None, datastore=None, **options):
 
         """Create a new Cube model object.
 
@@ -324,7 +324,7 @@ class Cube(ModelObject):
         * `joins` - backend-specific join specification (used for example in
           the SQL backend). It should be a list of dictionaries.
         * `fact` - fact table (collection, dataset, ...) name
-        * `datastore` - name of datastore where the cube belongs
+        * `store` - name of data store where the cube belongs
         * `browser_options` - dictionary of other options used by the backend
           - refer to the backend documentation to see what options are used
           (for example SQL browser might look here for ``denormalized_view``
@@ -360,7 +360,8 @@ class Cube(ModelObject):
         self.joins = joins
         self.key = key
         self.browser_options = browser_options or {}
-        self.datastore = datastore or options.get("datastore")
+        # TODO: remove datastore
+        self.store = store or datastore or options.get("store", options.get("datastore"))
         self.browser = options.get("browser")
 
         # Be graceful here

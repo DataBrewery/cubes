@@ -25,6 +25,8 @@ class SlicerStore(Store):
                  auth_identity=None, auth_parameter=None,
                  **options):
 
+        super(SlicerStore, self).__init__(**options)
+
         url = url or DEFAULT_SLICER_URL
 
         self.url = url
@@ -132,12 +134,12 @@ class SlicerModelProvider(ModelProvider):
             cube_desc["browser_options"] = browser_options
 
         # Link the cube in-place
-        cube_desc['store'] = self.store_name
         cube = create_cube(cube_desc)
         for dim in dimensions:
             dim = create_dimension(dim)
             cube.add_dimension(dim)
 
+        cube.store = self.store
         return cube
 
     def dimension(self, name, locale=None, tempaltes=None):

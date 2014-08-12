@@ -13,3 +13,8 @@ class Store(Extensible):
 
     """Name of a model provider type associated with this store."""
     related_model_provider = None
+
+    def __init__(self, store_name, store_type, **options):
+        self.store_name = store_name
+        self.store_type = store_type
+        self.options = options

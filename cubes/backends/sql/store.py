@@ -140,6 +140,8 @@ class SQLStore(Store):
           located (use this if the views are in different schema than fact tables,
           otherwise default schema is going to be used)
         """
+        super(SQLStore, self).__init__(**options)
+
         if not engine and not url:
             raise ArgumentError("No URL or engine specified in options, "
                                 "provide at least one")
