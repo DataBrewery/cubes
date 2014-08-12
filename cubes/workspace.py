@@ -738,12 +738,16 @@ class Workspace(object):
             store = self.get_store(store_name)
             store_type = self.store_infos[store_name][0]
             store_info = self.store_infos[store_name][1]
-        else:
+        elif cube.store:
             store = cube.store
-            store_type = store.store_type
-            if not store_type:
-                raise CubesError("Store %s has no store_type set" % store)
             store_info = store.options or {}
+        else:
+            store = self.get_store("default")
+            store_info = store.options or {}
+
+        store_type = store.store_type
+        if not store_type:
+            raise CubesError("Store %s has no store_type set" % store)
 
         cube_options = self._browser_options(cube)
 
