@@ -165,6 +165,9 @@ class SlicerBrowser(AggregationBrowser):
         response = self.store.request(action)
         return response
 
+    def is_builtin_function(self, name, aggregate):
+        return True
+
     def _order_param(self, order):
         """Prepare an order string in form: ``attribute:direction``"""
         string = ",".join("%s:%s" % (o[0], o[1]) for o in order)
