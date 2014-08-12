@@ -15,6 +15,7 @@ import ConfigParser
 from copy import copy
 from collections import OrderedDict, defaultdict
 
+
 __all__ = [
     "Workspace",
 ]
@@ -431,7 +432,6 @@ class Workspace(object):
         :meth:`cubes.Workspace.cube` or :meth:`cubes.Workspace.dimension` is
         called.
         """
-
         if store and not isinstance(store, basestring):
             raise ArgumentError("Store should be provided by name "
                                 "(as a string).")
@@ -471,7 +471,6 @@ class Workspace(object):
         if not provider:
             provider_name = metadata.get("provider", "default")
             provider = extensions.model_provider(provider_name, metadata)
-
         # 3. Store
         # --------
         # Link the model with store
@@ -502,12 +501,7 @@ class Workspace(object):
         """Register a slicer as a model and data provider."""
         self.register_store(name, "slicer", url=url, **options)
 
-        model = {
-            "store": name,
-            "provider": "slicer",
-            "store": name
-        }
-        self.import_model(model)
+        # self.import_model({}, provider="slicer", store=name)
 
     def list_cubes(self, identity=None):
         """Get a list of metadata for cubes in the workspace. Result is a list
