@@ -582,7 +582,7 @@ class Workspace(object):
         if lookup:
             # TODO: pass lookup instead of jsut first found translation
             context = LocalizationContext(lookup[0])
-            trans = context.object_localization("cubes", "inner")
+            trans = context.object_localization("cubes", cube.name)
             cube = cube.localized(trans)
 
         self._cubes[cube_key] = cube
