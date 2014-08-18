@@ -9,9 +9,9 @@ Cubes workspace configuration is stored in a ``.ini`` file with sections:
 * ``[server]`` - server related configuration, such as host, port
 * ``[models]`` - list of models to be loaded 
 * ``[store]`` – default datastore configuration
-* ``[translations]`` - model translation files, option keys in this section
-  are locale names and values are paths to model translation files. See
-  :doc:`localization` for more information.
+* ``[store NAME]`` – configuration for store with name `NAME`
+* ``[locale NAME]`` - model translations. See :doc:`localization` for more
+  information.
 * ``[model]`` (depreciated) - model and cube configuration
 
 .. note::
@@ -330,3 +330,47 @@ SQL request logger options:
 * `dimensions_table` – table with dimension use (optional)
 
 Tables are created automatically.
+
+
+Examples
+========
+
+
+Simple configuration:
+
+.. code-block:: ini
+
+    [workspace]
+    model = model.json
+
+    [store]
+    type = sql
+    url = postgresql://localhost/cubes
+
+Multiple models, one store:
+
+.. code-block:: init
+
+    [models]
+    finance = finance.cubesmodel
+    customer = customer.cubesmodel
+
+    [store]
+    type = sql
+    url = postgresql://localhost/cubes
+
+Multiple stores:
+
+.. code-block:: init
+
+    [store finance]
+    type = sql
+    url = postgresql://localhost/finance
+    model = finance.cubesmodel
+
+    [store customer]
+    type = sql
+    url = postgresql://otherhost/customer
+    model = customer.cubesmodel
+
+
