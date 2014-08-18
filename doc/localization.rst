@@ -86,33 +86,30 @@ In our case we have following files::
     Localization master model and translation files.
 
 
-To load a model:
+To add a model tranlsation:
 
 .. code-block:: python
 
-    import cubes
-    model_sk = cubes.load_model("procurements.json", translations = {
-                                    "en": "procurements_en.json",
-                                    "hu": "procurements_hu.json",
-                                    })
+    workspace.add_translation("en", "procurements_en.json")
 
-To get translated version of a model:
+In the ``slicer.ini``
+
+.. code-block:: ini
+
+    [locale en]
+    default = procurements_en.json
+
+    [locale hu]
+    default = procurements_hu.json
+
+To get translated version of a cube:
 
 .. code-block:: python
 
-    model_en = model.translate("en")
-    model_hu = model.translate("hu")
+    cube = workspace.cube("contracts", locale="en")
 
-Or you can get translated version of the model by directly passing translation dictionary:
 
-.. code-block:: python
-
-    handle = open("procurements_en.json")
-    trans = json.load(handle)
-    handle.close()
-
-    model_en = model.translate("en", trans)
-
+Localization is assigned to a model namespace.
 
 Data Localization
 -----------------
