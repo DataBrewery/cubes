@@ -271,7 +271,7 @@ class Workspace(object):
         # Register [language *]
         self.ns_languages = defaultdict(dict)
         for section in config.sections():
-            if section.startswith("language"):
+            if section.startswith("locale"):
                 lang = section[9:]
                 # namespace -> path
                 for nsname, path in config.items(section):
@@ -355,9 +355,12 @@ class Workspace(object):
             return self.namespace
         return self.namespace(ref)[0]
 
-    def add_translation(self, lang, trans, ns="default"):
-        namespace = self.namespace.namespace(ns)[0]
-        namespace.add_translation(lang, trans)
+    def add_translation(self, locale, trans, ns="default"):
+        """Add translation `trans` for `locale`. `ns` is a namespace. If no
+        namespace is specified, then default (global) is used."""
+
+        namespace = self._get_namespace(ns)
+        namespace.add_translation(locale, trans)
 
     def _register_store_dict(self, name, info):
         info = dict(info)
