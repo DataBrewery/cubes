@@ -76,6 +76,14 @@ class LocalizationContext(object):
         except KeyError:
             return default
 
+        # Accept plain label translation – string only, no dictionary (similar
+        # as above)
+        if isinstance(trans, basestring):
+            if key == "label":
+                return trans
+            else:
+                return default
+
         return trans.get(key, default)
 
     def _lookup_ns_translation(self, context_type, name):
