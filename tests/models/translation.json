@@ -1,0 +1,41 @@
+{
+    "cubes": {
+        "inner": {
+            "label": "inner_LAB",
+            "description": "inner_DESC",
+            "measures": {
+                "amount": "amount_LAB",
+                "deeper": {
+                    "label": "deeper_LAB",
+                    "description": "deeper_DESC"
+                }
+            }
+        },
+        "outer_measures": {
+            "label": "outer_LAB",
+            "description": "outer_DESC"
+        },
+        "useglobal": {},
+        "nocontent": "nocontent_LAB"
+    },
+    "dimensions": {
+        "date": {
+            "label": "date_LAB",
+            "levels": {
+                "year": "year_LAB"
+            }
+        }
+    },
+    "measures": {
+        "amount": "amount_OUT_LAB",
+        "deeper": {
+            "label": "deeper_OUT_LAB",
+            "description": "deeper_OUT_DESC"
+        },
+        "other": {
+            "label": "other_OUT_LAB",
+            "description": "other_OUT_DESC"
+        }
+    }
+}
+
