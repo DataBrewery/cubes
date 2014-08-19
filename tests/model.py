@@ -485,13 +485,12 @@ class HierarchyTestCase(unittest.TestCase):
         self.dimension = cubes.Dimension("date", levels=self.levels)
         levels = [self.levels[0], self.levels[1], self.levels[2]]
         self.hierarchy = cubes.Hierarchy("default",
-                                         levels,
-                                         self.dimension)
+                                         levels)
 
     def test_initialization(self):
         """No dimension on initialization should raise an exception."""
         with self.assertRaises(ModelError):
-            cubes.Hierarchy("default", [], self.dimension)
+            cubes.Hierarchy("default", [])
 
         with self.assertRaisesRegexp(ModelInconsistencyError, "not be empty"):
             cubes.Hierarchy("default", [])
@@ -671,8 +670,7 @@ class DimensionTestCase(unittest.TestCase):
         dim2 = cubes.create_dimension(DIM_DATE_DESC)
 
         self.assertListEqual(dim1.levels, dim2.levels)
-        self.assertListEqual(dim1.hierarchies.items(),
-                             dim2.hierarchies.items())
+        self.assertListEqual(dim1.hierarchies, dim2.hierarchies)
 
         self.assertEqual(dim1, dim2)
 
@@ -712,7 +710,7 @@ class DimensionTestCase(unittest.TestCase):
         dim = cubes.create_dimension(desc, dims)
         self.assertEqual(2, len(dim.hierarchies))
         self.assertEqual(["ym", "ymd"],
-                         [hier.name for hier in dim.hierarchies.values()])
+                         [hier.name for hier in dim.hierarchies])
 
     def test_template_hierarchies(self):
         md = {
@@ -739,7 +737,7 @@ class DimensionTestCase(unittest.TestCase):
 
         self.assertEqual(dim_date.name, "date")
         self.assertEqual(len(dim_date.hierarchies), 3)
-        names = [h.name for h in dim_date.hierarchies.values()]
+        names = [h.name for h in dim_date.hierarchies]
         self.assertEqual(["ymd", "ym", "y"], names)
 
     def test_template_info(self):
@@ -913,81 +911,6 @@ class CubeTestCase(unittest.TestCase):
 
         measures = cube.measures
         self.assertEqual(measures[0].nonadditive, "time")
-
-class OldModelValidatorTestCase(unittest.TestCase):
-    def setUp(self):
-        self.model = cubes.Model('test')
-        self.date_levels = [ {"name":"year", "key": "year" }, {"name":"month", "key": "month" } ]
-        self.date_levels2 = [ { "name":"year", "key": "year" }, {"name":"month", "key": "month" }, {"name":"day", "key":"day"} ]
-        self.date_hiers = [ { "name":"ym", "levels": ["year", "month"] } ]
-        self.date_hiers2 = [ {"name":"ym", "levels": ["year", "month"] },
-                             {"name":"ymd", "levels": ["year", "month", "day"] } ]
-        self.date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers }
-
-    def test_dimension_validation(self):
-        date_desc = { "name": "date",
-                      "levels": [
-                            {"name": "year", "attributes": ["year"]}
-                         ]
-                    }
-        dim = cubes.create_dimension(date_desc)
-        self.assertEqual(1, len(dim.levels))
-        results = dim.validate()
-        self.assertValidation(results, "No levels")
-        self.assertValidation(results, "No defaut hierarchy")
-
-        # FIXME: uncomment this after implementing https://github.com/Stiivi/cubes/issues/8
-        # self.assertValidationError(results, "No hierarchies in dimension", expected_type = "default")
-
-        date_desc = { "name": "date", "levels": self.date_levels}
-        dim = cubes.create_dimension(date_desc)
-        results = dim.validate()
-
-        # FIXME: uncomment this after implementing https://github.com/Stiivi/cubes/issues/8
-        # self.assertValidationError(results, "No hierarchies in dimension.*more", expected_type = "error")
-
-        date_desc = { "name": "date", "levels": self.date_levels , "hierarchies": self.date_hiers }
-        dim = cubes.create_dimension(date_desc)
-        results = dim.validate()
-
-        self.assertValidation(results, "No levels in dimension", "Dimension is invalid without levels")
-        self.assertValidation(results, "No hierarchies in dimension", "Dimension is invalid without hierarchies")
-        # self.assertValidationError(results, "No default hierarchy name")
-
-        dim.default_hierarchy_name = 'foo'
-        results = dim.validate()
-        self.assertValidationError(results, "Default hierarchy .* does not")
-        self.assertValidation(results, "No default hierarchy name")
-
-        dim.default_hierarchy_name = 'ym'
-        results = dim.validate()
-        self.assertValidation(results, "Default hierarchy .* does not")
-
-        date_desc = { "name": "date", "levels": self.date_levels2 , "hierarchies": self.date_hiers2 }
-        dim = cubes.create_dimension(date_desc)
-        results = dim.validate()
-        self.assertValidationError(results, "No defaut hierarchy .* more than one")
-
-    def assertValidation(self, results, expected, message = None):
-        if not message:
-            message = "Validation pass expected (match: '%s')" % expected
-
-        for result in results:
-            if re.match(expected, result[1]):
-                self.fail(message)
-
-    def assertValidationError(self, results, expected, message = None, expected_type = None):
-        if not message:
-            if expected_type:
-                message = "Validation %s expected (match: '%s')" % (expected_type, expected)
-            else:
-                message = "Validation fail expected (match: '%s')" % expected
-
-        for result in results:
-            if re.match(expected, result[1]):
-                if not expected_type or (expected_type and expected_type == result[0]):
-                    return
-        self.fail(message)
 
 
 class ReadModelDescriptionTestCase(ModelTestCaseBase):

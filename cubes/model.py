@@ -12,7 +12,6 @@ from .statutils import aggregate_calculator_labels
 from .metadata import *
 
 __all__ = [
-    "Model",
     "Cube",
     "Dimension",
     "Hierarchy",
@@ -56,76 +55,6 @@ _DEFAULT_LEVEL_ROLES = {
              "week", "weeknum", "dow",
              "isoyear", "isoweek", "isoweekday")
 }
-
-class Model(object):
-    def __init__(self, name=None, locale=None, label=None, description=None,
-                 info=None, mappings=None, provider=None, metadata=None,
-                 translations=None):
-        """
-        Logical representation of data. Base container for cubes and
-        dimensions.
-
-        Attributes:
-
-        * `name` - model name
-        * `dimensions` - list of `Dimension` instances
-        * `locale` - locale code of the model
-        * `label` - human readable name - can be used in an application
-        * `description` - longer human-readable description of the model
-        * `info` - custom information dictionary
-
-        * `metadata` – a dictionary describing the model
-        * `provider` – an object that creates model objects
-
-        """
-        # * `mappings` – model-wide mappings of logical-to-physical attributes
-
-        # Basic information
-        self.name = name
-        self.label = label
-        self.description = description
-        self.locale = locale
-        self.info = info or {}
-        self.provider = provider
-        self.metadata = metadata
-
-        # Physical information
-        self.mappings = mappings
-
-        self.translations = translations or {}
-
-    def __str__(self):
-        return 'Model(%s)' % self.name
-
-    def to_dict(self, **options):
-        """Return dictionary representation of the model. All object
-        references within the dictionary are name based
-
-        * `full_attribute_names` - if set to True then attribute names will be
-          written as ``dimension_name.attribute_name``
-        """
-
-        out = IgnoringDictionary()
-
-        out["name"] = self.name
-        out["label"] = self.label
-        out["description"] = self.description
-        out["info"] = self.info
-
-        if options.get("with_mappings"):
-            out["mappings"] = self.mappings
-
-        return out
-
-    def __eq__(self, other):
-        if other is None or type(other) != type(self):
-            return False
-        if self.name != other.name or self.label != other.label \
-                or self.description != other.description:
-            return False
-        elif self.info != other.info:
-            return False
-        return True
 
 
 class ModelObject(object):
@@ -643,6 +572,7 @@ class Cube(ModelObject):
     def __eq__(self, other):
         if other is None or type(other) != type(self):
             return False
+
         if self.name != other.name or self.label != other.label \
             or self.description != other.description:
             return False
@@ -832,24 +762,18 @@ class Dimension(ModelObject):
     def __eq__(self, other):
         if other is None or type(other) != type(self):
             return False
-        if self.name != other.name \
-                or self.role != other.role \
-                or self.label != other.label \
-                or self.description != other.description \
-                or self.cardinality != other.cardinality \
-                or self.category != other.category:
-            return False
 
-        elif self._default_hierarchy() != other._default_hierarchy():
-            return False
+        cond = self.name == other.name \
+                and self.role == other.role \
+                and self.label == other.label \
+                and self.description == other.description \
+                and self.cardinality == other.cardinality \
+                and self.category == other.category \
+                and self._default_hierarchy() == other._default_hierarchy() \
+                and self._levels == other._levels \
+                and self._hierarchies == other._hierarchies
 
-        if self._levels != other._levels:
-            return False
-
-        if other._hierarchies != self.hierarchies:
-            return False
-
-        return True
+        return cond
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1307,11 +1231,9 @@ class Hierarchy(ModelObject):
     def __eq__(self, other):
         if not other or type(other) != type(self):
             return False
-        elif self.name != other.name or self.label != other.label:
-            return False
-        elif self.levels != other.levels:
-            return False
-        return True
+
+        return self.name == other.name and self.label == other.label \
+                and self.levels == other.levels
 
     def __ne__(self, other):
         return not self.__eq__(other)
