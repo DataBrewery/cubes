@@ -142,6 +142,7 @@ class Namespace(object):
                 cube.namespace = self
                 break
 
+        # TODO: depreciate this, it is inconsistent and confusing
         if not cube and recursive:
             for key, namespace in self.namespaces.items():
                 try:
@@ -157,7 +158,7 @@ class Namespace(object):
 
         return cube
 
-    def dimension(self, name, locale=None, templates=None):
+    def dimension(self, name, locale=None, templates=None, local_only=False):
         dim = None
 
         # TODO: cache dimensions
@@ -170,6 +171,11 @@ class Namespace(object):
                 pass
             else:
                 return dim
+
+        # If we are not looking for dimension within this namespace only,
+        # traverse the namespace hierarchy, if there is one
+        if not local_only and self.parent:
+            return self.parent.dimension(name, locale, templates)
 
         raise NoSuchDimensionError("Unknown dimension '%s'" % str(name), name)
 
