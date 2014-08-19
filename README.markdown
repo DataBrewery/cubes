@@ -1,6 +1,11 @@
 Cubes - Online Analytical Processing Framework for Python
 =========================================================
 
+Update
+------
+
+Support using Chinese as cut parameters in URL.
+
 About
 -----
 
