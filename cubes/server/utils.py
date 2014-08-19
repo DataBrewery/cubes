@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
+
+from __future__ import absolute_import
+
 from flask import Request, Response, request, g
 from datetime import datetime
 
@@ -11,6 +14,7 @@ import json
 import csv
 
 from .errors import *
+from .. import compat
 
 
 def str_to_bool(string):
@@ -263,7 +267,7 @@ def formated_response(response, fields, labels, iterable=None):
 def read_server_config(config):
     if not config:
         return ConfigParser.SafeConfigParser()
-    elif isinstance(config, basestring):
+    elif isinstance(config, compat.string_type):
         try:
             path = config
             config = ConfigParser.SafeConfigParser()

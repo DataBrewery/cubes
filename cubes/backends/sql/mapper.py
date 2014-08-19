@@ -1,11 +1,15 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 """Logical to Physical Mappers"""
+
+from __future__ import absolute_import
+
+from collections import namedtuple
 
 from ...logging import get_logger
 from ...errors import *
 from ...mapper import Mapper
-from collections import namedtuple
 from ...model import AttributeBase
+from ... import compat
 
 __all__ = (
     "SnowflakeMapper",
@@ -76,7 +80,7 @@ def coalesce_physical(ref, default_table=None, schema=None):
 
     """
 
-    if isinstance(ref, basestring):
+    if isinstance(ref, compat.string_type):
         split = ref.split(".")
 
         if len(split) > 1:

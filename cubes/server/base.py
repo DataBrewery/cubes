@@ -1,10 +1,13 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
+
+from __future__ import absolute_import
 from .blueprint import slicer
 from flask import Flask
 import ConfigParser
 import shlex
 
 from .utils import *
+from .. import compat
 
 __all__ = (
     "create_server",
@@ -17,7 +20,7 @@ __all__ = (
 def _read_config(config):
     if not config:
         return ConfigParser.SafeConfigParser()
-    elif isinstance(config, basestring):
+    elif isinstance(config, compat.string_type):
         try:
             path = config
             config = ConfigParser.SafeConfigParser()

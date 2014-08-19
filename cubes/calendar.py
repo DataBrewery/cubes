@@ -1,7 +1,10 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 """Date and time utilities."""
 
+from __future__ import absolute_import
+
 import re
+
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import MO, TU, WE, TH, FR, SA, SU
 from dateutil.tz import *
@@ -10,7 +13,7 @@ from time import strftime, gmtime
 
 from .model import Hierarchy
 from .errors import *
-
+from . import compat
 
 __all__ = (
     "Calendar",
@@ -122,7 +125,7 @@ class Calendar(object):
         Values for `first_weekday` are 0 for Monday, 6 for Sunday. Default is
         0."""
 
-        if isinstance(first_weekday, basestring):
+        if isinstance(first_weekday, compat.string_type):
             try:
                 self.first_weekday = _WEEKDAY_NUMBERS[first_weekday.lower()]
             except KeyError:

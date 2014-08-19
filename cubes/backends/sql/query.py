@@ -1,4 +1,11 @@
-# -*- coding=utf -*-
+# -*- encoding=utf -*-
+
+from __future__ import absolute_import
+
+import datetime
+import re
+
+from collections import namedtuple, OrderedDict
 
 from ...browser import Drilldown, Cell, PointCut, SetCut, RangeCut
 from ...browser import SPLIT_DIMENSION_NAME
@@ -6,18 +13,18 @@ from ...model import Attribute
 from ...errors import *
 from ...expr import evaluate_expression
 from ...logging import get_logger
-from collections import namedtuple, OrderedDict
+from ... import compat
+
 from .mapper import DEFAULT_KEY_FIELD, PhysicalAttribute
 from .utils import condition_conjunction, order_column
-import datetime
-import re
+
 
 try:
     import sqlalchemy
     import sqlalchemy.sql as sql
 
 except ImportError:
-    from cubes.common import MissingPackage
+    from ...common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 
@@ -553,7 +560,7 @@ class SnowflakeSchema(object):
         else:
             label = logical
 
-        if isinstance(column, basestring):
+        if isinstance(column, compat.string_type):
             raise ValueError("Cannot resolve %s to a column object: %r" % (attribute, column))
 
         column = column.label(label)

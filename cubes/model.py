@@ -1,5 +1,7 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 """Logical model."""
+
+from __future__ import absolute_import
 
 import copy
 
@@ -10,6 +12,7 @@ from .logging import get_logger
 from .errors import *
 from .statutils import aggregate_calculator_labels
 from .metadata import *
+from . import compat
 
 __all__ = [
     "Cube",
@@ -350,7 +353,7 @@ class Cube(ModelObject):
             raise NoSuchDimensionError("Requested dimension should not be none (cube '%s')" % \
                                 self.name)
 
-        if isinstance(obj, basestring):
+        if isinstance(obj, compat.string_type):
             if obj in self._dimensions:
                 return self._dimensions[obj]
             else:
@@ -820,7 +823,7 @@ class Dimension(ModelObject):
     def level(self, obj):
         """Get level by name or as Level object. This method is used for
         coalescing value"""
-        if isinstance(obj, basestring):
+        if isinstance(obj, compat.string_type):
             if obj not in self._levels:
                 raise KeyError("No level %s in dimension %s" %
                                (obj, self.name))
@@ -837,7 +840,7 @@ class Dimension(ModelObject):
 
         if obj is None:
             return self._default_hierarchy()
-        if isinstance(obj, basestring):
+        if isinstance(obj, compat.string_type):
             if obj not in self._hierarchies:
                 raise ModelError("No hierarchy %s in dimension %s" %
                                  (obj, self.name))
@@ -1199,7 +1202,7 @@ class Hierarchy(ModelObject):
             raise ModelInconsistencyError("Hierarchy level list should not be "
                                           "empty (in %s)" % self.name)
 
-        if any(isinstance(level, basestring) for level in levels):
+        if any(isinstance(level, compat.string_type) for level in levels):
             raise ModelInconsistencyError("Levels should not be provided as "
                                           "strings to Hierarchy.")
 
@@ -1804,7 +1807,7 @@ class Attribute(AttributeBase):
 
 def create_measure(md):
     """Create a measure object from metadata."""
-    if isinstance(md, basestring):
+    if isinstance(md, compat.string_type):
         md = {"name": md}
 
     if not "name" in md:
@@ -1929,7 +1932,7 @@ class Measure(AttributeBase):
 
 
 def create_measure_aggregate(md):
-    if isinstance(md, basestring):
+    if isinstance(md, compat.string_type):
         md = {"name": md}
 
     if not "name" in md:
@@ -2015,7 +2018,7 @@ def create_attribute(obj, class_=None):
 
     class_ = class_ or Attribute
 
-    if isinstance(obj, basestring):
+    if isinstance(obj, compat.string_type):
         return class_(obj)
     elif isinstance(obj, dict):
         return class_(**obj)
@@ -2053,7 +2056,7 @@ def measure_list(measures):
             result.append(md)
             continue
 
-        if isinstance(md, basestring):
+        if isinstance(md, compat.string_type):
             md = {"name": md}
         else:
             md = dict(md)
@@ -2263,7 +2266,7 @@ def create_dimension(metadata, templates=None):
         # Assure level inheritance
         levels = []
         for level_md in metadata["levels"]:
-            if isinstance(level_md, basestring):
+            if isinstance(level_md, compat.string_type):
                 if not template:
                     raise ModelError("Can not specify just a level name "
                                      "(%s) if there is no template for "
@@ -2344,7 +2347,7 @@ def _create_hierarchies(metadata, levels, template):
 
     # Construct hierarchies and assign actual level objects
     for md in metadata:
-        if isinstance(md, basestring):
+        if isinstance(md, compat.string_type):
             if not template:
                 raise ModelError("Can not specify just a hierarchy name "
                                  "(%s) if there is no template for "

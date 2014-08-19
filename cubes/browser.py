@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import copy
 import re
 from collections import namedtuple
@@ -9,12 +11,13 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-from cubes.errors import *
+from .errors import *
 from .model import Dimension, Cube
 from .common import IgnoringDictionary, to_unicode_string
 from .logging import get_logger
 from .extensions import Extensible
 from .calendar import CalendarMemberConverter
+from . import compat
 
 
 __all__ = [
@@ -149,12 +152,12 @@ class AggregationBrowser(Extensible):
 
         if cell is None:
             cell = Cell(self.cube)
-        elif isinstance(cell, basestring):
+        elif isinstance(cell, compat.string_type):
             cuts = cuts_from_string(self.cube, cell,
                                     role_member_converters=converters)
             cell = Cell(self.cube, cuts)
 
-        if isinstance(split, basestring):
+        if isinstance(split, compat.string_type):
             cuts = cuts_from_string(self.cube, split,
                                     role_member_converters=converters)
             split = Cell(self.cube, cuts)
@@ -258,7 +261,7 @@ class AggregationBrowser(Extensible):
         new_order = []
 
         for item in order:
-            if isinstance(item, basestring):
+            if isinstance(item, compat.string_type):
                 name = item
                 direction = None
             else:
@@ -680,7 +683,7 @@ class Cell(object):
         """
 
         # Fix for wrong early design decision:
-        if isinstance(cut, Dimension) or isinstance(cut, basestring):
+        if isinstance(cut, Dimension) or isinstance(cut, compat.string_type):
             raise CubesError("slice() should now be called with a cut (since v0.9.2). To get "
                              "original behaviour of one-dimension point cut, "
                              "use cell.slice(PointCut(dim,path))")
@@ -876,7 +879,7 @@ class Cell(object):
         new_cuts = []
 
         # If it is a string, handle it as list of single string
-        if isinstance(rollup, basestring):
+        if isinstance(rollup, compat.string_type):
             rollup = [rollup]
 
         if type(rollup) == list or type(rollup) == tuple:
@@ -1971,7 +1974,7 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
         drilldown = [(dim, None, level) for dim, level in drilldown.items()]
 
     for obj in drilldown:
-        if isinstance(obj, basestring):
+        if isinstance(obj, compat.string_type):
             obj = string_to_drilldown(obj)
         elif isinstance(obj, DrilldownItem):
             obj = (obj.dimension, obj.hierarchy, obj.levels[-1])

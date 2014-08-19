@@ -1,4 +1,6 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
+
+from __future__ import absolute_import
 
 import os.path
 import json
@@ -8,6 +10,7 @@ from .browser import Cell, cut_from_string, cut_from_dict, PointCut
 from .browser import string_to_drilldown
 from .errors import *
 from .common import read_json_file, sorted_dependencies
+from . import compat
 
 __all__ = (
     "Authorizer",
@@ -63,7 +66,7 @@ class _SimpleAccessRight(object):
         if hierarchy_limits:
             for cube, limits in hierarchy_limits.items():
                 for limit in limits:
-                    if isinstance(limit, basestring):
+                    if isinstance(limit, compat.string_type):
                         limit = string_to_drilldown(limit)
                     self.hierarchy_limits[cube].append(limit)
 
@@ -268,7 +271,7 @@ class SimpleAuthorizer(Authorizer):
                 right.merge(role)
 
         if identity_dimension:
-            if isinstance(identity_dimension, basestring):
+            if isinstance(identity_dimension, compat.string_type):
                 (dim, hier, _) = string_to_drilldown(identity_dimension)
             else:
                 (dim, hier) = identity_dimension[:2]
@@ -319,7 +322,7 @@ class SimpleAuthorizer(Authorizer):
         if cuts:
             restriction_cuts = []
             for cut in cuts:
-                if isinstance(cut, basestring):
+                if isinstance(cut, compat.string_type):
                     cut = cut_from_string(cut, cube)
                 else:
                     cut = cut_from_dict(cut)

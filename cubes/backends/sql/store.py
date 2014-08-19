@@ -1,4 +1,7 @@
-# -*- coding=utf -*-
+# -*- encoding=utf -*-
+
+from __future__ import absolute_import
+
 from .browser import SnowflakeBrowser
 from .mapper import SnowflakeMapper
 from ...logging import get_logger
@@ -15,7 +18,7 @@ try:
     import sqlalchemy.sql as sql
     from sqlalchemy.engine import reflection
 except ImportError:
-    from cubes.common import MissingPackage
+    from ...common import MissingPackage
     reflection = sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 

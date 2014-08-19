@@ -16,6 +16,7 @@ import os.path
 import ConfigParser
 from copy import copy
 from collections import OrderedDict, defaultdict
+from . import compat
 
 __all__ = [
     "Workspace",
@@ -38,7 +39,7 @@ SLICER_INFO_KEYS = (
 def interpret_config_value(value):
     if value is None:
         return value
-    if isinstance(value, basestring):
+    if isinstance(value, compat.string_type):
         if value.lower() in ('yes', 'true', 'on'):
             return True
         elif value.lower() in ('no', 'false', 'off'):
@@ -93,7 +94,7 @@ class Workspace(object):
           are language to translation path mappings.
         """
 
-        if isinstance(config, basestring):
+        if isinstance(config, compat.string_type):
             cp = ConfigParser.SafeConfigParser()
             try:
                 cp.read(config)
@@ -195,7 +196,7 @@ class Workspace(object):
             if self.root_dir and not os.path.isabs(stores):
                 stores = os.path.join(self.root_dir, stores)
 
-        if isinstance(stores, basestring):
+        if isinstance(stores, compat.string_type):
             store_config = ConfigParser.SafeConfigParser()
             try:
                 store_config.read(stores)
@@ -451,7 +452,7 @@ class Workspace(object):
         called.
         """
 
-        if store and not isinstance(store, basestring):
+        if store and not isinstance(store, compat.string_type):
             raise ArgumentError("Store should be provided by name "
                                 "(as a string).")
 
@@ -461,7 +462,7 @@ class Workspace(object):
         # 
         # TODO: Use "InlineModelProvider" and "FileBasedModelProvider"
 
-        if isinstance(model, basestring):
+        if isinstance(model, compat.string_type):
             self.logger.debug("Importing model from %s. "
                               "Provider: %s Store: %s NS: %s"
                               % (model, provider, store, namespace))
@@ -484,7 +485,7 @@ class Workspace(object):
         # Create a model provider if name is given. Otherwise assume that the
         # `provider` is a ModelProvider subclass instance
 
-        if isinstance(provider, basestring):
+        if isinstance(provider, compat.string_type):
             provider = extensions.model_provider(provider, model)
 
         # TODO: remove this, if provider is external, it should be specified
@@ -506,7 +507,7 @@ class Workspace(object):
         if namespace:
             if namespace == "default":
                 ns = self.namespace
-            elif isinstance(namespace, basestring):
+            elif isinstance(namespace, compat.string_type):
                 (ns, _) = self.namespace.namespace(namespace, create=True)
             else:
                 ns = namepsace
@@ -550,7 +551,7 @@ class Workspace(object):
         """Returns a cube with full cube namespace reference `ref` for user
         `identity` and translated to `locale`."""
 
-        if not isinstance(ref, basestring):
+        if not isinstance(ref, compat.string_type):
             raise TypeError("Reference is not a string, is %s" % type(ref))
 
         if self.authorizer:
@@ -723,7 +724,7 @@ class Workspace(object):
         # TODO: bring back the localization
         # model = self.localized_model(locale)
 
-        if isinstance(cube, basestring):
+        if isinstance(cube, compat.string_type):
             cube = self.cube(cube, identity=identity)
 
         locale = locale or cube.locale

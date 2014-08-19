@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-
+from . import compat
 # Global Context – top level namespace and objects in other namespaces
 # Local Context - within object being translated
 
@@ -37,7 +37,7 @@ class ModelObjectLocalizationContext(object):
                                               object_type, name)
 
         # Make string-only translations as translations of labels
-        if isinstance(trans, basestring):
+        if isinstance(trans, compat.string_type):
             trans = {"label": trans}
 
         return ModelObjectLocalizationContext(trans, self.context,
@@ -60,7 +60,7 @@ class LocalizationContext(object):
             return ModelObjectLocalizationContext({}, self, object_type, name)
 
         # Make string-only translations as translations of labels
-        if isinstance(trans, basestring):
+        if isinstance(trans, compat.string_type):
             trans = {"label": trans}
 
         return ModelObjectLocalizationContext(trans, self, object_type, name)
@@ -78,7 +78,7 @@ class LocalizationContext(object):
 
         # Accept plain label translation – string only, no dictionary (similar
         # as above)
-        if isinstance(trans, basestring):
+        if isinstance(trans, compat.string_type):
             if key == "label":
                 return trans
             else:

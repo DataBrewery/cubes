@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 """Functions for manipulating the model metadata in it's raw form –
 dictionary:
 
@@ -13,6 +13,8 @@ the future.
 
 """
 
+from __future__ import absolute_import
+
 import pkgutil
 import urlparse
 import urllib2
@@ -23,11 +25,12 @@ import re
 
 from collections import OrderedDict, namedtuple
 from .errors import *
+from . import compat
 
 try:
     import jsonschema
 except ImportError:
-    from cubes.common import MissingPackage
+    from .common import MissingPackage
     jsonschema = MissingPackage("jsonschema", "Model validation")
 
 __all__ = (
@@ -82,7 +85,7 @@ def read_model_metadata(source):
     file-like object or a path to a directory. Returns a model description
     dictionary."""
 
-    if isinstance(source, basestring):
+    if isinstance(source, compat.string_type):
         parts = urlparse.urlparse(source)
         if parts.scheme in ('', 'file') and os.path.isdir(parts.path):
             source = parts.path
@@ -261,7 +264,7 @@ def expand_dimension_links(metadata):
     links = []
 
     for link in metadata:
-        if isinstance(link, basestring):
+        if isinstance(link, compat.string_type):
             link = {"name": link}
         elif "name" not in link:
             raise ModelError("Dimension link has no name")
@@ -277,7 +280,7 @@ def expand_dimension_metadata(metadata, expand_levels=False):
     `expand_levels` is `True` then levels metadata are expanded as well.
     """
 
-    if isinstance(metadata, basestring):
+    if isinstance(metadata, compat.string_type):
         metadata = {"name":metadata, "levels": [metadata]}
     else:
         metadata = dict(metadata)
@@ -346,7 +349,7 @@ def expand_level_metadata(metadata):
     then it is going to be used as level name and as its only attribute. If a
     dictionary is provided and has no attributes, then level will contain only
     attribute with the same name as the level name."""
-    if isinstance(metadata, basestring):
+    if isinstance(metadata, compat.string_type):
         metadata = {"name":metadata, "attributes": [metadata]}
     else:
         metadata = dict(metadata)
@@ -380,7 +383,7 @@ def expand_level_metadata(metadata):
 def expand_attribute_metadata(metadata):
     """Fixes metadata of an attribute. If `metadata` is a string it will be
     converted into a dictionary with key `"name"` set to the string value."""
-    if isinstance(metadata, basestring):
+    if isinstance(metadata, compat.string_type):
         metadata = {"name": metadata}
 
     return metadata
@@ -446,7 +449,7 @@ class ModelMetadataValidator(object):
         dims = self.metadata.get("dimensions")
         if dims and isinstance(dims, list):
             for dim in dims:
-                if isinstance(dim, basestring):
+                if isinstance(dim, compat.string_type):
                     err = ValidationError("default", "model", None,
                                           "dimensions",
                                           "Dimension '%s' is not described, "

@@ -1,5 +1,7 @@
-from browser import *
-from store import *
+from __future__ import absolute_import
+
+from .browser import *
+from .store import *
 
 __all__ = []
 
