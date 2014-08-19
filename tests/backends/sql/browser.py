@@ -1,3 +1,7 @@
+# -*- encoding: utf-8 -*-
+
+from __future__ import absolute_import
+
 import unittest
 import os
 import json
@@ -5,14 +9,17 @@ import re
 import sqlalchemy
 import datetime
 
-from ...common import CubesTestCaseBase
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
-from cubes.backends.sql.mapper import coalesce_physical
-from cubes.backends.sql.browser import *
 
-from cubes import *
-from cubes.errors import *
+from ...common import CubesTestCaseBase
+
+from cubes.errors import HierarchyError
+from cubes.browser import PointCut, SetCut, RangeCut, Cell
+from cubes.backends.sql.mapper import coalesce_physical
+from cubes.backends.sql.browser import SnowflakeBrowser
+# from cubes.browser import *
+
 
 class StarSQLTestCase(CubesTestCaseBase):
     def setUp(self):
