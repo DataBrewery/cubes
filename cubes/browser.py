@@ -1267,7 +1267,7 @@ def _path_part_unescape(path_part):
 
 
 def string_from_cuts(cuts):
-    """Returns a string represeting `cuts`(in unicode). String(support Chinese) can be used in URLs"""
+    """Returns a string represeting `cuts`. String can be used in URLs"""
     strings = [unicode(cut) for cut in cuts]
     string = CUT_STRING_SEPARATOR_CHAR.join(strings)
     return string
