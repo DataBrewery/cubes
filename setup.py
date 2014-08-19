@@ -21,8 +21,6 @@ setup(
         'cubes.backends.mixpanel': ['*.json']
     },
 
-    scripts = ['bin/slicer'],
-
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
@@ -33,6 +31,10 @@ setup(
         'Topic :: Scientific/Engineering',
         'Topic :: Utilities'
     ],
+
+    entry_points={
+        'console_scripts': ['slicer = cubes.slicer.commands:main'],
+    },
 
     test_suite = "tests",
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
 
 """Slicer tool
 
@@ -8,20 +8,24 @@
     Date: 2011-01
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
+
+from .. import compat
+
 import json
 import argparse
 import sys
 import cubes
-import cubes.server
-import ConfigParser
 import os
 
 from collections import OrderedDict
 
-from cubes.common import MissingPackageError
-from cubes.logging import create_logger
-from cubes.errors import CubesError
-from cubes.metadata import read_model_metadata, write_model_metadata_bundle
+from ..common import MissingPackageError
+from ..logging import create_logger
+from ..errors import CubesError
+from ..metadata import read_model_metadata, write_model_metadata_bundle
+from ..server import run_server
 
 try:
     from cubes_modeler import ModelEditorSlicerCommand
@@ -63,7 +67,8 @@ def validate_model(args):
             default_count += 1
 
         if show:
-            print "%s in %s: %s" % (error.severity.upper(), scope, error.message)
+            print("%s in %s: %s"
+                  % (error.severity.upper(), scope, error.message))
 
     if error_count == 0:
         if warning_count == 0:
@@ -114,7 +119,7 @@ def convert_model(args):
     elif args.format == "json":
         info = model.to_dict(target="origin")
         if not path:
-            print json.dumps(info)
+            print(json.dumps(info))
         else:
             with open(path, "w") as f:
                 json.dump(info, f)
@@ -128,7 +133,7 @@ def update_locale(args):
 def extract_locale(args):
     raise NotImplementedError("Temporarily disabled.")
     model = cubes.model_from_path(args.model)
-    print json.dumps(model.localizable_dictionary())
+    print(json.dumps(model.localizable_dictionary()))
 
 def translate_model(args):
     raise NotImplementedError("Temporarily disabled.")
@@ -142,11 +147,11 @@ def translate_model(args):
     dump_model(model)
 
 def dump_model(model):
-    print json.dumps(model.to_dict(with_mappings=True))
+    print(json.dumps(model.to_dict(with_mappings=True)))
 
 def read_config(cfg):
     """Read the configuration file."""
-    config = ConfigParser.SafeConfigParser()
+    config = compat.configparser.SafeConfigParser()
     try:
         config.read(args.config)
     except Exception as e:
@@ -168,7 +173,7 @@ def generate_ddl(args):
                                 fact_suffix=args.fact_suffix,
                                 dimension_suffix=args.dimension_suffix)
 
-    print ddl
+    print(ddl)
 
 
 def run_server(args):
@@ -184,7 +189,7 @@ def run_server(args):
             raise CubesError("Unable to write PID file '%s'. Check the "
                              "directory existence or permissions." % path)
 
-    cubes.server.run_server(config, debug=args.debug)
+    run_server(config, debug=args.debug)
 
 
 def run_test(args):
@@ -230,18 +235,18 @@ def run_test(args):
             errors.append((name, e))
             sys.stdout.write("ERROR\n")
 
-    print "\ntested %d cubes" % tested
+    print("\ntested %d cubes" % tested)
     if errors:
-        print "%d ERRORS:" % len(errors)
+        print("%d ERRORS:" % len(errors))
         for (cube, e) in errors:
             if hasattr(e, "error_type"):
                 etype = e.error_type
             else:
                 etype = str(type(e))
 
-            print "%s: %s - %s" % (cube, etype, str(e))
+            print("%s: %s - %s" % (cube, etype, str(e)))
     else:
-        print "test passed"
+        print("test passed")
 
 
 def convert_model(args):
@@ -250,7 +255,7 @@ def convert_model(args):
 
     if args.format == "json":
         if not path:
-            print json.dumps(model, indent=4)
+            print(json.dumps(model, indent=4))
         else:
             with open(path, "w") as f:
                 json.dump(model, f, indent=4)
@@ -292,7 +297,7 @@ def convert_model(args):
 
     if args.format == "json":
         if not path:
-            print json.dumps(model, indent=4)
+            print(json.dumps(model, indent=4))
         else:
             with open(path, "w") as f:
                 json.dump(model, f, indent=4)
@@ -320,6 +325,7 @@ def edit_model(args):
 # Main code
 
 parser = argparse.ArgumentParser(description='Cubes tool')
+parser.set_defaults(func=None)
 subparsers = parser.add_subparsers(title='commands')
 parser.add_argument('--cubes-debug',
                     dest='cubes_debug', action='store_true', default=False,
@@ -455,6 +461,10 @@ subparser.add_argument('--backend',
 subparser.set_defaults(func=generate_ddl)
 
 args = parser.parse_args(sys.argv[1:])
+
+if not args.func:
+    parser.print_help()
+    exit(0)
 
 if args.cubes_debug:
     args.func(args)
