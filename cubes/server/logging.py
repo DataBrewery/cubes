@@ -105,16 +105,16 @@ class RequestLogger(object):
 
 
     def _stringify_record(self, record):
-        """Return a log rectord with object attributes converted to strings"""
+        """Return a log rectord with object attributes converted to unicode strings"""
         record = dict(record)
 
-        record["cube"] = str(record["cube"])
+        record["cube"] = unicode(record["cube"])
 
         cell = record.get("cell")
-        record["cell"] = str(cell) if cell is not None else None
+        record["cell"] = unicode(cell) if cell is not None else None
 
         split = record.get("split")
-        record["split"] = str(split) if split is not None else None
+        record["split"] = unicode(split) if split is not None else None
 
         return record
 

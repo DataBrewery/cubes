@@ -233,6 +233,8 @@ def coalesce_options(options, types):
     return out
 
 def to_unicode_string(s):
+    if isinstance(s, unicode):
+        return s
     s = str(s)
     for enc in ('utf8', 'latin-1'):
         try:
