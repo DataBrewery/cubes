@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import sys
 from .metadata import read_model_metadata
 from .auth import NotAuthorized
-from .model import Model
 from .common import read_json_file
 from .logging import get_logger
 from .errors import *
@@ -626,6 +625,8 @@ class Workspace(object):
         2. look in the cube's namespace – all providers within that namespace
         3. look in the default (global) namespace
         """
+
+        namespace = namespace or self.namespace
 
         # Collected dimensions – to be used as templates
         templates = {}
