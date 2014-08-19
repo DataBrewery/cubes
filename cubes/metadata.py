@@ -16,8 +16,6 @@ the future.
 from __future__ import absolute_import
 
 import pkgutil
-import urlparse
-import urllib2
 import shutil
 import json
 import os
@@ -57,9 +55,9 @@ __all__ = (
 
 def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
-    `urllib2.urlopen()`. Returns opened handle. """
+    `urlopen()`. Returns opened handle. """
 
-    parts = urlparse.urlparse(url)
+    parts = compat.urlparse(url)
 
     if parts.scheme in ('', 'file'):
         handle = open(parts.path)
@@ -68,7 +66,7 @@ def _json_from_url(url):
         # 3.4 functionality later
         handle = open(url)
     else:
-        handle = urllib2.urlopen(url)
+        handle = compat.urlopen(url)
 
     try:
         desc = json.load(handle)
@@ -86,7 +84,7 @@ def read_model_metadata(source):
     dictionary."""
 
     if isinstance(source, compat.string_type):
-        parts = urlparse.urlparse(source)
+        parts = compat.urlparse(source)
         if parts.scheme in ('', 'file') and os.path.isdir(parts.path):
             source = parts.path
             return read_model_metadata_bundle(source)

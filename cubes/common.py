@@ -9,7 +9,6 @@ import itertools
 import sys
 import re
 from collections import OrderedDict
-import exceptions
 import os.path
 import json
 
@@ -238,7 +237,7 @@ def to_unicode_string(s):
     for enc in ('utf8', 'latin-1'):
         try:
             return unicode(s, enc)
-        except exceptions.UnicodeDecodeError:
+        except UnicodeDecodeError:
             get_logger().info("Cannot decode using %s: %s" % (enc, s))
     raise ValueError("Cannot decode for unicode using any of the available encodings: %s" % s)
 

@@ -2,7 +2,6 @@
 from contextlib import contextmanager
 from collections import namedtuple
 from threading import Thread
-from Queue import Queue
 
 import datetime
 import time
@@ -10,6 +9,7 @@ import csv
 import io
 import json
 
+from .. import compat
 from ..extensions import extensions, Extensible
 from ..logging import get_logger
 from ..errors import *
@@ -122,7 +122,7 @@ class RequestLogger(object):
 class AsyncRequestLogger(RequestLogger):
     def __init__(self, handlers=None):
         super(AsyncRequestLogger, self).__init__(handlers)
-        self.queue = Queue()
+        self.queue = compat.Queue()
         self.thread = Thread(target=self.log_consumer,
                               name="slicer_logging")
         self.thread.daemon = True

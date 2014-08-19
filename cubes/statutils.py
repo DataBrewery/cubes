@@ -223,4 +223,4 @@ def available_calculators():
     return CALCULATED_AGGREGATIONS.keys()
 
 def aggregate_calculator_labels():
-    return dict([(k, v.keywords['label']) for k, v in CALCULATED_AGGREGATIONS.iteritems()])
+    return dict([(k, v.keywords['label']) for k, v in CALCULATED_AGGREGATIONS.items()])

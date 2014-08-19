@@ -5,8 +5,6 @@ from __future__ import absolute_import
 from flask import Request, Response, request, g
 from datetime import datetime
 
-import ConfigParser
-import cStringIO
 import datetime
 import decimal
 import codecs
@@ -104,7 +102,7 @@ class CSVGenerator(object):
         self.header = header
 
         self.fields = fields
-        self.queue = cStringIO.StringIO()
+        self.queue = compat.StringIO()
         self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
         self.encoder = codecs.getincrementalencoder(encoding)()
 
@@ -266,11 +264,11 @@ def formated_response(response, fields, labels, iterable=None):
 
 def read_server_config(config):
     if not config:
-        return ConfigParser.SafeConfigParser()
+        return compat.configparser.SafeConfigParser()
     elif isinstance(config, compat.string_type):
         try:
             path = config
-            config = ConfigParser.SafeConfigParser()
+            config = compat.configparser.SafeConfigParser()
             config.read(path)
         except Exception as e:
             raise Exception("Unable to load configuration: %s" % e)

@@ -13,9 +13,22 @@ if py3k:
     text_type = str
     int_types = int,
     iterbytes = iter
+
+    from urllib.parse import urlparse
+    from urllib.request import urlopen
+    import configparser
+    from io import StringIO
+    from queue import Queue
+
 else:
     string_type = basestring
     binary_type = str
     text_type = unicode
     int_types = int, long
+
+    from urlparse import urlparse
+    from urllib2 import urlopen
+    import ConfigParser as configparser
+    from StringIO import StringIO
+    from Queue import Queue
 

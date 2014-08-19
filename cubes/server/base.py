@@ -3,7 +3,6 @@
 from __future__ import absolute_import
 from .blueprint import slicer
 from flask import Flask
-import ConfigParser
 import shlex
 
 from .utils import *
@@ -19,11 +18,11 @@ __all__ = (
 
 def _read_config(config):
     if not config:
-        return ConfigParser.SafeConfigParser()
+        return compat.configparser.SafeConfigParser()
     elif isinstance(config, compat.string_type):
         try:
             path = config
-            config = ConfigParser.SafeConfigParser()
+            config = compat.configparser.SafeConfigParser()
             config.read(path)
         except Exception as e:
             raise Exception("Unable to load configuration: %s" % e)
