@@ -1,13 +1,13 @@
 import unittest
 import os
 import re
-import cubes
-from cubes.errors import *
-from cubes.model import *
-from cubes.providers import create_cube
+
+# from cubes.errors import *
+# from cubes.model import *
+# from cubes.providers import create_cube
 
 import copy
-from common import TESTS_PATH, CubesTestCaseBase
+from .common import TESTS_PATH, CubesTestCaseBase
 
 DIM_DATE_DESC = {
     "name": "date",
