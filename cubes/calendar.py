@@ -67,7 +67,7 @@ RELATIVE_TRUNCATED_TIME_RX = re.compile(r"(?P<direction>(last|next))"
                                          "(?P<offset>\d+)?"
                                          "(?P<unit>\w+)")
 
-month_to_quarter = lambda month: ((month - 1) / 3) + 1
+month_to_quarter = lambda month: ((month - 1) // 3) + 1
 
 
 def calendar_hierarchy_units(hierarchy):
@@ -235,9 +235,9 @@ class Calendar(object):
         if unit == "day":
             return diff.days
         elif unit == "hour":
-            return diff.days * 24 + (diff.seconds / 3600)
+            return diff.days * 24 + (diff.seconds // 3600)
         elif unit == "minute":
-            return diff.days * 1440 + (diff.seconds / 60)
+            return diff.days * 1440 + (diff.seconds // 60)
         elif unit == "second":
             return diff.days * 86400 + diff.seconds
         else:

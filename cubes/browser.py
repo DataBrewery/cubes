@@ -13,7 +13,7 @@ except ImportError:
 
 from .errors import *
 from .model import Dimension, Cube
-from .common import IgnoringDictionary, to_unicode_string
+from .common import IgnoringDictionary
 from .logging import get_logger
 from .extensions import Extensible
 from .calendar import CalendarMemberConverter
@@ -1201,7 +1201,7 @@ def cut_from_string(string, cube=None, member_converters=None,
         cut = PointCut(dimension, path, hierarchy, invert)
 
     elif RE_SET.match(string):
-        paths = map(path_from_string, SET_CUT_SEPARATOR.split(string))
+        paths = list(map(path_from_string, SET_CUT_SEPARATOR.split(string)))
 
         if converter:
             converted = []
@@ -1212,7 +1212,8 @@ def cut_from_string(string, cube=None, member_converters=None,
         cut = SetCut(dimension, paths, hierarchy, invert)
 
     elif RE_RANGE.match(string):
-        (from_path, to_path) = map(path_from_string, RANGE_CUT_SEPARATOR.split(string))
+        (from_path, to_path) = list(map(path_from_string,
+                                        RANGE_CUT_SEPARATOR.split(string)))
 
         if converter:
             from_path = converter(dimension, hierarchy, from_path)
@@ -1257,13 +1258,15 @@ PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|;,-])")
 def _path_part_escape(path_part):
     if path_part is None:
         return NULL_PATH_VALUE
-    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
+
+    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", str(path_part))
 
 
 def _path_part_unescape(path_part):
     if path_part == NULL_PATH_VALUE:
         return None
-    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", path_part)
+
+    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", str(path_part))
 
 
 def string_from_cuts(cuts):
@@ -1284,7 +1287,7 @@ def string_from_path(path):
     if not path:
         return ""
 
-    path = [_path_part_escape(to_unicode_string(s)) for s in path]
+    path = [_path_part_escape(compat.to_unicode(s)) for s in path]
 
     if not all(map(RE_ELEMENT.match, path)):
         get_logger().warn("Can not convert path to string: "

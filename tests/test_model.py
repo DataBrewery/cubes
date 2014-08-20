@@ -2,7 +2,17 @@ import unittest
 import os
 import re
 
-# from cubes.errors import *
+from cubes.errors import ArgumentError, ModelError, HierarchyError
+from cubes.errors import ModelInconsistencyError, NoSuchAttributeError
+from cubes.errors import NoSuchDimensionError
+from cubes import Workspace
+from cubes import read_model_metadata
+from cubes import Level, Attribute, Dimension, Hierarchy, Cube
+from cubes import Measure, MeasureAggregate
+from cubes import create_level, create_dimension, create_cube
+from cubes import create_measure_aggregate, create_measure
+from cubes import attribute_list, create_attribute
+from cubes import read_model_metadata_bundle
 # from cubes.model import *
 # from cubes.providers import create_cube
 
@@ -46,7 +56,7 @@ class AttributeTestCase(unittest.TestCase):
     """docstring for AttributeTestCase"""
     def test_basics(self):
         """Attribute creation and attribute references"""
-        attr = cubes.Attribute("foo")
+        attr = Attribute("foo")
         self.assertEqual("foo", attr.name)
         self.assertEqual("foo", str(attr))
         self.assertEqual("foo", attr.ref())
@@ -56,10 +66,10 @@ class AttributeTestCase(unittest.TestCase):
     def test_locale(self):
         """References to localizable attributes"""
 
-        attr = cubes.Attribute("foo")
+        attr = Attribute("foo")
         self.assertRaises(ArgumentError, attr.ref, locale="xx")
 
-        attr = cubes.Attribute("foo", locales=["en", "sk"])
+        attr = Attribute("foo", locales=["en", "sk"])
         self.assertEqual("foo", attr.name)
         self.assertEqual("foo", str(attr))
         self.assertEqual("foo", attr.ref())
@@ -70,8 +80,8 @@ class AttributeTestCase(unittest.TestCase):
     def test_simplify(self):
         """Simplification of attribute reference (with and without details)"""
 
-        level = cubes.Level("name", attributes=["name"])
-        dim = cubes.Dimension("group", levels=[level])
+        level = Level("name", attributes=["name"])
+        dim = Dimension("group", levels=[level])
         attr = dim.attribute("name")
         self.assertEqual("name", attr.name)
         self.assertEqual("name", str(attr))
@@ -79,8 +89,8 @@ class AttributeTestCase(unittest.TestCase):
         self.assertEqual("group.name", attr.ref(simplify=False))
         self.assertEqual("group", attr.ref(simplify=True))
 
-        level = cubes.Level("name", attributes=["key", "name"])
-        dim = cubes.Dimension("group", levels=[level])
+        level = Level("name", attributes=["key", "name"])
+        dim = Dimension("group", levels=[level])
         attr = dim.attribute("name")
         self.assertEqual("name", attr.name)
         self.assertEqual("name", str(attr))
@@ -91,35 +101,35 @@ class AttributeTestCase(unittest.TestCase):
     def test_create_attribute(self):
         """Coalesce attribute object (string or Attribute instance)"""
 
-        level = cubes.Level("name", attributes=["key", "name"])
-        dim = cubes.Dimension("group", levels=[level])
+        level = Level("name", attributes=["key", "name"])
+        dim = Dimension("group", levels=[level])
 
-        obj = cubes.create_attribute("name")
-        self.assertIsInstance(obj, cubes.Attribute)
+        obj = create_attribute("name")
+        self.assertIsInstance(obj, Attribute)
         self.assertEqual("name", obj.name)
 
-        obj = cubes.create_attribute({"name": "key"})
+        obj = create_attribute({"name": "key"})
         obj.dimension = dim
-        self.assertIsInstance(obj, cubes.Attribute)
+        self.assertIsInstance(obj, Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(dim, obj.dimension)
 
         attr = dim.attribute("key")
-        obj = cubes.create_attribute(attr)
+        obj = create_attribute(attr)
         obj.dimension = dim
-        self.assertIsInstance(obj, cubes.Attribute)
+        self.assertIsInstance(obj, Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(obj, attr)
 
     def test_attribute_list(self):
         """Create attribute list from strings or Attribute instances"""
-        self.assertEqual([], cubes.attribute_list([]))
+        self.assertEqual([], attribute_list([]))
 
         names = ["name", "key"]
-        attrs = cubes.attribute_list(names)
+        attrs = attribute_list(names)
 
         for name, attr in zip(names, attrs):
-            self.assertIsInstance(attr, cubes.Attribute)
+            self.assertIsInstance(attr, Attribute)
             self.assertEqual(name, attr.name)
 
 
@@ -342,47 +352,47 @@ class LevelTestCase(unittest.TestCase):
     """docstring for LevelTestCase"""
     def test_initialization(self):
         """Empty attribute list for new level should raise an exception """
-        self.assertRaises(ModelError, cubes.Level, "month", [])
+        self.assertRaises(ModelError, Level, "month", [])
 
     def test_has_details(self):
         """Level "has_details" flag"""
-        attrs = cubes.attribute_list(["year"])
-        level = cubes.Level("year", attrs)
+        attrs = attribute_list(["year"])
+        level = Level("year", attrs)
         self.assertFalse(level.has_details)
 
-        attrs = cubes.attribute_list(["month", "month_name"])
-        level = cubes.Level("month", attrs)
+        attrs = attribute_list(["month", "month_name"])
+        level = Level("month", attrs)
         self.assertTrue(level.has_details)
 
     def test_operators(self):
         """Level to string conversion"""
-        self.assertEqual("date", str(cubes.Level("date", ["foo"])))
+        self.assertEqual("date", str(Level("date", ["foo"])))
 
     def test_create(self):
         """Create level from a dictionary"""
         desc = "year"
-        level = cubes.create_level(desc)
-        self.assertIsInstance(level, cubes.Level)
+        level = create_level(desc)
+        self.assertIsInstance(level, Level)
         self.assertEqual("year", level.name)
         self.assertEqual(["year"], [str(a) for a in level.attributes])
 
         # Test default: Attributes
         desc = {"name": "year"}
-        level = cubes.create_level(desc)
-        self.assertIsInstance(level, cubes.Level)
+        level = create_level(desc)
+        self.assertIsInstance(level, Level)
         self.assertEqual("year", level.name)
         self.assertEqual(["year"], [str(a) for a in level.attributes])
 
         # Test default: Attributes
         desc = {"name": "year", "attributes": ["key"]}
-        level = cubes.create_level(desc)
-        self.assertIsInstance(level, cubes.Level)
+        level = create_level(desc)
+        self.assertIsInstance(level, Level)
         self.assertEqual("year", level.name)
         self.assertEqual(["key"], [str(a) for a in level.attributes])
         self.assertFalse(level.has_details)
 
         desc = {"name": "year", "attributes": ["key", "label"]}
-        level = cubes.create_level(desc)
+        level = create_level(desc)
         self.assertTrue(level.has_details)
         self.assertEqual(["key", "label"], [str(a) for a in level.attributes])
 
@@ -396,7 +406,7 @@ class LevelTestCase(unittest.TestCase):
             ]
         }
 
-        level = cubes.create_level(desc)
+        level = create_level(desc)
         self.assertTrue(level.has_details)
         self.assertEqual(3, len(level.attributes))
         names = [str(a) for a in level.attributes]
@@ -405,26 +415,26 @@ class LevelTestCase(unittest.TestCase):
     def test_key_label_attributes(self):
         """Test key and label attributes - explicit and implicit"""
 
-        attrs = cubes.attribute_list(["code"])
-        level = cubes.Level("product", attrs)
-        self.assertIsInstance(level.key, cubes.Attribute)
+        attrs = attribute_list(["code"])
+        level = Level("product", attrs)
+        self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
-        self.assertIsInstance(level.label_attribute, cubes.Attribute)
+        self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("code", str(level.label_attribute))
 
-        attrs = cubes.attribute_list(["code", "name"])
-        level = cubes.Level("product", attrs)
-        self.assertIsInstance(level.key, cubes.Attribute)
+        attrs = attribute_list(["code", "name"])
+        level = Level("product", attrs)
+        self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
-        self.assertIsInstance(level.label_attribute, cubes.Attribute)
+        self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("name", str(level.label_attribute))
 
-        attrs = cubes.attribute_list(["info", "code", "name"])
-        level = cubes.Level("product", attrs, key="code",
+        attrs = attribute_list(["info", "code", "name"])
+        level = Level("product", attrs, key="code",
                             label_attribute="name")
-        self.assertIsInstance(level.key, cubes.Attribute)
+        self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
-        self.assertIsInstance(level.label_attribute, cubes.Attribute)
+        self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("name", str(level.label_attribute))
 
         # Test key/label in full desc
@@ -435,10 +445,10 @@ class LevelTestCase(unittest.TestCase):
             "key": "code"
         }
 
-        level = cubes.create_level(desc)
-        self.assertIsInstance(level.key, cubes.Attribute)
+        level = create_level(desc)
+        self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
-        self.assertIsInstance(level.label_attribute, cubes.Attribute)
+        self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("name", str(level.label_attribute))
 
     def test_level_inherit(self):
@@ -447,7 +457,7 @@ class LevelTestCase(unittest.TestCase):
             "label": "Product Type"
         }
 
-        level = cubes.create_level(desc)
+        level = create_level(desc)
         self.assertEqual(1, len(level.attributes))
 
         attr = level.attributes[0]
@@ -458,14 +468,14 @@ class LevelTestCase(unittest.TestCase):
     def test_comparison(self):
         """Comparison of level instances"""
 
-        attrs = cubes.attribute_list(["info", "code", "name"])
-        level1 = cubes.Level("product", attrs, key="code",
+        attrs = attribute_list(["info", "code", "name"])
+        level1 = Level("product", attrs, key="code",
                              label_attribute="name")
-        level2 = cubes.Level("product", attrs, key="code",
+        level2 = Level("product", attrs, key="code",
                              label_attribute="name")
-        level3 = cubes.Level("product", attrs)
-        attrs = cubes.attribute_list(["month", "month_name"])
-        level4 = cubes.Level("product", attrs)
+        level3 = Level("product", attrs)
+        attrs = attribute_list(["month", "month_name"])
+        level4 = Level("product", attrs)
 
         self.assertEqual(level1, level2)
         self.assertNotEqual(level2, level3)
@@ -475,28 +485,28 @@ class LevelTestCase(unittest.TestCase):
 class HierarchyTestCase(unittest.TestCase):
     def setUp(self):
         self.levels = [
-            cubes.Level("year", attributes=["year"]),
-            cubes.Level("month",
+            Level("year", attributes=["year"]),
+            Level("month",
                         attributes=["month", "month_name", "month_sname"]),
-            cubes.Level("day", attributes=["day"]),
-            cubes.Level("week", attributes=["week"])
+            Level("day", attributes=["day"]),
+            Level("week", attributes=["week"])
         ]
         self.level_names = [level.name for level in self.levels]
-        self.dimension = cubes.Dimension("date", levels=self.levels)
+        self.dimension = Dimension("date", levels=self.levels)
         levels = [self.levels[0], self.levels[1], self.levels[2]]
-        self.hierarchy = cubes.Hierarchy("default",
+        self.hierarchy = Hierarchy("default",
                                          levels)
 
     def test_initialization(self):
         """No dimension on initialization should raise an exception."""
         with self.assertRaises(ModelError):
-            cubes.Hierarchy("default", [])
+            Hierarchy("default", [])
 
         with self.assertRaisesRegexp(ModelInconsistencyError, "not be empty"):
-            cubes.Hierarchy("default", [])
+            Hierarchy("default", [])
 
         with self.assertRaisesRegexp(ModelInconsistencyError, "as strings"):
-            cubes.Hierarchy("default", ["iamastring"])
+            Hierarchy("default", ["iamastring"])
 
     def test_operators(self):
         """Hierarchy operators len(), hier[] and level in hier"""
@@ -541,7 +551,7 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertEqual(1, self.hierarchy.level_index(self.levels[1]))
         self.assertEqual(2, self.hierarchy.level_index(self.levels[2]))
 
-        self.assertRaises(cubes.HierarchyError, self.hierarchy.level_index,
+        self.assertRaises(HierarchyError, self.hierarchy.level_index,
                           self.levels[3])
 
     def test_rollup(self):
@@ -596,78 +606,78 @@ class HierarchyTestCase(unittest.TestCase):
 class DimensionTestCase(unittest.TestCase):
     def setUp(self):
         self.levels = [
-            cubes.Level("year", attributes=["year"]),
-            cubes.Level("month", attributes=["month", "month_name",
+            Level("year", attributes=["year"]),
+            Level("month", attributes=["month", "month_name",
                                              "month_sname"]),
-            cubes.Level("day", attributes=["day"]),
-            cubes.Level("week", attributes=["week"])
+            Level("day", attributes=["day"]),
+            Level("week", attributes=["week"])
         ]
         self.level_names = [level.name for level in self.levels]
-        self.dimension = cubes.Dimension("date", levels=self.levels)
+        self.dimension = Dimension("date", levels=self.levels)
 
         levels = [self.levels[0], self.levels[1], self.levels[2]]
-        self.hierarchy = cubes.Hierarchy("default", levels)
+        self.hierarchy = Hierarchy("default", levels)
 
     def test_create(self):
         """Dimension from a dictionary"""
-        dim = cubes.create_dimension("year")
-        self.assertIsInstance(dim, cubes.Dimension)
+        dim = create_dimension("year")
+        self.assertIsInstance(dim, Dimension)
         self.assertEqual("year", dim.name)
-        self.assertEqual(["year"], [str(a) for a in dim.all_attributes])
+        self.assertEqual(["year"], [str(a) for a in dim.attributes])
 
         # Test default: explicit level attributes
         desc = {"name": "date", "levels": ["year"]}
-        dim = cubes.create_dimension(desc)
+        dim = create_dimension(desc)
         self.assertTrue(dim.is_flat)
         self.assertFalse(dim.has_details)
-        self.assertIsInstance(dim, cubes.Dimension)
+        self.assertIsInstance(dim, Dimension)
         self.assertEqual("date", dim.name)
-        self.assertEqual(["year"], [str(a) for a in dim.all_attributes])
+        self.assertEqual(["year"], [str(a) for a in dim.attributes])
 
         desc = {"name": "date", "levels": ["year", "month", "day"]}
-        dim = cubes.create_dimension(desc)
-        self.assertIsInstance(dim, cubes.Dimension)
+        dim = create_dimension(desc)
+        self.assertIsInstance(dim, Dimension)
         self.assertEqual("date", dim.name)
-        names = [str(a) for a in dim.all_attributes]
+        names = [str(a) for a in dim.attributes]
         self.assertEqual(["year", "month", "day"], names)
         self.assertFalse(dim.is_flat)
         self.assertFalse(dim.has_details)
         self.assertEqual(3, len(dim.levels))
         for level in dim.levels:
-            self.assertIsInstance(level, cubes.Level)
+            self.assertIsInstance(level, Level)
         self.assertEqual(1, len(dim.hierarchies))
         self.assertEqual(3, len(dim.hierarchy()))
 
         # Test default: implicit single level attributes
         desc = {"name": "product", "attributes": ["code", "name"]}
-        dim = cubes.create_dimension(desc)
-        names = [str(a) for a in dim.all_attributes]
+        dim = create_dimension(desc)
+        names = [str(a) for a in dim.attributes]
         self.assertEqual(["code", "name"], names)
         self.assertEqual(1, len(dim.levels))
         self.assertEqual(1, len(dim.hierarchies))
 
     def test_flat_dimension(self):
         """Flat dimension and 'has details' flags"""
-        dim = cubes.create_dimension("foo")
+        dim = create_dimension("foo")
         self.assertTrue(dim.is_flat)
         self.assertFalse(dim.has_details)
         self.assertEqual(1, len(dim.levels))
 
         level = dim.level("foo")
-        self.assertIsInstance(level, cubes.Level)
+        self.assertIsInstance(level, Level)
         self.assertEqual("foo", level.name)
         self.assertEqual(1, len(level.attributes))
         self.assertEqual("foo", str(level.key))
 
         attr = level.attributes[0]
-        self.assertIsInstance(attr, cubes.Attribute)
+        self.assertIsInstance(attr, Attribute)
         self.assertEqual("foo", attr.name)
 
     def test_comparisons(self):
         """Comparison of dimension instances"""
 
-        dim1 = cubes.create_dimension(DIM_DATE_DESC)
-        dim2 = cubes.create_dimension(DIM_DATE_DESC)
+        dim1 = create_dimension(DIM_DATE_DESC)
+        dim2 = create_dimension(DIM_DATE_DESC)
 
         self.assertListEqual(dim1.levels, dim2.levels)
         self.assertListEqual(dim1.hierarchies, dim2.hierarchies)
@@ -676,7 +686,7 @@ class DimensionTestCase(unittest.TestCase):
 
     def test_to_dict(self):
         desc = self.dimension.to_dict()
-        dim = cubes.create_dimension(desc)
+        dim = create_dimension(desc)
 
         self.assertEqual(self.dimension.hierarchies, dim.hierarchies)
         self.assertEqual(self.dimension.levels, dim.levels)
@@ -686,13 +696,13 @@ class DimensionTestCase(unittest.TestCase):
         dims = {"date": self.dimension}
         desc = {"template": "date", "name": "date"}
 
-        dim = cubes.create_dimension(desc, dims)
+        dim = create_dimension(desc, dims)
         self.assertEqual(self.dimension, dim)
         hier = dim.hierarchy()
         self.assertEqual(4, len(hier.levels))
 
         desc["hierarchy"] = ["year", "month"]
-        dim = cubes.create_dimension(desc, dims)
+        dim = create_dimension(desc, dims)
         self.assertEqual(1, len(dim.hierarchies))
         hier = dim.hierarchy()
         self.assertEqual(2, len(hier.levels))
@@ -704,10 +714,10 @@ class DimensionTestCase(unittest.TestCase):
         ]
 
         template["default_hierarchy_name"] = "ym"
-        template = cubes.create_dimension(template)
+        template = create_dimension(template)
         dims = {"date": template}
         desc = {"template": "date", "name":"another_date"}
-        dim = cubes.create_dimension(desc, dims)
+        dim = create_dimension(desc, dims)
         self.assertEqual(2, len(dim.hierarchies))
         self.assertEqual(["ym", "ymd"],
                          [hier.name for hier in dim.hierarchies])
@@ -723,7 +733,7 @@ class DimensionTestCase(unittest.TestCase):
                 {"name": "y", "levels": ["year"]},
             ]
         }
-        dim_time = cubes.create_dimension(md)
+        dim_time = create_dimension(md)
         templates = {"time": dim_time}
         md = {
             "name": "date",
@@ -733,7 +743,7 @@ class DimensionTestCase(unittest.TestCase):
             ]
         }
 
-        dim_date = cubes.create_dimension(md, templates)
+        dim_date = create_dimension(md, templates)
 
         self.assertEqual(dim_date.name, "date")
         self.assertEqual(len(dim_date.hierarchies), 3)
@@ -747,7 +757,7 @@ class DimensionTestCase(unittest.TestCase):
                 { "name": "one", "info": {"units":"$", "format": "foo"}}
             ]
         }
-        tempdim = cubes.create_dimension(md)
+        tempdim = create_dimension(md)
 
         md = {
             "name": "dim",
@@ -758,7 +768,7 @@ class DimensionTestCase(unittest.TestCase):
         }
 
         templates = {"template": tempdim}
-        dim = cubes.create_dimension(md, templates)
+        dim = create_dimension(md, templates)
 
         level = dim.level("one")
         self.assertIn("units", level.info)
@@ -769,10 +779,10 @@ class DimensionTestCase(unittest.TestCase):
 class CubeTestCase(unittest.TestCase):
     def setUp(self):
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
-        self.measures = cubes.attribute_list(["amount", "discount"], Measure)
-        self.details = cubes.attribute_list(["detail"], Attribute)
-        self.dimensions = [cubes.create_dimension(desc) for desc in a]
-        self.cube = cubes.Cube("contracts",
+        self.measures = attribute_list(["amount", "discount"], Measure)
+        self.details = attribute_list(["detail"], Attribute)
+        self.dimensions = [create_dimension(desc) for desc in a]
+        self.cube = Cube("contracts",
                                 dimensions=self.dimensions,
                                 measures=self.measures,
                                 details=self.details)
@@ -839,7 +849,7 @@ class CubeTestCase(unittest.TestCase):
     def test_to_dict(self):
         desc = self.cube.to_dict()
         dims = dict((dim.name, dim) for dim in self.dimensions)
-        cube = cubes.create_cube(desc, dims)
+        cube = create_cube(desc, dims)
         self.assertEqual(self.cube.dimensions, cube.dimensions)
         self.assertEqual(self.cube.measures, cube.measures)
         self.assertEqual(self.cube, cube)
@@ -848,7 +858,7 @@ class CubeTestCase(unittest.TestCase):
         dims = dict((d.name, d) for d in self.dimensions)
 
         links = [{"name": "date"}]
-        cube = cubes.Cube("contracts",
+        cube = Cube("contracts",
                           dimension_links=links,
                           measures=self.measures)
         cube.link_dimensions(dims)
@@ -857,7 +867,7 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(len(dim.hierarchies), 2)
 
         links = [{"name": "date"}, "product", "flag"]
-        cube = cubes.Cube("contracts",
+        cube = Cube("contracts",
                           dimension_links=links,
                           measures=self.measures)
         cube.link_dimensions(dims)
@@ -868,7 +878,7 @@ class CubeTestCase(unittest.TestCase):
         dims = dict((d.name, d) for d in self.dimensions)
 
         links = [{"name": "date"}]
-        cube = cubes.Cube("contracts",
+        cube = Cube("contracts",
                           dimension_links=links,
                           measures=self.measures)
         cube.link_dimensions(dims)
@@ -877,7 +887,7 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(dim.hierarchy().name, "ymd")
 
         links = [{"name": "date", "nonadditive":None}]
-        cube = cubes.Cube("contracts",
+        cube = Cube("contracts",
                           dimension_links=links,
                           measures=self.measures)
         cube.link_dimensions(dims)
@@ -886,7 +896,7 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(dim.hierarchy().name, "ymd")
 
         links = [{"name": "date", "hierarchies": ["ym"]}]
-        cube = cubes.Cube("contracts",
+        cube = Cube("contracts",
                           dimension_links=links,
                           measures=self.measures)
         cube.link_dimensions(dims)
@@ -904,10 +914,10 @@ class CubeTestCase(unittest.TestCase):
             "measures": ["amount", "discount"]
         }
 
-        dims = [cubes.create_dimension(md) for md in dims]
+        dims = [create_dimension(md) for md in dims]
         dims = dict((dim.name, dim) for dim in dims)
 
-        cube = cubes.create_cube(cube)
+        cube = create_cube(cube)
 
         measures = cube.measures
         self.assertEqual(measures[0].nonadditive, "time")
@@ -919,7 +929,7 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
 
     def test_from_file(self):
         path = self.model_path("model.json")
-        desc = cubes.read_model_metadata(path)
+        desc = read_model_metadata(path)
 
         self.assertIsInstance(desc, dict)
         self.assertTrue("cubes" in desc)
@@ -929,7 +939,7 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
 
     def test_from_bundle(self):
         path = self.model_path("test.cubesmodel")
-        desc = cubes.read_model_metadata(path)
+        desc = read_model_metadata(path)
 
         self.assertIsInstance(desc, dict)
         self.assertTrue("cubes" in desc)
@@ -939,21 +949,22 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
 
         with self.assertRaises(ArgumentError):
             path = self.model_path("model.json")
-            desc = cubes.read_model_metadata_bundle(path)
+            desc = read_model_metadata_bundle(path)
 
+@unittest.skip("No more base model in the cubes package")
 class BaseModelTestCase(ModelTestCaseBase):
     def test_base_ignorance(self):
-        ws = cubes.Workspace(load_base_model=False)
+        ws = Workspace(load_base_model=False)
         with self.assertRaises(NoSuchDimensionError):
             ws.dimension("base_time")
 
     def test_base_existence(self):
-        ws = cubes.Workspace()
+        ws = Workspace()
         dim = ws.dimension("base_time")
         self.assertEqual(dim.name, "base_time")
 
     def test_select_hierarchies(self):
-        ws = cubes.Workspace()
+        ws = Workspace()
         dim_time = ws.dimension("base_time")
         dim_date = ws.dimension("base_date")
         self.assertLess(len(dim_date.hierarchies), len(dim_time.hierarchies))

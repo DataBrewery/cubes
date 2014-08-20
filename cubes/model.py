@@ -102,8 +102,6 @@ class ModelObject(object):
         copy = self.__class__.__new__(self.__class__)
         copy.__dict__ = self.__dict__.copy()
 
-        print("=== LOCALIZING %s: %s" % (type(copy), copy.name))
-
         d = copy.__dict__
 
         for attr in self.localizable_attributes:
@@ -245,7 +243,7 @@ class Cube(ModelObject):
 
     @property
     def measures(self):
-        return self._measures.values()
+        return list(self._measures.values())
 
     @measures.setter
     def measures(self, measures):
@@ -258,7 +256,7 @@ class Cube(ModelObject):
 
     @property
     def aggregates(self):
-        return self._aggregates.values()
+        return list(self._aggregates.values())
 
     @aggregates.setter
     def aggregates(self, aggregates):
@@ -329,7 +327,7 @@ class Cube(ModelObject):
 
     @property
     def dimensions(self):
-        return self._dimensions.values()
+        return list(self._dimensions.values())
 
     @dimensions.setter
     def dimensions(self, dimensions):
@@ -439,7 +437,7 @@ class Cube(ModelObject):
         details and measures."""
         attributes = []
         for dim in self.dimensions:
-            attributes += dim.all_attributes
+            attributes += dim.attributes
 
         attributes += self.details
 
@@ -454,7 +452,7 @@ class Cube(ModelObject):
 
         attributes = []
         for dim in self.dimensions:
-            attributes += dim.all_attributes
+            attributes += dim.attributes
 
         attributes += self.aggregates
 
@@ -795,7 +793,7 @@ class Dimension(ModelObject):
     def levels(self):
         """Get list of all dimension levels. Order is not guaranteed, use a
         hierarchy to have known order."""
-        return self._levels.values()
+        return list(self._levels.values())
 
     @levels.setter
     def levels(self, levels):
@@ -806,7 +804,7 @@ class Dimension(ModelObject):
     @property
     def hierarchies(self):
         """Get list of dimension hierarchies."""
-        return self._hierarchies.values()
+        return list(self._hierarchies.values())
 
     @hierarchies.setter
     def hierarchies(self, hierarchies):
@@ -818,7 +816,7 @@ class Dimension(ModelObject):
     def level_names(self):
         """Get list of level names. Order is not guaranteed, use a hierarchy
         to have known order."""
-        return self._levels.keys()
+        return list(self._levels.keys())
 
     def level(self, obj):
         """Get level by name or as Level object. This method is used for
@@ -877,7 +875,7 @@ class Dimension(ModelObject):
 
         if not hierarchy:
             if self._hierarchies:
-                hierarchy = self._hierarchies.values()[0]
+                hierarchy = list(self._hierarchies.values())[0]
             else:
                 if len(self.levels) == 1:
                     if not self._flat_hierarchy:
@@ -918,12 +916,6 @@ class Dimension(ModelObject):
         known order. Order of attributes within level is preserved."""
 
         return list(self._attributes.values())
-
-    # TODO: depreciated
-    @property
-    def all_attributes(self):
-
-        return self.attributes
 
     def clone(self, hierarchies=None, exclude_hierarchies=None,
               nonadditive=None, default_hierarchy_name=None, cardinality=None,
@@ -1219,7 +1211,7 @@ class Hierarchy(ModelObject):
 
     @property
     def levels(self):
-        return self._levels.values()
+        return list(self._levels.values())
 
     @levels.setter
     def levels(self, levels):
@@ -1229,7 +1221,7 @@ class Hierarchy(ModelObject):
 
     @property
     def level_names(self):
-        return self._levels.keys()
+        return list(self._levels.keys())
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
@@ -1289,7 +1281,7 @@ class Hierarchy(ModelObject):
         if not level:
             return self.levels[0]
 
-        index = self._levels.keys().index(str(level))
+        index = list(self._levels.keys()).index(str(level))
         if index + 1 >= len(self.levels):
             return None
         else:
@@ -1302,7 +1294,7 @@ class Hierarchy(ModelObject):
         if level is None:
             return None
 
-        index = self._levels.keys().index(str(level))
+        index = list(self._levels.keys()).index(str(level))
         if index == 0:
             return None
         else:
@@ -1312,7 +1304,7 @@ class Hierarchy(ModelObject):
         """Get order index of level. Can be used for ordering and comparing
         levels within hierarchy."""
         try:
-            return self._levels.keys().index(str(level))
+            return list(self._levels.keys()).index(str(level))
         except ValueError:
             raise HierarchyError("Level %s is not part of hierarchy %s"
                                  % (str(level), self.name))

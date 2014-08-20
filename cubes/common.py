@@ -232,17 +232,6 @@ def coalesce_options(options, types):
 
     return out
 
-def to_unicode_string(s):
-    if isinstance(s, unicode):
-        return s
-    s = str(s)
-    for enc in ('utf8', 'latin-1'):
-        try:
-            return unicode(s, enc)
-        except UnicodeDecodeError:
-            get_logger().info("Cannot decode using %s: %s" % (enc, s))
-    raise ValueError("Cannot decode for unicode using any of the available encodings: %s" % s)
-
 def read_json_file(path, kind=None):
     """Read a JSON from `path`. This is convenience function that provides
     more descriptive exception handling."""

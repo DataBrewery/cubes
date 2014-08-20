@@ -56,7 +56,8 @@ Github source repository: https://github.com/Stiivi/cubes
 Requirements
 ------------
 
-Developed using python 2.7.
+Python >= 2.7 and Python >= 3.4.1
+
 
 Most of the requirements are soft (optional) and need to be satisfied only if 
 certain parts of cubes are being used.

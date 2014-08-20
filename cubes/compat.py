@@ -20,6 +20,9 @@ if py3k:
     from io import StringIO
     from queue import Queue
 
+    def to_unicode(s):
+        return s
+
 else:
     string_type = basestring
     binary_type = str
@@ -31,4 +34,18 @@ else:
     import ConfigParser as configparser
     from StringIO import StringIO
     from Queue import Queue
+
+    def to_unicode(s):
+        if isinstance(s, unicode):
+            return s
+        s = str(s)
+        for enc in ('utf8', 'latin-1'):
+            try:
+                return unicode(s, enc)
+            except UnicodeDecodeError:
+                pass
+
+        raise ValueError("Cannot decode for unicode using any of the default "
+                         "encodings: %s" % s)
+
 

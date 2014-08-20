@@ -106,13 +106,13 @@ class _SimpleAccessRight(object):
         self.allowed_cubes |= other.allowed_cubes
         self.denied_cubes |= other.denied_cubes
 
-        for cube, restrictions in other.cell_restrictions.iteritems():
+        for cube, restrictions in other.cell_restrictions.items():
             if not cube in self.cube_restrictions:
                 self.cell_restrictions[cube] = restrictions
             else:
                 self.cell_restrictions[cube] += restrictions
 
-        for cube, limits  in other.hierarchy_limits.iteritems():
+        for cube, limits  in other.hierarchy_limits.items():
             if not cube in self.hierarchy_limits:
                 self.hierarchy_limits[cube] = limits
             else:

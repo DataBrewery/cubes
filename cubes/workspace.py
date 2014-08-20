@@ -623,7 +623,8 @@ class Workspace(object):
         # Assumption: all dimensions that are to be used as templates should
         # be public dimensions. If it is a private dimension, then the
         # provider should handle the case by itself.
-        missing = set( (name, ) )
+        missing = [name]
+
         while missing:
             dimension = None
             deferred = set()
@@ -646,11 +647,11 @@ class Workspace(object):
                                    % (required_template, name))
 
             if required_template:
-                missing.add(name)
+                missing.append(name)
                 if required_template in missing:
                     raise ModelError("Dimension templates cycle in '%s'" %
                                      required_template)
-                missing.add(required_template)
+                missing.append(required_template)
 
             # Store the created dimension to be used as template
             if dimension:
