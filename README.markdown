@@ -40,6 +40,13 @@ See `examples` directory for simple examples and use-cases. Also see:
     
 for more complex examples.
 
+Models
+------
+
+For cubes models see:
+
+* https://github.com/Stiivi/cubes-models
+
 
 Source
 ------
@@ -71,6 +78,7 @@ Google group or write to the author.
 * IRC channel #databrewery on server irc.freenode.net
 
 Report bugs using github issue tracking: https://github.com/Stiivi/cubes/issues
+
 
 Development
 -----------

@@ -294,18 +294,6 @@ class Workspace(object):
         # Configure and load models
         # =========================
 
-        # Load base model (default)
-        import pkgutil
-        if config.has_option("workspace", "load_base_model"):
-            load_base = config.getboolean("workspace", "load_base_model")
-        else:
-            load_base = load_base_model
-
-        if load_base:
-            loader = pkgutil.get_loader("cubes")
-            path = os.path.join(loader.filename, "models/base.cubesmodel")
-            self.import_model(path)
-
         # Models are searched in:
         # [model]
         # [workspace] model <- depreciated!
