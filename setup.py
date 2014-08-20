@@ -15,8 +15,7 @@ setup(
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        'cubes': [ 'templates/*.html', 'templates/*.js', 'schemas/*.json',
-                    'models/base.cubesmodel/*'],
+        'cubes': ['templates/*.html', 'templates/*.js', 'schemas/*.json'],
         'cubes.server': ['templates/*.html'],
         'cubes.backends.mixpanel': ['*.json']
     },
