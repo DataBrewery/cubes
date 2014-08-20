@@ -25,7 +25,7 @@ from ..common import MissingPackageError
 from ..logging import create_logger
 from ..errors import CubesError
 from ..metadata import read_model_metadata, write_model_metadata_bundle
-from ..server import run_server
+from .. import server
 
 try:
     from cubes_modeler import ModelEditorSlicerCommand
@@ -189,7 +189,7 @@ def run_server(args):
             raise CubesError("Unable to write PID file '%s'. Check the "
                              "directory existence or permissions." % path)
 
-    run_server(config, debug=args.debug)
+    server.run_server(config, debug=args.debug)
 
 
 def run_test(args):
@@ -325,7 +325,10 @@ def edit_model(args):
 # Main code
 
 parser = argparse.ArgumentParser(description='Cubes tool')
-parser.set_defaults(func=None)
+
+if not compat.py3k:
+    parser.set_defaults(func=None)
+
 subparsers = parser.add_subparsers(title='commands')
 parser.add_argument('--cubes-debug',
                     dest='cubes_debug', action='store_true', default=False,
@@ -386,6 +389,7 @@ subparser.set_defaults(func=convert_model)
 subparser = subparsers.add_parser('serve', help="run slicer server")
 subparser.add_argument('config', help='server confuguration .ini file')
 subparser.set_defaults(func=run_server)
+subparser.set_defaults(foo="BAR")
 
 subparser.add_argument('--debug',
                             dest='debug', action='store_true', default=False,
