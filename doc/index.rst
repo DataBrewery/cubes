@@ -132,7 +132,7 @@ License
 
 Cubes is licensed under MIT license with small addition::
 
-    Copyright (c) 2011-2013 Stefan Urbanek, see AUTHORS for more details
+    Copyright (c) 2011-2014 Stefan Urbanek, see AUTHORS for more details
 
     Permission is hereby granted, free of charge, to any person obtaining a 
     copy of this software and associated documentation files (the "Software"), 
