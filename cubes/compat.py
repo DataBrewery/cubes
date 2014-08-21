@@ -16,7 +16,7 @@ if py3k:
 
     from urllib.parse import urlparse
     from urllib.request import urlopen
-    import configparser
+    from configparser import ConfigParser
     from io import StringIO
     from queue import Queue
     from functools import reduce
@@ -35,7 +35,7 @@ else:
 
     from urlparse import urlparse
     from urllib2 import urlopen
-    import ConfigParser as configparser
+    from ConfigParser import SafeConfigParser as ConfigParser
     from StringIO import StringIO
     from Queue import Queue
     reduce = reduce

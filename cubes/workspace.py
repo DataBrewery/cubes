@@ -13,7 +13,7 @@ from .extensions import extensions
 from .localization import LocalizationContext
 from .namespace import Namespace
 import os.path
-from .compat import configparser
+from .compat import ConfigParser
 from copy import copy
 from collections import OrderedDict, defaultdict
 from . import compat
@@ -95,7 +95,7 @@ class Workspace(object):
         """
 
         if isinstance(config, compat.string_type):
-            cp = configparser.SafeConfigParser()
+            cp = ConfigParser()
             try:
                 cp.read(config)
             except Exception as e:
@@ -106,7 +106,7 @@ class Workspace(object):
 
         elif not config:
             # Read ./slicer.ini
-            config = configparser.ConfigParser()
+            config = ConfigParser()
 
         self.store_infos = {}
         self.stores = {}
@@ -197,7 +197,7 @@ class Workspace(object):
                 stores = os.path.join(self.root_dir, stores)
 
         if isinstance(stores, compat.string_type):
-            store_config = configparser.SafeConfigParser()
+            store_config = ConfigParser()
             try:
                 store_config.read(stores)
             except Exception as e:
@@ -447,7 +447,7 @@ class Workspace(object):
         # 1. Model Metadata
         # -----------------
         # Make sure that the metadata is a dictionary
-        # 
+        #
         # TODO: Use "InlineModelProvider" and "FileBasedModelProvider"
 
         if isinstance(model, compat.string_type):
