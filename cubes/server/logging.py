@@ -108,13 +108,13 @@ class RequestLogger(object):
         """Return a log rectord with object attributes converted to unicode strings"""
         record = dict(record)
 
-        record["cube"] = unicode(record["cube"])
+        record["cube"] = compat.text_type(record["cube"])
 
         cell = record.get("cell")
-        record["cell"] = unicode(cell) if cell is not None else None
+        record["cell"] = compat.text_type(cell) if cell is not None else None
 
         split = record.get("split")
-        record["split"] = unicode(split) if split is not None else None
+        record["split"] = compat.text_type(split) if split is not None else None
 
         return record
 
@@ -171,7 +171,7 @@ class CSVFileRequestLogHandler(RequestLogHandler):
         for key in REQUEST_LOG_ITEMS:
             item = record.get(key)
             if item is not None:
-                item = unicode(item)
+                item = compat.text_type(item)
             out.append(item)
 
         with io.open(self.path, 'ab') as f:
