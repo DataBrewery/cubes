@@ -151,7 +151,7 @@ def dump_model(model):
 
 def read_config(cfg):
     """Read the configuration file."""
-    config = compat.configparser.SafeConfigParser()
+    config = compat.ConfigParser()
     try:
         config.read(args.config)
     except Exception as e:
