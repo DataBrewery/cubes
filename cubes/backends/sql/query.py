@@ -509,7 +509,7 @@ class SnowflakeSchema(object):
                              % (joined_products.keys(), ))
 
         # Return the remaining joined product
-        result = joined_products.values()[0]
+        result = list(joined_products.values())[0]
 
         return JoinedProduct(result, tables)
 

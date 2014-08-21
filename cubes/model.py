@@ -1233,6 +1233,9 @@ class Hierarchy(ModelObject):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __str__(self):
         return self.name
 
@@ -1517,6 +1520,9 @@ class Level(ModelObject):
 
         return True
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
@@ -1754,6 +1760,9 @@ class Attribute(AttributeBase):
         return str(self.dimension) == str(other.dimension) \
                and self.locales == other.locales
 
+    def __hash__(self):
+        return hash(self.ref())
+
     def to_dict(self, **options):
         # FIXME: Depreciated key "full_name" in favour of "ref"
         d = super(Attribute, self).to_dict(**options)
@@ -1879,6 +1888,9 @@ class Measure(AttributeBase):
                 and self.formula == other.formula \
                 and self.window_size == other.window_size
 
+    def __hash__(self):
+        return hash(self.ref())
+
     def to_dict(self, **options):
         d = super(Measure, self).to_dict(**options)
         d["formula"] = self.formula
@@ -1990,6 +2002,9 @@ class MeasureAggregate(AttributeBase):
             and self.expression == other.expression \
             and self.nonadditive == other.nonadditive \
             and self.window_size == other.window_size
+
+    def __hash__(self):
+        return hash(self.ref())
 
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)

@@ -19,9 +19,13 @@ if py3k:
     import configparser
     from io import StringIO
     from queue import Queue
+    from functools import reduce
 
     def to_unicode(s):
         return s
+
+    def to_str(b):
+        return b.decode("utf-8")
 
 else:
     string_type = basestring
@@ -34,6 +38,10 @@ else:
     import ConfigParser as configparser
     from StringIO import StringIO
     from Queue import Queue
+    reduce = reduce
+
+    def to_str(b):
+        return b
 
     def to_unicode(s):
         if isinstance(s, unicode):

@@ -646,7 +646,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
         result = self.browser.aggregate()
         self.assertIsNotNone(result.summary)
         self.assertEqual(1, len(result.summary.keys()))
-        self.assertEqual("amount_sum", result.summary.keys()[0])
+        self.assertEqual("amount_sum", list(result.summary.keys())[0])
         self.assertEqual(5550, result.summary["amount_sum"])
 
     def test_aggregate_condition(self):
@@ -656,7 +656,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
 
         self.assertIsNotNone(result.summary)
         self.assertEqual(1, len(result.summary.keys()))
-        self.assertEqual("amount_sum", result.summary.keys()[0])
+        self.assertEqual("amount_sum", list(result.summary.keys())[0])
         self.assertEqual(550, result.summary["amount_sum"])
 
         cells = list(result.cells)
@@ -669,7 +669,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
 
         self.assertEqual(2, len(cells))
 
-        self.assertItemsEqual(["date.year", "amount_sum"],
+        self.assertCountEqual(["date.year", "amount_sum"],
                               cells[0].keys())
         self.assertEqual(550, cells[0]["amount_sum"])
         self.assertEqual(2012, cells[0]["date.year"])
@@ -683,8 +683,8 @@ class SQLBrowserTestCase(CubesTestCaseBase):
         cells = list(result.cells)
         self.assertEqual(4, len(cells))
 
-        self.assertItemsEqual(["country", "amount_sum"],
-                              cells[0].keys())
+        self.assertCountEqual(["country", "amount_sum"],
+                              list(cells[0].keys()))
         values = [cell["country"] for cell in cells]
         self.assertSequenceEqual(["at", "fr", "sk", "uk"], values)
 

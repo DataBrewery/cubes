@@ -41,7 +41,7 @@ def create_server(config=None):
         for module in modules:
             e = __import__(module)
 
-    app = Flask("slicer")
+    app = Flask(__name__)
     app.register_blueprint(slicer, config=config)
 
     return app

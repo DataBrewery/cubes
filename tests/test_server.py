@@ -30,7 +30,7 @@ class SlicerTestCaseBase(CubesTestCaseBase):
         response = self.server.get(path, *args, **kwargs)
 
         try:
-            result = json.loads(response.data)
+            result = json.loads(compat.to_str(response.data))
         except ValueError:
             result = response.data
 
@@ -41,8 +41,8 @@ class SlicerTestCaseBase(CubesTestCaseBase):
             self.assertIn(key, d)
 
 
-@unittest.skipIf(compat.py3k, "Not testing server for Python 3 due to some "
-                              "flask errors.")
+# @unittest.skipIf(compat.py3k, "Not testing server for Python 3 due to some "
+#                              "flask errors.")
 class SlicerTestCase(SlicerTestCaseBase):
     def test_version(self):
         response, status = self.get("version")
@@ -55,8 +55,8 @@ class SlicerTestCase(SlicerTestCaseBase):
         response, status = self.get("this_is_unknown")
         self.assertEqual(404, status)
 
-@unittest.skipIf(compat.py3k, "Not testing server for Python 3 due to some "
-                              "flask errors.")
+# @unittest.skipIf(compat.py3k, "Not testing server for Python 3 due to some "
+#                              "flask errors.")
 class SlicerModelTestCase(SlicerTestCaseBase):
     sql_engine = "sqlite:///"
 
@@ -87,7 +87,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
             self.assertNotIn("dimensions", info)
 
         names = [c["name"] for c in response]
-        self.assertItemsEqual(["contracts", "sales"], names)
+        self.assertCountEqual(["contracts", "sales"], names)
 
     def test_no_cube(self):
         response, status = self.get("cube/unknown_cube/model")
@@ -119,7 +119,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         self.assertIsInstance(aggregates, list)
         self.assertEqual(4, len(aggregates))
         names = [a["name"] for a in aggregates]
-        self.assertItemsEqual(["amount_sum", "amount_min", "discount_sum",
+        self.assertCountEqual(["amount_sum", "amount_min", "discount_sum",
                                "record_count"], names)
 
     def test_cube_dimensions(self):
@@ -138,7 +138,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
             self.assertIn("has_details", dim)
 
         names = [d["name"] for d in dims]
-        self.assertItemsEqual(["date", "flag", "product"], names)
+        self.assertCountEqual(["date", "flag", "product"], names)
 
         # Test dim flags
         self.assertEqual(True, dims[1]["is_flat"])

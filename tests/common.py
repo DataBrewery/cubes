@@ -64,3 +64,6 @@ class CubesTestCaseBase(unittest.TestCase):
             insert = table.insert().values(row)
             self.engine.execute(insert)
 
+    if not compat.py3k:
+        assertCountEqual = unittest.TestCase.assertItemsEqual
+

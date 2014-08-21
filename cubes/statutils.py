@@ -5,6 +5,8 @@ from .errors import *
 from functools import partial
 from math import sqrt
 
+from . import compat
+
 __all__ = [
         "CALCULATED_AGGREGATIONS",
         "calculators_for_aggregates",
@@ -66,10 +68,10 @@ def weighted_moving_average(values):
 
 def simple_moving_average(values):
     # use all the values
-    return round(reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
+    return round(compat.reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
 
 def simple_moving_sum(values):
-    return reduce(lambda i, c: i + c, values, 0)
+    return compat.reduce(lambda i, c: i + c, values, 0)
 
 
 def _variance(values):

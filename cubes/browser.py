@@ -1532,13 +1532,14 @@ class CalculatedResultIterator(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         # Apply calculators to the result record
-        item = self.iterator.next()
+        item = next(self.iterator)
         for calc in self.calculators:
             calc(item)
         return item
 
+    next = __next__
 
 class AggregationResult(object):
     """Result of aggregation or drill down.
