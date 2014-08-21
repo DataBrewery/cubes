@@ -127,7 +127,7 @@ class CSVGenerator(object):
         self.writer.writerow(row)
         # Fetch UTF-8 output from the queue ...
         data = self.queue.getvalue()
-        data = data.decode("utf-8")
+        data = compat.to_unicode(data)
         # ... and reencode it into the target encoding
         data = self.encoder.encode(data)
         # empty queue
@@ -178,7 +178,7 @@ class UnicodeCSVWriter:
         self.writer.writerow(new_row)
         # Fetch UTF-8 output from the queue ...
         data = self.queue.getvalue()
-        data = data.decode("utf-8")
+        data = compat.to_unicode(data)
         # ... and reencode it into the target encoding
         data = self.encoder.encode(data)
         # write to the target stream

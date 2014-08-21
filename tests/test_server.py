@@ -148,8 +148,8 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         self.assertEqual(True, dims[0]["has_details"])
 
 
-@unittest.skipIf(compat.py3k, "Not testing server for Python 3 due to some "
-                              "flask errors.")
+# @unittest.skipIf(compat.py3k, "Not testing server for Python 3 due to some "
+#                              "flask errors.")
 class SlicerAggregateTestCase(SlicerTestCaseBase):
     sql_engine = "sqlite:///"
     def setUp(self):
@@ -225,8 +225,9 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
                                  header)
 
@@ -234,23 +235,26 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=labels"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
                                  header)
         # Names
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=names"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["date.year", "amount_sum", "count"],
                                  header)
         # None
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=none"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["2013", "100", "5"],
                                  header)
