@@ -396,7 +396,7 @@ class SnowflakeMapper(Mapper):
                     break
 
             if joins and not joined and table != fact_table:
-                self.logger.warn("No table joined for %s" % (table, ))
+                self.logger.warning("No table joined for %s" % (table, ))
 
         # self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
 
