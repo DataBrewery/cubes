@@ -344,7 +344,7 @@ class MeasuresTestsCase(CubesTestCaseBase):
                                   aggregates)
 
     def test_explicit_conflict(self):
-        with self.assertRaisesRegexp(ModelError, "function mismatch"):
+        with self.assertRaisesRegex(ModelError, "function mismatch"):
             cube = self.cube("explicit_aggregates_conflict")
 
 
@@ -502,10 +502,10 @@ class HierarchyTestCase(unittest.TestCase):
         with self.assertRaises(ModelError):
             Hierarchy("default", [])
 
-        with self.assertRaisesRegexp(ModelInconsistencyError, "not be empty"):
+        with self.assertRaisesRegex(ModelInconsistencyError, "not be empty"):
             Hierarchy("default", [])
 
-        with self.assertRaisesRegexp(ModelInconsistencyError, "as strings"):
+        with self.assertRaisesRegex(ModelInconsistencyError, "as strings"):
             Hierarchy("default", ["iamastring"])
 
     def test_operators(self):

@@ -170,7 +170,7 @@ class QueryContextTestCase(StarSQLTestCase):
         self.assertEqual(["date.year", "date.month", "date.id"], dd.keys)
 
         drilldown = ["date"]
-        with self.assertRaisesRegexp(HierarchyError, "has only 3 levels"):
+        with self.assertRaisesRegex(HierarchyError, "has only 3 levels"):
             levels_from_drilldown(cell, drilldown)
 
 
