@@ -80,17 +80,17 @@ class Workspace(object):
 
         Properties:
 
-        * `stores` – dictionary of stores
-        * `store_infos` – dictionary of store configurations
-        * `namespace` – default namespace
-        * `logger` – workspace logegr
-        * `rot_dir` – root directory where all relative paths are looked for
-        * `models_dir` – directory with models (if relative, then relative to
+        * `stores` - dictionary of stores
+        * `store_infos` - dictionary of store configurations
+        * `namespace` - default namespace
+        * `logger` - workspace logegr
+        * `rot_dir` - root directory where all relative paths are looked for
+        * `models_dir` - directory with models (if relative, then relative to
           the root directory)
 
-        * `info` – info dictionary from the info file or info section
-        * `calendar` – calendar object providing date and time functions
-        * `ns_languages` – dictionary where keys are namespaces and values
+        * `info` - info dictionary from the info file or info section
+        * `calendar` - calendar object providing date and time functions
+        * `ns_languages` - dictionary where keys are namespaces and values
           are language to translation path mappings.
         """
 
@@ -553,7 +553,7 @@ class Workspace(object):
         if cube_key in self._cubes:
             return self._cubes[cube_key]
 
-        # Find the namespace containing the cube – we will need it for linking
+        # Find the namespace containing the cube - we will need it for linking
         # later
         # FIXME: nsname is not a name, but a path!
         (ns, nsname, basename) = self.namespace.find_cube(ref)
@@ -561,7 +561,7 @@ class Workspace(object):
         recursive = (self.lookup_method == "recursive")
         cube = ns.cube(basename, locale=locale, recursive=recursive)
 
-        # TODO: use ref – full and name – relative
+        # TODO: use ref - full and name - relative
         # Set cube name to the full cube reference that includes namespace as
         # well
         cube.name = ref
@@ -611,13 +611,13 @@ class Workspace(object):
         The standard lookup when linking a cube is:
 
         1. look in the cube's provider
-        2. look in the cube's namespace – all providers within that namespace
+        2. look in the cube's namespace - all providers within that namespace
         3. look in the default (global) namespace
         """
 
         namespace = namespace or self.namespace
 
-        # Collected dimensions – to be used as templates
+        # Collected dimensions - to be used as templates
         templates = {}
 
         # Assumption: all dimensions that are to be used as templates should
