@@ -469,21 +469,26 @@ subparser.add_argument('--backend',
                             help='backend name (currently limited only to SQL backends)')
 subparser.set_defaults(func=generate_ddl)
 
-args = parser.parse_args(sys.argv[1:])
 
-if not args.func:
-    parser.print_help()
-    exit(0)
+def main():
+    args = parser.parse_args(sys.argv[1:])
 
-if args.cubes_debug:
-    args.func(args)
-else:
-    try:
+    if not args.func:
+        parser.print_help()
+        exit(0)
+
+    if args.cubes_debug:
         args.func(args)
-    except CubesError as e:
-        sys.stderr.write("ERROR: %s\n" % e)
-        exit(1)
-    except MissingPackageError as e:
-        sys.stderr.write("MISSING PACKAGE ERROR: %s\n" % e)
-        exit(2)
+    else:
+        try:
+            args.func(args)
+        except CubesError as e:
+            sys.stderr.write("ERROR: %s\n" % e)
+            exit(1)
+        except MissingPackageError as e:
+            sys.stderr.write("MISSING PACKAGE ERROR: %s\n" % e)
+            exit(2)
+
+if __name__ == "__main__":
+    main()
 
