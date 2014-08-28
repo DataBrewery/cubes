@@ -128,7 +128,7 @@ class Cube(ModelObject):
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, dimension_links=None, locale=None, category=None,
-                 datastore=None, namespace=None, **options):
+                 store=None, datastore=None, namespace=None, **options):
 
         """Create a new Cube model object.
 
