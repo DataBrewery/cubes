@@ -326,9 +326,6 @@ def edit_model(args):
 
 parser = argparse.ArgumentParser(description='Cubes tool')
 
-if not compat.py3k:
-    parser.set_defaults(func=None)
-
 subparsers = parser.add_subparsers(title='commands')
 parser.add_argument('--cubes-debug',
                     dest='cubes_debug', action='store_true', default=False,
