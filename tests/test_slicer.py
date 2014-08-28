@@ -3,7 +3,7 @@ import traceback
 import os
 
 from cubes import Workspace
-from cubes.errors import *
+from cubes.errors import BrowserError
 import cubes.browser
 from cubes import compat
 
@@ -13,10 +13,13 @@ from cubes import compat
 @unittest.skipIf("TEST_SLICER" not in os.environ,
                  "No TEST_SLICER environment variable set.")
 
+
 class SlicerTestCase(unittest.TestCase):
     def setUp(self):
         self.w = Workspace()
-        self.w.add_slicer("myslicer", "http://localhost:5010", username=os.environ.get("SLICER_USERNAME"), password=os.environ.get("SLICER_PASSWORD"))
+        self.w.add_slicer("myslicer", "http://localhost:5010",
+                          username=os.environ.get("SLICER_USERNAME"),
+                          password=os.environ.get("SLICER_PASSWORD"))
 
         self.cube_list = self.w.list_cubes()
 
@@ -57,4 +60,3 @@ class SlicerTestCase(unittest.TestCase):
                 result = b.aggregate(cell, drilldown=drill, split=split, **kw)
             except:
                 traceback.print_exc()
-
