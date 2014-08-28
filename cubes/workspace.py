@@ -579,6 +579,7 @@ class Workspace(object):
         self.link_cube(cube)
 
         lookup = ns.translation_lookup(locale)
+
         if lookup:
             # TODO: pass lookup instead of jsut first found translation
             context = LocalizationContext(lookup[0])
@@ -591,16 +592,16 @@ class Workspace(object):
         # 1. look if there is translation for the namespace
         # 2. find cube in the translation
         # 3. translate if we have something
-        translation = None
-        ns_translation = self.translation(locale, nsname)
-        if ns_translation:
-            cubes_translation = ns_translation.get("cubes")
-            if cubes_translation:
-                translation = cubes_translation.get(basename)
+        # translation = None
+        # ns_translation = self.translation(locale, nsname)
+        # if ns_translation:
+        #    cubes_translation = ns_translation.get("cubes")
+        #    if cubes_translation:
+        #        translation = cubes_translation.get(basename)
 
-        if translation:
-            cube = copy(cube)
-            cube.localize(translation)
+        # if translation:
+        #    cube = copy(cube)
+        #    cube.localize(translation)
 
         self._cubes[cube_key] = cube
 
@@ -684,6 +685,7 @@ class Workspace(object):
                 templates[name] = dimension
 
         lookup = namespace.translation_lookup(locale)
+
         if lookup:
             # TODO: pass lookup instead of jsut first found translation
             context = LocalizationContext(lookup[0])
