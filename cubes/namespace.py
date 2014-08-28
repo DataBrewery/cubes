@@ -2,19 +2,23 @@
 
 from __future__ import absolute_import
 
-from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
+from .errors import NoSuchCubeError, NoSuchDimensionError
+from .common import read_json_file
+from . import compat
 
 __all__ = [
     "Namespace",
 ]
 
 class Namespace(object):
-    def __init__(self):
+    def __init__(self, name=None):
         """Creates a cubes namespace – an object that provides model objects
         from the providers."""
+        self.parent = None
+        self.name = name
         self.namespaces = {}
         self.providers = []
-        self.objects = {}
+        self.translations = {}
 
     def namespace(self, path, create=False):
         """Returns a tuple (`namespace`, `remainder`) where `namespace` is
@@ -31,7 +35,7 @@ class Namespace(object):
         if not path:
             return (self, [])
 
-        if isinstance(path, basestring):
+        if isinstance(path, compat.string_type):
             path = path.split(".")
 
         namespace = self
@@ -55,16 +59,23 @@ class Namespace(object):
 
     def create_namespace(self, name):
         """Create a namespace `name` in the receiver."""
-        namespace = Namespace()
+        if self.name:
+            nsname = "%s.%s" % (self.name, name)
+        else:
+            nsname = name
+
+        namespace = Namespace(nsname)
+        namespace.parent = self
         self.namespaces[name] = namespace
+
         return namespace
 
-    def namespace_for_cube(self, cube):
-        """Returns a tuple (`namespace`, `path`, `basename`) where `namespace`
-        is a namespace conaining `cube` and `basename` is a name of the `cube`
-        within the `namespace`. For example: if cube is ``slicer.nested.cube``
-        and there is namespace ``slicer`` then that namespace is returned and
-        the `basename` will be ``nested.cube``"""
+    def find_cube(self, cube):
+        """Returns a tuple (`namespace`, `nsname`, `basename`) where
+        `namespace` is a namespace conaining `cube` and `basename` is a name
+        of the `cube` within the `namespace`. For example: if cube is
+        ``slicer.nested.cube`` and there is namespace ``slicer`` then that
+        namespace is returned and the `basename` will be ``nested.cube``"""
 
         cube = str(cube)
         split = cube.split(".")
@@ -86,7 +97,7 @@ class Namespace(object):
         nspath = path[:-len(remainder)]
         nsname = ".".join(nspath)
 
-        return (namespace, nspath, basename)
+        return (namespace, nsname, basename)
 
     def list_cubes(self, recursive=False):
         """Retursn a list of cube info dictionaries with keys: `name`,
@@ -129,8 +140,10 @@ class Namespace(object):
                 pass
             else:
                 cube.provider = provider
+                cube.namespace = self
                 break
 
+        # TODO: depreciate this, it is inconsistent and confusing
         if not cube and recursive:
             for key, namespace in self.namespaces.items():
                 try:
@@ -146,7 +159,7 @@ class Namespace(object):
 
         return cube
 
-    def dimension(self, name, locale=None, templates=None):
+    def dimension(self, name, locale=None, templates=None, local_only=False):
         dim = None
 
         # TODO: cache dimensions
@@ -160,9 +173,45 @@ class Namespace(object):
             else:
                 return dim
 
+        # If we are not looking for dimension within this namespace only,
+        # traverse the namespace hierarchy, if there is one
+        if not local_only and self.parent:
+            return self.parent.dimension(name, locale, templates)
+
         raise NoSuchDimensionError("Unknown dimension '%s'" % str(name), name)
 
     def add_provider(self, provider):
         self.providers.append(provider)
 
+    def add_translation(self, lang, translation):
+        """Registers and merges `translation` for language `lang`"""
+        try:
+            trans = self.translations[lang]
+        except KeyError:
+            trans = {}
+            self.translations[lang] = trans
+
+        # Is it a path?
+        if isinstance(translation, compat.string_type):
+            translation = read_json_file(translation)
+
+        trans.update(translation)
+
+    def translation_lookup(self, lang):
+        """Returns translation in language `lang` for model object `obj`
+        within `context` (cubes, dimensions, attributes, ...).  Looks in
+        parent if current namespace does not have the translation."""
+
+        lookup = []
+        visited = set()
+
+        # Find namespaces with translation language
+        ns = self
+        while ns and ns not in visited:
+            if lang in ns.translations:
+                lookup.append(ns.translations[lang])
+            visited.add(ns)
+            ns = ns.parent
+
+        return lookup
 

@@ -1,5 +1,7 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 """Logical model."""
+
+from __future__ import absolute_import
 
 import copy
 
@@ -10,9 +12,9 @@ from .logging import get_logger
 from .errors import *
 from .statutils import aggregate_calculator_labels
 from .metadata import *
+from . import compat
 
 __all__ = [
-    "Model",
     "Cube",
     "Dimension",
     "Hierarchy",
@@ -57,186 +59,12 @@ _DEFAULT_LEVEL_ROLES = {
              "isoyear", "isoweek", "isoweekday")
 }
 
-class Model(object):
-    def __init__(self, name=None, locale=None, label=None, description=None,
-                 info=None, mappings=None, provider=None, metadata=None,
-                 translations=None):
-        """
-        Logical representation of data. Base container for cubes and
-        dimensions.
-
-        Attributes:
-
-        * `name` - model name
-        * `dimensions` - list of `Dimension` instances
-        * `locale` - locale code of the model
-        * `label` - human readable name - can be used in an application
-        * `description` - longer human-readable description of the model
-        * `info` - custom information dictionary
-
-        * `metadata` – a dictionary describing the model
-        * `provider` – an object that creates model objects
-
-        """
-        # * `mappings` – model-wide mappings of logical-to-physical attributes
-
-        # Basic information
-        self.name = name
-        self.label = label
-        self.description = description
-        self.locale = locale
-        self.info = info or {}
-        self.provider = provider
-        self.metadata = metadata
-
-        # Physical information
-        self.mappings = mappings
-
-        self.translations = translations or {}
-
-    def __str__(self):
-        return 'Model(%s)' % self.name
-
-    def to_dict(self, **options):
-        """Return dictionary representation of the model. All object
-        references within the dictionary are name based
-
-        * `full_attribute_names` - if set to True then attribute names will be
-          written as ``dimension_name.attribute_name``
-        """
-
-        out = IgnoringDictionary()
-
-        out["name"] = self.name
-        out["label"] = self.label
-        out["description"] = self.description
-        out["info"] = self.info
-
-        if options.get("with_mappings"):
-            out["mappings"] = self.mappings
-
-        return out
-
-    def __eq__(self, other):
-        if other is None or type(other) != type(self):
-            return False
-        if self.name != other.name or self.label != other.label \
-                or self.description != other.description:
-            return False
-        elif self.info != other.info:
-            return False
-        return True
-
-    def _add_translation(self, lang, translation):
-        self.translations[lang] = translation
-
-    # TODO: move to separate module
-    def localize(self, translation):
-        """Return localized version of the model.
-
-        `translation` might be a string or a dicitonary. If it is a string,
-        then it represents locale name from model's localizations provided on
-        model creation. If it is a dictionary, it should contains full model
-        translation that is going to be applied.
-
-
-        Translation dictionary structure example::
-
-            {
-                "locale": "sk",
-                "cubes": {
-                    "sales": {
-                        "label": "Predaje",
-                        "measures":
-                            {
-                                "amount": "suma",
-                                "discount": {"label": "zľava",
-                                             "description": "uplatnená zľava"}
-                            }
-                    }
-                },
-                "dimensions": {
-                    "date": {
-                        "label": "Dátum"
-                        "attributes": {
-                            "year": "rok",
-                            "month": {"label": "mesiac"}
-                        },
-                        "levels": {
-                            "month": {"label": "mesiac"}
-                        }
-                    }
-                }
-            }
-
-        .. note::
-
-            Whenever master model changes, you should call this method to get
-            actualized localization of the original model.
-        """
-
-        model = copy.deepcopy(self)
-
-        if type(translation) == str or type(translation) == unicode:
-            try:
-                translation = self.translations[translation]
-            except KeyError:
-                raise ModelError("Model has no translation for %s" %
-                                 translation)
-
-        if "locale" not in translation:
-            raise ValueError("No locale specified in model translation")
-
-        model.locale = translation["locale"]
-        localize_common(model, translation)
-
-        if "cubes" in translation:
-            for name, cube_trans in translation["cubes"].items():
-                cube = model.cube(name)
-                cube.localize(cube_trans)
-
-        if "dimensions" in translation:
-            dimensions = translation["dimensions"]
-            for name, dim_trans in dimensions.items():
-                # Use translation template if exists, similar to dimension
-                # template
-                template_name = dim_trans.get("template")
-
-                if False and template_name:
-                    try:
-                        template = dimensions[template_name]
-                    except KeyError:
-                        raise ModelError("No translation template '%s' for "
-                                "dimension '%s'" % (template_name, name))
-
-                    template = dict(template)
-                    template.update(dim_trans)
-                    dim_trans = template
-
-                dim = model.dimension(name)
-                dim.localize(dim_trans)
-
-        return model
-
-    def localizable_dictionary(self):
-        """Get model locale dictionary - localizable parts of the model"""
-        locale = {}
-        locale.update(get_localizable_attributes(self))
-        clocales = {}
-        locale["cubes"] = clocales
-        for cube in self.cubes.values():
-            clocales[cube.name] = cube.localizable_dictionary()
-
-        dlocales = {}
-        locale["dimensions"] = dlocales
-        for dim in self.dimensions:
-            dlocales[dim.name] = dim.localizable_dictionary()
-
-        return locale
-
 
 class ModelObject(object):
     """Base classs for all model objects."""
+
+    localizable_attributes = []
+    localizable_lists = []
 
     def __init__(self, name=None, label=None, description=None, info=None):
         """Initializes model object basics. Assures that the `info` is a
@@ -268,27 +96,39 @@ class ModelObject(object):
 
         return out
 
-    def localize(self, translation):
-        """Localize common attributes: label and description. `trans` should
-        be a dictionary or a string. If it is just a string, then only `label`
-        will be localized."""
+    def localized(self, context):
+        """Returns a copy of the cube translated with `translation`"""
 
-        if isinstance(translation, basestring):
-            self.label = translation
-        else:
-            self.label = translation.get("label", self.label)
-            self.description = translation.get("description", self.description)
+        copy = self.__class__.__new__(self.__class__)
+        copy.__dict__ = self.__dict__.copy()
 
-            # TODO: deep merge?
-            self.info.update(translation.get("info", {}))
+        d = copy.__dict__
+
+        for attr in self.localizable_attributes:
+            d[attr] = context.get(attr, getattr(self, attr))
+
+        for attr in self.localizable_lists:
+            list_copy = []
+
+            if hasattr(copy, attr):
+                for obj in getattr(copy, attr):
+                    obj_context = context.object_localization(attr, obj.name)
+                    list_copy.append(obj.localized(obj_context))
+                setattr(copy, attr, list_copy)
+
+        return copy
 
 
 class Cube(ModelObject):
+
+    localizable_attributes = ["label", "description"]
+    localizable_lists = ["dimensions", "measures", "aggregates", "details"]
+
     def __init__(self, name, dimensions=None, measures=None, aggregates=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, dimension_links=None, locale=None, category=None,
-                 store=None, datastore=None, **options):
+                 datastore=None, namespace=None, **options):
 
         """Create a new Cube model object.
 
@@ -349,6 +189,10 @@ class Cube(ModelObject):
 
         super(Cube, self).__init__(name, label, description, info)
 
+        if dimensions and dimension_links:
+            raise ModelError("Both dimensions and dimension_links provided, "
+                             "use only one.")
+
         self.locale = locale
 
         # backward compatibility
@@ -367,38 +211,40 @@ class Cube(ModelObject):
         # Be graceful here
         self.dimension_links = expand_dimension_links(dimension_links or [])
 
-        # Used by workspace internally
+        # Run-time properties
+        # Sets in the Namespace.cube() when cube is created
+        # Used by workspace internally to search for dimensions
         self.provider = None
+        self.namespace = None
         # Used by backends
         self.basename = None
 
         self._dimensions = OrderedDict()
 
         if dimensions:
-            if all([isinstance(dim, Dimension) for dim in dimensions]):
-                for dim in dimensions:
-                    self.add_dimension(dim)
-            else:
+            if not all([isinstance(dim, Dimension) for dim in dimensions]):
                 raise ModelError("Dimensions for cube initialization should be "
                                  "a list of Dimension instances.")
+            for dim in dimensions:
+                self.add_dimension(dim)
         #
-        # Prepare measures and aggregates
+        # prepare measures and aggregates
         #
         measures = measures or []
-        assert_all_instances(measures, Measure, "Measure")
+        assert_all_instances(measures, Measure, "measure")
         self.measures = measures
 
         aggregates = aggregates or []
-        assert_all_instances(aggregates, MeasureAggregate, "Aggregate")
+        assert_all_instances(aggregates, MeasureAggregate, "aggregate")
         self.aggregates = aggregates
 
         details = details or []
-        assert_all_instances(details, Attribute, "Detail")
+        assert_all_instances(details, Attribute, "detail")
         self.details = details
 
     @property
     def measures(self):
-        return self._measures.values()
+        return list(self._measures.values())
 
     @measures.setter
     def measures(self, measures):
@@ -411,7 +257,7 @@ class Cube(ModelObject):
 
     @property
     def aggregates(self):
-        return self._aggregates.values()
+        return list(self._aggregates.values())
 
     @aggregates.setter
     def aggregates(self, aggregates):
@@ -459,9 +305,13 @@ class Cube(ModelObject):
         `ModelInconsistencyError` when dimension with same name already exists
         in the receiver. """
 
-        if not isinstance(dimension, Dimension):
+        if not dimension:
+            raise ArgumentError("Trying to add None dimension to cube '%s'."
+                                % self.name)
+        elif not isinstance(dimension, Dimension):
             raise ArgumentError("Dimension added to cube '%s' is not a "
-                                "Dimension instance." % self.name)
+                                "Dimension instance. It is '%s'"
+                                % (self.name, type(dimension)))
 
         if dimension.name in self._dimensions:
             raise ModelError("Dimension with name %s already exits "
@@ -478,7 +328,14 @@ class Cube(ModelObject):
 
     @property
     def dimensions(self):
-        return self._dimensions.values()
+        return list(self._dimensions.values())
+
+    @dimensions.setter
+    def dimensions(self, dimensions):
+        self._dimensions.clear()
+
+        for dim in dimensions:
+            self._dimensions[dim.name] = dim
 
     def dimension(self, obj):
         """Get dimension object. If `obj` is a string, then dimension with
@@ -495,7 +352,7 @@ class Cube(ModelObject):
             raise NoSuchDimensionError("Requested dimension should not be none (cube '%s')" % \
                                 self.name)
 
-        if isinstance(obj, basestring):
+        if isinstance(obj, compat.string_type):
             if obj in self._dimensions:
                 return self._dimensions[obj]
             else:
@@ -581,7 +438,7 @@ class Cube(ModelObject):
         details and measures."""
         attributes = []
         for dim in self.dimensions:
-            attributes += dim.all_attributes
+            attributes += dim.attributes
 
         attributes += self.details
 
@@ -596,7 +453,7 @@ class Cube(ModelObject):
 
         attributes = []
         for dim in self.dimensions:
-            attributes += dim.all_attributes
+            attributes += dim.attributes
 
         attributes += self.aggregates
 
@@ -717,6 +574,7 @@ class Cube(ModelObject):
     def __eq__(self, other):
         if other is None or type(other) != type(self):
             return False
+
         if self.name != other.name or self.label != other.label \
             or self.description != other.description:
             return False
@@ -811,7 +669,9 @@ class Dimension(ModelObject):
     Cube dimension.
 
     """
-    special_roles = ["time"]
+
+    localizable_attributes = ["label", "description"]
+    localizable_lists = ["levels", "hierarchies"]
 
     def __init__(self, name, levels, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
@@ -910,10 +770,10 @@ class Dimension(ModelObject):
 
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
-            self.hierarchies = OrderedDict((h.name, h) for h in hierarchies)
+            self._hierarchies = OrderedDict((h.name, h) for h in hierarchies)
         else:
             hier = Hierarchy("default", self.levels)
-            self.hierarchies = OrderedDict( [("default", hier)] )
+            self._hierarchies = OrderedDict( [("default", hier)] )
 
         self._flat_hierarchy = None
         self.default_hierarchy_name = default_hierarchy_name
@@ -921,24 +781,18 @@ class Dimension(ModelObject):
     def __eq__(self, other):
         if other is None or type(other) != type(self):
             return False
-        if self.name != other.name \
-                or self.role != other.role \
-                or self.label != other.label \
-                or self.description != other.description \
-                or self.cardinality != other.cardinality \
-                or self.category != other.category:
-            return False
 
-        elif self._default_hierarchy() != other._default_hierarchy():
-            return False
+        cond = self.name == other.name \
+                and self.role == other.role \
+                and self.label == other.label \
+                and self.description == other.description \
+                and self.cardinality == other.cardinality \
+                and self.category == other.category \
+                and self._default_hierarchy() == other._default_hierarchy() \
+                and self._levels == other._levels \
+                and self._hierarchies == other._hierarchies
 
-        if self._levels != other._levels:
-            return False
-
-        if other.hierarchies != self.hierarchies:
-            return False
-
-        return True
+        return cond
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -957,18 +811,35 @@ class Dimension(ModelObject):
     def levels(self):
         """Get list of all dimension levels. Order is not guaranteed, use a
         hierarchy to have known order."""
-        return self._levels.values()
+        return list(self._levels.values())
+
+    @levels.setter
+    def levels(self, levels):
+        self._levels.clear()
+        for level in levels:
+            self._levels[level.name] = level
+
+    @property
+    def hierarchies(self):
+        """Get list of dimension hierarchies."""
+        return list(self._hierarchies.values())
+
+    @hierarchies.setter
+    def hierarchies(self, hierarchies):
+        self._hierarchies.clear()
+        for hier in hierarchies:
+            self._hierarchies[hier.name] = hier
 
     @property
     def level_names(self):
         """Get list of level names. Order is not guaranteed, use a hierarchy
         to have known order."""
-        return self._levels.keys()
+        return list(self._levels.keys())
 
     def level(self, obj):
         """Get level by name or as Level object. This method is used for
         coalescing value"""
-        if isinstance(obj, basestring):
+        if isinstance(obj, compat.string_type):
             if obj not in self._levels:
                 raise KeyError("No level %s in dimension %s" %
                                (obj, self.name))
@@ -985,11 +856,11 @@ class Dimension(ModelObject):
 
         if obj is None:
             return self._default_hierarchy()
-        if isinstance(obj, basestring):
-            if obj not in self.hierarchies:
+        if isinstance(obj, compat.string_type):
+            if obj not in self._hierarchies:
                 raise ModelError("No hierarchy %s in dimension %s" %
                                  (obj, self.name))
-            return self.hierarchies[obj]
+            return self._hierarchies[obj]
         elif isinstance(obj, Hierarchy):
             return obj
         else:
@@ -1018,11 +889,11 @@ class Dimension(ModelObject):
         else:
             hierarchy_name = "default"
 
-        hierarchy = self.hierarchies.get(hierarchy_name)
+        hierarchy = self._hierarchies.get(hierarchy_name)
 
         if not hierarchy:
-            if self.hierarchies:
-                hierarchy = self.hierarchies.values()[0]
+            if self._hierarchies:
+                hierarchy = list(self._hierarchies.values())[0]
             else:
                 if len(self.levels) == 1:
                     if not self._flat_hierarchy:
@@ -1057,7 +928,7 @@ class Dimension(ModelObject):
         return [level.key for level in self._levels.values()]
 
     @property
-    def all_attributes(self):
+    def attributes(self):
         """Return all dimension attributes regardless of hierarchy. Order is
         not guaranteed, use :meth:`cubes.Hierarchy.all_attributes` to get
         known order. Order of attributes within level is preserved."""
@@ -1090,11 +961,11 @@ class Dimension(ModelObject):
                 linked.append(self.hierarchy(name))
         elif exclude_hierarchies:
             linked = []
-            for hierarchy in self.hierarchies.values():
+            for hierarchy in self._hierarchies.values():
                 if hierarchy.name not in exclude_hierarchies:
                     linked.append(hierarchy)
         else:
-            linked = self.hierarchies.values()
+            linked = self._hierarchies.values()
 
         hierarchies = [copy.deepcopy(hier) for hier in linked]
 
@@ -1170,7 +1041,7 @@ class Dimension(ModelObject):
         # Collect hierarchies and apply hierarchy depth restrictions
         hierarchies = []
         hierarchy_limits = hierarchy_limits or {}
-        for name, hierarchy in self.hierarchies.items():
+        for name, hierarchy in self._hierarchies.items():
             if name in hierarchy_limits:
                 level = hierarchy_limits[name]
                 if level:
@@ -1202,7 +1073,7 @@ class Dimension(ModelObject):
                             % (self.name)))
             return results
 
-        if not self.hierarchies:
+        if not self._hierarchies:
             msg = "No hierarchies in dimension '%s'" % (self.name)
             if self.is_flat:
                 level = self.levels[0]
@@ -1215,17 +1086,17 @@ class Dimension(ModelObject):
                                       len(self.levels)))
             else:
                 results.append(('error', msg))
-        else:  # if self.hierarchies
+        else:  # if self._hierarchies
             if not self.default_hierarchy_name:
-                if len(self.hierarchies) > 1 and \
-                        not "default" in self.hierarchies:
+                if len(self._hierarchies) > 1 and \
+                        not "default" in self._hierarchies:
                     results.append(('error',
                                     "No defaut hierarchy specified, there is "
                                     "more than one hierarchy in dimension "
                                     "'%s'" % self.name))
 
         if self.default_hierarchy_name \
-                and not self.hierarchies.get(self.default_hierarchy_name):
+                and not self._hierarchies.get(self.default_hierarchy_name):
             results.append(('error',
                             "Default hierarchy '%s' does not exist in "
                             "dimension '%s'" %
@@ -1291,23 +1162,6 @@ class Dimension(ModelObject):
         return "<dimension: {name: '%s', levels: %s}>" % (self.name,
                                                           self._levels.keys())
 
-    def localize(self, trans):
-        super(Dimension, self).localize(trans)
-
-        self.category = trans.get("category", self.category)
-
-        attr_trans = trans.get("attributes", {})
-        for attrib in self.all_attributes:
-            attrib.localize(attr_trans.get(attrib.name, {}))
-
-        level_trans = locale.get("levels", {})
-        for level in self.levels:
-            level.localize(level_trans.get(level.name, {}))
-
-        hier_trans = locale.get("hierarchies", {})
-        for hier in self.hierarchies:
-            hier.localize(hier_trans.get(hier.name, {}))
-
     def localizable_dictionary(self):
         locale = {}
         locale.update(get_localizable_attributes(self))
@@ -1321,13 +1175,16 @@ class Dimension(ModelObject):
         hdict = {}
         locale["hierarchies"] = hdict
 
-        for hier in self.hierarchies.values():
+        for hier in self._hierarchies.values():
             hdict[hier.name] = hier.localizable_dictionary()
 
         return locale
 
 
 class Hierarchy(ModelObject):
+
+    localizable_attributes = ["label", "description"]
+
     def __init__(self, name, levels, label=None, info=None, description=None):
         """Dimension hierarchy - specifies order of dimension levels.
 
@@ -1355,7 +1212,7 @@ class Hierarchy(ModelObject):
             raise ModelInconsistencyError("Hierarchy level list should not be "
                                           "empty (in %s)" % self.name)
 
-        if any(isinstance(level, basestring) for level in levels):
+        if any(isinstance(level, compat.string_type) for level in levels):
             raise ModelInconsistencyError("Levels should not be provided as "
                                           "strings to Hierarchy.")
 
@@ -1372,23 +1229,30 @@ class Hierarchy(ModelObject):
 
     @property
     def levels(self):
-        return self._levels.values()
+        return list(self._levels.values())
+
+    @levels.setter
+    def levels(self, levels):
+        self._levels.clear()
+        for level in levels:
+            self._levels[level.name] = level
 
     @property
     def level_names(self):
-        return self._levels.keys()
+        return list(self._levels.keys())
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
             return False
-        elif self.name != other.name or self.label != other.label:
-            return False
-        elif self.levels != other.levels:
-            return False
-        return True
+
+        return self.name == other.name and self.label == other.label \
+                and self.levels == other.levels
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.name)
 
     def __str__(self):
         return self.name
@@ -1438,7 +1302,7 @@ class Hierarchy(ModelObject):
         if not level:
             return self.levels[0]
 
-        index = self._levels.keys().index(str(level))
+        index = list(self._levels.keys()).index(str(level))
         if index + 1 >= len(self.levels):
             return None
         else:
@@ -1451,7 +1315,7 @@ class Hierarchy(ModelObject):
         if level is None:
             return None
 
-        index = self._levels.keys().index(str(level))
+        index = list(self._levels.keys()).index(str(level))
         if index == 0:
             return None
         else:
@@ -1461,7 +1325,7 @@ class Hierarchy(ModelObject):
         """Get order index of level. Can be used for ordering and comparing
         levels within hierarchy."""
         try:
-            return self._levels.keys().index(str(level))
+            return list(self._levels.keys()).index(str(level))
         except ValueError:
             raise HierarchyError("Level %s is not part of hierarchy %s"
                                  % (str(level), self.name))
@@ -1593,6 +1457,9 @@ class Level(ModelObject):
 
     """
 
+    localizable_attributes = ["label", "description"]
+    localizable_lists = ["attributes"]
+
     def __init__(self, name, attributes, key=None, order_attribute=None,
                  order=None, label_attribute=None, label=None, info=None,
                  cardinality=None, role=None, nonadditive=None,
@@ -1671,6 +1538,9 @@ class Level(ModelObject):
 
         return True
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
@@ -1740,23 +1610,6 @@ class Level(ModelObject):
 
         return len(self.attributes) > 1
 
-    def localize(self, trans):
-        super(Level, self).localize(trans)
-
-        if isinstance(locale, basestring):
-            return
-
-        attr_locales = locale.get("attributes")
-        if attr_locales:
-            logger = get_logger()
-            logger.warn("'attributes' in localization dictionary of levels "
-                        "is depreciated. Use list of `attributes` in "
-                        "localization of dimension")
-
-            for attrib in self.attributes:
-                if attrib.name in attr_locales:
-                    localize_common(attrib, attr_locales[attrib.name])
-
     def localizable_dictionary(self):
         locale = {}
         locale.update(get_localizable_attributes(self))
@@ -1773,6 +1626,8 @@ class Level(ModelObject):
 class AttributeBase(ModelObject):
     ASC = 'asc'
     DESC = 'desc'
+
+    localizable_attributes = ["label", "description", "format"]
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, **kwargs):
@@ -1928,6 +1783,9 @@ class Attribute(AttributeBase):
         return str(self.dimension) == str(other.dimension) \
                and self.locales == other.locales
 
+    def __hash__(self):
+        return hash(self.ref())
+
     def to_dict(self, **options):
         # FIXME: Depreciated key "full_name" in favour of "ref"
         d = super(Attribute, self).to_dict(**options)
@@ -1973,7 +1831,7 @@ class Attribute(AttributeBase):
 
 def create_measure(md):
     """Create a measure object from metadata."""
-    if isinstance(md, basestring):
+    if isinstance(md, compat.string_type):
         md = {"name": md}
 
     if not "name" in md:
@@ -2053,6 +1911,9 @@ class Measure(AttributeBase):
                 and self.formula == other.formula \
                 and self.window_size == other.window_size
 
+    def __hash__(self):
+        return hash(self.ref())
+
     def to_dict(self, **options):
         d = super(Measure, self).to_dict(**options)
         d["formula"] = self.formula
@@ -2098,7 +1959,7 @@ class Measure(AttributeBase):
 
 
 def create_measure_aggregate(md):
-    if isinstance(md, basestring):
+    if isinstance(md, compat.string_type):
         md = {"name": md}
 
     if not "name" in md:
@@ -2165,6 +2026,9 @@ class MeasureAggregate(AttributeBase):
             and self.nonadditive == other.nonadditive \
             and self.window_size == other.window_size
 
+    def __hash__(self):
+        return hash(self.ref())
+
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)
         d["function"] = self.function
@@ -2184,7 +2048,7 @@ def create_attribute(obj, class_=None):
 
     class_ = class_ or Attribute
 
-    if isinstance(obj, basestring):
+    if isinstance(obj, compat.string_type):
         return class_(obj)
     elif isinstance(obj, dict):
         return class_(**obj)
@@ -2222,7 +2086,7 @@ def measure_list(measures):
             result.append(md)
             continue
 
-        if isinstance(md, basestring):
+        if isinstance(md, compat.string_type):
             md = {"name": md}
         else:
             md = dict(md)
@@ -2371,7 +2235,7 @@ def create_dimension(metadata, templates=None):
         hierarchies = []
         level_dict = dict((level.name, level) for level in levels)
 
-        for hier in template.hierarchies.values():
+        for hier in template._hierarchies.values():
             hier_levels = [level_dict[level.name] for level in hier.levels]
             hier_copy = Hierarchy(hier.name,
                                   hier_levels,
@@ -2432,7 +2296,7 @@ def create_dimension(metadata, templates=None):
         # Assure level inheritance
         levels = []
         for level_md in metadata["levels"]:
-            if isinstance(level_md, basestring):
+            if isinstance(level_md, compat.string_type):
                 if not template:
                     raise ModelError("Can not specify just a level name "
                                      "(%s) if there is no template for "
@@ -2513,7 +2377,7 @@ def _create_hierarchies(metadata, levels, template):
 
     # Construct hierarchies and assign actual level objects
     for md in metadata:
-        if isinstance(md, basestring):
+        if isinstance(md, compat.string_type):
             if not template:
                 raise ModelError("Can not specify just a hierarchy name "
                                  "(%s) if there is no template for "
@@ -2549,42 +2413,3 @@ def create_level(metadata, name=None, dimension=None):
     return Level(name=name,
                  attributes=attributes,
                  **metadata)
-
-
-def localize_common(obj, trans):
-    """Localize common attributes: label and description. `trans` should be a
-    dictionary or a string. If it is just a string, then only `label` will be
-    localized."""
-    if isinstance(trans, basestring):
-        obj.label = trans
-    else:
-        if "label" in trans:
-            obj.label = trans["label"]
-        if "description" in trans:
-            obj.description = trans["description"]
-
-
-def localize_attributes(attribs, translations):
-    """Localize list of attributes. `translations` should be a dictionary with
-    keys as attribute names, values are dictionaries with localizable
-    attribute metadata, such as ``label`` or ``description``."""
-    for (name, atrans) in translations.items():
-        attrib = attribs[name]
-        localize_common(attrib, atrans)
-
-
-def get_localizable_attributes(obj):
-    """Returns a dictionary with localizable attributes of `obj`."""
-
-    # FIXME: use some kind of class attribute to get list of localizable
-    # attributes
-
-    locale = {}
-    if hasattr(obj, "label"):
-        locale["label"] = obj.label
-
-    if hasattr(obj, "description"):
-        locale["description"] = obj.description
-
-    return locale
-

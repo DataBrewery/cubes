@@ -1,4 +1,6 @@
-# -*- coding=utf -*-
+# -*- encoding=utf -*-
+
+from __future__ import absolute_import
 
 from collections import namedtuple
 from ...errors import *
@@ -8,7 +10,7 @@ try:
     import sqlalchemy.sql as sql
     from sqlalchemy.sql.functions import ReturnTypeFromArgs
 except ImportError:
-    from cubes.common import MissingPackage
+    from ...common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
     missing_error = MissingPackage("sqlalchemy", "SQL browser extensions")
 

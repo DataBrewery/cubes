@@ -7,7 +7,7 @@ from cubes.workspace import *
 from cubes.stores import Store
 from cubes.model import *
 
-from common import CubesTestCaseBase
+from .common import CubesTestCaseBase
 # FIXME: remove this once satisfied
 
 class WorkspaceTestCaseBase(CubesTestCaseBase):

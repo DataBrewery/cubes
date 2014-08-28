@@ -1,3 +1,7 @@
+# -*- encoding: utf-8 -*-
+
+from __future__ import absolute_import
+
 import unittest
 import os
 import json
@@ -5,14 +9,17 @@ import re
 import sqlalchemy
 import datetime
 
-from ...common import CubesTestCaseBase
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
-from cubes.backends.sql.mapper import coalesce_physical
-from cubes.backends.sql.browser import *
 
-from cubes import *
-from cubes.errors import *
+from ...common import CubesTestCaseBase
+
+from cubes.errors import HierarchyError
+from cubes.browser import PointCut, SetCut, RangeCut, Cell
+from cubes.backends.sql.mapper import coalesce_physical
+from cubes.backends.sql.browser import SnowflakeBrowser
+# from cubes.browser import *
+
 
 class StarSQLTestCase(CubesTestCaseBase):
     def setUp(self):
@@ -163,7 +170,7 @@ class QueryContextTestCase(StarSQLTestCase):
         self.assertEqual(["date.year", "date.month", "date.id"], dd.keys)
 
         drilldown = ["date"]
-        with self.assertRaisesRegexp(HierarchyError, "has only 3 levels"):
+        with self.assertRaisesRegex(HierarchyError, "has only 3 levels"):
             levels_from_drilldown(cell, drilldown)
 
 
@@ -639,7 +646,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
         result = self.browser.aggregate()
         self.assertIsNotNone(result.summary)
         self.assertEqual(1, len(result.summary.keys()))
-        self.assertEqual("amount_sum", result.summary.keys()[0])
+        self.assertEqual("amount_sum", list(result.summary.keys())[0])
         self.assertEqual(5550, result.summary["amount_sum"])
 
     def test_aggregate_condition(self):
@@ -649,7 +656,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
 
         self.assertIsNotNone(result.summary)
         self.assertEqual(1, len(result.summary.keys()))
-        self.assertEqual("amount_sum", result.summary.keys()[0])
+        self.assertEqual("amount_sum", list(result.summary.keys())[0])
         self.assertEqual(550, result.summary["amount_sum"])
 
         cells = list(result.cells)
@@ -662,7 +669,7 @@ class SQLBrowserTestCase(CubesTestCaseBase):
 
         self.assertEqual(2, len(cells))
 
-        self.assertItemsEqual(["date.year", "amount_sum"],
+        self.assertCountEqual(["date.year", "amount_sum"],
                               cells[0].keys())
         self.assertEqual(550, cells[0]["amount_sum"])
         self.assertEqual(2012, cells[0]["date.year"])
@@ -676,8 +683,8 @@ class SQLBrowserTestCase(CubesTestCaseBase):
         cells = list(result.cells)
         self.assertEqual(4, len(cells))
 
-        self.assertItemsEqual(["country", "amount_sum"],
-                              cells[0].keys())
+        self.assertCountEqual(["country", "amount_sum"],
+                              list(cells[0].keys()))
         values = [cell["country"] for cell in cells]
         self.assertSequenceEqual(["at", "fr", "sk", "uk"], values)
 

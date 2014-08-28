@@ -1,0 +1,15 @@
+{
+    "cubes": [
+    {
+        "name": "inner",
+        "label": "inner_ORIGINAL",
+        "measures": [
+            {"name": "amount", "label": "amount_ORIGINAL"},
+            {"name": "deeper", "label": "deeper_ORIGINAL"},
+            {"name": "other", "label": "other_ORIGINAL"},
+            {"name": "untranslated", "label": "untranslated_ORIGINAL"}
+        ]
+    }
+    ]
+
+}

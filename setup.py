@@ -5,7 +5,7 @@ requirements = ["pytz", "python-dateutil", "jsonschema"]
 
 setup(
     name = "cubes",
-    version = '1.0alpha3',
+    version = '1.0beta2',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
@@ -15,24 +15,26 @@ setup(
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        'cubes': [ 'templates/*.html', 'templates/*.js', 'schemas/*.json',
-                    'models/base.cubesmodel/*'],
+        'cubes': ['templates/*.html', 'templates/*.js', 'schemas/*.json'],
         'cubes.server': ['templates/*.html'],
         'cubes.backends.mixpanel': ['*.json']
     },
-
-    scripts = ['bin/slicer'],
 
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python',
         'Topic :: Database',
         'Topic :: Scientific/Engineering',
         'Topic :: Utilities'
     ],
+
+    entry_points={
+        'console_scripts': ['slicer = cubes.slicer.commands:main'],
+    },
 
     test_suite = "tests",
 

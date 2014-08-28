@@ -1,17 +1,19 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
 """Utility functions for computing combinations of dimensions and hierarchy
 levels"""
+
+from __future__ import absolute_import
 
 import itertools
 import sys
 import re
 from collections import OrderedDict
-import exceptions
 import os.path
 import json
 
 from .errors import *
+from . import compat
 
 __all__ = [
     "IgnoringDictionary",
@@ -187,7 +189,7 @@ def coalesce_option_value(value, value_type, label=None):
         if value_type in ('string', 'str'):
             return_value = str(value)
         elif value_type == 'list':
-            if isinstance(value, basestring):
+            if isinstance(value, compat.string_type):
                 return_value = value.split(",")
             else:
                 return_value = list(value)
@@ -198,7 +200,7 @@ def coalesce_option_value(value, value_type, label=None):
         elif value_type in ["bool", "boolean"]:
             if not value:
                 return_value = False
-            elif isinstance(value, basestring):
+            elif isinstance(value, compat.string_type):
                 return_value = value.lower() in ["1", "true", "yes", "on"]
             else:
                 return_value = bool(value)
@@ -229,15 +231,6 @@ def coalesce_options(options, types):
             out[key] = value
 
     return out
-
-def to_unicode_string(s):
-    s = str(s)
-    for enc in ('utf8', 'latin-1'):
-        try:
-            return unicode(s, enc)
-        except exceptions.UnicodeDecodeError:
-            get_logger().info("Cannot decode using %s: %s" % (enc, s))
-    raise ValueError("Cannot decode for unicode using any of the available encodings: %s" % s)
 
 def read_json_file(path, kind=None):
     """Read a JSON from `path`. This is convenience function that provides

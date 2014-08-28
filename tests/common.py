@@ -1,6 +1,7 @@
 import os
 import unittest
 from cubes import Workspace
+from cubes import compat
 from sqlalchemy import create_engine, MetaData
 import json
 
@@ -51,7 +52,7 @@ class CubesTestCaseBase(unittest.TestCase):
             workspace.register_default_store("sql", engine=self.engine)
 
         if model:
-            if isinstance(model, basestring):
+            if isinstance(model, compat.string_type):
                 model = self.model_path(model)
             workspace.import_model(model)
 
@@ -62,4 +63,7 @@ class CubesTestCaseBase(unittest.TestCase):
         for row in data:
             insert = table.insert().values(row)
             self.engine.execute(insert)
+
+    if not compat.py3k:
+        assertCountEqual = unittest.TestCase.assertItemsEqual
 

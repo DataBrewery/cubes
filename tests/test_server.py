@@ -9,6 +9,7 @@ from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
 from cubes.server import create_server
+from cubes import compat
 
 import csv
 
@@ -29,7 +30,7 @@ class SlicerTestCaseBase(CubesTestCaseBase):
         response = self.server.get(path, *args, **kwargs)
 
         try:
-            result = json.loads(response.data)
+            result = json.loads(compat.to_str(response.data))
         except ValueError:
             result = response.data
 
@@ -51,6 +52,7 @@ class SlicerTestCase(SlicerTestCaseBase):
     def test_unknown(self):
         response, status = self.get("this_is_unknown")
         self.assertEqual(404, status)
+
 
 class SlicerModelTestCase(SlicerTestCaseBase):
     sql_engine = "sqlite:///"
@@ -82,7 +84,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
             self.assertNotIn("dimensions", info)
 
         names = [c["name"] for c in response]
-        self.assertItemsEqual(["contracts", "sales"], names)
+        self.assertCountEqual(["contracts", "sales"], names)
 
     def test_no_cube(self):
         response, status = self.get("cube/unknown_cube/model")
@@ -114,7 +116,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         self.assertIsInstance(aggregates, list)
         self.assertEqual(4, len(aggregates))
         names = [a["name"] for a in aggregates]
-        self.assertItemsEqual(["amount_sum", "amount_min", "discount_sum",
+        self.assertCountEqual(["amount_sum", "amount_min", "discount_sum",
                                "record_count"], names)
 
     def test_cube_dimensions(self):
@@ -133,7 +135,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
             self.assertIn("has_details", dim)
 
         names = [d["name"] for d in dims]
-        self.assertItemsEqual(["date", "flag", "product"], names)
+        self.assertCountEqual(["date", "flag", "product"], names)
 
         # Test dim flags
         self.assertEqual(True, dims[1]["is_flat"])
@@ -218,8 +220,9 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
                                  header)
 
@@ -227,23 +230,26 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=labels"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
                                  header)
         # Names
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=names"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["date.year", "amount_sum", "count"],
                                  header)
         # None
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=none"
         response, status = self.get(url)
 
-        reader = csv.reader(response.split("\n"))
-        header = reader.next()
+        response = compat.to_str(response)
+        reader = csv.reader(response.splitlines())
+        header = next(reader)
         self.assertSequenceEqual(["2013", "100", "5"],
                                  header)

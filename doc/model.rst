@@ -15,6 +15,9 @@ focus on data instead on ways of how to get the data in understandable form.
     :doc:`reference/model`
         Reference of model classes and fucntions.
 
+    `Cubes Models <https://github.com/Stiivi/cubes-models>`_
+        Repository of basic cubes models.
+
 Introduction
 ============
 

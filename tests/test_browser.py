@@ -3,7 +3,7 @@ import unittest
 from cubes.browser import *
 from cubes.errors import *
 
-from common import CubesTestCaseBase
+from .common import CubesTestCaseBase
 
 
 class CutsTestCase(CubesTestCaseBase):

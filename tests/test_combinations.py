@@ -2,11 +2,11 @@ import unittest
 import cubes
 import os
 
-from common import DATA_PATH
+from .common import DATA_PATH
 
-@unittest.skip        
+@unittest.skip
 class CombinationsTestCase(unittest.TestCase):
-	
+
     def setUp(self):
         self.nodea = ('a', (1,2,3))
         self.nodeb = ('b', (99,88))
@@ -29,7 +29,7 @@ class CombinationsTestCase(unittest.TestCase):
 
         combos = cubes.common.combine_nodes([self.nodea, self.nodeb, self.nodec])
         self.assertEqual(len(combos), 35)
-	
+
     def test_required_one(self):
         nodes = [self.nodea, self.nodeb, self.nodec]
         required = [self.nodea]
@@ -56,7 +56,7 @@ class CombinationsTestCase(unittest.TestCase):
                     break
             self.assertTrue(flag, "All combinations should contain both required nodes")
 
-@unittest.skip        
+@unittest.skip
 class CuboidsTestCase(unittest.TestCase):
     def setUp(self):
         self.model_path = os.path.join(DATA_PATH, 'model.json')

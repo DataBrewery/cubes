@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
+
+from __future__ import absolute_import
+
 from flask import Request, Response, request, g
 from datetime import datetime
 
-import ConfigParser
-import cStringIO
 import datetime
 import decimal
 import codecs
@@ -11,6 +12,7 @@ import json
 import csv
 
 from .errors import *
+from .. import compat
 
 
 def str_to_bool(string):
@@ -100,7 +102,7 @@ class CSVGenerator(object):
         self.header = header
 
         self.fields = fields
-        self.queue = cStringIO.StringIO()
+        self.queue = compat.StringIO()
         self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
         self.encoder = codecs.getincrementalencoder(encoding)()
 
@@ -112,10 +114,10 @@ class CSVGenerator(object):
             row = []
             for field in self.fields:
                 value = record.get(field)
-                if type(value) == unicode or type(value) == str:
+                if isinstance(value, compat.string_type):
                     row.append(value.encode("utf-8"))
                 elif value is not None:
-                    row.append(unicode(value))
+                    row.append(compat.text_type(value))
                 else:
                     row.append(None)
 
@@ -125,7 +127,7 @@ class CSVGenerator(object):
         self.writer.writerow(row)
         # Fetch UTF-8 output from the queue ...
         data = self.queue.getvalue()
-        data = data.decode("utf-8")
+        data = compat.to_unicode(data)
         # ... and reencode it into the target encoding
         data = self.encoder.encode(data)
         # empty queue
@@ -166,17 +168,17 @@ class UnicodeCSVWriter:
     def writerow(self, row):
         new_row = []
         for value in row:
-            if type(value) == unicode or type(value) == str:
+            if isinstance(value, compat.string_type):
                 new_row.append(value.encode("utf-8"))
             elif value:
-                new_row.append(unicode(value))
+                new_row.append(compat.text_type(value))
             else:
                 new_row.append(None)
 
         self.writer.writerow(new_row)
         # Fetch UTF-8 output from the queue ...
         data = self.queue.getvalue()
-        data = data.decode("utf-8")
+        data = compat.to_unicode(data)
         # ... and reencode it into the target encoding
         data = self.encoder.encode(data)
         # write to the target stream
@@ -262,11 +264,11 @@ def formated_response(response, fields, labels, iterable=None):
 
 def read_server_config(config):
     if not config:
-        return ConfigParser.SafeConfigParser()
-    elif isinstance(config, basestring):
+        return compat.ConfigParser()
+    elif isinstance(config, compat.string_type):
         try:
             path = config
-            config = ConfigParser.SafeConfigParser()
+            config = compat.ConfigParser()
             config.read(path)
         except Exception as e:
             raise Exception("Unable to load configuration: %s" % e)

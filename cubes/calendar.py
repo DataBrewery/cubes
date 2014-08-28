@@ -1,7 +1,10 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 """Date and time utilities."""
 
+from __future__ import absolute_import
+
 import re
+
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import MO, TU, WE, TH, FR, SA, SU
 from dateutil.tz import *
@@ -10,7 +13,7 @@ from time import strftime, gmtime
 
 from .model import Hierarchy
 from .errors import *
-
+from . import compat
 
 __all__ = (
     "Calendar",
@@ -64,7 +67,7 @@ RELATIVE_TRUNCATED_TIME_RX = re.compile(r"(?P<direction>(last|next))"
                                          "(?P<offset>\d+)?"
                                          "(?P<unit>\w+)")
 
-month_to_quarter = lambda month: ((month - 1) / 3) + 1
+month_to_quarter = lambda month: ((month - 1) // 3) + 1
 
 
 def calendar_hierarchy_units(hierarchy):
@@ -122,7 +125,7 @@ class Calendar(object):
         Values for `first_weekday` are 0 for Monday, 6 for Sunday. Default is
         0."""
 
-        if isinstance(first_weekday, basestring):
+        if isinstance(first_weekday, compat.string_type):
             try:
                 self.first_weekday = _WEEKDAY_NUMBERS[first_weekday.lower()]
             except KeyError:
@@ -232,9 +235,9 @@ class Calendar(object):
         if unit == "day":
             return diff.days
         elif unit == "hour":
-            return diff.days * 24 + (diff.seconds / 3600)
+            return diff.days * 24 + (diff.seconds // 3600)
         elif unit == "minute":
-            return diff.days * 1440 + (diff.seconds / 60)
+            return diff.days * 1440 + (diff.seconds // 60)
         elif unit == "second":
             return diff.days * 86400 + diff.seconds
         else:

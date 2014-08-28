@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import copy
 import re
 from collections import namedtuple
@@ -9,12 +11,13 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-from cubes.errors import *
+from .errors import *
 from .model import Dimension, Cube
-from .common import IgnoringDictionary, to_unicode_string
+from .common import IgnoringDictionary
 from .logging import get_logger
 from .extensions import Extensible
 from .calendar import CalendarMemberConverter
+from . import compat
 
 
 __all__ = [
@@ -149,12 +152,12 @@ class AggregationBrowser(Extensible):
 
         if cell is None:
             cell = Cell(self.cube)
-        elif isinstance(cell, basestring):
+        elif isinstance(cell, compat.string_type):
             cuts = cuts_from_string(self.cube, cell,
                                     role_member_converters=converters)
             cell = Cell(self.cube, cuts)
 
-        if isinstance(split, basestring):
+        if isinstance(split, compat.string_type):
             cuts = cuts_from_string(self.cube, split,
                                     role_member_converters=converters)
             split = Cell(self.cube, cuts)
@@ -258,7 +261,7 @@ class AggregationBrowser(Extensible):
         new_order = []
 
         for item in order:
-            if isinstance(item, basestring):
+            if isinstance(item, compat.string_type):
                 name = item
                 direction = None
             else:
@@ -680,7 +683,7 @@ class Cell(object):
         """
 
         # Fix for wrong early design decision:
-        if isinstance(cut, Dimension) or isinstance(cut, basestring):
+        if isinstance(cut, Dimension) or isinstance(cut, compat.string_type):
             raise CubesError("slice() should now be called with a cut (since v0.9.2). To get "
                              "original behaviour of one-dimension point cut, "
                              "use cell.slice(PointCut(dim,path))")
@@ -876,7 +879,7 @@ class Cell(object):
         new_cuts = []
 
         # If it is a string, handle it as list of single string
-        if isinstance(rollup, basestring):
+        if isinstance(rollup, compat.string_type):
             rollup = [rollup]
 
         if type(rollup) == list or type(rollup) == tuple:
@@ -1198,7 +1201,7 @@ def cut_from_string(string, cube=None, member_converters=None,
         cut = PointCut(dimension, path, hierarchy, invert)
 
     elif RE_SET.match(string):
-        paths = map(path_from_string, SET_CUT_SEPARATOR.split(string))
+        paths = list(map(path_from_string, SET_CUT_SEPARATOR.split(string)))
 
         if converter:
             converted = []
@@ -1209,7 +1212,8 @@ def cut_from_string(string, cube=None, member_converters=None,
         cut = SetCut(dimension, paths, hierarchy, invert)
 
     elif RE_RANGE.match(string):
-        (from_path, to_path) = map(path_from_string, RANGE_CUT_SEPARATOR.split(string))
+        (from_path, to_path) = list(map(path_from_string,
+                                        RANGE_CUT_SEPARATOR.split(string)))
 
         if converter:
             from_path = converter(dimension, hierarchy, from_path)
@@ -1254,18 +1258,20 @@ PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|;,-])")
 def _path_part_escape(path_part):
     if path_part is None:
         return NULL_PATH_VALUE
-    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
+
+    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", str(path_part))
 
 
 def _path_part_unescape(path_part):
     if path_part == NULL_PATH_VALUE:
         return None
-    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", path_part)
+
+    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", str(path_part))
 
 
 def string_from_cuts(cuts):
     """Returns a string represeting `cuts`. String can be used in URLs"""
-    strings = [str(cut) for cut in cuts]
+    strings = [compat.to_unicode(cut) for cut in cuts]
     string = CUT_STRING_SEPARATOR_CHAR.join(strings)
     return string
 
@@ -1281,7 +1287,7 @@ def string_from_path(path):
     if not path:
         return ""
 
-    path = [_path_part_escape(to_unicode_string(s)) for s in path]
+    path = [_path_part_escape(compat.to_unicode(s)) for s in path]
 
     if not all(map(RE_ELEMENT.match, path)):
         get_logger().warn("Can not convert path to string: "
@@ -1526,13 +1532,14 @@ class CalculatedResultIterator(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         # Apply calculators to the result record
-        item = self.iterator.next()
+        item = next(self.iterator)
         for calc in self.calculators:
             calc(item)
         return item
 
+    next = __next__
 
 class AggregationResult(object):
     """Result of aggregation or drill down.
@@ -1971,7 +1978,7 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
         drilldown = [(dim, None, level) for dim, level in drilldown.items()]
 
     for obj in drilldown:
-        if isinstance(obj, basestring):
+        if isinstance(obj, compat.string_type):
             obj = string_to_drilldown(obj)
         elif isinstance(obj, DrilldownItem):
             obj = (obj.dimension, obj.hierarchy, obj.levels[-1])

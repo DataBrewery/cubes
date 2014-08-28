@@ -1,14 +1,18 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 """Logical to Physical Mapper for MongoDB"""
 
+from __future__ import absolute_import
 import collections
 import copy
+import datetime
+
+from bson.objectid import ObjectId
+from datetime import datetime
+
 from ...logging import get_logger
 from ...errors import *
 from ...mapper import Mapper
-from bson.objectid import ObjectId
-import datetime
-from datetime import datetime
+from ... import compat
 
 __all__ = (
     "MongoCollectionMapper"
@@ -103,7 +107,7 @@ class MongoDocumentField(object):
 # __query__ – used for all queries
 
 def coalesce_physical(mapper, ref):
-    if isinstance(ref, basestring):
+    if isinstance(ref, compat.string_type):
         return MongoDocumentField(mapper.database, mapper.collection, ref,
                                   None, None, None, None, None, None)
     elif isinstance(ref, dict):

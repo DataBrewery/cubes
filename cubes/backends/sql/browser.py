@@ -1,4 +1,4 @@
-# -*- coding=utf -*-
+# -*- encoding=utf -*-
 # Actually, this is a furry snowflake, not a nice star
 
 from __future__ import absolute_import
@@ -19,7 +19,7 @@ try:
     import sqlalchemy.sql as sql
 
 except ImportError:
-    from cubes.common import MissingPackage
+    from ...common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 __all__ = [

@@ -1,7 +1,10 @@
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
-from cubes.errors import *
+from __future__ import absolute_import
+
 import itertools
+
+from .errors import *
 
 __all__ = [
         "combined_cuboids",

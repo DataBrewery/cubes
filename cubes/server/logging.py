@@ -2,7 +2,6 @@
 from contextlib import contextmanager
 from collections import namedtuple
 from threading import Thread
-from Queue import Queue
 
 import datetime
 import time
@@ -10,6 +9,7 @@ import csv
 import io
 import json
 
+from .. import compat
 from ..extensions import extensions, Extensible
 from ..logging import get_logger
 from ..errors import *
@@ -105,16 +105,16 @@ class RequestLogger(object):
 
 
     def _stringify_record(self, record):
-        """Return a log rectord with object attributes converted to strings"""
+        """Return a log rectord with object attributes converted to unicode strings"""
         record = dict(record)
 
-        record["cube"] = str(record["cube"])
+        record["cube"] = compat.text_type(record["cube"])
 
         cell = record.get("cell")
-        record["cell"] = str(cell) if cell is not None else None
+        record["cell"] = compat.text_type(cell) if cell is not None else None
 
         split = record.get("split")
-        record["split"] = str(split) if split is not None else None
+        record["split"] = compat.text_type(split) if split is not None else None
 
         return record
 
@@ -122,7 +122,7 @@ class RequestLogger(object):
 class AsyncRequestLogger(RequestLogger):
     def __init__(self, handlers=None):
         super(AsyncRequestLogger, self).__init__(handlers)
-        self.queue = Queue()
+        self.queue = compat.Queue()
         self.thread = Thread(target=self.log_consumer,
                               name="slicer_logging")
         self.thread.daemon = True
@@ -171,7 +171,7 @@ class CSVFileRequestLogHandler(RequestLogHandler):
         for key in REQUEST_LOG_ITEMS:
             item = record.get(key)
             if item is not None:
-                item = unicode(item)
+                item = compat.text_type(item)
             out.append(item)
 
         with io.open(self.path, 'ab') as f:

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Data preparation for the hello_world example
+from __future__ import print_function
 
 from sqlalchemy import create_engine
 from cubes.tutorial.sql import create_table_from_csv
@@ -8,7 +9,7 @@ from cubes.tutorial.sql import create_table_from_csv
 
 FACT_TABLE = "irbd_balance"
 
-print "preparing data..."
+print("preparing data...")
 
 engine = create_engine('sqlite:///data.sqlite')
 
@@ -26,5 +27,4 @@ create_table_from_csv(engine,
                       create_id=True
                   )
 
-print "done. file data.sqlite created"
-
+print("done. file data.sqlite created")

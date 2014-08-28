@@ -1,20 +1,22 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import sys
 from .metadata import read_model_metadata
 from .auth import NotAuthorized
-from .model import Model
 from .common import read_json_file
 from .logging import get_logger
 from .errors import *
 from .calendar import Calendar
 from .extensions import extensions
+from .localization import LocalizationContext
 from .namespace import Namespace
 import os.path
-import ConfigParser
+from .compat import ConfigParser
 from copy import copy
 from collections import OrderedDict, defaultdict
-
+from . import compat
 
 __all__ = [
     "Workspace",
@@ -37,7 +39,7 @@ SLICER_INFO_KEYS = (
 def interpret_config_value(value):
     if value is None:
         return value
-    if isinstance(value, basestring):
+    if isinstance(value, compat.string_type):
         if value.lower() in ('yes', 'true', 'on'):
             return True
         elif value.lower() in ('no', 'false', 'off'):
@@ -70,7 +72,6 @@ class ModelObjectInfo(object):
         key = (lang, identity)
         return self.instances[key]
 
-
 class Workspace(object):
     def __init__(self, config=None, stores=None, load_base_model=True):
         """Creates a workspace. `config` should be a `ConfigParser` or a
@@ -93,8 +94,8 @@ class Workspace(object):
           are language to translation path mappings.
         """
 
-        if isinstance(config, basestring):
-            cp = ConfigParser.SafeConfigParser()
+        if isinstance(config, compat.string_type):
+            cp = ConfigParser()
             try:
                 cp.read(config)
             except Exception as e:
@@ -105,7 +106,7 @@ class Workspace(object):
 
         elif not config:
             # Read ./slicer.ini
-            config = ConfigParser.ConfigParser()
+            config = ConfigParser()
 
         self.store_infos = {}
         self.stores = {}
@@ -122,7 +123,6 @@ class Workspace(object):
         if config.has_option("workspace", "log_level"):
             level = config.get("workspace", "log_level").upper()
             self.logger.setLevel(level)
-
 
         # Set the default models path
         if config.has_option("workspace", "root_directory"):
@@ -196,8 +196,8 @@ class Workspace(object):
             if self.root_dir and not os.path.isabs(stores):
                 stores = os.path.join(self.root_dir, stores)
 
-        if isinstance(stores, basestring):
-            store_config = ConfigParser.SafeConfigParser()
+        if isinstance(stores, compat.string_type):
+            store_config = ConfigParser()
             try:
                 store_config.read(stores)
             except Exception as e:
@@ -271,11 +271,15 @@ class Workspace(object):
         # Register [language *]
         self.ns_languages = defaultdict(dict)
         for section in config.sections():
-            if section.startswith("language"):
+            if section.startswith("locale"):
                 lang = section[9:]
-                # model -> path
-                for ns, path in config.items(section):
-                    self.ns_languages[ns][lang] = path
+                # namespace -> path
+                for nsname, path in config.items(section):
+                    if nsname == "defalt":
+                        ns = self.namespace
+                    else:
+                        (ns, _) = self.namespace.namespace(nsname)
+                    ns.add_translation(lang, path)
 
         # Authorizer
         # ==========
@@ -289,18 +293,6 @@ class Workspace(object):
 
         # Configure and load models
         # =========================
-
-        # Load base model (default)
-        import pkgutil
-        if config.has_option("workspace", "load_base_model"):
-            load_base = config.getboolean("workspace", "load_base_model")
-        else:
-            load_base = load_base_model
-
-        if load_base:
-            loader = pkgutil.get_loader("cubes")
-            path = os.path.join(loader.filename, "models/base.cubesmodel")
-            self.import_model(path)
 
         # Models are searched in:
         # [model]
@@ -344,6 +336,19 @@ class Workspace(object):
         """Flushes the cube lookup cache."""
         self._cubes.clear()
         # TODO: flush also dimensions
+
+    def _get_namespace(self, ref):
+        """Returns namespace with ference `ref`"""
+        if not ref or ref == "default":
+            return self.namespace
+        return self.namespace(ref)[0]
+
+    def add_translation(self, locale, trans, ns="default"):
+        """Add translation `trans` for `locale`. `ns` is a namespace. If no
+        namespace is specified, then default (global) is used."""
+
+        namespace = self._get_namespace(ns)
+        namespace.add_translation(locale, trans)
 
     def _register_store_dict(self, name, info):
         info = dict(info)
@@ -399,6 +404,8 @@ class Workspace(object):
             self.import_model({}, store=name, namespace=nsname,
                               provider=provider)
 
+        self.logger.debug("Registered store '%s'" % name)
+
     def _store_for_model(self, metadata):
         """Returns a store for model specified in `metadata`. """
         store_name = metadata.get("store")
@@ -409,12 +416,12 @@ class Workspace(object):
 
         return store_name
 
-    # TODO: this is very complicated method, needs simplification
+    # TODO: this is very complicated process, needs simplification
     # TODO: change this to: import(name, info, provider, store, languages, ns)
-    def import_model(self, metadata=None, provider=None, store=None,
+    def import_model(self, model=None, provider=None, store=None,
                      translations=None, namespace=None):
-        """Registers the model `metadata` in the workspace. `metadata` can be
-        a metadata dictionary, filename, path to a model bundle directory or a
+        """Registers the `model` in the workspace. `model` can be a
+        metadata dictionary, filename, path to a model bundle directory or a
         URL.
 
         If `namespace` is specified, then the model's objects are stored in
@@ -442,15 +449,25 @@ class Workspace(object):
         # 
         # TODO: Use "InlineModelProvider" and "FileBasedModelProvider"
 
-        if isinstance(metadata, basestring):
+        if store and not isinstance(store, compat.string_type):
+            raise ArgumentError("Store should be provided by name "
+                                "(as a string).")
+
+        # 1. Model Metadata
+        # -----------------
+        # Make sure that the metadata is a dictionary
+        #
+        # TODO: Use "InlineModelProvider" and "FileBasedModelProvider"
+
+        if isinstance(model, compat.string_type):
             self.logger.debug("Importing model from %s. "
                               "Provider: %s Store: %s NS: %s"
-                              % (metadata, provider, store, namespace))
-            path = metadata
+                              % (model, provider, store, namespace))
+            path = model
             if self.models_dir and not os.path.isabs(path):
                 path = os.path.join(self.models_dir, path)
-            metadata = read_model_metadata(path)
-        elif isinstance(metadata, dict):
+            model = read_model_metadata(path)
+        elif isinstance(model, dict):
             self.logger.debug("Importing model from dictionary. "
                               "Provider: %s Store: %s NS: %s"
                               % (provider, store, namespace))
@@ -465,16 +482,18 @@ class Workspace(object):
         # Create a model provider if name is given. Otherwise assume that the
         # `provider` is a ModelProvider subclass instance
 
-        if isinstance(provider, basestring):
-            provider = extensions.model_provider(provider, metadata)
+        if isinstance(provider, compat.string_type):
+            provider = extensions.model_provider(provider, model)
 
+        # TODO: remove this, if provider is external, it should be specified
         if not provider:
-            provider_name = metadata.get("provider", "default")
-            provider = extensions.model_provider(provider_name, metadata)
+            provider_name = model.get("provider", "default")
+            provider = extensions.model_provider(provider_name, model)
+
         # 3. Store
         # --------
         # Link the model with store
-        store = store or metadata.get("store")
+        store = store or model.get("store")
 
         if store or provider.requires_store():
             provider.bind(self.get_store(store))
@@ -485,7 +504,7 @@ class Workspace(object):
         if namespace:
             if namespace == "default":
                 ns = self.namespace
-            elif isinstance(namespace, basestring):
+            elif isinstance(namespace, compat.string_type):
                 (ns, _) = self.namespace.namespace(namespace, create=True)
             else:
                 ns = namepsace
@@ -500,9 +519,9 @@ class Workspace(object):
     def add_slicer(self, name, url, **options):
         """Register a slicer as a model and data provider."""
         self.register_store(name, "slicer", url=url, **options)
+        self.import_model({}, provider="slicer", store=name)
 
-        # self.import_model({}, provider="slicer", store=name)
-
+    # TODO: this is not loclized!!!
     def list_cubes(self, identity=None):
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
@@ -526,9 +545,10 @@ class Workspace(object):
         return all_cubes
 
     def cube(self, ref, identity=None, locale=None):
-        """Returns a cube with full cube namespace reference `ref`."""
-        self.logger.info("GET CUBE %s" % ref)
-        if not isinstance(ref, basestring):
+        """Returns a cube with full cube namespace reference `ref` for user
+        `identity` and translated to `locale`."""
+
+        if not isinstance(ref, compat.string_type):
             raise TypeError("Reference is not a string, is %s" % type(ref))
 
         if self.authorizer:
@@ -536,6 +556,8 @@ class Workspace(object):
             if not authorized:
                 raise NotAuthorized
 
+        # If we have a cached cube, return it
+        # See also: flush lookup
         cube_key = (ref, identity, locale)
         if cube_key in self._cubes:
             return self._cubes[cube_key]
@@ -543,7 +565,7 @@ class Workspace(object):
         # Find the namespace containing the cube – we will need it for linking
         # later
         # FIXME: nsname is not a name, but a path!
-        (ns, nsname, basename) = self.namespace.namespace_for_cube(ref)
+        (ns, nsname, basename) = self.namespace.find_cube(ref)
 
         recursive = (self.lookup_method == "recursive")
         cube = ns.cube(basename, locale=locale, recursive=recursive)
@@ -552,9 +574,16 @@ class Workspace(object):
         # Set cube name to the full cube reference that includes namespace as
         # well
         cube.name = ref
-        cube.basename = ref.split(".")[-1]
+        cube.basename = basename
 
-        self.link_cube(cube, ns)
+        self.link_cube(cube)
+
+        lookup = ns.translation_lookup(locale)
+        if lookup:
+            # TODO: pass lookup instead of jsut first found translation
+            context = LocalizationContext(lookup[0])
+            trans = context.object_localization("cubes", cube.name)
+            cube = cube.localized(trans)
 
         nsname = nsname or "default"
 
@@ -577,107 +606,51 @@ class Workspace(object):
 
         return cube
 
-    # TODO: memoize
-    def translation(self, locale, nsname=None):
-        """Returns translation dictionary for `locale` in namespace `ns`"""
-        nsname = nsname or "default"
-        try:
-            nstrans = self.ns_languages[nsname]
-        except KeyError:
-            return
-
-        try:
-            path = nstrans[locale]
-        except KeyError:
-            return None
-        else:
-            translation = read_json_file(path)
-
-        return translation
-
-    def link_cube(self, cube, namespace):
+    def link_cube(self, cube):
         """Links dimensions to the cube in the context of `model` with help of
         `provider`."""
 
         # Assumption: empty cube
 
-        if cube.provider:
-            providers = [cube.provider]
-        else:
-            providers = []
-
-        if namespace:
-            providers.append(namespace)
-
-        # Add the default namespace as the last look-up place, if not present
-        providers.append(self.namespace)
-
         dimensions = {}
         for link in cube.dimension_links:
             dim_name = link["name"]
             try:
-                dim = self.dimension(dim_name,
-                                     locale=cube.locale,
-                                     providers=providers)
+                dim = self.dimension(dim_name, cube.locale,
+                                     cube.namespace, cube.provider)
             except TemplateRequired as e:
                 raise ModelError("Dimension template '%s' missing" % dim_name)
 
+            if dim is None:
+                raise CubesError("Dimension object for '%s' is none"
+                                 % dim_name)
             dimensions[dim_name] = dim
 
         cube.link_dimensions(dimensions)
 
-    def _lookup_dimension(self, name, providers, templates):
-        """Look-up a dimension `name` in chain of `providers` which might
-        include a mix of providers and namespaces.
-
-        `templates` is an optional dictionary with already instantiated
-        dimensions that can be used as templates.
-        """
-
-        dimension = None
-        required_template = None
-
-        # FIXME: cube's provider might be hit at least twice: once as provider,
-        # second time as part of cube's namespace
-
-        for provider in providers:
-            try:
-                dimension = provider.dimension(name, templates=templates)
-            except NoSuchDimensionError:
-                pass
-            else:
-                return dimension
-            # We are passing the TemplateRequired exception
-        raise NoSuchDimensionError("Dimension '%s' not found" % name,
-                                   name=name)
-
-    def dimension(self, name, locale=None, providers=None):
+    def dimension(self, name, locale=None, namespace=None, provider=None):
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
         no model published the dimension. Raises `RequiresTemplate` error when
         model provider requires a template to be able to provide the
         dimension, but such template is not a public dimension.
 
-        The standard lookup is:
+        The standard lookup when linking a cube is:
 
         1. look in the cube's provider
-        2. look in the cube's namespace (all providers)
+        2. look in the cube's namespace – all providers within that namespace
         3. look in the default (global) namespace
         """
+
+        namespace = namespace or self.namespace
 
         # Collected dimensions – to be used as templates
         templates = {}
 
-        if providers:
-            providers = list(providers)
-        else:
-            # If no providers are given then use the default namespace
-            # (otherwise we would end up without any dimension)
-            providers = [self.namespace]
-
         # Assumption: all dimensions that are to be used as templates should
         # be public dimensions. If it is a private dimension, then the
         # provider should handle the case by itself.
-        missing = set( (name, ) )
+        missing = [name]
+
         while missing:
             dimension = None
             deferred = set()
@@ -689,7 +662,8 @@ class Workspace(object):
             required_template = None
 
             try:
-                dimension = self._lookup_dimension(name, providers, templates)
+                dimension = self._lookup_dimension(name, templates,
+                                                   namespace, provider)
             except TemplateRequired as e:
                 required_template = e.template
 
@@ -699,17 +673,54 @@ class Workspace(object):
                                    % (required_template, name))
 
             if required_template:
-                missing.add(name)
+                missing.append(name)
                 if required_template in missing:
                     raise ModelError("Dimension templates cycle in '%s'" %
                                      required_template)
-                missing.add(required_template)
+                missing.append(required_template)
 
             # Store the created dimension to be used as template
             if dimension:
                 templates[name] = dimension
 
+        lookup = namespace.translation_lookup(locale)
+        if lookup:
+            # TODO: pass lookup instead of jsut first found translation
+            context = LocalizationContext(lookup[0])
+            trans = context.object_localization("cubes", "inner")
+            cube = cube.localized(trans)
+
         return dimension
+
+    def _lookup_dimension(self, name, templates, namespace, provider):
+        """Look-up a dimension `name` in `provider` and then in `namespace`.
+
+        `templates` is a dictionary with already instantiated dimensions that
+        can be used as templates.
+        """
+
+        dimension = None
+        required_template = None
+
+        # 1. look in the povider
+        if provider:
+            try:
+                dimension = provider.dimension(name, templates=templates)
+            except NoSuchDimensionError:
+                pass
+            else:
+                return dimension
+
+        # 2. Look in the namespace
+        try:
+            dimension = namespace.dimension(name, templates=templates)
+        except NoSuchDimensionError:
+            pass
+        else:
+            return dimension
+
+        raise NoSuchDimensionError("Dimension '%s' not found" % name,
+                                   name=name)
 
     def _browser_options(self, cube):
         """Returns browser configuration options for `cube`. The options are
@@ -728,7 +739,7 @@ class Workspace(object):
         # TODO: bring back the localization
         # model = self.localized_model(locale)
 
-        if isinstance(cube, basestring):
+        if isinstance(cube, compat.string_type):
             cube = self.cube(cube, identity=identity)
 
         locale = locale or cube.locale

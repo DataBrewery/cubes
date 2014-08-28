@@ -1,4 +1,7 @@
-# -*- coding=utf -*-
+# -*- encoding=utf -*-
+
+from __future__ import absolute_import
+
 from .browser import SnowflakeBrowser
 from .mapper import SnowflakeMapper
 from ...logging import get_logger
@@ -15,8 +18,9 @@ try:
     import sqlalchemy.sql as sql
     from sqlalchemy.engine import reflection
 except ImportError:
-    from cubes.common import MissingPackage
-    reflection = sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
+    from ...common import MissingPackage
+    reflection = sqlalchemy = sql = MissingPackage("sqlalchemy",
+                                                   "SQL aggregation browser")
 
 
 __all__ = [
@@ -28,17 +32,18 @@ __all__ = [
 # Data types of options passed to sqlalchemy.create_engine
 # This is used to coalesce configuration string values into appropriate types
 SQLALCHEMY_OPTION_TYPES = {
-        "case_sensitive":"bool",
-        "case_insensitive":"bool",
-        "convert_unicode":"bool",
-        "echo":"bool",
-        "echo_pool":"bool",
-        "implicit_returning":"bool",
-        "label_length":"int",
-        "max_overflow":"int",
-        "pool_size":"int",
-        "pool_recycle":"int",
-        "pool_timeout":"int"
+        "case_sensitive": "bool",
+        "case_insensitive": "bool",
+        "convert_unicode": "bool",
+        "echo": "bool",
+        "echo_pool": "bool",
+        "implicit_returning": "bool",
+        "label_length": "int",
+        "max_overflow": "int",
+        "pool_size": "int",
+        "pool_recycle": "int",
+        "pool_timeout": "int",
+        "supports_unicode_binds": "bool"
 }
 
 # Data types of options passed to the workspace, browser and mapper
@@ -49,6 +54,7 @@ OPTION_TYPES = {
         "use_denormalization": "bool",
         "safe_labels": "bool"
 }
+
 
 ####
 # Backend related functions
@@ -82,6 +88,7 @@ def ddl_for_model(url, model, fact_prefix=None,
     """
     raise NotImplementedError
 
+
 def create_sqlalchemy_engine(url, options, prefix="sqlalchemy_"):
     """Create a SQLAlchemy engine from `options`. Options have prefix
     ``sqlalchemy_``"""
@@ -95,6 +102,7 @@ def create_sqlalchemy_engine(url, options, prefix="sqlalchemy_"):
     engine = sqlalchemy.create_engine(url, **sa_options)
 
     return engine
+
 
 class SQLStore(Store):
 
@@ -111,8 +119,8 @@ class SQLStore(Store):
 
         * `url` - database URL in form of:
           ``backend://user:password@host:port/database``
-        * `sqlalchemy_options` - this backend accepts options for SQLAlchemy in the form:
-          ``option1=value1[&option2=value2]...``
+        * `sqlalchemy_options` - this backend accepts options for SQLAlchemy
+          in the form: ``option1=value1[&option2=value2]...``
         * `engine` - SQLAlchemy engine - either this or URL should be provided
 
         Optional:
@@ -121,24 +129,24 @@ class SQLStore(Store):
           explicitly stated otherwise)
         * `fact_prefix` - used by the snowflake mapper to find fact table for a
           cube, when no explicit fact table name is specified
-        * `dimension_prefix` - used by snowflake mapper to find dimension tables
-          when no explicit mapping is specified
+        * `dimension_prefix` - used by snowflake mapper to find dimension
+          tables when no explicit mapping is specified
         * `fact_suffix` - used by the snowflake mapper to find fact table for a
           cube, when no explicit fact table name is specified
-        * `dimension_suffix` - used by snowflake mapper to find dimension tables
-          when no explicit mapping is specified
+        * `dimension_suffix` - used by snowflake mapper to find dimension
+          tables when no explicit mapping is specified
         * `dimension_schema` – schema where dimension tables are stored, if
           different than common schema.
 
         Options for denormalized views:
 
-        * `use_denormalization` - browser will use dernormalized view instead of
-          snowflake
+        * `use_denormalization` - browser will use dernormalized view instead
+          of snowflake
         * `denormalized_view_prefix` - if denormalization is used, then this
           prefix is added for cube name to find corresponding cube view
         * `denormalized_view_schema` - schema wehere denormalized views are
-          located (use this if the views are in different schema than fact tables,
-          otherwise default schema is going to be used)
+          located (use this if the views are in different schema than fact
+          tables, otherwise default schema is going to be used)
         """
         super(SQLStore, self).__init__(**options)
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from StringIO import StringIO
+from .compat import StringIO
 from collections import namedtuple
 
 from .extensions import Extensible, extensions

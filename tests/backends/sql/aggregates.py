@@ -50,7 +50,7 @@ class AggregatesTestCase(CubesTestCaseBase):
     def test_unknown_function(self):
         browser = self.workspace.browser("unknown_function")
 
-        with self.assertRaisesRegexp(ArgumentError, "Unknown.*function"):
+        with self.assertRaisesRegex(ArgumentError, "Unknown.*function"):
             browser.aggregate()
 
     def test_explicit(self):

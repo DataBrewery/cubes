@@ -1,7 +1,11 @@
 # -*- coding=utf -*-
 
+from __future__ import absolute_import
+
 import datetime
 import calendar
+
+from ... import compat
 
 __all__ = [
     "coalesce_date_path",
@@ -14,7 +18,7 @@ def _week_value(dt, as_string=False):
     Mixpanel weeks start on Monday. Given a datetime object or a date string of format YYYY-MM-DD,
     returns a YYYY-MM-DD string for the Monday of that week.
     """
-    dt = datetime.datetime.strptime(dt, '%Y-%m-%d') if isinstance(dt, basestring) else dt
+    dt = datetime.datetime.strptime(dt, '%Y-%m-%d') if isinstance(dt, compat.string_type) else dt
     dt = ( dt - datetime.timedelta(days=dt.weekday()) )
     return ( dt.strftime("%Y-%m-%d") if as_string else dt )
 

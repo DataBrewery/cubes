@@ -10,6 +10,7 @@ import codecs
 import cStringIO
 
 from .errors import *
+from .. import compat
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -112,10 +113,10 @@ class CSVGenerator(object):
             row = []
             for field in self.fields:
                 value = record.get(field)
-                if type(value) == unicode or type(value) == str:
+                if isinstance(value, compat.string_type):
                     row.append(value.encode("utf-8"))
                 elif value is not None:
-                    row.append(unicode(value))
+                    row.append(compat.text_type(value))
                 else:
                     row.append(None)
 
@@ -152,7 +153,7 @@ class UnicodeCSVWriter:
     def writerow(self, row):
         new_row = []
         for value in row:
-            if type(value) == unicode or type(value) == str:
+            if isinstance(value, compat.string_type):
                 new_row.append(value.encode("utf-8"))
             elif value:
                 new_row.append(unicode(value))

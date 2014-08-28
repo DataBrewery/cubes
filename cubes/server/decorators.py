@@ -2,7 +2,6 @@
 from flask import Blueprint, Flask, Response, request, g, current_app
 from functools import wraps
 
-import ConfigParser
 from ..workspace import Workspace
 from ..auth import NotAuthorized
 from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
