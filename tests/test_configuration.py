@@ -4,9 +4,9 @@ from cubes.configuration import EnvironmentConfigParser
 from .common import CubesTestCaseBase
 
 
-class ConfigurationTestCase(WorkspaceTestCaseBase):
+class ConfigurationTestCase(CubesTestCaseBase):
     def setUp(self):
-        WorkspaceTestCaseBase.setup(self)
+        CubesTestCaseBase.setUp(self)
         fn = os.path.join('fixtures', 'procurements.ini')
         self.c = EnvironmentConfigParser()
         self.c.read(fn)
