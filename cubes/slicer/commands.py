@@ -153,7 +153,7 @@ def read_config(cfg):
     """Read the configuration file."""
     config = compat.ConfigParser()
     try:
-        config.read(args.config)
+        config.read(cfg)
     except Exception as e:
         raise Exception("Unable to load config: %s" % e)
 
