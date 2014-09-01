@@ -1,9 +1,6 @@
 Cubes - Online Analytical Processing Framework for Python
 =========================================================
 
-About
------
-
 Cubes is a light-weight Python framework and set of tools for Online
 Analytical Processing (OLAP), multidimensional analysis and browsing of
 aggregated data. 
@@ -28,30 +25,48 @@ Features:
 * OLAP server (WSGI HTTP server with JSON API based on Wergzeug)
 
 Documentation
--------------
+=============
+
+Manual
+------
 
 Latest release documentation: http://packages.python.org/cubes
 
 Development documentation: http://cubes.databrewery.org/dev/doc
 
-See `examples` directory for simple examples and use-cases. Also see:
+Examples
+--------
 
-    https://github.com/stiivi/cubes-examples
-    
+See ``examples`` directory in the source code repository
+for simple examples and use-cases.
+
+See https://github.com/stiivi/cubes-examples
 for more complex examples.
 
 Models
 ------
 
-For cubes models see:
+For cubes models see
+https://github.com/Stiivi/cubes-models
 
-* https://github.com/Stiivi/cubes-models
 
+Development
+============
+Source code is in a Git repository `on GitHub <https://github.com/Stiivi/cubes>`_. ::
 
-Source
-------
+    git clone git://github.com/Stiivi/cubes
 
-Github source repository: https://github.com/Stiivi/cubes
+After you've cloned, you might want to install all of the development dependencies. ::
+
+    pip install -e .[dev]
+
+Build the documentation like so. ::
+
+    cd doc
+    make help
+    make html
+
+Outputs will go in ``doc/_*``.
 
 Requirements
 ------------
@@ -103,11 +118,11 @@ information.
 License
 =======
 
-Cubes is licensed under MIT license with following addition:
+Cubes is licensed under MIT license with following addition.
 
-    If your version of the Software supports interaction with it remotely 
-    through a computer network, the above copyright notice and this permission 
-    notice shall be accessible to all users.
+> If your version of the Software supports interaction with it remotely 
+> through a computer network, the above copyright notice and this permission 
+> notice shall be accessible to all users.
 
 Simply said, that if you use it as part of software as a service (SaaS) you 
 have to provide the copyright notice in an about, legal info, credits or some 

@@ -26,14 +26,19 @@ The cubes has optional requirements:
     Python. You do not need to know the language if you just want to 
     :doc:`serve<server>` OLAP data.
 
-For quick satisfaction of requirements install the packages::
-
-    pip install pytz python-dateutil jsonschema
-    pip install sqlalchemy flask
-
-Then install the Cubes::
+You may install Cubes with the minimal dependencies, ::
 
     pip install cubes
+
+with certain extras (html, sql, mongo, mongo2, or slicer), ::
+
+    pip install cubes[slicer]
+
+or with all of the extras. ::
+
+    pip install cubes[all]
+
+If you are developing cubes, you should install ``cubes[all]``.
 
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
 .. _Flask: http://flask.pocoo.org/
