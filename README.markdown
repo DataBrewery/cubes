@@ -53,6 +53,16 @@ Source
 
 Github source repository: https://github.com/Stiivi/cubes
 
+
+Run tests like so.
+
+    python setup.py test
+
+Run just one test like so.
+
+    python -m unittest tests.TEST_MODULE.TEST_CASE.TEST_FUNCTION
+
+
 Requirements
 ------------
 
