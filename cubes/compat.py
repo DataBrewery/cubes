@@ -22,7 +22,7 @@ if py3k:
     from functools import reduce
 
     def to_unicode(s):
-        return s
+        return str(s)
 
     def to_str(b):
         return b.decode("utf-8")

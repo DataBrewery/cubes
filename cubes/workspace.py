@@ -439,7 +439,7 @@ class Workspace(object):
         :meth:`cubes.Workspace.cube` or :meth:`cubes.Workspace.dimension` is
         called.
         """
-        if store and not isinstance(store, basestring):
+        if store and not isinstance(store, compat.string_type):
             raise ArgumentError("Store should be provided by name "
                                 "(as a string).")
 
@@ -746,7 +746,7 @@ class Workspace(object):
 
         locale = locale or cube.locale
 
-        if isinstance(cube.store, basestring):
+        if isinstance(cube.store, compat.string_type):
             store_name = cube.store or "default"
             store = self.get_store(store_name)
             store_type = self.store_infos[store_name][0]

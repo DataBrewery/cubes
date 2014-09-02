@@ -565,13 +565,15 @@ def logout():
     else:
         return "logged out"
 
-_VIS_CONFIG_PATTERN = re.compile(ur"<!--\s*VISUALIZER CONFIG.+?-->(?msu)")
+
+_VIS_CONFIG_PATTERN = re.compile(r"<!--\s*VISUALIZER CONFIG.+?-->(?msu)")
 _VIS_CONFIG_SCRIPT_TEMPLATE = Template(u"""
 <script type="text/javascript">
 VisualizerConfig.cubesUrl = "{{serverUrl}}";
 VisualizerConfig.splashScreen = false;
 </script>
 """)
+
 
 @slicer.route("/visualizer/")
 @slicer.route("/visualizer/index.html")
