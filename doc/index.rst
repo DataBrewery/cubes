@@ -121,7 +121,7 @@ If you have questions, problems or suggestions, you can send a message to
 
 Report bugs in `github issues`_ tracking
 
-.. _github issues: https://github.com/Stiivi/cubes/issues
+.. _github issues: https://github.com/DataBrewery/cubes/issues
 .. _Google group: http://groups.google.com/group/cubes-discuss
 .. _write to the author: stefan.urbanek@gmail.com
 

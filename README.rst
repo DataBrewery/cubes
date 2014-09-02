@@ -40,21 +40,21 @@ Examples
 See ``examples`` directory in the source code repository
 for simple examples and use-cases.
 
-See https://github.com/stiivi/cubes-examples
+See https://github.com/DataBrewery/cubes-examples
 for more complex examples.
 
 Models
 ------
 
 For cubes models see
-https://github.com/Stiivi/cubes-models
+https://github.com/DataBrewery/cubes-models
 
 
 Development
 ============
-Source code is in a Git repository `on GitHub <https://github.com/Stiivi/cubes>`_. ::
+Source code is in a Git repository `on GitHub <https://github.com/DataBrewery/cubes>`_. ::
 
-    git clone git://github.com/Stiivi/cubes
+    git clone git://github.com/DataBrewery/cubes
 
 After you've cloned, you might want to install all of the development dependencies. ::
 
@@ -93,7 +93,7 @@ Google group or write to the author.
 * Google group: http://groups.google.com/group/cubes-discuss
 * IRC channel #databrewery on server irc.freenode.net
 
-Report bugs using github issue tracking: https://github.com/Stiivi/cubes/issues
+Report bugs using github issue tracking: https://github.com/DataBrewery/cubes/issues
 
 
 Development

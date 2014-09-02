@@ -109,7 +109,7 @@ The ``requirements.txt``::
 
     Flask
     SQLAlchemy
-    -e git+git://github.com/Stiivi/cubes.git@master#egg=cubes
+    -e git+git://github.com/DataBrewery/cubes.git@master#egg=cubes
     jsonschema
     python-dateutil
     pytz

@@ -50,7 +50,7 @@ Quick Start or Hello World!
 Download the sources from the `Cubes Github repository`_. Go to the 
 ``examples/hello_world`` folder::
 
-    git clone git://github.com/Stiivi/cubes.git
+    git clone git://github.com/DataBrewery/cubes.git
     cd cubes
     cd examples/hello_world
 
@@ -66,18 +66,18 @@ And try to do some queries::
     curl "http://localhost:5000/cube/irbd_balance/aggregate?drilldown=item"
     curl "http://localhost:5000/cube/irbd_balance/aggregate?drilldown=item&cut=item:e"
 
-.. _Cubes Github repository: https://github.com/Stiivi/cubes
+.. _Cubes Github repository: https://github.com/DataBrewery/cubes
 
 Customized Installation
 =======================
 
 The project sources are stored in the `Github repository`_.
 
-.. _Github repository: https://github.com/Stiivi/cubes
+.. _Github repository: https://github.com/DataBrewery/cubes
 
 Download from Github::
 
-    git clone git://github.com/Stiivi/cubes.git
+    git clone git://github.com/DataBrewery/cubes.git
 
 Install::
 
