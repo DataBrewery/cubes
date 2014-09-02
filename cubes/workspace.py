@@ -18,6 +18,11 @@ from copy import copy
 from collections import OrderedDict, defaultdict
 from . import compat
 
+try:
+    basestring
+except NameError:
+    basestring = str
+
 __all__ = [
     "Workspace",
 ]
