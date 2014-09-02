@@ -2,7 +2,6 @@ flask
 sqlalchemy
 pytz
 pymongo
-Flask==0.9
 werkzeug
 jinja2
 python-dateutil
