@@ -38,7 +38,13 @@ Other notable new features in Cubes 1.0 are:
   <../backends/sql>`.
 * Distinction between :ref:`measures and aggregates <measures-and-aggregates>`
 * Extensible :doc:`authorization and authentication <../auth>`
+* Visualizer
 
+Python Versions
+---------------
+
+Cubes 1.0 supports Python >= 2.7 for Python 2 series and Python >= 3.4.1 for
+Python 3 series.
 
 Analytical Workspace
 --------------------
@@ -411,6 +417,12 @@ New Backends
 .. seealso::
 
     :doc:`How to Write a Backend Extension <../extensions/backends>`
+
+Visualizer
+==========
+
+There is a cubes visualizer included in the Cubes that can connect to any
+cubes slicer server over HTTP. It is purely HTML/JavaScript application.
 
 Other Minor Changes
 ===================

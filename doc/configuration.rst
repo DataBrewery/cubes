@@ -133,6 +133,19 @@ The models are loaded from ``/dwh/cubes/models/model.json`` and
     settings.
 
 
+Localization
+------------
+
+Model localizations are specified in the configuration with ``[locale XX]``
+where ``XX`` is the locale name. Option names are namespace names and option
+keys are paths to translation files. For example::
+
+    [locale sk]
+    default: translation_sk.json
+
+    [locale hu]
+    default: translation_hu.json
+
 Server
 ======
 
@@ -157,15 +170,7 @@ Server
 Model
 =====
 
-.. note::
-
-    This section is depreciated. Use `model` in ``[workspace]`` for single
-    model file or ``[models]`` for multiple models.
-
 * ``path`` - path to model .json file
-* ``locales`` - comma separated list of locales the model is provided in. 
-    Currently this variable is optional and it is used only by experimental 
-    sphinx search backend.
 
 Data stores
 ===========
@@ -194,7 +199,7 @@ For more information and configuration options see :doc:`backends/sql`.
 
 Example mixpanel store::
 
-    [datastore]
+    [store]
     type: mixpanel
     model: mixpanel.json
     api_key: 123456abcd
@@ -202,18 +207,18 @@ Example mixpanel store::
 
 Multiple Slicer stores::
 
-    [datastore_slicer1]
+    [store slicer1]
     type: slicer
     url: http://some.host:5000
 
-    [datastore_slicer2]
+    [store slicer2]
     type: slicer
     url: http://other.host:5000
 
 The cubes will be named `slicer1.*` and `slicer2.*`. To use specific
 namespace, different from the store name::
 
-    [datastore_slicer3]
+    [store slicer3]
     type: slicer
     namespace: external
     url: http://some.host:5000
@@ -222,7 +227,7 @@ Cubes will be named `external.*`
 
 To specify default namespace::
 
-    [datastore_slicer4]
+    [store slicer4]
     type: slicer
     namespace: default.
     url: http://some.host:5000
