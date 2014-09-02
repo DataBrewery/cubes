@@ -3,18 +3,17 @@ from setuptools import setup, find_packages
 
 requirements = ["pytz", "python-dateutil", "jsonschema"]
 extras = {
-    'sql': 'sqlalchemy>= 0.7.4',
+    'sql': 'sqlalchemy>= 0.9.0',
     'slicer': 'werkzeug',
     'html': 'jinja',
     'mongo': 'pymongo',
-    'mongo2': ['mongo','pytz'], 
-    'all': ['cubes[%s]' % extra for extra in ['sql','slicer','html','mongo2']],
+    'all': ['cubes[%s]' % extra for extra in ['sql','slicer','html','mongo']],
     'dev': ['cubes[all]', 'sphinx'],
 }
 
 setup(
     name = "cubes",
-    version = '1.0beta2',
+    version = '1.0',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
@@ -54,7 +53,7 @@ setup(
     description = "Lightweight framework for Online Analytical Processing (OLAP) and multidimensional analysis",
     license = "MIT license with following addition: If your version of the Software supports interaction with it remotely through a computer network, the above copyright notice and this permission notice shall be accessible to all users.",
     keywords = "olap multidimensional data analysis",
-    url = "http://databrewery.org"
+    url = "http://cubes.databrewery.org"
 
     # could also include long_description, download_url, classifiers, etc.
 )

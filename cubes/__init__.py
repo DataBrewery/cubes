@@ -1,6 +1,6 @@
 """OLAP Cubes"""
 
-__version__ = "1.0beta2"
+__version__ = "1.0"
 
 from .common import *
 from .browser import *
