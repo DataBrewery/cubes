@@ -34,7 +34,7 @@ The manual workspace creation:
 
     workspace = Workspace()
     workspace.register_default_store("sql", url="postgresql://localhost/data")
-    workspace.load_model("model.json")
+    workspace.import_model("model.json")
 
 Stores
 ======

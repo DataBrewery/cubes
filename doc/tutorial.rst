@@ -115,9 +115,9 @@ For more information how to add more models to the workspace see the
 
 Equivalent in Python is:
 
->>> workspace.load_model("model.json")
+>>> workspace.import_model("model.json")
 
-You might call :meth:`load_model()<cubes.Workspace.load_model` with as many
+You might call :meth:`import_model()<cubes.Workspace.import_model` with as many
 models as you need. Only limitation is that the public cubes and public
 dimensions should have unique names.
 
