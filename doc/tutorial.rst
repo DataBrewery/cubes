@@ -142,15 +142,15 @@ count within the cell is included as ``record_count``.
 
 Now try some drill-down by `year` dimension:
 
->>> result = browser.aggregate(cell, drilldown=["year"])
+>>> result = browser.aggregate(drilldown=["year"])
 >>> for record in result.drilldown:
 ...     print record
 {u'record_count': 31, u'amount_sum': 550840, u'year': 2009}
 {u'record_count': 31, u'amount_sum': 566020, u'year': 2010}
 
-Drill-dow by item category:
+Drill-down by item category:
 
->>> result = browser.aggregate(cell, drilldown=["item"])
+>>> result = browser.aggregate(drilldown=["item"])
 >>> for record in result.drilldown:
 ...     print record
 {u'item.category': u'a', u'item.category_label': u'Assets', u'record_count': 32, u'amount_sum': 558430}

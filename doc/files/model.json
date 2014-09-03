@@ -24,7 +24,7 @@
     ],
     "cubes": [
         {
-            "name": "irbd_balance",
+            "name": "ibrd_balance",
             "dimensions": ["item", "year"],
             "measures": ["amount"],
             "mappings": {
