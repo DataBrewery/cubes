@@ -194,7 +194,7 @@ class MongoBrowser(AggregationBrowser):
             item = to_json_safe(item)
         return item
 
-    def provide_members(self, cell, dimension, depth=None, hierarchy=None,
+    def provide_members(self, cell, dimension, hierarchy=None,
                         levels=None, attributes=None, page=None,
                         page_size=None, order=None):
         """Provide dimension members. The arguments are already prepared by

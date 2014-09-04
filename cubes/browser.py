@@ -373,6 +373,14 @@ class AggregationBrowser(Extensible):
                                       **options)
         return result
 
+    def provide_members(self, cell, dimension, hierarchy=None,
+        levels=None, attributes=None, page=None, page_size=None, order=None, **options):
+        """
+        Return values for `dimension` with level depth `depth`. If `depth`
+        is ``None``, all levels are returned.
+        """
+        raise NotImplementedError
+
     def values(self, *args, **kwargs):
         # TODO: depreciated
         self.logger.warn("values() is depreciated, use members()")

@@ -218,9 +218,8 @@ class SnowflakeBrowser(AggregationBrowser):
         if aggregate:
             result = self.aggregate()
 
-    def provide_members(self, cell, dimension, depth=None, hierarchy=None,
-                        levels=None, attributes=None, page=None,
-                        page_size=None, order=None):
+    def provide_members(self, cell, dimension, hierarchy=None, levels=None, 
+                        attributes=None, page=None, page_size=None, order=None):
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 

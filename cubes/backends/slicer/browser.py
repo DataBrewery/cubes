@@ -136,6 +136,9 @@ class SlicerBrowser(AggregationBrowser):
         if page_size is not None:
             params["page_size"] = str(page_size)
 
+        if order is not None:
+            params["order"] = str(order)
+
         if attributes:
             params["fields"] = ",".join(str(attr) for attr in attributes)
 
