@@ -128,7 +128,7 @@ class Cube(ModelObject):
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, dimension_links=None, locale=None, category=None,
-                 store=None, datastore=None, namespace=None, **options):
+                 store=None, namespace=None, **options):
 
         """Create a new Cube model object.
 
@@ -204,8 +204,6 @@ class Cube(ModelObject):
         self.joins = joins
         self.key = key
         self.browser_options = browser_options or {}
-        # TODO: remove datastore
-        self.store = store or datastore or options.get("store", options.get("datastore"))
         self.browser = options.get("browser")
 
         # Be graceful here
@@ -214,6 +212,14 @@ class Cube(ModelObject):
         # Run-time properties
         # Sets in the Namespace.cube() when cube is created
         # Used by workspace internally to search for dimensions
+        if isinstance(store, compat.string_type):
+            self.store_name = store
+            self.store = None
+        else:
+            self.store_name = None
+            self.store = store
+
+        self.store_name = self.store_name or options.get("store")
         self.provider = None
         self.namespace = None
         # Used by backends

@@ -273,6 +273,7 @@ def cube_model(cube_name):
                               hierarchy_limits=hier_limits)
 
     response["features"] = workspace.cube_features(g.cube)
+
     return jsonify(response)
 
 

@@ -140,6 +140,7 @@ class Namespace(object):
                 pass
             else:
                 cube.provider = provider
+                cube.store = provider.store
                 cube.namespace = self
                 break
 

@@ -416,8 +416,9 @@ class Workspace(object):
 
         return store_name
 
-    # TODO: this is very complicated process, needs simplification
-    # TODO: change this to: import(name, info, provider, store, languages, ns)
+    # TODO: this is very confusing process, needs simplification
+    # TODO: change this to: add_model_provider(provider, info, store, languages, ns)
+
     def import_model(self, model=None, provider=None, store=None,
                      translations=None, namespace=None):
         """Registers the `model` in the workspace. `model` can be a
@@ -439,10 +440,6 @@ class Workspace(object):
         :meth:`cubes.Workspace.cube` or :meth:`cubes.Workspace.dimension` is
         called.
         """
-        if store and not isinstance(store, compat.string_type):
-            raise ArgumentError("Store should be provided by name "
-                                "(as a string).")
-
         # 1. Metadata
         # -----------
         # Make sure that the metadata is a dictionary
@@ -586,23 +583,7 @@ class Workspace(object):
             trans = context.object_localization("cubes", cube.name)
             cube = cube.localized(trans)
 
-        nsname = nsname or "default"
-
-        # Get the translation
-        # 1. look if there is translation for the namespace
-        # 2. find cube in the translation
-        # 3. translate if we have something
-        # translation = None
-        # ns_translation = self.translation(locale, nsname)
-        # if ns_translation:
-        #    cubes_translation = ns_translation.get("cubes")
-        #    if cubes_translation:
-        #        translation = cubes_translation.get(basename)
-
-        # if translation:
-        #    cube = copy(cube)
-        #    cube.localize(translation)
-
+        # Cache the cube
         self._cubes[cube_key] = cube
 
         return cube
