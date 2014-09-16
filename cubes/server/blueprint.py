@@ -4,6 +4,8 @@ from flask import render_template, redirect
 from jinja2 import Template
 import json, re
 from functools import wraps
+import sys
+import traceback
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..browser import Cell, SPLIT_DIMENSION_NAME, cut_from_dict
@@ -191,7 +193,23 @@ def page_not_found(e):
 
 @slicer.errorhandler(InternalError)
 def server_error(e):
-    logger.error("Internal error: %s" % e)
+
+    (exc_type, exc_value, exc_traceback) = sys.exc_info()
+    exc_name = exc_type.__name__
+    logger.error("Internal Cubes error ({}): {}".format(exc_name, exc_value))
+
+    tb = traceback.format_exception(exc_type, exc_value,
+                                    exc_traceback)
+    logger.debug("Exception stack trace:\n{}".format("".join(tb)))
+
+    error = {
+        "error": "internal_server_error",
+        "message": "Internal server error",
+        "hint": "Server administrators can learn more about the error from "
+                "the error logs (even more if they have 'debug' level)"
+    }
+
+    return jsonify(error), 500
 
 # Endpoints
 # =========
