@@ -17,11 +17,12 @@ try:
     import sqlalchemy
     import sqlalchemy.sql as sql
     from sqlalchemy.engine import reflection
+    from sqlalchemy.orm.query import QueryContext
 except ImportError:
     from ...common import MissingPackage
+
     reflection = sqlalchemy = sql = MissingPackage("sqlalchemy",
                                                    "SQL aggregation browser")
-
 
 __all__ = [
     "create_sqlalchemy_engine",
@@ -32,33 +33,33 @@ __all__ = [
 # Data types of options passed to sqlalchemy.create_engine
 # This is used to coalesce configuration string values into appropriate types
 SQLALCHEMY_OPTION_TYPES = {
-        "case_sensitive": "bool",
-        "case_insensitive": "bool",
-        "convert_unicode": "bool",
-        "echo": "bool",
-        "echo_pool": "bool",
-        "implicit_returning": "bool",
-        "label_length": "int",
-        "max_overflow": "int",
-        "pool_size": "int",
-        "pool_recycle": "int",
-        "pool_timeout": "int",
-        "supports_unicode_binds": "bool"
+    "case_sensitive": "bool",
+    "case_insensitive": "bool",
+    "convert_unicode": "bool",
+    "echo": "bool",
+    "echo_pool": "bool",
+    "implicit_returning": "bool",
+    "label_length": "int",
+    "max_overflow": "int",
+    "pool_size": "int",
+    "pool_recycle": "int",
+    "pool_timeout": "int",
+    "supports_unicode_binds": "bool"
 }
 
 # Data types of options passed to the workspace, browser and mapper
 # This is used to coalesce configuration string values
 OPTION_TYPES = {
-        "include_summary": "bool",
-        "include_cell_count": "bool",
-        "use_denormalization": "bool",
-        "safe_labels": "bool"
+    "include_summary": "bool",
+    "include_cell_count": "bool",
+    "use_denormalization": "bool",
+    "safe_labels": "bool"
 }
 
 
-####
+# ###
 # Backend related functions
-###
+# ##
 def ddl_for_model(url, model, fact_prefix=None,
                   fact_suffix=None, dimension_prefix=None,
                   dimension_suffix=None, schema_type=None):
@@ -105,7 +106,6 @@ def create_sqlalchemy_engine(url, options, prefix="sqlalchemy_"):
 
 
 class SQLStore(Store):
-
     def model_provider_name(self):
         return 'default'
 
@@ -189,7 +189,7 @@ class SQLStore(Store):
 
         if table.exists() and not force:
             raise WorkspaceError("View or table %s (schema: %s) already exists." % \
-                               (view_name, schema))
+                                 (view_name, schema))
 
         inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.connectable)
         view_names = inspector.get_view_names(schema=schema)
@@ -251,7 +251,7 @@ class SQLStore(Store):
 
         schema = schema or self.options.get("denormalized_view_schema") or self.schema
 
-        dview_prefix = self.options.get("denormalized_view_prefix","")
+        dview_prefix = self.options.get("denormalized_view_prefix", "")
         view_name = view_name or dview_prefix + cube.name
 
         if browser.mapper.fact_name == view_name and schema == browser.mapper.schema:
@@ -270,10 +270,9 @@ class SQLStore(Store):
             create_view = CreateOrReplaceView(table, statement)
 
         self.logger.info("creating denormalized view %s (materialized: %s)" \
-                                            % (str(table), materialize))
+                         % (str(table), materialize))
         # print("SQL statement:\n%s" % statement)
         engine.execute(create_view)
-
         if create_index:
             if not materialize:
                 raise WorkspaceError("Index can be created only on a materialized view")
@@ -372,7 +371,7 @@ class SQLStore(Store):
         dimension = cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
         if level:
-            depth = hierarchy.level_index(dimension.level(level))+1
+            depth = hierarchy.level_index(dimension.level(level)) + 1
         else:
             depth = len(hierarchy)
 
@@ -381,13 +380,12 @@ class SQLStore(Store):
         elif depth is not None:
             levels = hierarchy.levels[0:depth]
 
-
         attributes = []
         for level in levels:
             attributes.extend(level.attributes)
 
         statement = context.denormalized_statement(attributes=attributes,
-                                                    include_fact_key=False)
+                                                   include_fact_key=False)
 
         group_by = [context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
@@ -395,7 +393,7 @@ class SQLStore(Store):
         table_name = "%s%s%s_%s" % (dimension_prefix or "", dimension_suffix or "",
                                     str(dimension), str(level))
         self.create_table_from_statement(table_name, statement, schema,
-                                            replace, insert=True)
+                                         replace, insert=True)
 
     def create_conformed_rollups(self, cube, dimensions, grain=None, schema=None,
                                  dimension_prefix=None, dimension_suffix=None,
@@ -416,16 +414,16 @@ class SQLStore(Store):
             else:
                 level_index = len(hierarchy)
 
-            for depth in range(0,level_index):
+            for depth in range(0, level_index):
                 level = hierarchy[depth]
                 self.create_conformed_rollup(cube, dim, level=level,
-                                    schema=schema,
-                                    dimension_prefix=dimension_prefix or "",
-                                    dimension_suffix=dimension_suffix or "",
-                                    replace=replace)
+                                             schema=schema,
+                                             dimension_prefix=dimension_prefix or "",
+                                             dimension_suffix=dimension_suffix or "",
+                                             replace=replace)
 
     def create_table_from_statement(self, table_name, statement, schema,
-                                     replace=False, insert=False):
+                                    replace=False, insert=False):
         """Creates or replaces a table from statement.
 
         Arguments:
@@ -494,78 +492,56 @@ class SQLStore(Store):
                                 "the same store")
 
         schema = schema or self.options.get("aggregates_schema", self.schema)
-        prefix = self.options.get("aggregates_prefix","")
-        table_name = table_name or prefix + cube.name
-
         # Just a shortcut
         cube = browser.cube
+
+        prefix = self.options.get("aggregates_prefix", "")
+        table_name = table_name or "%s_%s" % (prefix, cube.name)
+
         if dimensions:
-            dimensions = [cube.dimension(dim) for dim in dimensions]
+            dimensions = [cube.dimension(dimension) for dimension in dimensions]
         else:
             dimensions = cube.dimensions
 
-        # Collect keys that are going to be used for aggregations
-        keys = []
-        for dimension in dimensions:
-            keys += [level.key for level in dimension.hierarchy().levels]
-
         builder = QueryBuilder(browser)
 
-        if builder.snowflake.fact_name == table_name \
-                and builder.snowflake.schema == schema:
+        if builder.snowflake.fact_name == table_name and builder.snowflake.schema == schema:
             raise ArgumentError("target is the same as source fact table")
 
-        drilldown = {}
-
-        for dim in dimensions:
-            level = dim.hierarchy().levels[-1]
-            drilldown[str(dim)] = level
+        drilldown = []
+        keys = None
+        for dimension in dimensions:
+            levels = dimension.hierarchy().levels
+            drilldown.append((dimension, dimension.hierarchy(), levels[-1]))
+            keys = [l.key for l in levels]
 
         cell = Cell(cube)
         drilldown = Drilldown(drilldown, cell)
 
-        # Create dummy statement of all dimension level keys for
+        # Create statement of all dimension level keys for
         # getting structure for table creation
-        # TODO: attributes/keys?
-        statement = builder.aggregation_statement(cell,
-                                                  drilldown,
-                                                  cube.aggregates)
+        statement = builder.aggregation_statement(
+            cell,
+            drilldown=drilldown,
+            aggregates=cube.aggregates,
+            attributes=keys
+        )
 
-        #
         # Create table
-        #
-        table = self.create_table_from_statement(table_name,
-                                                  statement,
-                                                  schema=schema,
-                                                  replace=replace,
-                                                  insert=False)
+        table = self.create_table_from_statement(
+            table_name,
+            statement,
+            schema=schema,
+            replace=replace,
+            insert=False
+        )
 
-        cuboids = hierarchical_cuboids(dimensions,
-                                        required=dimension_links)
+        self.logger.info("Inserting...")
 
-        for cuboid in cuboids:
+        with self.connectable.begin() as connection:
 
-            # 'cuboid' is described as a list of ('dimension', 'level') tuples
-            # where 'level' is deepest level to be considered
-
-            self.logger.info("aggregating cuboid %s" % (cuboid, ) )
-
-            dd = {}
-            keys = None
-            for dim, level in cuboid:
-                dd[str(dim)] = level
-                dim = cube.dimension(dim)
-                hier = dim.hierarchy()
-                levels = hier.levels_for_depth(hier.level_index(level)+1)
-                keys = [l.key for l in levels]
-
-            dd = Drilldown(dd, cell)
-
-            statement = builder.aggregation_statement(cell,
-                                                      aggregates=cube.aggregates,
-                                                      attributes=keys,
-                                                      drilldown=drilldown)
-            self.logger.info("inserting")
             insert = InsertIntoAsSelect(table, statement,
                                         columns=statement.columns)
-            self.connectable.execute(str(insert))
+
+            connection.execute(insert)
+        self.logger.info("Done")
