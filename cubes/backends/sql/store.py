@@ -18,6 +18,7 @@ try:
     import sqlalchemy.sql as sql
     from sqlalchemy.engine import reflection
     from sqlalchemy.orm.query import QueryContext
+    from sqlalchemy.schema import Index
 except ImportError:
     from ...common import MissingPackage
 
@@ -544,4 +545,18 @@ class SQLStore(Store):
                                         columns=statement.columns)
 
             connection.execute(insert)
+        self.logger.info("Done")
+
+        self.logger.info("Creating indexes...")
+
+        aggregated_columns = [a.name for a in cube.aggregates]
+        for column in table.columns:
+            if column.name in aggregated_columns:
+                continue
+
+            name = "%s_%s_idx" % (table_name, column)
+            self.logger.info("creating index: %s" % name)
+            index = Index(name, column)
+            index.create(self.connectable)
+
         self.logger.info("Done")
