@@ -1259,14 +1259,14 @@ def _path_part_escape(path_part):
     if path_part is None:
         return NULL_PATH_VALUE
 
-    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", str(path_part))
+    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", compat.to_unicode(path_part))
 
 
 def _path_part_unescape(path_part):
     if path_part == NULL_PATH_VALUE:
         return None
 
-    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", str(path_part))
+    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", compat.to_unicode(path_part))
 
 
 def string_from_cuts(cuts):
