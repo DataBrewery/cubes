@@ -216,8 +216,8 @@ def run_test(args):
 
         sys.stdout.write("testing %s: " % name)
 
-        if cube.datastore in exclude \
-                or (include and cube.datastore not in include):
+        if cube.store_name in exclude \
+                or (include and cube.store_name not in include):
             sys.stdout.write("pass\n")
             continue
 
@@ -281,7 +281,7 @@ def denormalize(args):
 
     for cube_name in cube_list:
         cube = workspace.cube(cube_name)
-        store = workspace.get_store(cube.datastore or "default")
+        store = workspace.get_store(cube.store_name or "default")
 
         view_name = view_prefix + cube_name if view_prefix else cube_name
 
