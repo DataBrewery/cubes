@@ -305,7 +305,7 @@ def pre_aggregate(args):
 
     for cube_name in cube_list:
         cube = workspace.cube(cube_name)
-        store = workspace.get_store()
+        store = workspace.get_store(cube.store_name or "default")
         browser = workspace.browser(cube)
         store.create_cube_aggregate(browser, replace=args.replace)
 
