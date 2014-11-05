@@ -294,6 +294,22 @@ def denormalize(args):
                                             keys_only=False,
                                             schema=view_schema)
 
+
+def pre_aggregate(args):
+    """Create pre-aggregated table
+    """
+    workspace = cubes.Workspace(args.config)
+    cube_list = args.cube
+    if not cube_list:
+        cube_list = [cube["name"] for cube in workspace.list_cubes()]
+
+    for cube_name in cube_list:
+        cube = workspace.cube(cube_name)
+        store = workspace.get_store()
+        browser = workspace.browser(cube)
+        store.create_cube_aggregate(browser, replace=args.replace)
+
+
 def convert_model(args):
     path = args.target
     model = read_model_metadata(args.model)
@@ -443,6 +459,22 @@ subparser.add_argument('-c', '--cube',
                             dest='cube', action='append',
                             help='cube(s) to be denormalized, if not specified then all in the model')
 subparser.set_defaults(func=denormalize)
+
+
+################################################################################
+# Command: pre_aggregate
+
+subparser = subparsers.add_parser('pre_aggregate',
+                                  help="create pre-aggregated table")
+subparser.add_argument('config', help='slicer confuguration .ini file')
+
+subparser.add_argument('-f', '--force',
+                       dest='replace', action='store_true', default=False,
+                       help='replace existing tables')
+subparser.add_argument('-c', '--cube',
+                       dest='cube', action='append',
+                       help='cube(s) to be pre-aggregated, if not specified then all in the model')
+subparser.set_defaults(func=pre_aggregate)
 
 ################################################################################
 # Command: ddl
