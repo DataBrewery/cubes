@@ -99,7 +99,7 @@ class SnowflakeSchema(object):
         #
         self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
         self.fact_name = self.mapper.fact_name
-
+        self.partition = mapper.partition
         try:
             self.fact_table = sqlalchemy.Table(self.fact_name,
                                                self.metadata,
@@ -465,7 +465,17 @@ class SnowflakeSchema(object):
                                     % join.detail[0:3])
 
             # The join condition:
-            onclause = master_column == detail_column
+
+            if self.partition:
+                # creates the following join clause
+                # fact_table.<foreign key> = detail_table.<foreign key>
+                # AND fact_table.<some field> = detail_table.<some field>
+                onclause = sql.and_(
+                    master_column == detail_column,
+                    master_table.c[self.partition] == detail_table.c[self.partition]
+                )
+            else:
+                onclause = master_column == detail_column                
 
             # Get the joined products – might be plain tables or already
             # joined tables
@@ -677,6 +687,7 @@ class QueryBuilder(object):
         self.mapper = browser.mapper
         self.cube = browser.cube
 
+        
         self.snowflake = SnowflakeSchema(self.cube, self.mapper,
                                          self.browser.metadata,
                                          safe_labels=browser.safe_labels)
@@ -758,7 +769,7 @@ class QueryBuilder(object):
         """
 
         if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty")
+            raise ArgumentError("List of aggregates should not be empty")
 
         drilldown = drilldown or Drilldown()
 

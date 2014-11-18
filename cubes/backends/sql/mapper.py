@@ -170,6 +170,7 @@ class SnowflakeMapper(Mapper):
                             (fact_prefix, self.cube.basename, fact_suffix)
         self.schema = schema
 
+        self.partition = options.get('partition')
         self._collect_joins(joins or cube.joins)
 
     def _collect_joins(self, joins):

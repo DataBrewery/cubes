@@ -76,6 +76,7 @@ class SnowflakeBrowser(AggregationBrowser):
         * locale is implemented as denormalized: one column for each language
 
         """
+
         super(SnowflakeBrowser, self).__init__(cube, store)
 
         if not cube:
@@ -160,6 +161,7 @@ class SnowflakeBrowser(AggregationBrowser):
         attributes = self.cube.get_attributes(fields)
 
         builder = QueryBuilder(self)
+
         builder.denormalized_statement(attributes=attributes,
                                        include_fact_key=True)
 
