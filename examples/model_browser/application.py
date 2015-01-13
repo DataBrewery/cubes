@@ -33,7 +33,7 @@ def report(dim_name=None):
     if dim_name:
         dimension = cube.dimension(dim_name)
         physical = {}
-        for attribute in dimension.all_attributes:
+        for attribute in dimension.attributes:
             logical = attribute.ref()
             physical[logical] = mapper.physical(attribute)
     else:
