@@ -1247,6 +1247,16 @@ class Hierarchy(ModelObject):
     def level_names(self):
         return list(self._levels.keys())
 
+    def keys(self, depth=None):
+        """Return names of keys for all levels in the hierarchy to `depth`. If
+        `depth` is `None` then all levels are returned."""
+        if depth is not None:
+            levels = self.levels[0:depth]
+        else:
+            levels = self.levels
+
+        return [level.key for level in levels]
+
     def __eq__(self, other):
         if not other or type(other) != type(self):
             return False
@@ -1636,7 +1646,8 @@ class AttributeBase(ModelObject):
     localizable_attributes = ["label", "description", "format"]
 
     def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, missing_value=None, **kwargs):
+                 info=None, format=None, missing_value=None, expression=None,
+                 **kwargs):
         """Base class for dimension attributes, measures and measure
         aggregates.
 
@@ -1656,6 +1667,8 @@ class AttributeBase(ModelObject):
           in the data source. Support of this attribute property depends on the
           backend. Please consult the backend documentation for more
           information.
+        * `expression` – arithmetic expression for computing this attribute
+          from other existing attributes.
 
         String representation of the `AttributeBase` returns its `name`.
 
@@ -1682,6 +1695,8 @@ class AttributeBase(ModelObject):
         else:
             self.order = None
 
+        self.expression = expression
+
     def __str__(self):
         return self.name
 
@@ -1698,6 +1713,7 @@ class AttributeBase(ModelObject):
             and self.info == other.info \
             and self.description == other.description \
             and self.format == other.format \
+            and self.expression == other.expression \
             and self.missing_value == other.missing_value
 
     def __ne__(self, other):
@@ -1712,6 +1728,7 @@ class AttributeBase(ModelObject):
         d["format"] = self.format
         d["order"] = self.order
         d["missing_value"] = self.missing_value
+        d["expression"] = self.expression
 
         d["ref"] = self.ref()
 
@@ -1739,7 +1756,7 @@ class Attribute(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, dimension=None, locales=None,
-                 missing_value=None, **kwargs):
+                 missing_value=None, expression=None, **kwargs):
         """Dimension attribute object. Also used as fact detail.
 
         Attributes:
@@ -1766,7 +1783,8 @@ class Attribute(AttributeBase):
         super(Attribute, self).__init__(name=name, label=label,
                                         description=description, order=order,
                                         info=info, format=format,
-                                        missing_value=missing_value)
+                                        missing_value=missing_value,
+                                        expression=expression)
 
         self.dimension = dimension
         self.locales = locales or []
@@ -1780,7 +1798,8 @@ class Attribute(AttributeBase):
                          description=self.description,
                          info=copy.deepcopy(self.info, memo),
                          format=self.format,
-                         missing_value=self.missing_value)
+                         missing_value=self.missing_value,
+                         expression=self.expression)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
@@ -1878,9 +1897,10 @@ class Measure(AttributeBase):
         """
         super(Measure, self).__init__(name=name, label=label,
                                       description=description, order=order,
-                                      info=info, format=format, missing_value=None)
+                                      info=info, format=format,
+                                      missing_value=None,
+                                      expression=expression)
 
-        self.expression = expression
         self.formula = formula
         self.aggregates = aggregates
         self.window_size = window_size
@@ -1924,7 +1944,6 @@ class Measure(AttributeBase):
         d = super(Measure, self).to_dict(**options)
         d["formula"] = self.formula
         d["aggregates"] = self.aggregates
-        d["expression"] = self.expression
         d["window_size"] = self.window_size
 
         return d
@@ -1997,11 +2016,11 @@ class MeasureAggregate(AttributeBase):
                                                description=description,
                                                order=order, info=info,
                                                format=format,
-                                               missing_value=missing_value)
+                                               missing_value=missing_value,
+                                               expression=expression)
 
         self.function = function
         self.formula = formula
-        self.expression = expression
         self.measure = measure
         self.nonadditive = nonadditive
         self.window_size = window_size
@@ -2028,7 +2047,6 @@ class MeasureAggregate(AttributeBase):
         return str(self.function) == str(other.function) \
             and self.measure == other.measure \
             and self.formula == other.formula \
-            and self.expression == other.expression \
             and self.nonadditive == other.nonadditive \
             and self.window_size == other.window_size
 
@@ -2039,7 +2057,6 @@ class MeasureAggregate(AttributeBase):
         d = super(MeasureAggregate, self).to_dict(**options)
         d["function"] = self.function
         d["formula"] = self.formula
-        d["expression"] = self.expression
         d["measure"] = self.measure
         d["nonadditive"] = self.nonadditive
         d["window_size"] = self.window_size
