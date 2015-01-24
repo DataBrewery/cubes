@@ -2,12 +2,12 @@ import sys
 from setuptools import setup, find_packages
 
 requirements = ["python-dateutil", "jsonschema"]
+
 extras = {
     'sql': 'sqlalchemy>= 0.9.0',
     'slicer': 'werkzeug',
     'html': 'jinja',
-    'mongo': 'pymongo',
-    'all': ['cubes[%s]' % extra for extra in ['sql','slicer','html','mongo']],
+    'all': ['cubes[%s]' % extra for extra in ['sql','slicer','html']],
     'dev': ['cubes[all]', 'sphinx'],
 }
 
@@ -21,12 +21,12 @@ setup(
     extras_require = extras,
 
     packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
         'cubes': ['templates/*.html', 'templates/*.js', 'schemas/*.json'],
         'cubes.server': ['templates/*.html'],
-        'cubes.backends.mixpanel': ['*.json']
     },
 
     classifiers = [
