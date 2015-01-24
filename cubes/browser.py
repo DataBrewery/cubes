@@ -676,6 +676,25 @@ class Cell(object):
 
         return result
 
+    @property
+    def key_attributes(self):
+        """Returns an unordered set of key attributes used in the cell's
+        cuts."""
+        cell_keys = set()
+
+        for cut, cut_attrs in self.attributes_for_cell_cuts(cell):
+            for cut in self.cuts:
+                depth = cut.level_depth()
+                if depth:
+                    dim = self.cube.dimension(cut.dimension)
+                    hier = dim.hierarchy(cut.hierarchy)
+                    keys = [level.key for level in hier[0:depth]]
+                    result.append((cut, keys))
+            cell_keys |= set(keys)
+
+        attributes = [self.cube.attribute(key) for key in cell_keys]
+        return attribtes
+
     def slice(self, cut):
         """Returns new cell by slicing receiving cell with `cut`. Cut with
         same dimension as `cut` will be replaced, if there is no cut with the
@@ -1912,6 +1931,7 @@ class Drilldown(object):
 
         return result
 
+    @property
     def all_attributes(self):
         """Returns attributes of all levels in the drilldown. Order is by the
         drilldown item, then by the levels and finally by the attribute in the
