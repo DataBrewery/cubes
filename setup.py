@@ -1,7 +1,7 @@
 import sys
 from setuptools import setup, find_packages
 
-requirements = ["pytz", "python-dateutil", "jsonschema"]
+requirements = ["python-dateutil", "jsonschema"]
 extras = {
     'sql': 'sqlalchemy>= 0.9.0',
     'slicer': 'werkzeug',

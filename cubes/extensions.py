@@ -15,22 +15,25 @@ from collections import defaultdict
 _default_modules = {
     "store": {
         "sql":"cubes.backends.sql.store",
-        "mongo":"cubes.backends.mongo",
-        "mixpanel":"cubes.backends.mixpanel.store",
         "slicer":"cubes.backends.slicer.store",
-        "ga":"cubes.backends.ga.store",
+        # Extracted
+        "mongo":"cubes_mongo.store",
+        "mixpanel":"cubes_mixpanel.store",
+        "ga":"cubes_ga.store",
     },
     "browser": {
         "snowflake":"cubes.backends.sql.browser",
         "snapshot": "cubes.backends.sql.browser",
-        "mixpanel":"cubes.backends.mixpanel.browser",
         "slicer":"cubes.backends.slicer.browser",
-        "ga":"cubes.backends.ga.browser",
+        # Extracted
+        "mixpanel":"cubes_mixpanel.browser",
+        "ga":"cubes_ga.browser",
     },
     "model_provider": {
-        "mixpanel":"cubes.backends.mixpanel.store",
         "slicer":"cubes.backends.slicer.store",
-        "ga":"cubes.backends.ga.store",
+        # Extracted
+        "mixpanel":"cubes_mixpanel.store",
+        "ga":"cubes_ga.store",
     },
     "request_log_handler": {
         "sql":"cubes.backends.sql.logging",
