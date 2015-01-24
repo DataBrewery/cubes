@@ -166,7 +166,7 @@ def generate_ddl(args):
     if args.backend:
         backend = cubes.workspace.get_backend(args.backend)
     else:
-        backend = cubes.backends.sql.browser
+        backend = cubes.sql.browser
 
     ddl = backend.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix,
                                 dimension_prefix=args.dimension_prefix,

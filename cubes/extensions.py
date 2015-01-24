@@ -14,29 +14,29 @@ from collections import defaultdict
 
 _default_modules = {
     "store": {
-        "sql":"cubes.backends.sql.store",
-        "slicer":"cubes.backends.slicer.store",
+        "sql":"cubes.sql.store",
+        "slicer":"cubes.server.store",
         # Extracted
         "mongo":"cubes_mongo.store",
         "mixpanel":"cubes_mixpanel.store",
         "ga":"cubes_ga.store",
     },
     "browser": {
-        "snowflake":"cubes.backends.sql.browser",
-        "snapshot": "cubes.backends.sql.browser",
-        "slicer":"cubes.backends.slicer.browser",
+        "snowflake":"cubes.sql.browser",
+        "snapshot": "cubes.sql.browser",
+        "slicer":"cubes.server.browser",
         # Extracted
         "mixpanel":"cubes_mixpanel.browser",
         "ga":"cubes_ga.browser",
     },
     "model_provider": {
-        "slicer":"cubes.backends.slicer.store",
+        "slicer":"cubes.server.store",
         # Extracted
         "mixpanel":"cubes_mixpanel.store",
         "ga":"cubes_ga.store",
     },
     "request_log_handler": {
-        "sql":"cubes.backends.sql.logging",
+        "sql":"cubes.sql.logging",
     },
 }
 
