@@ -42,19 +42,6 @@ JoinedProduct = namedtuple("JoinedProduct",
         ["expression", "tables"])
 
 
-_SQL_EXPR_CONTEXT = {
-    "sqlalchemy": sqlalchemy,
-    "sql": sql,
-    "func": sql.expression.func,
-    "case": sql.expression.case,
-    "text": sql.expression.text,
-    "datetime": datetime,
-    "re": re,
-    "extract": sql.expression.extract,
-    "and_": sql.expression.and_,
-    "or_": sql.expression.or_
-}
-
 def table_str(key):
     """Make (`schema`, `table`) tuple printable."""
     table, schema = key
@@ -540,19 +527,7 @@ class SnowflakeSchema(object):
         if ref.func:
             column = getattr(sql.expression.func, ref.func)(column)
         if ref.expr:
-            # Provide columns for attributes (according to current state of
-            # the query)
-            context = dict(_SQL_EXPR_CONTEXT)
-            getter = _TableGetter(self)
-            context["table"] = getter
-            getter = _AttributeGetter(self, attribute.dimension)
-            context["dim"] = getter
-            getter = _AttributeGetter(self, self.cube)
-            context["fact"] = getter
-            context["column"] = column
-
-
-            column = evaluate_expression(ref.expr, context, 'expr', sql.expression.ColumnElement)
+            raise NotImplementedError("Removed feature")
 
         if self.safe_labels:
             label = "a%d" % self.label_counter
@@ -631,8 +606,6 @@ class _StatementConfiguration(object):
         self.split_attributes = []
         self.split_cuts = []
 
-        self.ptd_attributes = []
-
     @property
     def all_attributes(self):
         """All attributes that should be considered for a statement
@@ -650,7 +623,6 @@ class _StatementConfiguration(object):
         self.split_cuts += other.split_cuts
 
         self.other_attributes += other.other_attributes
-        self.ptd_attributes += other.ptd_attributes
 
     def is_empty(self):
         return not (bool(self.attributes) \
@@ -801,33 +773,6 @@ class QueryBuilder(object):
         master.attributes, detail.attributes = \
                 self._split_attributes_by_relationship(drilldown_attributes)
 
-        # Period-to-date
-        #
-        # One thing we have to do later is to generate the PTD condition
-        # (either for master or for detail) and assign it to the appropriate
-        # list of conditions
-
-        ptd_attributes = self._ptd_attributes(cell, drilldown)
-        ptd_master, ptd_detail = self._split_attributes_by_relationship(ptd_attributes)
-        if ptd_master and ptd_detail:
-            raise InternalError("PTD attributes are spreading from master "
-                                "to outer detail. This is not supported.")
-        elif ptd_master:
-            master.ptd_attributes = ptd_master
-        elif ptd_detail:
-            detail.ptd_attributes = ptd_detail
-
-        # TODO: PTD workaround #2
-        # We need to know which attributes have to be included for JOINs,
-        # however we can know this only when "condition" in mapping is
-        # evaluated, which can be evaluated only after joins and when the
-        # master-fact is ready.
-        required = self.cube.browser_options.get("ptd_master_required", [])
-
-        if required:
-            required = self.cube.get_attributes(required)
-            master.ptd_attributes += required
-
         # Semi-additive attribute
         semiadditives = self.semiadditive_attributes(aggregates, drilldown)
         sa_master, sa_detail = self._split_attributes_by_relationship(semiadditives)
@@ -893,13 +838,11 @@ class QueryBuilder(object):
             # WHERE
             # -----
             conditions = master_conditions
-            ptd_attributes = master.ptd_attributes
 
             # JOIN
             # ----
             attributes = set(aggregates) \
-                            | master.all_attributes \
-                            | set(ptd_attributes)
+                            | master.all_attributes
             join = self.snowflake.join_expression(attributes)
             join_expression = join.expression
 
@@ -962,16 +905,6 @@ class QueryBuilder(object):
             # ---------------
             condition = condition_conjunction(master_conditions)
 
-            # Add the PTD
-            if master.ptd_attributes:
-                ptd_condition = self._ptd_condition(master.ptd_attributes)
-                condition = condition_conjunction([condition, ptd_condition])
-                # TODO: PTD workaround #3:
-                # Add the PTD attributes to the selection,so the detail part
-                # of the join will be able to find them in the master
-                cols = [self.column(a) for a in master.ptd_attributes]
-                selection += cols
-
             # Prepare the master_fact statement:
             statement = sql.expression.select(selection,
                                               from_obj=join_expression,
@@ -1022,7 +955,6 @@ class QueryBuilder(object):
             # WHERE
             # -----
             conditions = self.conditions_for_cuts(detail.cuts)
-            ptd_attributes = detail.ptd_attributes
 
             # JOIN
             # ----
@@ -1041,11 +973,6 @@ class QueryBuilder(object):
 
         # WHERE
         # -----
-        if ptd_attributes:
-            ptd_condition = self._ptd_condition(ptd_attributes)
-            self.logger.debug("adding PTD condition: %s" % str(ptd_condition))
-            conditions.append(ptd_condition)
-
         condition = condition_conjunction(conditions)
         group_by = group_by if not summary_only else None
 
@@ -1532,71 +1459,6 @@ class QueryBuilder(object):
 
         return condition
 
-    def _ptd_attributes(self, cell, drilldown):
-        """Return attributes that are used for the PTD condition. Output of
-        this function is used for master/detail fact composition and for the
-        `_ptd_condition()`"""
-        # Include every level only once
-        levels = set()
-
-        # For the cell:
-        if cell:
-            levels |= set(item[2] for item in cell.deepest_levels())
-
-        # For drilldown:
-        if drilldown:
-            levels |= set(item[2] for item in drilldown.deepest_levels())
-
-        attributes = []
-        for level in levels:
-            ref = self.mapper.physical(level.key)
-            if ref.condition:
-                attributes.append(level.key)
-
-        return attributes
-
-    def _ptd_condition(self, ptd_attributes):
-        """Returns "periods to date" condition for `ptd_attributes` (which
-        should be a result of `_ptd_attributes()`)"""
-
-        # Collect the conditions
-        #
-        # Conditions are currently specified in the mappings as "condtition"
-        # Collect relevant columns – those with conditions
-
-        # Construct the conditions from the physical attribute expression
-        conditions = []
-
-        for attribute in ptd_attributes:
-            # FIXME: this is a hack
-
-            ref = self.mapper.physical(attribute)
-            if not ref.condition:
-                continue
-
-            column = self.column(attribute)
-
-            # Provide columns for attributes (according to current state of
-            # the query)
-            context = dict(_SQL_EXPR_CONTEXT)
-            getter = _TableGetter(self)
-            context["table"] = getter
-            getter = _AttributeGetter(self, attribute.dimension)
-            context["dim"] = getter
-            getter = _AttributeGetter(self, self.cube)
-            context["fact"] = getter
-            context["column"] = column
-
-            condition = evaluate_expression(ref.condition,
-                                            context,
-                                            'condition',
-                                            sql.expression.ColumnElement)
-
-            conditions.append(condition)
-
-        # TODO: What about invert?
-        return condition_conjunction(conditions)
-
     def fact_key_column(self):
         """Returns a column that represents the fact key."""
         # TODO: this is used only in FactCountFunction, suggestion for better
@@ -1711,65 +1573,4 @@ class QueryBuilder(object):
         self.statement = self.statement.order_by(*order_by.values())
 
         return self.statement
-
-
-
-# Used as a workaround for "condition" attribute mapping property
-# TODO: temp solution
-# Assumption: every other attribute is from the same dimension
-class _AttributeGetter(object):
-    def __init__(self, owner, context):
-        self._context = context
-        self._owner = owner
-
-    def __getattr__(self, attr):
-        return self._column(attr)
-
-    def __getitem__(self, item):
-        return self._column(item)
-
-    def _column(self, name):
-        attribute = self._context.attribute(name)
-        return self._owner.column(attribute)
-
-    # Backward-compatibility for table.c.foo
-    @property
-    def c(self):
-        return self
-
-class _TableGetter(object):
-    def __init__(self, owner):
-        self._owner = owner
-
-    def __getattr__(self, attr):
-        return self._table(attr)
-
-    def __getitem__(self, item):
-        return self._table(item)
-
-    def _table(self, name):
-        # Create a dummy attribute
-        return _ColumnGetter(self._owner, name)
-
-
-class _ColumnGetter(object):
-    def __init__(self, owner, table):
-        self._owner = owner
-        self._table = table
-
-    def __getattr__(self, attr):
-        return self._column(attr)
-
-    def __getitem__(self, item):
-        return self._column(item)
-
-    def _column(self, name):
-        # Create a dummy attribute
-        attribute = PhysicalAttribute(name, table=self._table)
-        return self._owner.column(attribute)
-
-    # Backward-compatibility for table.c.foo
-    @property
-    def c(self):
-        return self
 
