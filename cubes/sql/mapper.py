@@ -5,41 +5,23 @@ from __future__ import absolute_import
 
 from collections import namedtuple
 
-from ...logging import get_logger
-from ...errors import *
-from ...mapper import Mapper
-from ...model import AttributeBase
-from ... import compat
+from ..logging import get_logger
+from ..errors import BackendError
+from ..mapper import Mapper
+from ..model import AttributeBase
+from .. import compat
 
 __all__ = (
     "SnowflakeMapper",
     "DenormalizedMapper",
-    "TableColumnReference",
-    "TableJoin",
     "coalesce_physical",
     "PhysicalAttribute",
     "DEFAULT_KEY_FIELD"
 )
 
+from .starschema import Join, Mapping
+
 DEFAULT_KEY_FIELD = "id"
-
-"""Physical reference to a table column. Note that the table might be an
-aliased table name as specified in relevant join."""
-TableColumnReference = namedtuple("TableColumnReference",
-                                    ["schema", "table", "column", "extract", "func", "condition"])
-
-"""Table join specification. `master` and `detail` are TableColumnReference
-tuples. `method` denotes which table members should be considered in the join:
-*master* – all master members (left outer join), *detail* – all detail members
-(right outer join) and *match* – members must match (inner join)."""
-TableJoin = namedtuple("TableJoin",
-                                    ["master", "detail", "alias", "method"])
-
-
-SnowflakeTable = namedtuple("SnowflakeTable",
-                            ["schema", "table", "outlets"])
-
-_join_method_order = {"detail":0, "master":1, "match": 2}
 
 # Note to developers: Used for internal purposes to represent a physical table
 # column. Currently used only in the PTD condition.
@@ -69,7 +51,7 @@ def coalesce_physical(ref, default_table=None, schema=None):
       ``column`` is required, the rest are optional
 
     Returns tuple (`schema`, `table`, `column`, `extract`, `func`, `condition`), which is a named
-    tuple `TableColumnReference`.
+    tuple `Mapping`.
 
     If no table is specified in reference and `default_table` is not
     ``None``, then `default_table` will be used.
@@ -86,21 +68,21 @@ def coalesce_physical(ref, default_table=None, schema=None):
         if len(split) > 1:
             dim_name = split[0]
             attr_name = ".".join(split[1:])
-            return TableColumnReference(schema, dim_name, attr_name, None, None, None, None)
+            return Mapping(schema, dim_name, attr_name, None, None, None)
         else:
-            return TableColumnReference(schema, default_table, ref, None, None, None, None)
+            return Mapping(schema, default_table, ref, None, None, None)
     elif isinstance(ref, dict):
-        return TableColumnReference(ref.get("schema", schema),
+        return Mapping(ref.get("schema", schema),
                                  ref.get("table", default_table),
                                  ref.get("column"),
                                  ref.get("extract"),
-                                 ref.get("func"),
-                                 ref.get("condition"))
+                                 ref.get("unary"),
+                                 ref.get("expression"))
     else:
         if len(ref) == 2:
-            return TableColumnReference(schema, ref[0], ref[1], None, None, None, None)
+            return Mapping(schema, ref[0], ref[1], None, None, None, None)
         elif len(ref) == 3:
-            return TableColumnReference(ref[0], ref[1], ref[2], None, None, None, None)
+            return Mapping(ref[0], ref[1], ref[2], None, None, None, None)
         else:
             raise BackendError("Number of items in table reference should "\
                                "be 2 (table, column) or 3 (schema, table, column)")
@@ -182,13 +164,15 @@ class SnowflakeMapper(Mapper):
         self.joins = []
 
         for join in joins:
-            master = coalesce_physical(join["master"],self.fact_name,schema=self.schema)
-            detail = coalesce_physical(join["detail"],schema=self.schema)
+            master = coalesce_physical(join["master"],
+                                       self.fact_name,schema=self.schema)
+            detail = coalesce_physical(join["detail"],
+                                       schema=self.schema)
 
             self.logger.debug("collecting join %s -> %s" % (tuple(master), tuple(detail)))
             method = join.get("method", "match").lower()
 
-            self.joins.append(TableJoin(master, detail, join.get("alias"),
+            self.joins.append(Join(master, detail, join.get("alias"),
                                         method))
 
     def physical(self, attribute, locale=None):
@@ -237,7 +221,7 @@ class SnowflakeMapper(Mapper):
         schema = self.dimension_schema or self.schema
 
         if isinstance(attribute, PhysicalAttribute):
-            reference = TableColumnReference(schema,
+            reference = Mapping(schema,
                                              attribute.table,
                                              attribute.name,
                                              None, None, None, None)
@@ -285,7 +269,7 @@ class SnowflakeMapper(Mapper):
             else:
                 table_name = self.fact_name
 
-            reference = TableColumnReference(schema, table_name, column_name, None, None, None, None)
+            reference = Mapping(schema, table_name, column_name, None, None, None, None)
 
         return reference
 
@@ -345,69 +329,6 @@ class SnowflakeMapper(Mapper):
         tables = [(ref[0], ref[1]) for ref in references]
         return tables
 
-    def relevant_joins(self, attributes, expand_locales=False):
-        """Get relevant joins to the attributes - list of joins that
-        are required to be able to acces specified attributes. `attributes`
-        is a list of three element tuples: (`schema`, `table`, `attribute`).
-        """
-
-        # Attribute: (schema, table, column)
-        # Join: ((schema, table, column), (schema, table, column), alias)
-
-        # self.logger.debug("getting relevant joins for %s attributes" % len(attributes))
-
-        if not self.joins:
-            self.logger.debug("no joins to be searched for")
-
-        tables_to_join = set(self.tables_for_attributes(attributes,
-                                                        expand_locales))
-        joined_tables = set()
-        fact_table = (self.schema, self.fact_name)
-        joined_tables.add( fact_table )
-
-        joins = []
-        # self.logger.debug("tables to join: %s" % list(tables_to_join))
-
-        while tables_to_join:
-            table = tables_to_join.pop()
-            # self.logger.debug("joining table %s" % (table, ))
-
-            joined = False
-            for order, join in enumerate(self.joins):
-                master = (join.master.schema, join.master.table)
-                detail = (join.detail.schema, join.alias or join.detail.table)
-                # self.logger.debug("testing join: %s->%s" % (master,detail))
-
-                if table == detail:
-                    # self.logger.debug("detail matches")
-                    # Preserve join order
-                    # TODO: temporary way of ordering according to match
-                    method_order = _join_method_order.get(join.method, 99)
-                    joins.append( (method_order, order, join) )
-
-                    if master not in joined_tables:
-                        # self.logger.debug("adding master %s to be joined" % (master, ))
-                        tables_to_join.add(master)
-
-                    # self.logger.debug("joined detail %s" % (detail, ) )
-                    joined_tables.add(detail)
-                    joined = True
-                    break
-
-            if joins and not joined and table != fact_table:
-                self.logger.warning("No table joined for %s" % (table, ))
-
-        # self.logger.debug("%s tables joined (of %s joins)" % (len(joins), len(self.joins)) )
-
-        # Sort joins according to original order specified in the model
-        joins.sort()
-        self.logger.debug("joined tables: %s" % ([join[2].detail.table for join in
-                                                                joins], ) )
-
-        # Retrieve actual joins from tuples. Remember? We preserved order.
-        joins = [join[2] for join in joins]
-        return joins
-
 
 class DenormalizedMapper(Mapper):
     def __init__(self, cube, locale=None, schema=None,
@@ -454,7 +375,7 @@ class DenormalizedMapper(Mapper):
             locale = None
 
         column_name = self.logical(attribute, locale)
-        reference = TableColumnReference(self.schema,
+        reference = Mapping(self.schema,
                                           self.fact_name,
                                           column_name,
                                           None, None, None, None)

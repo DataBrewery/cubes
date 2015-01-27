@@ -1,7 +1,7 @@
 # -*- encoding=utf -*-
 
 from collections import namedtuple
-from ...errors import *
+from ..errors import InternalError, NoSuchAttributeError, ModelError
 
 try:
     import sqlalchemy

@@ -3,10 +3,10 @@
 
 from __future__ import absolute_import
 
-from ...browser import *
-from ...logging import get_logger
-from ...statutils import calculators_for_aggregates, available_calculators
-from ...errors import *
+from ..browser import *
+from ..logging import get_logger
+from ..statutils import calculators_for_aggregates, available_calculators
+from ..errors import *
 from .mapper import SnowflakeMapper, DenormalizedMapper
 from .functions import get_aggregate_function, available_aggregate_functions
 from .query import QueryBuilder
@@ -130,6 +130,11 @@ class SnowflakeBrowser(AggregationBrowser):
         self.mapper = mapper_class(cube, locale=self.locale, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
+        # TODO: this should be a dictionary of stars – one per locale
+        self.star = star_schema_from_cube(self.cube,
+                                          self.metadata,
+                                          self.mapper)
+
     def features(self):
         """Return SQL features. Currently they are all the same for every
         cube, however in the future they might depend on the SQL engine or
@@ -148,6 +153,10 @@ class SnowflakeBrowser(AggregationBrowser):
 
     def set_locale(self, locale):
         """Change the browser's locale"""
+        raise NotImplementedError
+
+        # TODO: this requires rebuild of the star
+
         self.logger.debug("changing browser's locale to %s" % locale)
         self.mapper.set_locale(locale)
         self.locale = locale
@@ -157,15 +166,13 @@ class SnowflakeBrowser(AggregationBrowser):
 
         Number of SQL queries: 1."""
 
-        attributes = self.cube.get_attributes(fields)
+        # TODO: safe labels 
+        core = star.denormalized_statement(fields,
+                                           include_fact_key=True)
 
-        builder = QueryBuilder(self)
-        builder.denormalized_statement(attributes=attributes,
-                                       include_fact_key=True)
+        core = core.where(core.c[self.fact_key] == key_value)
 
-        builder.fact(key_value)
-
-        cursor = self.execute_statement(builder.statement, "facts")
+        cursor = self.execute_statement(core, "facts")
         row = cursor.fetchone()
 
         if row:

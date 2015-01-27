@@ -14,6 +14,9 @@ similar attributes. No calls to Cubes object functions should be allowed here.
 
 from __future__ import absolute_import
 
+
+from collections import namedtuple
+
 # Attribute -> Column
 # IF attribute has no 'expression' then mapping is used
 # IF attribute has expression, the expression is used and underlying mappings
@@ -165,7 +168,7 @@ class StarSchema(object):
                 table = table.alias(join.alias)
 
             sftable = StarTable(
-                                table=sql_table
+                                table=sql_table,
                                 schema=join.detail.schema,
                                 name=join.detail.table,
                                 alias=join.alias,
@@ -306,7 +309,7 @@ class StarSchema(object):
     # Note: This is "The Method"
     # ==========================
 
-    def star(self, attributes, core=None, core_key=None)
+    def star(self, attributes, core=None, core_key=None):
         """The main method for generating underlying star schema joins.
         Returns a denormalized JOIN expression that includes all relevant
         tables containing `attributes`.
@@ -395,7 +398,7 @@ class StarSchema(object):
                 master_column = master_table.c[master.column]
             except KeyError:
                 raise ModelError('Unable to find master key (schema {schema}) '
-                                 '"{table}"."{column}" '.format(join.master)
+                                 '"{table}"."{column}" '.format(join.master))
 
             # Detail table.column
             # -------------------
@@ -406,7 +409,7 @@ class StarSchema(object):
                 detail_column = detail_table.c[detail.column]
             except KeyError:
                 raise ModelError('Unable to find detail key (schema {schema}) '
-                                 '"{table}"."{column}" '.format(join.detail)
+                                 '"{table}"."{column}" '.format(join.detail))
 
             # The Condition
             # -------------

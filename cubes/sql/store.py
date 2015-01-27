@@ -4,12 +4,12 @@ from __future__ import absolute_import
 
 from .browser import SnowflakeBrowser
 from .mapper import SnowflakeMapper
-from ...logging import get_logger
-from ...common import coalesce_options
-from ...stores import Store
-from ...errors import *
-from ...browser import *
-from ...computation import *
+from ..logging import get_logger
+from ..common import coalesce_options
+from ..stores import Store
+from ..errors import *
+from ..browser import *
+from ..computation import *
 from .query import QueryBuilder
 from .utils import CreateTableAsSelect, InsertIntoAsSelect, CreateOrReplaceView
 
@@ -20,7 +20,7 @@ try:
     from sqlalchemy.orm.query import QueryContext
     from sqlalchemy.schema import Index
 except ImportError:
-    from ...common import MissingPackage
+    from ..common import MissingPackage
 
     reflection = sqlalchemy = sql = MissingPackage("sqlalchemy",
                                                    "SQL aggregation browser")
