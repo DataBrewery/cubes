@@ -1,4 +1,3 @@
-
 # -*- encoding=utf -*-
 """
 cubes.sql.starschema
@@ -15,7 +14,12 @@ similar attributes. No calls to Cubes object functions should be allowed here.
 from __future__ import absolute_import
 
 
+import logging
+
+import sqlalchemy as sa
 from collections import namedtuple
+from ..errors import InternalError
+from .. import compat
 
 # Attribute -> Column
 # IF attribute has no 'expression' then mapping is used
@@ -42,14 +46,19 @@ Join = namedtuple("Join",
                 )
 
 # Internal table reference
-_TableRef = namedtuple("TableRef",
+_TableRef = namedtuple("_TableRef",
                        ["schema", # Database schema
                         "name",   # Table name
                         "alias",  # Optional table alias instead of name
+                        "key",    # Table key (for caching or referencing)
                         "table",  # SQLAlchemy Table object, reflected
                         "join"    # join which joins this table as a detail
                        ]
                     )
+
+class StarSchemaError(InternalError):
+    """Error related to the physical star schema."""
+    pass
 
 class StarSchema(object):
     """Represents a star/snowflake table schema. Attributes:
@@ -94,10 +103,15 @@ class StarSchema(object):
 
     The `method` can be: `match` – ``LEFT INNER JOIN``, `master` – ``LEFT
     OUTER JOIN`` or `detail` – ``RIGHT OUTER JOIN``.
+
+
+    Note: It is not in the responsibilities of the `StarSchema` to resolve
+    arithmetic expressions neither attribute dependencies. It is up to the
+    caller to resolve these and ask for basic columns only.
     """
 
-    def __init__(self, name, metadata, mappings, fact, joins, tables=None,
-                 schema=None):
+    def __init__(self, name, metadata, mappings, fact, joins=None,
+                 tables=None, schema=None):
 
         # TODO: expectation is, that the snowlfake is already localized, the
         # owner of the snowflake should generate one snowflake per locale.
@@ -125,10 +139,12 @@ class StarSchema(object):
         # ----------
 
         # Fact Initialization
-        if isinstance(fact, compat.string_t):
-            self.fact_table = self._table(fact)
+        if isinstance(fact, compat.string_type):
+            self.fact_name = fact
+            self.fact_table = self.table((self.schema, fact))
         else:
             # We expect fact to be a statement
+            self.fact_name = fact.name
             self.fact_table = fact
 
         # Rest of the initialization
@@ -151,7 +167,14 @@ class StarSchema(object):
 
         # Collect the fact table as the root master table
         #
-        table = _TableRef(self.schema, self.fact_name, table=self.fact_table)
+        table = _TableRef(self.schema,
+                          self.fact_name,
+                          None,  # alias
+                          (self.schema, self.fact_name),
+                          self.fact_table,
+                          None   # join
+                         )
+
         self.tables[table.key] = table
 
         # Collect all the detail tables
@@ -162,12 +185,12 @@ class StarSchema(object):
         for join in self.joins:
             # just ask for the table
 
-            table = self._table(join.detail.table, join.detail.schema)
+            table = self.table(join.detail.table, join.detail.schema)
 
             if join.alias:
                 table = table.alias(join.alias)
 
-            sftable = StarTable(
+            sftable = _TableRef(
                                 table=sql_table,
                                 schema=join.detail.schema,
                                 name=join.detail.table,
@@ -178,30 +201,37 @@ class StarSchema(object):
 
             self.tables[table.key] = table
 
-    def _table(self, name, schema=None):
+    def table(self, key):
         """Get reflected SQLAlchemy Table metadata or a table from explicitly
-        provided dictionary of `tables`."""
+        provided dictionary of `tables` from star's catalogue. `key` is a
+        table key in form of a tuple (`schema`, `table`). `schema` should be
+        ``None`` for named table expressions, which take precedence before the
+        physical tables in the default schema. If there is no named table
+        expression then physical table is considered."""
 
+        schema, name = key
         # Return a statement or an explicitly craeted table if it exists
         if not schema and name in self.tables:
             return self.tables[name]
 
         # Get the new alchemy table, reflected
         schema = schema or self.schema
-        key = (name, schema)
+
+        # Reconstruct the key with default schema
+        key = (schema, name)
 
         if key in self._tables:
             return self._tables[key]
 
         try:
-            table = sqlalchemy.Table(fact_name, self.metadata,
-                                     autoload=True, schema=schema)
-        except sqlalchemy.exc.NoSuchTableError:
-            in_schema = (" in schema '%s'" % schema) if schema else ""
-            msg = "No such fact table '%s'%s." % (name, in_schema)
+            table = sa.Table(name, self.metadata, autoload=True, schema=schema)
+        except sa.exc.NoSuchTableError:
+            in_schema = (" in schema '{}'".format(schema)) if schema else ""
+            msg = "No such fact table '{}'{}.".format(name, in_schema)
             raise StarSchemaError(msg)
 
         self._tables[key] = table
+
         return table
 
 
