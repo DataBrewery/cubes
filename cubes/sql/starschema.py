@@ -310,6 +310,9 @@ class StarSchema(object):
         `role` is for debugging purposes to display when there is no such
         table, which role of the table was expected, such as master or detail.
         """
+        if key is None:
+            raise ArgumentError("Table key should not be None")
+
         try:
             return self._tables[key]
         except KeyError:
@@ -453,15 +456,11 @@ class StarSchema(object):
     # Note: This is "The Method"
     # ==========================
 
-    def star(self, attributes, core=None, core_key=None):
+    def star(self, attributes):
         """The main method for generating underlying star schema joins.
         Returns a denormalized JOIN expression that includes all relevant
         tables containing base `attributes` (attributes representing actual
         columns).
-
-        `core` is a master table to be used, usually a fact table. The
-        `core_key` is a table key of the master table as the joins referenc
-        to it.
 
         Example use:
 
@@ -475,12 +474,9 @@ class StarSchema(object):
         """
 
         # Dictionary of raw tables and their joined products
+        # At the end this should contain only one item representing the whole
+        # star.
         star = {}
-        tables = []
-
-        if core is not None:
-            raise NotImplementedError
-            # tables.append(self._tables[core_key])
 
         # Collect all the tables first:
         joins = self.relevant_joins(attributes)
@@ -490,26 +486,25 @@ class StarSchema(object):
             # TODO: use core if provided
             return self.fact_table
 
+        # Gather all involved tables
         for join in joins:
             # 1. MASTER
-            # Add master table to the list. If fact table (or statement) was
-            # explicitly specified, use it instead of the original fact table
+            # Add master table to the list.
 
             key = (join.master.schema, join.master.table)
-            if master is not None and key == core_key:
-                table = master_fact
-            else:
-                table = self.table(join.master.table, join.master.schema)
-            joined_products[key] = table
+            ref = self.table(key)
+            star[key] = ref.table
 
             # 2. DETAIL
             # Add (aliased) detail table to the list. 
 
             alias = join.alias or join.detail.table
-            table = self.table(join.detail.schema, alias)
             key = (join.detail.schema, alias)
-            star[key] = table
-            tables.append(self.tables[key])
+            ref = self.table(key)
+            star[key] = ref.table
+
+        # Here the `star` contains mapping table key -> table, which will be
+        # gradually replaced by JOINs
 
         # Perform the joins
         # =================
@@ -528,18 +523,14 @@ class StarSchema(object):
             master = join.master
             master_key = (master.schema, master.table)
             detail = join.detail
-            detail_key = (detail.schema, join.alias or detail.table)
+            alias = join.alias or join.detail.table
+            detail_key = (detail.schema, alias)
 
             # We need plain tables to get columns for prepare the join
             # condition
             # Master table.column
             # -------------------
-            if master_key == core_key and core is not None:
-                master_table = core
-            else:
-                master_table = self.table(master.schema, master.table)
-
-            key = (join.master.schema, join.master.table, join.master.column)
+            master_table = self.table(master_key).table
 
             try:
                 master_column = master_table.c[master.column]
@@ -549,8 +540,7 @@ class StarSchema(object):
 
             # Detail table.column
             # -------------------
-            alias = join.alias or join.detail
-            detail_table = self.table(join.detail.schema, alias)
+            detail_table = self.table(detail_key).table
 
             try:
                 detail_column = detail_table.c[detail.column]
@@ -576,7 +566,7 @@ class StarSchema(object):
             # is "detail" then we need to swap the order of the tables
             # (products), because SQLAlchemy provides inteface only for
             # left-outer join.
-            if join.method == "match":
+            if join.method is None or join.method == "match":
                 is_outer = False
             elif join.method == "master":
                 is_outer = True
@@ -587,10 +577,8 @@ class StarSchema(object):
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
-            product = sql.expression.join(master_table,
-                                             detail_table,
-                                             onclause=onclause,
-                                             isouter=is_outer)
+            product = sql.expression.join(master_table, detail_table,
+                                          onclause=onclause, isouter=is_outer)
 
             # Replace the already joined master
             del star[detail_key]

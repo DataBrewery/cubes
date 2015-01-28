@@ -39,6 +39,7 @@ DIM_CATEGORY = {
                ["B",        "blueberry",  1],
                ["C",        "cantaloupe", 4],
                ["D",        "date",       1],
+               ["E",        "e-fruit",    0],
             ]
 }
 
@@ -47,9 +48,11 @@ DIM_SIZE = {
     "columns": ["size",    "label"],
     "types":   ["integer", "string"],
     "data": [
+               [0,         "invisible"],
                [1,         "small"],
                [2,         "medium"],
                [4,         "large"],
+               [8,         "very large"],
             ]
 }
 
@@ -419,32 +422,118 @@ class StarSchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "category":       Mapping(None, "test", "category", None, None),
-            "amount":         Mapping(None, "test", "amount", None, None),
-            "category_label": Mapping(None, "dim_fruit", "label", None, None),
-            "size":           Mapping(None, "dim_fruit", "size", None, None),
+            "code":  Mapping(None, "test", "category", None, None),
+            "fruit": Mapping(None, "dim_fruit", "label", None, None),
+            "size":  Mapping(None, "dim_fruit", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
         # Doe we have the joined table in the table list?
-        # import pdb; pdb.set_trace()
         table = schema.table((None, "dim_fruit"))
         self.assertTrue(table.table.is_derived_from(self.dim_category))
 
-        joins = schema.relevant_joins(["category_label"])
+        joins = schema.relevant_joins(["fruit"])
         self.assertEqual(len(joins), 1)
 
         # Check columns
-        self.assertColumnEqual(schema.column("category"),
+        self.assertColumnEqual(schema.column("code"),
                                self.fact.columns["category"])
-        self.assertColumnEqual(schema.column("category_label"),
+        self.assertColumnEqual(schema.column("fruit"),
                                self.dim_category.columns["label"])
         self.assertColumnEqual(schema.column("size"),
                                self.dim_category.columns["size"])
 
+        # Check selectable statement
+        star = schema.star(["code", "size"])
+        selection = [schema.column("code"), schema.column("size")]
+        select = sql.expression.select(selection,
+                                       from_obj=star)
+        result = self.engine.execute(select)
+        sizes = [r["size"] for r in result]
+        self.assertCountEqual(sizes, [2, 1, 4, 1])
+
+    def test_fact_is_included(self):
+        """Test whether the fact will be included in the star schema
+        """
+        joins = [
+            to_join(("test.category", "dim_category.category", "dim_fruit"))
+        ]
+
+        mappings = {
+            "code":  Mapping(None, "test", "category", None, None),
+            "fruit": Mapping(None, "dim_fruit", "label", None, None),
+            "size":  Mapping(None, "dim_fruit", "size", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        star = schema.star(["size"])
+        selection = [schema.column("size")]
+        select = sql.expression.select(selection,
+                                       from_obj=star)
+        result = self.engine.execute(select)
+        sizes = [r["size"] for r in result]
+        self.assertCountEqual(sizes, [2, 1, 4, 1])
+
+    def test_snowflake_joins(self):
+        """Test master-detail-detail snowflake chain joins"""
+        joins = [
+            to_join(("test.category", "dim_category.category", "dim_fruit")),
+            to_join(("dim_fruit.size", "dim_size.size"))
+        ]
+
+        mappings = {
+            "category":       Mapping(None, "test", "category", None, None),
+            "category_label": Mapping(None, "dim_fruit", "label", None, None),
+            "size":           Mapping(None, "dim_fruit", "size", None, None),
+            "size_label":     Mapping(None, "dim_size", "label", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        table = schema.table((None, "dim_fruit"))
+        self.assertTrue(table.table.is_derived_from(self.dim_category))
+
+        table = schema.table((None, "dim_size"))
+        self.assertTrue(table.table.is_derived_from(self.dim_size))
+
+        # Check columns
+        self.assertColumnEqual(schema.column("size_label"),
+                               self.dim_size.columns["label"])
+
+        # Construct the select for the very last attribute in the snowflake
+        # arm
+        star = schema.star(["size_label"])
+        select = sql.expression.select([schema.column("size_label")],
+                                       from_obj=star)
+        result = self.engine.execute(select)
+        sizes = [r["size_label"] for r in result]
+        self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
+
+
     def test_join_order(self):
         """Test that the order of joins does not matter"""
+        """Test master-detail-detail snowflake chain joins"""
+        joins = [
+            to_join(("dim_fruit.size", "dim_size.size")),
+            to_join(("test.category", "dim_category.category", "dim_fruit")),
+        ]
+
+        mappings = {
+            "size_label":     Mapping(None, "dim_size", "label", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        # Construct the select for the very last attribute in the snowflake
+        # arm
+        star = schema.star(["size_label"])
+        select = sql.expression.select([schema.column("size_label")],
+                                       from_obj=star)
+        result = self.engine.execute(select)
+        sizes = [r["size_label"] for r in result]
+        self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
 
     def test_relevant_join(self):
         """Test that only tables containing required attributes are being
