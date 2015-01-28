@@ -17,8 +17,9 @@ from __future__ import absolute_import
 import logging
 
 import sqlalchemy as sa
+import sqlalchemy.sql as sql
 from collections import namedtuple
-from ..errors import InternalError
+from ..errors import InternalError, ModelError
 from .. import compat
 
 # Attribute -> Column
@@ -57,6 +58,14 @@ _TableRef = namedtuple("_TableRef",
                     )
 
 class StarSchemaError(InternalError):
+    """Error related to the physical star schema."""
+    pass
+
+class NoSuchTableError(StarSchemaError):
+    """Error related to the physical star schema."""
+    pass
+
+class NoSuchAttributeError(StarSchemaError):
     """Error related to the physical star schema."""
     pass
 
@@ -121,7 +130,7 @@ class StarSchema(object):
         self.mappings = mappings or {}
         self.joins = joins or []
         self.schema = schema
-        self.tables = tables or {}
+        self.table_expressions = tables or {}
 
         # Cache
         # -----
@@ -141,7 +150,7 @@ class StarSchema(object):
         # Fact Initialization
         if isinstance(fact, compat.string_type):
             self.fact_name = fact
-            self.fact_table = self.table((self.schema, fact))
+            self.fact_table = self.physical_table(fact)
         else:
             # We expect fact to be a statement
             self.fact_name = fact.name
@@ -167,15 +176,15 @@ class StarSchema(object):
 
         # Collect the fact table as the root master table
         #
-        table = _TableRef(self.schema,
-                          self.fact_name,
-                          None,  # alias
-                          (self.schema, self.fact_name),
-                          self.fact_table,
-                          None   # join
+        fact_table = _TableRef(schema=self.schema,
+                               name=self.fact_name,
+                               alias=self.fact_name,
+                               key=(self.schema, self.fact_name),
+                               table=self.fact_table,
+                               join=None
                          )
 
-        self.tables[table.key] = table
+        self._tables[fact_table.key] = fact_table
 
         # Collect all the detail tables
         # We don't need to collect the master tables as they are expected to
@@ -185,52 +194,69 @@ class StarSchema(object):
         for join in self.joins:
             # just ask for the table
 
-            table = self.table(join.detail.table, join.detail.schema)
+            table = self.physical_table(join.detail.table,
+                                        join.detail.schema)
 
             if join.alias:
                 table = table.alias(join.alias)
+                alias = join.alias
+            else:
+                alias = join.detail.table
 
             sftable = _TableRef(
                                 table=sql_table,
                                 schema=join.detail.schema,
                                 name=join.detail.table,
-                                alias=join.alias,
+                                alias=alias,
                                 key=(join.detail.schema, join.detail.table),
                                 join=join
                             )
 
-            self.tables[table.key] = table
+            self._tables[table.key] = table
 
     def table(self, key):
-        """Get reflected SQLAlchemy Table metadata or a table from explicitly
-        provided dictionary of `tables` from star's catalogue. `key` is a
-        table key in form of a tuple (`schema`, `table`). `schema` should be
-        ``None`` for named table expressions, which take precedence before the
-        physical tables in the default schema. If there is no named table
-        expression then physical table is considered."""
+        """Return a table reference for `key` which has form of a
+        tuple (`schema`, `table`). `schema` should be ``None`` for named table
+        expressions, which take precedence before the physical tables in the
+        default schema. If there is no named table expression then physical
+        table is considered.
 
-        schema, name = key
-        # Return a statement or an explicitly craeted table if it exists
-        if not schema and name in self.tables:
-            return self.tables[name]
-
-        # Get the new alchemy table, reflected
-        schema = schema or self.schema
-
-        # Reconstruct the key with default schema
-        key = (schema, name)
-
-        if key in self._tables:
+        The returned object has the following properties:
+        * `name` – real table name
+        * `alias` – table alias – always contains a value, regardless whether
+          the table join provides one or not. If there was no alias provided by
+          the join, then the physical table name is used.
+        * `key` – table key – the same as the `key` argument
+        * `join` – `Join` object that joined the table to the star schema
+        * `table` – SQLAlchemy `Table` or table expression object
+        """
+        try:
             return self._tables[key]
+        except KeyError:
+            raise StarSchemaError("No star table or expression ('{}', '{}')"
+                                  .format(key[0], key[1]))
+
+    def physical_table(self, name, schema=None):
+        """Return a physical table or table expression, regardless whether it
+        exists or not in the star."""
+
+        # Return a statement or an explicitly craeted table if it exists
+        if not schema and name in self.table_expressions:
+            return self.table_expressions[name]
+
+        coalesced_schema = schema or self.schema
 
         try:
-            table = sa.Table(name, self.metadata, autoload=True, schema=schema)
-        except sa.exc.NoSuchTableError:
-            in_schema = (" in schema '{}'".format(schema)) if schema else ""
-            msg = "No such fact table '{}'{}.".format(name, in_schema)
-            raise StarSchemaError(msg)
+            table = sa.Table(name,
+                             self.metadata,
+                             autoload=True,
+                             schema=coalesced_schema)
 
-        self._tables[key] = table
+        except sa.exc.NoSuchTableError:
+            in_schema = (" in schema '{}'"
+                         .format(schema)) if schema else ""
+            msg = "No such fact table '{}'{}.".format(name, in_schema)
+            raise NoSuchTableError(msg)
 
         return table
 
@@ -252,25 +278,25 @@ class StarSchema(object):
         #
         # -- END OF IMPORTANT MESSAGE ---
 
-        mapping = self.mapping[logical]
+        if logical in self._columns:
+            return self._columns[logical]
 
-        if mapping in self._columns:
-            return self._columns[mapping]
-
-        key = (schema or self.schema, mapping.table)
         try:
-            table = self._tables[key].table
+            mapping = self.mappings[logical]
         except KeyError:
-            raise ModelError("Table with reference %s not found. "
-                             "Missing join in star '%s'?"
-                             % (key, self.cube.name) )
+            raise NoSuchAttributeError(logical)
+
+        key = (mapping.schema or self.schema, mapping.table)
+
+        ref = self.table(key)
+        table = ref.table
 
         try:
             column = table.columns[mapping.column]
         except KeyError:
             avail = ", ".join(str(c) for c in table.columns)
-            raise SnowflakeError("Unknown column '%s' in table '%s' possible: %s"
-                                 % (mapping.column, mapping.table, avail))
+            raise StarSchemaError("Unknown column '%s' in table '%s' possible: %s"
+                                  % (mapping.column, mapping.table, avail))
 
         # Extract part of the date
         if mapping.extract:
