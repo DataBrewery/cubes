@@ -7,11 +7,12 @@
 from __future__ import absolute_import
 
 import unittest
+import sqlalchemy as sa
+import sqlalchemy.sql as sql
 
+from datetime import datetime
 from cubes.sql.starschema import StarSchema, Mapping, StarSchemaError
 from cubes.sql.starschema import NoSuchAttributeError
-import sqlalchemy as sa
-from datetime import datetime
 
 CONNECTION = "sqlite:///"
 
@@ -179,6 +180,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
             column = star.column("category")
 
     def test_mapping_extract(self):
+        """Test that mapping.extract works"""
         mappings = {
             "year": Mapping(None, "test", "date", "year", None),
         }
@@ -191,6 +193,46 @@ class StarSchemaBasicsTestCase(SQLTestCase):
         self.assertEqual(base.field, "year")
 
         # TODO: test execute
+
+    def test_relevant_joins_with_no_joins(self):
+        mappings = {
+            "category": Mapping(None, "test", "category", None, None),
+            "amount":   Mapping(None, "test", "amount", None, None),
+            "year":     Mapping(None, "test", "date", "year", None),
+        }
+
+        schema = StarSchema("test_star", self.md, mappings, self.test_fact)
+
+        joins = schema.relevant_joins([])
+        self.assertEqual(len(joins), 0)
+
+        joins = schema.relevant_joins(["category", "amount"])
+        self.assertEqual(len(joins), 0)
+
+    def test_star_basic(self):
+        """Test selection from the very basic star – no joins, just one
+        table"""
+        mappings = {
+            "category": Mapping(None, "test", "category", None, None),
+            "total":   Mapping(None, "test", "amount", None, None),
+            "year":     Mapping(None, "test", "date", "year", None),
+        }
+
+        schema = StarSchema("test_star", self.md, mappings, self.test_fact)
+        star = schema.star(["category", "total"])
+
+        selection = [schema.column("category"), schema.column("total")]
+
+        statement = sql.expression.select(selection,
+                                          from_obj=star)
+        result = self.engine.execute(statement)
+        amounts = []
+
+        for row in result:
+            # We are testing proper column labeling
+            amounts.append(row["total"])
+
+        self.assertCountEqual(amounts, [1, 2, 4, 8])
 
     def test_join(self):
         """Test single join, two joins"""
@@ -211,9 +253,6 @@ class StarSchemaBasicsTestCase(SQLTestCase):
 
     def test_join_method_master(self):
         """Test 'detail' join master"""
-
-    def test_extract(self):
-        """Test that mapping.extract works"""
 
     def test_unary(self):
         """Test that mapping.unary works"""

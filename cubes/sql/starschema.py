@@ -214,7 +214,7 @@ class StarSchema(object):
 
             self._tables[table.key] = table
 
-    def table(self, key):
+    def table(self, key, role=None):
         """Return a table reference for `key` which has form of a
         tuple (`schema`, `table`). `schema` should be ``None`` for named table
         expressions, which take precedence before the physical tables in the
@@ -229,12 +229,20 @@ class StarSchema(object):
         * `key` – table key – the same as the `key` argument
         * `join` – `Join` object that joined the table to the star schema
         * `table` – SQLAlchemy `Table` or table expression object
+
+        `role` is for debugging purposes to display when there is no such
+        table, which role of the table was expected, such as master or detail.
         """
         try:
             return self._tables[key]
         except KeyError:
-            raise StarSchemaError("No star table or expression ('{}', '{}')"
-                                  .format(key[0], key[1]))
+            if role:
+                for_role = " for role {}".format(role)
+            else:
+                for_role = ""
+
+            raise StarSchemaError("No star table or expression ('{}', '{}'){}"
+                                  .format(key[0], key[1], for_role))
 
     def physical_table(self, name, schema=None):
         """Return a physical table or table expression, regardless whether it
@@ -326,7 +334,7 @@ class StarSchema(object):
             self.logger.debug("no joins to be searched for")
 
         # Get the physical mappings for attributes
-        mappings = [maping[attr] for attr in attributes]
+        mappings = [self.mappings[attr] for attr in attributes]
         # Generate table keys
         required_tables = set((m.schema, m.table) for m in mappings)
 
@@ -342,13 +350,15 @@ class StarSchema(object):
         while required_tables:
             # TODO: check that the detail is not fact table
             detail_key = required_tables.pop()
-            try:
-                detail = self._tables[detail_key]
-            except KeyError:
-                raise StarSchemaError("Unknown detail table '%s'" % master_key)
+            detail = self.table(detail_key, "detail")
             # self.logger.debug("joining table %s" % (table, ))
 
             join = detail.join
+
+            if not join:
+                # We assume this is the fact table
+                continue
+
             joins.append(join)
             # Find master for the detail
             master_key = (join.master.schema, join.master.table)
@@ -368,7 +378,8 @@ class StarSchema(object):
     def star(self, attributes, core=None, core_key=None):
         """The main method for generating underlying star schema joins.
         Returns a denormalized JOIN expression that includes all relevant
-        tables containing `attributes`.
+        tables containing base `attributes` (attributes representing actual
+        columns).
 
         `core` is a master table to be used, usually a fact table. The
         `core_key` is a table key of the master table as the joins referenc
@@ -390,15 +401,17 @@ class StarSchema(object):
         tables = []
 
         if core is not None:
-            joined_products[core_key] = master
-            tables.append(self._tables[core_key])
-
-        # TODO: this does not work with non-cube objects, as this method uses
-        # 'depends_on()'
-        attributes = get_base_attributes(attributes)
+            raise NotImplementedError
+            # tables.append(self._tables[core_key])
 
         # Collect all the tables first:
         joins = self.relevant_joins(attributes)
+
+        # There are no joins required for this query
+        if not joins:
+            # TODO: use core if provided
+            return self.fact_table
+
         for join in joins:
             # 1. MASTER
             # Add master table to the list. If fact table (or statement) was
@@ -505,7 +518,7 @@ class StarSchema(object):
             del star[detail_key]
             star[master_key] = product
 
-        if not star:
+        if not star:  # pragma nocover
             # This should not happen
             raise InternalError("Star is emtpy")
 
