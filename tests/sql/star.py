@@ -13,18 +13,43 @@ import sqlalchemy.sql as sql
 from datetime import datetime
 from cubes.sql.starschema import StarSchema, Mapping, StarSchemaError
 from cubes.sql.starschema import NoSuchAttributeError
+from cubes.sql.starschema import JoinKey, to_join_key, Join, to_join
+from cubes.errors import ArgumentError
 
 CONNECTION = "sqlite:///"
 
-test_table = {
+BASE_FACT = {
     "name": "test",
     "columns": ["date",      "category", "amount"],
     "types":   ["date",      "string",   "integer"],
     "data": [
-               ["2014-01-01", "A",       "1"],
-               ["2014-02-01", "B",       "2"],
-               ["2014-03-01", "C",       "4"],
-               ["2014-04-01", "D",       "8"],
+               ["2014-01-01", "A",       1],
+               ["2014-02-01", "B",       2],
+               ["2014-03-01", "C",       4],
+               ["2014-04-01", "D",       8],
+            ]
+}
+
+DIM_CATEGORY = {
+    "name": "dim_category",
+    "columns": ["category", "label",      "size"],
+    "types":   ["string",   "string",     "integer"],
+    "data": [
+               ["A",        "apple",      2],
+               ["B",        "blueberry",  1],
+               ["C",        "cantaloupe", 4],
+               ["D",        "date",       1],
+            ]
+}
+
+DIM_SIZE = {
+    "name": "dim_size",
+    "columns": ["size",    "label"],
+    "types":   ["integer", "string"],
+    "data": [
+               [1,         "small"],
+               [2,         "medium"],
+               [4,         "large"],
             ]
 }
 
@@ -90,7 +115,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
     def setUp(self):
         self.engine = sa.create_engine(CONNECTION)
         self.md = sa.MetaData(bind=self.engine)
-        self.test_fact = create_table(self.engine, self.md, test_table)
+        self.test_fact = create_table(self.engine, self.md, BASE_FACT)
 
     # TODO: do the same for a joined table and aliased joined table
     def test_physical_table(self):
@@ -234,8 +259,120 @@ class StarSchemaBasicsTestCase(SQLTestCase):
 
         self.assertCountEqual(amounts, [1, 2, 4, 8])
 
+class StarSchemaJoinsTestCase(SQLTestCase):
+    def setUp(self):
+        self.engine = sa.create_engine(CONNECTION)
+        self.md = sa.MetaData(bind=self.engine)
+        self.fact = create_table(self.engine, self.md, BASE_FACT)
+        self.dim_category = create_table(self.engine, self.md, DIM_CATEGORY)
+        self.dim_size = create_table(self.engine, self.md, DIM_SIZE)
+
+
+    def test_to_join_key(self):
+        """Test basic structure conversions."""
+
+        self.assertEqual(JoinKey(None, None, None), to_join_key(None))
+
+        key = to_join_key("col")
+        self.assertEqual(JoinKey(None, None, "col"), key)
+
+        key = to_join_key("table.col")
+        self.assertEqual(JoinKey(None, "table", "col"), key)
+
+        key = to_join_key("schema.table.col")
+        self.assertEqual(JoinKey("schema", "table", "col"), key)
+
+        key = to_join_key(["col"])
+        self.assertEqual(JoinKey(None, None, "col"), key)
+
+        key = to_join_key(["table", "col"])
+        self.assertEqual(JoinKey(None, "table", "col"), key)
+
+        key = to_join_key(["schema", "table", "col"])
+        self.assertEqual(JoinKey("schema", "table", "col"), key)
+
+        key = to_join_key({"column": "col"})
+        self.assertEqual(JoinKey(None, None, "col"), key)
+
+        key = to_join_key({"table":"table", "column": "col"})
+        self.assertEqual(JoinKey(None, "table", "col"), key)
+
+        key = to_join_key({"schema":"schema",
+                           "table":"table",
+                           "column": "col"})
+
+        self.assertEqual(JoinKey("schema", "table", "col"), key)
+
+        # Test exceptions
+        #
+
+        with self.assertRaises(ArgumentError):
+            to_join_key([])
+
+        with self.assertRaises(ArgumentError):
+            to_join_key(["one", "two", "three", "four"])
+
+        with self.assertRaises(ArgumentError):
+            to_join_key("one.two.three.four")
+
+    def test_to_join(self):
+        join = ("left", "right")
+        self.assertEqual(to_join(join), Join(to_join_key("left"),
+                                             to_join_key("right"),
+                                             None,
+                                             None))
+
+        join = ("left", "right", "alias")
+        self.assertEqual(to_join(join), Join(to_join_key("left"),
+                                             to_join_key("right"),
+                                             "alias",
+                                             None))
+
+        join = ("left", "right", "alias", "match")
+        self.assertEqual(to_join(join), Join(to_join_key("left"),
+                                             to_join_key("right"),
+                                             "alias",
+                                             "match"))
+
+        # Dict
+        join = {"master": "left", "detail": "right"}
+        self.assertEqual(to_join(join), Join(to_join_key("left"),
+                                             to_join_key("right"),
+                                             None,
+                                             None))
+
+        join = {"master": "left", "detail": "right", "alias": "alias"}
+        self.assertEqual(to_join(join), Join(to_join_key("left"),
+                                             to_join_key("right"),
+                                             "alias",
+                                             None))
+
+        join = {"master": "left", "detail": "right", "method": "match"}
+        self.assertEqual(to_join(join), Join(to_join_key("left"),
+                                             to_join_key("right"),
+                                             None,
+                                             "match"))
+
+        join = {"master": "left", "detail": "right", "alias": "alias",
+                "method": "match"}
+        self.assertEqual(to_join(join), Join(to_join_key("left"),
+                                             to_join_key("right"),
+                                             "alias",
+                                             "match"))
+
+        # Error
+        with self.assertRaises(ArgumentError):
+            to_join(["left", "right", "detail", "master", "something"])
+
+        # Error
+        with self.assertRaises(ArgumentError):
+            to_join(["onlyone"])
+
     def test_join(self):
         """Test single join, two joins"""
+        joins = [
+            ("test", "")
+        ]
 
     def test_join_alias(self):
         """Test single aliased join, test two joins on same table, one aliased

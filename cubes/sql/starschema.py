@@ -19,7 +19,7 @@ import logging
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
 from collections import namedtuple
-from ..errors import InternalError, ModelError
+from ..errors import InternalError, ModelError, ArgumentError
 from .. import compat
 
 # Attribute -> Column
@@ -33,6 +33,49 @@ Mapping = namedtuple("StarAttribute",
                       # Use only one
                       "extract", "unary"])
 
+JoinKey = namedtuple("JoinKey",
+                     ["schema",
+                      "table",
+                      "column"])
+
+def to_join_key(obj):
+    """Utility function that will create JoinKey tuple from an anonymous
+    tuple, dictionary or similar object. `obj` can also be a string in form
+    ``schema.table.column`` where schema or both schema and table can be
+    ommited."""
+
+    if obj is None:
+        return JoinKey(None, None, None)
+
+    if isinstance(obj, compat.string_type):
+        obj = obj.split(".")
+
+    if isinstance(obj, (tuple, list)):
+        if len(obj) == 1:
+            column = obj[0]
+            table = None
+            schema = None
+        elif len(obj) == 2:
+            table, column = obj
+            schema = None
+        elif len(obj) == 3:
+            schema, table, column = obj
+        else:
+            raise ArgumentError("Join key can have 1 to 3 items"
+                                " has {}: {}".format(len(obj), obj))
+
+    elif hasattr(obj, "get"):
+        schema = obj.get("schema")
+        table = obj.get("table")
+        column = obj.get("column")
+
+    else:  # pragma nocover
+        schema = obj.schema
+        table = obj.table
+        column = obj.column
+
+    return JoinKey(schema, table, column)
+
 """Table join specification. `master` and `detail` are TableColumnReference
 tuples. `method` denotes which table members should be considered in the join:
 *master* – all master members (left outer join), *detail* – all detail members
@@ -45,6 +88,39 @@ Join = namedtuple("Join",
                    "method"  # Method how the table is joined
                    ]
                 )
+
+
+def to_join(obj):
+    """Utility conversion function that will create `Join` tuple from an
+    anonymous tuple, dictionary or similar object."""
+    if isinstance(obj, (tuple, list)):
+        alias = None
+        method = None
+
+        if len(obj) == 3:
+            alias = obj[2]
+        elif len(obj) == 4:
+            alias, method = obj[2], obj[3]
+        elif len(obj) < 2 or len(obj) > 4:
+            raise ArgumentError("Join object can have 1 to 4 items"
+                                " has {}: {}".format(len(obj), obj))
+
+        master = to_join_key(obj[0])
+        detail = to_join_key(obj[1])
+
+        return Join(master, detail, alias, method)
+
+    elif hasattr(obj, "get"):  # pragma nocover
+        return Join(to_join_key(obj.get("master")),
+                    to_join_key(obj.get("detail")),
+                    obj.get("alias"),
+                    obj.get("method"))
+
+    else:  # pragma nocover
+        return Join(to_join_key(obj.master),
+                    to_join_key(obj.detail),
+                    obj.alias,
+                    obj.method)
 
 # Internal table reference
 _TableRef = namedtuple("_TableRef",
