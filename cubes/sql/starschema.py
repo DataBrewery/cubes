@@ -279,16 +279,17 @@ class StarSchema(object):
             else:
                 alias = join.detail.table
 
-            sftable = _TableRef(
-                                table=sql_table,
-                                schema=join.detail.schema,
-                                name=join.detail.table,
-                                alias=alias,
-                                key=(join.detail.schema, join.detail.table),
-                                join=join
-                            )
+            key = (join.detail.schema, alias)
 
-            self._tables[table.key] = table
+            ref = _TableRef(table=table,
+                            schema=join.detail.schema,
+                            name=join.detail.table,
+                            alias=alias,
+                            key=key,
+                            join=join
+                           )
+
+            self._tables[key] = ref
 
     def table(self, key, role=None):
         """Return a table reference for `key` which has form of a
@@ -313,12 +314,13 @@ class StarSchema(object):
             return self._tables[key]
         except KeyError:
             if role:
-                for_role = " for role {}".format(role)
+                for_role = " (as {})".format(role)
             else:
                 for_role = ""
 
-            raise StarSchemaError("No star table or expression ('{}', '{}'){}"
-                                  .format(key[0], key[1], for_role))
+            schema = '"{}".'.format(key[0]) if key[0] else ""
+            raise StarSchemaError("Unknown star table {}\"{}\"{}"
+                                  .format(schema, key[1], for_role))
 
     def physical_table(self, name, schema=None):
         """Return a physical table or table expression, regardless whether it
@@ -426,7 +428,7 @@ class StarSchema(object):
         while required_tables:
             # TODO: check that the detail is not fact table
             detail_key = required_tables.pop()
-            detail = self.table(detail_key, "detail")
+            detail = self.table(detail_key, "join detail")
             # self.logger.debug("joining table %s" % (table, ))
 
             join = detail.join

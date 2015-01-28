@@ -121,16 +121,16 @@ class StarSchemaBasicsTestCase(SQLTestCase):
     def test_physical_table(self):
         """Test denormalized table selection of few columns"""
         # Test passing fact by table object
-        star = StarSchema("test_star", self.md, {}, self.test_fact)
+        star = StarSchema("star", self.md, {}, self.test_fact)
         self.assertIs(star.physical_table("test"), self.test_fact)
 
         # Test passing fact by name
-        star = StarSchema("test_star", self.md, {}, "test")
+        star = StarSchema("star", self.md, {}, "test")
         self.assertIs(star.physical_table("test"), self.test_fact)
 
         # Test passing fact by name and in a list of tables
 
-        star = StarSchema("test_star", self.md, {}, "test",
+        star = StarSchema("star", self.md, {}, "test",
                          tables = {"test": self.test_fact})
 
         self.assertIs(star.physical_table("test"), self.test_fact)
@@ -143,7 +143,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
         """Test single table references"""
         key = (None, "test")
 
-        star = StarSchema("test_star", self.md, {}, self.test_fact)
+        star = StarSchema("star", self.md, {}, self.test_fact)
 
         ref = star.table(key)
         self.assertIs(ref.table, self.test_fact)
@@ -152,13 +152,13 @@ class StarSchemaBasicsTestCase(SQLTestCase):
         self.assertEqual(ref.key, key)
 
         # Test passing fact by name
-        star = StarSchema("test_star", self.md, {}, "test")
+        star = StarSchema("star", self.md, {}, "test")
 
         ref = star.table(key)
         self.assertIs(ref.table, self.test_fact)
 
         # Test passing fact by name and in a list of tables
-        star = StarSchema("test_star", self.md, {}, "test",
+        star = StarSchema("star", self.md, {}, "test",
                          tables = {"test": self.test_fact})
 
         ref = star.table(key)
@@ -175,7 +175,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
             "total":   Mapping(None, "test", "amount", None, None),
         }
 
-        star = StarSchema("test_star", self.md, mappings, self.test_fact)
+        star = StarSchema("star", self.md, mappings, self.test_fact)
 
         column = star.column("category")
         self.assertEqual(column.name, "category")
@@ -199,7 +199,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
             "category": Mapping(None, "test", "__unknown__", None, None),
         }
 
-        star = StarSchema("test_star", self.md, mappings, self.test_fact)
+        star = StarSchema("star", self.md, mappings, self.test_fact)
 
         with self.assertRaises(StarSchemaError):
             column = star.column("category")
@@ -210,7 +210,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
             "year": Mapping(None, "test", "date", "year", None),
         }
 
-        star = StarSchema("test_star", self.md, mappings, self.test_fact)
+        star = StarSchema("star", self.md, mappings, self.test_fact)
 
         column = star.column("year")
         base = list(column.base_columns)[0]
@@ -226,7 +226,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
             "year":     Mapping(None, "test", "date", "year", None),
         }
 
-        schema = StarSchema("test_star", self.md, mappings, self.test_fact)
+        schema = StarSchema("star", self.md, mappings, self.test_fact)
 
         joins = schema.relevant_joins([])
         self.assertEqual(len(joins), 0)
@@ -243,7 +243,7 @@ class StarSchemaBasicsTestCase(SQLTestCase):
             "year":     Mapping(None, "test", "date", "year", None),
         }
 
-        schema = StarSchema("test_star", self.md, mappings, self.test_fact)
+        schema = StarSchema("star", self.md, mappings, self.test_fact)
         star = schema.star(["category", "total"])
 
         selection = [schema.column("category"), schema.column("total")]
@@ -259,14 +259,12 @@ class StarSchemaBasicsTestCase(SQLTestCase):
 
         self.assertCountEqual(amounts, [1, 2, 4, 8])
 
-class StarSchemaJoinsTestCase(SQLTestCase):
-    def setUp(self):
-        self.engine = sa.create_engine(CONNECTION)
-        self.md = sa.MetaData(bind=self.engine)
-        self.fact = create_table(self.engine, self.md, BASE_FACT)
-        self.dim_category = create_table(self.engine, self.md, DIM_CATEGORY)
-        self.dim_size = create_table(self.engine, self.md, DIM_SIZE)
+    @unittest.skip("Missing test")
+    def test_no_table_in_mapping(self):
+        pass
 
+class StarSchemaUtilitiesTestCase(unittest.TestCase):
+    """Test independent utility functions and structures."""
 
     def test_to_join_key(self):
         """Test basic structure conversions."""
@@ -368,15 +366,82 @@ class StarSchemaJoinsTestCase(SQLTestCase):
         with self.assertRaises(ArgumentError):
             to_join(["onlyone"])
 
+
+class StarSchemaJoinsTestCase(SQLTestCase):
+    def setUp(self):
+        self.engine = sa.create_engine(CONNECTION)
+        self.md = sa.MetaData(bind=self.engine)
+        self.fact = create_table(self.engine, self.md, BASE_FACT)
+        self.dim_category = create_table(self.engine, self.md, DIM_CATEGORY)
+        self.dim_size = create_table(self.engine, self.md, DIM_SIZE)
+
     def test_join(self):
         """Test single join, two joins"""
         joins = [
-            ("test", "")
+            to_join(("test.category", "dim_category.category"))
         ]
+
+        mappings = {
+            "category":       Mapping(None, "test", "category", None, None),
+            "amount":         Mapping(None, "test", "amount", None, None),
+            "category_label": Mapping(None, "dim_category", "label", None, None),
+            "size":           Mapping(None, "dim_category", "size", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        # Doe we have the joined table in the table list?
+        table = schema.table((None, "dim_category"))
+        self.assertEqual(table.table, self.dim_category)
+
+        joins = schema.relevant_joins(["category"])
+        self.assertEqual(len(joins), 0)
+
+        joins = schema.relevant_joins(["amount"])
+        self.assertEqual(len(joins), 0)
+
+        joins = schema.relevant_joins(["category_label"])
+        self.assertEqual(len(joins), 1)
+
+        # Check columns
+        self.assertColumnEqual(schema.column("category"),
+                               self.fact.columns["category"])
+        self.assertColumnEqual(schema.column("category_label"),
+                               self.dim_category.columns["label"])
+        self.assertColumnEqual(schema.column("size"),
+                               self.dim_category.columns["size"])
 
     def test_join_alias(self):
         """Test single aliased join, test two joins on same table, one aliased
         """
+        joins = [
+            to_join(("test.category", "dim_category.category", "dim_fruit"))
+        ]
+
+        mappings = {
+            "category":       Mapping(None, "test", "category", None, None),
+            "amount":         Mapping(None, "test", "amount", None, None),
+            "category_label": Mapping(None, "dim_fruit", "label", None, None),
+            "size":           Mapping(None, "dim_fruit", "size", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        # Doe we have the joined table in the table list?
+        # import pdb; pdb.set_trace()
+        table = schema.table((None, "dim_fruit"))
+        self.assertTrue(table.table.is_derived_from(self.dim_category))
+
+        joins = schema.relevant_joins(["category_label"])
+        self.assertEqual(len(joins), 1)
+
+        # Check columns
+        self.assertColumnEqual(schema.column("category"),
+                               self.fact.columns["category"])
+        self.assertColumnEqual(schema.column("category_label"),
+                               self.dim_category.columns["label"])
+        self.assertColumnEqual(schema.column("size"),
+                               self.dim_category.columns["size"])
 
     def test_join_order(self):
         """Test that the order of joins does not matter"""
