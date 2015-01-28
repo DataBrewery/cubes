@@ -25,3 +25,7 @@ doc/_build/
 /sandbox
 
 .DS_Store
+
+# Coverage output
+.coverage
+htmlcov
