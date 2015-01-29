@@ -11,81 +11,17 @@ from ..mapper import Mapper
 from ..model import AttributeBase
 from .. import compat
 
+from .starschema import to_mapping
+
+
 __all__ = (
     "SnowflakeMapper",
     "DenormalizedMapper",
-    "coalesce_physical",
-    "PhysicalAttribute",
     "DEFAULT_KEY_FIELD"
 )
 
-from .starschema import Join, Mapping
 
 DEFAULT_KEY_FIELD = "id"
-
-# Note to developers: Used for internal purposes to represent a physical table
-# column. Currently used only in the PTD condition.
-class PhysicalAttribute(AttributeBase):
-    def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, table=None, missing_value=None,
-                 **kwargs):
-        super(PhysicalAttribute, self).__init__(name=name, label=label,
-                                        description=description, order=order,
-                                        info=info, format=format,
-                                        missing_value=missing_value)
-        self.table = table
-
-    def ref(self, simplify=True, locale=None):
-        if self.table is not None:
-            return "%s.%s" % (self.table, self.name)
-        else:
-            return self.name
-
-def coalesce_physical(ref, default_table=None, schema=None):
-    """Coalesce physical reference `ref` which might be:
-
-    * a string in form ``"table.column"``
-    * a list in form ``(table, column)``
-    * a list in form ``(schema, table, column)``
-    * a dictionary with keys: ``schema``, ``table``, ``column``, ``extract``, ``func``, ``condition`` where
-      ``column`` is required, the rest are optional
-
-    Returns tuple (`schema`, `table`, `column`, `extract`, `func`, `condition`), which is a named
-    tuple `Mapping`.
-
-    If no table is specified in reference and `default_table` is not
-    ``None``, then `default_table` will be used.
-
-    .. note::
-
-        The `table` element might be a table alias specified in list of joins.
-
-    """
-
-    if isinstance(ref, compat.string_type):
-        split = ref.split(".")
-
-        if len(split) > 1:
-            dim_name = split[0]
-            attr_name = ".".join(split[1:])
-            return Mapping(schema, dim_name, attr_name, None, None, None)
-        else:
-            return Mapping(schema, default_table, ref, None, None, None)
-    elif isinstance(ref, dict):
-        return Mapping(ref.get("schema", schema),
-                                 ref.get("table", default_table),
-                                 ref.get("column"),
-                                 ref.get("extract"),
-                                 ref.get("unary"),
-                                 ref.get("expression"))
-    else:
-        if len(ref) == 2:
-            return Mapping(schema, ref[0], ref[1], None, None, None, None)
-        elif len(ref) == 3:
-            return Mapping(ref[0], ref[1], ref[2], None, None, None, None)
-        else:
-            raise BackendError("Number of items in table reference should "\
-                               "be 2 (table, column) or 3 (schema, table, column)")
 
 
 class SnowflakeMapper(Mapper):
@@ -151,81 +87,33 @@ class SnowflakeMapper(Mapper):
                             (fact_prefix, self.cube.basename, fact_suffix)
         self.schema = schema
 
-        self._collect_joins(joins or cube.joins)
-
-    def _collect_joins(self, joins):
-        """Collects joins and coalesce physical references. `joins` is a
-        dictionary with keys: `master`, `detail` reffering to master and
-        detail keys. `alias` is used to give alternative name to a table when
-        two tables are being joined."""
-
-        joins = joins or []
-
-        self.joins = []
-
-        for join in joins:
-            master = coalesce_physical(join["master"],
-                                       self.fact_name,schema=self.schema)
-            detail = coalesce_physical(join["detail"],
-                                       schema=self.schema)
-
-            self.logger.debug("collecting join %s -> %s" % (tuple(master), tuple(detail)))
-            method = join.get("method", "match").lower()
-
-            self.joins.append(Join(master, detail, join.get("alias"),
-                                        method))
-
     def physical(self, attribute, locale=None):
         """Returns physical reference as tuple for `attribute`, which should
         be an instance of :class:`cubes.model.Attribute`. If there is no
         dimension specified in attribute, then fact table is assumed. The
         returned tuple has structure: (`schema`, `table`, `column`).
 
-        The algorithm to find physicl reference is as follows::
+        The algorithm to find physical reference is as follows:
 
-            IF localization is requested:
-                IF is attribute is localizable:
-                    IF requested locale is one of attribute locales
-                        USE requested locale
-                    ELSE
-                        USE default attribute locale
-                ELSE
-                    do not localize
+        1. if there is mapping for `dimension.attribute`, use the mapping
+        2. if there is no mapping or no mapping was found, then use table
+        `dimension` or fact table, if attribute does not belong to a
+        dimension and column `attribute`
 
-            IF mappings exist:
-                GET string for logical reference
-                IF locale:
-                    append '.' and locale to the logical reference
+        If table prefixes and suffixes are used, then they are
+        prepended/appended to the table tame in the implicit mapping.
 
-                IF mapping value exists for localized logical reference
-                    USE value as reference
-
-            IF no mappings OR no mapping was found:
-                column name is attribute name
-
-                IF locale:
-                    append '_' and locale to the column name
-
-                IF dimension specified:
-                    # Example: 'date.year' -> 'date.year'
-                    table name is dimension name
-
-                    IF there is dimension table prefix
-                        use the prefix for table name
-
-                ELSE (if no dimension is specified):
-                    # Example: 'date' -> 'fact.date'
-                    table name is fact table name
+        If localization is requested and the attribute is localizable, then
+        suffix `_LOCALE` whre `LOCALE` is the locale name will be added to
+        search for mapping or for implicit attribute creation.
         """
 
-        schema = self.dimension_schema or self.schema
+        if attribute.expression:
+            raise ModelError("Attribute '{}' has an expression, it can not "
+                             "have a physical representation"
+                             .format(attribute.name))
 
-        if isinstance(attribute, PhysicalAttribute):
-            reference = Mapping(schema,
-                                             attribute.table,
-                                             attribute.name,
-                                             None, None, None, None)
-            return reference
+        schema = self.dimension_schema or self.schema
 
         reference = None
 
@@ -250,7 +138,9 @@ class SnowflakeMapper(Mapper):
             mapped_ref = self.cube.mappings.get(logical)
 
             if mapped_ref:
-                reference = coalesce_physical(mapped_ref, self.fact_name, self.schema)
+                reference = to_mapping(mapped_ref,
+                                       default_table=self.fact_name,
+                                       default_schema=self.schema)
 
         # No mappings exist or no mapping was found - we are going to create
         # default physical reference
@@ -269,39 +159,11 @@ class SnowflakeMapper(Mapper):
             else:
                 table_name = self.fact_name
 
-            reference = Mapping(schema, table_name, column_name, None, None, None, None)
+            reference = to_mapping((schema, table_name, column_name))
 
         return reference
 
-    def table_map(self):
-        """Return list of references to all tables. Keys are aliased
-        tables: (`schema`, `aliased_table_name`) and values are
-        real tables: (`schema`, `table_name`). Included is the fact table
-        and all tables mentioned in joins.
-
-        To get list of all physical tables where aliased tablesare included
-        only once::
-
-            finder = JoinFinder(cube, joins, fact_name)
-            tables = set(finder.table_map().keys())
-        """
-
-        tables = {
-            (self.schema, self.fact_name): (self.schema, self.fact_name)
-        }
-
-        for join in self.joins:
-            if not join.detail.table or (join.detail.table == self.fact_name and not join.alias):
-                raise BackendError("Detail table name should be present and should not be a fact table unless aliased.")
-
-            ref = (join.master.schema, join.master.table)
-            tables[ref] = ref
-
-            ref = (join.detail.schema, join.alias or join.detail.table)
-            tables[ref] = (join.detail.schema, join.detail.table)
-
-        return tables
-
+    # TODO: is this still needed?
     def physical_references(self, attributes, expand_locales=False):
         """Convert `attributes` to physical attributes. If `expand_locales` is
         ``True`` then physical reference for every attribute locale is
@@ -320,14 +182,6 @@ class SnowflakeMapper(Mapper):
             physical_attrs = [self.physical(attr) for attr in attributes]
 
         return physical_attrs
-
-    def tables_for_attributes(self, attributes, expand_locales=False):
-        """Returns a list of tables – tuples (`schema`, `table`) that contain
-        `attributes`."""
-
-        references = self.physical_references(attributes, expand_locales)
-        tables = [(ref[0], ref[1]) for ref in references]
-        return tables
 
 
 class DenormalizedMapper(Mapper):
@@ -375,19 +229,8 @@ class DenormalizedMapper(Mapper):
             locale = None
 
         column_name = self.logical(attribute, locale)
-        reference = Mapping(self.schema,
-                                          self.fact_name,
-                                          column_name,
-                                          None, None, None, None)
+        reference = to_mapping((self.schema, self.fact_name, column_name)
 
         return reference
 
-    def relevant_joins(self, attributes):
-        """Returns an empty list. No joins are necessary for denormalized
-        view.
-        """
-
-        self.logger.debug("getting relevant joins: not needed for denormalized table")
-
-        return []
 

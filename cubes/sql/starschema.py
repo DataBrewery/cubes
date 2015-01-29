@@ -31,7 +31,54 @@ from .. import compat
 Mapping = namedtuple("StarAttribute",
                      ["schema", "table", "column",
                       # Use only one
-                      "extract", "unary"])
+                      "extract", "function"])
+
+
+def to_mapping(obj, default_table=None, default_schema=None):
+    """Utility function that will create a `Mapping` object from an anonymous
+    tuple, dictionary or a similar object. `obj` can also be a string in form
+    ``schema.table.column`` where shcema or both schema and table can be
+    ommited. `default_table` and `default_schema` are used when no table or
+    schema is provided in `obj`."""
+
+    if obj is None:
+        raise ArgumentError("Mapping object can not be None")
+
+    if isinstance(obj, compat.string_type):
+        obj = obj.split(".")
+
+    if isinstance(obj, (tuple, list)):
+        if len(obj) == 1:
+            column = obj[0]
+            table = None
+            schema = None
+        elif len(obj) == 2:
+            table, column = obj
+            schema = None
+        elif len(obj) == 3:
+            schema, table, column = obj
+        else:
+            raise ArgumentError("Join key can have 1 to 3 items"
+                                " has {}: {}".format(len(obj), obj))
+
+    elif hasattr(obj, "get"):
+        schema = obj.get("schema")
+        table = obj.get("table")
+        column = obj.get("column")
+        extract = obj.get("extract")
+        function = obj.get("function")
+
+    else:  # pragma nocover
+        schema = obj.schema
+        table = obj.table
+        extract = obj.extract
+        function = obj.function
+
+    table = table or default_table
+    schema = schema or default_schema
+
+    return Mapping(schema, table, column, extract, function)
+
 
 JoinKey = namedtuple("JoinKey",
                      ["schema",
