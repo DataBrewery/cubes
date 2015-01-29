@@ -33,6 +33,15 @@ Mapping = namedtuple("StarAttribute",
                       # Use only one
                       "extract", "function"])
 
+#
+# IMPORTANT: If you decide to extend the above Mapping functionality by adding
+# other mapping attributes (not recommended, but still) or by changing the way
+# how existing attributes are used, make sure that there are NO OTHER COLUMNS
+# than the `column` used. Every column used MUST be accounted in the
+# relevant_joins() call.
+#
+# See similar message in the column() method of the StarSchema.
+#
 
 def to_mapping(obj, default_table=None, default_schema=None):
     """Utility function that will create a `Mapping` object from an anonymous
@@ -266,7 +275,6 @@ class StarSchema(object):
 
         # TODO: perform JOIN discovery based on foreign keys
 
-
         # Fact Table
         # ----------
 
@@ -401,16 +409,18 @@ class StarSchema(object):
         """Return a column for `logical` reference. The returned column will
         have a label same as the `logical`.
         """
-        # IMPORTANT:
+        # IMPORTANT
         #
-        # Note to developers: any column that is going to be considered in the
-        # result of this method (if composed) MUST be somehow represented in
-        # the logical model and MUST be analyzable. For example in custom
-        # expressions operating on multiple physical columns all physical
-        # columns must be defined as attributes in the cube.
+        # Note to developers: any column returned from this method
+        # MUST be somehow represented in the logical model and MUST be
+        # accounted in the relevant_joins(). For example in custom expressions
+        # operating on multiple physical columns all physical
+        # columns must be defined at the higher level attributes objects in
+        # the cube. This is to access the very base column, that has physical
+        # representation in a table or a table-like statement.
         #
-        # Yielding non-represented column might result in undefined behavior
-        # (very likely in unvanted cartesian join – one per unknown column)
+        # Yielding non-represented column might result in undefined behavior,
+        # very likely in unwanted cartesian join – one per unaccounted column.
         #
         # -- END OF IMPORTANT MESSAGE ---
 
