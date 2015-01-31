@@ -1752,6 +1752,18 @@ class AttributeBase(ModelObject):
         return self.name
 
 
+def base_attributes(attributes):
+    """Return only those attributes that are not derived through a function or
+    an expression – they are base and have physical representation."""
+    base = []
+
+    for attr in attributes:
+        if hasattr(attr, "function") and attr.function is None \
+                or attr.expression is None:
+            base.append(attr)
+
+    return base
+
 class Attribute(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
