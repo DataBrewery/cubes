@@ -10,8 +10,7 @@ from ..stores import Store
 from ..errors import *
 from ..browser import *
 from ..computation import *
-from .query import QueryBuilder
-from .utils import CreateTableAsSelect, InsertIntoAsSelect, CreateOrReplaceView
+from .utils import CreateTableAsSelect, CreateOrReplaceView
 
 try:
     import sqlalchemy
@@ -26,7 +25,7 @@ except ImportError:
                                                    "SQL aggregation browser")
 
 __all__ = [
-    "create_sqlalchemy_engine",
+    "sqlalchemy_options",
     "SQLStore"
 ]
 
@@ -58,42 +57,11 @@ OPTION_TYPES = {
 }
 
 
-# ###
-# Backend related functions
-# ##
-def ddl_for_model(url, model, fact_prefix=None,
-                  fact_suffix=None, dimension_prefix=None,
-                  dimension_suffix=None, schema_type=None):
-    """Create a star schema DDL for a model.
+def sqlalchemy_options(options, prefix="sqlalchemy_"):
+    """Return converted `options` to match SQLAlchemy create_engine options
+    and their types. The `options` are expected to have prefix
+    ``sqlalchemy_``, which will be removed."""
 
-    Parameters:
-
-    * `url` - database url – no connection will be created, just used by
-       SQLAlchemy to determine appropriate engine backend
-    * `cube` - cube to be described
-    * `dimension_prefix` - prefix used for dimension tables
-    * `dimension_suffix` - suffix used for dimension tables
-    * `schema_type` - ``logical``, ``physical``, ``denormalized``
-
-    As model has no data storage type information, following simple rule is
-    used:
-
-    * fact ID is an integer
-    * all keys are strings
-    * all attributes are strings
-    * all measures are floats
-
-    .. warning::
-
-        Does not respect localized models yet.
-
-    """
-    raise NotImplementedError
-
-
-def create_sqlalchemy_engine(url, options, prefix="sqlalchemy_"):
-    """Create a SQLAlchemy engine from `options`. Options have prefix
-    ``sqlalchemy_``"""
     sa_keys = [key for key in options.keys() if key.startswith(prefix)]
     sa_options = {}
     for key in sa_keys:
@@ -101,9 +69,7 @@ def create_sqlalchemy_engine(url, options, prefix="sqlalchemy_"):
         sa_options[sa_key] = options.pop(key)
 
     sa_options = coalesce_options(sa_options, SQLALCHEMY_OPTION_TYPES)
-    engine = sqlalchemy.create_engine(url, **sa_options)
-
-    return engine
+    return sa_options
 
 
 class SQLStore(Store):
@@ -162,10 +128,10 @@ class SQLStore(Store):
 
         if not engine:
             # Process SQLAlchemy options
-            engine = create_sqlalchemy_engine(url, options)
+            sa_options = sqlalchemy_options(options)
+            engine = sqlalchemy.create_engine(url, **sa_options)
 
-        # TODO: get logger from workspace that opens this store
-        self.logger = get_logger()
+        self.logger = get_logger(name=__name__)
 
         self.connectable = engine
         self.schema = schema
@@ -180,6 +146,7 @@ class SQLStore(Store):
 
         self.options = coalesce_options(options, OPTION_TYPES)
 
+    # TODO: make a separate SQL utils function
     def _drop_table(self, table, schema, force=False):
         """Drops `table` in `schema`. If table exists, exception is raised
         unless `force` is ``True``"""
@@ -203,7 +170,7 @@ class SQLStore(Store):
             # Table reflects a table
             table.drop(checkfirst=False)
 
-    # TODO: broken
+    # FIXME: this core requires review
     def create_denormalized_view(self, cube, view_name=None, materialize=False,
                                  replace=False, create_index=False,
                                  keys_only=False, schema=None):
@@ -295,6 +262,7 @@ class SQLStore(Store):
 
         return statement
 
+    # FIXME: requires review
     def validate_model(self):
         """Validate physical representation of model. Returns a list of
         dictionaries with keys: ``type``, ``issue``, ``object``.
@@ -340,11 +308,6 @@ class SQLStore(Store):
         * NON-UNIQUE level key: join will have to be composed of multiple keys
         * UNIQUE level key: join might be based on level key
     """
-
-    def _create_indexes(self, table, columns, schema=None):
-        """Create indexes on `table` in `schema` for `columns`"""
-
-        raise NotImplementedError
 
     def create_conformed_rollup(self, cube, dimension, level=None, hierarchy=None,
                                 schema=None, dimension_prefix=None, dimension_suffix=None,
@@ -423,6 +386,8 @@ class SQLStore(Store):
                                              dimension_suffix=dimension_suffix or "",
                                              replace=replace)
 
+    # TODO: make this a separate SQL utility function
+    # TODO: use insert().as_select(...)
     def create_table_from_statement(self, table_name, statement, schema,
                                     replace=False, insert=False):
         """Creates or replaces a table from statement.
@@ -539,8 +504,10 @@ class SQLStore(Store):
 
         self.logger.info("Inserting...")
 
+        # TODO: why is a single statement in a transaction here???
         with self.connectable.begin() as connection:
 
+            # TODO: use insert().as_select(...)
             insert = InsertIntoAsSelect(table, statement,
                                         columns=statement.columns)
 
