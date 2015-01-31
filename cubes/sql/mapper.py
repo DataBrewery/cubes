@@ -11,7 +11,7 @@ from ..mapper import Mapper
 from ..model import AttributeBase
 from .. import compat
 
-from .starschema import to_mapping
+from .schema import to_column
 
 
 __all__ = (
@@ -138,7 +138,7 @@ class SnowflakeMapper(Mapper):
             mapped_ref = self.cube.mappings.get(logical)
 
             if mapped_ref:
-                reference = to_mapping(mapped_ref,
+                reference = to_column(mapped_ref,
                                        default_table=self.fact_name,
                                        default_schema=self.schema)
 
@@ -159,7 +159,7 @@ class SnowflakeMapper(Mapper):
             else:
                 table_name = self.fact_name
 
-            reference = to_mapping((schema, table_name, column_name))
+            reference = to_column((schema, table_name, column_name))
 
         return reference
 
@@ -229,7 +229,7 @@ class DenormalizedMapper(Mapper):
             locale = None
 
         column_name = self.logical(attribute, locale)
-        reference = to_mapping((self.schema, self.fact_name, column_name)
+        reference = to_column((self.schema, self.fact_name, column_name))
 
         return reference
 

@@ -1,18 +1,21 @@
 # -*- encoding=utf -*-
 """
-cubes.sql.starschema
+cubes.sql.schema
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Star schema query builder and related structures.
-
-Note: This module is to be remained implemented in a way that it does not use
-any of the Cubes objects. It might use duck-typing and assume objects with
-similar attributes. No calls to Cubes object functions should be allowed here.
+Star/snowflake schema query builder and related structures.
 
 """
 
-from __future__ import absolute_import
+# Note for developers and maintainers
+# -----------------------------------
+#
+# This module is to be remained implemented in a way that it does not use any
+# of the Cubes objects. It might use duck-typing and assume objects with
+# similar attributes. No calls to Cubes object functions should be allowed
+# here.
 
+from __future__ import absolute_import
 
 import logging
 
@@ -26,9 +29,15 @@ from .. import compat
 # IF attribute has no 'expression' then mapping is used
 # IF attribute has expression, the expression is used and underlying mappings
 
-# TODO: do we need epxression here? We want expression to be on top of
-# physically mapped objects
-Mapping = namedtuple("StarAttribute",
+"""Physical column (or column expression) reference. `schema` is a database
+schema name, `table` is a table (or table expression) name containing the
+`column`. `extract` is an element to be extracted from complex data type such
+as date or JSON (in postgres). `function` is name of unary function to be
+applied on the `column`.
+
+Note that either `extract` or `function` can be used, not both."""
+
+Column = namedtuple("Column",
                      ["schema", "table", "column",
                       # Use only one
                       "extract", "function"])
@@ -43,12 +52,12 @@ Mapping = namedtuple("StarAttribute",
 # See similar message in the column() method of the StarSchema.
 #
 
-def to_mapping(obj, default_table=None, default_schema=None):
-    """Utility function that will create a `Mapping` object from an anonymous
-    tuple, dictionary or a similar object. `obj` can also be a string in form
-    ``schema.table.column`` where shcema or both schema and table can be
-    ommited. `default_table` and `default_schema` are used when no table or
-    schema is provided in `obj`."""
+def to_column(obj, default_table=None, default_schema=None):
+    """Utility function that will create a `Column` reference object from an
+    anonymous tuple, dictionary or a similar object. `obj` can also be a
+    string in form ``schema.table.column`` where shcema or both schema and
+    table can be ommited. `default_table` and `default_schema` are used when
+    no table or schema is provided in `obj`."""
 
     if obj is None:
         raise ArgumentError("Mapping object can not be None")
@@ -69,6 +78,8 @@ def to_mapping(obj, default_table=None, default_schema=None):
         else:
             raise ArgumentError("Join key can have 1 to 3 items"
                                 " has {}: {}".format(len(obj), obj))
+        extract = None
+        function = None
 
     elif hasattr(obj, "get"):
         schema = obj.get("schema")
@@ -86,13 +97,15 @@ def to_mapping(obj, default_table=None, default_schema=None):
     table = table or default_table
     schema = schema or default_schema
 
-    return Mapping(schema, table, column, extract, function)
+    return Column(schema, table, column, extract, function)
 
 
+# TODO: remove this and use just Column
 JoinKey = namedtuple("JoinKey",
                      ["schema",
                       "table",
                       "column"])
+
 
 def to_join_key(obj):
     """Utility function that will create JoinKey tuple from an anonymous
@@ -189,15 +202,15 @@ _TableRef = namedtuple("_TableRef",
                        ]
                     )
 
-class StarSchemaError(InternalError):
+class SchemaError(InternalError):
     """Error related to the physical star schema."""
     pass
 
-class NoSuchTableError(StarSchemaError):
+class NoSuchTableError(SchemaError):
     """Error related to the physical star schema."""
     pass
 
-class NoSuchAttributeError(StarSchemaError):
+class NoSuchAttributeError(SchemaError):
     """Error related to the physical star schema."""
     pass
 
@@ -226,7 +239,7 @@ class StarSchema(object):
       When no table is specified, then the fact table is considered.
     * as a list of arguments `[[schema,] table,] column`
     * `StarColumn` or any object with attributes `schema`, `table`,
-      `column`, `extract`, `unary` can be used.
+      `column`, `extract`, `function` can be used.
     * a dictionary with keys same as the attributes of `StarColumn` object
 
     Non-object arguments will be stored as a `StarColumn` objects internally.
@@ -256,6 +269,7 @@ class StarSchema(object):
 
         # TODO: expectation is, that the snowlfake is already localized, the
         # owner of the snowflake should generate one snowflake per locale.
+        # TODO: use `facts` instead of `fact`
 
         self.name = name
         self.metadata = metadata
@@ -368,6 +382,8 @@ class StarSchema(object):
         if key is None:
             raise ArgumentError("Table key should not be None")
 
+        key = (key[0] or self.schema, key[1] or self.fact_name)
+
         try:
             return self._tables[key]
         except KeyError:
@@ -377,7 +393,7 @@ class StarSchema(object):
                 for_role = ""
 
             schema = '"{}".'.format(key[0]) if key[0] else ""
-            raise StarSchemaError("Unknown star table {}\"{}\"{}"
+            raise SchemaError("Unknown star table {}\"{}\"{}"
                                   .format(schema, key[1], for_role))
 
     def physical_table(self, name, schema=None):
@@ -441,15 +457,15 @@ class StarSchema(object):
             column = table.columns[mapping.column]
         except KeyError:
             avail = ", ".join(str(c) for c in table.columns)
-            raise StarSchemaError("Unknown column '%s' in table '%s' possible: %s"
+            raise SchemaError("Unknown column '%s' in table '%s' possible: %s"
                                   % (mapping.column, mapping.table, avail))
 
         # Extract part of the date
         if mapping.extract:
             column = sql.expression.extract(mapping.extract, column)
-        if mapping.unary:
+        if mapping.function:
             # FIXME: add some protection here for the function name!
-            column = getattr(sql.expression.func, mapping.unary)(column)
+            column = getattr(sql.expression.func, mapping.function)(column)
 
         column = column.label(logical)
 
@@ -501,8 +517,7 @@ class StarSchema(object):
             # Find master for the detail
             master_key = (join.master.schema, join.master.table)
 
-            if master_key not in self._tables:
-                raise StarSchemaError("Unknown master table '%s'" % master_key)
+            master_table = self.table(master_key, "master table")
 
             if master_key not in joined_tables:
                 # We are missing the mater, queue it
@@ -530,6 +545,7 @@ class StarSchema(object):
             result = engine.execute(statement)
         """
 
+        attributes = [str(attr) for attr in attributes]
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
