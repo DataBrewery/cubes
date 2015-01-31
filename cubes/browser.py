@@ -680,20 +680,17 @@ class Cell(object):
     def key_attributes(self):
         """Returns an unordered set of key attributes used in the cell's
         cuts."""
-        cell_keys = set()
+        attributes = set()
 
-        for cut, cut_attrs in self.attributes_for_cell_cuts(cell):
-            for cut in self.cuts:
-                depth = cut.level_depth()
-                if depth:
-                    dim = self.cube.dimension(cut.dimension)
-                    hier = dim.hierarchy(cut.hierarchy)
-                    keys = [level.key for level in hier[0:depth]]
-                    result.append((cut, keys))
-            cell_keys |= set(keys)
+        for cut in self.cuts:
+            depth = cut.level_depth()
+            if depth:
+                dim = self.cube.dimension(cut.dimension)
+                hier = dim.hierarchy(cut.hierarchy)
+                keys = [dim.attribute(level.key) for level in hier[0:depth]]
+                attributes |= set(keys)
 
-        attributes = [self.cube.attribute(key) for key in cell_keys]
-        return attribtes
+        return list(attributes)
 
     def slice(self, cut):
         """Returns new cell by slicing receiving cell with `cut`. Cut with
@@ -1942,6 +1939,22 @@ class Drilldown(object):
                 attributes += level.attributes
 
         return attributes
+
+    @property
+    def natural_order(self):
+        """Return a natural order for the drill-down. This order can be merged
+        with user-specified order. Returns a list of tuples:
+            (`attribute_name`, `order`)."""
+
+        order = []
+
+        for item in self.drilldown:
+            for level in item.levels:
+                lvl_attr = level.order_attribute or level.key
+                lvl_order = level.order or 'asc'
+                order.append((lvl_attr, lvl_order))
+
+        return order
 
     def has_dimension(self, dim):
         return str(dim) in self._contained_dimensions
