@@ -1,5 +1,9 @@
 # -*- encoding=utf -*-
 
+# TODO: Remove this module or rewrite using expressions (or named expressions
+# called `formulas`) once implemented.  There is no need for complexity of
+# this type.
+
 from collections import namedtuple
 from ..errors import InternalError, NoSuchAttributeError, ModelError
 
@@ -78,20 +82,14 @@ class AggregateFunction(object):
 
         Returns a SQLAlchemy expression."""
 
-        if not context:
-            raise InternalError("No context provided for AggregationFunction")
+        context = context or {}
 
         if not aggregate.measure:
             raise ModelError("No measure specified for aggregate %s, "
                              "required for aggregate function %s"
                              % (str(aggregate), self.name))
 
-        try:
-            source = context.cube.measure(aggregate.measure)
-        except NoSuchAttributeError:
-            source = context.cube.aggregate(aggregate.measure)
-
-        column = context.column(source)
+        column = context[aggregate.measure]
 
         if coalesce:
             column = self.coalesce_value(aggregate, column)
@@ -144,7 +142,7 @@ class FactCountFunction(AggregateFunction):
         if coalesce:
             # TODO: pass the fact column somehow more nicely, maybe in a map:
             # aggregate: column
-            column = context.fact_key_column()
+            column = context["__fact_key__"]
             return sql.functions.count(column)
         else:
             return sql.functions.count(1)
