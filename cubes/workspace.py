@@ -51,27 +51,6 @@ def config_items_to_dict(items):
     return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
 
 
-class ModelObjectInfo(object):
-    def __init__(self, name, scope, metadata, provider, model_metadata,
-                  locale, translations):
-        self.name = name
-        self.scope = scope
-        self.metadata = metadata
-        self.provider = provider
-        self.model_metadata = model_metadata
-        self.locale = locale
-        self.translations = translations
-        self.master = None
-        self.instances = {}
-
-    def add_instance(self, instance, lang=None, identity=None):
-        key = (lang, identity)
-        self.instances[key] = instance
-
-    def instance(self, lang=None, identity=None):
-        key = (lang, identity)
-        return self.instances[key]
-
 class Workspace(object):
     def __init__(self, config=None, stores=None):
         """Creates a workspace. `config` should be a `ConfigParser` or a
