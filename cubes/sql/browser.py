@@ -13,7 +13,7 @@ from .mapper import SnowflakeMapper, DenormalizedMapper
 from .functions import get_aggregate_function, available_aggregate_functions
 from .query import QueryBuilder
 from ..model import base_attributes
-from .schema import StarSchema, to_join
+from .schema import StarSchema, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
 
 import itertools
@@ -222,18 +222,19 @@ class SnowflakeBrowser(AggregationBrowser):
 
         Number of SQL queries: 1."""
 
-        # TODO: safe labels 
-        core = star.denormalized_statement(fields,
-                                           include_fact_key=True)
+        statement = self.denormalized_statement(attributes=fields,
+                                                include_fact_key=True)
+        condition = statement.columns[FACT_KEY_LABEL] == key_value
+        statement = statement.where(condition)
 
-        core = core.where(core.c[self.fact_key] == key_value)
-
-        cursor = self.execute(core, "facts")
+        cursor = self.execute(statement, "fact")
+        labels = cursor.keys()
         row = cursor.fetchone()
 
         if row:
             # Convert SQLAlchemy object into a dictionary
-            record = dict(zip(builder.labels, row))
+            # TODO: safe labels
+            record = self.row_to_dict(row, labels)
         else:
             record = None
 
@@ -241,31 +242,26 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return record
 
-    # TODO: requires rewrite
+    # TODO: Safe labels
     def facts(self, cell=None, fields=None, order=None, page=None,
               page_size=None):
         """Return all facts from `cell`, might be ordered and paginated.
 
         Number of SQL queries: 1.
         """
-        raise NotImplementedError("Queued for refactoring")
-
         cell = cell or Cell(self.cube)
 
-        attributes = self.cube.get_attributes(fields)
+        statement = self.denormalized_statement(cell=cell, attributes=fields)
+        statement = paginate_query(statement, page, page_size)
+        # TODO: should we use some kind of natural order here?
+        statement = order_query(statement,
+                                order,
+                                labels=None)
 
-        builder = QueryBuilder(self)
-        builder.denormalized_statement(cell,
-                                       attributes,
-                                       include_fact_key=True)
-        builder.paginate(page, page_size)
-        order = self.prepare_order(order, is_aggregate=False)
-        builder.order(order)
+        cursor = self.execute(builder.statement, "facts")
 
-        cursor = self.execute(builder.statement,
-                                        "facts")
-
-        return ResultIterator(cursor, builder.labels)
+        # TODO: safe labels
+        return ResultIterator(cursor, cursor.keys())
 
     # TODO: requires rewrite
     def test(self, aggregate=False, **options):
@@ -507,6 +503,35 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return result
 
+    def denormalized_statement(self, cell=None, attributes=None,
+                               include_fact_key=False):
+        """Returns a statement representing denormalized star restricted by
+        `cell`. If `attributes` is not specified, then all cube's attributes
+        are selected."""
+
+        attributes = attributes or self.cube.all_attributes
+        base = base_attributes(attributes)
+        star = self.star.star(base)
+
+        # TODO: label the fact key with __id__ or __fact_key__ (not decided)
+        if include_fact_key:
+            selection = [self.star.fact_key_column]
+        else:
+            selection = []
+
+        selection += [self.attribute_column(attr) for attr in attributes]
+
+        if cell:
+            cell_condition = self.condition_for_cell(cell)
+        else:
+            cell_condition = None
+
+        statement = sql.expression.select(selection,
+                                          from_obj=star,
+                                          whereclause=cell_condition)
+
+        return statement
+
     def aggregation_statement(self, cell, aggregates, drilldown=None,
                               split=None, attributes=None, for_summary=False,
                               across=None):
@@ -566,8 +591,7 @@ class SnowflakeBrowser(AggregationBrowser):
 
         # WHERE
         # -----
-        conditions = self.conditions_for_cuts(cell.cuts)
-        condition = sql.expression.and_(*conditions)
+        condition = self.condition_for_cell(cell)
 
         group_by = selection[:] if not for_summary else None
 
@@ -588,6 +612,15 @@ class SnowflakeBrowser(AggregationBrowser):
                                           group_by=group_by)
 
         return statement
+
+    def condition_for_cell(self, cell):
+        """Returns a condition for cell `cell`."""
+
+        if not cell:
+            return None
+
+        condition = and_(*self.conditions_for_cuts(self, cell.cuts))
+        return condition
 
     def conditions_for_cuts(self, cuts):
         """Constructs conditions for all cuts in the `cell`. Returns a list of
@@ -864,6 +897,17 @@ class SnowflakeBrowser(AggregationBrowser):
                     issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
 
         return issues
+
+    def row_to_dict(self, row, labels):
+        """Converts a result `row` into a dictionary. Applies proper key
+        labels. Main purpose of this method is to make sure that safe labels
+        (labels without dots or special characters) are converted back to user
+        specified labels."""
+
+        if self.safe_labels:
+            raise NotImplementedError
+        else:
+            return dict(zip(labels, row))
 
 
 class ResultIterator(object):
