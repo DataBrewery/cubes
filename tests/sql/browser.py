@@ -12,12 +12,11 @@ import datetime
 from sqlalchemy import Table, Column, Integer, Float, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
 
-from ...common import CubesTestCaseBase
+from ..common import CubesTestCaseBase
 
 from cubes.errors import HierarchyError
 from cubes.browser import PointCut, SetCut, RangeCut, Cell
-from cubes.backends.sql.mapper import coalesce_physical
-from cubes.backends.sql.browser import SnowflakeBrowser
+from cubes.sql.browser import SnowflakeBrowser
 # from cubes.browser import *
 
 
@@ -78,7 +77,6 @@ class StarSQLTestCase(CubesTestCaseBase):
         self.browser = SnowflakeBrowser(self.cube,store=store,
                                         dimension_prefix="dim_")
         self.browser.debug = True
-        self.mapper = self.browser.mapper
 
 
 @unittest.skip("Obsolete")
@@ -172,63 +170,6 @@ class QueryContextTestCase(StarSQLTestCase):
         drilldown = ["date"]
         with self.assertRaisesRegex(HierarchyError, "has only 3 levels"):
             levels_from_drilldown(cell, drilldown)
-
-
-class RelevantJoinsTestCase(StarSQLTestCase):
-    def setUp(self):
-        super(RelevantJoinsTestCase, self).setUp()
-
-        self.joins = [
-                {"master":"fact.date_id", "detail": "dim_date.id"},
-                {"master":["fact", "product_id"], "detail": "dim_product.id"},
-                {"master":"fact.contract_date_id", "detail": "dim_date.id", "alias":"dim_contract_date"},
-                {"master":"dim_product.subcategory_id", "detail": "dim_subcategory.id"},
-                {"master":"dim_subcategory.category_id", "detail": "dim_category.id"}
-            ]
-        self.mapper._collect_joins(self.joins)
-        self.mapper.mappings.update(
-            {
-                "product.subcategory": "dim_subcategory.subcategory_id",
-                "product.subcategory_name.en": "dim_subcategory.subcategory_name_en",
-                "product.subcategory_name.sk": "dim_subcategory.subcategory_name_sk"
-            }
-        )
-
-    def attributes(self, *attrs):
-        return self.cube.get_attributes(attrs)
-
-    def test_basic_joins(self):
-        relevant = self.mapper.relevant_joins(self.attributes("date.year"))
-        self.assertEqual(1, len(relevant))
-        self.assertEqual("dim_date", relevant[0].detail.table)
-        self.assertEqual(None, relevant[0].alias)
-
-        relevant = self.mapper.relevant_joins(self.attributes("product.name"))
-        self.assertEqual(1, len(relevant))
-        self.assertEqual("dim_product", relevant[0].detail.table)
-        self.assertEqual(None, relevant[0].alias)
-
-    @unittest.skip("missing model")
-    def test_alias(self):
-        relevant = self.mapper.relevant_joins(self.attributes("date.year"))
-        self.assertEqual(1, len(relevant))
-        self.assertEqual("dim_date", relevant[0].detail.table)
-        self.assertEqual("dim_contract_date", relevant[0].alias)
-
-    def test_snowflake(self):
-        relevant = self.mapper.relevant_joins(self.attributes("product.subcategory"))
-
-        self.assertEqual(2, len(relevant))
-        test = sorted([r.detail.table for r in relevant])
-        self.assertEqual(["dim_product","dim_subcategory"], test)
-        self.assertEqual([None, None], [r.alias for r in relevant])
-
-        relevant = self.mapper.relevant_joins(self.attributes("product.category_name"))
-
-        self.assertEqual(3, len(relevant))
-        test = sorted([r.detail.table for r in relevant])
-        self.assertEqual(["dim_category", "dim_product","dim_subcategory"], test)
-        self.assertEqual([None, None, None], [r.alias for r in relevant])
 
 
 class MapperTestCase(unittest.TestCase):
@@ -325,7 +266,6 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
 
     def test_get_fact(self):
         """Get single fact"""
-        self.assertEqual(True, self.mapper.simplify_dimension_references)
         fact = self.browser.fact(1)
         self.assertIsNotNone(fact)
 
@@ -335,9 +275,6 @@ class StarSQLBrowserTestCase(StarSQLTestCase):
 
     def test_get_facts(self):
         """Get single fact"""
-        # TODO: remove this when happy
-        self.assertEqual(True, self.mapper.simplify_dimension_references)
-
         facts = list(self.browser.facts())
 
         result = self.engine.execute(self.table("sales").count())

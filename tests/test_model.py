@@ -5,7 +5,6 @@ import re
 from cubes.errors import ArgumentError, ModelError, HierarchyError
 from cubes.errors import ModelInconsistencyError, NoSuchAttributeError
 from cubes.errors import NoSuchDimensionError
-from cubes import Workspace
 from cubes import read_model_metadata
 from cubes import Level, Attribute, Dimension, Hierarchy, Cube
 from cubes import Measure, MeasureAggregate
@@ -950,24 +949,6 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
         with self.assertRaises(ArgumentError):
             path = self.model_path("model.json")
             desc = read_model_metadata_bundle(path)
-
-@unittest.skip("No more base model in the cubes package")
-class BaseModelTestCase(ModelTestCaseBase):
-    def test_base_ignorance(self):
-        ws = Workspace(load_base_model=False)
-        with self.assertRaises(NoSuchDimensionError):
-            ws.dimension("base_time")
-
-    def test_base_existence(self):
-        ws = Workspace()
-        dim = ws.dimension("base_time")
-        self.assertEqual(dim.name, "base_time")
-
-    def test_select_hierarchies(self):
-        ws = Workspace()
-        dim_time = ws.dimension("base_time")
-        dim_date = ws.dimension("base_date")
-        self.assertLess(len(dim_date.hierarchies), len(dim_time.hierarchies))
 
 def test_suite():
     suite = unittest.TestSuite()

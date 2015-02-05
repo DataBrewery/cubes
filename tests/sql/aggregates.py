@@ -3,7 +3,7 @@ import unittest
 from sqlalchemy import create_engine, MetaData, Table, Integer, String, Column
 from cubes import *
 from cubes.errors import *
-from ...common import CubesTestCaseBase
+from ..common import CubesTestCaseBase
 
 from json import dumps
 

@@ -1,7 +1,10 @@
 import unittest
-from cubes.backends.sql.mapper import SnowflakeMapper
-from cubes.model import *
-from .common import CubesTestCaseBase
+# from cubes.sql.mapper import SnowflakeMapper
+# from cubes.model import *
+# from ..common import CubesTestCaseBase
+
+class CubesTestCaseBase(unittest.TestCase):
+    pass
 
 class MapperTestCase(CubesTestCaseBase):
     def setUp(self):
@@ -127,8 +130,3 @@ class MapperTestCase(CubesTestCaseBase):
                            "product.subcategory_name", "de")
 
 
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(MapperTestCase))
-
-    return suite
