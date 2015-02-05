@@ -25,6 +25,9 @@ from collections import namedtuple
 from ..errors import InternalError, ModelError, ArgumentError
 from .. import compat
 
+# Default label for all fact keys
+FACT_KEY_LABEL = '__fact_key__'
+
 # Attribute -> Column
 # IF attribute has no 'expression' then mapping is used
 # IF attribute has expression, the expression is used and underlying mappings
@@ -49,7 +52,7 @@ Column = namedtuple("Column",
 # than the `column` used. Every column used MUST be accounted in the
 # relevant_joins() call.
 #
-# See similar message in the column() method of the StarSchema.
+# See similar comment in the column() method of the StarSchema.
 #
 
 def to_column(obj, default_table=None, default_schema=None):
@@ -264,8 +267,8 @@ class StarSchema(object):
     caller to resolve these and ask for basic columns only.
     """
 
-    def __init__(self, name, metadata, mappings, fact, joins=None,
-                 tables=None, schema=None):
+    def __init__(self, name, metadata, mappings, fact, fact_key='id',
+                 joins=None, tables=None, schema=None):
 
         # TODO: expectation is, that the snowlfake is already localized, the
         # owner of the snowflake should generate one snowflake per locale.
@@ -300,6 +303,10 @@ class StarSchema(object):
             # We expect fact to be a statement
             self.fact_name = fact.name
             self.fact_table = fact
+
+        self.fact_key = fact_key
+        self.fact_key_column = self.fact_table.columns[self.fact_key]
+        self.fact_key_column = self.fact_key_column.label(FACT_KEY_LABEL)
 
         # Rest of the initialization
         # --------------------------
