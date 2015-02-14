@@ -189,7 +189,8 @@ class AggregationBrowser(Extensible):
         * `order` – list of tuples: (`attribute`, `order`)
 
         """
-        raise NotImplementedError
+        raise NotImplementedError("{} does not provide aggregate functionality." \
+                                  .format(str(type(self))))
 
     def prepare_aggregates(self, aggregates=None, measures=None):
         """Prepares the aggregate list for aggregatios. `aggregates` might be a
@@ -327,12 +328,13 @@ class AggregationBrowser(Extensible):
 
         Subclasses overriding this method sould return a :class:`Facts` object
         and set it's `attributes` to the list of selected attributes."""
-
-        raise NotImplementedError
+        raise NotImplementedError("{} does not provide facts functionality." \
+                                  .format(str(type(self))))
 
     def fact(self, key):
         """Returns a single fact from cube specified by fact key `key`"""
-        raise NotImplementedError
+        raise NotImplementedError("{} does not provide fact functionality." \
+                                  .format(str(type(self))))
 
     def members(self, cell, dimension, depth=None, level=None, hierarchy=None,
                 attributes=None, page=None, page_size=None, order=None,
@@ -373,6 +375,10 @@ class AggregationBrowser(Extensible):
                                       **options)
         return result
 
+    def provide_members(self, *args, **kwargs):
+        raise NotImplementedError("{} does not provide members functionality." \
+                                  .format(str(type(self))))
+
     def values(self, *args, **kwargs):
         # TODO: depreciated
         self.logger.warn("values() is depreciated, use members()")
@@ -381,7 +387,8 @@ class AggregationBrowser(Extensible):
     def test(self, **options):
         """Tests whether the cube can be used. Refer to the backend's
         documentation for more information about what is being tested."""
-        raise NotImplementedError
+        raise NotImplementedError("{} does not provide test functionality." \
+                                  .format(str(type(self))))
 
     def report(self, cell, queries):
         """Bundle multiple requests from `queries` into a single one.
