@@ -18,8 +18,7 @@ class Mapper(object):
     # class yet. It might be moved to the cubes as one of top-level modules
     # and subclassed here.
 
-    def __init__(self, cube, locale=None, schema=None, fact_name=None,
-                 **options):
+    def __init__(self, cube, locale=None, **naming):
         """Abstract class for mappers which maps logical references to
         physical references (tables and columns).
 
@@ -43,14 +42,14 @@ class Mapper(object):
         self.logger = get_logger()
 
         self.cube = cube
-        # TODO: merge with mappings received as arguments
+
         self.mappings = self.cube.mappings
         self.locale = locale
 
         # TODO: remove this (should be in SQL only)
 
-        if "simplify_dimension_references" in options:
-            self.simplify_dimension_references = options["simplify_dimension_references"]
+        if "simplify_dimension_references" in naming:
+            self.simplify_dimension_references = naming["simplify_dimension_references"]
         else:
             self.simplify_dimension_references = True
 

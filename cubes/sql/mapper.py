@@ -33,6 +33,27 @@ __all__ = (
 
 DEFAULT_KEY_FIELD = "id"
 
+DEFAULT_FACT_KEY = 'id'
+DEFAULT_DIMENSION_KEY = 'id'
+
+NAMING_DEFAULTS = {
+    "fact_prefix": None,
+    "fact_suffix": None,
+    "dimension_prefix": None,
+    "dimension_suffix": None,
+    "dimension_key_prefix": None,
+    "dimension_key_suffix": None,
+    "fact_key": DEFAULT_FACT_KEY,
+    "dimension_key": DEFAULT_DIMENSION_KEY,
+    "explicit_dimension_primary": False,
+
+    "schema": None,
+    "fact_schema": None,
+    "dimension_schema": None,
+}
+
+
+# TODO: Use 'Naming' instead of this long list of arguments
 
 class SnowflakeMapper(Mapper):
     """Mapper is core clas for translating logical model to physical
@@ -42,9 +63,8 @@ class SnowflakeMapper(Mapper):
     # class yet. It might be moved to the cubes as one of top-level modules
     # and subclassed here.
 
-    def __init__(self, cube, mappings=None, locale=None, schema=None,
-                 fact_name=None, dimension_prefix=None, dimension_suffix=None,
-                 joins=None, dimension_schema=None, **options):
+    def __init__(self, cube, mappings=None, locale=None, fact_name=None,
+                 **naming):
 
         """A snowflake schema mapper for a cube. The mapper creates required
         joins, resolves table names and maps logical references to tables and
@@ -84,22 +104,21 @@ class SnowflakeMapper(Mapper):
 
         """
 
-        super(SnowflakeMapper, self).__init__(cube, locale=locale, **options)
+        super(SnowflakeMapper, self).__init__(cube, locale=locale, **naming)
+
 
         self.mappings = mappings or cube.mappings
-        self.dimension_prefix = dimension_prefix or ""
-        self.dimension_suffix = dimension_suffix or ""
-        self.dimension_schema = dimension_schema
 
-        fact_prefix = options.get("fact_prefix") or ""
-        fact_suffix = options.get("fact_suffix") or ""
+        self.naming = Naming(naming)
 
         if not (fact_name or self.cube.fact or self.cube.basename):
             raise ModelError("Can not determine cube fact name")
 
-        self.fact_name = fact_name or self.cube.fact or "%s%s%s" % \
-                            (fact_prefix, self.cube.basename, fact_suffix)
-        self.schema = schema
+        self.fact_name = fact_name \
+                            or self.cube.fact \
+                            or self.naming.fact_table_name(self.cube.basename)
+
+        self.schema = self.naming.schema
 
     def physical(self, attribute, locale=None):
         """Returns physical reference as tuple for `attribute`, which should
@@ -127,7 +146,7 @@ class SnowflakeMapper(Mapper):
                              "have a physical representation"
                              .format(attribute.name))
 
-        schema = self.dimension_schema or self.schema
+        schema = self.naming.dimension_schema or self.schema
 
         reference = None
 
@@ -169,7 +188,7 @@ class SnowflakeMapper(Mapper):
             if dimension and not (self.simplify_dimension_references \
                                    and (dimension.is_flat
                                         and not dimension.has_details)):
-                table_name = "%s%s%s" % (self.dimension_prefix, dimension, self.dimension_suffix)
+                table_name = self.naming.dimension_table_name(dimension)
             else:
                 table_name = self.fact_name
 
@@ -247,25 +266,6 @@ class DenormalizedMapper(Mapper):
 
         return reference
 
-
-DEFAULT_FACT_KEY = 'id'
-DEFAULT_DIMENSION_KEY = 'id'
-
-NAMING_DEFAULTS = {
-    "fact_prefix": None,
-    "fact_suffix": None,
-    "dimension_prefix": None,
-    "dimension_suffix": None,
-    "dimension_key_prefix": None,
-    "dimension_key_suffix": None,
-    "fact_key": DEFAULT_FACT_KEY,
-    "dimension_key": DEFAULT_DIMENSION_KEY,
-    "explicit_dimension_primary": False,
-
-    "schema": None,
-    "fact_schema": None,
-    "dimension_schema": None,
-}
 
 class Naming(AttributeDict):
     """Naming conventions for SQL tables. Naming properties can be accessed as
