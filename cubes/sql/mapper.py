@@ -6,7 +6,7 @@ from __future__ import absolute_import
 from collections import namedtuple
 
 from ..logging import get_logger
-from ..errors import BackendError
+from ..errors import BackendError, ModelError
 from ..mapper import Mapper
 from ..model import AttributeBase
 from .. import compat
@@ -83,6 +83,10 @@ class SnowflakeMapper(Mapper):
 
         fact_prefix = options.get("fact_prefix") or ""
         fact_suffix = options.get("fact_suffix") or ""
+
+        if not (fact_name or self.cube.fact or self.cube.basename):
+            raise ModelError("Can not determine cube fact name")
+
         self.fact_name = fact_name or self.cube.fact or "%s%s%s" % \
                             (fact_prefix, self.cube.basename, fact_suffix)
         self.schema = schema
