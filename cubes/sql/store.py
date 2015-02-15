@@ -13,7 +13,7 @@ from ..computation import *
 from .utils import CreateTableAsSelect, CreateOrReplaceView
 
 try:
-    import sqlalchemy
+    import sqlalchemy as sa
     import sqlalchemy.sql as sql
     from sqlalchemy.engine import reflection
     from sqlalchemy.orm.query import QueryContext
@@ -21,8 +21,7 @@ try:
 except ImportError:
     from ..common import MissingPackage
 
-    reflection = sqlalchemy = sql = MissingPackage("sqlalchemy",
-                                                   "SQL aggregation browser")
+    reflection = sa = sql = MissingPackage("sqlalchemy", "SQL")
 
 __all__ = [
     "sqlalchemy_options",
@@ -76,9 +75,9 @@ class SQLStore(Store):
     def model_provider_name(self):
         return 'default'
 
-    default_browser_name = "snowflake"
+    default_browser_name = "sql"
 
-    def __init__(self, url=None, engine=None, schema=None, **options):
+    def __init__(self, url=None, engine=None, metadata=None, **options):
         """
         The options are:
 
@@ -124,27 +123,29 @@ class SQLStore(Store):
             raise ArgumentError("Both engine and URL specified. Use only one.")
 
         # Create a copy of options, because we will be popping from it
-        options = dict(options)
+        self.options = coalesce_options(options, OPTION_TYPES)
+        self.naming = distill_naming(self.options)
 
         if not engine:
             # Process SQLAlchemy options
             sa_options = sqlalchemy_options(options)
-            engine = sqlalchemy.create_engine(url, **sa_options)
+            engine = sa.create_engine(url, **sa_options)
 
         self.logger = get_logger(name=__name__)
 
         self.connectable = engine
-        self.schema = schema
+        self.schema = self.naming.schema
 
         # Load metadata here. This might be too expensive operation to be
         # performed on every request, therefore it is recommended to have one
         # shared open store per process. SQLAlchemy will take care about
         # necessary connections.
 
-        self.metadata = sqlalchemy.MetaData(bind=self.connectable,
-                                            schema=self.schema)
-
-        self.options = coalesce_options(options, OPTION_TYPES)
+        if metadata:
+            self.metadata = metadata
+        else:
+            self.metadata = sa.MetaData(bind=self.connectable,
+                                        schema=self.schema)
 
     # TODO: make a separate SQL utils function
     def _drop_table(self, table, schema, force=False):
@@ -159,7 +160,7 @@ class SQLStore(Store):
             raise WorkspaceError("View or table %s (schema: %s) already exists." % \
                                  (view_name, schema))
 
-        inspector = sqlalchemy.engine.reflection.Inspector.from_engine(self.connectable)
+        inspector = sa.engine.reflection.Inspector.from_engine(self.connectable)
         view_names = inspector.get_view_names(schema=schema)
 
         if view_name in view_names:
@@ -225,7 +226,7 @@ class SQLStore(Store):
         if browser.mapper.fact_name == view_name and schema == browser.mapper.schema:
             raise WorkspaceError("target denormalized view is the same as source fact table")
 
-        table = sqlalchemy.Table(view_name, self.metadata,
+        table = sa.Table(view_name, self.metadata,
                                  autoload=False, schema=schema)
 
         if table.exists():
@@ -246,7 +247,7 @@ class SQLStore(Store):
                 raise WorkspaceError("Index can be created only on a materialized view")
 
             # self.metadata.reflect(schema = schema, only = [view_name] )
-            table = sqlalchemy.Table(view_name, self.metadata,
+            table = sa.Table(view_name, self.metadata,
                                      autoload=True, schema=schema)
 
             insp = reflection.Inspector.from_engine(engine)
@@ -257,7 +258,7 @@ class SQLStore(Store):
                 self.logger.info("creating index for %s" % label)
                 column = table.c[label]
                 name = "idx_%s_%s" % (view_name, label)
-                index = sqlalchemy.schema.Index(name, column)
+                index = sa.schema.Index(name, column)
                 index.create(engine)
 
         return statement
@@ -406,7 +407,7 @@ class SQLStore(Store):
         #
         # Create table
         #
-        table = sqlalchemy.Table(table_name, self.metadata,
+        table = sa.Table(table_name, self.metadata,
                                  autoload=False, schema=schema)
 
         if table.exists():
@@ -415,13 +416,13 @@ class SQLStore(Store):
         for col in statement.columns:
             # mysql backend requires default string length
             if self.connectable.name == "mysql" \
-                    and isinstance(col.type, sqlalchemy.String) \
+                    and isinstance(col.type, sa.String) \
                     and not col.type.length:
-                col_type = sqlalchemy.String(255)
+                col_type = sa.String(255)
             else:
                 col_type = col.type
 
-            new_col = sqlalchemy.Column(col.name, col_type)
+            new_col = sa.Column(col.name, col_type)
             table.append_column(new_col)
 
         self.logger.info("creating table '%s'" % str(table))
