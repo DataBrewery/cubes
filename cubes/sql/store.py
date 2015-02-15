@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 
 from .browser import SnowflakeBrowser
-from .mapper import SnowflakeMapper
+from .mapper import SnowflakeMapper, distill_naming
 from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
@@ -528,3 +528,36 @@ class SQLStore(Store):
             index.create(self.connectable)
 
         self.logger.info("Done")
+
+
+class SQLSchemaInspector(object):
+    """Object that discovers fact and dimension tables in a database according
+    to specified configuration and naming conventions.
+
+    Note: expreimental."""
+
+
+    def __init__(self, engine, naming, metadata=None):
+        """Creates an inspector that discovers tables in a database according
+        to specified configuration and naming conventions."""
+        self.engine = engine
+        self.naming = naming
+        self.metadata = metadata or MetaData(engine)
+
+        self.inspector = reflection.Inspector.from_engine(engine)
+
+    def discover_fact_tables(self):
+        """discovers tables that might be fact tables by name."""
+
+        schema = self.naming.fact_schema or self.naming.schema
+        names = self.inspector.get_table_names(schema)
+
+        return self.naming.facts(names)
+
+    def discover_dimension_tables(self):
+        """discovers tables that might be dimension tables by name."""
+
+        schema = self.naming.dimension_schema or self.naming.schema
+        names = self.inspector.get_table_names(schema)
+
+        return self.naming.dimensions(names)
