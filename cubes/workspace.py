@@ -765,8 +765,7 @@ class Workspace(object):
             raise ConfigurationError("No info for store %s" % name)
 
         # TODO: temporary hack to pass store name and store type
-        store = extensions.store(type_, store_type=type_, store_name=name,
-                                 **options)
+        store = extensions.store(type_, store_type=type_, **options)
         self.stores[name] = store
         return store
 
