@@ -1,6 +1,6 @@
 import unittest
 from cubes.sql.mapper import SnowflakeMapper
-from cubes.model import Cube
+from cubes.model import Cube, Attribute
 from ..common import CubesTestCaseBase
 from cubes.sql.mapper import Naming
 
