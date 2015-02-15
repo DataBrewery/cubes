@@ -9,7 +9,9 @@ from ..logging import get_logger
 from ..errors import BackendError, ModelError
 from ..mapper import Mapper
 from ..model import AttributeBase
+from ..datastructures import AttributeDict
 from .. import compat
+import re
 
 from .schema import to_column
 
@@ -249,6 +251,22 @@ class DenormalizedMapper(Mapper):
 DEFAULT_FACT_KEY = 'id'
 DEFAULT_DIMENSION_KEY = 'id'
 
+NAMING_DEFAULTS = {
+    "fact_prefix": None,
+    "fact_suffix": None,
+    "dimension_prefix": None,
+    "dimension_suffix": None,
+    "dimension_key_prefix": None,
+    "dimension_key_suffix": None,
+    "fact_key": DEFAULT_FACT_KEY,
+    "dimension_key": DEFAULT_DIMENSION_KEY,
+    "explicit_dimension_primary": False,
+
+    "schema": None,
+    "fact_schema": None,
+    "dimension_schema": None,
+}
+
 class Naming(AttributeDict):
     """Naming conventions for SQL tables. Naming properties can be accessed as
     a dictionary keys or as direct attributes. The naming properties are:
@@ -285,23 +303,29 @@ class Naming(AttributeDict):
 
     """
 
-    def __init__(self, dictionary):
+    def __init__(self, *args, **kwargs):
         """Creates a `Naming` object instance from a dictionary. If `fact_key`
         or `dimension_key` are not specified, then they are set to ``id`` by
         default."""
 
-        super(Naming, self).__init__(dictionary)
-        self["dim_name_pattern"] = "{}(?P<name>){}".format(self.dimension_prefix,
-                                                            self.dimension_suffix)
-        self["fact_name_pattern"] = "{}(?P<name>){}".format(self.fact_prefix,
-                                                            self.fact_suffix)
-        self["dim_key_pattern"] = "{}(?P<name>){}".format(self.dimension_key_prefix,
-                                                            self.dimension_key_suffix)
-        if self.fact_key is None:
-            self["fact_key"] = DEFAULT_FACT_KEY
+        super(Naming, self).__init__(*args, **kwargs)
 
-        if self.dimension_key is None:
-            self["dimension_key"] = DEFAULT_DIMENSION_KEY
+        # Set the defaults
+        for key, value in NAMING_DEFAULTS.items():
+            if key not in self:
+                self[key] = value
+
+        pat = re.compile("^{}(?P<name>.*){}$".format(self.dimension_prefix or "",
+                                                 self.dimension_suffix or ""))
+        self["dim_name_pattern"] = pat
+
+        pat = re.compile("^{}(?P<name>.*){}$".format(self.fact_prefix or "",
+                                                 self.fact_suffix or ""))
+        self["fact_name_pattern"] = pat
+
+        pat = re.compile("^{}(?P<name>.*){}$".format(self.dimension_key_prefix or "",
+                                                 self.dimension_key_suffix or ""))
+        self["dim_key_pattern"] = pat
 
     def dimension_table_name(self, name):
         """Constructs a physical dimension table name for dimension `name`"""
@@ -344,7 +368,8 @@ class Naming(AttributeDict):
         for key in keys:
             match = self.dim_key_pattern.match(key)
             if match:
-                result.append(match.group("name"))
+                result.append((key, match.group("name")))
+
 
         return result
 
@@ -355,10 +380,10 @@ class Naming(AttributeDict):
 
         result = []
 
-        for key in keys:
-            match = self.dim_name_pattern.match(key)
+        for name in table_names:
+            match = self.dim_name_pattern.match(name)
             if match:
-                result.append(match.group("name"))
+                result.append((name, match.group("name")))
 
         return result
 
@@ -369,9 +394,9 @@ class Naming(AttributeDict):
 
         result = []
 
-        for key in keys:
-            match = self.fact_name_pattern.match(key)
+        for name in table_names:
+            match = self.fact_name_pattern.match(name)
             if match:
-                result.append(match.group("name"))
+                result.append((name, match.group("name")))
 
         return result

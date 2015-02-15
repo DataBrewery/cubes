@@ -1,7 +1,8 @@
 import unittest
 from cubes.sql.mapper import SnowflakeMapper
-from cubes.model import *
+from cubes.model import Cube
 from ..common import CubesTestCaseBase
+from cubes.sql.mapper import Naming
 
 class MapperTestCase(CubesTestCaseBase):
     def setUp(self):
@@ -127,8 +128,111 @@ class MapperTestCase(CubesTestCaseBase):
                            "product.subcategory_name", "de")
 
 
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(MapperTestCase))
+class NamingTestCase(unittest.TestCase):
+    def test_dim_table_name(self):
+        naming = Naming()
+        self.assertEqual("date", naming.dimension_table_name("date"))
 
-    return suite
+        naming = Naming({"dimension_prefix": "dim_"})
+        self.assertEqual("dim_date", naming.dimension_table_name("date"))
+
+        naming = Naming({"dimension_suffix": "_dim"})
+        self.assertEqual("date_dim", naming.dimension_table_name("date"))
+
+        naming = Naming({"dimension_prefix": "v_", "dimension_suffix": "_dim"})
+        self.assertEqual("v_date_dim", naming.dimension_table_name("date"))
+
+    def test_fact_table_name(self):
+        naming = Naming()
+        self.assertEqual("fact", naming.fact_table_name("fact"))
+
+        naming = Naming({"fact_prefix": "ft_"})
+        self.assertEqual("ft_fact", naming.fact_table_name("fact"))
+
+        naming = Naming({"fact_suffix": "_ft"})
+        self.assertEqual("fact_ft", naming.fact_table_name("fact"))
+
+        naming = Naming({"fact_prefix": "v_", "fact_suffix": "_ft"})
+        self.assertEqual("v_fact_ft", naming.fact_table_name("fact"))
+
+    def test_dim_primary_key_name(self):
+        naming = Naming()
+        self.assertEqual("id", naming.dimension_primary_key("date"))
+
+        naming = Naming({"dimension_key_prefix": "dw_",
+                         "dimension_key_suffix": "_key"})
+        self.assertEqual("id", naming.dimension_primary_key("date"))
+
+        naming = Naming({"dimension_key_prefix": "key_",
+                         "explicit_dimension_primary": True})
+        self.assertEqual("key_date", naming.dimension_primary_key("date"))
+
+        naming = Naming({"dimension_key_suffix": "_key",
+                         "explicit_dimension_primary": True})
+        self.assertEqual("date_key", naming.dimension_primary_key("date"))
+
+        naming = Naming({"dimension_key_prefix": "dw_",
+                         "dimension_key_suffix": "_key",
+                         "explicit_dimension_primary": True})
+        self.assertEqual("dw_date_key", naming.dimension_primary_key("date"))
+
+    def test_dimension_keys(self):
+        naming = Naming()
+        self.assertCountEqual(naming.dimension_keys(["date", "country"]),
+                              [("date", "date"), ("country", "country")])
+
+        keys = ["id", "date_key", "key_date", "dw_date_id", "amount"]
+
+        naming = Naming({"dimension_key_prefix": "key_"})
+
+        self.assertCountEqual(naming.dimension_keys(keys),
+                             [("key_date", "date")])
+
+        naming = Naming({"dimension_key_suffix": "_key"})
+        self.assertCountEqual(naming.dimension_keys(keys),
+                              [("date_key", "date")])
+
+
+        naming = Naming({"dimension_key_prefix": "dw_",
+                         "dimension_key_suffix": "_id"})
+        self.assertCountEqual(naming.dimension_keys(keys),
+                              [("dw_date_id", "date")])
+
+    def test_dimensions(self):
+        names = ["fact_sales", "dim_date", "date_dim", "v_date_dm", "other"]
+
+        naming = Naming()
+        self.assertCountEqual(naming.dimensions(["date", "customer"]),
+                              [("date", "date"), ("customer", "customer")])
+
+        naming = Naming({"dimension_prefix": "dim_"})
+        self.assertEqual(naming.dimensions(names),
+                        [("dim_date", "date")])
+
+        naming = Naming({"dimension_suffix": "_dim"})
+        self.assertEqual(naming.dimensions(names),
+                        [("date_dim", "date")])
+
+        naming = Naming({"dimension_prefix": "v_", "dimension_suffix": "_dm"})
+        self.assertEqual(naming.dimensions(names),
+                        [("v_date_dm", "date")])
+
+    def test_facts(self):
+        names = ["dim_date", "fact_sales", "sales_fact", "v_sales_ft", "other"]
+
+        naming = Naming()
+        self.assertCountEqual(naming.facts(["sales", "events"]),
+                              [("sales", "sales"), ("events", "events")])
+
+        naming = Naming({"fact_prefix": "fact_"})
+        self.assertEqual(naming.facts(names),
+                        [("fact_sales", "sales")])
+
+        naming = Naming({"fact_suffix": "_fact"})
+        self.assertEqual(naming.facts(names),
+                        [("sales_fact", "sales")])
+
+        naming = Naming({"fact_prefix": "v_", "fact_suffix": "_ft"})
+        self.assertEqual(naming.facts(names),
+                        [("v_sales_ft", "sales")])
+
