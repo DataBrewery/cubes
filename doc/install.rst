@@ -30,7 +30,7 @@ You may install Cubes with the minimal dependencies, ::
 
     pip install cubes
 
-with certain extras (html, sql, mongo, mongo2, or slicer), ::
+with certain extras (html, sql, mongo, or slicer), ::
 
     pip install cubes[slicer]
 

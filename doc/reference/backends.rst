@@ -41,5 +41,5 @@ Mixpanel
 Mongo DB
 ========
 
-.. autoclass:: cubes.backends.mongo2.browser.Mongo2Browser
-.. autoclass:: cubes.backends.mongo2.mapper.MongoCollectionMapper
+.. autoclass:: cubes.backends.mongo.browser.MongoBrowser
+.. autoclass:: cubes.backends.mongo.mapper.MongoCollectionMapper

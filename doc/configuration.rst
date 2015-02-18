@@ -354,7 +354,7 @@ Simple configuration:
 
 Multiple models, one store:
 
-.. code-block:: init
+.. code-block:: ini
 
     [models]
     finance = finance.cubesmodel
@@ -366,7 +366,7 @@ Multiple models, one store:
 
 Multiple stores:
 
-.. code-block:: init
+.. code-block:: ini
 
     [store finance]
     type = sql
