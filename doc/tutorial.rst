@@ -19,9 +19,9 @@ Data Preparation
 The example data used are IBRD Balance Sheet taken from `The World Bank`_.
 Backend used for the examples is ``sql.browser``.
 
-.. _The World Bank: https://finances.worldbank.org/Accounting-and-Control/IBRD-Balance-Sheet-FY2010/e8yz-96c6)
+.. _The World Bank: https://finances.worldbank.org/Accounting-and-Control/IBRD-Balance-Sheet-FY2010/e8yz-96c6
 
-Create a tutorial directory and download :download:`this example file 
+Create a tutorial directory and download :download:`IBRD_Balance_Sheet__FY2010.csv
 <files/IBRD_Balance_Sheet__FY2010.csv>`.
 
 Start with imports:
@@ -32,16 +32,16 @@ Start with imports:
 .. note::
 
     Cubes comes with tutorial helper methods in ``cubes.tutorial``. It is
-    advised not to use them in production, they are provided just to simplify
-    learner's life.
+    advised **not** to use them in production; they are provided just to
+    simplify the tutorial.
 
 Prepare the data using the tutorial helpers. This will create a table and
 populate it with contents of the CSV file:
 
 >>> engine = create_engine('sqlite:///data.sqlite')
 ... create_table_from_csv(engine,
-...                       "data.csv",
-...                       table_name="irbd_balance",
+...                       "IBRD_Balance_Sheet__FY2010.csv",
+...                       table_name="ibrd_balance",
 ...                       fields=[
 ...                             ("category", "string"),
 ...                             ("category_label", "string"),
@@ -53,10 +53,6 @@ populate it with contents of the CSV file:
 ...                       create_id=True
 ...                   )
 
-Model
-=====
-
-...
 
 Analytical Workspace
 ====================
@@ -73,7 +69,7 @@ to external cubes and more.
 
 The workspace properties are specified in a configuration file `slicer.ini`
 (default name). First thing we have to do is to specify a data store –
-database where are the cube's data:
+the database containing the cube's data:
 
 .. code-block:: ini
 
@@ -81,43 +77,44 @@ database where are the cube's data:
     type: sql
     url: sqlite:///data.sqlite
 
-In Python it would be:
+In Python, a workspace can be configured using the `ini` configuration:
 
 .. code-block:: python
 
     from cubes import Workspace
 
-    workspace = Workspace()
-    workspace.register_default_store("sql", url="sqlite:///data.sqlite")
+    workspace = Workspace(config="slicer.ini")
 
-Or alternatively, you can use the `slicer.ini` file in Python as well:
+or programatically:
 
 .. code-block:: python
 
-    workspace = Workspace(config="slicer.ini")
+    workspace = Workspace()
+    workspace.register_default_store("sql", url="sqlite:///data.sqlite")
+
 
 
 Model
 -----
 
-Download the :download:`example model<files/model.json>` and save it as
-``model.json``.
+Download the :download:`tutorial model<files/tutorial_model.json>` and save it as
+``tutorial_model.json``.
 
 In the `slicer.ini` file specify the model:
 
 .. code-block:: ini
 
     [workspace]
-    model: model.json
+    model: tutorial_model.json
 
-For more information how to add more models to the workspace see the
-:doc:`configuration documentation<configuration>`.
+For more information about how to add more models to the workspace see
+the :doc:`configuration documentation<configuration>`.
 
 Equivalent in Python is:
 
->>> workspace.import_model("model.json")
+>>> workspace.import_model("tutorial_model.json")
 
-You might call :meth:`import_model()<cubes.Workspace.import_model` with as many
+You might call :meth:`import_model()<cubes.Workspace.import_model>` with as many
 models as you need. Only limitation is that the public cubes and public
 dimensions should have unique names.
 
@@ -130,8 +127,7 @@ for a cube. To obtain one:
 
 >>> browser = workspace.browser("ibrd_balance")
 
-Compute the aggregate. Measure fields of :class:`aggregation
-result<cubes.AggregationResult>` have aggregation suffix. Also a total record
+Compute the aggregate. Measure fields of :class:`~cubes.AggregationResult` have aggregation suffix. Also a total record
 count within the cell is included as ``record_count``.
 
 >>> result = browser.aggregate()
@@ -156,9 +152,3 @@ Drill-down by item category:
 {u'item.category': u'a', u'item.category_label': u'Assets', u'record_count': 32, u'amount_sum': 558430}
 {u'item.category': u'e', u'item.category_label': u'Equity', u'record_count': 8, u'amount_sum': 77592}
 {u'item.category': u'l', u'item.category_label': u'Liabilities', u'record_count': 22, u'amount_sum': 480838}
-
->>> cube = workspace.cube("ibrd_balance")
-
-:class:`cell<cubes.Cell>` defines context of interest - part of the cube we
-are looking at. We start with whole cube:
-
