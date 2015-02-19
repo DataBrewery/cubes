@@ -28,7 +28,7 @@ def _read_config(config):
             raise Exception("Unable to load configuration: %s" % e)
     return config
 
-def create_server(config=None):
+def create_server(config=None, **_options):
     """Returns a Flask server application. `config` is a path to a
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 
@@ -42,7 +42,9 @@ def create_server(config=None):
             e = __import__(module)
 
     app = Flask(__name__.rsplit('.', 1)[0])
-    app.register_blueprint(slicer, config=config)
+    # FIXME: read note about _options in Workspace. Only for internal use as a
+    # temporary quick fix.
+    app.register_blueprint(slicer, config=config, **_options)
 
     return app
 

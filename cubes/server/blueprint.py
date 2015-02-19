@@ -89,7 +89,14 @@ def initialize_slicer(state):
         params = CustomDict()
         current_app.slicer = params
         current_app.slicer.config = config
-        current_app.cubes_workspace = Workspace(config)
+
+        # FIXME: this is a workaround, see Workspace note about _options
+        if "cubes_root" in state.options:
+            _options = {"cubes_root": state.options["cubes_root"]}
+        else:
+            _options = {}
+
+        current_app.cubes_workspace = Workspace(config, **_options)
 
         # Configure the application
         _store_option(config, "prettyprint", False, "bool")

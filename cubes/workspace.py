@@ -73,7 +73,8 @@ class ModelObjectInfo(object):
         return self.instances[key]
 
 class Workspace(object):
-    def __init__(self, config=None, stores=None, load_base_model=True):
+    def __init__(self, config=None, stores=None, load_base_model=True,
+                 **_options):
         """Creates a workspace. `config` should be a `ConfigParser` or a
         path to a config file. `stores` should be a dictionary of store
         configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
@@ -93,6 +94,9 @@ class Workspace(object):
         * `ns_languages` – dictionary where keys are namespaces and values
           are language to translation path mappings.
         """
+
+        # FIXME: **_options is temporary solution/workaround before we get
+        # better configuration. Used internally. Don't use!
 
         if isinstance(config, compat.string_type):
             cp = ConfigParser()
@@ -127,6 +131,10 @@ class Workspace(object):
         # Set the default models path
         if config.has_option("workspace", "root_directory"):
             self.root_dir = config.get("workspace", "root_directory")
+        elif "cubes_root" in _options:
+            # FIXME: this is quick workaround, see note at the beginning of
+            # this method
+            self.root_dir = _options["cubes_root"]
         else:
             self.root_dir = ""
 
@@ -287,6 +295,7 @@ class Workspace(object):
         if config.has_option("workspace", "authorization"):
             auth_type = config.get("workspace", "authorization")
             options = dict(config.items("authorization"))
+            options["cubes_root"] = self.root_dir
             self.authorizer = extensions.authorizer(auth_type, **options)
         else:
             self.authorizer = None
