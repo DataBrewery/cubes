@@ -89,7 +89,7 @@ Preparation
 Again, in short we need:
 
 * data in a database
-* logical model (see :download:`model file<../files/model_03.json>`) prepared
+* logical model (see :download:`model file<../files/hierarchy_recipe_model.json>`) prepared
   with appropriate mappings
 * denormalized view for aggregated browsing (optional)
 
