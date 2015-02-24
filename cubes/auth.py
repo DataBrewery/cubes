@@ -15,17 +15,22 @@ from . import compat
 __all__ = (
     "Authorizer",
     "SimpleAuthorizer",
+    "AuthorizationError",
     "NotAuthorized",
     "right_from_dict"
 )
 
 ALL_CUBES_WILDCARD = '*'
 
-class NotAuthorized(UserError):
+class AuthorizationError(UserError):
+    """Raised when there is any authorization-related error. Use
+    more specific `NotAuthorized` when access right is denied."""
+    pass
+
+class NotAuthorized(AuthorizationError):
     """Raised when user is not authorized for the request."""
     # Note: This is not called NotAuthorizedError as it is not in fact an
     # error, it is just type of signal.
-
 
 class Authorizer(Extensible):
     def authorize(self, token, cubes):
