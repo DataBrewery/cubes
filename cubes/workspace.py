@@ -73,12 +73,8 @@ class ModelObjectInfo(object):
         return self.instances[key]
 
 class Workspace(object):
-<<<<<<< HEAD
     def __init__(self, config=None, stores=None, load_base_model=True,
                  **_options):
-=======
-    def __init__(self, config=None, stores=None):
->>>>>>> github/master
         """Creates a workspace. `config` should be a `ConfigParser` or a
         path to a config file. `stores` should be a dictionary of store
         configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
