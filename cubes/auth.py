@@ -287,6 +287,16 @@ class SimpleAuthorizer(Authorizer):
             self.identity_dimension = None
             self.identity_hierarchy = None
 
+    def expand_roles(self, right):
+        """Merge `right` with its roles. `right` has to be a dictionary.
+        """
+        right = right_from_dict(info)
+        for role_name in list(right.roles):
+            role = self.roles[role_name]
+            right.merge(role)
+
+        return right
+
     def right(self, token):
         try:
             right = self.rights[token]
