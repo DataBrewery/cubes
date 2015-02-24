@@ -75,6 +75,7 @@ def _store_option(config, option, default, type_=None, allowed=None,
 
     setattr(current_app.slicer, option, value)
 
+
 @slicer.record_once
 def initialize_slicer(state):
     """Create the workspace and configure the application context from the
@@ -96,7 +97,8 @@ def initialize_slicer(state):
         else:
             _options = {}
 
-        current_app.cubes_workspace = Workspace(config, **_options)
+        if not hasattr(current_app, 'cubes_workspace'):
+            current_app.cubes_workspace = Workspace(config)
 
         # Configure the application
         _store_option(config, "prettyprint", False, "bool")

@@ -61,7 +61,7 @@ class GoogleAnalyticsBrowser(AggregationBrowser):
                                         or _DEFAULT_START_DATE
         self.default_end_date = self.store.default_end_date
 
-    def featuers(self):
+    def features(self):
         return {
             "actions": ["aggregate"]
         }

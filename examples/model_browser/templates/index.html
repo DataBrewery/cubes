@@ -73,7 +73,7 @@
             </dl>
             <h2>Hierarchies</h2>
             <ul>
-            {% for hierarchy in dimension.hierarchies.values() %}
+            {% for hierarchy in dimension.hierarchies %}
             {{hierarchy.label or hierarchy.name}}:
             
                 {% for level in hierarchy.levels %}

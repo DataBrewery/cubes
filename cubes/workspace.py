@@ -73,8 +73,12 @@ class ModelObjectInfo(object):
         return self.instances[key]
 
 class Workspace(object):
+<<<<<<< HEAD
     def __init__(self, config=None, stores=None, load_base_model=True,
                  **_options):
+=======
+    def __init__(self, config=None, stores=None):
+>>>>>>> github/master
         """Creates a workspace. `config` should be a `ConfigParser` or a
         path to a config file. `stores` should be a dictionary of store
         configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
@@ -305,7 +309,6 @@ class Workspace(object):
 
         # Models are searched in:
         # [model]
-        # [workspace] model <- depreciated!
         # [models] * <- depreciated!
         # TODO: add this for nicer zero-conf
         # root/model.json
@@ -319,10 +322,6 @@ class Workspace(object):
 
             path = config.get("model", "path")
             models.append(("main", path))
-
-        # TODO: Depreciated before even being used
-        if config.has_option("workspace", "model"):
-            models.append( ("main", config.get("workspace", "model")) )
 
         # TODO: Depreciate this too
         if config.has_section("models"):
