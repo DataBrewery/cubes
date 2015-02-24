@@ -6,8 +6,8 @@ Cubes was created and is maintained by Stefan Urbanek.
 
 Major contributing authors:
 
-* Stefan Urbanek, stefan.urbanek@gmail.com, `Twitter <https://twitter.com/stiivi>`_, `Github <https://github.com/Stiivi>`_
-* Robin Thomas, rthomas@squarespace.com, `Github <https://github.com/robin900>`_
+* Stefan Urbanek, stefan.urbanek@gmail.com, `Twitter <https://twitter.com/stiivi>`_, `Github <https://github.com/Stiivi>`__
+* Robin Thomas, rthomas@squarespace.com, `Github <https://github.com/robin900>`__
 
 Thanks to Squarespace for sponsoring the development time.
 
