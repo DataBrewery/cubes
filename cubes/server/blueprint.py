@@ -98,7 +98,7 @@ def initialize_slicer(state):
             _options = {}
 
         if not hasattr(current_app, 'cubes_workspace'):
-            current_app.cubes_workspace = Workspace(config)
+            current_app.cubes_workspace = Workspace(config, **_options)
 
         # Configure the application
         _store_option(config, "prettyprint", False, "bool")
