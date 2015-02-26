@@ -222,8 +222,11 @@ class Cube(ModelObject):
         self.store_name = self.store_name or options.get("store")
         self.provider = None
         self.namespace = None
+
+        # TODO: make 'name' to be basename and ref to be full cube reference,
+        # Be conistent!
         # Used by backends
-        self.basename = None
+        self.basename = self.name
 
         self._dimensions = OrderedDict()
 
