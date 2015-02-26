@@ -1,0 +1,59 @@
+{
+"cubes": [
+     {
+        "name": "sales",
+        "dimensions": ["date", "item", "category", "department"],
+        "measures": ["price", "discount", "quantity"],
+        "aggregates": [
+            {"name": "price_sum", "measure": "price", "function":"sum"},
+            {"name": "price_avg", "measure": "price", "function":"average"}
+        ],
+        "mappings": {"item.key": "dim_item.id",
+                     "category.key": "dim_category.id",
+                     "department.key": "dim_department.id"},
+        "joins": [
+        {"master":"date_key", "detail":"dim_date.key"}
+        ]
+    }
+],
+"dimensions": [
+    {
+        "name": "date",
+        "levels": [
+            {"name":"year"},
+            {"name":"quarter"},
+            {"name":"month"},
+            {"name":"week"},
+            {"name":"day"}
+        ],
+        "hierarchies": [
+            {"name": "ymd", "levels":["year", "month", "day"]},
+            {"name": "ym", "levels":["year", "month"]},
+            {"name": "yqmd", "levels":["year", "quarter", "month", "day"]},
+            {"name": "ywd", "levels":["year", "week", "day"]}
+        ],
+        "default_hierarchy_name": "ymd"
+    },
+    {
+        "name": "item",
+        "attributes": ["key", "name", "unit_price"]
+    },
+    {
+        "name": "category",
+        "attributes": ["key", "name"]
+    },
+    {
+        "name": "department",
+        "attributes": ["key", "name"]
+    },
+    {
+        "name": "item_hier",
+        "levels": [
+            {"name": "department", "attributes": ["name", "manager"]},
+            {"name": "category", "attributes": ["name"]},
+            {"name": "item", "attributes": ["name", "unit_price"]}
+        ]
+    }
+]
+}
+
