@@ -13,17 +13,131 @@ from .extensions import Extensible
 __all__ = [
     "ModelProvider",
     "StaticModelProvider",
-
-    # FIXME: Depreciated
-    "load_model",
-    "model_from_path",
-    "create_model",
+    "link_cube",
 ]
 
 
-def load_model(resource, translations=None):
-    raise Exception("load_model() was replaced by Workspace.import_model(), "
-                    "please refer to the documentation for more information")
+# TODO: add tests
+def link_cube(cube, locale, provider=None, namespace=None,
+              ignore_missing=False):
+    """Links dimensions to the `cube` in the `context` object. The `context`
+    object should implement a function `dimension(name, locale, namespace,
+    provider)`. Modifies cube in place.
+    """
+    # TODO: change this to: link_cube(cube, locale, namespace, provider)
+
+    # Assumption: empty cube
+
+    dimensions = {}
+    for link in cube.dimension_links:
+        dim_name = link["name"]
+        try:
+            dim = find_dimension(dim_name, locale, namespace, provider)
+        except TemplateRequired as e:
+            raise ModelError("Dimension template '%s' missing" % dim_name)
+
+        if dim:
+            dimensions[dim_name] = dim
+        elif not ignore_missing:
+            raise CubesError("Dimension object for '%s' is none" % dim_name)
+
+    cube.link_dimensions(dimensions)
+
+    return cube
+
+
+# TODO: add tests
+def find_dimension(name, locale=None, namespace=None, provider=None):
+    """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
+    no model published the dimension. Raises `RequiresTemplate` error when
+    model provider requires a template to be able to provide the
+    dimension, but such template is not a public dimension.
+
+    The standard lookup when linking a cube is:
+
+    1. look in the provider
+    2. look in the namespace – all providers within that namespace
+    3. look in the default (global) namespace
+    """
+
+    # Collected dimensions – to be used as templates
+    templates = {}
+
+    # Assumption: all dimensions that are to be used as templates should
+    # be public dimensions. If it is a private dimension, then the
+    # provider should handle the case by itself.
+    missing = [name]
+
+    while missing:
+        dimension = None
+        deferred = set()
+
+        name = missing.pop()
+
+        # First give a chance to provider, then to namespace
+        dimension = None
+        required_template = None
+
+        try:
+            dimension = _lookup_dimension(name, templates,
+                                          namespace, provider)
+        except TemplateRequired as e:
+            required_template = e.template
+
+        if required_template in templates:
+            raise BackendError("Some model provider didn't make use of "
+                               "dimension template '%s' for '%s'"
+                               % (required_template, name))
+
+        if required_template:
+            missing.append(name)
+            if required_template in missing:
+                raise ModelError("Dimension templates cycle in '%s'" %
+                                 required_template)
+            missing.append(required_template)
+
+        # Store the created dimension to be used as template
+        if dimension:
+            templates[name] = dimension
+
+    if namespace:
+        lookup = namespace.translation_lookup(locale)
+
+        if lookup:
+            # TODO: pass lookup instead of jsut first found translation
+            context = LocalizationContext(lookup[0])
+            trans = context.object_localization("dimensions", "inner")
+            dimension = dimension.localized(trans)
+
+    return dimension
+
+
+# TODO: add tests
+def _lookup_dimension(name, templates, namespace, provider):
+    """Look-up a dimension `name` in `provider` and then in `namespace`.
+
+    `templates` is a dictionary with already instantiated dimensions that
+    can be used as templates.
+    """
+
+    dimension = None
+    required_template = None
+
+    # 1. look in the povider
+    if provider:
+        try:
+            dimension = provider.dimension(name, templates=templates)
+        except NoSuchDimensionError:
+            pass
+        else:
+            return dimension
+
+    # 2. Look in the namespace
+    if namespace:
+        return namespace.dimension(name, templates=templates)
+
+    raise NoSuchDimensionError("Dimension '%s' not found" % name,
+                               name=name)
 
 
 class ModelProvider(Extensible):
@@ -289,7 +403,9 @@ class ModelProvider(Extensible):
         """
 
         metadata = self.cube_metadata(name, locale)
-        return create_cube(metadata)
+        cube = create_cube(metadata)
+        link_cube(cube, locale, provider=self)
+        return cube
 
     def dimension(self, name, templates=[], locale=None):
         """Returns a dimension with `name` provided by the receiver.
@@ -303,7 +419,7 @@ class ModelProvider(Extensible):
         exception is raised.
         """
         metadata = self.dimension_metadata(name, locale)
-        return create_dimension(metadata, templates)
+        return create_dimension(metadata, templates=templates)
 
 
 class StaticModelProvider(ModelProvider):

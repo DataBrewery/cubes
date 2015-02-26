@@ -266,6 +266,7 @@ class Workspace(object):
         if config.has_option("workspace", "authorization"):
             auth_type = config.get("workspace", "authorization")
             options = dict(config.items("authorization"))
+            options["cubes_root"] = self.root_dir
             self.authorizer = extensions.authorizer(auth_type, **options)
         else:
             self.authorizer = None
@@ -562,27 +563,15 @@ class Workspace(object):
 
         return cube
 
+    # TODO: this should belong to the model provider
     def link_cube(self, cube):
         """Links dimensions to the cube in the context of `model` with help of
         `provider`."""
 
         # Assumption: empty cube
-
-        dimensions = {}
-        for link in cube.dimension_links:
-            dim_name = link["name"]
-            try:
-                dim = self.dimension(dim_name, cube.locale,
-                                     cube.namespace, cube.provider)
-            except TemplateRequired as e:
-                raise ModelError("Dimension template '%s' missing" % dim_name)
-
-            if dim is None:
-                raise CubesError("Dimension object for '%s' is none"
-                                 % dim_name)
-            dimensions[dim_name] = dim
-
-        cube.link_dimensions(dimensions)
+        return link_cube(cube, locale=cube.locale,
+                         provider=cube.provider,
+                         namespace=cube.namespace)
 
     def dimension(self, name, locale=None, namespace=None, provider=None):
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
@@ -597,87 +586,9 @@ class Workspace(object):
         3. look in the default (global) namespace
         """
 
-        namespace = namespace or self.namespace
-
-        # Collected dimensions – to be used as templates
-        templates = {}
-
-        # Assumption: all dimensions that are to be used as templates should
-        # be public dimensions. If it is a private dimension, then the
-        # provider should handle the case by itself.
-        missing = [name]
-
-        while missing:
-            dimension = None
-            deferred = set()
-
-            name = missing.pop()
-
-            # First give a chance to provider, then to namespace
-            dimension = None
-            required_template = None
-
-            try:
-                dimension = self._lookup_dimension(name, templates,
-                                                   namespace, provider)
-            except TemplateRequired as e:
-                required_template = e.template
-
-            if required_template in templates:
-                raise BackendError("Some model provider didn't make use of "
-                                   "dimension template '%s' for '%s'"
-                                   % (required_template, name))
-
-            if required_template:
-                missing.append(name)
-                if required_template in missing:
-                    raise ModelError("Dimension templates cycle in '%s'" %
-                                     required_template)
-                missing.append(required_template)
-
-            # Store the created dimension to be used as template
-            if dimension:
-                templates[name] = dimension
-
-        lookup = namespace.translation_lookup(locale)
-
-        if lookup:
-            # TODO: pass lookup instead of jsut first found translation
-            context = LocalizationContext(lookup[0])
-            trans = context.object_localization("cubes", "inner")
-            cube = cube.localized(trans)
-
-        return dimension
-
-    def _lookup_dimension(self, name, templates, namespace, provider):
-        """Look-up a dimension `name` in `provider` and then in `namespace`.
-
-        `templates` is a dictionary with already instantiated dimensions that
-        can be used as templates.
-        """
-
-        dimension = None
-        required_template = None
-
-        # 1. look in the povider
-        if provider:
-            try:
-                dimension = provider.dimension(name, templates=templates)
-            except NoSuchDimensionError:
-                pass
-            else:
-                return dimension
-
-        # 2. Look in the namespace
-        try:
-            dimension = namespace.dimension(name, templates=templates)
-        except NoSuchDimensionError:
-            pass
-        else:
-            return dimension
-
-        raise NoSuchDimensionError("Dimension '%s' not found" % name,
-                                   name=name)
+        return find_dimension(name, locale,
+                              namespace or self.namespace,
+                              provider)
 
     def _browser_options(self, cube):
         """Returns browser configuration options for `cube`. The options are
