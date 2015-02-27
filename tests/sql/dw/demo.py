@@ -21,7 +21,7 @@ Contains:
 from __future__ import print_function
 
 import sqlalchemy as sa
-import os.path
+import os
 import json
 
 from collections import OrderedDict
@@ -155,9 +155,16 @@ DIM_DEPARTMENTS = {
 DEFAULT_DB_URL = "sqlite://"
 
 
+month_to_quarter = lambda month: ((month - 1) // 3) + 1
+
+
 class TinyDemoDataWarehouse(object):
     def __init__(self, url=None, schema=None, recreate=False):
-        url = url or DEFAULT_DB_URL
+        if "CUBES_TEST_DB" in os.environ:
+            url = os.environ["CUBES_TEST_DB"]
+        else:
+            url = url or DEFAULT_DB_URL
+
         self.engine = sa.create_engine(url)
 
         if recreate:
@@ -236,6 +243,7 @@ class TinyDemoDataWarehouse(object):
                       sa.Column("date_key",   sa.Integer),
                       sa.Column("date",       sa.DateTime),
                       sa.Column("year",       sa.Integer),
+                      sa.Column("quarter",    sa.Integer),
                       sa.Column("month",      sa.Integer),
                       sa.Column("month_name", sa.String),
                       sa.Column("month_sname", sa.String),
@@ -256,6 +264,7 @@ class TinyDemoDataWarehouse(object):
                 "date_key": date_to_key(current),
                 "date": current,
                 "year": current.year,
+                "quarter": month_to_quarter(current.month),
                 "month": current.month,
                 "month_name": current.strftime("%B"),
                 "month_sname": current.strftime("%b"),
@@ -339,6 +348,11 @@ class TinyDemoModelProvider(ModelProvider):
 
         super(TinyDemoModelProvider, self).__init__(metadata)
 
+    # TODO: improve this in the Provider class itself
+    # def cube(self, name):
+    #     cube = super(TinyDemoModelProvider, self).cube(name)
+    #     return cube
+    #     self.link
 
 class TinyDimension(object):
     def __init__(self, table, rows):
@@ -377,6 +391,10 @@ def date_to_key(date):
 
 def create_demo_dw(url, schema, recreate):
     dw = TinyDemoDataWarehouse(url, schema, recreate=recreate)
+
+    if "CUBES_TEST_DB" in os.environ \
+            and "CUBES_TEST_DB_REUSE" in os.environ:
+        return dw
 
     dw.create_table(SRC_SALES)
     dw.create_table(DIM_CATEGORIES)
