@@ -165,6 +165,7 @@ Join = namedtuple("Join",
 def to_join(obj):
     """Utility conversion function that will create `Join` tuple from an
     anonymous tuple, dictionary or similar object."""
+
     if isinstance(obj, (tuple, list)):
         alias = None
         method = None
@@ -194,6 +195,7 @@ def to_join(obj):
                     obj.alias,
                     obj.method)
 
+
 # Internal table reference
 _TableRef = namedtuple("_TableRef",
                        ["schema", # Database schema
@@ -204,6 +206,7 @@ _TableRef = namedtuple("_TableRef",
                         "join"    # join which joins this table as a detail
                        ]
                     )
+
 
 class SchemaError(InternalError):
     """Error related to the physical star schema."""
@@ -273,6 +276,11 @@ class StarSchema(object):
         # TODO: expectation is, that the snowlfake is already localized, the
         # owner of the snowflake should generate one snowflake per locale.
         # TODO: use `facts` instead of `fact`
+
+        if fact is None:
+            raise ArgumentError("Fact table or table name not specified "
+                                "for star/snowflake schema {}"
+                                .format(name))
 
         self.name = name
         self.metadata = metadata
@@ -400,7 +408,7 @@ class StarSchema(object):
                 for_role = ""
 
             schema = '"{}".'.format(key[0]) if key[0] else ""
-            raise SchemaError("Unknown star table {}\"{}\"{}"
+            raise SchemaError("Unknown star table {}\"{}\"{}. Missing join?"
                                   .format(schema, key[1], for_role))
 
     def physical_table(self, name, schema=None):
@@ -626,7 +634,10 @@ class StarSchema(object):
                 detail_column = detail_table.c[detail.column]
             except KeyError:
                 raise ModelError('Unable to find detail key (schema {schema}) '
-                                 '"{table}"."{column}" '.format(join.detail))
+                                 '"{table}"."{column}" '
+                                 .format(schema=self.name,
+                                         column=detail.column,
+                                         table=detail.table))
 
             # The Condition
             # -------------
@@ -637,8 +648,9 @@ class StarSchema(object):
             try:
                 master_table = star[master_key]
             except KeyError:
-                raise ModelError("Unknown master %s. Missing join or "
-                                 "wrong join order?" % (master_key, ))
+                raise ModelError("Unknown master {} for detail {}. "
+                                 "Missing join?"
+                                 .format(master_key, detail_key))
             detail_table = star[detail_key]
 
 
@@ -669,7 +681,7 @@ class StarSchema(object):
             raise InternalError("Star is emtpy")
 
         if len(star) > 1:
-            raise ModelError("Some tables are let unjoined: %s"
+            raise ModelError("Some tables are left unjoined: %s"
                              % (star.keys(), ))
 
         # Return the star – the only remaining join object
