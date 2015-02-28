@@ -9,7 +9,6 @@ aggregated data.
 
 *Focus on data analysis, in human way*
 
-
 Overview
 ========
 
@@ -28,6 +27,7 @@ Features:
 * hierarchical dimensions (attributes that have hierarchical dependencies,
   such as category-subcategory or country-region)
 * localizable metadata and data
+* SQL query generator for multidimensional aggregation queries
 * OLAP server – HTTP server based on Flask Blueprint, can be [easily
   integrated](http://pythonhosted.org/cubes/deployment.html) into your
   application.
@@ -42,7 +42,7 @@ Development documentation: http://cubes.databrewery.org/dev/doc
 Examples
 --------
 
-See ``examples`` directory in the source code repository
+See `examples` directory in the source code repository
 for simple examples and use-cases.
 
 See https://github.com/DataBrewery/cubes-examples
@@ -78,16 +78,16 @@ Requirements
 
 Python >= 2.7 and Python >= 3.4.1
 
-* Expressions `pip install expressions` or from [DataBrewery/expressions](https://github.com/databrewery/expressions)
-* Grako `pip install grako` – Grammar compiler for Expressions
 
 Most of the requirements are soft (optional) and need to be satisfied only if 
 certain parts of cubes are being used.
 
 * SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.4 - for SQL
   backend
-* Flask from http://flask.pocoo.org/ for Slicer server
+* Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
 * Jinja2 from http://jinja.pocoo.org/docs/ for HTML presenters
+* PyMongo for mongo and mongo2 backend
+* pytz for mongo2 backend
 
 Support
 =======
