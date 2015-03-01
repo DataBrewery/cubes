@@ -490,9 +490,12 @@ class StarSchema(object):
         try:
             mapping = self.mappings[logical]
         except KeyError:
-            raise NoSuchAttributeError(logical)
+            if logical == FACT_KEY_LABEL:
+                return self.fact_key_column
+            else:
+                raise NoSuchAttributeError(logical)
 
-        key = (mapping.schema or self.schema, mapping.table)
+        key = (mapping.schema or self.schema, mapping.table or self.fact_name)
 
         ref = self.table(key)
         table = ref.table
