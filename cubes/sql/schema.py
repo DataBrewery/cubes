@@ -629,7 +629,7 @@ class StarSchema(object):
         # There are no joins required for this query, return the only relevant
         # table
         if len(tables) == 1:
-            return tables[0]
+            return tables[0].table
 
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole

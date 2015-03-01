@@ -166,7 +166,7 @@ class SchemaBasicsTestCase(SQLTestCase):
 
         # TODO: test execute
 
-    def test_relevant_joins_with_no_joins(self):
+    def test_required_tables_with_no_joins(self):
         mappings = {
             "category": Column(None, "test", "category", None, None),
             "amount":   Column(None, "test", "amount", None, None),
@@ -175,11 +175,14 @@ class SchemaBasicsTestCase(SQLTestCase):
 
         schema = StarSchema("star", self.md, mappings, self.test_fact)
 
-        joins = schema.relevant_joins([])
-        self.assertEqual(len(joins), 0)
+        # Assumed fact
+        tables = schema.required_tables([])
+        self.assertEqual(len(tables), 1)
+        self.assertIs(tables[0].table, schema.fact_table)
 
-        joins = schema.relevant_joins(["category", "amount"])
-        self.assertEqual(len(joins), 0)
+        tables = schema.required_tables(["category", "amount"])
+        self.assertEqual(len(tables), 1)
+        self.assertIs(tables[0].table, schema.fact_table)
 
     def test_star_basic(self):
         """Test selection from the very basic star – no joins, just one
@@ -342,14 +345,6 @@ class SchemaJoinsTestCase(SQLTestCase):
         test_table = schema.table((None, "test"))
         category_table = schema.table((None, "dim_category"))
         size_table = schema.table((None, "dim_size"))
-
-        # Construct the select for the very last attribute in the snowflake
-        # arm
-        # joins = schema.relevant_joins(["amount"])
-        # self.assertEqual(len(joins), 0)
-
-        # joins = schema.relevant_joins(["category_label"])
-        # self.assertCountEqual(joins, [category_join])
 
         all_tables = [test_table, category_table, size_table]
 
