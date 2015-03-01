@@ -28,6 +28,7 @@ except ImportError:
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 __all__ = [
+    "SQLBrowser",
     "SnowflakeBrowser",
 ]
 
@@ -55,7 +56,7 @@ def get_natural_order(attributes):
     """Return natural order dictionary for `attributes`"""
     return {str(attr): attr.order for attr in attributes}
 
-class SnowflakeBrowser(AggregationBrowser):
+class SQLBrowser(AggregationBrowser):
     __options__ = [
         {
             "name": "include_summary",
@@ -111,7 +112,7 @@ class SnowflakeBrowser(AggregationBrowser):
         * locale is implemented as denormalized: one column for each language
 
         """
-        super(SnowflakeBrowser, self).__init__(cube, store)
+        super(SQLBrowser, self).__init__(cube, store)
 
         if not cube:
             raise ArgumentError("Cube for browser should not be None.")
@@ -178,7 +179,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # TODO: whis should include also aggregates if the underlying table is
         # already pre-aggregated
         base = base_attributes(cube.all_attributes)
-        mappings = {attr.name:mapper.physical(attr) for attr in base}
+        mappings = {attr.ref():mapper.physical(attr) for attr in base}
 
         # TODO: include table expressions
         # TODO: I have a feeling that creation of this should belong to the
@@ -200,7 +201,7 @@ class SnowflakeBrowser(AggregationBrowser):
         # Create a dictionary attribute -> column to be used in aggregate
         # functions
         # TODO: add __fact_key__
-        self.base_columns = {attr.name:self.star.column(attr.name)
+        self.base_columns = {attr.ref():self.star.column(attr.ref())
                                 for attr in base}
 
     def features(self):
@@ -472,8 +473,6 @@ class SnowflakeBrowser(AggregationBrowser):
             result.cells = ResultIterator(cursor, labels)
             result.labels = labels
 
-            # TODO: Introduce option to disable this
-
             if self.include_cell_count:
                 # TODO: we want to get unpaginated number of records here
                 count_statement = statement.alias().count()
@@ -612,6 +611,53 @@ class SnowflakeBrowser(AggregationBrowser):
                                           group_by=group_by)
 
         return statement
+
+    def attribute_column(self, attribute):
+        """Return a column expression for a measure, dimension attribute or
+        other detail attribute object `attribute`"""
+        if not attribute.expression:
+            # We assume attribute to be a base attribute
+            return self.star.column(attribute.ref())
+
+        raise NotImplementedError("Expressions are not yet implemented")
+
+    def aggregate_column(self, aggregate, coalesce_measure=False):
+        """Returns an expression that performs the aggregation of attribute
+        `aggregate`. The result's label is the aggregate's name.  `aggregate`
+        has to be `MeasureAggregate` instance.
+
+        If aggregate function is post-aggregation calculation, then `None` is
+        returned.
+
+        Aggregation function names are case in-sensitive.
+
+        If `coalesce_measure` is `True` then selected measure column is wrapped
+        in ``COALESCE(column, 0)``.
+        """
+        # TODO: support aggregate.expression
+
+        if not (aggregate.expression or aggregate.function):
+            raise ModelError("Neither expression nor function specified for "
+                             "aggregate {} in cube {}"
+                             .format(aggregate, self.cube.name))
+
+        if aggregate.expression:
+            raise NotImplementedError("Expressions are not yet implemented")
+
+        function_name = aggregate.function.lower()
+        function = get_aggregate_function(function_name)
+
+        if not function:
+            raise NotImplementedError("I don't know what to do")
+            # Original statement:
+            return None
+
+        # TODO: this below for FactCountFucntion
+        # context = dict(self.base_columns)
+        # context["__fact_key__"] = self.attribute_column(self.fact_key)
+        expression = function(aggregate, self.base_columns, coalesce_measure)
+
+        return expression
 
     def condition_for_cell(self, cell):
         """Returns a condition for cell `cell`."""
@@ -758,53 +804,6 @@ class SnowflakeBrowser(AggregationBrowser):
 
         return condition
 
-    def attribute_column(self, attribute):
-        """Return a column expression for a measure, dimension attribute or
-        other detail attribute object `attribute`"""
-        if not attribute.expression:
-            # We assume attribute to be a base attribute
-            return self.star.column(str(attribute))
-
-        raise NotImplementedError("Expressions are not yet implemented")
-
-    def aggregate_column(self, aggregate, coalesce_measure=False):
-        """Returns an expression that performs the aggregation of attribute
-        `aggregate`. The result's label is the aggregate's name.  `aggregate`
-        has to be `MeasureAggregate` instance.
-
-        If aggregate function is post-aggregation calculation, then `None` is
-        returned.
-
-        Aggregation function names are case in-sensitive.
-
-        If `coalesce_measure` is `True` then selected measure column is wrapped
-        in ``COALESCE(column, 0)``.
-        """
-        # TODO: support aggregate.expression
-
-        if not (aggregate.expression or aggregate.function):
-            raise ModelError("Neither expression nor function specified for "
-                             "aggregate {} in cube {}"
-                             .format(aggregate, self.cube.name))
-
-        if aggregate.expression:
-            raise NotImplementedError("Expressions are not yet implemented")
-
-        function_name = aggregate.function.lower()
-        function = get_aggregate_function(function_name)
-
-        if not function:
-            raise NotImplementedError("I don't know what to do")
-            # Original statement:
-            return None
-
-        # TODO: this below for FactCountFucntion
-        # context = dict(self.base_columns)
-        # context["__fact_key__"] = self.attribute_column(self.fact_key)
-        expression = function(aggregate, self.base_columns, coalesce_measure)
-
-        return expression
-
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s\n" % (label, str(statement)))
@@ -821,6 +820,9 @@ class SnowflakeBrowser(AggregationBrowser):
         else:
             return dict(zip(labels, row))
 
+# TODO: depreciate in the future for generalized SQL browser
+class SnowflakeBrowser(SQLBrowser):
+    pass
 
 class ResultIterator(object):
     """
