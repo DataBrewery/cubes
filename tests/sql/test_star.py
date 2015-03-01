@@ -14,7 +14,7 @@ from datetime import datetime
 from cubes.sql.schema import StarSchema, Column, SchemaError
 from cubes.sql.schema import NoSuchAttributeError
 from cubes.sql.schema import JoinKey, to_join_key, Join, to_join
-from cubes.errors import ArgumentError
+from cubes.errors import ArgumentError, ModelError
 from .common import create_table, SQLTestCase
 
 CONNECTION = "sqlite://"
@@ -68,16 +68,16 @@ class SchemaBasicsTestCase(SQLTestCase):
     def test_physical_table(self):
         """Test denormalized table selection of few columns"""
         # Test passing fact by table object
-        star = Schema("star", self.md, {}, self.test_fact)
+        star = StarSchema("star", self.md, {}, self.test_fact)
         self.assertIs(star.physical_table("test"), self.test_fact)
 
         # Test passing fact by name
-        star = Schema("star", self.md, {}, "test")
+        star = StarSchema("star", self.md, {}, "test")
         self.assertIs(star.physical_table("test"), self.test_fact)
 
         # Test passing fact by name and in a list of tables
 
-        star = Schema("star", self.md, {}, "test",
+        star = StarSchema("star", self.md, {}, "test",
                          tables = {"test": self.test_fact})
 
         self.assertIs(star.physical_table("test"), self.test_fact)
@@ -90,7 +90,7 @@ class SchemaBasicsTestCase(SQLTestCase):
         """Test single table references"""
         key = (None, "test")
 
-        star = Schema("star", self.md, {}, self.test_fact)
+        star = StarSchema("star", self.md, {}, self.test_fact)
 
         ref = star.table(key)
         self.assertIs(ref.table, self.test_fact)
@@ -99,13 +99,13 @@ class SchemaBasicsTestCase(SQLTestCase):
         self.assertEqual(ref.key, key)
 
         # Test passing fact by name
-        star = Schema("star", self.md, {}, "test")
+        star = StarSchema("star", self.md, {}, "test")
 
         ref = star.table(key)
         self.assertIs(ref.table, self.test_fact)
 
         # Test passing fact by name and in a list of tables
-        star = Schema("star", self.md, {}, "test",
+        star = StarSchema("star", self.md, {}, "test",
                          tables = {"test": self.test_fact})
 
         ref = star.table(key)
@@ -122,7 +122,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "total":   Column(None, "test", "amount", None, None),
         }
 
-        star = Schema("star", self.md, mappings, self.test_fact)
+        star = StarSchema("star", self.md, mappings, self.test_fact)
 
         column = star.column("category")
         self.assertEqual(column.name, "category")
@@ -146,7 +146,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "category": Column(None, "test", "__unknown__", None, None),
         }
 
-        star = Schema("star", self.md, mappings, self.test_fact)
+        star = StarSchema("star", self.md, mappings, self.test_fact)
 
         with self.assertRaises(SchemaError):
             column = star.column("category")
@@ -157,7 +157,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "year": Column(None, "test", "date", "year", None),
         }
 
-        star = Schema("star", self.md, mappings, self.test_fact)
+        star = StarSchema("star", self.md, mappings, self.test_fact)
 
         column = star.column("year")
         base = list(column.base_columns)[0]
@@ -173,7 +173,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "year":     Column(None, "test", "date", "year", None),
         }
 
-        schema = Schema("star", self.md, mappings, self.test_fact)
+        schema = StarSchema("star", self.md, mappings, self.test_fact)
 
         joins = schema.relevant_joins([])
         self.assertEqual(len(joins), 0)
@@ -190,7 +190,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "year":     Column(None, "test", "date", "year", None),
         }
 
-        schema = Schema("star", self.md, mappings, self.test_fact)
+        schema = StarSchema("star", self.md, mappings, self.test_fact)
         star = schema.star(["category", "total"])
 
         selection = [schema.column("category"), schema.column("total")]
@@ -322,6 +322,24 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.dim_category = create_table(self.engine, self.md, DIM_CATEGORY)
         self.dim_size = create_table(self.engine, self.md, DIM_SIZE)
 
+    def test_detail_twice(self):
+        """Test exception when detail is specified twice (loop in graph)"""
+        joins = [
+            to_join(("test.category", "dim_category.category")),
+            to_join(("dim_category.size", "dim_category.category")),
+        ]
+
+        with self.assertRaisesRegex(ModelError, "^Detail table.*joined twice"):
+            StarSchema("star", self.md, {}, self.fact, joins=joins)
+
+    def test_no_join_detail_table(self):
+        joins = [
+            to_join(("test.category", "category")),
+        ]
+
+        with self.assertRaisesRegex(ModelError, r"^No detail table"):
+            StarSchema("star", self.md, {}, self.fact, joins=joins)
+
     def test_join(self):
         """Test single join, two joins"""
         joins = [
@@ -335,7 +353,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":           Column(None, "dim_category", "size", None, None),
         }
 
-        schema = Schema("star", self.md, mappings, self.fact, joins=joins)
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
         # Doe we have the joined table in the table list?
         table = schema.table((None, "dim_category"))
@@ -371,7 +389,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":  Column(None, "dim_fruit", "size", None, None),
         }
 
-        schema = Schema("star", self.md, mappings, self.fact, joins=joins)
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
         # Doe we have the joined table in the table list?
         table = schema.table((None, "dim_fruit"))
@@ -410,7 +428,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":  Column(None, "dim_fruit", "size", None, None),
         }
 
-        schema = Schema("star", self.md, mappings, self.fact, joins=joins)
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
         star = schema.star(["size"])
         selection = [schema.column("size")]
@@ -499,7 +517,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size_label":     Column(None, "dim_size", "label", None, None),
         }
 
-        schema = Schema("star", self.md, mappings, self.fact, joins=joins)
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
         # Sanity check
         relevant = schema.relevant_joins(["category_label"])

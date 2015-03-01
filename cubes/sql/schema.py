@@ -362,8 +362,20 @@ class StarSchema(object):
         # be referenced as 'details'. The exception is the fact table that is
         # provided explicitly for the snowflake schema.
 
+
+        # Collect details for duplicate verification. It sohuld not be
+        # possible to join one detail multiple times with the same name. Alias
+        # has to be used.
+        details = set()
+
         for join in self.joins:
             # just ask for the table
+
+            if not join.detail.table:
+                raise ModelError("No detail table specified for a join in "
+                                 "schema '{}'. Master of the join is '{}'"
+                                 .format(self.name,
+                                         _format_key(self._master_key(join))))
 
             table = self.physical_table(join.detail.table,
                                         join.detail.schema)
@@ -375,6 +387,12 @@ class StarSchema(object):
                 alias = join.detail.table
 
             key = (join.detail.schema, alias)
+
+            if key in details:
+                raise ModelError("Detail table '{}' joined twice in star"
+                                 " schema {}. Join alias is required."
+                                 .format(_format_key(key), self.name))
+            details.add(key)
 
             ref = _TableRef(table=table,
                             schema=join.detail.schema,
