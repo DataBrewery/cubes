@@ -29,8 +29,6 @@ Required methods to be implemented:
 
 Optional:
 
-* `public_dimensions()` – list of provided dimension names that can be shared
-  by cubes in other models or by other providers
 * `requires_store()` – return `True` in this method if the provider requires a
   data store (database connection, API credentials, ...). 
 

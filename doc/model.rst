@@ -87,9 +87,6 @@ Logical part of the model description:
   localizable models)*
 * ``cubes`` – list of cubes metadata (see below)
 * ``dimensions`` – list of dimension metadata (see below)
-* ``public_dimensions`` – list of dimension names that will be exported from
-  the model as public and might be shared by cubes from other models. By
-  default, all model's dimensions are considered public.
 
 Physical part of the model description:
 
