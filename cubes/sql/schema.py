@@ -634,7 +634,7 @@ class StarSchema(object):
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
-        star = {table.key:table for table in tables}
+        star_tables = {table_ref.key:table_ref.table for table_ref in tables}
 
         # Here the `star` contains mapping table key -> table, which will be
         # gradually replaced by JOINs
@@ -647,12 +647,12 @@ class StarSchema(object):
         # 3. use the appropriate SQL JOIN
         # 4. replace the joined table in `star` with the joined master
         # 
-        # TODO: make sure that we have joins in joinable order – that the
-        # master is already joined
         # TODO: support MySQL partition (see Issue list)
 
         # Count joins for debug/error reporting purposes
         join_count = 0
+
+        star = None
 
         for table in tables:
             if not table.join:
@@ -660,13 +660,16 @@ class StarSchema(object):
 
             join = table.join
 
-            # Prepare the table keys:
-            # Key is a tuple of (schema, table) and is used to get a joined
-            # product object
+            # Get the physical table object (aliased) and already constructed
+            # key (properly aliased)
+            detail_table = table.table
+            detail_key = table.key
+
+            # The `table` here is a detail table to be joined. We need to get
+            # the master table this table joins to:
+
             master = join.master
             master_key = self._master_key(join)
-            detail = join.detail
-            detail_key = self._detail_key(join)
 
             # We need plain tables to get columns for prepare the join
             # condition. We can't get it form `star`.
@@ -682,33 +685,28 @@ class StarSchema(object):
 
             # Detail table.column
             # -------------------
-            detail_table = self.table(detail_key).table
-
             try:
-                detail_column = detail_table.c[detail.column]
+                detail_column = detail_table.c[join.detail.column]
             except KeyError:
-                raise ModelError('Unable to find detail key (schema {schema}) '
+                raise ModelError('Unable to find detail key (star {schema}) '
                                  '"{table}"."{column}" '
                                  .format(schema=self.name,
-                                         column=detail.column,
-                                         table=detail.table))
+                                         column=join.detail.column,
+                                         table=_format_key(detail_key)))
 
-            # The Condition
-            # -------------
+            # The JOIN ON condition
+            # ---------------------
             onclause = master_column == detail_column
 
             # Get the joined products – might be plain tables or already
             # joined tables
             try:
-                master_table = star[master_key]
+                master_table = star_tables[master_key]
             except KeyError:
-                # import pdb; pdb.set_trace()
                 raise ModelError("Unknown master table '{}' for "
                                  "detail table '{}'. Missing join?"
                                  .format(_format_key(master_key),
                                          _format_key(detail_key)))
-            detail_table = star[detail_key]
-
 
             # Determine the join type based on the join method. If the method
             # is "detail" then we need to swap the order of the tables
@@ -725,42 +723,22 @@ class StarSchema(object):
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
-            product = sql.expression.join(master_table.table,
-                                          detail_table.table,
-                                          onclause=onclause,
-                                          isouter=is_outer)
+            star = sql.expression.join(master_table, detail_table,
+                                       onclause=onclause, isouter=is_outer)
 
             # Consume the detail
-            if detail_key not in star:
-                raise InternalError("Detail {} not in star."
-                                    .format(_format_key(detail_key)))
+            if detail_key not in star_tables:
+                raise ModelError("Detail table '{}' not in star. Missing join?"
+                                 .format(_format_key(detail_key)))
 
-            print("== Joined table: {}".format(table.key))
-            print("--     consuming detail {}".format(detail_key))
-            print("--     saving master {}".format(master_key))
-            del star[detail_key]
-            # Replace the already joined master
-            star[master_key] = product
-            remaining = ", ".join(_format_key(key) for key in star.keys())
-            print("--     remaining: {}".format(remaining))
+            # The table is consumed by the join product, becomes the join
+            # product itself.
+            star_tables[detail_key] = star
+            star_tables[master_key] = star
             join_count += 1
 
-        if not star:  # pragma nocover
-            # This should not happen
-            raise InternalError("Star is emtpy")
+        if star is None:  # pragma nocover
+            raise ModelError("Empty star. No joins?")
 
-        if len(star) > 1:
-            # import pdb; pdb.set_trace()
-            fact_key = (self.schema, self.fact_name)
-            remaining = ", ".join(_format_key(key) for key in star.keys()
-                                                   if key != fact_key)
-
-            raise ModelError("Not all required tables were joined. "
-                             "Total {} tables, {} joined, remaining: {}"
-                             .format(len(tables), join_count, remaining))
-
-        # Return the star – the only remaining join object
-        result = list(star.values())[0]
-
-        return result
+        return star
 
