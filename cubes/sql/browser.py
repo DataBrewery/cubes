@@ -1,5 +1,5 @@
 # -*- encoding=utf -*-
-# Actually, this is a furry snowflake, not a nice star
+"""SQL Browser"""
 
 from __future__ import absolute_import
 
@@ -7,16 +7,14 @@ from ..browser import AggregationBrowser, AggregationResult, Drilldown
 from ..browser import PointCut, RangeCut, SetCut
 from ..logging import get_logger
 from ..statutils import calculators_for_aggregates, available_calculators
-from ..errors import *
+from ..errors import ArgumentError, ModelError
 from ..stores import Store
 from .mapper import SnowflakeMapper, DenormalizedMapper
 from .functions import get_aggregate_function, available_aggregate_functions
-from .query import QueryBuilder
 from ..model import base_attributes
 from .schema import StarSchema, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
 
-import itertools
 import collections
 
 try:
@@ -49,7 +47,7 @@ def star_schema_from_cube(cube, metadata, mapper, tables=None):
                       joins=cube.joins,
                       tables=tables,
                       schema=mapper.schema
-                      )
+                     )
     return star
 
 def get_natural_order(attributes):
@@ -57,6 +55,41 @@ def get_natural_order(attributes):
     return {str(attr): attr.order for attr in attributes}
 
 class SQLBrowser(AggregationBrowser):
+    """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
+    can aggregate star and snowflake schemas without need of having
+    explicit view or physical denormalized table.
+
+    Attributes:
+
+    * `cube` - browsed cube
+    * `store` - a `Store` object or a SQLAlchemy engine
+    * `locale` - locale used for browsing
+    * `debug` - output SQL to the logger at INFO level
+
+    Other options in `kwargs`:
+    * `metadata` – SQLAlchemy metadata, if `store` is an engine or a
+       connection (not a `Store` object)
+    * `tables` – tables and/or table expressions used in the star schema
+      (refer to the :class:`StarSchema` for more information)
+    * `options` - passed to the mapper
+
+    Tuning:
+
+    * `include_summary` - it ``True`` then summary is included in
+      aggregation result. Turned on by default.
+    * `include_cell_count` – if ``True`` then total cell count is included
+      in aggregation result. Turned on by default.
+      performance reasons
+    * `safe_labels` – safe labelling of the attributes in databases which
+      don't allow characters such as ``.`` dots in column names
+
+    Limitations:
+
+    * only one locale can be used for browsing at a time
+    * locale is implemented as denormalized: one column for each language
+
+    """
+
     __options__ = [
         {
             "name": "include_summary",
@@ -78,40 +111,8 @@ class SQLBrowser(AggregationBrowser):
     ]
 
     def __init__(self, cube, store, locale=None, debug=False, **kwargs):
-        """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
-        can aggregate star and snowflake schemas without need of having
-        explicit view or physical denormalized table.
+        """Create a SQL Browser."""
 
-        Attributes:
-
-        * `cube` - browsed cube
-        * `store` - a `Store` object or a SQLAlchemy engine
-        * `locale` - locale used for browsing
-        * `debug` - output SQL to the logger at INFO level
-
-        Other options in `kwargs`:
-        * `metadata` – SQLAlchemy metadata, if `store` is an engine or a
-           connection (not a `Store` object)
-        * `tables` – tables and/or table expressions used in the star schema
-          (refer to the :class:`StarSchema` for more information)
-        * `options` - passed to the mapper
-
-        Tuning:
-
-        * `include_summary` - it ``True`` then summary is included in
-          aggregation result. Turned on by default.
-        * `include_cell_count` – if ``True`` then total cell count is included
-          in aggregation result. Turned on by default.
-          performance reasons
-        * `safe_labels` – safe labelling of the attributes in databases which
-          don't allow characters such as ``.`` dots in column names
-
-        Limitations:
-
-        * only one locale can be used for browsing at a time
-        * locale is implemented as denormalized: one column for each language
-
-        """
         super(SQLBrowser, self).__init__(cube, store)
 
         if not cube:
@@ -153,7 +154,7 @@ class SQLBrowser(AggregationBrowser):
         # Whether to ignore cells where at least one aggregate is NULL
         # TODO: this is undocumented
         self.exclude_null_agregates = options.get("exclude_null_agregates",
-                                                 True)
+                                                  True)
 
         # Mapper
         # ------
@@ -202,7 +203,7 @@ class SQLBrowser(AggregationBrowser):
         # functions
         # TODO: add __fact_key__
         self.base_columns = {attr.ref():self.star.column(attr.ref())
-                                for attr in base}
+                             for attr in base}
 
     def features(self):
         """Return SQL features. Currently they are all the same for every

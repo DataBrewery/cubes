@@ -40,10 +40,8 @@ applied on the `column`.
 
 Note that either `extract` or `function` can be used, not both."""
 
-Column = namedtuple("Column",
-                     ["schema", "table", "column",
-                      # Use only one
-                      "extract", "function"])
+Column = namedtuple("Column", ["schema", "table", "column",
+                               "extract", "function"])
 
 #
 # IMPORTANT: If you decide to extend the above Mapping functionality by adding
@@ -158,8 +156,8 @@ Join = namedtuple("Join",
                    "detail", # Detail table (dimension in star schema)
                    "alias",  # Optional alias for the detail table
                    "method"  # Method how the table is joined
-                   ]
-                )
+                  ]
+                 )
 
 
 def to_join(obj):
@@ -205,7 +203,7 @@ _TableRef = namedtuple("_TableRef",
                         "table",  # SQLAlchemy Table object, reflected
                         "join"    # join which joins this table as a detail
                        ]
-                    )
+                      )
 
 
 class SchemaError(InternalError):
@@ -353,7 +351,7 @@ class StarSchema(object):
                                key=(self.schema, self.fact_name),
                                table=self.fact_table,
                                join=None
-                         )
+                              )
 
         self._tables[fact_table.key] = fact_table
 
@@ -438,7 +436,7 @@ class StarSchema(object):
 
             schema = '"{}".'.format(key[0]) if key[0] else ""
             raise SchemaError("Unknown star table {}\"{}\"{}. Missing join?"
-                                  .format(schema, key[1], for_role))
+                              .format(schema, key[1], for_role))
 
     def physical_table(self, name, schema=None):
         """Return a physical table or table expression, regardless whether it
@@ -505,7 +503,7 @@ class StarSchema(object):
         except KeyError:
             avail = ", ".join(str(c) for c in table.columns)
             raise SchemaError("Unknown column '%s' in table '%s' possible: %s"
-                                  % (mapping.column, mapping.table, avail))
+                              % (mapping.column, mapping.table, avail))
 
         # Extract part of the date
         if mapping.extract:
@@ -583,8 +581,8 @@ class StarSchema(object):
 
         while required:
             details = [table for table in required.values()
-                             if table.join
-                                and self._master_key(table.join) in masters]
+                       if table.join
+                       and self._master_key(table.join) in masters]
 
             if not details:
                 break
@@ -597,8 +595,8 @@ class StarSchema(object):
 
         if len(required) > 1:
             keys = [_format_key(table.key)
-                        for table in required.values()
-                        if table.key != fact_key]
+                    for table in required.values()
+                    if table.key != fact_key]
 
             raise ModelError("Some tables are not joined: {}"
                              .format(", ".join(keys)))
@@ -646,9 +644,6 @@ class StarSchema(object):
         # 4. wrap the star with detail
         # 
         # TODO: support MySQL partition (see Issue list)
-
-        # Count joins for debug/error reporting purposes
-        join_count = 0
 
         # First table does not need to be joined. It is the "fact" (or other
         # central table) of the schema.
@@ -717,7 +712,8 @@ class StarSchema(object):
                 raise ModelError("Unknown join method '%s'" % join.method)
 
             star = sql.expression.join(left, right,
-                                       onclause=onclause, isouter=is_outer)
+                                       onclause=onclause,
+                                       isouter=is_outer)
 
             # Consume the detail
             if detail_key not in star_tables:
@@ -728,7 +724,6 @@ class StarSchema(object):
             # product itself.
             star_tables[detail_key] = star
             star_tables[master_key] = star
-            join_count += 1
 
         return star
 
