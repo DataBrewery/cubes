@@ -15,6 +15,7 @@ from .common import create_table, SQLTestCase
 from cubes.errors import HierarchyError
 from cubes.browser import PointCut, SetCut, RangeCut, Cell
 from cubes.sql import SQLBrowser, SQLStore
+from cubes.sql.schema import FACT_KEY_LABEL
 
 from .dw.demo import create_demo_dw, TinyDemoModelProvider
 #
@@ -31,6 +32,7 @@ class SQLBrowserTestCase(SQLTestCase):
                               metadata=self.dw.md)
 
         self.provider = TinyDemoModelProvider()
+
         naming = {
             "fact_prefix": "fact_",
             "dimension_prefix": "dim_"
@@ -62,7 +64,15 @@ class SQLStatementsTestCase(SQLBrowserTestCase):
     def setUp(self):
         super(SQLStatementsTestCase, self).setUp()
 
-        self.view = self.browser.star.star(self.browser.base_columns)
+        self.view = self.browser.star.star(self.browser.base_columns.keys())
+
+    def select(self, attrs, whereclause=None):
+        """Returns a select statement from the star view"""
+        columns = [self.browser.star.column(attr) for attr in attrs]
+
+        return sa.select(columns,
+                         from_obj=self.view,
+                         whereclause=whereclause)
 
     def test_attribute_column(self):
         """Test proper selection of attribute column."""
@@ -72,7 +82,6 @@ class SQLStatementsTestCase(SQLBrowserTestCase):
         dim_category = self.table("dim_category")
 
         attr = self.dimension("item").attribute("name")
-        import pdb; pdb.set_trace()
         self.assertColumnEqual(self.browser.attribute_column(attr),
                                dim_item.columns["name"])
 
@@ -81,6 +90,40 @@ class SQLStatementsTestCase(SQLBrowserTestCase):
                                dim_category.columns["name"])
 
         # TODO: Test derived column
+    def test_condition_for_point(self):
+        condition = self.browser.condition_for_point(self.dimension("item"),
+                                                     ["1"])
+
+        select = self.select([FACT_KEY_LABEL], condition)
+        keys = [row[FACT_KEY_LABEL] for row in self.execute(select)]
+
+        table = self.table("fact_sales")
+        select = table.select().where(table.columns["item_key"] == 1)
+        raw_keys = [row["id"] for row in self.execute(select)]
+
+        self.assertEqual(len(keys), len(raw_keys))
+        self.assertCountEqual(keys, raw_keys)
+
+    def test_condition_for_hierarchy_point(self):
+        # Test multi-level point
+        #
+        # Note:
+        # This test requires that there is only one item for 2015-01-01
+        # See data in DW demo
+        condition = self.browser.condition_for_point(self.dimension("date"),
+                                                     [2015,1,1])
+
+        select = self.select([FACT_KEY_LABEL], condition)
+        keys = [row[FACT_KEY_LABEL] for row in self.execute(select)]
+
+        table = self.table("fact_sales")
+        select = table.select().where(table.columns["date_key"] == 20150101)
+        raw_keys = [row["id"] for row in self.execute(select)]
+
+        self.assertEqual(len(keys), 1)
+        self.assertEqual(len(keys), len(raw_keys))
+        self.assertCountEqual(keys, raw_keys)
+
 class SQLAggregateTestCase(SQLBrowserTestCase):
     def setUp(self):
         super(self, SQLAggregateTestCase).setUp(self)
