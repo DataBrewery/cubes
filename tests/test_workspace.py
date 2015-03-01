@@ -58,13 +58,6 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         ws = Workspace()
         ws.import_model(self.model_path("model.json"), namespace="local")
 
-        # This should pass
-        cube = ws.cube("contracts")
-
-        self.assertIsInstance(cube, Cube)
-        self.assertEqual(cube.name, "contracts")
-        ws.lookup_method = "exact"
-
         with self.assertRaises(NoSuchCubeError):
             cube = ws.cube("contracts")
 
@@ -78,14 +71,14 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
 
         # This should not pass, since the dimension is in another namespace
         with self.assertRaises(NoSuchDimensionError):
-            ws.cube("other")
+            ws.cube("store2.other")
 
         ws = Workspace()
         ws.import_model(self.model_path("model.json"), namespace="default")
         ws.import_model(self.model_path("other.json"), namespace="store2")
 
         # This should pass, since the dimension is in the default namespace
-        ws.cube("other")
+        ws.cube("store2.other")
 
     def test_get_dimension(self):
         ws = self.default_workspace()
@@ -136,7 +129,6 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         dim = ws.dimension("date")
         self.assertEqual(3, len(dim.levels))
         self.assertEqual(["year", "month", "day"], dim.level_names)
-
 
         cube = ws.cube("events")
         dim = cube.dimension("date")
