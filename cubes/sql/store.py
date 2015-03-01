@@ -171,6 +171,94 @@ class SQLStore(Store):
             # Table reflects a table
             table.drop(checkfirst=False)
 
+    def validate(self, cube):
+        """Validate physical representation of model. Returns a list of
+        dictionaries with keys: ``type``, ``issue``, ``object``.
+
+        Types might be: ``join`` or ``attribute``.
+
+        The ``join`` issues are:
+
+        * ``no_table`` - there is no table for join
+        * ``duplicity`` - either table or alias is specified more than once
+
+        The ``attribute`` issues are:
+
+        * ``no_table`` - there is no table for attribute
+        * ``no_column`` - there is no column for attribute
+        * ``duplicity`` - attribute is found more than once
+
+        """
+        issues = []
+
+        # Check joins
+
+        tables = set()
+        aliases = set()
+        alias_map = {}
+        #
+        for join in cube.joins:
+            self.logger.debug("join: %s" % (join, ))
+
+            if not join.master.column:
+                issues.append(("join", "master column not specified", join))
+            if not join.detail.table:
+                issues.append(("join", "detail table not specified", join))
+            elif join.detail.table == self.mapper.fact_name:
+                issues.append(("join", "detail table should not be fact table", join))
+
+            master_table = (join.master.schema, join.master.table)
+            tables.add(master_table)
+
+            detail_alias = (join.detail.schema, join.alias or join.detail.table)
+
+            if detail_alias in aliases:
+                issues.append(("join", "duplicate detail table %s" % detail_table, join))
+            else:
+                aliases.add(detail_alias)
+
+            detail_table = (join.detail.schema, join.detail.table)
+            alias_map[detail_alias] = detail_table
+
+            if detail_table in tables and not join.alias:
+                issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
+            else:
+                tables.add(detail_table)
+
+        # Check for existence of joined tables:
+        physical_tables = {}
+
+        # Add fact table to support simple attributes
+        physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
+        for table in tables:
+            try:
+                physical_table = sqlalchemy.Table(table[1], self.metadata,
+                                        autoload=True,
+                                        schema=table[0] or self.mapper.schema)
+                physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
+            except sqlalchemy.exc.NoSuchTableError:
+                issues.append(("join", "table %s.%s does not exist" % table, join))
+
+        # check attributes
+
+        base = base_attributes(cube.all_attributes)
+        mappings = {attr.name:mapper.physical(attr) for attr in base}
+
+        for attr, ref in mappings.items:
+            alias_ref = (ref.schema, ref.table)
+            table_ref = alias_map.get(alias_ref, alias_ref)
+            table = physical_tables.get(table_ref)
+
+            if table is None:
+                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
+            else:
+                try:
+                    c = table.c[ref.column]
+                except KeyError:
+                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
+
+        return issues
+
     # FIXME: this core requires review
     def create_denormalized_view(self, cube, view_name=None, materialize=False,
                                  replace=False, create_index=False,
