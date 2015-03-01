@@ -518,11 +518,6 @@ class StarSchema(object):
 
         return column
 
-    def relevant_joins(self, attributes):
-        """Get relevant joins to the attributes - list of joins that are
-        required to be able to acces specified attributes. `attributes` is a
-        list of `StarSchema` attributes (or objects with same kind of
-        attributes).
     def _master_key(self, join):
         """Generate join master key, use schema defaults"""
         return (join.master.schema or self.schema,
@@ -535,6 +530,10 @@ class StarSchema(object):
         return (join.detail.schema or self.schema,
                 join.alias or join.detail.table)
 
+    def required_tables(self, attributes):
+        """Get all tables that are required to be joined to get `attributes`.
+        `attributes` is a list of `StarSchema` attributes (or objects with
+        same kind of attributes).
         """
 
         # Attribute: (schema, table, column)
@@ -545,41 +544,63 @@ class StarSchema(object):
 
         # Get the physical mappings for attributes
         mappings = [self.mappings[attr] for attr in attributes]
+
         # Generate table keys
-        required_tables = set((m.schema, m.table) for m in mappings)
+        relevant = set(self.table((m.schema, m.table)) for m in mappings)
 
-        # We assume that the fact table is always present
-        fact_table = (self.schema, self.fact_name)
+        # Dependencies
+        # ------------
+        # `required` now contains tables that contain requested `attributes`.
+        # Nowe we have to resolve all dependencies.
 
-        joined_tables = set()
-        joined_tables.add(fact_table)
+        required = {}
+        while relevant:
+            table = relevant.pop()
+            required[table.key] = table
 
-        joins = []
-        # self.logger.debug("tables to join: %s" % list(tables_to_join))
-
-        while required_tables:
-            # TODO: check that the detail is not fact table
-            detail_key = required_tables.pop()
-            detail = self.table(detail_key, "join detail")
-            # self.logger.debug("joining table %s" % (table, ))
-
-            join = detail.join
-
-            if not join:
-                # We assume this is the fact table
+            if not table.join:
                 continue
 
-            joins.append(join)
-            # Find master for the detail
-            master_key = (join.master.schema, join.master.table)
+            master = self._master_key(table.join)
+            if master not in required:
+                relevant.add(self.table(master))
 
-            master_table = self.table(master_key, "master table")
+            detail = self._detail_key(table.join)
+            if detail not in required:
+                relevant.add(self.table(detail))
 
-            if master_key not in joined_tables:
-                # We are missing the mater, queue it
-                required_tables.add(master_key)
+        # Sort the tables
+        # ---------------
 
-        return joins
+        fact_key = (self.schema, self.fact_name)
+        fact = self.table(fact_key, "fact master")
+        masters = {fact_key: fact}
+
+        sorted_tables = [fact]
+
+        while required:
+            details = [table for table in required.values()
+                             if table.join
+                                and self._master_key(table.join) in masters]
+
+            if not details:
+                break
+
+            for detail in details:
+                masters[detail.key] = detail
+                sorted_tables.append(detail)
+
+                del required[detail.key]
+
+        if len(required) > 1:
+            keys = [_format_key(table.key)
+                        for table in required.values()
+                        if table.key != fact_key]
+
+            raise ModelError("Some tables are not joined: {}"
+                             .format(", ".join(keys)))
+
+        return sorted_tables
 
     # Note: This is "The Method"
     # ==========================
@@ -602,35 +623,18 @@ class StarSchema(object):
         """
 
         attributes = [str(attr) for attr in attributes]
+        # Collect all the tables first:
+        tables = self.required_tables(attributes)
+
+        # There are no joins required for this query, return the only relevant
+        # table
+        if len(tables) == 1:
+            return tables[0]
+
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
-        star = {}
-
-        # Collect all the tables first:
-        joins = self.relevant_joins(attributes)
-
-        # There are no joins required for this query
-        if not joins:
-            # TODO: use core if provided
-            return self.fact_table
-
-        # Gather all involved tables
-        for join in joins:
-            # 1. MASTER
-            # Add master table to the list.
-
-            key = (join.master.schema, join.master.table)
-            ref = self.table(key)
-            star[key] = ref.table
-
-            # 2. DETAIL
-            # Add (aliased) detail table to the list. 
-
-            alias = join.alias or join.detail.table
-            key = (join.detail.schema, alias)
-            ref = self.table(key)
-            star[key] = ref.table
+        star = {table.key:table for table in tables}
 
         # Here the `star` contains mapping table key -> table, which will be
         # gradually replaced by JOINs
@@ -641,22 +645,31 @@ class StarSchema(object):
         # 1. find the column
         # 2. construct the condition
         # 3. use the appropriate SQL JOIN
+        # 4. replace the joined table in `star` with the joined master
         # 
         # TODO: make sure that we have joins in joinable order – that the
         # master is already joined
         # TODO: support MySQL partition (see Issue list)
-        for join in joins:
+
+        # Count joins for debug/error reporting purposes
+        join_count = 0
+
+        for table in tables:
+            if not table.join:
+                continue
+
+            join = table.join
+
             # Prepare the table keys:
             # Key is a tuple of (schema, table) and is used to get a joined
             # product object
             master = join.master
-            master_key = (master.schema, master.table)
+            master_key = self._master_key(join)
             detail = join.detail
-            alias = join.alias or join.detail.table
-            detail_key = (detail.schema, alias)
+            detail_key = self._detail_key(join)
 
             # We need plain tables to get columns for prepare the join
-            # condition
+            # condition. We can't get it form `star`.
             # Master table.column
             # -------------------
             master_table = self.table(master_key).table
@@ -689,9 +702,11 @@ class StarSchema(object):
             try:
                 master_table = star[master_key]
             except KeyError:
-                raise ModelError("Unknown master {} for detail {}. "
-                                 "Missing join?"
-                                 .format(master_key, detail_key))
+                # import pdb; pdb.set_trace()
+                raise ModelError("Unknown master table '{}' for "
+                                 "detail table '{}'. Missing join?"
+                                 .format(_format_key(master_key),
+                                         _format_key(detail_key)))
             detail_table = star[detail_key]
 
 
@@ -710,20 +725,39 @@ class StarSchema(object):
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
-            product = sql.expression.join(master_table, detail_table,
-                                          onclause=onclause, isouter=is_outer)
+            product = sql.expression.join(master_table.table,
+                                          detail_table.table,
+                                          onclause=onclause,
+                                          isouter=is_outer)
 
-            # Replace the already joined master
+            # Consume the detail
+            if detail_key not in star:
+                raise InternalError("Detail {} not in star."
+                                    .format(_format_key(detail_key)))
+
+            print("== Joined table: {}".format(table.key))
+            print("--     consuming detail {}".format(detail_key))
+            print("--     saving master {}".format(master_key))
             del star[detail_key]
+            # Replace the already joined master
             star[master_key] = product
+            remaining = ", ".join(_format_key(key) for key in star.keys())
+            print("--     remaining: {}".format(remaining))
+            join_count += 1
 
         if not star:  # pragma nocover
             # This should not happen
             raise InternalError("Star is emtpy")
 
         if len(star) > 1:
-            raise ModelError("Some tables are left unjoined: %s"
-                             % (star.keys(), ))
+            # import pdb; pdb.set_trace()
+            fact_key = (self.schema, self.fact_name)
+            remaining = ", ".join(_format_key(key) for key in star.keys()
+                                                   if key != fact_key)
+
+            raise ModelError("Not all required tables were joined. "
+                             "Total {} tables, {} joined, remaining: {}"
+                             .format(len(tables), join_count, remaining))
 
         # Return the star – the only remaining join object
         result = list(star.values())[0]

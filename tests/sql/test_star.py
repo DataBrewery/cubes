@@ -322,6 +322,48 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.dim_category = create_table(self.engine, self.md, DIM_CATEGORY)
         self.dim_size = create_table(self.engine, self.md, DIM_SIZE)
 
+    def test_required_tables(self):
+        """Test master-detail-detail snowflake chain joins"""
+        joins = [
+            to_join(("test.category", "dim_category.category")),
+            to_join(("dim_category.size", "dim_size.size")),
+        ]
+
+        mappings = {
+            "amount":         Column(None, "test", "amount", None, None),
+            "category":       Column(None, "test", "category", None, None),
+            "category_label": Column(None, "dim_category", "label", None, None),
+            "size":           Column(None, "dim_category", "size", None, None),
+            "size_label":     Column(None, "dim_size", "label", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        test_table = schema.table((None, "test"))
+        category_table = schema.table((None, "dim_category"))
+        size_table = schema.table((None, "dim_size"))
+
+        # Construct the select for the very last attribute in the snowflake
+        # arm
+        # joins = schema.relevant_joins(["amount"])
+        # self.assertEqual(len(joins), 0)
+
+        # joins = schema.relevant_joins(["category_label"])
+        # self.assertCountEqual(joins, [category_join])
+
+        all_tables = [test_table, category_table, size_table]
+
+        tables = schema.required_tables(["size_label"])
+        self.assertEqual(len(tables), 3)
+        self.assertCountEqual(tables, all_tables)
+
+        tables = schema.required_tables(["size_label", "category_label"])
+        self.assertCountEqual(tables, all_tables)
+
+        # Swap the attributes – it should return the same order
+        tables = schema.required_tables(["category_label", "size_label"])
+        self.assertCountEqual(tables, all_tables)
+
     def test_detail_twice(self):
         """Test exception when detail is specified twice (loop in graph)"""
         joins = [
@@ -345,7 +387,6 @@ class SchemaJoinsTestCase(SQLTestCase):
         joins = [
             to_join(("test.category", "dim_category.category"))
         ]
-
         mappings = {
             "category":       Column(None, "test", "category", None, None),
             "amount":         Column(None, "test", "amount", None, None),
@@ -359,14 +400,11 @@ class SchemaJoinsTestCase(SQLTestCase):
         table = schema.table((None, "dim_category"))
         self.assertEqual(table.table, self.dim_category)
 
-        joins = schema.relevant_joins(["category"])
-        self.assertEqual(len(joins), 0)
+        tables = schema.required_tables(["category"])
+        self.assertEqual(len(tables), 1)
 
-        joins = schema.relevant_joins(["amount"])
-        self.assertEqual(len(joins), 0)
-
-        joins = schema.relevant_joins(["category_label"])
-        self.assertEqual(len(joins), 1)
+        tables = schema.required_tables(["amount"])
+        self.assertEqual(len(tables), 1)
 
         # Check columns
         self.assertColumnEqual(schema.column("category"),
@@ -395,8 +433,8 @@ class SchemaJoinsTestCase(SQLTestCase):
         table = schema.table((None, "dim_fruit"))
         self.assertTrue(table.table.is_derived_from(self.dim_category))
 
-        joins = schema.relevant_joins(["fruit"])
-        self.assertEqual(len(joins), 1)
+        tables = schema.required_tables(["fruit"])
+        self.assertEqual(len(tables), 2)
 
         # Check columns
         self.assertColumnEqual(schema.column("code"),
@@ -441,6 +479,32 @@ class SchemaJoinsTestCase(SQLTestCase):
     def test_snowflake_joins(self):
         """Test master-detail-detail snowflake chain joins"""
         joins = [
+            to_join(("test.category", "dim_category.category")),
+            to_join(("dim_category.size", "dim_size.size")),
+        ]
+
+        mappings = {
+            "category":       Column(None, "test", "category", None, None),
+            "category_label": Column(None, "dim_category", "label", None, None),
+            "size":           Column(None, "dim_category", "size", None, None),
+            "size_label":     Column(None, "dim_size", "label", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        # Construct the select for the very last attribute in the snowflake
+        # arm
+        # star = schema.star(["category_label", "size_label"])
+        star = schema.star(["size_label", "category_label"])
+        select = sql.expression.select([schema.column("size_label")],
+                                       from_obj=star)
+        result = self.engine.execute(select)
+        sizes = [r["size_label"] for r in result]
+        self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
+
+    def test_snowflake_aliased_joins(self):
+        """Test master-detail-detail snowflake chain joins"""
+        joins = [
             to_join(("test.category", "dim_category.category", "dim_fruit")),
             to_join(("dim_fruit.size", "dim_size.size"))
         ]
@@ -452,7 +516,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size_label":     Column(None, "dim_size", "label", None, None),
         }
 
-        schema = Schema("star", self.md, mappings, self.fact, joins=joins)
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
         table = schema.table((None, "dim_fruit"))
         self.assertTrue(table.table.is_derived_from(self.dim_category))
@@ -472,65 +536,6 @@ class SchemaJoinsTestCase(SQLTestCase):
         result = self.engine.execute(select)
         sizes = [r["size_label"] for r in result]
         self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
-
-
-    def test_join_order(self):
-        """Test that the order of joins does not matter"""
-        """Test master-detail-detail snowflake chain joins"""
-        joins = [
-            to_join(("dim_fruit.size", "dim_size.size")),
-            to_join(("test.category", "dim_category.category", "dim_fruit")),
-        ]
-
-        mappings = {
-            "size_label":     Column(None, "dim_size", "label", None, None),
-        }
-
-        schema = Schema("star", self.md, mappings, self.fact, joins=joins)
-
-        # Construct the select for the very last attribute in the snowflake
-        # arm
-        star = schema.star(["size_label"])
-        select = sql.expression.select([schema.column("size_label")],
-                                       from_obj=star)
-        result = self.engine.execute(select)
-        sizes = [r["size_label"] for r in result]
-        self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
-
-    @unittest.skip("Looking for a proper test...")
-    def test_relevant_join(self):
-        """Test that only tables containing required attributes are being
-        joined and no more."""
-        # One way to test this is to create the star and try to select column
-        # that is present in not-joined table.
-
-        # We get all the joins in the star and all the mappings
-        joins = [
-            to_join(("test.category", "dim_category.category", "dim_fruit")),
-            to_join(("dim_fruit.size", "dim_size.size"))
-        ]
-
-        mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "category_label": Column(None, "dim_fruit", "label", None, None),
-            "size":           Column(None, "dim_fruit", "size", None, None),
-            "size_label":     Column(None, "dim_size", "label", None, None),
-        }
-
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
-
-        # Sanity check
-        relevant = schema.relevant_joins(["category_label"])
-        self.assertEqual(len(relevant), 1)
-
-        star = schema.star(["category_label"])
-        select = sql.expression.select([schema.column("size_label")],
-                                       from_obj=star)
-        result = self.engine.execute(select)
-        # FIXME: This does not work, because alchemy creates a cartesian
-        # product of unjoined tables. We need to raise an error somehow in the
-        # process. Or we might allow this behavior and assume use of other
-        # higher level methods with more checks.
 
     def test_join_method_detail(self):
         """Test 'detail' join method"""
