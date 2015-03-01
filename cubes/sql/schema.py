@@ -220,6 +220,17 @@ class NoSuchAttributeError(SchemaError):
     """Error related to the physical star schema."""
     pass
 
+def _format_key(key):
+    """Format table key `key` to a string."""
+    schema, table = key
+
+    table = table or "(FACT)"
+
+    if schema:
+        return "{}.{}".format(schema, table)
+    else:
+        return table
+
 class StarSchema(object):
     """Represents a star/snowflake table schema. Attributes:
 
@@ -494,6 +505,18 @@ class StarSchema(object):
         required to be able to acces specified attributes. `attributes` is a
         list of `StarSchema` attributes (or objects with same kind of
         attributes).
+    def _master_key(self, join):
+        """Generate join master key, use schema defaults"""
+        return (join.master.schema or self.schema,
+                join.master.table or self.fact_name)
+
+    def _detail_key(self, join):
+        """Generate join detail key, use schema defaults"""
+        # Note: we don't include fact as detail table by default. Fact can not
+        # be detail (at least for now, we don't have a case where it could be)
+        return (join.detail.schema or self.schema,
+                join.alias or join.detail.table)
+
         """
 
         # Attribute: (schema, table, column)
