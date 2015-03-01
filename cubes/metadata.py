@@ -22,7 +22,8 @@ import os
 import re
 
 from collections import OrderedDict, namedtuple
-from .errors import *
+from .errors import ModelError, CubesError, ArgumentError
+from .errors import ModelInconsistencyError
 from . import compat
 
 try:
@@ -60,18 +61,19 @@ def _json_from_url(url):
     parts = compat.urlparse(url)
 
     if parts.scheme in ('', 'file'):
-        handle = open(parts.path)
+        handle = compat.open_unicode(parts.path)
     elif len(parts.scheme) == 1:
-        # TODO: This is temporary hack which can be replaced by proper python
-        # 3.4 functionality later
-        handle = open(url)
+        # TODO: This is temporary hack for MS Windows which can be replaced by
+        # proper python 3.4 functionality later
+        handle = compat.open_unicode(url)
     else:
         handle = compat.urlopen(url)
 
     try:
         desc = json.load(handle)
     except ValueError as e:
-        raise SyntaxError("Syntax error in %s: %s" % (url, e.args))
+        import pdb; pdb.set_trace()
+        raise SyntaxError("Syntax error in %s: %s" % (url, str(e)))
     finally:
         handle.close()
 

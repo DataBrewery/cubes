@@ -27,6 +27,9 @@ if py3k:
     def to_str(b):
         return b.decode("utf-8")
 
+    def open_unicode(filename):
+        return open(filename, encoding="utf-8")
+
 else:
     string_type = basestring
     binary_type = str
@@ -56,4 +59,5 @@ else:
         raise ValueError("Cannot decode for unicode using any of the default "
                          "encodings: %s" % s)
 
-
+    def open_unicode(filename):
+        return open(filename)
