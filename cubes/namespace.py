@@ -11,10 +11,12 @@ __all__ = [
 ]
 
 class Namespace(object):
-    def __init__(self, name=None):
+    def __init__(self, name=None, parent=None):
         """Creates a cubes namespace – an object that provides model objects
         from the providers."""
-        self.parent = None
+        # TODO: Assign this on __init__, namespaces should not be freely
+        # floating until anchored in another namespace
+        self.parent = parent
         self.name = name
         self.namespaces = {}
         self.providers = []
@@ -33,7 +35,7 @@ class Namespace(object):
         """
 
         if not path:
-            return (self, [])
+            return (self, None)
 
         if isinstance(path, compat.string_type):
             path = path.split(".")
@@ -50,12 +52,12 @@ class Namespace(object):
                 break
 
         if not create:
-            return (namespace, remainder)
+            return (namespace, ".".join(remainder))
         else:
             for element in remainder:
                 namespace = namespace.create_namespace(element)
 
-            return (namespace, [])
+            return (namespace, None)
 
     def create_namespace(self, name):
         """Create a namespace `name` in the receiver."""
@@ -64,40 +66,53 @@ class Namespace(object):
         else:
             nsname = name
 
-        namespace = Namespace(nsname)
-        namespace.parent = self
+        namespace = Namespace(nsname, parent=self)
         self.namespaces[name] = namespace
 
         return namespace
 
-    def find_cube(self, cube):
-        """Returns a tuple (`namespace`, `nsname`, `basename`) where
-        `namespace` is a namespace conaining `cube` and `basename` is a name
-        of the `cube` within the `namespace`. For example: if cube is
-        ``slicer.nested.cube`` and there is namespace ``slicer`` then that
-        namespace is returned and the `basename` will be ``nested.cube``"""
+    def find_cube(self, cube_ref):
+        """Returns a tuple (`namespace`, `provider`, `basename`) where
+        `namespace` is a namespace conaining `cube`, `provider` providers the
+        model for the cube and `basename` is a name of the `cube` within the
+        `namespace`. For example: if cube is ``slicer.nested.cube`` and there
+        is namespace ``slicer`` then that namespace is returned and the
+        `basename` will be ``nested.cube``.
 
-        cube = str(cube)
-        split = cube.split(".")
+        Raises `NoSuchCubeError` when there is no cube with given reference.
+        """
+
+        cube_ref = str(cube_ref)
+        split = cube_ref.split(".")
         if len(split) > 1:
             path = split[0:-1]
-            cube = split[-1]
+            cube_ref = split[-1]
         else:
             path = []
-            cube = cube
+            cube_ref = cube_ref
 
         (namespace, remainder) = self.namespace(path)
 
         if remainder:
-            basename = "%s.%s" % (".".join(remainder), cube)
+            basename = "{}.{}".format(remainder, cube_ref)
         else:
-            basename = cube
+            basename = cube_ref
 
-        # Create a namespace path
-        nspath = path[:-len(remainder)]
-        nsname = ".".join(nspath)
+        # Find first provider that knows about the cube `name`
+        provider = None
 
-        return (namespace, nsname, basename)
+        for provider in namespace.providers:
+            if provider.has_cube(cube_ref):
+                break
+        else:
+            provider = None
+
+        if not provider:
+            raise NoSuchCubeError("Unknown cube '{}'".format(cube_ref),
+                                  cube_ref)
+
+        return (namespace, provider, basename)
+
 
     def list_cubes(self, recursive=False):
         """Retursn a list of cube info dictionaries with keys: `name`,
@@ -125,31 +140,11 @@ class Namespace(object):
 
         return all_cubes
 
-    def cube(self, name, locale=None):
-        """Return cube named `name`.  """
-        cube = None
-
-        # Find first provider that knows about the cube `name`
-        for provider in self.providers:
-            try:
-                cube = provider.cube(name, locale)
-            except NoSuchCubeError:
-                pass
-            else:
-                cube.provider = provider
-                cube.store = provider.store
-                cube.namespace = self
-                break
-
-        if not cube:
-            raise NoSuchCubeError("Unknown cube '%s'" % str(name), name)
-
-        return cube
-
+    # TODO: change to find_dimension() analogous to the find_cube(). Let the
+    # caller to perform actual dimension creation using the provider
     def dimension(self, name, locale=None, templates=None, local_only=False):
         dim = None
 
-        # TODO: cache dimensions
         for provider in self.providers:
             # TODO: use locale
             try:

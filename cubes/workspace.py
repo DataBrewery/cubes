@@ -518,21 +518,17 @@ class Workspace(object):
 
         # Find the namespace containing the cube – we will need it for linking
         # later
-        # FIXME: nsname is not a name, but a path!
-        (ns, nsname, basename) = self.namespace.find_cube(ref)
+        (namespace, provider, basename) = self.namespace.find_cube(ref)
 
-        # FIXME: remove this
-        cube = ns.cube(basename, locale=locale)
+        cube = provider.cube(basename, locale=locale, namespace=namespace)
+        cube.namespace = namespace
+        cube.store = provider.store
 
-        # TODO: use ref – full and name – relative
-        # Set cube name to the full cube reference that includes namespace as
-        # well
-        cube.name = ref
+        # TODO: cube.ref -> should be ref and cube.name should be basename
         cube.basename = basename
+        cube.name = ref
 
-        self.link_cube(cube)
-
-        lookup = ns.translation_lookup(locale)
+        lookup = namespace.translation_lookup(locale)
 
         if lookup:
             # TODO: pass lookup instead of jsut first found translation
@@ -544,16 +540,6 @@ class Workspace(object):
         self._cubes[cube_key] = cube
 
         return cube
-
-    # TODO: this should belong to the model provider
-    def link_cube(self, cube):
-        """Links dimensions to the cube in the context of `model` with help of
-        `provider`."""
-
-        # Assumption: empty cube
-        return link_cube(cube, locale=cube.locale,
-                         provider=cube.provider,
-                         namespace=cube.namespace)
 
     def dimension(self, name, locale=None, namespace=None, provider=None):
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when

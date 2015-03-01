@@ -17,47 +17,63 @@ __all__ = [
 ]
 
 
+# Proposed Provider API:
+#     Provider.cube() – in abstract class
+#     Provider.provide_cube() – in concrete class, providers Cube object that
+#         might be modified later
+#     Provider.provide_dimension()
+#     Provider.link_cube(cube,locale)
+#     Provider.find_dimension(cube, locale)
+#
+# Provider is bound to namespace
+
 # TODO: add tests
+# TODO: needs to be reviewed
 def link_cube(cube, locale, provider=None, namespace=None,
               ignore_missing=False):
     """Links dimensions to the `cube` in the `context` object. The `context`
     object should implement a function `dimension(name, locale, namespace,
-    provider)`. Modifies cube in place.
+    provider)`. Modifies cube in place, returns the cube.
     """
     # TODO: change this to: link_cube(cube, locale, namespace, provider)
 
     # Assumption: empty cube
 
-    dimensions = {}
-    for link in cube.dimension_links:
-        dim_name = link["name"]
+    linked = set()
+
+    for dim_name in cube.dimension_links.keys():
+        if dim_name in linked:
+            raise ModelError("Dimension '{}' linked twice"
+                             .format(dim_name))
+
         try:
-            dim = find_dimension(dim_name, locale, namespace, provider)
+            dim = find_dimension(dim_name, locale,
+                                 provider=provider,
+                                 namespace=namespace)
+
         except TemplateRequired as e:
             raise ModelError("Dimension template '%s' missing" % dim_name)
 
-        if dim:
-            dimensions[dim_name] = dim
-        elif not ignore_missing:
-            raise CubesError("Dimension object for '%s' is none" % dim_name)
+        if not dim and not ignore_missing:
+            raise CubesError("Dimension '{}' not found.".format(dim_name))
 
-    cube.link_dimensions(dimensions)
+        cube.link_dimension(dim)
 
     return cube
 
 
 # TODO: add tests
-def find_dimension(name, locale=None, namespace=None, provider=None):
-    """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
-    no model published the dimension. Raises `RequiresTemplate` error when
-    model provider requires a template to be able to provide the
-    dimension, but such template is not a public dimension.
+def find_dimension(name, locale=None, provider=None, namespace=None):
+    """Returns a localized dimension with `name`. Raises
+    `NoSuchDimensionError` when no model published the dimension. Raises
+    `RequiresTemplate` error when model provider requires a template to be
+    able to provide the dimension, but such template is not a public
+    dimension.
 
     The standard lookup when linking a cube is:
 
     1. look in the provider
     2. look in the namespace – all providers within that namespace
-    3. look in the default (global) namespace
     """
 
     # Collected dimensions – to be used as templates
@@ -141,9 +157,10 @@ def _lookup_dimension(name, templates, namespace, provider):
 
 
 class ModelProvider(Extensible):
-    """Abstract class. Currently empty and used only to find other model
-    providers."""
+    """Abstract class – factory for model object. Currently empty and used
+    only to find other model providers."""
 
+    # TODO: Don't get metadata, but arbitrary arguments.
     def __init__(self, metadata=None):
         """Base class for model providers. Initializes a model provider and
         sets `metadata` – a model metadata dictionary.
@@ -224,11 +241,14 @@ class ModelProvider(Extensible):
 
         return {}
 
+    # TODO: remove this in favor of provider configuration: store=
     def requires_store(self):
         """Return `True` if the provider requires a store. Subclasses might
         override this method. Default implementation returns `False`"""
         return False
 
+    # TODO: bind this automatically on provider configuration: store (see
+    # requires_store() function)
     def bind(self, store):
         """Set's the provider's `store`. """
 
@@ -367,7 +387,13 @@ class ModelProvider(Extensible):
         """
         raise NotImplementedError("Subclasses should implement list_cubes()")
 
-    def cube(self, name, locale=None):
+    def has_cube(self, name):
+        """Returns `True` if the provider has cube `name`. Otherwise returns
+        `False`."""
+
+        return name in self.cubes_metadata
+
+    def cube(self, name, locale=None, namespace=None):
         """Returns a cube with `name` provided by the receiver. If receiver
         does not have the cube `NoSuchCube` exception is raised.
 
@@ -386,7 +412,8 @@ class ModelProvider(Extensible):
 
         metadata = self.cube_metadata(name, locale)
         cube = create_cube(metadata)
-        link_cube(cube, locale, provider=self)
+        link_cube(cube, locale, provider=self, namespace=namespace)
+
         return cube
 
     def dimension(self, name, templates=[], locale=None):
