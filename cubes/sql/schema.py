@@ -629,11 +629,6 @@ class StarSchema(object):
         # Collect all the tables first:
         tables = self.required_tables(attributes)
 
-        # There are no joins required for this query, return the only relevant
-        # table
-        if len(tables) == 1:
-            return tables[0].table
-
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
@@ -648,18 +643,21 @@ class StarSchema(object):
         # 1. find the column
         # 2. construct the condition
         # 3. use the appropriate SQL JOIN
-        # 4. replace the joined table in `star` with the joined master
+        # 4. wrap the star with detail
         # 
         # TODO: support MySQL partition (see Issue list)
 
         # Count joins for debug/error reporting purposes
         join_count = 0
 
-        star = None
+        # First table does not need to be joined. It is the "fact" (or other
+        # central table) of the schema.
+        star = tables[0].table
 
-        for table in tables:
+        for table in tables[1:]:
             if not table.join:
-                continue
+                raise ModelError("Missing join for table '{}'"
+                                 .format(_format_key(table.key)))
 
             join = table.join
 
@@ -683,7 +681,7 @@ class StarSchema(object):
             try:
                 master_column = master_table.c[master.column]
             except KeyError:
-                raise ModelError('Unable to find master key (schema {schema}) '
+                raise ModelError('Unable to find master key (in star {schema}) '
                                  '"{table}"."{column}" '.format(join.master))
 
             # Detail table.column
@@ -691,7 +689,7 @@ class StarSchema(object):
             try:
                 detail_column = detail_table.c[join.detail.column]
             except KeyError:
-                raise ModelError('Unable to find detail key (star {schema}) '
+                raise ModelError('Unable to find detail key (in star {schema}) '
                                  '"{table}"."{column}" '
                                  .format(schema=self.name,
                                          column=join.detail.column,
@@ -701,32 +699,24 @@ class StarSchema(object):
             # ---------------------
             onclause = master_column == detail_column
 
-            # Get the joined products – might be plain tables or already
-            # joined tables
-            try:
-                master_table = star_tables[master_key]
-            except KeyError:
-                raise ModelError("Unknown master table '{}' for "
-                                 "detail table '{}'. Missing join?"
-                                 .format(_format_key(master_key),
-                                         _format_key(detail_key)))
-
             # Determine the join type based on the join method. If the method
             # is "detail" then we need to swap the order of the tables
             # (products), because SQLAlchemy provides inteface only for
             # left-outer join.
+            left, right = (star, detail_table)
+
             if join.method is None or join.method == "match":
                 is_outer = False
             elif join.method == "master":
                 is_outer = True
             elif join.method == "detail":
                 # Swap the master and detail tables to perform RIGHT OUTER JOIN
-                master_table, detail_table = (detail_table, master_table)
+                left, right = (righ, left)
                 is_outer = True
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
-            star = sql.expression.join(master_table, detail_table,
+            star = sql.expression.join(left, right,
                                        onclause=onclause, isouter=is_outer)
 
             # Consume the detail
@@ -739,9 +729,6 @@ class StarSchema(object):
             star_tables[detail_key] = star
             star_tables[master_key] = star
             join_count += 1
-
-        if star is None:  # pragma nocover
-            raise ModelError("Empty star. No joins?")
 
         return star
 
