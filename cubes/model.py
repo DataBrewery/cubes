@@ -672,8 +672,21 @@ class Cube(ModelObject):
     def __str__(self):
         return self.name
 
+# Note: levels and hierarchies will be depreciated in the future versions.
+# Levels will disappear and hierarchies will be top-level objects.
 
-class Dimension(ModelObject):
+# TODO: Serves just as reminder for future direction. No real use yet.
+class Conceptual(ModelObject):
+    def levels(self):
+        """Return list of levels of the conceptual object. Dimension returns
+        just list of itself, hierarchy returns list of it's dimensions."""
+        raise NotImplementedError("Subclasses sohuld implement levels")
+
+    @property
+    def is_flat(self):
+        raise NotImplementedError("Subclasses should implement is_flat")
+
+class Dimension(Conceptual):
     """
     Cube dimension.
 
@@ -682,10 +695,12 @@ class Dimension(ModelObject):
     localizable_attributes = ["label", "description"]
     localizable_lists = ["levels", "hierarchies"]
 
-    def __init__(self, name, levels, hierarchies=None,
+
+    # TODO: new signature: __init__(self, name, *attributes, **kwargs):
+    def __init__(self, name, levels=None, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, category=None,
-                 master=None, nonadditive=None, **desc):
+                 master=None, nonadditive=None, attributes=None, **desc):
 
         """Create a new dimension
 
@@ -712,6 +727,8 @@ class Dimension(ModelObject):
         * `nonadditive` – kind of non-additivity of the dimension. Possible
           values: `None` (fully additive, default), ``time`` (non-additive for
           time dimensions) or ``all`` (non-additive for any other dimension)
+        * `attributes` – attributes for dimension. Use either this or levels,
+        not both.
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -748,8 +765,15 @@ class Dimension(ModelObject):
 
         self.nonadditive = nonadditive
 
-        if not levels:
-            raise ModelError("No levels specified for dimension %s" % name)
+        if not levels and not attributes:
+            raise ModelError("No levels or attriutes specified for dimension %s" % name)
+        elif levels and attributes:
+            raise ModelError("Both levels and attributes specified")
+
+        if attributes:
+            # TODO: pass all level initialization arguments here
+            level = Level(name, attributes=attributes)
+            levels = [level]
 
         # Own the levels and their attributes
         self._levels = OrderedDict()
@@ -1190,7 +1214,7 @@ class Dimension(ModelObject):
         return locale
 
 
-class Hierarchy(ModelObject):
+class Hierarchy(Conceptual):
 
     localizable_attributes = ["label", "description"]
 
