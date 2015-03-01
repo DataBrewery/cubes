@@ -206,8 +206,11 @@ class Cube(ModelObject):
         self.browser_options = browser_options or {}
         self.browser = options.get("browser")
 
-        # Be graceful here
-        self.dimension_links = expand_dimension_links(dimension_links or [])
+        self.dimension_links = OrderedDict()
+        for link in expand_dimension_links(dimension_links or []):
+            link = dict(link)
+            name = link.pop("name")
+            self.dimension_links[name] = link
 
         # Run-time properties
         # Sets in the Namespace.cube() when cube is created
@@ -293,21 +296,18 @@ class Cube(ModelObject):
 
         return [self._aggregates[str(name)] for name in names]
 
-    def link_dimensions(self, dimensions):
-        """Links `dimensions` according to cube's `dimension_links`. The
-        `dimensions` should be a dictionary with keys as dimension names and
-        values as `Dimension` instances."""
+    def link_dimension(self, dimension):
+        """Links `dimension` object or a clone of it to the cube according to
+        the specification of cube's dimension link. See
+        :meth:`Dimension.clone` for more information about cloning a
+        dimension."""
 
-        for link in self.dimension_links:
-            link = dict(link)
-            # TODO: use template/rename as well
-            dim_name = link.pop("name")
-            dim = dimensions[dim_name]
+        link = self.dimension_links.get(dimension.name)
 
-            if link:
-                dim = dim.clone(**link)
+        if link:
+            dimension = dimension.clone(**link)
 
-            self.add_dimension(dim)
+        self.add_dimension(dimension)
 
     def add_dimension(self, dimension):
         """Add dimension to cube. Replace dimension with same name. Raises
@@ -321,10 +321,6 @@ class Cube(ModelObject):
             raise ArgumentError("Dimension added to cube '%s' is not a "
                                 "Dimension instance. It is '%s'"
                                 % (self.name, type(dimension)))
-
-        if dimension.name in self._dimensions:
-            raise ModelError("Dimension with name %s already exits "
-                             "in cube %s" % (dimension.name, self.name))
 
         self._dimensions[dimension.name] = dimension
 
