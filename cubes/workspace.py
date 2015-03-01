@@ -11,7 +11,7 @@ from .logging import get_logger
 from .calendar import Calendar
 from .extensions import extensions
 from .namespace import Namespace
-from .providers import link_cube
+from .providers import link_cube, find_dimension
 from .localization import LocalizationContext
 import os.path
 from .compat import ConfigParser
@@ -133,16 +133,6 @@ class Workspace(object):
         # Cache of created global objects
         self._cubes = {}
         # Note: providers are responsible for their own caching
-
-        if config.has_option("workspace", "lookup_method"):
-            method = config.get("workspace", "lookup_method")
-            if method not in ["exact", "recursive"]:
-                raise ConfigurationError("Unknown namespace lookup method '%s'"
-                                         % method)
-            self._lookup_method = method
-        else:
-            # TODO: make this "global"
-            self._lookup_method = "recursive"
 
         # Info
         # ====
@@ -298,15 +288,6 @@ class Workspace(object):
         for model, path in models:
             self.logger.debug("Loading model %s" % model)
             self.import_model(path)
-
-    @property
-    def lookup_method(self):
-        return self._lookup_method
-
-    @lookup_method.setter
-    def lookup_method(self, value):
-        self.flush_lookup_cache()
-        self._lookup_method = value
 
     def flush_lookup_cache(self):
         """Flushes the cube lookup cache."""
@@ -540,8 +521,8 @@ class Workspace(object):
         # FIXME: nsname is not a name, but a path!
         (ns, nsname, basename) = self.namespace.find_cube(ref)
 
-        recursive = (self.lookup_method == "recursive")
-        cube = ns.cube(basename, locale=locale, recursive=recursive)
+        # FIXME: remove this
+        cube = ns.cube(basename, locale=locale)
 
         # TODO: use ref – full and name – relative
         # Set cube name to the full cube reference that includes namespace as

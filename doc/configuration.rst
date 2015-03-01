@@ -69,13 +69,7 @@ Namespaces
 ----------
 
 If not specified otherwise, all cubes share the same default namespace. There
-names within namespace should be unique. For simplicity and for backward
-compatibility reasons there are two cube lookup methods: `recursive` and
-`exact`. `recursive` method looks for cube name in the global namespace first
-then traverses all namespaces and returns the first cube found. `exact`
-requires exact cube name with namespace included as well. The option that
-affects this behavior is: ``lookup_method`` which can be ``exact`` or
-``recursive``.
+names within namespace should be unique.
 
 Info
 ----
