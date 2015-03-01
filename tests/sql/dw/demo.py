@@ -40,6 +40,10 @@ SRC_SALES = {
         ("price",    "integer"),
         ("discount", "integer"),
     ),
+    #
+    # Data requirements for SQL browser test:
+    #  * only one entry for date 2015-01-01
+    #
     "data": [
         ( 1, "2015-01-01", "here",   "apricot", 1,  3,  0),
         ( 2, "2015-01-02", "here",   "plum",    2,  1,  0),

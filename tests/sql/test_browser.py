@@ -124,6 +124,16 @@ class SQLStatementsTestCase(SQLBrowserTestCase):
         self.assertEqual(len(keys), len(raw_keys))
         self.assertCountEqual(keys, raw_keys)
 
+    @skip("Test missing")
+    def test_range_condition(self):
+        """"Test Browser.range_condition"""
+        # Test single level paths
+        # Test multi-level paths
+        # Test uneven paths
+        # Test lower bound only
+        # Test upper bound only
+
+@skip("Tests missing")
 class SQLAggregateTestCase(SQLBrowserTestCase):
     def setUp(self):
         super(self, SQLAggregateTestCase).setUp(self)
