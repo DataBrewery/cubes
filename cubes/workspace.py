@@ -6,12 +6,13 @@ import sys
 from .metadata import read_model_metadata
 from .auth import NotAuthorized
 from .common import read_json_file
+from .errors import ConfigurationError, ArgumentError, CubesError
 from .logging import get_logger
-from .errors import *
 from .calendar import Calendar
 from .extensions import extensions
-from .localization import LocalizationContext
 from .namespace import Namespace
+from .providers import link_cube
+from .localization import LocalizationContext
 import os.path
 from .compat import ConfigParser
 from copy import copy
