@@ -20,6 +20,7 @@ import collections
 try:
     import sqlalchemy
     import sqlalchemy.sql as sql
+    from sqlalchemy.sql.expression import and_
 
 except ImportError:
     from ...common import MissingPackage
@@ -533,8 +534,7 @@ class SQLBrowser(AggregationBrowser):
         return statement
 
     def aggregation_statement(self, cell, aggregates, drilldown=None,
-                              split=None, attributes=None, for_summary=False,
-                              across=None):
+                              split=None, for_summary=False, across=None):
         """Builds a statement to aggregate the `cell`.
 
         * `cell` – `Cell` to aggregate
@@ -572,7 +572,7 @@ class SQLBrowser(AggregationBrowser):
         # JOIN
         # ----
 
-        base = base_attributes(all_attributes)
+        base = [attr.ref() for attr in base_attributes(all_attributes)]
         star = self.star.star(base)
 
         # Drilldown – Group-by
@@ -666,7 +666,7 @@ class SQLBrowser(AggregationBrowser):
         if not cell:
             return None
 
-        condition = and_(*self.conditions_for_cuts(self, cell.cuts))
+        condition = and_(*self.conditions_for_cuts(cell.cuts))
         return condition
 
     def conditions_for_cuts(self, cuts):
