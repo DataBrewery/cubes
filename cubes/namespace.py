@@ -52,7 +52,7 @@ class Namespace(object):
                 break
 
         if not create:
-            return (namespace, ".".join(remainder))
+            return (namespace, ".".join(remainder) or None)
         else:
             for element in remainder:
                 namespace = namespace.create_namespace(element)

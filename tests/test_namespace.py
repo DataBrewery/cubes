@@ -13,16 +13,15 @@ class NamespaceTestCase(unittest.TestCase):
         base = Namespace()
         slicerns = base.create_namespace("slicer")
 
-        self.assertEqual((base, []), base.namespace(""))
-        self.assertEqual((slicerns, []), base.namespace("slicer"))
-        self.assertEqual((base, ["unknown"]), base.namespace("unknown"))
-        self.assertEqual((base, ["one", "two"]), base.namespace("one.two"))
+        self.assertEqual((base, None), base.namespace(""))
+        self.assertEqual((slicerns, None), base.namespace("slicer"))
+        self.assertEqual((base, "unknown"), base.namespace("unknown"))
+        self.assertEqual((base, "one.two"), base.namespace("one.two"))
 
     def test_get_namespace_create(self):
         base = Namespace()
         slicerns = base.create_namespace("slicer")
 
-        import pdb; pdb.set_trace()
         self.assertEqual((base, None), base.namespace("", create=True))
         self.assertEqual((slicerns, None), base.namespace("slicer", create=True))
 
@@ -43,11 +42,12 @@ class NamespaceTestCase(unittest.TestCase):
 
         self.assertIn("three", ns.namespaces)
         (ns, remainder) = ns.namespace("three")
-        self.assertEqual([], remainder)
+        self.assertEqual(None, remainder)
 
         (last, remainder) = base.namespace("one.two.three.four.five")
         self.assertEqual("four.five", remainder)
 
+    @unittest.skip("We need some fake provider to test this")
     def test_find_cube(self):
         base = Namespace()
 
@@ -82,3 +82,4 @@ class NamespaceTestCase(unittest.TestCase):
         self.assertEqual(ns, deep)
         self.assertEqual(nsname, "")
         self.assertEqual(basename, "cube")
+
