@@ -38,6 +38,10 @@ class BrowserError(InternalError):
 class ModelError(InternalError):
     """Model related exception."""
 
+class ExpressionError(ModelError):
+    """Expression related exception such as unknown attribute or cirular
+    attribute reference"""
+
 # TODO: necessary? or rename to PhysicalModelError
 class MappingError(ModelError):
     """Raised when there are issues by mapping from logical model to physical
