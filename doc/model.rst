@@ -128,7 +128,7 @@ The ``joins`` can be considered as named templates. They should contain
 ``name`` property that will be referenced by a cube.
 
 
-Vsibility: The joins and mappings are local to a single model. They are not
+Visibility: The joins and mappings are local to a single model. They are not
 shared within
 the workspace.
 
@@ -156,7 +156,7 @@ level as:
     ]
 
 The join has a name specified, which is used to match joins in the cube. Note
-that the join contains incimplete information: it contains only the ``detail``
+that the join contains incomplete information: it contains only the ``detail``
 part, that is the dimension key. To use the join in a cube which has two date
 dimensions `start date` and `end date`:
 

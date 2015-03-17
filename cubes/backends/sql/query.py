@@ -339,7 +339,7 @@ class SnowflakeSchema(object):
         returned from mapper (most probably by `Mapper.relevant_joins()`)
 
         Returns a tuple: (`expression`, `tables`) where `expression` is
-        QLAlchemy expression object and `tables` is a list of `SnowflakeTable`
+        SQLAlchemy expression object and `tables` is a list of `SnowflakeTable`
         objects used in the join.
 
         If `include_fact` is ``True`` (default) then fact table is considered
