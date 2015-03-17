@@ -1,6 +1,8 @@
 Cubes - Online Analytical Processing Framework for Python
 =========================================================
 
+[![Join the chat at https://gitter.im/DataBrewery/cubes](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/DataBrewery/cubes?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=Stiivi&url=https://github.com/databrewery/cubes&title=Cubes&language=&tags=github&category=software)
 
 Cubes is a light-weight Python framework and set of tools for Online
