@@ -486,7 +486,7 @@ class Cube(ModelObject):
         raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
                                    % (self.name, attribute))
 
-    def get_attributes(self, attributes=None, simplify=True, aggregated=False):
+    def get_attributes(self, attributes=None, aggregated=False):
         """Returns a list of cube's attributes. If `aggregated` is `True` then
         attributes after aggregation are returned, otherwise attributes for a
         fact are considered.
@@ -511,7 +511,7 @@ class Cube(ModelObject):
         if not names:
             return attributes
 
-        attr_map = dict((a.ref(simplify), a) for a in attributes)
+        attr_map = dict((a.ref(), a) for a in attributes)
 
         result = []
         for name in names:
@@ -1771,7 +1771,7 @@ class AttributeBase(ModelObject):
         super(AttributeBase, self).localize(trans)
         self.format = trans.get("format", self.format)
 
-    def ref(self, simplify=None, locale=None):
+    def ref(self, locale=None):
         return self.name
 
 
@@ -1854,11 +1854,9 @@ class Attribute(AttributeBase):
 
         return d
 
-    def ref(self, simplify=True, locale=None):
+    def ref(self, locale=None):
         """Return full attribute reference. Append `locale` if it is one of
-        attribute's locales, otherwise raise `cubes.ArgumentError`. If
-        `simplify` is ``True``, then reference to an attribute of flat
-        dimension without details will be just the dimension name.
+        attribute's locales, otherwise raise `cubes.ArgumentError`
         """
         if locale:
             if not self.locales:
@@ -1875,8 +1873,7 @@ class Attribute(AttributeBase):
             locale_suffix = ""
 
         if self.dimension:
-            if simplify and (self.dimension.is_flat
-                             and not self.dimension.has_details):
+            if self.dimension.is_flat and not self.dimension.has_details:
                 reference = self.dimension.name
             else:
                 reference = self.dimension.name + '.' + str(self.name)

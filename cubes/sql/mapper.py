@@ -211,10 +211,6 @@ class SnowflakeMapper(Mapper):
 
         * `cube` - mapped cube
         * `mappings` – dictionary containing mappings
-        * `simplify_dimension_references` – references for flat dimensions
-          (with one level and no details) will be just dimension names, no
-          attribute name. Might be useful when using single-table schema, for
-          example, with couple of one-column dimensions.
         * `dimension_prefix` – default prefix of dimension tables, if
           default table name is used in physical reference construction
         * `dimension_suffix` – default suffix of dimension tables, if
@@ -322,9 +318,8 @@ class SnowflakeMapper(Mapper):
 
             # TODO: temporarily preserved. it should be attribute.owner
             dimension = attribute.dimension
-            if dimension and not (self.simplify_dimension_references \
-                                   and (dimension.is_flat
-                                        and not dimension.has_details)):
+            if dimension \
+                    and not (dimension.is_flat and not dimension.has_details):
                 table_name = self.naming.dimension_table_name(dimension)
             else:
                 table_name = self.fact_name
@@ -354,6 +349,7 @@ class SnowflakeMapper(Mapper):
         return physical_attrs
 
 
+# TODO: obsolete, to be reviewed
 class DenormalizedMapper(Mapper):
     def __init__(self, cube, locale=None, schema=None,
                     fact_name=None, denormalized_view_prefix=None,

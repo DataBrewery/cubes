@@ -1980,7 +1980,7 @@ DrilldownItem = namedtuple("DrilldownItem",
 
 
 # TODO: move this to Drilldown
-def levels_from_drilldown(cell, drilldown, simplify=True):
+def levels_from_drilldown(cell, drilldown):
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
 
@@ -1995,10 +1995,6 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
 
     For other types of cuts, such as range or set, "next" level is the first
     level of hierarachy.
-
-    If `simplify` is `True` then dimension references are simplified for flat
-    dimensions without details. Otherwise full dimension attribute reference
-    will be used as `level_key`.
 
     Returns a list of drilldown items with attributes: `dimension`,
     `hierarchy` and `levels` where `levels` is a list of levels to be drilled
@@ -2064,7 +2060,7 @@ def levels_from_drilldown(cell, drilldown, simplify=True):
             levels = hier[:depth + 1]
 
         levels = tuple(levels)
-        keys = [level.key.ref(simplify=simplify) for level in levels]
+        keys = [level.key.ref() for level in levels]
         result.append(DrilldownItem(dim, hier, levels, keys))
 
     return result
