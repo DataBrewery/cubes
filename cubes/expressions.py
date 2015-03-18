@@ -13,6 +13,20 @@ from .errors import ModelError, ExpressionError
 
 def attribute_dependencies(attribute):
     """Return a set of attributes that the `attribute` depends on."""
+    """Return a set of attributes that the `attribute` depends on. If the
+    `attribute` is an expresion, then returns the direct dependencies from the
+    expression. If the attribute is an aggregate with an unary function
+    operating on a measure, then the measure is considered as a dependency.
+    Attribute can't have both expression and measure specified, since you can
+    have only expression or an function, not both.
+    """
+
+    if hasattr(attribute, "measure") and attribute.measure:
+        if attribute.expression:
+            raise ModelError("Aggregate '{}' has both measure and "
+                             "expression set".format(attribute.ref()))
+        return set([attribute.measure])
+
     if not attribute.expression:
         return set()
 
