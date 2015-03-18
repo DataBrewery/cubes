@@ -5,7 +5,7 @@ import unittest
 
 from cubes import create_attribute
 from cubes.errors import ExpressionError
-from cubes.expressions import sorted_attributes
+from cubes.expressions import attribute_dependencies, depsort_attributes
 
 
 class ExpressionUnitTestCase(unittest.TestCase):
@@ -24,31 +24,32 @@ class ExpressionUnitTestCase(unittest.TestCase):
         ]
 
         self.attrs = {attr["name"]:create_attribute(attr) for attr in attrs}
+        self.deps = {name:attribute_dependencies(attr)
+                     for name, attr in self.attrs.items()}
 
     def attributes(self, *attrs):
         return [self.attrs[attr] for attr in attrs]
 
     def test_sorted_attributes_base(self):
         """Sorted attributes - basic sanity checks"""
-        attrs = sorted_attributes(self.attributes())
+        attrs = depsort_attributes([], self.deps)
         self.assertListEqual(attrs, [])
 
-        attrs = sorted_attributes(self.attributes("a"))
-        self.assertListEqual(attrs, self.attributes("a"))
+        attrs = depsort_attributes(["a"], self.deps)
+        self.assertListEqual(attrs, ["a"])
 
     def test_sorted_attributes(self):
-        attrs = sorted_attributes(self.attributes("c", "b", "a"))
-        self.assertListEqual(attrs, self.attributes("a", "b", "c"))
+        attrs = depsort_attributes(["c", "b", "a"], self.deps)
+        self.assertListEqual(attrs, ["a", "b", "c"])
 
     def test_sorted_unknown(self):
         with self.assertRaisesRegex(ExpressionError, "Unknown"):
-            attrs = sorted_attributes(self.attributes("c", "b"))
+            attrs = depsort_attributes(["c", "b"], {})
 
     def test_sorted_circular(self):
         with self.assertRaisesRegex(ExpressionError, "Circular"):
-            sorted_attributes(self.attributes("loop1", "loop2"))
+            depsort_attributes(["loop1", "loop2"], self.deps)
 
         with self.assertRaisesRegex(ExpressionError, "Circular"):
-            sorted_attributes(self.attributes("indirect_loop1",
-                                              "intermediate",
-                                              "indirect_loop2"))
+            depsort_attributes(["indirect_loop1", "intermediate",
+                                "indirect_loop2"], self.deps)
