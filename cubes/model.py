@@ -1771,9 +1771,28 @@ class AttributeBase(ModelObject):
         super(AttributeBase, self).localize(trans)
         self.format = trans.get("format", self.format)
 
-    def ref(self, locale=None):
+    @property
+    def ref(self):
         return self.name
 
+    def localized_ref(self, locale):
+        """Returns localized attribute reference for locale `locale`.
+        """
+        if locale:
+            if not self.locales:
+                raise ArgumentError("Attribute '{}' is not loalizable "
+                                    "(localization {} requested)"
+                                    .format(self.name, locale))
+            elif locale not in self.locales:
+                raise ArgumentError("Attribute '{}' has no localization {} "
+                                    "(has: {})"
+                                    .format(self.name, locale, self.locales))
+            else:
+                locale_suffix = "." + locale
+        else:
+            locale_suffix = ""
+
+        return self.ref + locale_suffix
 
 def base_attributes(attributes):
     """Return only those attributes that are not derived through a function or
@@ -1854,24 +1873,11 @@ class Attribute(AttributeBase):
 
         return d
 
-    def ref(self, locale=None):
-        """Return full attribute reference. Append `locale` if it is one of
-        attribute's locales, otherwise raise `cubes.ArgumentError`
-        """
-        if locale:
-            if not self.locales:
-                raise ArgumentError("Attribute '%s' is not loalizable "
-                                    "(localization %s requested)"
-                                    % (self.name, locale))
-            elif locale not in self.locales:
-                raise ArgumentError("Attribute '%s' has no localization %s "
-                                    "(has: %s)"
-                                    % (self.name, locale, self.locales))
-            else:
-                locale_suffix = "." + locale
-        else:
-            locale_suffix = ""
-
+    @property
+    def ref(self):
+        """Return attribute reference. If attribute is part of a dimension, it
+        is prefixed with the dimension name, such as in `date.month` for
+        attribute `month`."""
         if self.dimension:
             if self.dimension.is_flat and not self.dimension.has_details:
                 reference = self.dimension.name
@@ -1880,7 +1886,7 @@ class Attribute(AttributeBase):
         else:
             reference = str(self.name)
 
-        return reference + locale_suffix
+        return reference
 
     def is_localizable(self):
         return bool(self.locales)

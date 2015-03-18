@@ -91,7 +91,7 @@ class Mapper(object):
         browsing.
         """
 
-        reference = attribute.ref(locale)
+        reference = attribute.localized_ref(locale)
 
         return reference
 
