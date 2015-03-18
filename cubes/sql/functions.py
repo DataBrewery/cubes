@@ -177,8 +177,7 @@ _functions = (
     ValueCoalescingFunction("max", sql.functions.max),
     ValueCoalescingFunction("avg", avg),
     ValueCoalescingFunction("stddev", stddev),
-    ValueCoalescingFunction("variance", variance),
-    ValueCoalescingFunction("custom", lambda c: c),
+    ValueCoalescingFunction("variance", variance)
 )
 
 _function_dict = {}
