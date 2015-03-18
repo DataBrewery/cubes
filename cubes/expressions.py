@@ -12,7 +12,6 @@ from expressions import inspect_variables
 from .errors import ModelError, ExpressionError
 
 def attribute_dependencies(attribute):
-    """Return a set of attributes that the `attribute` depends on."""
     """Return a set of attributes that the `attribute` depends on. If the
     `attribute` is an expresion, then returns the direct dependencies from the
     expression. If the attribute is an aggregate with an unary function
@@ -31,6 +30,15 @@ def attribute_dependencies(attribute):
         return set()
 
     return inspect_variables(attribute.expression)
+
+
+def collect_dependencies(attributes):
+    """Create a map of dependencies of `attributes`. Keys are attribute
+    references and values are sets of attribute, variable or constant names
+    that the attribute depends on."""
+
+    return {attr.name:attribute_dependencies(attr) for attr in attributes}
+
 
 def depsort_attributes(attributes, all_dependencies):
     """Returns a sorted list of attributes by their dependencies. `attributes`
@@ -93,8 +101,5 @@ def depsort_attributes(attributes, all_dependencies):
 
     return sorted_deps
 
-    if all_deps:
-        raise ExpressionError("Circular reference")
 
-    return [attribute_map[name] for name in sorted_deps]
 
