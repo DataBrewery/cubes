@@ -154,6 +154,7 @@ class SQLBrowser(AggregationBrowser):
 
         # Whether to ignore cells where at least one aggregate is NULL
         # TODO: this is undocumented
+        # TODO: why is this True and not False by default?
         self.exclude_null_agregates = options.get("exclude_null_agregates",
                                                   True)
 
@@ -178,7 +179,7 @@ class SQLBrowser(AggregationBrowser):
         # We need mapper just to construct metadata for the star
         mapper = mapper_class(cube, locale=self.locale, **options)
 
-        # TODO: whis should include also aggregates if the underlying table is
+        # TODO: This should include also aggregates if the underlying table is
         # already pre-aggregated
         base = base_attributes(cube.all_attributes)
         mappings = {attr.ref():mapper.physical(attr) for attr in base}
@@ -200,11 +201,16 @@ class SQLBrowser(AggregationBrowser):
                                joins=joins,
                                schema=mapper.schema,
                                tables=tables)
+
         # Create a dictionary attribute -> column to be used in aggregate
         # functions
         # TODO: add __fact_key__
         self.base_columns = {attr.ref():self.star.column(attr.ref())
                              for attr in base}
+
+        # Create attribute dependency map
+        all_attributes = cube.all_attributes() + cube.aggregates
+        self.dependencies = collect_dependencies(all_attributes)
 
     def features(self):
         """Return SQL features. Currently they are all the same for every
@@ -563,8 +569,18 @@ class SQLBrowser(AggregationBrowser):
                           drilldown, for_summary))
 
         select_attributes = drilldown.all_attributes
+
+        # Gather all attributes involved in the aggregation.
         all_attributes = cell.key_attributes
         all_attributes += select_attributes
+
+        # Now we need to determine all base attributes. Some of the attributes
+        # might be derived through an expression and the expression might
+        # contain attributes not present in the original list. Therefore we
+        # need to provide list of all potential attributes to be used,
+        # constants and variables ("parameters").
+
+        # XXX
 
         if split:
             all_attributes += split.all_attributes
@@ -613,14 +629,49 @@ class SQLBrowser(AggregationBrowser):
 
         return statement
 
-    def attribute_column(self, attribute):
+    def to_columns(self, attributes, for_aggregate=False):
+        """Return a list of column expressions for `attributes`. The
+        expressions are compiled at the time of call of this method.
+
+        Warning: don't cache the colums between requests if you are not sure
+        whether some of the expressions might refer to variable parameters or
+        not."""
+
+        # depsorted contains attribute names in order of dependencies starting
+        # with base attributes (those that don't depend on anything, directly
+        # represented by columns) and ending with derived attributes
+        depsorted = depsort_attributes(attributes, self.dependencies)
+        # TODO: have this
+        by_name = {attr.ref:attr for attr in attributes}
+
+        context = SQLExpressionContext(self.cube, self.star.column,
+                                       for_aggregate=for_aggregate)
+
+        columns = []
+        for name in depsorted:
+            attr = by_name[name]
+            column = self.to_column(attr, context)
+            self.columns.append(column)
+
+        return columns
+
+    def to_column(self, attribute, context=None):
         """Return a column expression for a measure, dimension attribute or
-        other detail attribute object `attribute`"""
+        other detail attribute object `attribute`. `context` is epxression
+        context of already compiled columns that the `attribute` might refer
+        to in its expression."""
+
         if not attribute.expression:
             # We assume attribute to be a base attribute
             return self.star.column(attribute.ref())
 
-        raise NotImplementedError("Expressions are not yet implemented")
+        if not context:
+            context = SQLExpressionContext(self.cube, self.star.column)
+
+        compiler = SQLExpressionCompiler()
+        column = compiler.compile(attribute.expression, context)
+
+        return column
 
     def aggregate_column(self, aggregate, coalesce_measure=False):
         """Returns an expression that performs the aggregation of attribute
