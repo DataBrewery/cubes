@@ -1,9 +1,17 @@
 # -*- coding=utf -*-
 
-from ..expressions import ExpressionCompiler, Variable
-from ..expressions import STANDARD_AGGREGATE_FUNCTIONS
-from ..errors import ExpressionError
 import sqlalchemy.sql as sql
+
+from expressions import Compiler, Variable
+from collections import OrderedDict
+
+from ..errors import ExpressionError
+
+__all__ = [
+    "SQLQueryContext",
+    "SQLExpressionCompiler",
+]
+
 
 SQL_FUNCTIONS = [
     # String
@@ -16,6 +24,8 @@ SQL_FUNCTIONS = [
     "mod", "remainder",
     "sign",
 
+    "min", "max",
+
     "pow", "exp", "log", "log10",
     "sqrt",
     "cos", "sin", "tan",
@@ -26,8 +36,6 @@ SQL_FUNCTIONS = [
     # Conditionals
     "coalesce", "nullif", "case",
 
-    # TODO: add map(value, match1, result1, match2, result2, ..., default)
-    # "map",
 ]
 
 # TODO: lstrip, rstrip, strip -> trim
@@ -35,7 +43,7 @@ SQL_FUNCTIONS = [
 
 # Add SQL-only aggregate functions here
 # TODO: Add these
-SQL_AGGREGATE_FUNCTIONS = STANDARD_AGGREGATE_FUNCTIONS + []
+SQL_AGGREGATE_FUNCTIONS = []
 
 SQL_ALL_FUNCTIONS = SQL_FUNCTIONS + SQL_AGGREGATE_FUNCTIONS;
 
@@ -44,62 +52,76 @@ SQL_VARIABLES = [
 ]
 
 
-class SQLExpressionContext(object):
-    def __init__(self, cube, getter, for_aggregate=False, parameters=None):
-        """Creates a SQL expression compiler context for `cube`. `getter` is
-        a base column getter function that takes one argument: logical
-        attribute reference. `aggregate` is a flag where `True` means that the
-        expression is expected to be an aggregate expression."""
+class SQLQueryContext(object):
+    """Context used for building a list of all columns to be used within a
+    single SQL query."""
 
-        self.cube = cube
+    def __init__(self, bases, for_aggregate=False,
+                 parameters=None, label=None):
+        """Creates a SQL expression compiler context.
+
+        * `bases` is a dictionary of base columns or column expressions
+        * `for_aggregate` is a flag where `True` means that the expression is
+          expected to be an aggregate expression
+        * `label` is just informative context label to be used for debugging
+          purposes or in an exception. Can be a cube name or a dimension
+          name.
+        """
+
+        self.bases = bases
         self.for_aggregate = for_aggregate
-        self.getter = getter
+
         self.parameters = parameters or {}
 
-        if for_aggregate:
-            self.attributes = cube.all_aggregate_attributes
-        else:
-            self.attributes = cube.all_attributes
+        self.label = label
 
-        self.attribute_names = [attr.ref for attr in self.attributes]
-        self.resolved = {}
+        # Columns after compilation
+        self.columns = {}
 
-    def resolve(self, name):
-        """Resolve variable `name` – return either a column, variable from a
+    def resolve(self, variable):
+        """Resolve `variable` – return either a column, variable from a
         dictionary or a SQL constant (in that order)."""
 
-        if name in self.resolved:
-            return self.resolved[name]
-
-        elif name in self.attribute_names:
+        if variable in self.columns:
+            return self.columns[variable]
+        elif variable in self.bases:
             # Get the raw column
-            result = self.getter(name)
+            result = self.bases[variable]
 
-        elif name in self.parameters:
-            result = self.parameters[name]
+        elif variable in self.parameters:
+            result = self.parameters[variable]
 
-        elif name in SQL_VARIABLES:
-            result = getattr(sql.func, name)()
+        elif variable in SQL_VARIABLES:
+            result = getattr(sql.func, variable)()
 
         else:
-            raise ExpressionError("Unknown expression variable '{}' "
-                                  "in cube {}".format(name, cube))
+            label = " in {}".format(self.label) if self.label else ""
+            raise ExpressionError("Unknown expression variable '{}'{}"
+                                  .format(variable, label))
 
-        self.resolved[name] = result
         return result
 
     def function(self, name):
         """Return a SQL function"""
-        # TODO: check for function existence (allowed functions)
-        sql_func = getattr(sql.func, func)
-        return sql_func(*args)
+        if name not in SQL_FUNCTIONS:
+            raise ExpressionError("Unknown function '{}'"
+                                  .format(name))
+        return getattr(sql.func, name)
+
+    def add_column(self, name, column):
+        self.columns[name] = column
 
 
-class SQLExpressionCompiler(ExpressionCompiler):
-    def __init__(self, context):
+class SQLExpressionCompiler(Compiler):
+    def __init__(self, context=None):
         super(SQLExpressionCompiler, self).__init__(context)
 
-    def compile_operator(self, context, operator, op1, op2):
+    def compile_literal(self, context, literal):
+        return sql.expression.bindparam("literal",
+                                        literal,
+                                        unique=True)
+
+    def compile_binary(self, context, operator, op1, op2):
         if operator == "*":
             result = op1 * op2
         elif operator == "/":
@@ -136,8 +158,8 @@ class SQLExpressionCompiler(ExpressionCompiler):
         return result
 
     def compile_variable(self, context, variable):
-        name = operand.name
-        result = self.context.resolve(name)
+        name = variable.name
+        result = context.resolve(name)
         return result
 
     def compile_unary(self, context, operator, operand):
@@ -156,6 +178,5 @@ class SQLExpressionCompiler(ExpressionCompiler):
 
     def compile_function(self, context, func, args):
         func = context.function(func.name)
-        return func(**args)
-
+        return func(*args)
 
