@@ -88,8 +88,8 @@ class TextTableFormatter(Formatter):
                 else:
                     default_fmt = ".2f"
 
-                fmt = self.agg_format.get(aggregate.ref(), default_fmt)
-                text = format(row.record[aggregate.ref()], fmt)
+                fmt = self.agg_format.get(aggregate.ref, default_fmt)
+                text = format(row.record[aggregate.ref], fmt)
                 aggregate_widths[i] = max(aggregate_widths[i], len(text))
                 display_row.append( (text, '>') )
             rows.append(display_row)
@@ -290,7 +290,7 @@ class CrossTableFormatter(Formatter):
         column_hdrs = []
 
         labels = [agg.label for agg in aggregates]
-        agg_refs = [agg.ref() for agg in aggregates]
+        agg_refs = [agg.ref for agg in aggregates]
 
         if aggregates_on is None or aggregates_on == "cells":
             for record in result.cells:
@@ -327,7 +327,7 @@ class CrossTableFormatter(Formatter):
                     if not hcol in column_hdrs:
                         column_hdrs.append(hcol)
 
-                    matrix[(hrow, hcol)] = record[agg.ref()]
+                    matrix[(hrow, hcol)] = record[agg.ref]
 
         data = []
 
@@ -506,8 +506,8 @@ class RickshawMultiSeriesFormatter(Formatter):
             raise CubesError("Result was not drilled down by dimension '%s'" \
                                 % str(values_dimension))
         series = []
-        rows = [series_level.key.ref(), series_level.label_attribute.ref()]
-        columns = [values_level.key.ref(), values_level.label_attribute.ref()]
+        rows = [series_level.key.ref, series_level.label_attribute.ref]
+        columns = [values_level.key.ref, values_level.label_attribute.ref]
 
         cross_table = result.cross_table(onrows=rows,
                                          oncolumns=columns,

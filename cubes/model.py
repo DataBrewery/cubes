@@ -511,7 +511,7 @@ class Cube(ModelObject):
         if not names:
             return attributes
 
-        attr_map = dict((a.ref(), a) for a in attributes)
+        attr_map = dict((a.ref, a) for a in attributes)
 
         result = []
         for name in names:
@@ -666,7 +666,7 @@ class Cube(ModelObject):
         return locale
 
     def __str__(self):
-        return self.name
+        return self.ref
 
 # Note: levels and hierarchies will be depreciated in the future versions.
 # Levels will disappear and hierarchies will be top-level objects.
@@ -795,7 +795,7 @@ class Dimension(Conceptual):
                                      % (self.name, a.name, a.dimension.name))
                 a.dimension = self
                 self._attributes[a.name] = a
-                self._attributes_by_ref[a.ref()] = a
+                self._attributes_by_ref[a.ref] = a
 
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
@@ -1157,7 +1157,7 @@ class Dimension(Conceptual):
                                     % (level.key, level.name, self.name)))
 
             for attribute in level.attributes:
-                attr_name = attribute.ref()
+                attr_name = attribute.ref
                 if attr_name in attributes:
                     first = first_occurence[attr_name]
                     results.append(('error',
@@ -1185,7 +1185,7 @@ class Dimension(Conceptual):
         return results
 
     def __str__(self):
-        return self.name
+        return self.ref
 
     def __repr__(self):
         return "<dimension: {name: '%s', levels: %s}>" % (self.name,
@@ -1294,7 +1294,7 @@ class Hierarchy(Conceptual):
         return hash(self.name)
 
     def __str__(self):
-        return self.name
+        return self.ref
 
     def __len__(self):
         return len(self.levels)
@@ -1584,7 +1584,7 @@ class Level(ModelObject):
         return not self.__eq__(other)
 
     def __str__(self):
-        return self.name
+        return self.ref
 
     def __repr__(self):
         return str(self.to_dict())
@@ -1616,9 +1616,9 @@ class Level(ModelObject):
         out["role"] = self.role
 
         if full_attribute_names:
-            out["key"] = self.key.ref()
-            out["label_attribute"] = self.label_attribute.ref()
-            out["order_attribute"] = self.order_attribute.ref()
+            out["key"] = self.key.ref
+            out["label_attribute"] = self.label_attribute.ref
+            out["order_attribute"] = self.order_attribute.ref
         else:
             out["key"] = self.key.name
             out["label_attribute"] = self.label_attribute.name
@@ -1714,14 +1714,14 @@ class AttributeBase(ModelObject):
                 self.order = Attribute.DESC
             else:
                 raise ArgumentError("Unknown ordering '%s' for attributes"
-                                    " '%s'" % (order, self.ref()))
+                                    " '%s'" % (order, self.ref))
         else:
             self.order = None
 
         self.expression = expression
 
     def __str__(self):
-        return self.name
+        return self.ref
 
     def __repr__(self):
         return repr(self.to_dict())
@@ -1743,7 +1743,7 @@ class AttributeBase(ModelObject):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
 
     def to_dict(self, **options):
         d = super(AttributeBase, self).to_dict(**options)
@@ -1753,7 +1753,7 @@ class AttributeBase(ModelObject):
         d["missing_value"] = self.missing_value
         d["expression"] = self.expression
 
-        d["ref"] = self.ref()
+        d["ref"] = self.ref
 
         return d
 
@@ -1775,6 +1775,10 @@ class AttributeBase(ModelObject):
     def ref(self):
         return self.name
 
+    @property
+    def is_base(self):
+        return not self.expression
+
     def localized_ref(self, locale):
         """Returns localized attribute reference for locale `locale`.
         """
@@ -1794,17 +1798,6 @@ class AttributeBase(ModelObject):
 
         return self.ref + locale_suffix
 
-def base_attributes(attributes):
-    """Return only those attributes that are not derived through a function or
-    an expression – they are base and have physical representation."""
-    base = []
-
-    for attr in attributes:
-        if hasattr(attr, "function") and attr.function is None \
-                or attr.expression is None:
-            base.append(attr)
-
-    return base
 
 class Attribute(AttributeBase):
 
@@ -1863,7 +1856,7 @@ class Attribute(AttributeBase):
                and self.locales == other.locales
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
 
     def to_dict(self, **options):
         # FIXME: Depreciated key "full_name" in favour of "ref"
@@ -1976,7 +1969,7 @@ class Measure(AttributeBase):
                 and self.window_size == other.window_size
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
 
     def to_dict(self, **options):
         d = super(Measure, self).to_dict(**options)
@@ -2089,7 +2082,11 @@ class MeasureAggregate(AttributeBase):
             and self.window_size == other.window_size
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
+
+    @property
+    def is_base(self):
+        return not self.expression and not self.function
 
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)

@@ -23,7 +23,7 @@ def attribute_dependencies(attribute):
     if hasattr(attribute, "measure") and attribute.measure:
         if attribute.expression:
             raise ModelError("Aggregate '{}' has both measure and "
-                             "expression set".format(attribute.ref()))
+                             "expression set".format(attribute.ref))
         return set([attribute.measure])
 
     if not attribute.expression:
@@ -100,6 +100,3 @@ def depsort_attributes(attributes, all_dependencies):
                               .format(remaining_str))
 
     return sorted_deps
-
-
-

@@ -4,6 +4,7 @@ __version__ = "1.1"
 
 from .common import *
 from .browser import *
+from .cells import *
 from .model import *
 from .metadata import *
 from .workspace import *

@@ -392,7 +392,7 @@ def cube_facts(cube_name):
         attributes = g.cube.all_attributes
 
     # Construct the field list
-    fields = [attr.ref() for attr in attributes]
+    fields = [attr.ref for attr in attributes]
 
     # Get the result
     facts = g.browser.facts(g.cell,
@@ -473,7 +473,7 @@ def cube_members(cube_name, dimension_name):
     for level in hierarchy.levels_for_depth(depth):
         attributes += level.attributes
 
-    fields = [attr.ref() for attr in attributes]
+    fields = [attr.ref for attr in attributes]
     labels = [attr.label or attr.name for attr in attributes]
 
     return formated_response(result, fields, labels, iterable=values)

@@ -6,7 +6,7 @@ import os.path
 import json
 from collections import namedtuple, defaultdict
 from .extensions import Extensible
-from .browser import Cell, cut_from_string, cut_from_dict, PointCut
+from .cells import Cell, cut_from_string, cut_from_dict, PointCut
 from .browser import string_to_drilldown
 from .errors import *
 from .common import read_json_file, sorted_dependencies

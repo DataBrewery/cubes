@@ -50,7 +50,7 @@ def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
             raise InternalError("No measure specified for aggregate '%s' in "
                                 "cube '%s'" % (aggregate.name, cube.name))
 
-        func = factory(aggregate, source.ref(), drilldown_levels, split)
+        func = factory(aggregate, source.ref, drilldown_levels, split)
         functions.append(func)
 
     return functions
@@ -140,7 +140,7 @@ def _window_function_factory(aggregate, source, drilldown_paths, split_cell, win
         from .browser import SPLIT_DIMENSION_NAME
         window_key.append(SPLIT_DIMENSION_NAME)
     for dditem in key_drilldown_paths:
-        window_key += [level.key.ref() for level in dditem.levels]
+        window_key += [level.key.ref for level in dditem.levels]
 
     # TODO: this is temporary solution: for post-aggregate calculations we
     # consider the measure reference to be aggregated measure reference.
