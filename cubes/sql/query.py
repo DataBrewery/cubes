@@ -27,7 +27,7 @@ from ..expressions import depsort_attributes
 from ..errors import InternalError, ModelError, ArgumentError
 from .. import compat
 
-from .expressions import SQLExpressionCompiler
+from .expressions import SQLExpressionCompiler, SQLExpressionContext
 
 # Default label for all fact keys
 FACT_KEY_LABEL = '__fact_key__'
@@ -745,12 +745,13 @@ class StarSchema(object):
 # test and maintain this way. At least for the time being.
 #
 
-class QueryContext(object):
+class QueryContext(SQLExpressionContext):
     """Context for execution of a query with given set of attributes and
     underlying star schema."""
 
     def __init__(self, star_schema, attributes, dependencies=None,
-                 expressions=None, hierarchies=None):
+                 expressions=None, hierarchies=None, parameters=None,
+                 label=None):
         """Creates a query context for `cube`.
 
         * `attributes` – list of attribute references that are relevant to the
@@ -768,6 +769,8 @@ class QueryContext(object):
         Note: in the future the `hierarchies` dictionary might change just to
         a hierarchy name (a string), since hierarchies and dimensions will be
         both top-level objects."""
+
+        super(QueryContext, self).__init__(parameters=parameters, label=label)
 
         self.attributes = attributes
         self.hierarchies = hierarchies
@@ -788,6 +791,7 @@ class QueryContext(object):
         #
         self._columns = {attr:self.star.column(attr) for attr in bases}
 
+
         # depsorted contains attribute names in order of dependencies starting
         # with base attributes (those that don't depend on anything, directly
         # represented by columns) and ending with derived attributes
@@ -800,41 +804,6 @@ class QueryContext(object):
                 expression = self.expressions[attr]
                 column = compiler.compile(expression, self)
                 self._columns[attr.ref] = column
-
-    def columns(self, attributes):
-        """Get columns for `attributes`"""
-        return [self._columns[attr.ref] for attr in attributes]
-
-    def column(self, ref):
-        """Get a column expression for attribute with reference `ref`"""
-        return self._columns[ref]
-
-    def resolve(self, variable):
-        """Resolve `variable` – return either a column, variable from a
-        dictionary or a SQL constant (in that order)."""
-
-        if variable in self.columns:
-            return self.columns[variable]
-
-        elif variable in self.parameters:
-            result = self.parameters[variable]
-
-        elif variable in SQL_VARIABLES:
-            result = getattr(sql.func, variable)()
-
-        else:
-            label = " in {}".format(self.label) if self.label else ""
-            raise ExpressionError("Unknown expression variable '{}'{}"
-                                  .format(variable, label))
-
-        return result
-
-    def function(self, name):
-        """Return a SQL function"""
-        if name not in SQL_FUNCTIONS:
-            raise ExpressionError("Unknown function '{}'"
-                                  .format(name))
-        return getattr(sql.func, name)
 
     def condition_for_cell(self, cell):
         """Returns a condition for cell `cell`."""

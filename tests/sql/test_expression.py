@@ -7,12 +7,13 @@ from sqlalchemy.sql.expression import ColumnElement
 from unittest import TestCase, skip
 
 from cubes.errors import ExpressionError
-from cubes.sql.expressions import SQLExpressionCompiler, SQLQueryContext
+from cubes.sql.expressions import SQLExpressionCompiler, SQLExpressionContext
 from .common import SQLTestCase
 
 #
 
 CONNECTION = "sqlite://"
+
 
 class SQLExpressionTestCase(SQLTestCase):
     @classmethod
@@ -40,7 +41,7 @@ class SQLExpressionTestCase(SQLTestCase):
                              for attr in self.bases}
 
     def setUp(self):
-        self.context = SQLQueryContext(self.columns)
+        self.context = SQLExpressionContext(self.columns)
         self.compiler = SQLExpressionCompiler()
 
     def column(self, name):
