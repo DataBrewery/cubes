@@ -4,7 +4,8 @@ from functools import wraps
 
 from ..workspace import Workspace
 from ..auth import NotAuthorized
-from ..browser import Cell, cuts_from_string, SPLIT_DIMENSION_NAME
+from ..cells import Cell, cut_from_dict
+from ..browser import SPLIT_DIMENSION_NAME
 from ..errors import *
 from .utils import *
 from .errors import *

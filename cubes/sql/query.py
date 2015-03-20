@@ -21,6 +21,7 @@ import logging
 
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
+from sqlalchemy.sql.expression import and_
 
 from collections import namedtuple
 from ..expressions import depsort_attributes

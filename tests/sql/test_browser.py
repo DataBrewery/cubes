@@ -13,9 +13,9 @@ from cubes import create_dimension, create_cube
 from .common import create_table, SQLTestCase
 
 from cubes.errors import HierarchyError
-from cubes.browser import PointCut, SetCut, RangeCut, Cell
+from cubes.cells import PointCut, SetCut, RangeCut, Cell
 from cubes.sql import SQLBrowser, SQLStore
-from cubes.sql.schema import FACT_KEY_LABEL
+from cubes.sql.query import FACT_KEY_LABEL
 
 from .dw.demo import create_demo_dw, TinyDemoModelProvider
 #
@@ -64,7 +64,9 @@ class SQLStatementsTestCase(SQLBrowserTestCase):
     def setUp(self):
         super(SQLStatementsTestCase, self).setUp()
 
-        self.view = self.browser.star.star(self.browser.base_columns.keys())
+        base = base_attributes(self.browser.cube.all_attributes)
+        base = [attr.ref for attr in base]
+        self.view = self.browser.star.get_star(base)
 
     def select(self, attrs, whereclause=None):
         """Returns a select statement from the star view"""

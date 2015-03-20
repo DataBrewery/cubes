@@ -8,7 +8,8 @@ import sys
 import traceback
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
-from ..browser import Cell, SPLIT_DIMENSION_NAME, cut_from_dict
+from ..cells import Cell, cut_from_dict
+from ..browser import SPLIT_DIMENSION_NAME
 from ..errors import *
 from ..extensions import extensions
 from .logging import configured_request_log_handlers, RequestLogger
