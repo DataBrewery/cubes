@@ -37,7 +37,7 @@ def collect_dependencies(attributes):
     references and values are sets of attribute, variable or constant names
     that the attribute depends on."""
 
-    return {attr.name:attribute_dependencies(attr) for attr in attributes}
+    return {attr.ref:attribute_dependencies(attr) for attr in attributes}
 
 
 def depsort_attributes(attributes, all_dependencies):
