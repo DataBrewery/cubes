@@ -1,413 +1,643 @@
 # -*- encoding=utf -*-
+"""
+cubes.sql.query
+~~~~~~~~~~~~~~~
+
+Star/snowflake schema query construction structures
+
+"""
+
+# Note for developers and maintainers
+# -----------------------------------
+#
+# This module is to be remained implemented in a way that it does not use any
+# of the Cubes objects. It might use duck-typing and assume objects with
+# similar attributes. No calls to Cubes object functions should be allowed
+# here.
 
 from __future__ import absolute_import
 
-import datetime
-import re
+import logging
 
-from collections import namedtuple, OrderedDict
+import sqlalchemy as sa
+import sqlalchemy.sql as sql
 
-from ..browser import Drilldown, Cell, PointCut, SetCut, RangeCut
-from ..browser import SPLIT_DIMENSION_NAME
-from ..model import Attribute
-from ..errors import WorkspaceError, ModelError, InternalError, BrowserError
-from ..errors import MappingError
-from ..expr import evaluate_expression
-from ..logging import get_logger
+from collections import namedtuple
+from ..expressions import depsort_attributes
+from ..errors import InternalError, ModelError, ArgumentError
 from .. import compat
 
-from .mapper import DEFAULT_KEY_FIELD, PhysicalAttribute
-from .utils import condition_conjunction, order_column
+from .expressions import SQLExpressionCompiler
+
+# Default label for all fact keys
+FACT_KEY_LABEL = '__fact_key__'
+
+# Attribute -> Column
+# IF attribute has no 'expression' then mapping is used
+# IF attribute has expression, the expression is used and underlying mappings
+
+"""Physical column (or column expression) reference. `schema` is a database
+schema name, `table` is a table (or table expression) name containing the
+`column`. `extract` is an element to be extracted from complex data type such
+as date or JSON (in postgres). `function` is name of unary function to be
+applied on the `column`.
+
+Note that either `extract` or `function` can be used, not both."""
+
+Column = namedtuple("Column", ["schema", "table", "column",
+                               "extract", "function"])
+
+#
+# IMPORTANT: If you decide to extend the above Mapping functionality by adding
+# other mapping attributes (not recommended, but still) or by changing the way
+# how existing attributes are used, make sure that there are NO OTHER COLUMNS
+# than the `column` used. Every column used MUST be accounted in the
+# relevant_joins() call.
+#
+# See similar comment in the column() method of the StarSchema.
+#
+
+def to_column(obj, default_table=None, default_schema=None):
+    """Utility function that will create a `Column` reference object from an
+    anonymous tuple, dictionary or a similar object. `obj` can also be a
+    string in form ``schema.table.column`` where shcema or both schema and
+    table can be ommited. `default_table` and `default_schema` are used when
+    no table or schema is provided in `obj`."""
+
+    if obj is None:
+        raise ArgumentError("Mapping object can not be None")
+
+    if isinstance(obj, compat.string_type):
+        obj = obj.split(".")
+
+    if isinstance(obj, (tuple, list)):
+        if len(obj) == 1:
+            column = obj[0]
+            table = None
+            schema = None
+        elif len(obj) == 2:
+            table, column = obj
+            schema = None
+        elif len(obj) == 3:
+            schema, table, column = obj
+        else:
+            raise ArgumentError("Join key can have 1 to 3 items"
+                                " has {}: {}".format(len(obj), obj))
+        extract = None
+        function = None
+
+    elif hasattr(obj, "get"):
+        schema = obj.get("schema")
+        table = obj.get("table")
+        column = obj.get("column")
+        extract = obj.get("extract")
+        function = obj.get("function")
+
+    else:  # pragma nocover
+        schema = obj.schema
+        table = obj.table
+        extract = obj.extract
+        function = obj.function
+
+    table = table or default_table
+    schema = schema or default_schema
+
+    return Column(schema, table, column, extract, function)
 
 
-try:
-    import sqlalchemy
-    import sqlalchemy.sql as sql
-
-except ImportError:
-    from ...common import MissingPackage
-    sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
+# TODO: remove this and use just Column
+JoinKey = namedtuple("JoinKey",
+                     ["schema",
+                      "table",
+                      "column"])
 
 
-__all__ = [
-        "SnowflakeSchema",
-        "QueryBuilder"
-        ]
+def to_join_key(obj):
+    """Utility function that will create JoinKey tuple from an anonymous
+    tuple, dictionary or similar object. `obj` can also be a string in form
+    ``schema.table.column`` where schema or both schema and table can be
+    ommited."""
+
+    if obj is None:
+        return JoinKey(None, None, None)
+
+    if isinstance(obj, compat.string_type):
+        obj = obj.split(".")
+
+    if isinstance(obj, (tuple, list)):
+        if len(obj) == 1:
+            column = obj[0]
+            table = None
+            schema = None
+        elif len(obj) == 2:
+            table, column = obj
+            schema = None
+        elif len(obj) == 3:
+            schema, table, column = obj
+        else:
+            raise ArgumentError("Join key can have 1 to 3 items"
+                                " has {}: {}".format(len(obj), obj))
+
+    elif hasattr(obj, "get"):
+        schema = obj.get("schema")
+        table = obj.get("table")
+        column = obj.get("column")
+
+    else:  # pragma nocover
+        schema = obj.schema
+        table = obj.table
+        column = obj.column
+
+    return JoinKey(schema, table, column)
+
+"""Table join specification. `master` and `detail` are TableColumnReference
+tuples. `method` denotes which table members should be considered in the join:
+*master* – all master members (left outer join), *detail* – all detail members
+(right outer join) and *match* – members must match (inner join)."""
+
+Join = namedtuple("Join",
+                  ["master", # Master table (fact in star schema)
+                   "detail", # Detail table (dimension in star schema)
+                   "alias",  # Optional alias for the detail table
+                   "method"  # Method how the table is joined
+                  ]
+                 )
 
 
-SnowflakeAttribute = namedtuple("SnowflakeAttribute", ["attribute", "join"])
+def to_join(obj):
+    """Utility conversion function that will create `Join` tuple from an
+    anonymous tuple, dictionary or similar object."""
+
+    if isinstance(obj, (tuple, list)):
+        alias = None
+        method = None
+
+        if len(obj) == 3:
+            alias = obj[2]
+        elif len(obj) == 4:
+            alias, method = obj[2], obj[3]
+        elif len(obj) < 2 or len(obj) > 4:
+            raise ArgumentError("Join object can have 1 to 4 items"
+                                " has {}: {}".format(len(obj), obj))
+
+        master = to_join_key(obj[0])
+        detail = to_join_key(obj[1])
+
+        return Join(master, detail, alias, method)
+
+    elif hasattr(obj, "get"):  # pragma nocover
+        return Join(to_join_key(obj.get("master")),
+                    to_join_key(obj.get("detail")),
+                    obj.get("alias"),
+                    obj.get("method"))
+
+    else:  # pragma nocover
+        return Join(to_join_key(obj.master),
+                    to_join_key(obj.detail),
+                    obj.alias,
+                    obj.method)
 
 
-"""Product of join_expression"""
-JoinedProduct = namedtuple("JoinedProduct",
-        ["expression", "tables"])
+# Internal table reference
+_TableRef = namedtuple("_TableRef",
+                       ["schema", # Database schema
+                        "name",   # Table name
+                        "alias",  # Optional table alias instead of name
+                        "key",    # Table key (for caching or referencing)
+                        "table",  # SQLAlchemy Table object, reflected
+                        "join"    # join which joins this table as a detail
+                       ]
+                      )
 
 
-def table_str(key):
-    """Make (`schema`, `table`) tuple printable."""
-    table, schema = key
-    return "%s.%s" % (str(schema), (table)) if schema else str(table)
+class SchemaError(InternalError):
+    """Error related to the physical star schema."""
+    pass
+
+class NoSuchTableError(SchemaError):
+    """Error related to the physical star schema."""
+    pass
+
+class NoSuchAttributeError(SchemaError):
+    """Error related to the physical star schema."""
+    pass
+
+def _format_key(key):
+    """Format table key `key` to a string."""
+    schema, table = key
+
+    table = table or "(FACT)"
+
+    if schema:
+        return "{}.{}".format(schema, table)
+    else:
+        return table
+
+class StarSchema(object):
+    """Represents a star/snowflake table schema. Attributes:
+
+    * `name` – user specific name of the star schema, used for the schema
+      identification, debug purposes and logging. Has no effect on the
+      execution or statement composition.
+    * `metadata` is a SQLAlchemy metadata object where the snowflake tables
+      are described.
+    * `mappings` is a dictionary of snowflake attributes. The keys are
+      attribute names, the values can be strings, dictionaries or objects with
+      specific attributes (see below)
+    * `fact` is a name or a reference to a fact table
+    * `joins` is a list of join specification (see below)
+    * `tables` are SQL Alchemy selectables (tables or statements) that are
+      referenced in the attributes. This dictionary is looked-up first before
+      the actual metadata. Only table name has to be specified and database
+      schema should not be used in this case.
+    * `schema` – default database schema containing tables
+
+    The columns can be specified as:
+
+    * a string with format: `column`, `table.column` or `schema.table.column`.
+      When no table is specified, then the fact table is considered.
+    * as a list of arguments `[[schema,] table,] column`
+    * `StarColumn` or any object with attributes `schema`, `table`,
+      `column`, `extract`, `function` can be used.
+    * a dictionary with keys same as the attributes of `StarColumn` object
+
+    Non-object arguments will be stored as a `StarColumn` objects internally.
+
+    The joins can be specified as a list of:
+
+    * tuples of column specification in form of (`master`, `detail`)
+    * a dictionary with keys or object with attributes: `master`, `detail`,
+      `alias` and `method`.
+
+    `master` is a specification of a column in the master table (fact) and
+    `detail` is a specification of a column in the detail table (usually a
+    dimension). `alias` is an alternative name for the `detail` table to be
+    joined.
+
+    The `method` can be: `match` – ``LEFT INNER JOIN``, `master` – ``LEFT
+    OUTER JOIN`` or `detail` – ``RIGHT OUTER JOIN``.
 
 
-MATCH_MASTER_RSHIP = 1
-OUTER_DETAIL_RSHIP = 2
+    Note: It is not in the responsibilities of the `StarSchema` to resolve
+    arithmetic expressions neither attribute dependencies. It is up to the
+    caller to resolve these and ask for basic columns only.
+    """
 
-class SnowflakeTable(object):
-    def __init__(self, schema, name, alias=None, table=None, join=None):
-        self.schema = schema
+    def __init__(self, name, metadata, mappings, fact, fact_key='id',
+                 joins=None, tables=None, schema=None):
+
+        # TODO: expectation is, that the snowlfake is already localized, the
+        # owner of the snowflake should generate one snowflake per locale.
+        # TODO: use `facts` instead of `fact`
+
+        if fact is None:
+            raise ArgumentError("Fact table or table name not specified "
+                                "for star/snowflake schema {}"
+                                .format(name))
+
         self.name = name
-        self.table = table
-        self.alias = alias
-        self.join = join
-        self.detail_keys = set()
-
-    @property
-    def key(self):
-        return (self.schema, self.aliased_name)
-
-    @property
-    def aliased_name(self):
-        return self.alias or self.name
-
-    def __str__(self):
-        return "%s.%s" % (self.key)
-
-# TODO: merge this with mapper
-class SnowflakeSchema(object):
-    def __init__(self, cube, mapper, metadata, safe_labels):
-        self.cube = cube
-        self.mapper = mapper
         self.metadata = metadata
-        self.safe_labels = safe_labels
+        self.mappings = mappings or {}
+        self.joins = joins or []
+        self.schema = schema
+        self.table_expressions = tables or {}
 
-        # Initialize the shema information: tables, column maps, ...
-        self.schema = self.mapper.schema
+        # Cache
+        # -----
+        # Keys are logical column labels (keys from `mapping` attribute)
+        self._columns = {}
+        # Keys are tuples (schema, table)
+        self._tables = {}
 
-        # Prepare physical fact table - fetch from metadata
-        #
-        self.fact_key = self.cube.key or DEFAULT_KEY_FIELD
-        self.fact_name = self.mapper.fact_name
+        self.logger = logging.getLogger("cubes.starschema")
 
-        try:
-            self.fact_table = sqlalchemy.Table(self.fact_name,
-                                               self.metadata,
-                                               autoload=True,
-                                               schema=self.schema)
-        except sqlalchemy.exc.NoSuchTableError:
-            in_schema = (" in schema '%s'" % self.schema) if self.schema else ""
-            msg = "No such fact table '%s'%s." % (self.fact_name, in_schema)
-            raise WorkspaceError(msg)
+        # TODO: perform JOIN discovery based on foreign keys
 
-        try:
-            self.fact_key_column = self.fact_table.c[self.fact_key].label(self.fact_key)
-        except KeyError:
-            try:
-                self.fact_key_column = list(self.fact_table.columns)[0]
-            except Exception as e:
-                raise ModelError("Unable to get key column for fact "
-                                 "table '%s' in cube '%s'. Reason: %s"
-                                 % (self.fact_name, self.cube.name, str(e)))
+        # Fact Table
+        # ----------
 
-        # Collect all tables and their aliases.
-        #
-        # table_aliases contains mapping between aliased table name and real
-        # table name with alias:
-        #
-        #       (schema, aliased_name) --> (schema, real_name, alias)
-        #
+        # Fact Initialization
+        if isinstance(fact, compat.string_type):
+            self.fact_name = fact
+            self.fact_table = self.physical_table(fact)
+        else:
+            # We expect fact to be a statement
+            self.fact_name = fact.name
+            self.fact_table = fact
 
-        # Mapping where keys are attributes and values are columns
-        self.logical_to_column = {}
-        # Mapping where keys are column labels and values are attributes
-        self.column_to_logical = {}
+        self.fact_key = fact_key
+        self.fact_key_column = self.fact_table.columns[self.fact_key]
+        self.fact_key_column = self.fact_key_column.label(FACT_KEY_LABEL)
 
-        # Collect tables from joins
-
-        self.tables = {}
-        # Table -> relationship type
-        # Prepare maps of attributes -> relationship type
-        self.fact_relationships = {}
-        self.aggregated_fact_relationships = {}
-
+        # Rest of the initialization
+        # --------------------------
         self._collect_tables()
-        self._analyse_table_relationships()
 
     def _collect_tables(self):
-        """Collect tables in the schema. Analyses their relationship towards
-        the fact table.
+        """Collect and prepare all important information about the tables in
+        the schema. The collected information is a list:
 
-        Stored information contains:
-
-        * attribute ownership by a table
-        * relationship type of tables towards the fact table: master/match or
-          detail (outer)
-
-        The rule for deciding the table relationship is as follows:
-
-        * if a table is connected to a fact or other master/detail table by
-          master/detail then it will be considered master/detail
-        * if a table is connected to an outer detail it is considered to be
-          outer detail (in relationship to the fact), regardless of it's join
-          type
-        * if a table is connected through outer detail to any kind of table,
-          then it will stay as detail
+        * `table` – SQLAlchemy table or selectable object
+        * `schema` – original schema name
+        * `name` – original table or selectable object
+        * `alias` – alias given to the table or statement
+        * `join` – join object that joins the table as a detail to the star
 
         Input: schema, fact name, fact table, joins
-
         Output: tables[table_key] = SonwflakeTable()
-
         """
 
         # Collect the fact table as the root master table
         #
-        table = SnowflakeTable(self.schema, self.fact_name,
-                               table=self.fact_table)
-        self.tables[table.key] = table
+        fact_table = _TableRef(schema=self.schema,
+                               name=self.fact_name,
+                               alias=self.fact_name,
+                               key=(self.schema, self.fact_name),
+                               table=self.fact_table,
+                               join=None
+                              )
+
+        self._tables[fact_table.key] = fact_table
 
         # Collect all the detail tables
-        # 
-        for join in self.mapper.joins:
+        # We don't need to collect the master tables as they are expected to
+        # be referenced as 'details'. The exception is the fact table that is
+        # provided explicitly for the snowflake schema.
+
+
+        # Collect details for duplicate verification. It sohuld not be
+        # possible to join one detail multiple times with the same name. Alias
+        # has to be used.
+        details = set()
+
+        for join in self.joins:
             # just ask for the table
 
-            sql_table = sqlalchemy.Table(join.detail.table,
-                                         self.metadata,
-                                         autoload=True,
-                                         schema=join.detail.schema)
+            if not join.detail.table:
+                raise ModelError("No detail table specified for a join in "
+                                 "schema '{}'. Master of the join is '{}'"
+                                 .format(self.name,
+                                         _format_key(self._master_key(join))))
+
+            table = self.physical_table(join.detail.table,
+                                        join.detail.schema)
 
             if join.alias:
-                sql_table = sql_table.alias(join.alias)
-
-            table = SnowflakeTable(schema=join.detail.schema,
-                                   name=join.detail.table,
-                                   alias=join.alias,
-                                   join=join,
-                                   table=sql_table)
-
-            self.tables[table.key] = table
-
-        # Collect detail keys:
-        # 
-        # Every table object has a set of keys `detail_keys` which are
-        # columns that are used to join detail tables.
-        #
-        for join in self.mapper.joins:
-            key = (join.master.schema, join.master.table)
-            try:
-                master = self.tables[key]
-            except KeyError:
-                raise ModelError("Unknown table (or join alias) '%s'"
-                                 % table_str(key))
-            master.detail_keys.add(join.master.column)
-
-    def _analyse_table_relationships(self):
-
-        # Analyse relationships
-        # ---------------------
-
-        # Dictionary of raw tables and their joined products
-        # table-to-master relationships:
-        #     MASTER_MATCH_RSHIP: either joined as "match" or "master"
-        #     OUTER_DETAIL_RSHIP: joined as "detail"
-        relationships = {}
-
-        # Anchor the fact table
-        key = (self.schema, self.fact_name)
-        relationships[key] = MATCH_MASTER_RSHIP
-        self.tables[key].relationship = MATCH_MASTER_RSHIP
-
-        # Collect all the tables first:
-        for join in self.mapper.joins:
-            # Add master table to the list
-            table = (join.master.schema, join.master.table)
-            if table not in relationships:
-                self.fact_relationships[table] = None
-
-            # Add (aliased) detail table to the rist
-            table = (join.detail.schema, join.alias or join.detail.table)
-            if table not in relationships:
-                relationships[table] = None
+                table = table.alias(join.alias)
+                alias = join.alias
             else:
-                raise ModelError("Joining detail table %s twice" % (table, ))
+                alias = join.detail.table
 
-        # Analyse the joins
-        for join in reversed(self.mapper.joins):
-            master_key = (join.master.schema, join.master.table)
-            detail_key = (join.detail.schema, join.alias or join.detail.table)
+            key = (join.detail.schema, alias)
 
-            if relationships.get(detail_key):
-                raise InternalError("Detail %s already classified" % detail_key)
+            if key in details:
+                raise ModelError("Detail table '{}' joined twice in star"
+                                 " schema {}. Join alias is required."
+                                 .format(_format_key(key), self.name))
+            details.add(key)
 
-            master_rs = relationships[master_key]
+            ref = _TableRef(table=table,
+                            schema=join.detail.schema,
+                            name=join.detail.table,
+                            alias=alias,
+                            key=key,
+                            join=join
+                           )
 
-            if master_rs is None:
-                raise InternalError("Joining to unclassified master. %s->%s "
-                                    "Hint: check your joins, their order or "
-                                    "mappings." % (table_str(master_key),
-                                                   table_str(detail_key)))
-            elif master_rs == MATCH_MASTER_RSHIP \
-                    and join.method in ("match", "master"):
-                relationship = MATCH_MASTER_RSHIP
-            elif master_rs == OUTER_DETAIL_RSHIP \
-                    or join.method == "detail":
-                relationship = OUTER_DETAIL_RSHIP
-            else:
-                raise InternalError("Unknown relationship combination for "
-                                    "%s(%s)->%s(%s)"
-                                    % (table_str(master_key), master_rs,
-                                       table_str(detail_key), join.method))
+            self._tables[key] = ref
 
-            relationships[detail_key] = relationship
-            self.tables[detail_key].relationship = relationship
+    def table(self, key, role=None):
+        """Return a table reference for `key` which has form of a
+        tuple (`schema`, `table`). `schema` should be ``None`` for named table
+        expressions, which take precedence before the physical tables in the
+        default schema. If there is no named table expression then physical
+        table is considered.
 
+        The returned object has the following properties:
+        * `name` – real table name
+        * `alias` – table alias – always contains a value, regardless whether
+          the table join provides one or not. If there was no alias provided by
+          the join, then the physical table name is used.
+        * `key` – table key – the same as the `key` argument
+        * `join` – `Join` object that joined the table to the star schema
+        * `table` – SQLAlchemy `Table` or table expression object
 
-        # Prepare relationships of attributes
-        #
-        # TODO: make SnowflakeAttribute class
-        attributes = self.cube.get_attributes(aggregated=False)
-        tables = self.mapper.tables_for_attributes(attributes)
-        tables = dict(zip(attributes, tables))
-        mapping = {}
+        `role` is for debugging purposes to display when there is no such
+        table, which role of the table was expected, such as master or detail.
+        """
+        if key is None:
+            raise ArgumentError("Table key should not be None")
 
-        for attribute in attributes:
-            try:
-                table_ref = tables[attribute]
-            except KeyError:
-                raise ModelError("Unknown table for attribute %s. "
-                                 "Missing mapping?" % attribute)
-            try:
-                mapping[attribute] = relationships[table_ref]
-            except KeyError:
-                attr, table = table_ref
-                if table:
-                    message = "Missing join for table '%s'?" % table
-                else:
-                    message = "Missing mapping or join?"
-
-                raise ModelError("Can not determine to-fact relationship for "
-                                 "attribute '%s'. %s"
-                                 % (attribute.ref(), message))
-        self.fact_relationships = mapping
-
-        attributes = self.cube.get_attributes(aggregated=True)
-        tables = self.mapper.tables_for_attributes(attributes)
-        tables = dict(zip(attributes, tables))
-        mapping = {}
-        for attribute in attributes:
-            mapping[attribute] = relationships[tables[attribute]]
-        self.aggregated_fact_relationships = mapping
-
-    def _collect_detail_keys(self):
-        """Assign to each table which keys from the table are used by another
-        detail table as master keys."""
-
-
-    def is_outer_detail(self, attribute, for_aggregation=False):
-        """Returns `True` if the attribute belongs to an outer-detail table."""
-        if for_aggregation:
-            lookup = self.aggregated_fact_relationships
-        else:
-            lookup = self.fact_relationships
+        key = (key[0] or self.schema, key[1] or self.fact_name)
 
         try:
-            return lookup[attribute] == OUTER_DETAIL_RSHIP
+            return self._tables[key]
         except KeyError:
-            # Retry as raw table (used by internally generated attributes)
-            ref = self.mapper.physical(attribute)
-            key = (ref.schema, ref.table)
-            return self.tables[key].relationship
+            if role:
+                for_role = " (as {})".format(role)
+            else:
+                for_role = ""
+
+            schema = '"{}".'.format(key[0]) if key[0] else ""
+            raise SchemaError("Unknown star table {}\"{}\"{}. Missing join?"
+                              .format(schema, key[1], for_role))
+
+    def physical_table(self, name, schema=None):
+        """Return a physical table or table expression, regardless whether it
+        exists or not in the star."""
+
+        # Return a statement or an explicitly craeted table if it exists
+        if not schema and name in self.table_expressions:
+            return self.table_expressions[name]
+
+        coalesced_schema = schema or self.schema
+
+        try:
+            table = sa.Table(name,
+                             self.metadata,
+                             autoload=True,
+                             schema=coalesced_schema)
+
+        except sa.exc.NoSuchTableError:
+            in_schema = (" in schema '{}'"
+                         .format(schema)) if schema else ""
+            msg = "No such fact table '{}'{}.".format(name, in_schema)
+            raise NoSuchTableError(msg)
+
+        return table
+
+
+    def column(self, logical):
+        """Return a column for `logical` reference. The returned column will
+        have a label same as the `logical`.
+        """
+        # IMPORTANT
+        #
+        # Note to developers: any column returned from this method
+        # MUST be somehow represented in the logical model and MUST be
+        # accounted in the relevant_joins(). For example in custom expressions
+        # operating on multiple physical columns all physical
+        # columns must be defined at the higher level attributes objects in
+        # the cube. This is to access the very base column, that has physical
+        # representation in a table or a table-like statement.
+        #
+        # Yielding non-represented column might result in undefined behavior,
+        # very likely in unwanted cartesian join – one per unaccounted column.
+        #
+        # -- END OF IMPORTANT MESSAGE ---
+
+        if logical in self._columns:
+            return self._columns[logical]
+
+        try:
+            mapping = self.mappings[logical]
         except KeyError:
-            raise InternalError("No fact relationship for attribute %s "
-                                "(aggregate: %s)"
-                                % (attribute.ref(), for_aggregation))
+            if logical == FACT_KEY_LABEL:
+                return self.fact_key_column
+            else:
+                raise NoSuchAttributeError(logical)
 
-    def join_expression(self, attributes, include_fact=True, master_fact=None,
-                        master_detail_keys=None):
-        """Create partial expression on a fact table with `joins` that can be
-        used as core for a SELECT statement. `join` is a list of joins
-        returned from mapper (most probably by `Mapper.relevant_joins()`)
+        key = (mapping.schema or self.schema, mapping.table or self.fact_name)
 
-        Returns a tuple: (`expression`, `tables`) where `expression` is
-        QLAlchemy expression object and `tables` is a list of `SnowflakeTable`
-        objects used in the join.
+        ref = self.table(key)
+        table = ref.table
 
-        If `include_fact` is ``True`` (default) then fact table is considered
-        as starting point. If it is ``False`` The first detail table is
-        considered as starting point for joins. This might be useful when
-        getting values of a dimension without cell restrictions.
+        try:
+            column = table.columns[mapping.column]
+        except KeyError:
+            avail = ", ".join(str(c) for c in table.columns)
+            raise SchemaError("Unknown column '%s' in table '%s' possible: %s"
+                              % (mapping.column, mapping.table, avail))
 
-        `master_fact` is used for building a composed aggregated expression.
-        `master_detail_keys` is a dictionary of aliased keys from the master
-        fact exposed to the details.
+        # Extract part of the date
+        if mapping.extract:
+            column = sql.expression.extract(mapping.extract, column)
+        if mapping.function:
+            # FIXME: add some protection here for the function name!
+            column = getattr(sql.expression.func, mapping.function)(column)
 
-        **Requirement:** joins should be ordered from the "tentacles" towards
-        the center of the star/snowflake schema.
+        column = column.label(logical)
 
-        **Algorithm:**
+        self._columns[logical] = column
+        # self._labels[label] = logical
 
-        * FOR ALL JOINS:
-          1. get a join (order does not matter)
-          2. get master and detail TABLES (raw, not joined)
-          3. prepare the join condition on columns from the tables
-          4. find join PRODUCTS based on the table keys (schema, table)
-          5. perform join on the master/detail PRODUCTS:
-             * match: left inner join
-             * master: left outer join
-             * detail: right outer join – swap master and detail tables and
-                       do the left outer join
-          6. remove the detail PRODUCT
-          7. replace the master PRODUCT with the new one
+        return column
 
-        * IF there is more than one join product left then some joins are
-          missing
-        * Result: join products should contain only one item which is the
-          final product of the joins
+    def _master_key(self, join):
+        """Generate join master key, use schema defaults"""
+        return (join.master.schema or self.schema,
+                join.master.table or self.fact_name)
+
+    def _detail_key(self, join):
+        """Generate join detail key, use schema defaults"""
+        # Note: we don't include fact as detail table by default. Fact can not
+        # be detail (at least for now, we don't have a case where it could be)
+        return (join.detail.schema or self.schema,
+                join.alias or join.detail.table)
+
+    def required_tables(self, attributes):
+        """Get all tables that are required to be joined to get `attributes`.
+        `attributes` is a list of `StarSchema` attributes (or objects with
+        same kind of attributes).
         """
 
-        joins = self.mapper.relevant_joins(attributes)
+        # Attribute: (schema, table, column)
+        # Join: ((schema, table, column), (schema, table, column), alias)
 
-        # Dictionary of raw tables and their joined products
-        joined_products = {}
+        if not self.joins:
+            self.logger.debug("no joins to be searched for")
 
-        master_detail_keys = master_detail_keys or {}
+        # Get the physical mappings for attributes
+        mappings = [self.mappings[attr] for attr in attributes]
 
-        tables = []
+        # Generate table keys
+        relevant = set(self.table((m.schema, m.table)) for m in mappings)
+
+        # Dependencies
+        # ------------
+        # `required` now contains tables that contain requested `attributes`.
+        # Nowe we have to resolve all dependencies.
+
+        required = {}
+        while relevant:
+            table = relevant.pop()
+            required[table.key] = table
+
+            if not table.join:
+                continue
+
+            master = self._master_key(table.join)
+            if master not in required:
+                relevant.add(self.table(master))
+
+            detail = self._detail_key(table.join)
+            if detail not in required:
+                relevant.add(self.table(detail))
+
+        # Sort the tables
+        # ---------------
 
         fact_key = (self.schema, self.fact_name)
+        fact = self.table(fact_key, "fact master")
+        masters = {fact_key: fact}
 
-        if include_fact:
-            if master_fact is not None:
-                fact = master_fact
-            else:
-                fact = self.fact_table
+        sorted_tables = [fact]
 
-            joined_products[fact_key] = fact
-            tables.append(self.tables[fact_key])
+        while required:
+            details = [table for table in required.values()
+                       if table.join
+                       and self._master_key(table.join) in masters]
 
+            if not details:
+                break
+
+            for detail in details:
+                masters[detail.key] = detail
+                sorted_tables.append(detail)
+
+                del required[detail.key]
+
+        if len(required) > 1:
+            keys = [_format_key(table.key)
+                    for table in required.values()
+                    if table.key != fact_key]
+
+            raise ModelError("Some tables are not joined: {}"
+                             .format(", ".join(keys)))
+
+        return sorted_tables
+
+    # Note: This is "The Method"
+    # ==========================
+
+    def get_star(self, attributes):
+        """The main method for generating underlying star schema joins.
+        Returns a denormalized JOIN expression that includes all relevant
+        tables containing base `attributes` (attributes representing actual
+        columns).
+
+        Example use:
+
+        .. code-block:: python
+
+            star = star_schema.star(attributes)
+            statement = sql.expression.statement(selection,
+                                                 from_obj=star,
+                                                 whereclause=condition)
+            result = engine.execute(statement)
+        """
+
+        attributes = [str(attr) for attr in attributes]
         # Collect all the tables first:
-        for join in joins:
-            if not join.detail.table or (join.detail.table == self.fact_name and not join.alias):
-                raise MappingError("Detail table name should be present and "
-                                   "should not be a fact table unless aliased.")
+        tables = self.required_tables(attributes)
 
-            # 1. MASTER
-            # Add master table to the list. If fact table (or statement) was
-            # explicitly specified, use it instead of the original fact table
+        # Dictionary of raw tables and their joined products
+        # At the end this should contain only one item representing the whole
+        # star.
+        star_tables = {table_ref.key:table_ref.table for table_ref in tables}
 
-            if master_fact is not None and (join.master.schema, join.master.table) == fact_key:
-                table = master_fact
-            else:
-                table = self.table(join.master.schema, join.master.table)
-            joined_products[(join.master.schema, join.master.table)] = table
-
-            # 2. DETAIL
-            # Add (aliased) detail table to the rist. Add the detail to the
-            # list of joined tables – will be used to determine "outlets" for
-            # keys of outer detail joins
-
-            table = self.table(join.detail.schema, join.alias or join.detail.table)
-            key = (join.detail.schema, join.alias or join.detail.table)
-            joined_products[key] = table
-            tables.append(self.tables[key])
+        # Here the `star` contains mapping table key -> table, which will be
+        # gradually replaced by JOINs
 
         # Perform the joins
         # =================
@@ -415,913 +645,205 @@ class SnowflakeSchema(object):
         # 1. find the column
         # 2. construct the condition
         # 3. use the appropriate SQL JOIN
+        # 4. wrap the star with detail
         # 
-        for join in joins:
-            # Prepare the table keys:
-            # Key is a tuple of (schema, table) and is used to get a joined
-            # product object
+        # TODO: support MySQL partition (see Issue list)
+
+        # First table does not need to be joined. It is the "fact" (or other
+        # central table) of the schema.
+        star = tables[0].table
+
+        for table in tables[1:]:
+            if not table.join:
+                raise ModelError("Missing join for table '{}'"
+                                 .format(_format_key(table.key)))
+
+            join = table.join
+
+            # Get the physical table object (aliased) and already constructed
+            # key (properly aliased)
+            detail_table = table.table
+            detail_key = table.key
+
+            # The `table` here is a detail table to be joined. We need to get
+            # the master table this table joins to:
+
             master = join.master
-            master_key = (master.schema, master.table)
-            detail = join.detail
-            detail_key = (detail.schema, join.alias or detail.table)
+            master_key = self._master_key(join)
 
             # We need plain tables to get columns for prepare the join
-            # condition
-            # TODO: this is unreadable
-            if master_fact is not None and (join.master.schema, join.master.table) == fact_key:
-                key = (join.master.schema, join.master.table, join.master.column)
-                try:
-                   master_label = master_detail_keys[key]
-                except KeyError:
-                    raise InternalError("Missing fact column %s (has: %s)"
-                                        % (key, master_detail_keys.keys()))
-                master_column = master_fact.c[master_label]
-            else:
-                master_table = self.table(master.schema, master.table)
+            # condition. We can't get it form `star`.
+            # Master table.column
+            # -------------------
+            master_table = self.table(master_key).table
 
-                try:
-                    master_column = master_table.c[master.column]
-                except KeyError:
-                    raise ModelError('Unable to find master key (schema %s) '
-                                     '"%s"."%s" ' % join.master[0:3])
-
-            detail_table = self.table(join.detail.schema, join.alias or join.detail.table)
             try:
-                detail_column = detail_table.c[detail.column]
+                master_column = master_table.c[master.column]
             except KeyError:
-                raise MappingError('Unable to find detail key (schema %s) "%s"."%s" ' \
-                                    % join.detail[0:3])
+                raise ModelError('Unable to find master key (in star {schema}) '
+                                 '"{table}"."{column}" '.format(join.master))
 
-            # The join condition:
+            # Detail table.column
+            # -------------------
+            try:
+                detail_column = detail_table.c[join.detail.column]
+            except KeyError:
+                raise ModelError('Unable to find detail key (in star {schema}) '
+                                 '"{table}"."{column}" '
+                                 .format(schema=self.name,
+                                         column=join.detail.column,
+                                         table=_format_key(detail_key)))
+
+            # The JOIN ON condition
+            # ---------------------
             onclause = master_column == detail_column
-
-            # Get the joined products – might be plain tables or already
-            # joined tables
-            try:
-                master_table = joined_products[master_key]
-            except KeyError:
-                raise ModelError("Unknown master %s. Missing join or "
-                                 "wrong join order?" % (master_key, ))
-            detail_table = joined_products[detail_key]
-
 
             # Determine the join type based on the join method. If the method
             # is "detail" then we need to swap the order of the tables
             # (products), because SQLAlchemy provides inteface only for
             # left-outer join.
-            if join.method == "match":
+            left, right = (star, detail_table)
+
+            if join.method is None or join.method == "match":
                 is_outer = False
             elif join.method == "master":
                 is_outer = True
             elif join.method == "detail":
                 # Swap the master and detail tables to perform RIGHT OUTER JOIN
-                master_table, detail_table = (detail_table, master_table)
+                left, right = (righ, left)
                 is_outer = True
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
-            product = sql.expression.join(master_table,
-                                             detail_table,
-                                             onclause=onclause,
-                                             isouter=is_outer)
+            star = sql.expression.join(left, right,
+                                       onclause=onclause,
+                                       isouter=is_outer)
 
-            del joined_products[detail_key]
-            joined_products[master_key] = product
+            # Consume the detail
+            if detail_key not in star_tables:
+                raise ModelError("Detail table '{}' not in star. Missing join?"
+                                 .format(_format_key(detail_key)))
 
-        if not joined_products:
-            # This should not happen
-            raise InternalError("No joined products left.")
+            # The table is consumed by the join product, becomes the join
+            # product itself.
+            star_tables[detail_key] = star
+            star_tables[master_key] = star
 
-        if len(joined_products) > 1:
-            raise ModelError("Some tables are not joined: %s"
-                             % (joined_products.keys(), ))
-
-        # Return the remaining joined product
-        result = list(joined_products.values())[0]
-
-        return JoinedProduct(result, tables)
-
-    def column(self, attribute, locale=None):
-        """Return a column object for attribute.
-
-        `locale` is explicit locale to be used. If not specified, then the
-        current locale is used for localizable attributes.
-        """
-
-        logical = self.mapper.logical(attribute, locale)
-        if logical in self.logical_to_column:
-            return self.logical_to_column[logical]
-
-        ref = self.mapper.physical(attribute, locale)
-        table = self.table(ref.schema, ref.table)
-
-        try:
-            column = table.c[ref.column]
-        except:
-            avail = [str(c) for c in table.columns]
-            raise BrowserError("Unknown column '%s' in table '%s' avail: %s"
-                               % (ref.column, ref.table, avail))
-
-        # Extract part of the date
-        if ref.extract:
-            column = sql.expression.extract(ref.extract, column)
-        if ref.func:
-            column = getattr(sql.expression.func, ref.func)(column)
-        if ref.expr:
-            raise NotImplementedError("Removed feature")
-
-        if self.safe_labels:
-            label = "a%d" % self.label_counter
-            self.label_counter += 1
-        else:
-            label = logical
-
-        if isinstance(column, compat.string_type):
-            raise ValueError("Cannot resolve %s to a column object: %r" % (attribute, column))
-
-        column = column.label(label)
-
-        self.logical_to_column[logical] = column
-        self.column_to_logical[label] = logical
-
-        return column
-
-    def columns(self, attributes, expand_locales=False):
-        """Returns list of columns.If `expand_locales` is True, then one
-        column per attribute locale is added."""
-
-        if expand_locales:
-            columns = []
-            for attr in attributes:
-                if attr.is_localizable():
-                    columns += [self.column(attr, locale) for locale in attr.locales]
-                else: # if not attr.locales
-                    columns.append(self.column(attr))
-        else:
-            columns = [self.column(attr) for attr in attributes]
-
-        return columns
-
-    def logical_labels(self, columns):
-        """Returns list of logical attribute labels from list of columns
-        or column labels.
-
-        This method and additional internal references were added because some
-        database dialects, such as Exasol, can not handle dots in column
-        names, even when quoted.
-        """
-
-        # Should not this belong to the snowflake
-        attributes = []
-
-        for column in columns:
-            attributes.append(self.column_to_logical.get(column.name,
-                                                         column.name))
-
-        return attributes
-
-    def table(self, schema, table_name):
-        """Return a SQLAlchemy Table instance. If table was already accessed,
-        then existing table is returned. Otherwise new instance is created.
-
-        If `schema` is ``None`` then browser's default schema is used.
-        """
-
-        key = (schema or self.mapper.schema, table_name)
-        # Get real table reference
-        try:
-            return self.tables[key].table
-        except KeyError:
-            raise ModelError("Table with reference %s not found. "
-                             "Missing join in cube '%s'?"
-                             % (key, self.cube.name) )
+        return star
 
 
-class _StatementConfiguration(object):
-    def __init__(self):
-        self.attributes = []
-        self.cuts = []
-        self.cut_attributes = []
-        self.other_attributes = []
+#
+# Note: the QueryContext class is intentionally free of Cubes model objects.
+# It might be appropriate to have `attributes` an actual Attribute instances,
+# however that would require that:
+# 
+# * dependencies are also included in attributes - will require some
+#   integration of compiler in the model, which we don't want
+# * be sure that attributes are always attribute objects, not just strings
+# 
+# The QueryContext might be a bit tedious to prepare, however it is easier to
+# test and maintain this way. At least for the time being.
+#
 
-        self.split_attributes = []
-        self.split_cuts = []
+class QueryContext(object):
+    """Context for execution of a query with given set of attributes and
+    underlying star schema."""
 
-    @property
-    def all_attributes(self):
-        """All attributes that should be considered for a statement
-        composition.  Mostly used to get the relevant joins."""
+    def __init__(self, star_schema, attributes, dependencies=None,
+                 expressions=None, hierarchies=None):
+        """Creates a query context for `cube`.
 
-        return set(self.attributes) | set(self.cut_attributes) \
-                | set(self.split_attributes) | set(self.other_attributes)
+        * `attributes` – list of attribute references that are relevant to the
+          query
+        * `dependencies` – dictionary where keys are attribute references and
+           values are lists of other attributes that the key attribute depends
+           on. This dictionary requires to have empty lists for base
+           attributes. Attributes not present in the dependencies dictionary
+           are considered to be missing
+        * `expressions` is a dictionary of expressions for non-base attributes
+        * `hierarchies` is a dictionary of dimension hierarchies. Keys are
+           tuples of names (`dimension`, `hierarchy`). The dictionary should
+           contain default dimensions as (`dimension`, Null) tuples.
 
-    def merge(self, other):
-        self.attributes += other.attributes
-        self.cuts += other.cuts
-        self.cut_attributes += other.cut_attributes
+        Note: in the future the `hierarchies` dictionary might change just to
+        a hierarchy name (a string), since hierarchies and dimensions will be
+        both top-level objects."""
 
-        self.split_attributes += other.split_attributes
-        self.split_cuts += other.split_cuts
+        self.attributes = attributes
+        self.hierarchies = hierarchies
 
-        self.other_attributes += other.other_attributes
+        self.dependencies = dependencies or {}
+        self.expressions = expressions or {}
 
-    def is_empty(self):
-        return not (bool(self.attributes) \
-                    or bool(self.cut_attributes) \
-                    or bool(self.other_attributes) \
-                    or bool(self.split_attributes))
+        # Collect column expressions for query context attributes. The
+        # expressions are compiled at the time of call of this method.
 
-class QueryBuilder(object):
-    def __init__(self, browser):
-        """Creates a SQL query statement builder object – a controller-like
-        object that incrementally constructs the statement.
+        bases = [attr for attr in self.attributes
+                      if not self.dependencies.get(attr)]
 
-        Result attributes:
+        self.star = star_schema
 
-        * `statement` – SQL query statement
-        * `labels` – logical labels for the statement selection
-        """
-
-        self.browser = browser
-
-        # Inherit
-        # FIXME: really?
-        self.logger = browser.logger
-        self.mapper = browser.mapper
-        self.cube = browser.cube
-
-        self.snowflake = SnowflakeSchema(self.cube, self.mapper,
-                                         self.browser.metadata,
-                                         safe_labels=browser.safe_labels)
-
-        self.master_fact = None
-
-        # Intermediate results
-        self.drilldown = None
-        self.split = None
-
-        # Output:
-        self.statement = None
-        self.labels = []
-
-        # Semi-additive dimension
-        # TODO: move this to model (this is ported from the original
-        # SnapshotBrowser)
-
-        # TODO: remove this later
-        if "semiadditive" in self.cube.info:
-            raise NotImplementedError("'semiadditive' in 'info' is not "
-                                      "supported any more")
-
-        for dim in self.cube.dimensions:
-            if dim.nonadditive:
-                raise NotImplementedError("Non-additive behavior for "
-                                          "dimensions is not yet implemented."
-                                          "(cube '%s', dimension '%s')" %
-                                          (self.cube.name, dim.name))
-
-    def aggregation_statement(self, cell, drilldown=None, aggregates=None,
-                              split=None, attributes=None, summary_only=False):
-        """Builds a statement to aggregate the `cell`.
-
-        * `cell` – `Cell` to aggregate
-        * `drilldown` – a `Drilldown` object
-        * `aggregates` – list of aggregates to consider
-        * `split` – split cell for split condition
-        * `summary_only` – do not perform GROUP BY for the drilldown. The
-        * drilldown is used only for choosing tables to join and affects outer
-          detail joins in the result
-
-        Algorithm description:
-
-        All the tables have one of the two relationship to the fact:
-        *master/match* or *detail*. Every table connected to a table that has
-        "detail" relationship is considered also in the "detail" relationship
-        towards the fact. Therefore we have two join zones: all master or
-        detail tables from the core, directly connected to the fact table and
-        rest of the table connected to the core through outer detail
-        relationship.
-
-        Depending on the query it is decided whether we are fine with just
-        joining everything together into single join or we need to separate
-        the fact master core from the outer details::
-
-                        +------+           +-----+
-                        | fact |--(match)--| dim +
-                        +------+           +-----+
-            Master Fact    |
-            ===============|========================
-            Outer Details  |               +-----+
-                           +------(detail)-| dim |
-                                           +-----+
-
-        The outer details part is RIGHT OUTER JOINed to the fact. Since there
-        are no tables any more, the original table keys for joins to the outer
-        details were exposed and specially labeled as `__masterkeyXX` where XX
-        is a sequence number of the key. The `join_expression` JOIN
-        constructing method receives the map of the keys and replaces the
-        original tables with connections to the columns already selected in
-        the master fact.
-
-        .. note::
-
-            **Limitation:** we can not have a Cut (condition) where keys (path
-            elements) are from both join zones. Whole cut should be within one
-            zone: either the master fact or outer details.
-        """
-
-        if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty")
-
-        drilldown = drilldown or Drilldown()
-
-        # Configuraion of statement parts
-        master = _StatementConfiguration()
-        detail = _StatementConfiguration()
-
-        self.logger.debug("prepare aggregation statement. cell: '%s' "
-                          "drilldown: '%s' summary only: %s" %
-                          (",".join([str(cut) for cut in cell.cuts]),
-                          drilldown, summary_only))
-
-        # Analyse and Prepare
+        # Collect the columns
         # -------------------
-        # Get the cell attributes and find whether we have some outer details
         #
-        # Cut
-        # ~~~
+        self._columns = {attr:self.star.column(attr) for attr in bases}
 
-        mcuts, mattrs, dcuts, dattrs = self._split_cell_by_relationship(cell)
-        master.cuts += mcuts
-        master.cut_attributes += mattrs
-        detail.cuts += dcuts
-        detail.cut_attributes += dattrs
+        # depsorted contains attribute names in order of dependencies starting
+        # with base attributes (those that don't depend on anything, directly
+        # represented by columns) and ending with derived attributes
+        depsorted = depsort_attributes([attr for attr in attributes],
+                                        self.dependencies)
 
-        # Split
-        # ~~~~~
-        # Same as Cut, just different target
+        compiler = SQLExpressionCompiler()
+        for attr in depsorted:
+            if self.column(attr) is None:
+                expression = self.expressions[attr]
+                column = compiler.compile(expression, self)
+                self._columns[attr.ref] = column
 
-        mcuts, mattrs, dcuts, dattrs = self._split_cell_by_relationship(split)
-        master.split_cuts += mcuts
-        master.split_attributes += mattrs
-        detail.split_cuts += dcuts
-        detail.split_attributes += dattrs
+    def columns(self, attributes):
+        """Get columns for `attributes`"""
+        return [self._columns[attr.ref] for attr in attributes]
 
-        # Drilldown
-        # ~~~~~~~~~
+    def column(self, ref):
+        """Get a column expression for attribute with reference `ref`"""
+        return self._columns[ref]
 
-        drilldown_attributes = drilldown.all_attributes()
-        master.attributes, detail.attributes = \
-                self._split_attributes_by_relationship(drilldown_attributes)
+    def resolve(self, variable):
+        """Resolve `variable` – return either a column, variable from a
+        dictionary or a SQL constant (in that order)."""
 
-        # Semi-additive attribute
-        semiadditives = self.semiadditive_attributes(aggregates, drilldown)
-        sa_master, sa_detail = self._split_attributes_by_relationship(semiadditives)
-        master.other_attributes += sa_master
-        detail.other_attributes += sa_detail
+        if variable in self.columns:
+            return self.columns[variable]
 
-        # Pick the method:
-        #
-        # M - master, D - detail
-        # C - condition, A - selection attributes (drilldown)
-        #
-        #    MA MC DA DC | method
-        #    ============|=======
-        #  0 -- -- -- -- | simple
-        #  1 xx -- -- -- | simple
-        #  2 -- xx -- -- | simple
-        #  3 xx xx -- -- | simple
-        #  4 -- -- xx -- | simple
-        #  5 xx -- xx -- | simple
-        #  6 -- xx xx -- | composed
-        #  7 xx xx xx -- | composed
-        #  8 -- -- -- xx | simple
-        #  9 xx -- -- xx | simple
-        # 10 -- -- xx xx | simple
-        # 11 xx -- xx xx | simple
-        # 12 -- xx -- xx | composed
-        # 13 xx xx -- xx | composed
-        # 14 -- xx xx xx | composed
-        # 15 xx xx xx xx | composed
-        # 
+        elif variable in self.parameters:
+            result = self.parameters[variable]
 
-        # The master cut is in conflict with detail drilldown or detail cut 
-        if master.cut_attributes and (detail.attributes or
-                                        detail.cut_attributes):
-            simple_method = False
-        else:
-            simple_method = True
-            master.merge(detail)
-
-        coalesce_measures = not detail.is_empty()
-
-        master_conditions = self.conditions_for_cuts(master.cuts)
-
-        if simple_method:
-            self.logger.debug("statement: simple")
-
-            # Drilldown – Group-by
-            # --------------------
-            #
-            # SELECT – Prepare the master selection
-            #     * master drilldown items
-
-            selection = [self.column(a) for a in set(master.attributes)]
-            group_by = selection[:]
-
-            # SPLIT
-            # -----
-            if split:
-                master_split = self._cell_split_column(master.split_cuts)
-                group_by.append(master_split)
-                selection.append(master_split)
-
-            # WHERE
-            # -----
-            conditions = master_conditions
-
-            # JOIN
-            # ----
-            attributes = set(aggregates) \
-                            | master.all_attributes
-            join = self.snowflake.join_expression(attributes)
-            join_expression = join.expression
+        elif variable in SQL_VARIABLES:
+            result = getattr(sql.func, variable)()
 
         else:
-            self.logger.debug("statement: composed")
-
-            # 1. MASTER FACT
-            # ==============
-
-            join = self.snowflake.join_expression(master.all_attributes)
-            join_expression = join.expression
-
-            # Store a map of joined columns for later
-            # The map is: (schema, table, column) -> column
-
-            # Expose fact master detail key outlets:
-            master_detail_keys = {}
-            master_detail_selection = []
-            counter = 0
-            for table in join.tables:
-                for key in table.detail_keys:
-                    column_key = (table.schema, table.aliased_name, key)
-                    label = "__masterkey%d" % counter
-                    master_detail_keys[column_key] = label
-
-                    column = table.table.c[key].label(label)
-                    master_detail_selection.append(column)
-                    counter += 1
-
-            # SELECT – Prepare the master selection
-            #     * drilldown items
-            #     * measures
-            #     * aliased keys for outer detail joins
-
-            # Note: Master selection is carried as first (we need to retrieve
-            # it later by index)
-            master_selection = [self.column(a) for a in set(master.attributes)]
-
-            measures = self.measures_for_aggregates(aggregates)
-            measure_selection = [self.column(m) for m in measures]
-
-            selection = master_selection \
-                            + measure_selection \
-                            + master_detail_selection
-
-            # SPLIT
-            # -----
-            if master.split_cuts:
-                master_split = self._cell_split_column(master.split_cuts,
-                                                       "__master_split")
-                group_by.append(master_split)
-                selection.append(master_split)
-            else:
-                master_split = None
-
-            # Add the fact key – to properely handle COUNT()
-            selection.append(self.snowflake.fact_key_column)
-
-            # WHERE Condition
-            # ---------------
-            condition = condition_conjunction(master_conditions)
-
-            # Prepare the master_fact statement:
-            statement = sql.expression.select(selection,
-                                              from_obj=join_expression,
-                                              use_labels=True,
-                                              whereclause=condition)
-
-            # From now-on the self.column() method will return columns from
-            # master_fact if applicable.
-            self.master_fact = statement.alias("__master_fact")
-
-            # Add drilldown – Group-by
-            # ------------------------
-            #
-
-            # SELECT – Prepare the detail selection
-            #     * master drilldown items (inherit)
-            #     * detail drilldown items
-
-            master_cols = list(self.master_fact.columns)
-            master_selection = master_cols[0:len(master.attributes)]
-
-            detail_selection = [self.column(a) for a in set(detail.attributes)]
-
-            selection = master_selection + detail_selection
-            group_by = selection[:]
-
-            # SPLIT
-            # -----
-            if detail.split_cuts:
-                if master_split:
-                    # Merge the detail and master part of the split "dimension"
-                    master_split = self.master_fact.c["__master_split"]
-                    detail_split = self._cell_split_column(detail.split_cuts,
-                                        "__detail_split")
-                    split_condition = (master_split and detail_split)
-                    detail_split = sql.expression.case([(split_condition, True)],
-                                                       else_=False)
-                    detail_split.label(SPLIT_DIMENSION_NAME)
-                else:
-                    # We have only detail split, no need to merge the
-                    # condition
-                    detail_split = self._cell_split_column(detail.split_cuts)
-
-                selection.append(detail_split)
-                group_by.append(detail_split)
-
-
-            # WHERE
-            # -----
-            conditions = self.conditions_for_cuts(detail.cuts)
-
-            # JOIN
-            # ----
-            # Replace the master-relationship tables with single master fact
-            # Provide mapping between original table columns to the master
-            # fact selection (with labelled columns)
-            join = self.snowflake.join_expression(detail.all_attributes,
-                                                  master_fact=self.master_fact,
-                                                  master_detail_keys=master_detail_keys)
-
-            join_expression = join.expression
-
-        # The Final Statement
-        # ===================
-        #
-
-        # WHERE
-        # -----
-        condition = condition_conjunction(conditions)
-        group_by = group_by if not summary_only else None
-
-        # Include the semi-additive dimension, if required
-        #
-        if semiadditives:
-            self.logger.debug("preparing semiadditive subquery for "
-                              "attributes: %s"
-                              % [a.name for a in semiadditives])
-
-            join_expression = self._semiadditive_subquery(semiadditives,
-                                                     selection,
-                                                     from_obj=join_expression,
-                                                     condition=condition,
-                                                     group_by=group_by)
-
-        aggregate_selection = self.builtin_aggregate_expressions(aggregates,
-                                                       coalesce_measures=coalesce_measures)
-
-        if summary_only:
-            # Don't include the group-by part (see issue #157 for more
-            # information)
-            selection = aggregate_selection
-        else:
-            selection += aggregate_selection
-
-        # condition = None
-        statement = sql.expression.select(selection,
-                                          from_obj=join_expression,
-                                          use_labels=True,
-                                          whereclause=condition,
-                                          group_by=group_by)
-
-        self.statement = statement
-        self.labels = self.snowflake.logical_labels(selection)
-
-        # Used in order
-        self.drilldown = drilldown
-        self.split = split
-
-        return self.statement
-
-    def _split_attributes_by_relationship(self, attributes):
-        """Returns a tuple (`master`, `detail`) where `master` is a list of
-        attributes that have master/match relationship towards the fact and
-        `detail` is a list of attributes with outer detail relationship
-        towards the fact."""
-
-        if not attributes:
-            return ([],[])
-
-        master = []
-        detail = []
-        for attribute in attributes:
-            if self.snowflake.is_outer_detail(attribute):
-                detail.append(attribute)
-            else:
-                master.append(attribute)
-
-        return (master, detail)
-
-    def _split_cell_by_relationship(self, cell):
-        """Returns a tuple of _StatementConfiguration objects (`master`,
-        `detail`)"""
-
-        if not cell:
-            return ([], [], [], [])
-
-        master_cuts = []
-        master_cut_attributes = []
-        detail_cuts = []
-        detail_cut_attributes = []
-
-        for cut, attributes in self.attributes_for_cell_cuts(cell):
-            is_outer_detail = [self.snowflake.is_outer_detail(a) for a in attributes]
-
-            if all(is_outer_detail):
-                detail_cut_attributes += attributes
-                detail_cuts.append(cut)
-            elif any(is_outer_detail):
-                raise InternalError("Cut %s is spreading from master to "
-                                    "outer detail is not supported."
-                                    % str(cut))
-            else:
-                master_cut_attributes += attributes
-                master_cuts.append(cut)
-
-        return (master_cuts, master_cut_attributes,
-                detail_cuts, detail_cut_attributes)
-
-    def _cell_split_column(self, cuts, label=None):
-        """Create a column for a cell split from list of `cust`."""
-
-        conditions = self.conditions_for_cuts(cuts)
-        condition = condition_conjunction(conditions)
-        split_column = sql.expression.case([(condition, True)],
-                                           else_=False)
-
-        label = label or SPLIT_DIMENSION_NAME
-
-        return split_column.label(label)
-
-    def semiadditive_attributes(self, aggregates, drilldown):
-        """Returns an attribute from a semi-additive dimension, if defined for
-        the cube. Cubes allows one semi-additive dimension. """
-
-        nonadds = set(self.cube.nonadditive_type(agg) for agg in aggregates)
-        # If there is no nonadditive aggregate, we skip
-        if not any(nonaddtype for nonaddtype in nonadds):
-            return None
-
-        if None in nonadds:
-            nonadds.remove(None)
-
-        if "time" not in nonadds:
-            raise NotImplementedError("Nonadditive aggregates for other than "
-                                      "time dimension are not supported.")
-
-        # Here we expect to have time-only nonadditive
-        # TODO: What to do if we have more?
-
-        # Find first time drill-down, if any
-        items = [item for item in drilldown \
-                       if item.dimension.role == "time"]
-
-        attributes = []
-        for item in drilldown:
-            if item.dimension.role != "time":
-                continue
-            attribute = Attribute("__key__", dimension=item.dimension)
-            attributes.append(attribute)
-
-        if not attributes:
-            time_dims = [ d for d in self.cube.dimensions if d.role == "time" ]
-            if not time_dims:
-                raise BrowserError("Cannot locate a time dimension to apply for semiadditive aggregates: %r" % nonadds)
-            attribute = Attribute("__key__", dimension=time_dims[0])
-            attributes.append(attribute)
-
-        return attributes
-
-    def _semiadditive_subquery(self, attributes, selection,
-                               from_obj, condition, group_by):
-        """Prepare the semi-additive subquery"""
-        sub_selection = selection[:]
-
-        semiadd_selection = []
-        for attr in attributes:
-            col = self.column(attr)
-            # Only one function is supported for now: max()
-            func = sql.expression.func.max
-            col = func(col)
-            semiadd_selection.append(col)
-
-        sub_selection += semiadd_selection
-
-        # This has to be the same as the final SELECT, except the subquery
-        # selection
-        sub_statement = sql.expression.select(sub_selection,
-                                              from_obj=from_obj,
-                                              use_labels=True,
-                                              whereclause=condition,
-                                              group_by=group_by)
-
-        sub_statement = sub_statement.alias("__semiadditive_subquery")
-
-        # Construct the subquery JOIN condition
-        # Skipt the last subquery selection which we have created just
-        # recently
-        join_conditions = []
-
-        for left, right in zip(selection, sub_statement.columns):
-            join_conditions.append(left == right)
-
-        remainder = list(sub_statement.columns)[len(selection):]
-        for attr, right in zip(attributes, remainder):
-            left = self.column(attr)
-            join_conditions.append(left == right)
-
-        join_condition = condition_conjunction(join_conditions)
-        join_expression = from_obj.join(sub_statement, join_condition)
-
-        return join_expression
-
-    def denormalized_statement(self, cell=None, attributes=None,
-                               expand_locales=False, include_fact_key=True):
-        """Builds a statement for denormalized view. `whereclause` is same as
-        SQLAlchemy `whereclause` for `sqlalchemy.sql.expression.select()`.
-        `attributes` is list of logical references to attributes to be
-        selected. If it is ``None`` then all attributes are used.
-        `condition_attributes` contains list of attributes that are not going
-        to be selected, but are required for WHERE condition.
-
-        Set `expand_locales` to ``True`` to expand all localized attributes.
-        """
-
-        if attributes is None:
-            attributes = self.cube.all_attributes
-
-        join_attributes = set(attributes) | self.attributes_for_cell(cell)
-
-        join_product = self.snowflake.join_expression(join_attributes)
-        join_expression = join_product.expression
-
-        columns = self.snowflake.columns(attributes, expand_locales=expand_locales)
-
-        if include_fact_key:
-            columns.insert(0, self.snowflake.fact_key_column)
-
-        if cell is not None:
-            condition = self.condition_for_cell(cell)
-        else:
-            condition = None
-
-        statement = sql.expression.select(columns,
-                                          from_obj=join_expression,
-                                          use_labels=True,
-                                          whereclause=condition)
-
-        self.statement = statement
-        self.labels = self.snowflake.logical_labels(statement.columns)
-
-        return statement
-
-    def members_statement(self, cell, attributes=None):
-        """Prepares dimension members statement."""
-        self.denormalized_statement(cell, attributes, include_fact_key=False)
-        group_by = self.snowflake.columns(attributes)
-        self.statement = self.statement.group_by(*group_by)
-        return self.statement
-
-    def fact(self, id_):
-        """Selects only fact with given id"""
-        condition = self.snowflake.fact_key_column == id_
-        return self.append_condition(condition)
-
-    def append_condition(self, condition):
-        """Appends `condition` to the generated statement."""
-        self.statement = self.statement.where(condition)
-        return self.statement
-
-    def measures_for_aggregates(self, aggregates):
-        """Returns a list of measures for `aggregates`. This method is used in
-        constructing the master fact."""
-
-        measures = []
-
-        aggregates = [agg for agg in aggregates if agg.function]
-
-        for aggregate in aggregates:
-            function_name = aggregate.function.lower()
-            function = self.browser.builtin_function(function_name, aggregate)
-
-            if not function:
-                continue
-
-            names = function.required_measures(aggregate)
-            if names:
-                measures += self.cube.get_attributes(names)
-
-        return measures
-
-    def builtin_aggregate_expressions(self, aggregates,
-                                      coalesce_measures=False):
-        """Returns list of expressions for aggregates from `aggregates` that
-        are computed using the SQL statement.
-        """
-
-        expressions = []
-        for agg in aggregates:
-            exp = self.aggregate_expression(agg, coalesce_measures)
-            if exp is not None:
-                expressions.append(exp)
-
-        return expressions
-
-    def aggregate_expression(self, aggregate, coalesce_measure=False):
-        """Returns an expression that performs the aggregation of measure
-        `aggregate`. The result's label is the aggregate's name.  `aggregate`
-        has to be `MeasureAggregate` instance.
-
-        If aggregate function is post-aggregation calculation, then `None` is
-        returned.
-
-        Aggregation function names are case in-sensitive.
-
-        If `coalesce_measure` is `True` then selected measure column is wrapped
-        in ``COALESCE(column, 0)``.
-        """
-        # TODO: support aggregate.expression
-
-        if aggregate.expression:
-            raise NotImplementedError("Expressions are not yet implemented")
-
-        # If there is no function specified, we consider the aggregate to be
-        # computed in the mapping
-        if not aggregate.function:
-            # TODO: this should be depreciated in favor of aggreate.expression
-            # TODO: Following expression should be raised instead:
-            # raise ModelError("Aggregate '%s' has no function specified"
-            #                 % str(aggregate))
-            column = self.column(aggregate)
-            return column
-
-        function_name = aggregate.function.lower()
-        function = self.browser.builtin_function(function_name, aggregate)
-
-        if not function:
-            return None
-
-        expression = function(aggregate, self, coalesce_measure)
-
-        return expression
-
-    def attributes_for_cell(self, cell):
-        """Returns a set of attributes included in the cell."""
-        if not cell:
-            return set()
-
-        attributes = set()
-        for cut, cut_attrs in self.attributes_for_cell_cuts(cell):
-            attributes |= set(cut_attrs)
-        return attributes
-
-    def attributes_for_cell_cuts(self, cell):
-        """Returns a list of tuples (`cut`, `attributes`) where `attributes`
-        is list of attributes involved in the `cut`."""
-
-        # Note: this method belongs here, not to the Cell class, as we might
-        # discover that some other attributes might be required for the cell
-        # (in the future...)
-
-        result = []
-
-        for cut in cell.cuts:
-            depth = cut.level_depth()
-            if depth:
-                dim = self.cube.dimension(cut.dimension)
-                hier = dim.hierarchy(cut.hierarchy)
-                keys = [level.key for level in hier[0:depth]]
-                result.append((cut, keys))
+            label = " in {}".format(self.label) if self.label else ""
+            raise ExpressionError("Unknown expression variable '{}'{}"
+                                  .format(variable, label))
 
         return result
 
+    def function(self, name):
+        """Return a SQL function"""
+        if name not in SQL_FUNCTIONS:
+            raise ExpressionError("Unknown function '{}'"
+                                  .format(name))
+        return getattr(sql.func, name)
+
     def condition_for_cell(self, cell):
-        """Returns a SQL condition for the `cell`."""
-        conditions = self.conditions_for_cuts(cell.cuts)
-        condition = condition_conjunction(conditions)
+        """Returns a condition for cell `cell`."""
+
+        if not cell:
+            return None
+
+        condition = and_(*self.conditions_for_cuts(cell.cuts))
+
         return condition
 
     def conditions_for_cuts(self, cuts):
@@ -1332,18 +854,18 @@ class QueryBuilder(object):
         conditions = []
 
         for cut in cuts:
-            dim = self.cube.dimension(cut.dimension)
-
             if isinstance(cut, PointCut):
                 path = cut.path
-                condition = self.condition_for_point(dim, path, cut.hierarchy,
-                                                     cut.invert)
+                condition = self.condition_for_point(cut.dimension,
+                                                     path,
+                                                     cut.hierarchy, cut.invert)
 
             elif isinstance(cut, SetCut):
                 set_conds = []
 
                 for path in cut.paths:
-                    condition = self.condition_for_point(dim, path,
+                    condition = self.condition_for_point(cut.dimension,
+                                                         path,
                                                          cut.hierarchy,
                                                          invert=False)
                     set_conds.append(condition)
@@ -1354,7 +876,8 @@ class QueryBuilder(object):
                     condition = sql.expression.not_(condition)
 
             elif isinstance(cut, RangeCut):
-                condition = self.range_condition(cut.dimension,
+                condition = self.range_condition(context,
+                                                 cut.dimension,
                                                  cut.hierarchy,
                                                  cut.from_path,
                                                  cut.to_path, cut.invert)
@@ -1374,11 +897,7 @@ class QueryBuilder(object):
 
         conditions = []
 
-        levels = dim.hierarchy(hierarchy).levels_for_path(path)
-
-        if len(path) > len(levels):
-            raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
-                                "in dimension %s" % (len(path), path, len(levels), dim.name))
+        levels = self.levels(dim, hierarchy, path)
 
         for level, value in zip(levels, path):
 
@@ -1393,11 +912,10 @@ class QueryBuilder(object):
 
         return condition
 
-    def range_condition(self, dim, hierarchy, from_path, to_path, invert=False):
+    def range_condition(self, dim, hierarchy, from_path, to_path,
+                        invert=False):
         """Return a condition for a hierarchical range (`from_path`,
         `to_path`). Return value is a `Condition` tuple."""
-
-        dim = self.cube.dimension(dim)
 
         lower = self._boundary_condition(dim, hierarchy, from_path, 0)
         upper = self._boundary_condition(dim, hierarchy, to_path, 1)
@@ -1408,7 +926,7 @@ class QueryBuilder(object):
         if upper is not None:
             conditions.append(upper)
 
-        condition = condition_conjunction(conditions)
+        condition = sql.expression.and_(*conditions)
 
         if invert:
             condition = sql.expression.not_(condition)
@@ -1420,20 +938,15 @@ class QueryBuilder(object):
         1 then path is considered to be upper bound (operators < and <= are
         used), otherwise path is considered as lower bound (operators > and >=
         are used )"""
+        # TODO: make this non-recursive
 
         if not path:
             return None
 
-        last = self._boundary_condition(dim, hierarchy,
-                                        path[:-1],
-                                        bound,
+        last = self._boundary_condition(dim, hierarchy, path[:-1], bound,
                                         first=False)
 
-        levels = dim.hierarchy(hierarchy).levels_for_path(path)
-
-        if len(path) > len(levels):
-            raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
-                                "in dimension %s" % (len(path), path, len(levels), dim.name))
+        levels = self.levels(dim, hierarchy, path)
 
         conditions = []
 
@@ -1453,125 +966,26 @@ class QueryBuilder(object):
 
         column = self.column(levels[-1].key)
         conditions.append(operator(column, path[-1]))
-        condition = condition_conjunction(conditions)
+        condition = sql.expression.and_(*conditions)
 
         if last is not None:
             condition = sql.expression.or_(condition, last)
 
         return condition
 
-    def fact_key_column(self):
-        """Returns a column that represents the fact key."""
-        # TODO: this is used only in FactCountFunction, suggestion for better
-        # solution is in the comments there.
-        if self.master_fact is not None:
-            return self.master_fact.c[self.snowflake.fact_key]
-        else:
-            return self.snowflake.fact_key_column
+    def levels(self, dimension, hierarchy, path):
+        """Return list of levels for `path` in `hierarchy` of `dimension`."""
 
-    def column(self, attribute, locale=None):
-        """Returns either a physical column for the attribute or a reference to
-        a column from the master fact if it exists."""
+        # Note: If something does not work here, make sure that hierarchies
+        # contains "default hierarchy", that is (dimension, None) tuple.
+        #
+        levels = self.hierarchies.get((dimension, hierarchy), [dimension])
 
-        if self.master_fact is not None:
-            ref = self.mapper.physical(attribute, locale)
-            self.logger.debug("column %s (%s) from master fact" % (attribute.ref(), ref))
-            try:
-                return self.master_fact.c[ref.column]
-            except KeyError:
-                self.logger.debug("retry column %s from tables" % (attribute.ref(), ))
-                return self.snowflake.column(attribute, locale)
-        else:
-            self.logger.debug("column %s from tables" % (attribute.ref(), ))
-            return self.snowflake.column(attribute, locale)
+        depth = 0 if not path else len(path)
 
-    def paginate(self, page, page_size):
-        """Returns paginated statement if page is provided, otherwise returns
-        the same statement."""
+        if depth > len(levels):
+            levels_str = ", ".join(levels)
+            raise HierarchyError("Path '{}' is longer than hierarchy. "
+                                 "Levels: {}".format(path, levels))
 
-        if page is not None and page_size is not None:
-            self.statement = self.statement.offset(page * page_size).limit(page_size)
-
-        return self.statement
-
-    def order(self, order):
-        """Returns a SQL statement which is ordered according to the `order`. If
-        the statement contains attributes that have natural order specified, then
-        the natural order is used, if not overriden in the `order`.
-
-        `order` sohuld be prepared using
-        :meth:`AggregationBrowser.prepare_order`.
-
-        `dimension_levels` is list of considered dimension levels in form of
-        tuples (`dimension`, `hierarchy`, `levels`). For each level it's sort
-        key is used.
-        """
-
-        # Each attribute mentioned in the order should be present in the selection
-        # or as some column from joined table. Here we get the list of already
-        # selected columns and derived aggregates
-
-        selection = OrderedDict()
-
-        # Get logical attributes from column labels (see logical_labels method
-        # description for more information why this step is necessary)
-        for column, ref in zip(self.statement.columns, self.labels):
-            selection[ref] = column
-
-        # Make sure that the `order` is a list of of tuples (`attribute`,
-        # `order`). If element of the `order` list is a string, then it is
-        # converted to (`string`, ``None``).
-
-        order = order or []
-
-        drilldown = self.drilldown or []
-
-        for dditem in drilldown:
-            dim, hier, levels = dditem[0:3]
-            for level in levels:
-                level = dim.level(level)
-                lvl_attr = level.order_attribute or level.key
-                lvl_order = level.order or 'asc'
-                order.append((lvl_attr, lvl_order))
-
-        order_by = OrderedDict()
-
-        if self.split:
-            split_column = sql.expression.column(SPLIT_DIMENSION_NAME)
-            order_by[SPLIT_DIMENSION_NAME] = split_column
-
-        # Collect the corresponding attribute columns
-        for attribute, order_dir in order:
-            try:
-                column = selection[attribute.ref()]
-            except KeyError:
-                attribute = self.mapper.attribute(attribute.ref())
-                column = self.column(attribute)
-
-            column = order_column(column, order_dir)
-
-            if attribute.ref() not in order_by:
-                order_by[attribute.ref()] = column
-
-        # Collect natural order for selected columns
-        for (name, column) in selection.items():
-            try:
-                # Backward mapping: get Attribute instance by name. The column
-                # name used here is already labelled to the logical name
-                attribute = self.mapper.attribute(name)
-            except KeyError:
-                # Since we are already selecting the column, then it should
-                # exist this exception is raised when we are trying to get
-                # Attribute object for an aggregate - we can safely ignore
-                # this.
-
-                # TODO: add natural ordering for measures (may be nice)
-                attribute = None
-
-            if attribute and attribute.order and name not in order_by.keys():
-                order_by[name] = order_column(column, attribute.order)
-
-        self.statement = self.statement.order_by(*order_by.values())
-
-        return self.statement
-
+        return levels[0:depth]

@@ -13,7 +13,7 @@ from ..datastructures import AttributeDict
 from .. import compat
 import re
 
-from .schema import to_column
+from .query import to_column
 
 
 # Note about the future of this module:

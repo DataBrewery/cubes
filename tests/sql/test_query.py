@@ -11,9 +11,10 @@ import sqlalchemy as sa
 import sqlalchemy.sql as sql
 
 from datetime import datetime
-from cubes.sql.schema import StarSchema, Column, SchemaError
-from cubes.sql.schema import NoSuchAttributeError
-from cubes.sql.schema import JoinKey, to_join_key, Join, to_join
+from cubes.sql.query import StarSchema, Column, SchemaError
+from cubes.sql.query import NoSuchAttributeError
+from cubes.sql.query import JoinKey, to_join_key, Join, to_join
+from cubes.sql.query import QueryContext
 from cubes.errors import ArgumentError, ModelError
 from .common import create_table, SQLTestCase
 
@@ -194,7 +195,7 @@ class SchemaBasicsTestCase(SQLTestCase):
         }
 
         schema = StarSchema("star", self.md, mappings, self.test_fact)
-        star = schema.star(["category", "total"])
+        star = schema.get_star(["category", "total"])
 
         selection = [schema.column("category"), schema.column("total")]
 
@@ -440,7 +441,7 @@ class SchemaJoinsTestCase(SQLTestCase):
                                self.dim_category.columns["size"])
 
         # Check selectable statement
-        star = schema.star(["code", "size"])
+        star = schema.get_star(["code", "size"])
         selection = [schema.column("code"), schema.column("size")]
         select = sql.expression.select(selection,
                                        from_obj=star)
@@ -463,7 +464,7 @@ class SchemaJoinsTestCase(SQLTestCase):
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
-        star = schema.star(["size"])
+        star = schema.get_star(["size"])
         selection = [schema.column("size")]
         select = sql.expression.select(selection,
                                        from_obj=star)
@@ -490,7 +491,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         # Construct the select for the very last attribute in the snowflake
         # arm
         # star = schema.star(["category_label", "size_label"])
-        star = schema.star(["size_label", "category_label"])
+        star = schema.get_star(["size_label", "category_label"])
         select = sql.expression.select([schema.column("size_label")],
                                        from_obj=star)
         result = self.engine.execute(select)
@@ -525,7 +526,7 @@ class SchemaJoinsTestCase(SQLTestCase):
 
         # Construct the select for the very last attribute in the snowflake
         # arm
-        star = schema.star(["size_label"])
+        star = schema.get_star(["size_label"])
         select = sql.expression.select([schema.column("size_label")],
                                        from_obj=star)
         result = self.engine.execute(select)
@@ -543,6 +544,32 @@ class SchemaJoinsTestCase(SQLTestCase):
 
     def test_statement_table(self):
         """Test using a statement as a table"""
+
+class QueryTestCase(SQLTestCase):
+    def setUp(self):
+        self.engine = sa.create_engine(CONNECTION)
+        self.md = sa.MetaData(bind=self.engine)
+        self.fact = create_table(self.engine, self.md, BASE_FACT)
+
+        mappings = {
+            "date":           Column(None, "test", "date", None, None),
+            "amount":         Column(None, "test", "category", None, None),
+            "category":       Column(None, "test", "amount", None, None),
+        }
+        self.deps = {
+            "date": None,
+            "amount": None,
+            "category": None,
+        }
+
+        self.schema = StarSchema("star", self.md, mappings, self.fact)
+        self.base_attributes = list(mappings.keys())
+        self.base_deps = {attr:[] for attr in self.base_attributes}
+
+
+    def test_basic(self):
+        context = QueryContext(self.schema, self.base_attributes,
+                               self.base_deps)
 
 if __name__ == "__main__":
     unittest.main()

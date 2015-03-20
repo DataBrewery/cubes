@@ -1,4 +1,9 @@
 # -*- coding=utf -*-
+"""SQL Expression compiler"""
+
+# The compiler is meant to be maintained in a similar way as the star schema
+# generator is – is to remain as much Cubes-independent as possible, just be a
+# low level module somewhere between SQLAlchemy and Cubes.
 
 import sqlalchemy.sql as sql
 
@@ -8,7 +13,7 @@ from collections import OrderedDict
 from ..errors import ExpressionError
 
 __all__ = [
-    "SQLQueryContext",
+    "SQLExpressionContext",
     "SQLExpressionCompiler",
 ]
 
@@ -50,66 +55,6 @@ SQL_ALL_FUNCTIONS = SQL_FUNCTIONS + SQL_AGGREGATE_FUNCTIONS;
 SQL_VARIABLES = [
     "current_date", "current_time", "local_date", "local_time"
 ]
-
-
-class SQLQueryContext(object):
-    """Context used for building a list of all columns to be used within a
-    single SQL query."""
-
-    def __init__(self, bases, for_aggregate=False,
-                 parameters=None, label=None):
-        """Creates a SQL expression compiler context.
-
-        * `bases` is a dictionary of base columns or column expressions
-        * `for_aggregate` is a flag where `True` means that the expression is
-          expected to be an aggregate expression
-        * `label` is just informative context label to be used for debugging
-          purposes or in an exception. Can be a cube name or a dimension
-          name.
-        """
-
-        self.bases = bases
-        self.for_aggregate = for_aggregate
-
-        self.parameters = parameters or {}
-
-        self.label = label
-
-        # Columns after compilation
-        self.columns = {}
-
-    def resolve(self, variable):
-        """Resolve `variable` – return either a column, variable from a
-        dictionary or a SQL constant (in that order)."""
-
-        if variable in self.columns:
-            return self.columns[variable]
-        elif variable in self.bases:
-            # Get the raw column
-            result = self.bases[variable]
-
-        elif variable in self.parameters:
-            result = self.parameters[variable]
-
-        elif variable in SQL_VARIABLES:
-            result = getattr(sql.func, variable)()
-
-        else:
-            label = " in {}".format(self.label) if self.label else ""
-            raise ExpressionError("Unknown expression variable '{}'{}"
-                                  .format(variable, label))
-
-        return result
-
-    def function(self, name):
-        """Return a SQL function"""
-        if name not in SQL_FUNCTIONS:
-            raise ExpressionError("Unknown function '{}'"
-                                  .format(name))
-        return getattr(sql.func, name)
-
-    def add_column(self, name, column):
-        self.columns[name] = column
 
 
 class SQLExpressionCompiler(Compiler):

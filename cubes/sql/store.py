@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-from .browser import SnowflakeBrowser
+from .browser import SQLBrowser
 from .mapper import SnowflakeMapper, distill_naming
 from ..logging import get_logger
 from ..common import coalesce_options
@@ -294,7 +294,7 @@ class SQLStore(Store):
 
         # TODO: we actually don't need browser, we are just reusing its
         # __init__ for other objects. This should be recreated here.
-        browser = SnowflakeBrowser(cube, self, schema=schema)
+        browser = SQLBrowser(cube, self, schema=schema)
         builder = QueryBuilder(browser)
 
         key_attributes = []
@@ -342,7 +342,7 @@ class SQLStore(Store):
             insp.reflecttable(table, None)
 
             for attribute in key_attributes:
-                label = attribute.ref()
+                label = attribute.ref
                 self.logger.info("creating index for %s" % label)
                 column = table.c[label]
                 name = "idx_%s_%s" % (view_name, label)
