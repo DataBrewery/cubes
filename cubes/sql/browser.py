@@ -3,17 +3,20 @@
 
 from __future__ import absolute_import
 
-from ..browser import AggregationBrowser, AggregationResult, Drilldown
-from ..browser import PointCut, RangeCut, SetCut
-from ..logging import get_logger
 from ..statutils import calculators_for_aggregates, available_calculators
+from ..browser import AggregationBrowser, AggregationResult, Drilldown
+from ..cells import Cell, PointCut, RangeCut, SetCut
+from ..logging import get_logger
 from ..errors import ArgumentError, ModelError
 from ..stores import Store
-from .mapper import SnowflakeMapper, DenormalizedMapper
+
 from .functions import get_aggregate_function, available_aggregate_functions
-from ..model import base_attributes
-from .schema import StarSchema, to_join, FACT_KEY_LABEL
+from .mapper import SnowflakeMapper, DenormalizedMapper
+from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
+
+from ..expressions import collect_dependencies
+from .expressions import SQLExpressionCompiler
 
 import collections
 
@@ -28,7 +31,6 @@ except ImportError:
 
 __all__ = [
     "SQLBrowser",
-    "SnowflakeBrowser",
 ]
 
 
@@ -51,9 +53,6 @@ def star_schema_from_cube(cube, metadata, mapper, tables=None):
                      )
     return star
 
-def get_natural_order(attributes):
-    """Return natural order dictionary for `attributes`"""
-    return {str(attr): attr.order for attr in attributes}
 
 class SQLBrowser(AggregationBrowser):
     """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
@@ -141,14 +140,14 @@ class SQLBrowser(AggregationBrowser):
         # -------
 
         # Merge options with store options
-        # TODO this should be done in the store
         options = {}
         options.update(store.options)
         options.update(kwargs)
 
-        # TODO: REFACTORING: make sure these options are used
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
+
+        # TODO: Use safe labels
         self.safe_labels = options.get("safe_labels", False)
         self.label_counter = 1
 
@@ -181,8 +180,8 @@ class SQLBrowser(AggregationBrowser):
 
         # TODO: This should include also aggregates if the underlying table is
         # already pre-aggregated
-        base = base_attributes(cube.all_attributes)
-        mappings = {attr.ref():mapper.physical(attr) for attr in base}
+        base = [attr for attr in cube.all_attributes if attr.is_base]
+        mappings = {attr.ref:mapper.physical(attr) for attr in base}
 
         # TODO: include table expressions
         # TODO: I have a feeling that creation of this should belong to the
@@ -202,15 +201,31 @@ class SQLBrowser(AggregationBrowser):
                                schema=mapper.schema,
                                tables=tables)
 
-        # Create a dictionary attribute -> column to be used in aggregate
-        # functions
-        # TODO: add __fact_key__
-        self.base_columns = {attr.ref():self.star.column(attr.ref())
-                             for attr in base}
-
+        # Attribute Dependencies
+        # ----------------------
+        #
         # Create attribute dependency map
-        all_attributes = cube.all_attributes() + cube.aggregates
+        #
+        all_attributes = cube.all_attributes + cube.aggregates
         self.dependencies = collect_dependencies(all_attributes)
+
+        # Extract hierarchies
+        # -------------------
+        #
+        # This is transition to the future top-level hierarchy objetcs. Also
+        # used in the query context which is cubes-objects free
+        #
+        self.hierarchies = {}
+        for dim in cube.dimensions:
+            for hier in dim.hierarchies:
+                key = (dim.name, hier.name)
+                levels = [key.ref for key in hier.keys()]
+                #levels = [dim.attribute(key) for key in hier.keys()]
+
+                self.hierarchies[key] = levels
+
+                if dim.default_hierarchy_name == hier:
+                    self.hierarchies[(dim.name, None)] = levels
 
     def features(self):
         """Return SQL features. Currently they are all the same for every
@@ -225,7 +240,6 @@ class SQLBrowser(AggregationBrowser):
 
         return features
 
-    # TODO: requires rewrite
     def fact(self, key_value, fields=None):
         """Get a single fact with key `key_value` from cube.
 
@@ -251,7 +265,6 @@ class SQLBrowser(AggregationBrowser):
 
         return record
 
-    # TODO: Safe labels
     def facts(self, cell=None, fields=None, order=None, page=None,
               page_size=None):
         """Return all facts from `cell`, might be ordered and paginated.
@@ -262,12 +275,13 @@ class SQLBrowser(AggregationBrowser):
 
         statement = self.denormalized_statement(cell=cell, attributes=fields)
         statement = paginate_query(statement, page, page_size)
-        # TODO: should we use some kind of natural order here?
+        # TODO: use natural order
         statement = order_query(statement,
                                 order,
+                                natural_order={},
                                 labels=None)
 
-        cursor = self.execute(builder.statement, "facts")
+        cursor = self.execute(statement, "facts")
 
         # TODO: safe labels
         return ResultIterator(cursor, cursor.keys())
@@ -510,29 +524,46 @@ class SQLBrowser(AggregationBrowser):
 
         return result
 
-    def denormalized_statement(self, cell=None, attributes=None,
+    def _create_context(self, attributes, cell, drilldown=None):
+        attributes = attributes or []
+        cell_attributes = cell.key_attributes or []
+
+        all_attributes = attributes + cell_attributes
+
+        if drilldown:
+            all_attributes += drilldown.all_attributes
+
+        return QueryContext(self.star,
+                            attributes=[str(attr) for attr in all_attributes],
+                            dependencies=self.dependencies,
+                            hierarchies=self.hierarchies,
+                            parameters=None,     # not yet
+                            label="cube {}".format(self.cube.name))
+
+    def denormalized_statement(self, attributes=None, cell=None,
                                include_fact_key=False):
         """Returns a statement representing denormalized star restricted by
         `cell`. If `attributes` is not specified, then all cube's attributes
         are selected."""
 
         attributes = attributes or self.cube.all_attributes
-        base = base_attributes(attributes)
-        star = self.star.star(base)
+        context = self._create_context(attributes, cell)
 
-        # TODO: label the fact key with __id__ or __fact_key__ (not decided)
         if include_fact_key:
             selection = [self.star.fact_key_column]
         else:
             selection = []
 
-        selection += [self.attribute_column(attr) for attr in attributes]
+        if attributes:
+            names = [attr.ref for attr in attributes]
+            selection += context.columns(names)
 
         if cell:
-            cell_condition = self.condition_for_cell(cell)
+            cell_condition = context.condition_for_cell(cell)
         else:
             cell_condition = None
 
+        star = context.star.get_star(attributes)
         statement = sql.expression.select(selection,
                                           from_obj=star,
                                           whereclause=cell_condition)
@@ -588,8 +619,8 @@ class SQLBrowser(AggregationBrowser):
         # JOIN
         # ----
 
-        base = [attr.ref() for attr in base_attributes(all_attributes)]
-        star = self.star.star(base)
+        base = [attr.ref for attr in all_attributes if attr.is_base]
+        star = self.star.get_star(base)
 
         # Drilldown – Group-by
         # --------------------
@@ -629,50 +660,6 @@ class SQLBrowser(AggregationBrowser):
 
         return statement
 
-    def to_columns(self, attributes, for_aggregate=False):
-        """Return a list of column expressions for `attributes`. The
-        expressions are compiled at the time of call of this method.
-
-        Warning: don't cache the colums between requests if you are not sure
-        whether some of the expressions might refer to variable parameters or
-        not."""
-
-        # depsorted contains attribute names in order of dependencies starting
-        # with base attributes (those that don't depend on anything, directly
-        # represented by columns) and ending with derived attributes
-        depsorted = depsort_attributes(attributes, self.dependencies)
-        # TODO: have this
-        by_name = {attr.ref:attr for attr in attributes}
-
-        context = SQLExpressionContext(self.cube, self.star.column,
-                                       for_aggregate=for_aggregate)
-
-        columns = []
-        for name in depsorted:
-            attr = by_name[name]
-            column = self.to_column(attr, context)
-            self.columns.append(column)
-
-        return columns
-
-    def to_column(self, attribute, context=None):
-        """Return a column expression for a measure, dimension attribute or
-        other detail attribute object `attribute`. `context` is epxression
-        context of already compiled columns that the `attribute` might refer
-        to in its expression."""
-
-        if not attribute.expression:
-            # We assume attribute to be a base attribute
-            return self.star.column(attribute.ref())
-
-        if not context:
-            context = SQLExpressionContext(self.cube, self.star.column)
-
-        compiler = SQLExpressionCompiler()
-        column = compiler.compile(attribute.expression, context)
-
-        return column
-
     def aggregate_column(self, aggregate, coalesce_measure=False):
         """Returns an expression that performs the aggregation of attribute
         `aggregate`. The result's label is the aggregate's name.  `aggregate`
@@ -711,151 +698,6 @@ class SQLBrowser(AggregationBrowser):
 
         return expression
 
-    def condition_for_cell(self, cell):
-        """Returns a condition for cell `cell`."""
-
-        if not cell:
-            return None
-
-        condition = and_(*self.conditions_for_cuts(cell.cuts))
-        return condition
-
-    def conditions_for_cuts(self, cuts):
-        """Constructs conditions for all cuts in the `cell`. Returns a list of
-        SQL conditional expressions.
-        """
-
-        conditions = []
-
-        for cut in cuts:
-            dim = self.cube.dimension(cut.dimension)
-
-            if isinstance(cut, PointCut):
-                path = cut.path
-                condition = self.condition_for_point(dim, path, cut.hierarchy,
-                                                     cut.invert)
-
-            elif isinstance(cut, SetCut):
-                set_conds = []
-
-                for path in cut.paths:
-                    condition = self.condition_for_point(dim, path,
-                                                         cut.hierarchy,
-                                                         invert=False)
-                    set_conds.append(condition)
-
-                condition = sql.expression.or_(*set_conds)
-
-                if cut.invert:
-                    condition = sql.expression.not_(condition)
-
-            elif isinstance(cut, RangeCut):
-                condition = self.range_condition(cut.dimension,
-                                                 cut.hierarchy,
-                                                 cut.from_path,
-                                                 cut.to_path, cut.invert)
-
-            else:
-                raise ArgumentError("Unknown cut type %s" % type(cut))
-
-            conditions.append(condition)
-
-        return conditions
-
-    def condition_for_point(self, dim, path, hierarchy=None, invert=False):
-        """Returns a `Condition` tuple (`attributes`, `conditions`,
-        `group_by`) dimension `dim` point at `path`. It is a compound
-        condition - one equality condition for each path element in form:
-        ``level[i].key = path[i]``"""
-
-        conditions = []
-
-        levels = dim.hierarchy(hierarchy).levels_for_path(path)
-
-        if len(path) > len(levels):
-            raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
-                                "in dimension %s" % (len(path), path, len(levels), dim.name))
-
-        for level, value in zip(levels, path):
-
-            # Prepare condition: dimension.level_key = path_value
-            column = self.attribute_column(level.key)
-            conditions.append(column == value)
-
-        condition = sql.expression.and_(*conditions)
-
-        if invert:
-            condition = sql.expression.not_(condition)
-
-        return condition
-
-    def range_condition(self, dim, hierarchy, from_path, to_path, invert=False):
-        """Return a condition for a hierarchical range (`from_path`,
-        `to_path`). Return value is a `Condition` tuple."""
-
-        dim = self.cube.dimension(dim)
-
-        lower = self._boundary_condition(dim, hierarchy, from_path, 0)
-        upper = self._boundary_condition(dim, hierarchy, to_path, 1)
-
-        conditions = []
-        if lower is not None:
-            conditions.append(lower)
-        if upper is not None:
-            conditions.append(upper)
-
-        condition = sql.expression.and_(*conditions)
-
-        if invert:
-            condition = sql.expression.not_(condition)
-
-        return condition
-
-    def _boundary_condition(self, dim, hierarchy, path, bound, first=True):
-        """Return a `Condition` tuple for a boundary condition. If `bound` is
-        1 then path is considered to be upper bound (operators < and <= are
-        used), otherwise path is considered as lower bound (operators > and >=
-        are used )"""
-
-        if not path:
-            return None
-
-        last = self._boundary_condition(dim, hierarchy,
-                                        path[:-1],
-                                        bound,
-                                        first=False)
-
-        levels = dim.hierarchy(hierarchy).levels_for_path(path)
-
-        if len(path) > len(levels):
-            raise ArgumentError("Path has more items (%d: %s) than there are levels (%d) "
-                                "in dimension %s" % (len(path), path, len(levels), dim.name))
-
-        conditions = []
-
-        for level, value in zip(levels[:-1], path[:-1]):
-            column = self.attribute_column(level.key)
-            conditions.append(column == value)
-
-        # Select required operator according to bound
-        # 0 - lower bound
-        # 1 - upper bound
-        if bound == 1:
-            # 1 - upper bound (that is <= and < operator)
-            operator = sql.operators.le if first else sql.operators.lt
-        else:
-            # else - lower bound (that is >= and > operator)
-            operator = sql.operators.ge if first else sql.operators.gt
-
-        column = self.attribute_column(levels[-1].key)
-        conditions.append(operator(column, path[-1]))
-        condition = sql.expression.and_(*conditions)
-
-        if last is not None:
-            condition = sql.expression.or_(condition, last)
-
-        return condition
-
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s\n" % (label, str(statement)))
@@ -872,9 +714,6 @@ class SQLBrowser(AggregationBrowser):
         else:
             return dict(zip(labels, row))
 
-# TODO: depreciate in the future for generalized SQL browser
-class SnowflakeBrowser(SQLBrowser):
-    pass
 
 class ResultIterator(object):
     """
