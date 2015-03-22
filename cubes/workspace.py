@@ -11,7 +11,7 @@ from .logging import get_logger
 from .calendar import Calendar
 from .extensions import extensions
 from .namespace import Namespace
-from .providers import link_cube, find_dimension
+from .providers import find_dimension
 from .localization import LocalizationContext
 import os.path
 from .compat import ConfigParser

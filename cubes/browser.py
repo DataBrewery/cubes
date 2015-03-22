@@ -225,7 +225,7 @@ class AggregationBrowser(Extensible):
                 seen.add(agg.measure)
 
                 try:
-                    aggregate = self.cube.measure_aggregate(agg.measure)
+                    aggregate = self.cube.aggregate(agg.measure)
                 except NoSuchAttributeError as e:
                     raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
                                             "'%s' for '%s'" % (self.cube.name,
@@ -254,7 +254,7 @@ class AggregationBrowser(Extensible):
             if is_aggregate:
                 function = None
                 try:
-                    attribute = self.cube.measure_aggregate(name)
+                    attribute = self.cube.aggregate(name)
                     function = attribute.function
                 except NoSuchAttributeError:
                     attribute = self.cube.attribute(name)
@@ -265,7 +265,7 @@ class AggregationBrowser(Extensible):
 
                     try:
                         name = str(attribute.measure)
-                        measure = self.cube.measure_aggregate(name)
+                        measure = self.cube.aggregate(name)
                     except NoSuchAttributeError:
                         measure = self.cube.measure(name)
 
