@@ -3,14 +3,17 @@
 from __future__ import absolute_import
 
 import re
+
 from collections import namedtuple
 
-from .errors import *
-from .model import Dimension, Cube
-from .common import IgnoringDictionary
-from .logging import get_logger
 from .extensions import Extensible
 from .calendar import CalendarMemberConverter
+from .logging import get_logger
+from .common import IgnoringDictionary
+from .errors import *
+from .cells import Cell
+from .model import Dimension, Cube
+
 from . import compat
 
 
