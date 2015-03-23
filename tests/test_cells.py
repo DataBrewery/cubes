@@ -1,7 +1,10 @@
 import unittest
 
-from cubes.browser import *
-from cubes.errors import *
+from cubes.cells import Cell, PointCut, SetCut, RangeCut
+from cubes.cells import string_from_path, cut_from_string, path_from_string
+from cubes.cells import cut_from_dict
+from cubes.errors import CubesError, ArgumentError
+from cubes.errors import HierarchyError, NoSuchDimensionError
 
 from .common import CubesTestCaseBase
 
@@ -162,10 +165,6 @@ class BrowserTestCase(CubesTestCaseBase):
 
 
 class AggregationBrowserTestCase(BrowserTestCase):
-    def setUp(self):
-        super(AggregationBrowserTestCase, self).setUp()
-        self.browser = AggregationBrowser(self.cube)
-
     def test_cutting(self):
         full_cube = Cell(self.cube)
         self.assertEqual(self.cube, full_cube.cube)
