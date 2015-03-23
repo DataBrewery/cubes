@@ -533,6 +533,28 @@ class Cube(ModelObject):
 
         return result
 
+    def collect_dependencies(self, attributes):
+        """Collect all original and dependant cube attributes for
+        `attributes`, sorted by their dependency: starting with attributes
+        that don't depend on anything. For exapmle, if the `attributes` is [a,
+        b] and a = c * 2, then the result list would be [b, c, a] or [c, b,
+        a].
+
+        This method is supposed to be used by backends that can handle
+        attribute expressions.  It is safe to generate a mapping between
+        logical references and their physical object representations from
+        expressions in the order of items in the returned list.
+        """
+
+        everything = self.all_attributes + self.aggregates
+        dependencies = {attr.ref:attr.dependencies for attr in everything}
+        # depsorted contains attribute names in order of dependencies starting
+        # with base attributes (those that don't depend on anything, directly
+        # represented by columns) and ending with derived attributes
+        depsorted = depsort_attributes([attr.ref for attr in attributes],
+                                        dependencies)
+
+        return self.get_attributes(depsorted)
 
     def link_dimension(self, dimension):
         """Links `dimension` object or a clone of it to the cube according to
@@ -588,6 +610,29 @@ class Cube(ModelObject):
         except KeyError:
             raise NoSuchDimensionError("cube '{}' has no dimension '{}'"
                                        .format(self.name, name))
+
+    @property
+    def distilled_hierarchies(self):
+        """Returns a dictionary of hierarchies. Keys are hierarchy references
+        and values are hierarchy level key attribute references.
+
+        .. warn::
+
+            This method might change in the future. Consider experimental."""
+
+        hierarchies = {}
+        for dim in self.dimensions:
+            for hier in dim.hierarchies:
+                key = (dim.name, hier.name)
+                levels = [key.ref for key in hier.keys()]
+                #levels = [dim.attribute(key) for key in hier.keys()]
+
+                hierarchies[key] = levels
+
+                if dim.default_hierarchy_name == hier:
+                    hierarchies[(dim.name, None)] = levels
+
+        return hierarchies
 
     def nonadditive_type(self, aggregate):
         """Returns non-additive type of `aggregate`'s measure. If aggregate
