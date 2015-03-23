@@ -8,12 +8,14 @@
 import sqlalchemy.sql as sql
 
 from expressions import Compiler
+from .functions import get_aggregate_function
 
 from ..errors import ExpressionError, InternalError
 
 
 __all__ = [
     "SQLExpressionContext",
+    "compile_attributes",
     "SQLExpressionCompiler",
 ]
 
@@ -72,25 +74,16 @@ class SQLExpressionContext(object):
           name.
         """
 
-        self._columns = columns or {}
+        if columns:
+            self._columns = dict(columns)
+        else:
+            self._columns = {}
         self.parameters = parameters or {}
         self.label = label
 
-    def columns(self, attributes):
-        """Get columns for `attributes`"""
-        return [self._columns[attr] for attr in attributes]
-
-    def column(self, ref):
-        """Get a column expression for attribute with reference `ref`"""
-        try:
-            return self._columns[ref]
-        except KeyError as e:
-            # This should not happen under normal circumstances. If this
-            # exception is raised, it very likely means that the owner of the
-            # query contexts forgot to do something.
-            raise InternalError("Missing column '{}'. Query context not "
-                                "properly initialized or dependencies were "
-                                "not correctly ordered?".format(ref))
+    @property
+    def columns(self):
+        return self._columns
 
     def resolve(self, variable):
         """Resolve `variable` – return either a column, variable from a
@@ -107,10 +100,13 @@ class SQLExpressionContext(object):
 
         else:
             label = " in {}".format(self.label) if self.label else ""
-            raise ExpressionError("Unknown expression variable '{}'{}"
-                                  .format(variable, label))
+            raise ExpressionError("Unknown attribute, variable or parameter "
+                                  "'{}'{}" .format(variable, label))
 
         return result
+
+    def __getitem__(self, item):
+        return self.resolve(item)
 
     def function(self, name):
         """Return a SQL function"""
@@ -121,6 +117,35 @@ class SQLExpressionContext(object):
 
     def add_column(self, name, column):
         self._columns[name] = column
+
+
+def compile_attributes(bases, dependants, parameters, coalesce=None,
+                       label=None):
+    """Compile dependant attributes in `dependants`. `bases` is a dictionary
+    of base attributes and their column expressions."""
+
+    context = SQLExpressionContext(bases, parameters, label=label)
+    compiler = SQLExpressionCompiler()
+
+    for attr in dependants:
+        if attr.function:
+            # Assumption: only aggregates have function, no measures or other
+            # attributes (important!)
+            #
+            # Aggregation function names are case in-sensitive.
+            #
+            # If `coalesce_measure` is `True` then selected measure column is
+            # wrapped in ``COALESCE(column, 0)``.
+
+            function_name = attr.function.lower()
+            function = get_aggregate_function(function_name)
+            column = function(attr, context, coalesce)
+        else:
+            column = compiler.compile(attr.expression, context)
+
+        context.add_column(attr.ref, column)
+
+    return context.columns
 
 
 class SQLExpressionCompiler(Compiler):

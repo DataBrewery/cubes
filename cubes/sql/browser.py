@@ -5,18 +5,16 @@ from __future__ import absolute_import
 
 from ..statutils import calculators_for_aggregates, available_calculators
 from ..browser import AggregationBrowser, AggregationResult, Drilldown
-from ..cells import Cell, PointCut, RangeCut, SetCut
 from ..logging import get_logger
 from ..errors import ArgumentError, ModelError
 from ..stores import Store
+from ..cells import Cell, PointCut, RangeCut, SetCut
+from ..model import collect_attributes
 
-from .functions import get_aggregate_function, available_aggregate_functions
+from .functions import available_aggregate_functions
 from .mapper import SnowflakeMapper, DenormalizedMapper
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
-
-from ..expressions import collect_dependencies
-from .expressions import SQLExpressionCompiler
 
 import collections
 
@@ -201,31 +199,10 @@ class SQLBrowser(AggregationBrowser):
                                schema=mapper.schema,
                                tables=tables)
 
-        # Attribute Dependencies
-        # ----------------------
-        #
-        # Create attribute dependency map
-        #
-        all_attributes = cube.all_attributes + cube.aggregates
-        self.dependencies = collect_dependencies(all_attributes)
-
         # Extract hierarchies
         # -------------------
         #
-        # This is transition to the future top-level hierarchy objetcs. Also
-        # used in the query context which is cubes-objects free
-        #
-        self.hierarchies = {}
-        for dim in cube.dimensions:
-            for hier in dim.hierarchies:
-                key = (dim.name, hier.name)
-                levels = [key.ref for key in hier.keys()]
-                #levels = [dim.attribute(key) for key in hier.keys()]
-
-                self.hierarchies[key] = levels
-
-                if dim.default_hierarchy_name == hier:
-                    self.hierarchies[(dim.name, None)] = levels
+        self.hierarchies = self.cube.distilled_hierarchies
 
     def features(self):
         """Return SQL features. Currently they are all the same for every
@@ -524,21 +501,15 @@ class SQLBrowser(AggregationBrowser):
 
         return result
 
-    def _create_context(self, attributes, cell, drilldown=None):
-        attributes = attributes or []
-        cell_attributes = cell.key_attributes or []
+    def _create_context(self, attributes):
+        """Create a query context for `attributes`. The `attributes` should
+        contain all attributes that will be somehow involved in the query."""
 
-        all_attributes = attributes + cell_attributes
-
-        if drilldown:
-            all_attributes += drilldown.all_attributes
-
+        collected = self.cube.collect_dependencies(attributes)
         return QueryContext(self.star,
-                            attributes=[str(attr) for attr in all_attributes],
-                            dependencies=self.dependencies,
+                            attributes=collected,
                             hierarchies=self.hierarchies,
-                            parameters=None,     # not yet
-                            label="cube {}".format(self.cube.name))
+                            parameters=None)
 
     def denormalized_statement(self, attributes=None, cell=None,
                                include_fact_key=False):
@@ -547,29 +518,32 @@ class SQLBrowser(AggregationBrowser):
         are selected."""
 
         attributes = attributes or self.cube.all_attributes
-        context = self._create_context(attributes, cell)
+
+        refs = [attr.ref for attr in collect_attributes(attributes, cell)]
+        attributes = self.cube.get_attributes(refs)
+        context = self._create_context(attributes)
 
         if include_fact_key:
             selection = [self.star.fact_key_column]
         else:
             selection = []
 
-        if attributes:
-            names = [attr.ref for attr in attributes]
-            selection += context.columns(names)
+        names = [attr.ref for attr in attributes]
+        selection += context.get_columns(names)
 
-        if cell:
-            cell_condition = context.condition_for_cell(cell)
-        else:
-            cell_condition = None
+        cell_condition = context.condition_for_cell(cell)
 
-        star = context.star.get_star(attributes)
         statement = sql.expression.select(selection,
-                                          from_obj=star,
+                                          from_obj=context.star,
                                           whereclause=cell_condition)
 
         return statement
 
+    # Aggregate
+    # =========
+    #
+    # This is the reason of our whole existence.
+    #
     def aggregation_statement(self, cell, aggregates, drilldown=None,
                               split=None, for_summary=False, across=None):
         """Builds a statement to aggregate the `cell`.
@@ -586,41 +560,31 @@ class SQLBrowser(AggregationBrowser):
         # TODO: PTD
         # TODO: semiadditive
 
+        # Basic assertions
+
         if across:
             raise NotImplementedError("Drill-across is not yet implemented")
 
         if not aggregates:
             raise ArgumentError("List of aggregates sohuld not be empty")
 
-        drilldown = drilldown or Drilldown()
+        if not isinstance(drilldown, Drilldown):
+            raise InternalError("Drilldown should be a Drilldown object. "
+                                "Is '{}'".format(type(drilldown)))
+
+        # 1. Gather attributes
+        #
 
         self.logger.debug("prepare aggregation statement. cell: '%s' "
                           "drilldown: '%s' for summary: %s" %
                           (",".join([str(cut) for cut in cell.cuts]),
                           drilldown, for_summary))
 
-        select_attributes = drilldown.all_attributes
-
-        # Gather all attributes involved in the aggregation.
-        all_attributes = cell.key_attributes
-        all_attributes += select_attributes
-
-        # Now we need to determine all base attributes. Some of the attributes
-        # might be derived through an expression and the expression might
-        # contain attributes not present in the original list. Therefore we
-        # need to provide list of all potential attributes to be used,
-        # constants and variables ("parameters").
-
-        # XXX
-
-        if split:
-            all_attributes += split.all_attributes
-
-        # JOIN
-        # ----
-
-        base = [attr.ref for attr in all_attributes if attr.is_base]
-        star = self.star.get_star(base)
+        # TODO: it is verylikely that the _create_context is not getting all
+        # attributes, for example those that aggregate depends on
+        refs = collect_attributes(aggregates, cell, drilldown, split)
+        attributes = self.cube.get_attributes(refs, aggregated=True)
+        context = self._create_context(attributes)
 
         # Drilldown – Group-by
         # --------------------
@@ -628,22 +592,24 @@ class SQLBrowser(AggregationBrowser):
         # SELECT – Prepare the master selection
         #     * master drilldown items
 
-        selection = [self.attribute_column(a) for a in set(drilldown.all_attributes)]
+        selection = context.get_columns([attr.ref for attr in
+                                                drilldown.all_attributes])
 
         # SPLIT
         # -----
         if split:
-            split_column = self._split_cell_column(split)
-            selection.append(split_column)
+            selection.append(context.column_for_split(split))
 
         # WHERE
         # -----
-        condition = self.condition_for_cell(cell)
+        condition = context.condition_for_cell(cell)
 
         group_by = selection[:] if not for_summary else None
 
         # TODO: insert semiadditives here
-        aggregate_cols = [self.aggregate_column(aggr) for aggr in aggregates]
+        # TODO: coalesce if there are outer joins
+        # TODO: ignore post-aggregations
+        aggregate_cols = context.get_columns([agg.ref for agg in aggregates])
 
         if for_summary:
             # Don't include the group-by part (see issue #157 for more
@@ -653,50 +619,12 @@ class SQLBrowser(AggregationBrowser):
             selection += aggregate_cols
 
         statement = sql.expression.select(selection,
-                                          from_obj=star,
+                                          from_obj=context.star,
                                           use_labels=True,
                                           whereclause=condition,
                                           group_by=group_by)
 
         return statement
-
-    def aggregate_column(self, aggregate, coalesce_measure=False):
-        """Returns an expression that performs the aggregation of attribute
-        `aggregate`. The result's label is the aggregate's name.  `aggregate`
-        has to be `MeasureAggregate` instance.
-
-        If aggregate function is post-aggregation calculation, then `None` is
-        returned.
-
-        Aggregation function names are case in-sensitive.
-
-        If `coalesce_measure` is `True` then selected measure column is wrapped
-        in ``COALESCE(column, 0)``.
-        """
-        # TODO: support aggregate.expression
-
-        if not (aggregate.expression or aggregate.function):
-            raise ModelError("Neither expression nor function specified for "
-                             "aggregate {} in cube {}"
-                             .format(aggregate, self.cube.name))
-
-        if aggregate.expression:
-            raise NotImplementedError("Expressions are not yet implemented")
-
-        function_name = aggregate.function.lower()
-        function = get_aggregate_function(function_name)
-
-        if not function:
-            raise NotImplementedError("I don't know what to do")
-            # Original statement:
-            return None
-
-        # TODO: this below for FactCountFucntion
-        # context = dict(self.base_columns)
-        # context["__fact_key__"] = self.attribute_column(self.fact_key)
-        expression = function(aggregate, self.base_columns, coalesce_measure)
-
-        return expression
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"

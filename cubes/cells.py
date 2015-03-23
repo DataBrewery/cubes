@@ -73,7 +73,7 @@ class Cell(object):
             if depth:
                 dim = self.cube.dimension(cut.dimension)
                 hier = dim.hierarchy(cut.hierarchy)
-                keys = [dim.attribute(level.key) for level in hier[0:depth]]
+                keys = [dim.attribute(level.key.name) for level in hier[0:depth]]
                 attributes |= set(keys)
 
         return list(attributes)

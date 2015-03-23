@@ -24,11 +24,14 @@ import sqlalchemy.sql as sql
 from sqlalchemy.sql.expression import and_
 
 from collections import namedtuple
-from ..expressions import depsort_attributes
+from ..model import depsort_attributes, object_dict
 from ..errors import InternalError, ModelError, ArgumentError
 from .. import compat
+from ..browser import SPLIT_DIMENSION_NAME
+from ..cells import PointCut, SetCut, RangeCut
 
-from .expressions import SQLExpressionCompiler, SQLExpressionContext
+from .expressions import compile_attributes
+
 
 # Default label for all fact keys
 FACT_KEY_LABEL = '__fact_key__'
@@ -237,7 +240,7 @@ def _format_key(key):
 class StarSchema(object):
     """Represents a star/snowflake table schema. Attributes:
 
-    * `name` – user specific name of the star schema, used for the schema
+    * `label` – user specific label for the star schema, used for the schema
       identification, debug purposes and logging. Has no effect on the
       execution or statement composition.
     * `metadata` is a SQLAlchemy metadata object where the snowflake tables
@@ -284,7 +287,7 @@ class StarSchema(object):
     caller to resolve these and ask for basic columns only.
     """
 
-    def __init__(self, name, metadata, mappings, fact, fact_key='id',
+    def __init__(self, label, metadata, mappings, fact, fact_key='id',
                  joins=None, tables=None, schema=None):
 
         # TODO: expectation is, that the snowlfake is already localized, the
@@ -294,9 +297,9 @@ class StarSchema(object):
         if fact is None:
             raise ArgumentError("Fact table or table name not specified "
                                 "for star/snowflake schema {}"
-                                .format(name))
+                                .format(label))
 
-        self.name = name
+        self.label = label
         self.metadata = metadata
         self.mappings = mappings or {}
         self.joins = joins or []
@@ -377,7 +380,7 @@ class StarSchema(object):
             if not join.detail.table:
                 raise ModelError("No detail table specified for a join in "
                                  "schema '{}'. Master of the join is '{}'"
-                                 .format(self.name,
+                                 .format(self.label,
                                          _format_key(self._master_key(join))))
 
             table = self.physical_table(join.detail.table,
@@ -394,7 +397,7 @@ class StarSchema(object):
             if key in details:
                 raise ModelError("Detail table '{}' joined twice in star"
                                  " schema {}. Join alias is required."
-                                 .format(_format_key(key), self.name))
+                                 .format(_format_key(key), self.label))
             details.add(key)
 
             ref = _TableRef(table=table,
@@ -496,6 +499,7 @@ class StarSchema(object):
             if logical == FACT_KEY_LABEL:
                 return self.fact_key_column
             else:
+                import pdb; pdb.set_trace()
                 raise NoSuchAttributeError(logical)
 
         key = (mapping.schema or self.schema, mapping.table or self.fact_name)
@@ -691,7 +695,7 @@ class StarSchema(object):
             except KeyError:
                 raise ModelError('Unable to find detail key (in star {schema}) '
                                  '"{table}"."{column}" '
-                                 .format(schema=self.name,
+                                 .format(schema=self.label,
                                          column=join.detail.column,
                                          table=_format_key(detail_key)))
 
@@ -733,78 +737,85 @@ class StarSchema(object):
         return star
 
 
-#
-# Note: the QueryContext class is intentionally free of Cubes model objects.
-# It might be appropriate to have `attributes` an actual Attribute instances,
-# however that would require that:
-# 
-# * dependencies are also included in attributes - will require some
-#   integration of compiler in the model, which we don't want
-# * be sure that attributes are always attribute objects, not just strings
-# 
-# The QueryContext might be a bit tedious to prepare, however it is easier to
-# test and maintain this way. At least for the time being.
-#
-
-class QueryContext(SQLExpressionContext):
+class QueryContext(object):
     """Context for execution of a query with given set of attributes and
-    underlying star schema."""
+    underlying star schema. The context is used for providing columns for
+    attributes and generating conditions for cells. Context is reponsible for
+    proper compilation of attribute expressions.
 
-    def __init__(self, star_schema, attributes, dependencies=None,
-                 expressions=None, hierarchies=None, parameters=None,
-                 label=None):
+    Attributes:
+
+    * `star` – a SQL expression object representing joined star for base
+      attributes of the query. See :meth:`StarSchema.get_star` for more
+      information
+
+    """
+
+    def __init__(self, star_schema, attributes, hierarchies=None,
+                 parameters=None):
         """Creates a query context for `cube`.
 
-        * `attributes` – list of attribute references that are relevant to the
-          query
-        * `dependencies` – dictionary where keys are attribute references and
-           values are lists of other attributes that the key attribute depends
-           on. This dictionary requires to have empty lists for base
-           attributes. Attributes not present in the dependencies dictionary
-           are considered to be missing
-        * `expressions` is a dictionary of expressions for non-base attributes
+        * `attributes` – list of all attributes that are relevant to the
+           query. The attributes must be sorted by their dependency.
         * `hierarchies` is a dictionary of dimension hierarchies. Keys are
            tuples of names (`dimension`, `hierarchy`). The dictionary should
            contain default dimensions as (`dimension`, Null) tuples.
+
+        `attributes` are objects that have attributes: `ref` – attribute
+        reference, `is_base` – `True` when attribute does not depend on any
+        other attribute and can be directly mapped to a column, `expression` –
+        arithmetic expression, `function` – aggregate function (for
+        aggregates only).
 
         Note: in the future the `hierarchies` dictionary might change just to
         a hierarchy name (a string), since hierarchies and dimensions will be
         both top-level objects."""
 
-        super(QueryContext, self).__init__(parameters=parameters, label=label)
+        # Note on why attributes have to be sorted: We don'd have enough
+        # information here to get all the dependencies and we don't want this
+        # object to depend on the complex Cube model object, just attributes.
 
-        self.attributes = attributes
+        self.star_schema = star_schema
+
+        self.attributes = object_dict(attributes)
         self.hierarchies = hierarchies
 
-        self.dependencies = dependencies or {}
-        self.expressions = expressions or {}
-
-        # Collect column expressions for query context attributes. The
-        # expressions are compiled at the time of call of this method.
-
-        bases = [attr for attr in self.attributes
-                      if not self.dependencies.get(attr)]
-
-        self.star = star_schema
-
-        # Collect the columns
-        # -------------------
+        # Collect base attributes
         #
-        self._columns = {attr:self.star.column(attr) for attr in bases}
+        base_names = [attr.ref for attr in attributes if attr.is_base]
+        dependants = [attr for attr in attributes if not attr.is_base]
 
+        # This is "the star" to be used by the owners of the context to select
+        # from.
+        #
+        self.star = star_schema.get_star(base_names)
+        # TODO: determne from self.star
+        coalesce_measure = False
 
-        # depsorted contains attribute names in order of dependencies starting
-        # with base attributes (those that don't depend on anything, directly
-        # represented by columns) and ending with derived attributes
-        depsorted = depsort_attributes([attr for attr in attributes],
-                                        self.dependencies)
+        # Collect all the columns
+        #
+        bases = {attr:self.star_schema.column(attr) for attr in base_names}
+        bases[FACT_KEY_LABEL] = self.star_schema.fact_key_column
+        self._columns = compile_attributes(bases, dependants, parameters,
+                                           star_schema.label)
 
-        compiler = SQLExpressionCompiler()
-        for attr in depsorted:
-            if self.column(attr) is None:
-                expression = self.expressions[attr]
-                column = compiler.compile(expression, self)
-                self._columns[attr.ref] = column
+    def column(self, ref):
+        """Get a column expression for attribute with reference `ref`"""
+        try:
+            return self._columns[ref]
+        except KeyError as e:
+            # This should not happen under normal circumstances. If this
+            # exception is raised, it very likely means that the owner of the
+            # query contexts forgot to do something.
+            import pdb; pdb.set_trace()
+            raise InternalError("Missing column '{}'. Query context not "
+                                "properly initialized or dependencies were "
+                                "not correctly ordered?".format(ref))
+
+    def get_columns(self, refs):
+        """Get columns for attribute references `refs`.  """
+
+        return [self._columns[ref] for ref in refs]
 
     def condition_for_cell(self, cell):
         """Returns a condition for cell `cell`."""
@@ -867,12 +878,12 @@ class QueryContext(SQLExpressionContext):
 
         conditions = []
 
-        levels = self.levels(dim, hierarchy, path)
+        levels = self.level_keys(dim, hierarchy, path)
 
-        for level, value in zip(levels, path):
+        for level_key, value in zip(levels, path):
 
             # Prepare condition: dimension.level_key = path_value
-            column = self.column(level.key)
+            column = self.column(level_key)
             conditions.append(column == value)
 
         condition = sql.expression.and_(*conditions)
@@ -916,12 +927,12 @@ class QueryContext(SQLExpressionContext):
         last = self._boundary_condition(dim, hierarchy, path[:-1], bound,
                                         first=False)
 
-        levels = self.levels(dim, hierarchy, path)
+        levels = self.level_keys(dim, hierarchy, path)
 
         conditions = []
 
-        for level, value in zip(levels[:-1], path[:-1]):
-            column = self.column(level.key)
+        for level_key, value in zip(levels[:-1], path[:-1]):
+            column = self.column(level_key)
             conditions.append(column == value)
 
         # Select required operator according to bound
@@ -943,8 +954,9 @@ class QueryContext(SQLExpressionContext):
 
         return condition
 
-    def levels(self, dimension, hierarchy, path):
-        """Return list of levels for `path` in `hierarchy` of `dimension`."""
+    def level_keys(self, dimension, hierarchy, path):
+        """Return list of key attributes of levels for `path` in `hierarchy`
+        of `dimension`."""
 
         # Note: If something does not work here, make sure that hierarchies
         # contains "default hierarchy", that is (dimension, None) tuple.
@@ -959,3 +971,15 @@ class QueryContext(SQLExpressionContext):
                                  "Levels: {}".format(path, levels))
 
         return levels[0:depth]
+
+    def column_for_split(self, split_cell, label=None):
+        """Create a column for a cell split from list of `cust`."""
+
+        condition = self.condition_for_cell(split_cell)
+        split_column = sql.expression.case([(condition, True)],
+                                           else_=False)
+
+        label = label or SPLIT_DIMENSION_NAME
+
+        return split_column.label(label)
+

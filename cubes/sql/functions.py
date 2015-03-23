@@ -45,7 +45,8 @@ class AggregateFunction(object):
     def __call__(self, aggregate, context, coalesce=False):
         """Applied the function on the aggregate and returns labelled
         expression. SQL expression label is the aggregate's name. This method
-        calls `apply()` method which can be overriden by subclasses."""
+        calls `apply()` method which can be overriden by subclasses.
+        """
 
         expression = self.apply(aggregate, context, coalesce)
         expression = expression.label(aggregate.name)
@@ -81,8 +82,6 @@ class AggregateFunction(object):
         should be wrapped in ``COALESCE(column, missing_value)``.
 
         Returns a SQLAlchemy expression."""
-
-        context = context or {}
 
         if not aggregate.measure:
             raise ModelError("No measure specified for aggregate %s, "
