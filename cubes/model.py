@@ -184,7 +184,7 @@ class Cube(ModelObject):
         measure_dict = dict((m.name, m) for m in measures)
 
         # TODO: Depreciate?
-        if metadata.get("implicit_aggregates", True):
+        if metadata.get("implicit_aggregates", False):
             implicit_aggregates = []
             for measure in measures:
                 implicit_aggregates += measure.default_aggregates()
