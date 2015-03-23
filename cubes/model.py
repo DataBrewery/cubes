@@ -32,7 +32,7 @@ __all__ = [
     "create_list_of",
     "object_dict",
 
-    "distill_attributes",
+    "collect_attributes",
     "depsort_attributes",
 ]
 
@@ -519,7 +519,7 @@ class Cube(ModelObject):
             else:
                 return self.all_attributes
 
-        everything = object_dict(self.all_attributes + self.aggregates)
+        everything = object_dict(self.all_attributes + self.aggregates, "ref")
 
         names = (str(attr) for attr in attributes or [])
 
@@ -548,12 +548,7 @@ class Cube(ModelObject):
         """
 
         everything = self.all_attributes + self.aggregates
-        dependencies = {attr.ref:attr.dependencies for attr in everything}
-        # depsorted contains attribute names in order of dependencies starting
-        # with base attributes (those that don't depend on anything, directly
-        # represented by columns) and ending with derived attributes
-        depsorted = depsort_attributes([attr.ref for attr in attributes],
-                                        dependencies)
+        depsorted = collect_dependencies(attributes, everything)
 
         return self.get_attributes(depsorted)
 
@@ -630,7 +625,7 @@ class Cube(ModelObject):
 
                 hierarchies[key] = levels
 
-                if dim.default_hierarchy_name == hier:
+                if dim.default_hierarchy_name == hier.name:
                     hierarchies[(dim.name, None)] = levels
 
         return hierarchies
@@ -1092,7 +1087,17 @@ class Dimension(Conceptual):
             self._hierarchies = object_dict([default])
 
         self._flat_hierarchy = None
-        self.default_hierarchy_name = default_hierarchy_name
+
+        # Set default hierarchy specified by ``default_hierarchy_name``, if
+        # the variable is not set then get a hierarchy with name *default* or
+        # the first hierarchy in the hierarchy list.
+
+        default_name = default_hierarchy_name or "default"
+        hierarchy = self._hierarchies.get(default_name,
+                                          list(self._hierarchies.values())[0])
+
+        self._default_hierarchy = hierarchy
+        self.default_hierarchy_name = hierarchy.name
 
     def __eq__(self, other):
         if other is None or type(other) != type(self):
@@ -1104,7 +1109,7 @@ class Dimension(Conceptual):
                 and self.description == other.description \
                 and self.cardinality == other.cardinality \
                 and self.category == other.category \
-                and self._default_hierarchy() == other._default_hierarchy() \
+                and self.default_hierarchy_name == other.default_hierarchy_name \
                 and self._levels == other._levels \
                 and self._hierarchies == other._hierarchies
 
@@ -1171,7 +1176,7 @@ class Dimension(Conceptual):
         ``None`` then default hierarchy is returned."""
 
         if obj is None:
-            return self._default_hierarchy()
+            return self._default_hierarchy
         if isinstance(obj, compat.string_type):
             if obj not in self._hierarchies:
                 raise ModelError("No hierarchy %s in dimension %s" %
@@ -1183,51 +1188,21 @@ class Dimension(Conceptual):
             raise ValueError("Unknown hierarchy object %s (should be a "
                              "string or Hierarchy instance)" % obj)
 
-    def attribute(self, reference, by_ref=False):
-        """Get dimension attribute from `reference`."""
+    def attribute(self, name, by_ref=False):
+        """Get dimension attribute. `name` is an attribute name (default) or
+        attribute reference if `by_ref` is `True`.`."""
+
         if by_ref:
-            return self._attributes_by_ref[str(reference)]
+            return self._attributes_by_ref[name]
         else:
             try:
-                return self._attributes[str(reference)]
+                return self._attributes[name]
             except KeyError:
-                raise NoSuchAttributeError("Unknown attribute '%s' "
-                                           "in dimension '%s'"
-                                           % (str(reference), self.name),
-                                           str(reference))
+                raise NoSuchAttributeError("Unknown attribute '{}' "
+                                           "in dimension '{}'"
+                                           .format(name, self.name),
+                                           name)
 
-    def _default_hierarchy(self):
-        """Get default hierarchy specified by ``default_hierarchy_name``, if
-        the variable is not set then get a hierarchy with name *default*"""
-
-        if self.default_hierarchy_name:
-            hierarchy_name = self.default_hierarchy_name
-        else:
-            hierarchy_name = "default"
-
-        hierarchy = self._hierarchies.get(hierarchy_name)
-
-        if not hierarchy:
-            if self._hierarchies:
-                hierarchy = list(self._hierarchies.values())[0]
-            else:
-                if len(self.levels) == 1:
-                    if not self._flat_hierarchy:
-                        self._flat_hierarchy = Hierarchy(name=level.name,
-                                                         dimension=self,
-                                                         levels=[levels[0]])
-
-                    return self._flat_hierarchy
-                elif len(self.levels) > 1:
-                    raise ModelError("There are no hierarchies in dimenson %s "
-                                     "and there are more than one level" %
-                                     self.name)
-                else:
-                    raise ModelError("There are no hierarchies in dimenson "
-                                     "%s and there are no levels to make "
-                                     "hierarchy from" % self.name)
-
-        return hierarchy
 
     @property
     def is_flat(self):
@@ -2411,7 +2386,7 @@ class MeasureAggregate(AttributeBase):
                                 window_size=self.window_size)
 
     def __eq__(self, other):
-        if not super(Attribute, self).__eq__(other):
+        if not super(MeasureAggregate, self).__eq__(other):
             return False
 
         return str(self.function) == str(other.function) \
@@ -2481,7 +2456,7 @@ def _measure_aggregate_label(aggregate, measure):
     return label
 
 
-def distill_attributes(attributes, *containers):
+def collect_attributes(attributes, *containers):
     """Collect attributes from arguments. `containers` are objects with
     method `all_attributes` or might be `Nulls`. Returns a list of attributes.
     Note that the function does not check whether the attribute is an actual
@@ -2499,6 +2474,30 @@ def distill_attributes(attributes, *containers):
 
     return collected
 
+
+def collect_dependencies(attributes, all_attributes):
+    """Collect all original and dependant cube attributes for
+    `attributes`, sorted by their dependency: starting with attributes
+    that don't depend on anything. For exapmle, if the `attributes` is [a,
+    b] and a = c * 2, then the result list would be [b, c, a] or [c, b,
+    a].
+
+    This method is supposed to be used by backends that can handle
+    attribute expressions.  It is safe to generate a mapping between
+    logical references and their physical object representations from
+    expressions in the order of items in the returned list.
+
+    Returns a list of sorted attribute references.
+    """
+
+    dependencies = {attr.ref:attr.dependencies for attr in all_attributes}
+    # depsorted contains attribute names in order of dependencies starting
+    # with base attributes (those that don't depend on anything, directly
+    # represented by columns) and ending with derived attributes
+    depsorted = depsort_attributes([attr.ref for attr in attributes],
+                                    dependencies)
+
+    return depsorted
 
 def depsort_attributes(attributes, all_dependencies):
     """Returns a sorted list of attributes by their dependencies. `attributes`
