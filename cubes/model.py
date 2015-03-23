@@ -137,7 +137,7 @@ def object_dict(objects, attribute=None, error_message=None, error_dict=None):
 
     for key, value in items:
         if key in ordered:
-            error_message = error_message or "Duplicate key {}"
+            error_message = error_message or "Duplicate key {key}"
             error_dict = error_dict or {}
             raise ModelError(error_message.format(key=key, **error_dict))
         ordered[key] = value
@@ -1081,7 +1081,11 @@ class Dimension(Conceptual):
 
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
-            self._hierarchies = object_dict(hierarchies)
+            error_message = "Duplicate hierarchy '{key}' in cube '{cube}'"
+            error_dict = {"cube": self.name}
+            self._hierarchies = object_dict(hierarchies,
+                                            error_message=error_message,
+                                            error_dict=error_dict)
         else:
             default = Hierarchy("default", self.levels)
             self._hierarchies = object_dict([default])
