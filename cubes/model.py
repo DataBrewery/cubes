@@ -30,6 +30,7 @@ __all__ = [
     "MeasureAggregate",
 
     "create_list_of",
+    "object_dict",
 
     "distill_attributes",
     "depsort_attributes",
@@ -121,7 +122,7 @@ class ModelObject(object):
         return copy
 
 
-def _make_dict(objects, attribute=None, error_message=None, error_dict=None):
+def object_dict(objects, attribute=None, error_message=None, error_dict=None):
     """Make an ordered dictionary from model objects `objects`. Uses
     `attribute` as a key or object's name as a key if `attribute` is not
     specified. Keys are supposed to be unique, otherwise an exception is
@@ -351,7 +352,7 @@ class Cube(ModelObject):
 
         measures = measures or []
         assert_all_instances(measures, Measure, "measure")
-        self._measures = _make_dict(measures,
+        self._measures = object_dict(measures,
                                     error_message="Duplicate measure {key} in cube {cube}",
                                     error_dict={"cube": self.name})
 
@@ -360,7 +361,7 @@ class Cube(ModelObject):
         aggregates = aggregates or []
         assert_all_instances(aggregates, MeasureAggregate, "aggregate")
 
-        self._aggregates = _make_dict(aggregates,
+        self._aggregates = object_dict(aggregates,
                                       error_message="Duplicate aggregate {key} in cube {cube}",
                                       error_dict={"cube": self.name})
 
@@ -509,26 +510,26 @@ class Cube(ModelObject):
         references in `attrubutes` are considered simplified, otherwise they
         are considered as full (dim.attribute)."""
 
-        # TODO: this should be a dictionary created in __init__
-        names = [str(attr) for attr in attributes or []]
+        # TODO: this should be a dictionary created in __init__ once this
+        # class becomes immutable
 
-        if aggregated:
-            attributes = self.all_aggregate_attributes
-        else:
-            attributes = self.all_attributes
+        if not attributes:
+            if aggregated:
+                return self.all_aggregate_attributes
+            else:
+                return self.all_attributes
 
-        if not names:
-            return attributes
+        everything = object_dict(self.all_attributes + self.aggregates)
 
-        attr_map = dict((a.ref, a) for a in attributes)
+        names = (str(attr) for attr in attributes or [])
 
         result = []
         for name in names:
             try:
-                attr = attr_map[name]
+                attr = everything[name]
             except KeyError:
-                raise NoSuchAttributeError("Unknown attribute '%s' in cube "
-                                           "'%s'" % (name, self.name))
+                raise NoSuchAttributeError("Unknown attribute '{}' in cube "
+                                           "'{}'".format(name, self.name))
             result.append(attr)
 
         return result
@@ -1059,7 +1060,7 @@ class Dimension(Conceptual):
             levels = [level]
 
         # Own the levels and their attributes
-        self._levels = _make_dict(levels)
+        self._levels = object_dict(levels)
         default_roles = _DEFAULT_LEVEL_ROLES.get(self.role)
 
         # Set default roles
@@ -1085,10 +1086,10 @@ class Dimension(Conceptual):
 
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
-            self._hierarchies = _make_dict(hierarchies)
+            self._hierarchies = object_dict(hierarchies)
         else:
             default = Hierarchy("default", self.levels)
-            self._hierarchies = _make_dict([default])
+            self._hierarchies = object_dict([default])
 
         self._flat_hierarchy = None
         self.default_hierarchy_name = default_hierarchy_name
@@ -1501,7 +1502,7 @@ def _create_hierarchies(metadata, levels, template):
     strings) and possibly inherit from `template` dimension."""
 
     # Convert levels do an ordered dictionary for access by name
-    levels = _make_dict(levels)
+    levels = object_dict(levels)
     hierarchies = []
 
     # Construct hierarchies and assign actual level objects
@@ -1558,7 +1559,7 @@ class Hierarchy(Conceptual):
             raise ModelInconsistencyError("Levels should not be provided as "
                                           "strings to Hierarchy.")
 
-        self._levels = _make_dict(levels)
+        self._levels = object_dict(levels)
 
     def __deepcopy__(self, memo):
         return Hierarchy(self.name,
