@@ -26,12 +26,20 @@
         {
             "name": "irbd_balance",
             "dimensions": ["item", "year"],
-            "measures": [{"name":"amount", "label":"Amount"}],
+            "measures": [
+                {"name":"amount", "label":"Amount"},
+                {"name":"double_amount", "label":"Double Amount",
+                  "expression": "amount * 2"}
+            ],
             "aggregates": [
                     {
                         "name": "amount_sum",
                         "function": "sum",
                         "measure": "amount"
+                    },
+                    {
+                        "name": "double_amount_sum",
+                        "expression": "1 + sum(double_amount) - 1"
                     },
                     {
                         "name": "record_count",
