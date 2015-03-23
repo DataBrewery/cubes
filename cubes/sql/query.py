@@ -499,7 +499,6 @@ class StarSchema(object):
             if logical == FACT_KEY_LABEL:
                 return self.fact_key_column
             else:
-                import pdb; pdb.set_trace()
                 raise NoSuchAttributeError(logical)
 
         key = (mapping.schema or self.schema, mapping.table or self.fact_name)
@@ -807,7 +806,6 @@ class QueryContext(object):
             # This should not happen under normal circumstances. If this
             # exception is raised, it very likely means that the owner of the
             # query contexts forgot to do something.
-            import pdb; pdb.set_trace()
             raise InternalError("Missing column '{}'. Query context not "
                                 "properly initialized or dependencies were "
                                 "not correctly ordered?".format(ref))

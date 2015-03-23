@@ -398,6 +398,7 @@ class SQLBrowser(AggregationBrowser):
 
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
+        # TODO: separate calculated aggregates here
         # TODO: remove unnecessary parts of the following discussion once
         # implemented and documented
 
@@ -421,7 +422,7 @@ class SQLBrowser(AggregationBrowser):
             # TODO: use builder.labels
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                labels = [col.name for col in statement.columns]
+                labels = [agg.name for agg in aggregates]
                 record = dict(zip(labels, row))
             else:
                 record = None
@@ -468,7 +469,12 @@ class SQLBrowser(AggregationBrowser):
                                                             split,
                                                             available_aggregate_functions())
             # TODO: safe labels
-            labels = [col.name for col in statement.columns]
+            # TODO: computed
+            # TODO: we should not join those lists together here, it sohuld be
+            # prepared already
+            # TODO: to split!
+            labels = [agg.ref for agg in (drilldown.all_attributes +
+                                          aggregates)]
             result.cells = ResultIterator(cursor, labels)
             result.labels = labels
 

@@ -48,9 +48,9 @@ SQL_FUNCTIONS = [
 # TODO: Add: lstrip, rstrip, strip -> trim
 # TODO: Add: like
 
-# Add SQL-only aggregate functions here
-# TODO: Add them
-SQL_AGGREGATE_FUNCTIONS = []
+SQL_AGGREGATE_FUNCTIONS = [
+    "sum", "min", "max", "avg", "stddev", "variance", "count"
+]
 
 SQL_ALL_FUNCTIONS = SQL_FUNCTIONS + SQL_AGGREGATE_FUNCTIONS;
 
@@ -110,7 +110,7 @@ class SQLExpressionContext(object):
 
     def function(self, name):
         """Return a SQL function"""
-        if name not in SQL_FUNCTIONS:
+        if name not in SQL_ALL_FUNCTIONS:
             raise ExpressionError("Unknown function '{}'"
                                   .format(name))
         return getattr(sql.func, name)
@@ -128,7 +128,8 @@ def compile_attributes(bases, dependants, parameters, coalesce=None,
     compiler = SQLExpressionCompiler()
 
     for attr in dependants:
-        if attr.function:
+        # TODO: remove this hasattr with something nicer
+        if hasattr(attr, "function") and attr.function:
             # Assumption: only aggregates have function, no measures or other
             # attributes (important!)
             #
