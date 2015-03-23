@@ -63,7 +63,7 @@ class Cell(object):
         return result
 
     @property
-    def key_attributes(self):
+    def all_attributes(self):
         """Returns an unordered set of key attributes used in the cell's
         cuts."""
         attributes = set()
@@ -77,6 +77,13 @@ class Cell(object):
                 attributes |= set(keys)
 
         return list(attributes)
+
+    # Backward compatibility
+    # TODO: issue warning
+    @property
+    def key_attributes(self):
+        return self.all_attributes
+
 
     def slice(self, cut):
         """Returns new cell by slicing receiving cell with `cut`. Cut with
