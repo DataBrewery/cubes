@@ -411,7 +411,7 @@ class ModelProvider(Extensible):
         """
 
         metadata = self.cube_metadata(name, locale)
-        cube = create_cube(metadata)
+        cube = Cube.from_metadata(metadata)
         link_cube(cube, locale, provider=self, namespace=namespace)
 
         return cube
@@ -428,7 +428,7 @@ class ModelProvider(Extensible):
         exception is raised.
         """
         metadata = self.dimension_metadata(name, locale)
-        return create_dimension(metadata, templates=templates)
+        return Dimension.from_metadata(metadata, templates=templates)
 
 
 class StaticModelProvider(ModelProvider):
@@ -454,12 +454,3 @@ class StaticModelProvider(ModelProvider):
 
         return cubes
 
-
-def create_model(source):
-    raise NotImplementedError("create_model() is depreciated, use Workspace.add_model()")
-
-
-def model_from_path(path):
-    """Load logical model from a file or a directory specified by `path`.
-    Returs instance of `Model`. """
-    raise NotImplementedError("model_from_path is depreciated. use Workspace.add_model()")
