@@ -9,7 +9,6 @@ aggregated data.
 
 *Focus on data analysis, in human way*
 
-
 Overview
 ========
 
@@ -28,6 +27,7 @@ Features:
 * hierarchical dimensions (attributes that have hierarchical dependencies,
   such as category-subcategory or country-region)
 * localizable metadata and data
+* SQL query generator for multidimensional aggregation queries
 * OLAP server – HTTP server based on Flask Blueprint, can be [easily
   integrated](http://pythonhosted.org/cubes/deployment.html) into your
   application.
@@ -42,7 +42,7 @@ Development documentation: http://cubes.databrewery.org/dev/doc
 Examples
 --------
 
-See ``examples`` directory in the source code repository
+See `examples` directory in the source code repository
 for simple examples and use-cases.
 
 See https://github.com/DataBrewery/cubes-examples

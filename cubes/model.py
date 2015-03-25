@@ -1988,7 +1988,7 @@ class MeasureAggregate(AttributeBase):
         * `formula` – name of a formula that contains the arithemtic
           expression (optional)
         * `measure` – measure name for this aggregate (optional)
-        * `expression` – arithmetic expression (only if bacend supported)
+        * `expression` – arithmetic expression (only if backend supported)
         * `nonadditive` – additive behavior for the aggregate (inherited from
           the measure in most of the times)
         """

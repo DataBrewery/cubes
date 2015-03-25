@@ -30,7 +30,7 @@ browsed.
     :width: 300px
 
 There are three types of cells: `point` – defines a single point in a dimension
-at a prticular level; `range` – defines all points of an ordered dimension
+at a particular level; `range` – defines all points of an ordered dimension
 (such as date) within the range and `set` – collection of points:
 
 .. figure:: images/cubes-point-range-set-cut.png
@@ -43,7 +43,7 @@ For December 2010, regardless of day: ``[2010, 12]`` and for the whole year:
 it would be a single item list ``[2010]``. Similar for other dimensions:
 ``["sk", "Bratislava"]`` for city `Bratislava` in `Slovakia` (code ``sk``).
 
-In Python the cuts for "sales in Slovakia between June 2010 and June 2013" are
+In Python the cuts for "sales in Slovakia between June 2010 and June 2012" are
 defined as:
 
 .. code-block:: python
@@ -335,7 +335,7 @@ Which is equivalent to:
     levels = dimension.hierarchy().levels()
     labels = []
     for i, detail in enumerate(cut_details):
-        labels.append(detail[level[i].label_attribute.ref()])
+        labels.append(detail[levels[i].label_attribute.ref()])
 
 Note that this might change a bit: either full detail will be returned or just
 key and label, depending on an option argument (not yet decided).
