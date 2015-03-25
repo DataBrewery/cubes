@@ -390,7 +390,7 @@ def cube_facts(cube_name):
     if fields:
         attributes = g.cube.get_attributes(fields)
     else:
-        attributes = g.cube.all_attributes
+        attributes = g.cube.all_fact_attributes
 
     # Construct the field list
     fields = [attr.ref for attr in attributes]

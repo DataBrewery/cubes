@@ -438,8 +438,38 @@ class Cube(ModelObject):
 
     @property
     def all_attributes(self):
+        """All cube's attributes: attributes of dimensions, details, measures
+        and aggregates. Use this method if you need to prepare structures for
+        any kind of query. For attributes for more specific types of queries
+        refer to :meth:`Cube.all_fact_attributes` and
+        :meth:`Cube.all_aggregate_attributes`."""
+
+        attributes = []
+        for dim in self.dimensions:
+            attributes += dim.attributes
+
+        attributes += self.details
+        attributes += self.measures
+        attributes += self.aggregates
+
+        return attributes
+
+    @property
+    def base_attributes(self):
+        """Returns a list of attributes that are not derived from other
+        attributes, do not depend on other cube attributes, variables or
+        parameters. Any attribute that has an expression (regardless of it's
+        contents, it might be a constant) is considered derived attribute.
+
+        The list contains also aggregate attributes that are base – for
+        example attributes that represent pre-aggregated column in a table."""
+
+        return [attr for attr in self.all_attributes if attr.is_base]
+
+    @property
+    def all_fact_attributes(self):
         """All cube's attributes from the fact: attributes of dimensions,
-        details and measures."""
+        details and measures.  """
         attributes = []
         for dim in self.dimensions:
             attributes += dim.attributes

@@ -54,7 +54,7 @@ class Mapper(object):
 
         self.attributes = collections.OrderedDict()
 
-        for attr in self.cube.all_attributes:
+        for attr in self.cube.all_fact_attributes:
             self.attributes[self.logical(attr)] = attr
 
     def set_locale(self, locale):

@@ -241,7 +241,7 @@ class SQLStore(Store):
 
         # check attributes
 
-        base = base_attributes(cube.all_attributes)
+        base = base_attributes(cube.all_fact_attributes)
         mappings = {attr.name:mapper.physical(attr) for attr in base}
 
         for attr, ref in mappings.items:
