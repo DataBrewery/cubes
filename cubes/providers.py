@@ -431,6 +431,7 @@ class ModelProvider(Extensible):
         return Dimension.from_metadata(metadata, templates=templates)
 
 
+# TODO: make this FileModelProvider
 class StaticModelProvider(ModelProvider):
 
     __extension_aliases__ = ["default"]

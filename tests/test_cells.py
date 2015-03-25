@@ -6,15 +6,15 @@ from cubes.cells import cut_from_dict
 from cubes.errors import CubesError, ArgumentError
 from cubes.errors import HierarchyError, NoSuchDimensionError
 
-from .common import CubesTestCaseBase
+from .common import CubesTestCaseBase, create_provider
 
 
 class CutsTestCase(CubesTestCaseBase):
     def setUp(self):
         super(CutsTestCase, self).setUp()
 
-        self.workspace = self.create_workspace(model="browser_test.json")
-        self.cube = self.workspace.cube("transactions")
+        self.provider = create_provider("browser_test.json")
+        self.cube = self.provider.cube("transactions")
         self.dim_date = self.cube.dimension("date")
 
     def test_cut_depth(self):
@@ -156,15 +156,13 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(cut, cut_from_string("date@dqmy:10"))
 
 
-class BrowserTestCase(CubesTestCaseBase):
+class CellInteractiveSlicingTestCase(CubesTestCaseBase):
     def setUp(self):
-        super(BrowserTestCase, self).setUp()
+        super(CellInteractiveSlicingTestCase, self).setUp()
 
-        self.workspace = self.create_workspace(model="model.json")
-        self.cube = self.workspace.cube("contracts")
+        self.provider = create_provider("model.json")
+        self.cube = self.provider.cube("contracts")
 
-
-class AggregationBrowserTestCase(BrowserTestCase):
     def test_cutting(self):
         full_cube = Cell(self.cube)
         self.assertEqual(self.cube, full_cube.cube)
