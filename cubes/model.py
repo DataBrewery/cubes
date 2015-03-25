@@ -13,7 +13,7 @@ from .common import assert_instance, assert_all_instances
 from .logging import get_logger
 from .errors import ModelError, ArgumentError, ExpressionError, HierarchyError
 from .errors import NoSuchAttributeError, NoSuchDimensionError
-from .errors import ModelInconsistencyError
+from .errors import ModelInconsistencyError, TemplateRequired
 from .statutils import aggregate_calculator_labels
 from .metadata import *
 from . import compat
@@ -785,7 +785,7 @@ class Cube(ModelObject):
         return locale
 
     def __str__(self):
-        return self.ref
+        return self.name
 
 # Note: levels and hierarchies will be depreciated in the future versions.
 # Levels will disappear and hierarchies will be top-level objects.
