@@ -243,8 +243,8 @@ class SnowflakeSchema(object):
 
         # Analyse the joins
         for join in reversed(self.mapper.joins):
-            master_key = (join.master.schema, join.master.table)
-            detail_key = (join.detail.schema, join.alias or join.detail.table)
+            master_key = (join.master.schema or self.schema, join.master.table)
+            detail_key = (join.detail.schema or self.schema, join.alias or join.detail.table)
 
             if relationships.get(detail_key):
                 raise InternalError("Detail %s already classified" % detail_key)

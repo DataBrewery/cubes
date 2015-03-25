@@ -8,7 +8,7 @@ from collections import namedtuple
 from ...logging import get_logger
 from ...errors import *
 from ...mapper import Mapper
-from ...model import AttributeBase
+from ...model import AttributeBase, Attribute
 from ... import compat
 
 __all__ = (
@@ -235,7 +235,10 @@ class SnowflakeMapper(Mapper):
                     table name is fact table name
         """
 
-        schema = self.dimension_schema or self.schema
+        if isinstance(attribute, Attribute) and attribute.dimension:
+            schema = self.dimension_schema or self.schema
+        else:
+            schema = self.schema
 
         if isinstance(attribute, PhysicalAttribute):
             reference = TableColumnReference(schema,

@@ -127,7 +127,8 @@ class SnowflakeBrowser(AggregationBrowser):
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
                           (str(mapper_class.__name__), cube.name, locale))
 
-        self.mapper = mapper_class(cube, locale=self.locale, **options)
+        self.mapper = mapper_class(cube, locale=self.locale,
+                                   schema=self.store.schema, **options)
         self.logger.debug("mapper schema: %s" % self.mapper.schema)
 
     def features(self):
