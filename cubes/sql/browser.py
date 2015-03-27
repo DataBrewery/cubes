@@ -126,6 +126,9 @@ class SQLBrowser(AggregationBrowser):
         self.include_cell_count = options.get("include_cell_count", True)
 
         self.safe_labels = options.get("safe_labels", False)
+        if self.safe_labels:
+            self.logger.debug("using safe labels for cube {}"
+                              .format(cube.name))
 
         # Whether to ignore cells where at least one aggregate is NULL
         # TODO: this is undocumented
@@ -227,7 +230,7 @@ class SQLBrowser(AggregationBrowser):
         statement = order_query(statement,
                                 order,
                                 natural_order={},
-                                labels=None)
+                                labels=labels)
 
         cursor = self.execute(statement, "facts")
 
@@ -385,7 +388,6 @@ class SQLBrowser(AggregationBrowser):
             cursor = self.execute(statement, "aggregation summary")
             row = cursor.first()
 
-            # TODO: use builder.labels
             if row:
                 # Convert SQLAlchemy object into a dictionary
                 record = dict(zip(labels, row))
@@ -419,7 +421,7 @@ class SQLBrowser(AggregationBrowser):
             statement = order_query(statement,
                                     order,
                                     natural_order,
-                                    labels=None)
+                                    labels=labels)
 
             cursor = self.execute(statement, "aggregation drilldown")
 

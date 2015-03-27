@@ -103,7 +103,6 @@ def order_column(column, order):
         raise ArgumentError("Unknown order %s for column %s") % (order, column)
 
 
-# TODO: test this with labels
 def order_query(statement, order, natural_order, labels):
     """Returns a SQL statement which is ordered according to the `order`. If
     the statement contains attributes that have natural order specified, then
@@ -131,8 +130,8 @@ def order_query(statement, order, natural_order, labels):
     # Get logical attributes from column labels (see logical_labels
     # description for more information why this step is necessary)
 
-    columns = OrderedDict((labels.get(col.name, col.name), col)
-                          for col in statement.columns)
+    columns = OrderedDict(zip(labels, statement.columns))
+
     # Normalize order
     # ---------------
     # Make sure that the `order` is a list of of tuples (`attribute`,
@@ -144,13 +143,12 @@ def order_query(statement, order, natural_order, labels):
         final_order[SPLIT_DIMENSION_NAME] = split_column
 
     # Collect the corresponding attribute columns
-    # TODO: does not work with safe labels
     for attribute, direction in order:
         attribute = str(attribute)
         column = order_column(columns[attribute], direction)
 
         if attribute not in final_order:
-            order_by[attribute] = column
+            final_order[attribute] = column
 
     # Collect natural order for selected columns that have no explicit
     # ordering
