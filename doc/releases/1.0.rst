@@ -541,3 +541,30 @@ Additional and Optional Considerations for Migration
 * Look at the cube's model ``features`` property to learn what the front-end
   can expect from the backend for that cube
 * Look at the ``/info`` response
+
+
+v1.0.1 Changes
+==============
+
+* [feature] Added SimpleAuthorizer.expand_roles
+* [feature] create indexes for aggregated table
+* [change] make workspace optional
+* [change] Allow user to supply an external workspace to the slicer
+* [change] modified create_cube_aggregate
+* [fix] correct physical attribute schema handling in SQL backend - fact
+  details were getting dimension schema
+* [fix] increase debug level in hello_world example
+* [fix] more descriptive error messages in browser/backend
+* [fix] Use store instead of datastore (remaining places)
+
+* various documentation fixes
+* various example fixes
+
+Contributors:
+
+* Dmitriy Trochshenko
+* Friedrich Lindenberg
+* Lucas Taylor
+* Michal Skop
+* Gasper Zejn
+* jerry dumblauskas
