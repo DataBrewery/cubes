@@ -220,10 +220,11 @@ class SQLBrowser(AggregationBrowser):
 
         Number of SQL queries: 1.
         """
+        attrs = self.cube.get_attributes(fields)
         cell = cell or Cell(self.cube)
 
         (statement, labels) = self.denormalized_statement(cell=cell,
-                                                          attributes=fields)
+                                                          attributes=attrs)
         statement = paginate_query(statement, page, page_size)
 
         # TODO: use natural order
@@ -234,7 +235,7 @@ class SQLBrowser(AggregationBrowser):
 
         cursor = self.execute(statement, "facts")
 
-        return ResultIterator(cursor, cursor.keys())
+        return ResultIterator(cursor, labels)
 
     def test(self, aggregate=False):
         """Tests whether the statement can be constructed and executed. Does
@@ -319,9 +320,8 @@ class SQLBrowser(AggregationBrowser):
         # FIXME: return actual truth
         return True
 
-    # TODO: requires rewrite
     def provide_aggregate(self, cell, aggregates, drilldown, split, order,
-                          page, page_size, across=None, **options):
+                          page, page_size, **options):
         """Return aggregated result.
 
         Arguments:
@@ -360,10 +360,6 @@ class SQLBrowser(AggregationBrowser):
         """
 
         # TODO: implement reminder
-
-        # TODO: implement drill-across
-        if across:
-            raise NotImplementedError("Drill-across is not yet implemented")
 
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
@@ -414,7 +410,8 @@ class SQLBrowser(AggregationBrowser):
 
             (statement, labels) = self.aggregation_statement(cell,
                                                    aggregates=aggregates,
-                                                   drilldown=drilldown)
+                                                   drilldown=drilldown,
+                                                   split=split)
             # TODO: look the order_query spec for arguments
             # TODO: use safe labels too
             statement = paginate_query(statement, page, page_size)
@@ -516,7 +513,7 @@ class SQLBrowser(AggregationBrowser):
     # This is the reason of our whole existence.
     #
     def aggregation_statement(self, cell, aggregates, drilldown=None,
-                              split=None, for_summary=False, across=None):
+                              split=None, for_summary=False):
         """Builds a statement to aggregate the `cell` and reutrns a tuple
         (`statement`, `labels`). `statement` is a SQLAlchemy statement object,
         `labels` is a list of attribute names selected in the statement. The
@@ -537,9 +534,6 @@ class SQLBrowser(AggregationBrowser):
         # TODO: semiadditive
 
         # Basic assertions
-
-        if across:
-            raise NotImplementedError("Drill-across is not yet implemented")
 
         if not aggregates:
             raise ArgumentError("List of aggregates sohuld not be empty")

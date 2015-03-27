@@ -779,7 +779,7 @@ class QueryContext(object):
 
         self.star_schema = star_schema
 
-        self.attributes = object_dict(attributes)
+        self.attributes = object_dict(attributes, "ref")
         self.hierarchies = hierarchies
         self.safe_labels = safe_labels
 
