@@ -547,9 +547,9 @@ class Cube(ModelObject):
             if aggregated:
                 return self.all_aggregate_attributes
             else:
-                return self.all_attributes
+                return self.all_fact_attributes
 
-        everything = object_dict(self.all_attributes + self.aggregates, "ref")
+        everything = object_dict(self.all_attributes, "ref")
 
         names = (str(attr) for attr in attributes or [])
 
@@ -577,8 +577,7 @@ class Cube(ModelObject):
         expressions in the order of items in the returned list.
         """
 
-        everything = self.all_attributes + self.aggregates
-        depsorted = collect_dependencies(attributes, everything)
+        depsorted = collect_dependencies(attributes, self.all_attributes)
 
         return self.get_attributes(depsorted)
 
@@ -1615,7 +1614,7 @@ class Hierarchy(Conceptual):
         return hash(self.name)
 
     def __str__(self):
-        return self.ref
+        return self.name
 
     def __len__(self):
         return len(self.levels)
