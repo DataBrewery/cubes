@@ -750,7 +750,7 @@ class QueryContext(object):
     """
 
     def __init__(self, star_schema, attributes, hierarchies=None,
-                 parameters=None):
+                 parameters=None, safe_labels=None):
         """Creates a query context for `cube`.
 
         * `attributes` – list of all attributes that are relevant to the
@@ -758,6 +758,10 @@ class QueryContext(object):
         * `hierarchies` is a dictionary of dimension hierarchies. Keys are
            tuples of names (`dimension`, `hierarchy`). The dictionary should
            contain default dimensions as (`dimension`, Null) tuples.
+        * `safe_labels` – if `True` then safe column labels are created. Used
+           for SQL dialects that don't support characters such as dot ``.`` in
+           column labels.  See :meth:`QueryContext.column` for more
+           information.
 
         `attributes` are objects that have attributes: `ref` – attribute
         reference, `is_base` – `True` when attribute does not depend on any
@@ -777,6 +781,7 @@ class QueryContext(object):
 
         self.attributes = object_dict(attributes)
         self.hierarchies = hierarchies
+        self.safe_labels = safe_labels
 
         # Collect base attributes
         #
@@ -794,11 +799,35 @@ class QueryContext(object):
         #
         bases = {attr:self.star_schema.column(attr) for attr in base_names}
         bases[FACT_KEY_LABEL] = self.star_schema.fact_key_column
+
         self._columns = compile_attributes(bases, dependants, parameters,
                                            star_schema.label)
 
+        self.label_attributes = {}
+        if self.safe_labels:
+            # Re-label the columns using safe labels. It is up to the owner of
+            # the context to determine which column is which attribute
+
+            for i, item in enumerate(list(self._columns.items())):
+                attr, column = item
+                label = "a{}".format(i)
+                self._columns[attr] = column.label(label)
+                self.label_attributes[label] = attr
+        else:
+            for attr in attributes:
+                attr = attr.ref
+                column = self._columns[attr]
+                self._columns[attr] = column.label(attr)
+                # Identity mappign
+                self.label_attributes[attr] = attr
+
     def column(self, ref):
-        """Get a column expression for attribute with reference `ref`"""
+        """Get a column expression for attribute with reference `ref`. Column
+        has the same label as the attribute reference, unless `safe_labels` is
+        provided to the query context. If `safe_labels` translation is
+        provided, then the column has label according to the translation
+        dictionary."""
+
         try:
             return self._columns[ref]
         except KeyError as e:
@@ -808,6 +837,17 @@ class QueryContext(object):
             raise InternalError("Missing column '{}'. Query context not "
                                 "properly initialized or dependencies were "
                                 "not correctly ordered?".format(ref))
+
+    def get_labels(self, columns):
+        """Returns real attribute labels for columns `columns`. It is highly
+        recommended that the owner of the context uses this method before
+        iterating over statement result."""
+
+        if self.safe_labels:
+            return [self.label_attributes.get(column.name, column.name)
+                    for column in columns]
+        else:
+            return [col.name for col in columns]
 
     def get_columns(self, refs):
         """Get columns for attribute references `refs`.  """

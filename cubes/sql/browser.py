@@ -125,9 +125,7 @@ class SQLBrowser(AggregationBrowser):
         self.include_summary = options.get("include_summary", True)
         self.include_cell_count = options.get("include_cell_count", True)
 
-        # TODO: Use safe labels
         self.safe_labels = options.get("safe_labels", False)
-        self.label_counter = 1
 
         # Whether to ignore cells where at least one aggregate is NULL
         # TODO: this is undocumented
@@ -195,18 +193,17 @@ class SQLBrowser(AggregationBrowser):
 
         Number of SQL queries: 1."""
 
-        statement = self.denormalized_statement(attributes=fields,
+        (statement, labels) = self.denormalized_statement(attributes=fields,
                                                 include_fact_key=True)
         condition = statement.columns[FACT_KEY_LABEL] == key_value
         statement = statement.where(condition)
 
         cursor = self.execute(statement, "fact")
-        labels = cursor.keys()
         row = cursor.fetchone()
 
         if row:
             # Convert SQLAlchemy object into a dictionary
-            record = self.row_to_dict(row, labels)
+            record = dict(zip(row, labels))
         else:
             record = None
 
@@ -222,8 +219,10 @@ class SQLBrowser(AggregationBrowser):
         """
         cell = cell or Cell(self.cube)
 
-        statement = self.denormalized_statement(cell=cell, attributes=fields)
+        (statement, labels) = self.denormalized_statement(cell=cell,
+                                                          attributes=fields)
         statement = paginate_query(statement, page, page_size)
+
         # TODO: use natural order
         statement = order_query(statement,
                                 order,
@@ -240,13 +239,13 @@ class SQLBrowser(AggregationBrowser):
         the generated statements. By default it tests only denormalized
         statement by fetching one row. If `aggregate` is `True` then test also
         aggregation."""
-        statement = self.denormalized_statement()
+        (statement, labels) = self.denormalized_statement()
         statement = statement.limit(1)
         result = self.connectable.execute(statement)
         result.close()
 
-        statement = self.aggregation_statement(aggregates=cube.all_aggregates,
-                                               for_summary=True)
+        (statement, labels) = self.aggregation_statement(aggregates=cube.all_aggregates,
+                                                         for_summary=True)
         result = self.connectable.execute(statement)
         result.close()
 
@@ -378,25 +377,22 @@ class SQLBrowser(AggregationBrowser):
         # -------
 
         if self.include_summary or not (drilldown or split):
-            statement = self.aggregation_statement(cell,
+            (statement, labels) = self.aggregation_statement(cell,
                                                    aggregates=aggregates,
                                                    drilldown=drilldown,
                                                    for_summary=True)
 
             cursor = self.execute(statement, "aggregation summary")
-            row = cursor.fetchone()
+            row = cursor.first()
 
             # TODO: use builder.labels
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                labels = [agg.name for agg in aggregates]
                 record = dict(zip(labels, row))
             else:
                 record = None
 
-            cursor.close()
             result.summary = record
-
 
         # Drill-down
         # ----------
@@ -414,7 +410,7 @@ class SQLBrowser(AggregationBrowser):
 
             self.logger.debug("preparing drilldown statement")
 
-            statement = self.aggregation_statement(cell,
+            (statement, labels) = self.aggregation_statement(cell,
                                                    aggregates=aggregates,
                                                    drilldown=drilldown)
             # TODO: look the order_query spec for arguments
@@ -435,13 +431,10 @@ class SQLBrowser(AggregationBrowser):
                                                             drilldown,
                                                             split,
                                                             available_aggregate_functions())
-            # TODO: safe labels
             # TODO: computed
             # TODO: we should not join those lists together here, it sohuld be
             # prepared already
             # TODO: to split!
-            labels = [agg.ref for agg in (drilldown.all_attributes +
-                                          aggregates)]
             result.cells = ResultIterator(cursor, labels)
             result.labels = labels
 
@@ -482,13 +475,16 @@ class SQLBrowser(AggregationBrowser):
         return QueryContext(self.star,
                             attributes=collected,
                             hierarchies=self.hierarchies,
-                            parameters=None)
+                            parameters=None,
+                            safe_labels=self.safe_labels)
 
     def denormalized_statement(self, attributes=None, cell=None,
                                include_fact_key=False):
-        """Returns a statement representing denormalized star restricted by
-        `cell`. If `attributes` is not specified, then all cube's attributes
-        are selected."""
+        """Returns a tuple (`statement`, `labels`) representing denormalized
+        star statement restricted by `cell`. If `attributes` is not specified,
+        then all cube's attributes are selected. The returned `labels` are
+        correct labels to be applied to the iterated result in case of
+        `safe_labels`."""
 
         attributes = attributes or self.cube.all_fact_attributes
 
@@ -510,7 +506,7 @@ class SQLBrowser(AggregationBrowser):
                                           from_obj=context.star,
                                           whereclause=cell_condition)
 
-        return statement
+        return (statement, context.get_labels(statement.columns))
 
     # Aggregate
     # =========
@@ -519,7 +515,12 @@ class SQLBrowser(AggregationBrowser):
     #
     def aggregation_statement(self, cell, aggregates, drilldown=None,
                               split=None, for_summary=False, across=None):
-        """Builds a statement to aggregate the `cell`.
+        """Builds a statement to aggregate the `cell` and reutrns a tuple
+        (`statement`, `labels`). `statement` is a SQLAlchemy statement object,
+        `labels` is a list of attribute names selected in the statement. The
+        `labels` should be applied on top of the result iterator, since the
+        real columns might have simplified labels when `safe_labels` is
+        ``True``.
 
         * `cell` – `Cell` to aggregate
         * `aggregates` – list of aggregates to consider (should not be empty)
@@ -527,8 +528,9 @@ class SQLBrowser(AggregationBrowser):
         * `split` – split cell for split condition
         * `for_summary` – do not perform `GROUP BY` for the drilldown. The
           drilldown is used only for choosing tables to join
-        * `across` – cubes that share dimensions
         """
+        # * `across` – cubes that share dimensions
+
         # TODO: PTD
         # TODO: semiadditive
 
@@ -596,23 +598,12 @@ class SQLBrowser(AggregationBrowser):
                                           whereclause=condition,
                                           group_by=group_by)
 
-        return statement
+
+        return (statement, context.get_labels(statement.columns))
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s\n" % (label, str(statement)))
-
-
-    def row_to_dict(self, row, labels):
-        """Converts a result `row` into a dictionary. Applies proper key
-        labels. Main purpose of this method is to make sure that safe labels
-        (labels without dots or special characters) are converted back to user
-        specified labels."""
-
-        if self.safe_labels:
-            raise NotImplementedError
-        else:
-            return dict(zip(labels, row))
 
 
 class ResultIterator(object):
