@@ -3,7 +3,7 @@
 
 from __future__ import absolute_import
 
-from ..statutils import calculators_for_aggregates, available_calculators
+from ..statutils import available_calculators
 from ..browser import AggregationBrowser, AggregationResult, Drilldown
 from ..logging import get_logger
 from ..errors import ArgumentError, ModelError
@@ -191,6 +191,12 @@ class SQLBrowser(AggregationBrowser):
 
         return features
 
+    def is_builtin_function(self, funcname):
+        """Returns `True` if the function `funcname` is backend's built-in
+        function."""
+
+        return funcname in available_aggregate_functions()
+
     def fact(self, key_value, fields=None):
         """Get a single fact with key `key_value` from cube.
 
@@ -316,10 +322,6 @@ class SQLBrowser(AggregationBrowser):
         self._log_statement(statement, label)
         return self.connectable.execute(statement)
 
-    def is_builtin_function(self, function_name, aggregate):
-        # FIXME: return actual truth
-        return True
-
     def provide_aggregate(self, cell, aggregates, drilldown, split, order,
                           page, page_size, **options):
         """Return aggregated result.
@@ -412,24 +414,23 @@ class SQLBrowser(AggregationBrowser):
                                                    aggregates=aggregates,
                                                    drilldown=drilldown,
                                                    split=split)
-            # TODO: look the order_query spec for arguments
-            # TODO: use safe labels too
-            statement = paginate_query(statement, page, page_size)
+            # Get the total cell count before the pagination
+            #
+            if self.include_cell_count:
+                count_statement = statement.alias().count()
+                counts = self.execute(count_statement)
+                result.total_cell_count = counts.scalar()
+
+            # Order and paginate
+            #
             statement = order_query(statement,
                                     order,
                                     natural_order,
                                     labels=labels)
+            statement = paginate_query(statement, page, page_size)
 
             cursor = self.execute(statement, "aggregation drilldown")
 
-            #
-            # Find post-aggregation calculations and decorate the result
-            #
-            result.calculators = calculators_for_aggregates(self.cube,
-                                                            aggregates,
-                                                            drilldown,
-                                                            split,
-                                                            available_aggregate_functions())
             # TODO: computed
             # TODO: we should not join those lists together here, it sohuld be
             # prepared already
@@ -437,32 +438,13 @@ class SQLBrowser(AggregationBrowser):
             result.cells = ResultIterator(cursor, labels)
             result.labels = labels
 
-            if self.include_cell_count:
-                # TODO: we want to get unpaginated number of records here
-                count_statement = statement.alias().count()
-                row_count = self.execute(count_statement).fetchone()
-                total_cell_count = row_count[0]
-                result.total_cell_count = total_cell_count
-
-        elif result.summary is not None:
-            # Do calculated measures on summary if no drilldown or split
-            # TODO: should not we do this anyway regardless of
-            # drilldown/split?
-            calculators = calculators_for_aggregates(self.cube,
-                                                     aggregates,
-                                                    drilldown,
-                                                    split,
-                                                    available_aggregate_functions())
-            for calc in calculators:
-                calc(result.summary)
-
         # If exclude_null_aggregates is True then don't include cells where
         # at least one of the bult-in aggregates is NULL
         if result.cells is not None and self.exclude_null_agregates:
-            afuncs = available_aggregate_functions()
-            aggregates = [agg for agg in aggregates if not agg.function or agg.function in afuncs]
-            names = [str(agg) for agg in aggregates]
-            result.exclude_if_null = names
+            native_aggs = [agg.ref for agg in aggregates
+                               if agg.function and \
+                                   self.is_builtin_function(agg.function)]
+            result.exclude_if_null = native_agges
 
         return result
 

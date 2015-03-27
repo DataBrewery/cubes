@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
-                               split=None, backend_functions=None):
+                               split=None):
     """Returns a list of calculator function objects that implements
     aggregations by calculating on retrieved results, given a particular
     drilldown. Only post-aggregation calculators are returned.
@@ -23,23 +23,19 @@ def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
     Might return an empty list if there is no post-aggregation witin
     aggregate functions.
 
-    `backend_functions` is a list of backend-specific functions.
+    Aggregates are supposed to be only those aggregates which refer to a
+    post-aggregation function.
     """
-    backend_functions = backend_functions or []
-
     # If we have an aggregation function, then we consider the aggregate
     # already processed
     functions = []
 
-    names = [a.name for a in aggregates]
     for aggregate in aggregates:
         # Ignore function if the backend already handles it
-        if not aggregate.function or aggregate.function in backend_functions:
-            continue
-
         try:
             factory = CALCULATED_AGGREGATIONS[aggregate.function]
         except KeyError:
+            import pdb; pdb.set_trace()
             raise ArgumentError("Unknown post-calculation function '%s' for "
                                 "aggregate '%s'" % (aggregate.function,
                                                     aggregate.name))

@@ -6,7 +6,9 @@ import re
 
 from collections import namedtuple
 
+
 from .extensions import Extensible
+from .statutils import calculators_for_aggregates, available_calculators
 from .calendar import CalendarMemberConverter
 from .logging import get_logger
 from .common import IgnoringDictionary
@@ -154,6 +156,24 @@ class AggregationBrowser(Extensible):
                                         page=page,
                                         page_size=page_size,
                                         **options)
+
+        #
+        # Find post-aggregation calculations and decorate the result
+        #
+        calculated_aggs = [agg for agg in aggregates
+                           if agg.function and \
+                                not self.is_builtin_function(agg.function)]
+
+        result.calculators = calculators_for_aggregates(self.cube,
+                                                        calculated_aggs,
+                                                        drilldown,
+                                                        split)
+
+        # Do calculated measures on summary if no drilldown or split
+        if result.summary:
+            for calc in result.calculators:
+                calc(result.summary)
+
         return result
 
     def provide_aggregate(self, cell=None, measures=None, aggregates=None,
@@ -220,7 +240,7 @@ class AggregationBrowser(Extensible):
         # Resolve aggregate dependencies for non-builtin functions:
         for agg in aggregates:
             if agg.measure and \
-                    not self.is_builtin_function(agg.function, agg) \
+                    not self.is_builtin_function(agg.function) \
                     and agg.measure not in seen:
                 seen.add(agg.measure)
 
@@ -259,8 +279,7 @@ class AggregationBrowser(Extensible):
                 except NoSuchAttributeError:
                     attribute = self.cube.attribute(name)
 
-                if function and not self.is_builtin_function(function,
-                                                             attribute):
+                if function and not self.is_builtin_function(function):
                     # TODO: Temporary solution: get the original measure instead
 
                     try:
@@ -296,13 +315,17 @@ class AggregationBrowser(Extensible):
                                 % names)
 
 
-    def is_builtin_function(self, function_name, aggregate):
-        """Returns `True` if function `function_name` for `aggregate` is
-        bult-in. Returns `False` if the browser can not compute the function
-        and post-aggregation calculation should be used.
+    def is_builtin_function(self, function_name):
+        """Returns `True` if function `function_name` is bult-in. Returns
+        `False` if the browser can not compute the function and
+        post-aggregation calculation should be used.
 
-        Subclasses should override this method."""
-        raise NotImplementedError
+        Default implementation returns `True` for all unctions except those in
+        :func:`available_calculators`. Subclasses are reommended to override
+        this method if they have their own built-in version of the aggregate
+        functions."""
+
+        return function_name in available_calculators()
 
     def facts(self, cell=None, fields=None, **options):
         """Return an iterable object with of all facts within cell.
