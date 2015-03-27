@@ -523,7 +523,6 @@ class StarSchema(object):
         column = column.label(logical)
 
         self._columns[logical] = column
-        # self._labels[label] = logical
 
         return column
 
@@ -714,7 +713,7 @@ class StarSchema(object):
                 is_outer = True
             elif join.method == "detail":
                 # Swap the master and detail tables to perform RIGHT OUTER JOIN
-                left, right = (righ, left)
+                left, right = (right, left)
                 is_outer = True
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
@@ -816,7 +815,8 @@ class QueryContext(object):
         return [self._columns[ref] for ref in refs]
 
     def condition_for_cell(self, cell):
-        """Returns a condition for cell `cell`."""
+        """Returns a condition for cell `cell`. If cell is empty or cell is
+        `None` then returns `None`."""
 
         if not cell:
             return None
@@ -835,17 +835,17 @@ class QueryContext(object):
         for cut in cuts:
             if isinstance(cut, PointCut):
                 path = cut.path
-                condition = self.condition_for_point(cut.dimension,
+                condition = self.condition_for_point(str(cut.dimension),
                                                      path,
-                                                     cut.hierarchy, cut.invert)
+                                                     str(cut.hierarchy), cut.invert)
 
             elif isinstance(cut, SetCut):
                 set_conds = []
 
                 for path in cut.paths:
-                    condition = self.condition_for_point(cut.dimension,
+                    condition = self.condition_for_point(str(cut.dimension),
                                                          path,
-                                                         cut.hierarchy,
+                                                         str(cut.hierarchy),
                                                          invert=False)
                     set_conds.append(condition)
 
@@ -855,9 +855,8 @@ class QueryContext(object):
                     condition = sql.expression.not_(condition)
 
             elif isinstance(cut, RangeCut):
-                condition = self.range_condition(context,
-                                                 cut.dimension,
-                                                 cut.hierarchy,
+                condition = self.range_condition(str(cut.dimension),
+                                                 str(cut.hierarchy),
                                                  cut.from_path,
                                                  cut.to_path, cut.invert)
 
@@ -943,7 +942,7 @@ class QueryContext(object):
             # else - lower bound (that is >= and > operator)
             operator = sql.operators.ge if first else sql.operators.gt
 
-        column = self.column(levels[-1].key)
+        column = self.column(levels[-1])
         conditions.append(operator(column, path[-1]))
         condition = sql.expression.and_(*conditions)
 
@@ -959,7 +958,7 @@ class QueryContext(object):
         # Note: If something does not work here, make sure that hierarchies
         # contains "default hierarchy", that is (dimension, None) tuple.
         #
-        levels = self.hierarchies.get((dimension, hierarchy), [dimension])
+        levels = self.hierarchies[(str(dimension), hierarchy)]
 
         depth = 0 if not path else len(path)
 

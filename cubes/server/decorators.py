@@ -6,6 +6,7 @@ from ..workspace import Workspace
 from ..auth import NotAuthorized
 from ..cells import Cell, cut_from_dict
 from ..browser import SPLIT_DIMENSION_NAME
+from ..cells import cuts_from_string
 from ..errors import *
 from .utils import *
 from .errors import *

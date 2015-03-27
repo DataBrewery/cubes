@@ -32,26 +32,6 @@ __all__ = [
 ]
 
 
-def star_schema_from_cube(cube, metadata, mapper, tables=None):
-    """Creates a :class:`StarSchema` instance for `cube` within database
-    environment specified by `metadata` using logical to physical `mapper`."""
-    # TODO: remove requirement for the mapper, use mapping options and create
-    # mapper here
-
-    names = [attr.name for attr in cube.all_attributes]
-    mappings = {attr:mapper.physical(attr) for attr in names}
-
-    star = StarSchema(cube.name,
-                      metadata,
-                      mappings=mappings,
-                      fact=mapper.fact_name,
-                      joins=cube.joins,
-                      tables=tables,
-                      schema=mapper.schema
-                     )
-    return star
-
-
 class SQLBrowser(AggregationBrowser):
     """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
     can aggregate star and snowflake schemas without need of having
@@ -151,9 +131,8 @@ class SQLBrowser(AggregationBrowser):
 
         # Whether to ignore cells where at least one aggregate is NULL
         # TODO: this is undocumented
-        # TODO: why is this True and not False by default?
         self.exclude_null_agregates = options.get("exclude_null_agregates",
-                                                  True)
+                                                  False)
 
         # Mapper
         # ------
@@ -162,10 +141,7 @@ class SQLBrowser(AggregationBrowser):
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
 
-        # FIXME: mapper sohuld be a cube-free object with preconfigured naming
-        # conventions and should be provided by the store.
-        # TODO: change this to is_denormalized
-        if options.get("use_denormalization"):
+        if options.get("is_denormalized", options.get("use_denormalization")):
             mapper_class = DenormalizedMapper
         else:
             mapper_class = SnowflakeMapper
@@ -173,19 +149,16 @@ class SQLBrowser(AggregationBrowser):
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
                           (str(mapper_class.__name__), cube.name, locale))
 
-        # We need mapper just to construct metadata for the star
+        # Prepare the mappings of base attributes
+        #
         mapper = mapper_class(cube, locale=self.locale, **options)
 
-        # TODO: This should include also aggregates if the underlying table is
-        # already pre-aggregated
         base = [attr for attr in cube.all_attributes if attr.is_base]
         mappings = {attr.ref:mapper.physical(attr) for attr in base}
 
-        # TODO: include table expressions
-        # TODO: I have a feeling that creation of this should belong to the
-        # store
         tables = options.get("tables")
 
+        # Prepare Join objects
         if cube.joins:
             joins = [to_join(join) for join in cube.joins]
         else:
@@ -233,7 +206,6 @@ class SQLBrowser(AggregationBrowser):
 
         if row:
             # Convert SQLAlchemy object into a dictionary
-            # TODO: safe labels
             record = self.row_to_dict(row, labels)
         else:
             record = None
@@ -260,26 +232,23 @@ class SQLBrowser(AggregationBrowser):
 
         cursor = self.execute(statement, "facts")
 
-        # TODO: safe labels
         return ResultIterator(cursor, cursor.keys())
 
-    # TODO: requires rewrite
-    def test(self, aggregate=False, **options):
-        """Tests whether the statement can be constructed."""
-        raise NotImplementedError("Queued for refactoring")
-        cell = Cell(self.cube)
-
-        attributes = self.cube.all_attributes
-
-        builder = QueryBuilder(self)
-        statement = builder.denormalized_statement(cell,
-                                                   attributes)
+    def test(self, aggregate=False):
+        """Tests whether the statement can be constructed and executed. Does
+        not return anything, but raises an exception if there are issues with
+        the generated statements. By default it tests only denormalized
+        statement by fetching one row. If `aggregate` is `True` then test also
+        aggregation."""
+        statement = self.denormalized_statement()
         statement = statement.limit(1)
         result = self.connectable.execute(statement)
         result.close()
 
-        if aggregate:
-            result = self.aggregate()
+        statement = self.aggregation_statement(aggregates=cube.all_aggregates,
+                                               for_summary=True)
+        result = self.connectable.execute(statement)
+        result.close()
 
     # TODO: requires rewrite
     def provide_members(self, cell, dimension, depth=None, hierarchy=None,
@@ -296,6 +265,7 @@ class SQLBrowser(AggregationBrowser):
             for level in levels:
                 attributes += level.attributes
 
+        statement = self.denormalized_statement(cell=cell)
         builder = QueryBuilder(self)
         builder.members_statement(cell, attributes)
         builder.paginate(page, page_size)
@@ -323,13 +293,10 @@ class SQLBrowser(AggregationBrowser):
         for level in hierarchy.levels[0:len(path)]:
             attributes += level.attributes
 
-        builder = QueryBuilder(self)
-        builder.denormalized_statement(cell,
-                                       attributes,
-                                       include_fact_key=True)
-        builder.paginate(0, 1)
-        cursor = self.execute(builder.statement,
-                                        "path details")
+        statement = self.denormalized_statement(attributes, cell,
+                                                include_fact_key=True)
+        statement = statement.limit(1)
+        cursor = self.execute(statement, "path details")
 
         row = cursor.fetchone()
 
@@ -523,7 +490,7 @@ class SQLBrowser(AggregationBrowser):
         `cell`. If `attributes` is not specified, then all cube's attributes
         are selected."""
 
-        attributes = attributes or self.cube.all_attributes
+        attributes = attributes or self.cube.all_fact_attributes
 
         refs = [attr.ref for attr in collect_attributes(attributes, cell)]
         attributes = self.cube.get_attributes(refs)
@@ -562,7 +529,6 @@ class SQLBrowser(AggregationBrowser):
           drilldown is used only for choosing tables to join
         * `across` – cubes that share dimensions
         """
-        # TODO: `across` should be used here
         # TODO: PTD
         # TODO: semiadditive
 

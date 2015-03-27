@@ -243,7 +243,7 @@ def read_json_file(path, kind=None):
                                  % (kind, path))
 
     try:
-        f = open(path)
+        f = compat.open_unicode(path)
     except IOError:
         raise ConfigurationError("Can not open %sfile '%s'"
                                  % (kind, path))
