@@ -659,17 +659,59 @@ class Cube(ModelObject):
 
         return hierarchies
 
-    def nonadditive_type(self, aggregate):
-        """Returns non-additive type of `aggregate`'s measure. If aggregate
-        has no measure specified or is unknown (backend-specific) then `None`
-        is returned."""
+    def nonadditive_dimensions(self, aggregates, dimensions):
+        """Return a list of dimensions that any of the `aggregates` is not
+        additive by. For example a table of account snapshots might contain a
+        measure `balance` that is not be additive by the time dimension.
+        Dimension key is expected to be an attribute named `__key__`.
 
-        try:
-            measure = self.measure(aggregate.measure)
-        except NoSuchAttributeError:
+        Currently supported non-additiveness are dimensions of role `time`.
+        Otherwise an exception is raised.
+
+        Note: This is experimental feature. Use with caution. Feedback is
+        appreciated."""
+
+        # TODO: this is ported from old query builder, requires revision
+        nonadditives = []
+        for agg in aggregates:
+            try:
+                nonadd_type = self.measure(aggregate.measure)
+            except NoSuchAttributeError:
+                continue
+
+            if nonadd_type:
+                nonadditives.append(aggregate, nonadd_type)
+
+        if not nonadditives:
             return None
 
-        return measure.nonadditive
+        affecting = []
+        for dim in dimensions:
+            if dimension.role != "time":
+                raise NotImplementedError("Nonadditive aggregates for other "
+                                          "than time dimension are not "
+                                          "supported.")
+
+            # __key__ is a dimension key at it's lowest level
+            #
+            affecting.append(dim)
+
+        # For now ...
+        if len(affecting) > 1:
+            raise NotImplementedError("More than one time dimension detected "
+                                      "for nonadditive aggregates in cube '{}'"
+                                      " Don't know what to do."
+                                      .format(self.name))
+
+        # Get the first time dimension if none provided in the dimensions
+        # list (drilldown)
+        if not affecting:
+            time_dims = [d for d in self.dimensions if d.role == "time"]
+            if not time_dims:
+                raise BrowserError("Cannot locate a time dimension to apply for semiadditive aggregates: %r" % nonadds)
+            affecting.append(time_dims[0])
+
+        return affecting
 
 
     def to_dict(self, **options):

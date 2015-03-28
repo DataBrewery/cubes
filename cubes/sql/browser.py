@@ -365,15 +365,6 @@ class SQLBrowser(AggregationBrowser):
 
         result = AggregationResult(cell=cell, aggregates=aggregates)
 
-        # TODO: separate calculated aggregates here
-        # TODO: remove unnecessary parts of the following discussion once
-        # implemented and documented
-
-        # Discussion:
-        # -----------
-        # the only diference between the summary statement and non-summary
-        # statement is the inclusion of the group-by clause
-
         # Summary
         # -------
 
@@ -404,9 +395,7 @@ class SQLBrowser(AggregationBrowser):
                 self.assert_low_cardinality(cell, drilldown)
 
             result.levels = drilldown.result_levels(include_split=bool(split))
-
             natural_order = drilldown.natural_order
-            # TODO: add natural order of aggregates
 
             self.logger.debug("preparing drilldown statement")
 
@@ -431,10 +420,6 @@ class SQLBrowser(AggregationBrowser):
 
             cursor = self.execute(statement, "aggregation drilldown")
 
-            # TODO: computed
-            # TODO: we should not join those lists together here, it sohuld be
-            # prepared already
-            # TODO: to split!
             result.cells = ResultIterator(cursor, labels)
             result.labels = labels
 
@@ -578,6 +563,75 @@ class SQLBrowser(AggregationBrowser):
 
 
         return (statement, context.get_labels(statement.columns))
+
+
+    def _filter_nonadditive(self, context, statement, aggregates, drilldown):
+        """Applies a condition to the `statement` before aggregation that
+        filters out records that might caouse double counting on non-additive
+        measures. `aggregates` is list of all aggregates to be used in the
+        aggregation, `drilldown` is the original aggregation drilldown.
+
+        The only dimension that is currently supported for non-additiveness is
+        any dimension with role ``time``.
+        """
+
+        dimensions = [time.dimension for item in drilldown]
+        affecting = self.cube.nonadditive_dimensions(aggregates, dimensions)
+
+        if not affecting:
+            return statement
+
+        # Note: ported from the original v1.0 query builder just with slight
+        # modification
+        # TODO: make this a window function condition for Postgres and Oracle
+        # dialects
+        # TODO: make statement a CTE?
+
+        attributes = [Attribute('__key__', dim) for dim in affecting]
+
+        # Create a subquery selection: all original attributes + keys for
+        # dimensions along which aggregates are nonadditive
+        #
+        sub_selection = selection[:]
+
+        semiadd_selection = []
+        affecting_selection = []
+        for attr in attributes:
+            col = context.column(attr)
+            affecting_selection.append(col)
+
+            # Only one function is supported for now: max()
+            func = sql.expression.func.max
+            semiadd_selection.append(func(col))
+
+        sub_selection += semiadd_selection
+
+        # Prepare the subquery – should have the same selection as the
+        # original statement + columns for our condition
+        #
+        sub_statement = sql.expression.select(sub_selection,
+                                              from_obj=statement,
+                                              use_labels=True,
+                                              whereclause=condition,
+                                              group_by=group_by)
+
+        sub_statement = sub_statement.alias("__semiadditive_subquery")
+
+        # Construct the subquery JOIN condition that will filter-out all rows
+        # except the ones selected by the non-additive selection function (in
+        # our default case it is MAX())
+        #
+        # Skipt the last subquery selection which we have created just
+        # recently
+        join_selections = zip(selection, sub_statement.columns) \
+                            + affecting_selection
+
+        join_conditions = [left == right for left, right in join_selections]
+
+        join_expression = statement.join(sub_statement, and_(join_condition))
+
+        return join_expression
+
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
