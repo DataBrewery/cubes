@@ -406,7 +406,7 @@ class StarSchema(object):
             else:
                 alias = join.detail.table
 
-            key = (join.detail.schema, alias)
+            key = (join.detail.schema or self.schema, alias)
 
             if key in details:
                 raise ModelError("Detail table '{}' joined twice in star"
