@@ -157,21 +157,6 @@ class SQLBrowser(AggregationBrowser):
         base = [attr for attr in cube.all_attributes if attr.is_base]
         mappings = {attr.ref:mapper.physical(attr) for attr in base}
 
-        # TODO: This is just a temporary solution for experimental feature:
-        # 'nonadditive' measures. The `__key__` attribute mapping is a mapping
-        # to a lowest level unique key of a dimension. No hierarchies
-        # considered at all. It will make no sense in Cubes 2.0 once
-        # dimensions are hierarchy free.
-
-        # FIXME:
-        # for dim in cube.dimensions:
-        #     key = Attribute("__key__", dimension=dim)
-        #     # Note: we can't just call mapper.physical(), because it will try
-        #     # to construct implicit mapping and we will end-up with
-        #     # non-existing columns
-        #     if mapper.has_mapping(key.ref):
-        #         mappings[key.ref] = mapper.physical(key)
-
         tables = options.get("tables")
 
         # Prepare Join objects
@@ -513,7 +498,6 @@ class SQLBrowser(AggregationBrowser):
         # * `across` – cubes that share dimensions
 
         # TODO: PTD
-        # TODO: semiadditive
 
         # Basic assertions
 
@@ -558,7 +542,6 @@ class SQLBrowser(AggregationBrowser):
 
         group_by = selection[:] if not for_summary else None
 
-        # TODO: insert semiadditives here
         # TODO: coalesce if there are outer joins
         # TODO: ignore post-aggregations
         aggregate_cols = context.get_columns([agg.ref for agg in aggregates])
@@ -576,87 +559,7 @@ class SQLBrowser(AggregationBrowser):
                                           whereclause=condition,
                                           group_by=group_by)
 
-        # TODO: enable once decided how to properly handle it
-        # statement = self._filter_nonadditive(context, statement, aggregates,
-        #                                      drilldown)
-
         return (statement, context.get_labels(statement.columns))
-
-
-    def _filter_nonadditive(self, context, statement, aggregates, drilldown):
-        """Applies a condition to the `statement` before aggregation that
-        filters out records that might caouse double counting on non-additive
-        measures. `aggregates` is list of all aggregates to be used in the
-        aggregation, `drilldown` is the original aggregation drilldown.
-
-        The only dimension that is currently supported for non-additiveness is
-        any dimension with role ``time``.
-        """
-
-        # Gather dimensions that are affecting the filter
-        dimensions = [item.dimension for item in drilldown]
-        affecting = self.cube.nonadditive_dimensions(aggregates, dimensions)
-
-        if not affecting:
-            return statement
-
-        # Note: ported from the original v1.0 query builder just with slight
-        # modification
-        # TODO: make this a window function condition for Postgres and Oracle
-        # dialects. Requires CTE. Expression would be something like this:
-        #
-        # row_number() OVER (PARTITION BY %nonadd_dim
-        #                    ORDER BY %desired_order) AS __rownum__ ...
-        #
-        # ... WHERE __rownum__ = 0
-        #
-        # TODO: make statement a CTE?
-
-        attributes = [Attribute('__key__', dimension=dim) for dim in affecting]
-
-        # Create a subquery selection: all original attributes + keys for
-        # dimensions along which aggregates are nonadditive
-        #
-        sub_selection = list(statement.columns)
-
-        semiadd_selection = []
-        affecting_selection = []
-        for attr in attributes:
-            col = context.column(attr)
-            affecting_selection.append(col)
-
-            # Only one function is supported for now: max()
-            func = sql.expression.func.max
-            semiadd_selection.append(func(col))
-
-        sub_selection += semiadd_selection
-
-        # Prepare the subquery – should have the same selection as the
-        # original statement + columns for our condition
-        #
-        sub_statement = sql.expression.select(sub_selection,
-                                              from_obj=statement,
-                                              use_labels=True,
-                                              whereclause=condition,
-                                              group_by=group_by)
-
-        sub_statement = sub_statement.alias("__semiadditive_subquery")
-
-        # Construct the subquery JOIN condition that will filter-out all rows
-        # except the ones selected by the non-additive selection function (in
-        # our default case it is MAX())
-        #
-        # Skipt the last subquery selection which we have created just
-        # recently
-        join_selections = zip(selection, sub_statement.columns) \
-                            + affecting_selection
-
-        join_conditions = [left == right for left, right in join_selections]
-
-        join_expression = statement.join(sub_statement, and_(join_condition))
-
-        return join_expression
-
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
