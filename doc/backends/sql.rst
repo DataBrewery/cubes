@@ -36,7 +36,9 @@ Store Configuration
 Data store:
 
 * ``url`` *(required)* – database URL in form: 
-  ``adapter://user:password@host:port/database``
+  ``adapter://user:password@host:port/database``, for example:
+  ``postgresql://stefan:secret@localhost:5432/datawarehouse``. Empty values
+  can be ommited, as in ``postgresql://localhost/datawarehouse``.
 * ``schema`` *(optional)* – schema containing denormalized views for
   relational DB cubes
 * ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
@@ -57,6 +59,7 @@ Data store:
 * ``denormalized_view_schema`` *(optional, advanced)* – schema wehere
   denormalized views are located (use this if the views are in different
   schema than fact tables, otherwise default schema is going to be used)
+
 
 Database Connection
 -------------------
@@ -140,6 +143,10 @@ prefix for every fact table with ``fact_table_prefix``.  Example:
 
 Dimensions
 ^^^^^^^^^^
+
+*In short:* a dimension attribute `customer.name` maps to table `customer` and
+column `name` by default. A dimension without details and with just a single
+level such as `is_hungry` maps to the `is_hungry` column of the fact table.
 
 By default, dimension tables are expected to have same name as dimensions and
 dimension table columns are expected to have same name as dimension
@@ -388,10 +395,6 @@ Joins are defined as an ordered list (order is important) for every cube
 separately. The join description consists of reference to the `master` table
 and a table with `details`. Fact table is example of master table, dimension
 is example of a detail table (in a star schema).
-
-.. note::
-
-    Only single column – surrogate keys are supported for joins.
 
 The join specification is very simple, you define column reference for both:
 master and detail. The table reference is in the form `table`.`column`:

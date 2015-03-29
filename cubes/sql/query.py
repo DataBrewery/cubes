@@ -313,6 +313,11 @@ class StarSchema(object):
     Note: It is not in the responsibilities of the `StarSchema` to resolve
     arithmetic expressions neither attribute dependencies. It is up to the
     caller to resolve these and ask for basic columns only.
+
+
+    .. note::
+
+        The `tables` statements need to be aliased.
     """
 
     def __init__(self, label, metadata, mappings, fact, fact_key='id',
