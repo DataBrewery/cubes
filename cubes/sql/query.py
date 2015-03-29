@@ -120,7 +120,15 @@ def to_join_key(obj):
     """Utility function that will create JoinKey tuple from an anonymous
     tuple, dictionary or similar object. `obj` can also be a string in form
     ``schema.table.column`` where schema or both schema and table can be
-    ommited."""
+    ommited. Dictionary representation of a join key has values: ``schema``,
+    ``table`` and ``column``. With the dicitonary representation, the
+    ``column`` can be a list of columns in the same table. Both master and
+    detail joins have to have the same number of columns in the join key.
+
+    Note that Cubes at this low level does not know which table is used for a
+    dimension, therefore the default dimension schema from mapper's naming can
+    not be assumed here and has to be explicitly mentioned."""
+
 
     if obj is None:
         return JoinKey(None, None, None)
@@ -151,6 +159,11 @@ def to_join_key(obj):
         schema = obj.schema
         table = obj.table
         column = obj.column
+
+    # Make it immutable and hashable, as the whole Join object has to be
+    # hashable
+    if isinstance(column, list):
+        column = tuple(column)
 
     return JoinKey(schema, table, column)
 
@@ -218,13 +231,16 @@ class SchemaError(InternalError):
     """Error related to the physical star schema."""
     pass
 
+
 class NoSuchTableError(SchemaError):
     """Error related to the physical star schema."""
     pass
 
+
 class NoSuchAttributeError(SchemaError):
     """Error related to the physical star schema."""
     pass
+
 
 def _format_key(key):
     """Format table key `key` to a string."""
@@ -236,6 +252,18 @@ def _format_key(key):
         return "{}.{}".format(schema, table)
     else:
         return table
+
+
+def _make_compound_key(table, key):
+    """Returns a list of columns from `column_key` for `table` representing
+    potentially a compound key. The `column_key` can be a name of a single
+    column or list of column names."""
+
+    if not isinstance(key, (list, tuple)):
+        key = [key]
+
+    return [table.columns[name] for name in key]
+
 
 class StarSchema(object):
     """Represents a star/snowflake table schema. Attributes:
@@ -695,25 +723,41 @@ class StarSchema(object):
             master_table = self.table(master_key).table
 
             try:
-                master_column = master_table.c[master.column]
-            except KeyError:
-                raise ModelError('Unable to find master key (in star {schema}) '
-                                 '"{table}"."{column}" '.format(join.master))
+                master_columns = _make_compound_key(master_table,
+                                                    master.column)
+            except KeyError as e:
+                raise ModelError('Unable to find master key column "{key}" '
+                                 'in table "{table}" for star {schema} '
+                                 .format(schema=self.label,
+                                         key=e,
+                                         table=_format_key(master_key)))
 
             # Detail table.column
             # -------------------
             try:
-                detail_column = detail_table.c[join.detail.column]
-            except KeyError:
-                raise ModelError('Unable to find detail key (in star {schema}) '
-                                 '"{table}"."{column}" '
+                detail_columns = _make_compound_key(detail_table,
+                                                    join.detail.column)
+            except KeyError as e:
+                raise ModelError('Unable to find detail key column "{key}" '
+                                 'in table "{table}" for star {schema} '
                                  .format(schema=self.label,
-                                         column=join.detail.column,
+                                         key=e,
                                          table=_format_key(detail_key)))
+
+            if len(master_columns) != len(detail_columns):
+                raise ModelError("Compound keys for master '{}' and detail "
+                                 "'{}' table in star {} have different number"
+                                 " of columns"
+                                 .format(_format_key(master_key),
+                                         _format_key(detail_key),
+                                         self.label))
 
             # The JOIN ON condition
             # ---------------------
-            onclause = master_column == detail_column
+            key_conditions = [left == right
+                              for left, right
+                              in zip(master_columns, detail_columns)]
+            onclause = and_(*key_conditions)
 
             # Determine the join type based on the join method. If the method
             # is "detail" then we need to swap the order of the tables

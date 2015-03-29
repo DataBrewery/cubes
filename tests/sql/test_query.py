@@ -16,6 +16,7 @@ from cubes.sql.query import NoSuchAttributeError
 from cubes.sql.query import JoinKey, to_join_key, Join, to_join
 from cubes.sql.query import QueryContext
 from cubes.errors import ArgumentError, ModelError
+from cubes.model import create_list_of, Attribute
 from .common import create_table, SQLTestCase
 
 CONNECTION = "sqlite://"
@@ -410,6 +411,76 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertColumnEqual(schema.column("size"),
                                self.dim_category.columns["size"])
 
+    def test_compound_join_key(self):
+        """Test compound (multi-column) join key"""
+        joins = [
+            to_join((
+                {
+                    "table": "test",
+                    "column": ["category", "category"]
+                },
+                {
+                    "table":"dim_category",
+                    "column": ["category", "category"]
+                }))
+        ]
+
+        mappings = {
+            "category":       Column(None, "test", "category", None, None),
+            "amount":         Column(None, "test", "amount", None, None),
+            "category_label": Column(None, "dim_category", "label", None, None),
+            "size":           Column(None, "dim_category", "size", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        # Doe we have the joined table in the table list?
+        table = schema.table((None, "dim_category"))
+        self.assertEqual(table.table, self.dim_category)
+
+        tables = schema.required_tables(["category"])
+        self.assertEqual(len(tables), 1)
+
+        tables = schema.required_tables(["amount"])
+        self.assertEqual(len(tables), 1)
+
+        # Check columns
+        self.assertColumnEqual(schema.column("category"),
+                               self.fact.columns["category"])
+        self.assertColumnEqual(schema.column("category_label"),
+                               self.dim_category.columns["label"])
+        self.assertColumnEqual(schema.column("size"),
+                               self.dim_category.columns["size"])
+
+        schema.get_star(["category_label"])
+
+    def test_compound_join_different_length(self):
+        """Test compound (multi-column) join key"""
+        joins = [
+            to_join((
+                {
+                    "table": "test",
+                    "column": ["category", "category"]
+                },
+                {
+                    "table":"dim_category",
+                    "column": ["category"]
+                }))
+        ]
+
+        mappings = {
+            "category":       Column(None, "test", "category", None, None),
+            "amount":         Column(None, "test", "amount", None, None),
+            "category_label": Column(None, "dim_category", "label", None, None),
+            "size":           Column(None, "dim_category", "size", None, None),
+        }
+
+        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+
+        # Doe we have the joined table in the table list?
+        with self.assertRaisesRegex(ModelError, "different number"):
+            schema.get_star(["category_label"])
+
     def test_join_alias(self):
         """Test single aliased join, test two joins on same table, one aliased
         """
@@ -563,7 +634,8 @@ class QueryTestCase(SQLTestCase):
         }
 
         self.schema = StarSchema("star", self.md, mappings, self.fact)
-        self.base_attributes = list(mappings.keys())
+        self.base_attributes = create_list_of(Attribute, mappings.keys())
+        # self.base_attributes = list(mappings.keys())
         self.base_deps = {attr:[] for attr in self.base_attributes}
 
 
