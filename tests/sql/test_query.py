@@ -615,6 +615,49 @@ class SchemaJoinsTestCase(SQLTestCase):
 
     def test_statement_table(self):
         """Test using a statement as a table"""
+        joins = [
+            to_join(("test.category", "dim_category.category"))
+        ]
+
+        mappings = {
+            "code":  Column(None, "test", "category", None, None),
+            "fruit": Column(None, "dim_category", "label", None, None),
+            "size":  Column(None, "dim_category", "size", None, None),
+        }
+
+        fact_statement = sa.select(self.fact.columns, from_obj=self.fact,
+                                   whereclause=self.fact.c.category == 'A')
+        cat_statement = sa.select(self.dim_category.columns,
+                                  from_obj=self.dim_category,
+                                  whereclause=self.dim_category.c.category == 'A')
+
+        tables = {
+            "dim_category": cat_statement
+        }
+
+        with self.assertRaisesRegex(ArgumentError, "requires alias"):
+            StarSchema("star", self.md, mappings,
+                       fact=fact_statement,
+                       tables=tables,
+                       joins=joins)
+
+        tables = {
+            "dim_category": cat_statement.alias("dim_category")
+        }
+
+        schema = StarSchema("star", self.md, mappings,
+                            fact=fact_statement.alias("test"),
+                            tables=tables,
+                            joins=joins)
+
+        star = schema.get_star(["size"])
+        selection = [schema.column("size")]
+        select = sql.expression.select(selection,
+                                       from_obj=star)
+        result = self.engine.execute(select)
+        sizes = [r["size"] for r in result]
+
+        self.assertCountEqual(sizes, [2])
 
 class QueryTestCase(SQLTestCase):
     def setUp(self):

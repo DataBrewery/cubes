@@ -354,7 +354,11 @@ class StarSchema(object):
             self.fact_table = self.physical_table(fact)
         else:
             # We expect fact to be a statement
-            self.fact_name = fact.name
+            try:
+                self.fact_name = fact.name
+            except AttributeError:
+                raise ArgumentError("Fact table statement requires alias()")
+
             self.fact_table = fact
 
         self.fact_key = fact_key
