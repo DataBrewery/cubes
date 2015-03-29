@@ -221,8 +221,12 @@ class SQLBrowser(AggregationBrowser):
         return record
 
     def facts(self, cell=None, fields=None, order=None, page=None,
-              page_size=None):
+              page_size=None, fact_list=None):
         """Return all facts from `cell`, might be ordered and paginated.
+
+        `fact_list` is a list of fact keys to be selected. Might be used to
+        fetch multiple facts using single query instead of multiple `fact()`
+        queries.
 
         Number of SQL queries: 1.
         """
@@ -231,6 +235,11 @@ class SQLBrowser(AggregationBrowser):
 
         (statement, labels) = self.denormalized_statement(cell=cell,
                                                           attributes=attrs)
+
+        if fact_list is not None:
+            in_condition = self.star.fact_key_column.in_(fact_list)
+            statement = statement.where(in_condition)
+
         statement = paginate_query(statement, page, page_size)
 
         # TODO: use natural order
