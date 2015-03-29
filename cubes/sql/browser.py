@@ -9,7 +9,7 @@ from ..logging import get_logger
 from ..errors import ArgumentError, ModelError
 from ..stores import Store
 from ..cells import Cell, PointCut, RangeCut, SetCut
-from ..model import collect_attributes
+from ..model import Attribute, collect_attributes
 
 from .functions import available_aggregate_functions
 from .mapper import SnowflakeMapper, DenormalizedMapper
@@ -156,6 +156,21 @@ class SQLBrowser(AggregationBrowser):
 
         base = [attr for attr in cube.all_attributes if attr.is_base]
         mappings = {attr.ref:mapper.physical(attr) for attr in base}
+
+        # TODO: This is just a temporary solution for experimental feature:
+        # 'nonadditive' measures. The `__key__` attribute mapping is a mapping
+        # to a lowest level unique key of a dimension. No hierarchies
+        # considered at all. It will make no sense in Cubes 2.0 once
+        # dimensions are hierarchy free.
+
+        # FIXME:
+        # for dim in cube.dimensions:
+        #     key = Attribute("__key__", dimension=dim)
+        #     # Note: we can't just call mapper.physical(), because it will try
+        #     # to construct implicit mapping and we will end-up with
+        #     # non-existing columns
+        #     if mapper.has_mapping(key.ref):
+        #         mappings[key.ref] = mapper.physical(key)
 
         tables = options.get("tables")
 
@@ -561,6 +576,9 @@ class SQLBrowser(AggregationBrowser):
                                           whereclause=condition,
                                           group_by=group_by)
 
+        # TODO: enable once decided how to properly handle it
+        # statement = self._filter_nonadditive(context, statement, aggregates,
+        #                                      drilldown)
 
         return (statement, context.get_labels(statement.columns))
 
@@ -575,7 +593,8 @@ class SQLBrowser(AggregationBrowser):
         any dimension with role ``time``.
         """
 
-        dimensions = [time.dimension for item in drilldown]
+        # Gather dimensions that are affecting the filter
+        dimensions = [item.dimension for item in drilldown]
         affecting = self.cube.nonadditive_dimensions(aggregates, dimensions)
 
         if not affecting:
@@ -584,15 +603,21 @@ class SQLBrowser(AggregationBrowser):
         # Note: ported from the original v1.0 query builder just with slight
         # modification
         # TODO: make this a window function condition for Postgres and Oracle
-        # dialects
+        # dialects. Requires CTE. Expression would be something like this:
+        #
+        # row_number() OVER (PARTITION BY %nonadd_dim
+        #                    ORDER BY %desired_order) AS __rownum__ ...
+        #
+        # ... WHERE __rownum__ = 0
+        #
         # TODO: make statement a CTE?
 
-        attributes = [Attribute('__key__', dim) for dim in affecting]
+        attributes = [Attribute('__key__', dimension=dim) for dim in affecting]
 
         # Create a subquery selection: all original attributes + keys for
         # dimensions along which aggregates are nonadditive
         #
-        sub_selection = selection[:]
+        sub_selection = list(statement.columns)
 
         semiadd_selection = []
         affecting_selection = []
