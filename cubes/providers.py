@@ -353,7 +353,7 @@ class ModelProvider(Extensible):
 
             for join in cube_joins:
                 name = join.get('name')
-                if name and model_join_map.has_key(name):
+                if name and name in model_join_map:
                     model_join = dict(model_join_map[name])
                 else:
                     model_join = {}

@@ -673,14 +673,14 @@ class Cube(ModelObject):
 
         # TODO: this is ported from old query builder, requires revision
         nonadditives = []
-        for agg in aggregates:
+        for aggregate in aggregates:
             try:
-                nonadd_type = self.measure(aggregate.measure)
+                measure = self.measure(aggregate.measure)
             except NoSuchAttributeError:
                 continue
 
-            if nonadd_type:
-                nonadditives.append(aggregate, nonadd_type)
+            if measure and measure.nonadditive:
+                nonadditives.append((aggregate, measure.nonadditive))
 
         if not nonadditives:
             return None
