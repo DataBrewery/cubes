@@ -112,7 +112,8 @@ The ``requirements.txt``::
     -e git+git://github.com/DataBrewery/cubes.git@master#egg=cubes
     jsonschema
     python-dateutil
-    pytz
+    expressions
+    grako
     uwsgi
 
 Add any packages that you might need for your Slicer server installation.
