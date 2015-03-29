@@ -330,7 +330,21 @@ class StarSchema(object):
             self.fact_table = fact
 
         self.fact_key = fact_key
-        self.fact_key_column = self.fact_table.columns[self.fact_key]
+
+        # Try to get the fact key, if does not exist, then consider the first
+        # table column as the fact key.
+        try:
+            self.fact_key_column = self.fact_table.columns[self.fact_key]
+        except KeyError:
+            try:
+                self.fact_key_column = list(self.fact_table.columns)[0]
+            except Exception as e:
+                raise ModelError("Unable to get key column for fact "
+                                 "table '%s' in '%s'. Reason: %s"
+                                 % (self.fact_name, label, str(e)))
+            else:
+                self.fact_key = self.fact_key_column.name
+
         self.fact_key_column = self.fact_key_column.label(FACT_KEY_LABEL)
 
         # Rest of the initialization
