@@ -422,6 +422,34 @@ might write:
     ]
 
 
+To specify a compound join key, the ``column`` value of a join specified as a
+dictionary can be an array denoting multiple keys. The above join would be
+specified as:
+
+.. code-block:: javascript
+
+    {
+        "master": {
+            "table": "fact_table",
+            "column": ["dimension_id", "partition"]
+        },
+        "detail": {
+            "table": "dimension",
+            "column": ["id", "partition"]
+        }
+    }
+
+This will generate the following join:
+
+.. code-block:: sql
+
+    FROM fact_table
+    INNER JOIN fact_table ON (
+       fact_table.dimension_id = dimension_table.id  
+      AND fact_table.partition = dimension.partition
+    )
+
+
 Join Order
 ----------
 
