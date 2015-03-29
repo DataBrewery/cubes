@@ -128,3 +128,20 @@ Other:
 * SQLStore accepts metadata object
 * removed store_name in Store
 * added Drilldown.natural_order
+* added compound keys (multiple columns) in joins
+* SQLAlchemy statements can be used as tables in the star schema (python-only)
+
+Fix:
+
+* if fact table schema is explicitly specified, use it in the joins as default
+  schema
+
+
+
+Removed
+-------
+
+* Dropped support for experimental "nonadditive" measures
+* Dropped support for experimental periods-to-date
+* Dropped support of experimental ``expr`` mapping
+
