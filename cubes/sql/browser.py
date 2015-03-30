@@ -268,7 +268,6 @@ class SQLBrowser(AggregationBrowser):
         result = self.connectable.execute(statement)
         result.close()
 
-    # TODO: requires rewrite
     def provide_members(self, cell, dimension, depth=None, hierarchy=None,
                         levels=None, attributes=None, page=None,
                         page_size=None, order=None):
@@ -277,21 +276,23 @@ class SQLBrowser(AggregationBrowser):
 
         Number of database queries: 1.
         """
-        raise NotImplementedError("Queued for refactoring")
         if not attributes:
             attributes = []
             for level in levels:
                 attributes += level.attributes
 
-        statement = self.denormalized_statement(cell=cell)
-        builder = QueryBuilder(self)
-        builder.members_statement(cell, attributes)
-        builder.paginate(page, page_size)
-        builder.order(order)
+        (statement, labels) = self.denormalized_statement(attributes, cell)
+        # Order and paginate
+        #
+        statement = statement.group_by(*statement.columns)
+        statement = order_query(statement,
+                                order,
+                                labels=labels)
+        statement = paginate_query(statement, page, page_size)
 
-        result = self.execute(builder.statement, "members")
+        result = self.execute(statement, "members")
 
-        return ResultIterator(result, builder.labels)
+        return ResultIterator(result, labels)
 
     def path_details(self, dimension, path, hierarchy=None):
         """Returns details for `path` in `dimension`. Can be used for

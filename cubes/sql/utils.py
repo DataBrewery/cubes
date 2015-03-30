@@ -103,7 +103,7 @@ def order_column(column, order):
         raise ArgumentError("Unknown order %s for column %s") % (order, column)
 
 
-def order_query(statement, order, natural_order, labels):
+def order_query(statement, order, natural_order=None, labels=None):
     """Returns a SQL statement which is ordered according to the `order`. If
     the statement contains attributes that have natural order specified, then
     the natural order is used, if not overriden in the `order`.
@@ -120,6 +120,7 @@ def order_query(statement, order, natural_order, labels):
 
     order = order or []
     labels = labels or {}
+    natural_order = natural_order or []
 
     final_order = OrderedDict()
 
