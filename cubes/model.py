@@ -122,16 +122,16 @@ class ModelObject(object):
         return copy
 
 
-def object_dict(objects, attribute=None, error_message=None, error_dict=None):
-    """Make an ordered dictionary from model objects `objects`. Uses
-    `attribute` as a key or object's name as a key if `attribute` is not
-    specified. Keys are supposed to be unique, otherwise an exception is
-    raised."""
+def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
+    """Make an ordered dictionary from model objects `objects` where keys are
+    object names. If `for_ref` is `True` then object's `ref` (reference) is
+    used instead of object name. Keys are supposed to be unique in the list,
+    otherwise an exception is raised."""
 
-    if not attribute:
-        items = ((obj.name, obj) for obj in objects)
+    if by_ref:
+        items = ((obj.ref, obj) for obj in objects)
     else:
-        items = ((getattr(obj, attribute), obj) for obj in objects)
+        items = ((obj.name, obj) for obj in objects)
 
     ordered = OrderedDict()
 
@@ -549,7 +549,7 @@ class Cube(ModelObject):
             else:
                 return self.all_fact_attributes
 
-        everything = object_dict(self.all_attributes, "ref")
+        everything = object_dict(self.all_attributes, True)
 
         names = (str(attr) for attr in attributes or [])
 
@@ -848,11 +848,6 @@ class Dimension(Conceptual):
                 raise TemplateRequired(template_name)
 
             levels = copy.deepcopy(template.levels)
-
-            # Dis-own the level attributes
-            for level in levels:
-                for attribute in level.attributes:
-                    attribute.dimension = None
 
             # Create copy of template's hierarchies, but reference newly
             # created copies of level objects
@@ -1818,11 +1813,10 @@ class Level(ModelObject):
         except KeyError:
             raise ModelError("No name specified in level metadata")
 
-        attributes = create_list_of(Attribute, metadata.pop("attributes"))
-
-        # TODO: this should be depreciated
-        for attribute in attributes:
-            attribute.dimension = dimension
+        attributes = []
+        for attr_metadata in metadata.pop("attributes", []):
+            attr = Attribute(dimension=dimension, **attr_metadata)
+            attributes.append(attr)
 
         return cls(name=name, attributes=attributes, **metadata)
 
@@ -1839,8 +1833,7 @@ class Level(ModelObject):
         if not attributes:
             raise ModelError("Attribute list should not be empty")
 
-        # TODO: why? we should accept only attributes here!
-        self.attributes = create_list_of(Attribute, attributes)
+        self.attributes = attributes
 
         # Note: synchronize with Measure.__init__ if relevant/necessary
         if not nonadditive or nonadditive == "none":
@@ -2062,6 +2055,7 @@ class AttributeBase(ModelObject):
             self.order = None
 
         self.expression = expression
+        self.ref = self.name
 
     def __str__(self):
         return self.ref
@@ -2113,10 +2107,6 @@ class AttributeBase(ModelObject):
         """Localize the attribute, allow localization of the format."""
         super(AttributeBase, self).localize(trans)
         self.format = trans.get("format", self.format)
-
-    @property
-    def ref(self):
-        return self.name
 
     @property
     def is_base(self):
@@ -2190,9 +2180,25 @@ class Attribute(AttributeBase):
                                         info=info, format=format,
                                         missing_value=missing_value,
                                         expression=expression)
+        self._dimension = None
 
         self.dimension = dimension
         self.locales = locales or []
+
+    @property
+    def dimension(self):
+        return self._dimension
+
+    @dimension.setter
+    def dimension(self, dimension):
+        if dimension:
+            if dimension.is_flat and not dimension.has_details:
+                self.ref = dimension.name
+            else:
+                self.ref = dimension.name + '.' + str(self.name)
+        else:
+            self.ref = reference = str(self.name)
+        self._dimension = dimension
 
     def __deepcopy__(self, memo):
         return Attribute(self.name,
@@ -2223,21 +2229,6 @@ class Attribute(AttributeBase):
         d["locales"] = self.locales
 
         return d
-
-    @property
-    def ref(self):
-        """Return attribute reference. If attribute is part of a dimension, it
-        is prefixed with the dimension name, such as in `date.month` for
-        attribute `month`."""
-        if self.dimension:
-            if self.dimension.is_flat and not self.dimension.has_details:
-                reference = self.dimension.name
-            else:
-                reference = self.dimension.name + '.' + str(self.name)
-        else:
-            reference = str(self.name)
-
-        return reference
 
     def is_localizable(self):
         return bool(self.locales)
