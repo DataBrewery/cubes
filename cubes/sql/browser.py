@@ -212,7 +212,7 @@ class SQLBrowser(AggregationBrowser):
 
         if row:
             # Convert SQLAlchemy object into a dictionary
-            record = dict(zip(row, labels))
+            record = dict(zip(labels, row))
         else:
             record = None
 
@@ -293,14 +293,12 @@ class SQLBrowser(AggregationBrowser):
 
         return ResultIterator(result, builder.labels)
 
-    # TODO: requires rewrite
     def path_details(self, dimension, path, hierarchy=None):
         """Returns details for `path` in `dimension`. Can be used for
         multi-dimensional "breadcrumbs" in a used interface.
 
         Number of SQL queries: 1.
         """
-        raise NotImplementedError("Queued for refactoring")
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
 
@@ -311,15 +309,16 @@ class SQLBrowser(AggregationBrowser):
         for level in hierarchy.levels[0:len(path)]:
             attributes += level.attributes
 
-        statement = self.denormalized_statement(attributes, cell,
-                                                include_fact_key=True)
+        (statement, labels) = self.denormalized_statement(attributes,
+                                                          cell,
+                                                          include_fact_key=True)
         statement = statement.limit(1)
         cursor = self.execute(statement, "path details")
 
         row = cursor.fetchone()
 
         if row:
-            member = dict(zip(builder.labels, row))
+            member = dict(zip(labels, row))
         else:
             member = None
 

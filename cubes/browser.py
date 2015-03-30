@@ -13,7 +13,7 @@ from .calendar import CalendarMemberConverter
 from .logging import get_logger
 from .common import IgnoringDictionary
 from .errors import *
-from .cells import Cell
+from .cells import Cell, PointCut, RangeCut, SetCut
 from .model import Dimension, Cube
 
 from . import compat
