@@ -940,11 +940,13 @@ class QueryContext(object):
         conditions = []
 
         for cut in cuts:
+            hierarchy = str(cut.hierarchy) if cut.hierarchy else None
+
             if isinstance(cut, PointCut):
                 path = cut.path
                 condition = self.condition_for_point(str(cut.dimension),
                                                      path,
-                                                     str(cut.hierarchy), cut.invert)
+                                                     hierarchy, cut.invert)
 
             elif isinstance(cut, SetCut):
                 set_conds = []
@@ -963,7 +965,7 @@ class QueryContext(object):
 
             elif isinstance(cut, RangeCut):
                 condition = self.range_condition(str(cut.dimension),
-                                                 str(cut.hierarchy),
+                                                 hierarchy,
                                                  cut.from_path,
                                                  cut.to_path, cut.invert)
 
@@ -1065,7 +1067,12 @@ class QueryContext(object):
         # Note: If something does not work here, make sure that hierarchies
         # contains "default hierarchy", that is (dimension, None) tuple.
         #
-        levels = self.hierarchies[(str(dimension), hierarchy)]
+        try:
+            levels = self.hierarchies[(str(dimension), hierarchy)]
+        except KeyError as e:
+            raise InternalError("Unknown hierarchy '{}'. Hierarchies are "
+                                "not properly initialized (maybe missing "
+                                "default?)".format(e))
 
         depth = 0 if not path else len(path)
 
