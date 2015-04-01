@@ -12,7 +12,8 @@ from ..cells import Cell, PointCut, RangeCut, SetCut
 from ..model import Attribute, collect_attributes
 
 from .functions import available_aggregate_functions
-from .mapper import SnowflakeMapper, DenormalizedMapper
+from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
+from .mapper import distill_naming
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
 
@@ -143,19 +144,19 @@ class SQLBrowser(AggregationBrowser):
         # about relevant joins to be able to retrieve certain attributes.
 
         if options.get("is_denormalized", options.get("use_denormalization")):
-            mapper_class = DenormalizedMapper
+            mapper = DenormalizedMapper
         else:
-            mapper_class = SnowflakeMapper
+            mapper = StarSchemaMapper
 
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
-                          (str(mapper_class.__name__), cube.name, locale))
+                          (str(mapper.__name__), cube.name, locale))
 
         # Prepare the mappings of base attributes
         #
-        mapper = mapper_class(cube, locale=self.locale, **options)
-
-        base = [attr for attr in cube.all_attributes if attr.is_base]
-        mappings = {attr.ref:mapper.physical(attr) for attr in base}
+        naming = distill_naming(options)
+        (fact_name, mappings) = map_base_attributes(cube, mapper,
+                                                    naming=naming,
+                                                    locale=locale)
 
         tables = options.get("tables")
 
@@ -168,9 +169,9 @@ class SQLBrowser(AggregationBrowser):
         self.star = StarSchema(self.cube.name,
                                metadata,
                                mappings=mappings,
-                               fact=mapper.fact_name,
+                               fact=fact_name,
                                joins=joins,
-                               schema=mapper.schema,
+                               schema=naming.schema,
                                tables=tables)
 
         # Extract hierarchies
