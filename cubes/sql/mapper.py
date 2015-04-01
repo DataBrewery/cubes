@@ -301,12 +301,8 @@ class StarSchemaMapper(Mapper):
         physical = self.mappings.get(logical)
 
         if physical:
-            # Get the defaults
-            schema, table = self.attribute_table(attribute)
-
-            column = to_column(physical,
-                               default_table=table,
-                               default_schema=schema)
+            # TODO: Should we not get defaults here somehow?
+            column = to_column(physical)
             return column
 
         # No mappings exist or no mapping was found - we are going to create
