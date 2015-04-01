@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 
 from .browser import SQLBrowser
-from .mapper import SnowflakeMapper, distill_naming
+from .mapper import distill_naming
 from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
@@ -399,8 +399,7 @@ class SQLStore(Store):
     """
 
     def create_conformed_rollup(self, cube, dimension, level=None, hierarchy=None,
-                                schema=None, dimension_prefix=None, dimension_suffix=None,
-                                replace=False):
+                                replace=False, **options):
         """Extracts dimension values at certain level into a separate table.
         The new table name will be composed of `dimension_prefix`, dimension
         name and suffixed by dimension level. For example a product dimension
@@ -418,8 +417,12 @@ class SQLStore(Store):
         * `replace` – if ``True`` then existing table will be replaced,
           otherwise an exception is raised if table already exists.
         """
-        mapper = SnowflakeMapper(cube, cube.mappings, schema=schema, **self.options)
-        context = QueryContext(cube, mapper, schema=schema, etadata=self.metadata)
+
+        # TODO: 1.1 refactoring
+        raise NotImplementedError("Requires to be updated to new query builder")
+
+        naming = distill_naming(options)
+        context = QueryContext(cube, mapper, schema=schema, metadata=self.metadata)
 
         dimension = cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
@@ -541,6 +544,9 @@ class SQLStore(Store):
         * `aggregates_schema`: schema where aggregates are stored
 
         """
+
+        # TODO: 1.1 refactoring
+        raise NotImplementedError("Requires to be updated to new query builder")
 
         if browser.store != self:
             raise ArgumentError("Can create aggregate table only within "
