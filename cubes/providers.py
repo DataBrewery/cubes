@@ -8,7 +8,6 @@ from .logging import get_logger
 from .errors import *
 from .model import *
 from .metadata import *
-from .extensions import Extensible
 
 __all__ = [
     "ModelProvider",
@@ -156,7 +155,7 @@ def _lookup_dimension(name, templates, namespace, provider):
                                name=name)
 
 
-class ModelProvider(Extensible):
+class ModelProvider(object):
     """Abstract class – factory for model object. Currently empty and used
     only to find other model providers."""
 

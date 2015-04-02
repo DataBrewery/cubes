@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import os.path
 import json
 from collections import namedtuple, defaultdict
-from .extensions import Extensible
 from .cells import Cell, cut_from_string, cut_from_dict, PointCut
 from .browser import string_to_drilldown
 from .errors import *
@@ -32,7 +31,7 @@ class NotAuthorized(AuthorizationError):
     # Note: This is not called NotAuthorizedError as it is not in fact an
     # error, it is just type of signal.
 
-class Authorizer(Extensible):
+class Authorizer(object):
     def authorize(self, token, cubes):
         """Returns list of authorized cubes from `cubes`. If none of the cubes
         are authorized an empty list is returned.

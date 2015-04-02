@@ -61,6 +61,24 @@ will be extended gently, with regard to other backends or SQL dialects. (Note
 that the expression language is meant to be shared with other, non-Cubes
 tools).
 
+Plugins
+-------
+
+New plugin system. Packages can now advertise in their ``setup.py`` plugins:
+
+..code-block:: python
+
+    entry_points={
+        'cubes.stores': [
+            'my = my_package.MyStore',
+        ],
+        'cubes.authorizers': [
+            'my = my_package.MyAuthorizer',
+        ]
+    }
+
+Extensible obects: `authenticators`, `authorizers`, `browsers`, `formatters`,
+`model_providers` and `stores`.
 
 
 Major Changes

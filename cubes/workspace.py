@@ -9,7 +9,6 @@ from .common import read_json_file
 from .errors import ConfigurationError, ArgumentError, CubesError
 from .logging import get_logger
 from .calendar import Calendar
-from .extensions import extensions
 from .namespace import Namespace
 from .providers import find_dimension
 from .localization import LocalizationContext
@@ -17,6 +16,7 @@ import os.path
 from .compat import ConfigParser
 from copy import copy
 from collections import OrderedDict, defaultdict
+from . import ext
 from . import compat
 
 __all__ = [
@@ -266,7 +266,7 @@ class Workspace(object):
             auth_type = config.get("workspace", "authorization")
             options = dict(config.items("authorization"))
             options["cubes_root"] = self.root_dir
-            self.authorizer = extensions.authorizer(auth_type, **options)
+            self.authorizer = ext.authorizer(auth_type, **options)
         else:
             self.authorizer = None
 
@@ -355,8 +355,8 @@ class Workspace(object):
             model = None
 
         # Get related model provider or override it with configuration
-        ext = extensions.store.get(type_)
-        provider = ext.related_model_provider
+        store_factory = ext.store.factory(type_)
+        provider = store_factory.related_model_provider
         provider = config.pop("model_provider", provider)
 
         nsname = config.pop("namespace", None)
@@ -445,12 +445,12 @@ class Workspace(object):
         # `provider` is a ModelProvider subclass instance
 
         if isinstance(provider, compat.string_type):
-            provider = extensions.model_provider(provider, model)
+            provider = ext.model_provider(provider, model)
 
         # TODO: remove this, if provider is external, it should be specified
         if not provider:
             provider_name = model.get("provider", "default")
-            provider = extensions.model_provider(provider_name, model)
+            provider = ext.model_provider(provider_name, model)
 
         # 3. Store
         # --------
@@ -621,9 +621,9 @@ class Workspace(object):
         if not browser_name:
             raise ConfigurationError("No store specified for cube '%s'" % cube)
 
-        browser = extensions.browser(browser_name, cube, store=store,
-                                     locale=locale, calendar=self.calendar,
-                                     **options)
+        browser = ext.browser(browser_name, cube, store=store,
+                              locale=locale, calendar=self.calendar,
+                               **options)
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
@@ -652,7 +652,7 @@ class Workspace(object):
             raise ConfigurationError("No info for store %s" % name)
 
         # TODO: temporary hack to pass store name and store type
-        store = extensions.store(type_, store_type=type_, **options)
+        store = ext.store(type_, store_type=type_, **options)
         self.stores[name] = store
         return store
 

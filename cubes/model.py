@@ -508,18 +508,23 @@ class Cube(ModelObject):
         """Returns an attribute object (dimension attribute, measure or
         detail)."""
 
+        # TODO: This should be a dictionary once the Cube object becomes
+        # immutable
+
+        name = str(attribute)
+
         for dim in self.dimensions:
             try:
-                return dim.attribute(attribute, by_ref=True)
+                return dim.attribute(name, by_ref=True)
             except KeyError:
                 continue
 
         for detail in self.details:
-            if detail.name == attribute.name:
+            if detail.name == name:
                 return detail
 
         for measure in self.measures:
-            if measure.name == attribute.name:
+            if measure.name == name:
                 return measure
 
         raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"

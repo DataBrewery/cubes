@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from .errors import *
-from .extensions import Extensible
 
 __all__ = (
             "Store"
@@ -11,7 +10,7 @@ __all__ = (
 # Note: this class does not have much use right now besides being discoverable
 # by custom plugin system in cubes.
 # TODO: remove requirement for store_name and store_type
-class Store(Extensible):
+class Store(object):
     """Abstract class to find other stores through the class hierarchy."""
 
     """Name of a model provider type associated with this store."""

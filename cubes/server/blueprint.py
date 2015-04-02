@@ -11,7 +11,7 @@ from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..cells import Cell, cut_from_dict
 from ..browser import SPLIT_DIMENSION_NAME
 from ..errors import *
-from ..extensions import extensions
+from .. import ext
 from .logging import configured_request_log_handlers, RequestLogger
 from .logging import AsyncRequestLogger
 from .utils import *
@@ -118,7 +118,7 @@ def initialize_slicer(state):
             else:
                 options = {}
 
-            current_app.slicer.authenticator = extensions.authenticator(method,
+            current_app.slicer.authenticator = ext.authenticator(method,
                                                                         **options)
         logger.debug("Server authentication method: %s" % (method or "none"))
 

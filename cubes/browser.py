@@ -7,7 +7,6 @@ import re
 from collections import namedtuple
 
 
-from .extensions import Extensible
 from .statutils import calculators_for_aggregates, available_calculators
 from .calendar import CalendarMemberConverter
 from .logging import get_logger
@@ -39,7 +38,7 @@ SPLIT_DIMENSION_NAME = '__within_split__'
 NULL_PATH_VALUE = '__null__'
 
 
-class AggregationBrowser(Extensible):
+class AggregationBrowser(object):
     """Class for browsing data cube aggregations
 
     :Attributes:

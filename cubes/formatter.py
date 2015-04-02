@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from .compat import StringIO
 from collections import namedtuple
+from . import ext
 
-from .extensions import Extensible, extensions
 from .errors import *
 
 try:
@@ -23,7 +23,7 @@ __all__ = [
 def create_formatter(type_, *args, **kwargs):
     """Creates a formatter of type `type`. Passes rest of the arguments to the
     formatters initialization method."""
-    return extensions.formatter(type_, *args, **kwargs)
+    return ext.formatter(type_, *args, **kwargs)
 
 
 def _jinja_env():
@@ -37,7 +37,7 @@ def parse_format_arguments(formatter, args, prefix="f:"):
     """Parses dictionary of `args` for formatter"""
 
 
-class Formatter(Extensible):
+class Formatter(object):
     """Empty class for the time being. Currently used only for finding all
     built-in subclasses"""
     def __call__(self, *args, **kwargs):
