@@ -7,7 +7,7 @@ from .mapper import distill_naming
 from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
-from ..errors import *
+from ..errors import ArgumentError, BackendError, WorkspaceError
 from ..browser import *
 from ..computation import *
 from .utils import CreateTableAsSelect, CreateOrReplaceView
@@ -259,7 +259,6 @@ class SQLStore(Store):
 
         return issues
 
-    # FIXME: this core requires review
     def create_denormalized_view(self, cube, view_name=None, materialize=False,
                                  replace=False, create_index=False,
                                  keys_only=False, schema=None):
@@ -287,31 +286,30 @@ class SQLStore(Store):
           table schema).
         """
 
-        # TODO: this method requires more attention, it is just appropriated
-        # for recent cubes achanges
-
         engine = self.connectable
-
-        # TODO: we actually don't need browser, we are just reusing its
-        # __init__ for other objects. This should be recreated here.
         browser = SQLBrowser(cube, self, schema=schema)
-        builder = QueryBuilder(browser)
 
-        key_attributes = []
-        for dim in cube.dimensions:
-            key_attributes += dim.key_attributes()
+        if browser.safe_labels:
+            raise ArgumentError("Denormalization does not work with "
+                                "safe_labels turned on")
 
         if keys_only:
-            statement = builder.denormalized_statement(attributes=key_attributes, expand_locales=True)
+            attrbutes = cube.all_key_attributes
         else:
-            statement = builder.denormalized_statement(expand_locales=True)
+            attributes = cube.all_fact_attributes
 
-        schema = schema or self.options.get("denormalized_view_schema") or self.schema
+        # Note: this does not work with safe labels – since they are "safe"
+        # they can not conform to the cubes implicit naming schema dim.attr
 
-        dview_prefix = self.options.get("denormalized_view_prefix", "")
-        view_name = view_name or dview_prefix + cube.name
+        (statement, labels) = browser.denormalized_statement(attributes,
+                                                   include_fact_key=True)
 
-        if browser.mapper.fact_name == view_name and schema == browser.mapper.schema:
+        schema = schema or self.naming.schema
+        view_name = view_name or self.naming.denormalized_table_name(cube.name)
+
+        fact_name = cube.fact or self.naming.fact_table_name(cube.name)
+
+        if fact_name == view_name and schema == self.naming.schema:
             raise WorkspaceError("target denormalized view is the same as source fact table")
 
         table = sa.Table(view_name, self.metadata,
@@ -331,25 +329,19 @@ class SQLStore(Store):
         # print("SQL statement:\n%s" % statement)
         engine.execute(create_view)
         if create_index:
-            if not materialize:
-                raise WorkspaceError("Index can be created only on a materialized view")
-
-            # self.metadata.reflect(schema = schema, only = [view_name] )
             table = sa.Table(view_name, self.metadata,
                                      autoload=True, schema=schema)
 
             insp = reflection.Inspector.from_engine(engine)
             insp.reflecttable(table, None)
 
-            for attribute in key_attributes:
+            for attribute in attributes:
                 label = attribute.ref
                 self.logger.info("creating index for %s" % label)
                 column = table.c[label]
                 name = "idx_%s_%s" % (view_name, label)
                 index = sa.schema.Index(name, column)
                 index.create(engine)
-
-        return statement
 
     # FIXME: requires review
     def validate_model(self):
