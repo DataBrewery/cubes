@@ -437,6 +437,18 @@ class Cube(ModelObject):
         return [agg for agg in self.aggregates if agg.measure == name]
 
     @property
+    def all_dimension_keys(self):
+        """Returns all attributes that represent keys of dimensions and their
+        levels..
+        """
+
+        attributes = []
+        for dim in self.dimensions:
+            attributes += dim.key_attributes
+
+        return attributes
+
+    @property
     def all_attributes(self):
         """All cube's attributes: attributes of dimensions, details, measures
         and aggregates. Use this method if you need to prepare structures for
@@ -1232,6 +1244,7 @@ class Dimension(Conceptual):
 
         return len(self.levels) == 1
 
+    @property
     def key_attributes(self):
         """Return all dimension key attributes, regardless of hierarchy. Order
         is not guaranteed, use a hierarchy to have known order."""
