@@ -483,6 +483,10 @@ class Workspace(object):
         self.register_store(name, "slicer", url=url, **options)
         self.import_model({}, provider="slicer", store=name)
 
+    def cube_names(self, identity=None):
+        """Return names all available cubes."""
+        return [cube["name"] for cube in self.list_cubes()]
+
     # TODO: this is not loclized!!!
     def list_cubes(self, identity=None):
         """Get a list of metadata for cubes in the workspace. Result is a list
@@ -649,7 +653,7 @@ class Workspace(object):
         try:
             type_, options = self.store_infos[name]
         except KeyError:
-            raise ConfigurationError("No info for store %s" % name)
+            raise ConfigurationError("Unknown store '{}'".format(name))
 
         # TODO: temporary hack to pass store name and store type
         store = ext.store(type_, store_type=type_, **options)
