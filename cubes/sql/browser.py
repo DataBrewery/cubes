@@ -6,7 +6,7 @@ from __future__ import absolute_import
 from ..statutils import available_calculators
 from ..browser import AggregationBrowser, AggregationResult, Drilldown
 from ..logging import get_logger
-from ..errors import ArgumentError, ModelError
+from ..errors import ArgumentError, ModelError, InternalError
 from ..stores import Store
 from ..cells import Cell, PointCut, RangeCut, SetCut
 from ..model import Attribute, collect_attributes
@@ -264,7 +264,12 @@ class SQLBrowser(AggregationBrowser):
         result = self.connectable.execute(statement)
         result.close()
 
-        (statement, labels) = self.aggregation_statement(aggregates=cube.all_aggregates,
+        aggs = self.cube.all_aggregate_attributes
+        dd = Drilldown()
+
+        (statement, labels) = self.aggregation_statement(aggregates=aggs,
+                                                         cell=Cell(self.cube),
+                                                         drilldown=dd,
                                                          for_summary=True)
         result = self.connectable.execute(statement)
         result.close()
