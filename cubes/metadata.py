@@ -404,13 +404,13 @@ class ModelMetadataValidator(object):
         self.metadata = metadata
 
         data = pkgutil.get_data("cubes", "schemas/model.json")
-        self.model_schema = json.loads(data)
+        self.model_schema = json.loads(compat.to_str(data))
 
         data = pkgutil.get_data("cubes", "schemas/cube.json")
-        self.cube_schema = json.loads(data)
+        self.cube_schema = json.loads(compat.to_str(data))
 
         data = pkgutil.get_data("cubes", "schemas/dimension.json")
-        self.dimension_schema = json.loads(data)
+        self.dimension_schema = json.loads(compat.to_str(data))
 
     def validate(self):
         errors = []
