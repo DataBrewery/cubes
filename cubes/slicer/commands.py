@@ -236,7 +236,7 @@ def test(aggregate, exclude_stores, include_stores, config, cube):
 
 
 @model.command()
-@click.option('--format', type=click.Choice(["json", "bundle"]),
+@click.option('--format', 'model_format', type=click.Choice(["json", "bundle"]),
               default='json',
               help='output model format')
 @click.option('--force', is_flag=True,
@@ -245,18 +245,18 @@ def test(aggregate, exclude_stores, include_stores, config, cube):
 @click.argument('model_path', metavar='MODEL')
 @click.argument('target', required=False)
 @click.pass_context
-def convert(ctx, format, force, model_path, target):
+def convert(ctx, model_format, force, model_path, target):
     """Convert model between model formats."""
 
     metadata = read_model_metadata(model_path)
-    if format == "json":
+    if model_format == "json":
         if not target:
             print(json.dumps(metadata, indent=4))
         else:
-            with open(path, "w") as f:
+            with open(target, "w") as f:
                 json.dump(metadata, f, indent=4)
-    elif args.format == "bundle":
-        write_model_metadata_bundle(path, metadata, replace=force)
+    elif model_format == "bundle":
+        write_model_metadata_bundle(target, metadata, replace=force)
 
 def read_config(cfg):
     """Read the configuration file."""
