@@ -66,7 +66,10 @@ def to_column(obj, default_table=None, default_schema=None):
     anonymous tuple, dictionary or a similar object. `obj` can also be a
     string in form ``schema.table.column`` where shcema or both schema and
     table can be ommited. `default_table` and `default_schema` are used when
-    no table or schema is provided in `obj`."""
+    no table or schema is provided in `obj`.
+
+    .. versionadded:: 1.1
+    """
 
     if obj is None:
         raise ArgumentError("Mapping object can not be None")
@@ -127,7 +130,10 @@ def to_join_key(obj):
 
     Note that Cubes at this low level does not know which table is used for a
     dimension, therefore the default dimension schema from mapper's naming can
-    not be assumed here and has to be explicitly mentioned."""
+    not be assumed here and has to be explicitly mentioned.
+
+    .. versionadded:: 1.1
+    """
 
 
     if obj is None:
@@ -183,7 +189,10 @@ Join = namedtuple("Join",
 
 def to_join(obj):
     """Utility conversion function that will create `Join` tuple from an
-    anonymous tuple, dictionary or similar object."""
+    anonymous tuple, dictionary or similar object.
+
+    .. versionadded:: 1.1
+    """
 
     if isinstance(obj, (tuple, list)):
         alias = None
@@ -318,6 +327,8 @@ class StarSchema(object):
     .. note::
 
         The `tables` statements need to be aliased.
+
+    .. versionadded:: 1.1
     """
 
     def __init__(self, label, metadata, mappings, fact, fact_key='id',
@@ -469,6 +480,7 @@ class StarSchema(object):
         table is considered.
 
         The returned object has the following properties:
+
         * `name` – real table name
         * `alias` – table alias – always contains a value, regardless whether
           the table join provides one or not. If there was no alias provided by
@@ -480,6 +492,7 @@ class StarSchema(object):
         `role` is for debugging purposes to display when there is no such
         table, which role of the table was expected, such as master or detail.
         """
+
         if key is None:
             raise ArgumentError("Table key should not be None")
 
@@ -494,6 +507,7 @@ class StarSchema(object):
                 for_role = ""
 
             schema = '"{}".'.format(key[0]) if key[0] else ""
+
             raise SchemaError("Unknown star table {}\"{}\"{}. Missing join?"
                               .format(schema, key[1], for_role))
 
@@ -814,6 +828,7 @@ class QueryContext(object):
       attributes of the query. See :meth:`StarSchema.get_star` for more
       information
 
+    .. versionadded:: 1.1
     """
 
     def __init__(self, star_schema, attributes, hierarchies=None,
@@ -838,7 +853,9 @@ class QueryContext(object):
 
         Note: in the future the `hierarchies` dictionary might change just to
         a hierarchy name (a string), since hierarchies and dimensions will be
-        both top-level objects."""
+        both top-level objects.
+
+        """
 
         # Note on why attributes have to be sorted: We don'd have enough
         # information here to get all the dependencies and we don't want this

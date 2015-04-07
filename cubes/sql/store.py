@@ -8,9 +8,11 @@ from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
 from ..errors import ArgumentError, BackendError, WorkspaceError
-from ..browser import *
+from ..browser import Drilldown
+from ..cells import Cell
 from ..computation import *
 from .utils import CreateTableAsSelect, CreateOrReplaceView
+from ..model import string_to_dimension_level
 
 try:
     import sqlalchemy as sa
@@ -286,22 +288,16 @@ class SQLStore(Store):
           table schema).
         """
 
-        engine = self.connectable
         browser = SQLBrowser(cube, self, schema=schema)
 
         if browser.safe_labels:
             raise ArgumentError("Denormalization does not work with "
                                 "safe_labels turned on")
 
-        if keys_only:
-            attrbutes = cube.all_key_attributes
-        else:
-            attributes = cube.all_fact_attributes
-
         # Note: this does not work with safe labels – since they are "safe"
         # they can not conform to the cubes implicit naming schema dim.attr
 
-        (statement, labels) = browser.denormalized_statement(attributes,
+        (statement, _) = browser.denormalized_statement(attributes,
                                                    include_fact_key=True)
 
         schema = schema or self.naming.schema
@@ -327,7 +323,7 @@ class SQLStore(Store):
         self.logger.info("creating denormalized view %s (materialized: %s)" \
                          % (str(table), materialize))
         # print("SQL statement:\n%s" % statement)
-        engine.execute(create_view)
+        self.execute(create_view)
         if create_index:
             table = sa.Table(view_name, self.metadata,
                                      autoload=True, schema=schema)
@@ -341,7 +337,10 @@ class SQLStore(Store):
                 column = table.c[label]
                 name = "idx_%s_%s" % (view_name, label)
                 index = sa.schema.Index(name, column)
-                index.create(engine)
+                index.create(self.connectable)
+
+    def execute(self, *args, **kwargs):
+        return self.connectable.execute(*args, **kwargs)
 
     # FIXME: requires review
     def validate_model(self):
@@ -471,7 +470,6 @@ class SQLStore(Store):
                                              replace=replace)
 
     # TODO: make this a separate SQL utility function
-    # TODO: use insert().as_select(...)
     def create_table_from_statement(self, table_name, statement, schema,
                                     replace=False, insert=False):
         """Creates or replaces a table from statement.
@@ -513,15 +511,14 @@ class SQLStore(Store):
 
         if insert:
             self.logger.debug("inserting into table '%s'" % str(table))
-            insert_statement = InsertIntoAsSelect(table, statement,
-                                                  columns=statement.columns)
+            insert_statement = table.insert().from_select(statement.columns, statemnet)
             self.connectable.execute(insert_statement)
 
         return table
 
-    def create_cube_aggregate(self, browser, table_name=None, dimensions=None,
-                              dimension_links=None, schema=None,
-                              replace=False):
+    def create_cube_aggregate(self, cube, table_name=None, dimensions=None,
+                                 replace=False, create_index=False,
+                                 schema=None):
         """Creates an aggregate table. If dimensions is `None` then all cube's
         dimensions are considered.
 
@@ -529,55 +526,45 @@ class SQLStore(Store):
 
         * `dimensions`: list of dimensions to use in the aggregated cuboid, if
           `None` then all cube dimensions are used
-        * `dimension_links`: list of dimensions that are required for each
-          aggregation (for example a date dimension in most of the cases). The
-          list should be a subset of `dimensions`.
-        * `aggregates_prefix`: aggregated table prefix
-        * `aggregates_schema`: schema where aggregates are stored
-
         """
 
-        # TODO: 1.1 refactoring
-        raise NotImplementedError("Requires to be updated to new query builder")
+        browser = SQLBrowser(cube, self, schema=schema)
 
-        if browser.store != self:
-            raise ArgumentError("Can create aggregate table only within "
-                                "the same store")
+        if browser.safe_labels:
+            raise ArgumentError("Aggregation does not work with "
+                                "safe_labels turned on")
 
-        schema = schema or self.options.get("aggregates_schema", self.schema)
-        # Just a shortcut
-        cube = browser.cube
+        schema = schema or self.naming.aggregate_schema \
+                    or self.naming.schema
 
-        prefix = self.options.get("aggregates_prefix", "")
-        table_name = table_name or "%s_%s" % (prefix, cube.name)
+        # TODO: this is very similar to the denormalization prep.
+        table_name = table_name or self.naming.aggregate_table_name(cube.name)
+        fact_name = cube.fact or self.naming.fact_table_name(cube.name)
 
-        if dimensions:
-            dimensions = [cube.dimension(dimension) for dimension in dimensions]
-        else:
-            dimensions = cube.dimensions
+        dimensions = dimensions or [dim.name for dim in cube.dimensions]
 
-        builder = QueryBuilder(browser)
-
-        if builder.snowflake.fact_name == table_name and builder.snowflake.schema == schema:
-            raise ArgumentError("target is the same as source fact table")
+        if fact_name == table_name and schema == self.naming.schema:
+            raise WorkspaceError("Aggregation target is the same as fact")
 
         drilldown = []
-        keys = None
-        for dimension in dimensions:
-            levels = dimension.hierarchy().levels
-            drilldown.append((dimension, dimension.hierarchy(), levels[-1]))
-            keys = [l.key for l in levels]
+        keys = []
+        for dimref in dimensions:
+            (dimname, hiername, level) = string_to_dimension_level(dimref)
+            dimension = cube.dimension(dimname)
+            hierarchy = dimension.hierarchy(hiername)
+            levels = hierarchy.levels
+            drilldown.append((dimension, hierarchy, levels[-1]))
+            keys += [l.key for l in levels]
 
         cell = Cell(cube)
         drilldown = Drilldown(drilldown, cell)
 
         # Create statement of all dimension level keys for
         # getting structure for table creation
-        statement = builder.aggregation_statement(
+        (statement, _) = browser.aggregation_statement(
             cell,
             drilldown=drilldown,
-            aggregates=cube.aggregates,
-            attributes=keys
+            aggregates=cube.aggregates
         )
 
         # Create table
@@ -591,27 +578,22 @@ class SQLStore(Store):
 
         self.logger.info("Inserting...")
 
-        # TODO: why is a single statement in a transaction here???
-        with self.connectable.begin() as connection:
+        insert = table.insert().from_select(statement.columns, statement)
+        self.execute(insert)
 
-            # TODO: use insert().as_select(...)
-            insert = InsertIntoAsSelect(table, statement,
-                                        columns=statement.columns)
-
-            connection.execute(insert)
         self.logger.info("Done")
 
-        self.logger.info("Creating indexes...")
+        if create_index:
+            self.logger.info("Creating indexes...")
+            aggregated_columns = [a.name for a in cube.aggregates]
+            for column in table.columns:
+                if column.name in aggregated_columns:
+                    continue
 
-        aggregated_columns = [a.name for a in cube.aggregates]
-        for column in table.columns:
-            if column.name in aggregated_columns:
-                continue
-
-            name = "%s_%s_idx" % (table_name, column)
-            self.logger.info("creating index: %s" % name)
-            index = Index(name, column)
-            index.create(self.connectable)
+                name = "%s_%s_idx" % (table_name, column)
+                self.logger.info("creating index: %s" % name)
+                index = Index(name, column)
+                index.create(self.connectable)
 
         self.logger.info("Done")
 

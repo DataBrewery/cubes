@@ -45,8 +45,13 @@ NAMING_DEFAULTS = {
     "dimension_suffix": None,
     "dimension_key_prefix": None,
     "dimension_key_suffix": None,
+
     "denormalized_prefix": None,
     "denormalized_suffix": None,
+
+    "aggregated_prefix": None,
+    "aggregated_suffix": None,
+
     "fact_key": DEFAULT_FACT_KEY,
     "dimension_key": DEFAULT_DIMENSION_KEY,
     "explicit_dimension_primary": False,
@@ -54,6 +59,7 @@ NAMING_DEFAULTS = {
     "schema": None,
     "fact_schema": None,
     "dimension_schema": None,
+    "aggregate_schema": None,
 }
 
 
@@ -113,6 +119,8 @@ class Naming(AttributeDict):
 
     Recommended values: `fact_prefix` = ``ft_``, `dimension_prefix` =
     ``dm_``, `explicit_dimension_primary` = ``True``.
+
+    .. versionadded:: 1.1
     """
 
     def __init__(self, *args, **kwargs):
@@ -166,6 +174,16 @@ class Naming(AttributeDict):
                             self.denormalized_suffix or "")
         return table_name
 
+    # TODO: require list of dimensions here
+    def aggregated_table_name(self, name):
+        """Constructs a physical fact table name for fact/cube `name`"""
+
+        table_name = "{}{}{}".format(
+                            self.aggregated_prefix or "",
+                            name,
+                            self.aggregated_suffix or "")
+        return table_name
+
     def dimension_primary_key(self, name):
         """Constructs a dimension primary key name for dimension `name`"""
 
@@ -203,7 +221,10 @@ class Naming(AttributeDict):
 
 class Mapper(object):
     """A dictionary-like object that provides physical column references for
-    cube attributes. Does implicit mapping of an attribute."""
+    cube attributes. Does implicit mapping of an attribute.
+
+    .. versionchanged:: 1.1
+    """
 
     def __init__(self, cube, naming, locale=None):
         """Creates a mapping for `cube` using `naming` conventions within
