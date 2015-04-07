@@ -1,11 +1,10 @@
 # -*- encoding: utf-8 -*-
+"""Slicer – Cubes command-line tool
 
-"""Slicer tool
+For more information run: slicer --help
 
-    For more information run: slicer --help
-
-    Author: Stefan Urbanek <stefan.urbanek@gmail.com>
-    Date: 2011-01
+To enable full user exception debugging set the ``CUBES_ERROR_DEBUG``
+environment variable.
 """
 
 from __future__ import absolute_import
@@ -23,7 +22,7 @@ from collections import OrderedDict
 
 from ..common import MissingPackageError
 from ..logging import create_logger
-from ..errors import CubesError, ArgumentError
+from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
 from ..metadata import read_model_metadata, write_model_metadata_bundle
 from .. import server
 from ..datastructures import AttributeDict
@@ -35,9 +34,15 @@ except ImportError:
     ModelEditorSlicerCommand = None
 
 
+DEFAULT_CONFIG = "slicer.ini"
+
+
 @click.group()
 @click.pass_context
-@click.option('--debug/--no-debug', envvar='CUBES_DEBUG', default=False)
+@click.option('--debug/--no-debug',
+              envvar='CUBES_DEBUG',
+              default=False,
+              help="Enable/disable debugging output")
 def cli(ctx, debug):
     ctx.obj = AttributeDict()
     ctx.obj.debug = debug
@@ -47,7 +52,7 @@ def cli(ctx, debug):
 # Command: serve
 
 @cli.command()
-@click.argument('config', type=click.Path(exists=True), default="slicer.ini")
+@click.argument('config', type=click.Path(exists=True), default=DEFAULT_CONFIG)
 @click.option('--visualizer',
               help="Visualizer URL or 'default' for built-in visualizer")
 @click.pass_context
@@ -67,8 +72,7 @@ def serve(ctx, config, visualizer):
     if visualizer:
         config.set("server", "visualizer", visualizer)
 
-    cubes.server.run_server(config, debug=True)
-    # TODO cubes.server.run_server(config, debug=ctx.debug)
+    cubes.server.run_server(config, debug=ctx.obj.debug)
 
 ################################################################################
 # Command: serve
@@ -77,7 +81,7 @@ def serve(ctx, config, visualizer):
 @click.option('--verbose/--terse', 'verbose', default=False,
               help='Display also cube description')
 @click.argument('config', required=False,
-                default="slicer.ini", type=click.Path(exists=True))
+                default=DEFAULT_CONFIG, type=click.Path(exists=True))
 @click.pass_context
 def list(ctx, config, verbose):
     """List cubes"""
@@ -99,6 +103,7 @@ def list(ctx, config, verbose):
 @cli.group()
 @click.pass_context
 def model(ctx):
+    """Model metadata tools."""
     pass
 
 @model.command()
@@ -176,7 +181,7 @@ def validate(show_defaults, show_warnings, model_path):
               help="Test aggregate of whole cube")
 @click.option('--exclude-store', '-E', 'exclude_stores', multiple=True)
 @click.option('--store', 'include_stores', multiple=True)
-@click.argument('config')
+@click.argument('config', default=DEFAULT_CONFIG)
 @click.argument('cube', nargs=-1)
 def test(aggregate, exclude_stores, include_stores, config, cube):
     """Test every cube in the model"""
@@ -197,18 +202,18 @@ def test(aggregate, exclude_stores, include_stores, config, cube):
     for name in cube_list:
         cube = workspace.cube(name)
 
-        sys.stdout.write("testing %s: " % name)
+        click.echo("testing {}: ".format(name), nl=False)
 
         if cube.store_name in exclude \
                 or (include and cube.store_name not in include):
-            sys.stdout.write("pass\n")
+            click.echo("pass")
             continue
 
         try:
             browser = workspace.browser(name)
         except Exception as e:
             errors.append((name, e))
-            sys.stdout.write("BROWSER ERROR\n")
+            click.echo("BROWSER ERROR")
             continue
 
         tested += 1
@@ -216,23 +221,25 @@ def test(aggregate, exclude_stores, include_stores, config, cube):
         try:
             facts = browser.test(aggregate=aggregate)
         except NotImplementedError:
-            sys.stdout.write("pass - no test\n")
+            click.echo("pass - no test")
         except CubesError as e:
             errors.append((name, e))
-            sys.stdout.write("ERROR\n")
+            click.echo("ERROR")
 
-    print("\ntested %d cubes" % tested)
+    click.echo()
+    click.echo("tested %d cubes" % tested)
+
     if errors:
-        print("%d ERRORS:" % len(errors))
+        click.echo("%d ERRORS:" % len(errors))
         for (cube, e) in errors:
             if hasattr(e, "error_type"):
                 etype = e.error_type
             else:
                 etype = str(type(e))
 
-            print("%s: %s - %s" % (cube, etype, str(e)))
+            click.echo("%s: %s - %s" % (cube, etype, str(e)))
     else:
-        print("test passed")
+        click.echo("test passed")
 
 
 @model.command()
@@ -275,7 +282,7 @@ def read_config(cfg):
 @click.pass_context
 @click.option('--store', nargs=1,
               help="Name of the store to use other than default. Must be SQL.")
-@click.option('--config', nargs=1, default="slicer.ini",
+@click.option('--config', nargs=1, default=DEFAULT_CONFIG,
               help="Name of slicer.ini configuration file")
 def sql(ctx, store, config):
     """SQL store commands"""
@@ -406,3 +413,37 @@ def edit_model(args):
     webbrowser.open("http://127.0.0.1:%s" % port)
 
     run_modeler(args.model, args.target)
+
+
+def main(*args, **kwargs):
+    try:
+        cli(*args, **kwargs)
+
+    except InconsistencyError as e:
+        # Internal Error - error caused by some edge case conditio, misbehaved
+        # cubes or wrongly categorized error
+        #
+        # It is very unlikely that the user might fix this error by changing
+        # his/her input.
+        #
+        if os.environ.get("CUBES_ERROR_DEBUG"):
+            raise
+        else:
+            click.echo("\n" \
+                  "Error: Internal error occured.\n"
+                  "Reason: {}\n\n" \
+                  "Please report the error and informatiob about what you " \
+                  "were doing to the Cubes development team.\n"
+                  .format(e), err=True)
+            sys.exit(1)
+
+    except (InternalError, UserError) as e:
+        # Error caused by the user – model or data related.
+        #
+        # User can fix the error by altering his/her input.
+        #
+        if os.environ.get("CUBES_ERROR_DEBUG"):
+            raise
+        else:
+            click.echo("\nError: {}".format(e), err=True)
+            sys.exit(1)

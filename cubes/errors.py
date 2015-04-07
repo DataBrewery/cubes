@@ -8,15 +8,30 @@ from collections import OrderedDict
 class CubesError(Exception):
     """Generic error class."""
 
+class InconsistencyError(CubesError):
+    """Raised when something bad happened in cubes – very likely an edge
+    case that is not handled properly.
+
+    It is very unlikely that the user might fix this error by changing his/her
+    input.
+    """
+
 class UserError(CubesError):
     """Superclass for all errors caused by the cubes and slicer users. Error
     messages from this error might be safely passed to the front-end. Do not
-    include any information that you would not like to be public"""
+    include any information that you would not like to be public.
+
+    Users can fix the error."""
     error_type = "unknown_user_error"
 
 class InternalError(CubesError):
-    """Superclass for all errors that happened internally: configuration
-    issues, connection problems, model inconsistencies..."""
+    """Superclass for all errors that happened on the server side:
+    configuration issues, connection problems, model inconsistencies...
+
+    If you handle this exception, don't display content of this error to the clients (such as over the web),
+    as it might contain information about the server configuration, database
+    or other internals.
+    """
     error_type = "internal_error"
 
 class ConfigurationError(InternalError):
@@ -32,6 +47,10 @@ class WorkspaceError(InternalError):
     """Backend Workspace related exception."""
 
 class BrowserError(InternalError):
+    """AggregationBrowser related exception."""
+    pass
+
+class StoreError(InternalError):
     """AggregationBrowser related exception."""
     pass
 
@@ -51,16 +70,6 @@ class MappingError(ModelError):
 # TODO: change all instances to ModelError
 class ModelInconsistencyError(ModelError):
     """Raised when there is incosistency in model structure."""
-
-class TemplateRequired(ModelError):
-    """Raised by a model provider which can provide a dimension, but requires
-    a template. Signals to the caller that the creation of a dimension should
-    be retried when the template is available."""
-
-    def __init__(self, template):
-        self.template = template
-    def __str__(self):
-        return self.template
 
 class MissingObjectError(UserError):
     error_type = "missing_object"
@@ -106,4 +115,19 @@ class HierarchyError(UserError):
 class ExpressionError(ModelError):
     """Raised when attribute expression is invalid.
     """
+
+# Helper exceptions
+# =================
+#
+# Not quite errors, but used for signalling
+#
+class TemplateRequired(ModelError):
+    """Raised by a model provider which can provide a dimension, but requires
+    a template. Signals to the caller that the creation of a dimension should
+    be retried when the template is available."""
+
+    def __init__(self, template):
+        self.template = template
+    def __str__(self):
+        return self.template
 

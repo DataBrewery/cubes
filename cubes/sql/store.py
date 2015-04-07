@@ -7,7 +7,7 @@ from .mapper import distill_naming
 from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
-from ..errors import ArgumentError, BackendError, WorkspaceError
+from ..errors import ArgumentError, StoreError
 from ..browser import Drilldown
 from ..cells import Cell
 from ..computation import *
@@ -119,10 +119,10 @@ class SQLStore(Store):
         super(SQLStore, self).__init__(**options)
 
         if not engine and not url:
-            raise ArgumentError("No URL or engine specified in options, "
+            raise ConfigurationError("No URL or engine specified in options, "
                                 "provide at least one")
         if engine and url:
-            raise ArgumentError("Both engine and URL specified. Use only one.")
+            raise ConfigurationError("Both engine and URL specified. Use only one.")
 
         # Create a copy of options, because we will be popping from it
         self.options = coalesce_options(options, OPTION_TYPES)
@@ -159,7 +159,7 @@ class SQLStore(Store):
         full_name = preparer.format_table(table)
 
         if table.exists() and not force:
-            raise WorkspaceError("View or table %s (schema: %s) already exists." % \
+            raise StoreError("View or table %s (schema: %s) already exists." % \
                                  (view_name, schema))
 
         inspector = sa.engine.reflection.Inspector.from_engine(self.connectable)
@@ -291,8 +291,8 @@ class SQLStore(Store):
         browser = SQLBrowser(cube, self, schema=schema)
 
         if browser.safe_labels:
-            raise ArgumentError("Denormalization does not work with "
-                                "safe_labels turned on")
+            raise ConfigurationError("Denormalization does not work with "
+                                     "safe_labels turned on")
 
         # Note: this does not work with safe labels – since they are "safe"
         # they can not conform to the cubes implicit naming schema dim.attr
@@ -306,7 +306,7 @@ class SQLStore(Store):
         fact_name = cube.fact or self.naming.fact_table_name(cube.name)
 
         if fact_name == view_name and schema == self.naming.schema:
-            raise WorkspaceError("target denormalized view is the same as source fact table")
+            raise StoreError("target denormalized view is the same as source fact table")
 
         table = sa.Table(view_name, self.metadata,
                                  autoload=False, schema=schema)
@@ -531,8 +531,8 @@ class SQLStore(Store):
         browser = SQLBrowser(cube, self, schema=schema)
 
         if browser.safe_labels:
-            raise ArgumentError("Aggregation does not work with "
-                                "safe_labels turned on")
+            raise ConfigurationError("Aggregation does not work with "
+                                     "safe_labels turned on")
 
         schema = schema or self.naming.aggregate_schema \
                     or self.naming.schema
@@ -544,7 +544,7 @@ class SQLStore(Store):
         dimensions = dimensions or [dim.name for dim in cube.dimensions]
 
         if fact_name == table_name and schema == self.naming.schema:
-            raise WorkspaceError("Aggregation target is the same as fact")
+            raise StoreError("Aggregation target is the same as fact")
 
         drilldown = []
         keys = []

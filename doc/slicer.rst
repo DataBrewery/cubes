@@ -23,19 +23,20 @@ Commands are:
 
     * - Command
       - Description
+    * - ``list``
+      - List available cubes in current workspace
     * - ``serve``
       - Start OLAP server
     * - ``model validate``
       - Validates logical model for OLAP cubes
-    * - ``model json``
-      - Create JSON representation of a model (can be used)
-        when model is a directory.
+    * - ``model convert``
+      - Convert between model formats
     * - ``test``
       - Test the configuration and model against backends
-    * - ``ddl``
-      - Generate DDL for SQL backend *(experimental)*
-    * - ``edit``
-      - Launches the cubes modeller (if installed) *(experimental)*
+    * - ``sql aggregate``
+      - Create aggregated table
+    * - ``sql denormalize``
+      - Create denormalized table
 
 serve
 -----
@@ -148,72 +149,79 @@ accessed and whether the mappings reflect reality.
 
 Usage::
 
-    slicer test [-h] [-E EXCLUDE_STORES] config
+    slicer test [-h] [-E EXCLUDE_STORES] [config] [cubes]
 
 Positional arguments::
 
     config                server confuguration .ini file
+    cubes                 list of cubes to be tested
 
 Optional arguments::
 
-    -E EXCLUDE_STORES, --exclude-store EXCLUDE_STORES
+    --aggregate               Test aggregate of whole cube 
+    -E, --exclude-store TEXT                               
+    --store TEXT                                           
+    --help                    Show this message and exit.  
 
 
-ddl
----
+..
+    ddl
+    ---
 
-.. note::
+    .. note::
 
-    This is experimental command.
-    
-Generates DDL schema of a model for SQL backend
+        This is experimental command.
+        
+    Generates DDL schema of a model for SQL backend
+
+    Usage::
+
+        slicer ddl [-h] [--dimension-prefix DIMENSION_PREFIX]
+                  [--dimension-suffix DIMENSION_SUFFIX]
+                  [--fact-prefix FACT_PREFIX]
+                  [--fact-suffix FACT_SUFFIX]
+                  [--backend BACKEND]
+                  url model
+
+    positional arguments::
+
+        url                   SQL database connection URL
+        model                 model reference - can be a local file path or URL
+
+    optional arguments::
+
+        --dimension-prefix DIMENSION_PREFIX
+                            prefix for dimension tables
+        --fact-prefix FACT_PREFIX
+                            prefix for fact tables
+        --backend BACKEND     backend name (currently limited only to SQL backends)
+
+sql denormalize
+---------------
 
 Usage::
 
-    slicer ddl [-h] [--dimension-prefix DIMENSION_PREFIX]
-              [--dimension-suffix DIMENSION_SUFFIX]
-              [--fact-prefix FACT_PREFIX]
-              [--fact-suffix FACT_SUFFIX]
-              [--backend BACKEND]
-              url model
+    slicer sql denormalize [-h] [-f] [-m] [-i] [-s SCHEMA] [--config config]
+                           [CUBE] [TARGET]
 
 positional arguments::
 
-    url                   SQL database connection URL
-    model                 model reference - can be a local file path or URL
+    CUBE                  cube to be denormalized
+    TARGET                target table name
 
 optional arguments::
 
-    --dimension-prefix DIMENSION_PREFIX
-                        prefix for dimension tables
-    --fact-prefix FACT_PREFIX
-                        prefix for fact tables
-    --backend BACKEND     backend name (currently limited only to SQL backends)
-
-denormalize
------------
-
-Usage::
-
-    slicer denormalize [-h] [-p PREFIX] [-f] [-m] [-i] [-s SCHEMA]
-                       [-c CUBE] config
-
-positional arguments::
-
-    config                slicer confuguration .ini file
-
-optional arguments::
-
-    -h, --help            show this help message and exit
-    -p PREFIX, --prefix PREFIX
-                          prefix for denormalized views (overrides config value)
-    -f, --force           replace existing views
+    --force               replace existing views
     -m, --materialize     create materialized view (table)
-    -i, --index           create index for key attributes
-    -s SCHEMA, --schema SCHEMA
-                          target view schema (overrides config value)
-    -c CUBE, --cube CUBE  cube(s) to be denormalized, if not specified then all
-                        in the model
+    --index / --no-index  create index for key attributes
+    -s, --schema TEXT     target view schema (overrides default fact schema
+    --help                Show this message and exit.
+    --store TEXT   Name of the store to use other than default. Must be SQL.
+    --config TEXT  Name of slicer.ini configuration file
+
+
+If no cube is specified then all cubes are denormalized according to the
+naming conventions in the configuration file.
 
 Examples
 ~~~~~~~~
@@ -226,7 +234,7 @@ configuration in the ``[workspace]`` section::
     denormalized_view_schema = denorm_views
 
     # This switch is used by the browser:
-    use_denormalization = yes
+    use_denormalized = yes
 
 The denormalization will create tables like ``denorm_views.mft_contracts`` for
 a cube named ``contracts``. The browser will use the view if option
@@ -234,11 +242,11 @@ a cube named ``contracts``. The browser will use the view if option
 
 Denormalize all cubes in the model::
 
-    slicer denormalize slicer.ini
+    slicer sql denormalize
     
 Denormalize only one cube::
 
-    slicer denormalize -c contracts slicer.ini
+    slicer sql denormalize contracts
     
 Create materialized denormalized view with indexes::
 
@@ -253,18 +261,19 @@ Schema
 
 Schema where denormalized view is created is schema specified in the
 configuration file. Schema is shared with fact tables and views. If you want
-to have views in separate schema, specify ``denormalized_view_schema`` option
+to have views in separate schema, specify ``denormalized_schema`` option
 in the configuration.
 
 If for any specific reason you would like to denormalize into a completely
 different schema than specified in the configuration, you can specify it with
 the ``--schema`` option.
 
+
 View name
 ~~~~~~~~~
 
 By default, a view name is the same as corresponding cube name. If there is
-``denormalized_view_prefix`` option in the configuration, then the prefix is
+``denormalized_prefix`` option in the configuration, then the prefix is
 prepended to the cube name. Or it is possible to override the option with
 command line argument ``--prefix``.
 
@@ -273,3 +282,35 @@ command line argument ``--prefix``.
     The tool will not allow to create view if it's name is the same as fact
     table name and is in the same schema. It is not even possible to
     ``--force`` it. A view prefix or different schema has to be specified.
+
+    
+sql aggregate
+---------------
+
+Create pre-aggregated table from cube(s). If no cube is specified, then all
+cubes are aggregated. Target table can be specified only for one cube, for
+multiple cubes naming convention is used.
+
+Usage::
+
+    slicer sql aggregate [OPTIONS] [CUBE] [TARGET]
+
+positional arguments::
+
+    CUBE                  cube to be denormalized
+    TARGET                target table name
+
+optional arguments::
+
+    --force               replace existing views
+    --index / --no-index  create index for key attributes
+    -s, --schema TEXT     target view schema (overrides default fact schema
+    -d, --dimension TEXT  dimension to be used for aggregation
+    --help                Show this message and exit.
+    --store TEXT   Name of the store to use other than default. Must be SQL.
+    --config TEXT  Name of slicer.ini configuration file
+
+
+If no cube is specified then all cubes are denormalized according to the
+naming conventions in the configuration file.
+
