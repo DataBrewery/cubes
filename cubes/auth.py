@@ -6,7 +6,7 @@ import os.path
 import json
 from collections import namedtuple, defaultdict
 from .cells import Cell, cut_from_string, cut_from_dict, PointCut
-from .browser import string_to_drilldown
+from .model import string_to_dimension_level
 from .errors import *
 from .common import read_json_file, sorted_dependencies
 from . import compat
@@ -71,7 +71,7 @@ class _SimpleAccessRight(object):
             for cube, limits in hierarchy_limits.items():
                 for limit in limits:
                     if isinstance(limit, compat.string_type):
-                        limit = string_to_drilldown(limit)
+                        limit = string_to_dimension_level(limit)
                     self.hierarchy_limits[cube].append(limit)
 
         self.hierarchy_limits = dict(self.hierarchy_limits)
@@ -282,7 +282,7 @@ class SimpleAuthorizer(Authorizer):
 
         if identity_dimension:
             if isinstance(identity_dimension, compat.string_type):
-                (dim, hier, _) = string_to_drilldown(identity_dimension)
+                (dim, hier, _) = string_to_dimension_level(identity_dimension)
             else:
                 (dim, hier) = identity_dimension[:2]
             self.identity_dimension = dim

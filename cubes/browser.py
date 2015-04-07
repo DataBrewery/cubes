@@ -13,7 +13,7 @@ from .logging import get_logger
 from .common import IgnoringDictionary
 from .errors import *
 from .cells import Cell, PointCut, RangeCut, SetCut
-from .model import Dimension, Cube
+from .model import Dimension, Cube, string_to_dimension_level
 
 from . import compat
 
@@ -907,31 +907,6 @@ def cross_table(drilldown, onrows, oncolumns, aggregates):
     return CrossTable(column_hdrs, row_hdrs, data)
 
 
-def string_to_drilldown(astring):
-    """Converts `astring` into a drilldown tuple (`dimension`, `hierarchy`,
-    `level`). The string should have a format:
-    ``dimension@hierarchy:level``. Hierarchy and level are optional.
-
-    Raises `ArgumentError` when `astring` does not match expected pattern.
-    """
-
-    if not astring:
-        raise ArgumentError("Drilldown string should not be empty")
-
-    ident = r"[\w\d_]"
-    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % (ident,
-                                                                    ident,
-                                                                    ident)
-    match = re.match(pattern, astring)
-
-    if match:
-        d = match.groupdict()
-        return (d["dim"], d["hier"], d["level"])
-    else:
-        raise ArgumentError("String '%s' does not match drilldown level "
-                            "pattern 'dimension@hierarchy:level'" % astring)
-
-
 class Drilldown(object):
     def __init__(self, drilldown=None, cell=None):
         """Creates a drilldown object for `drilldown` specifictation of `cell`.
@@ -1054,6 +1029,20 @@ class Drilldown(object):
         return result
 
     @property
+    def key_attributes(self):
+        """Returns only key attributes of all levels in the drilldown. Order
+        is by the drilldown item, then by the levels and finally by the
+        attribute in the level.
+
+        .. versionadded:: 1.1
+        """
+        attributes = []
+        for item in self.drilldown:
+            attributes += [level.key for level in item.levels]
+
+        return attributes
+
+    @property
     def all_attributes(self):
         """Returns attributes of all levels in the drilldown. Order is by the
         drilldown item, then by the levels and finally by the attribute in the
@@ -1069,7 +1058,7 @@ class Drilldown(object):
     def natural_order(self):
         """Return a natural order for the drill-down. This order can be merged
         with user-specified order. Returns a list of tuples:
-            (`attribute_name`, `order`)."""
+        (`attribute_name`, `order`)."""
 
         order = []
 
@@ -1133,7 +1122,7 @@ def levels_from_drilldown(cell, drilldown):
 
     for obj in drilldown:
         if isinstance(obj, compat.string_type):
-            obj = string_to_drilldown(obj)
+            obj = string_to_dimension_level(obj)
         elif isinstance(obj, DrilldownItem):
             obj = (obj.dimension, obj.hierarchy, obj.levels[-1])
         elif len(obj) != 3:

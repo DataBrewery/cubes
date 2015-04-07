@@ -6,7 +6,7 @@ from ...server.logging import RequestLogHandler, REQUEST_LOG_ITEMS
 from sqlalchemy import create_engine, Table, MetaData, Column
 from sqlalchemy import Integer, Sequence, DateTime, String, Float
 from sqlalchemy.exc import NoSuchTableError
-from ...browser import string_to_drilldown, Drilldown
+from ...browser import Drilldown
 from .store import create_sqlalchemy_engine
 
 import logging

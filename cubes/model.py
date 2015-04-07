@@ -18,8 +18,11 @@ from .statutils import aggregate_calculator_labels
 from .metadata import *
 from . import compat
 
+import re
+
 
 __all__ = [
+    "ModelObject",
     "Cube",
     "Dimension",
     "Hierarchy",
@@ -34,6 +37,8 @@ __all__ = [
 
     "collect_attributes",
     "depsort_attributes",
+    "collect_dependencies",
+    "string_to_dimension_level",
 ]
 
 
@@ -262,7 +267,7 @@ class Cube(ModelObject):
         during cube initialization in `dimensions` by providing a list of
         `Dimension` objects. Alternatively you can set `dimension_links`
         list with dimension names and the link the dimension using
-        :meth:`cubes.Cube._add_dimension()`.
+        :meth:`cubes.Cube.link_dimension()`.
 
         Physical properties of the cube are described in the following
         attributes. They are used by the backends:
@@ -454,7 +459,14 @@ class Cube(ModelObject):
         and aggregates. Use this method if you need to prepare structures for
         any kind of query. For attributes for more specific types of queries
         refer to :meth:`Cube.all_fact_attributes` and
-        :meth:`Cube.all_aggregate_attributes`."""
+        :meth:`Cube.all_aggregate_attributes`.
+
+        .. versionchanged:: 1.1
+
+            Returns all attributes, including aggregates. Original
+            functionality is available as `all_fact_attributes()`
+
+        """
 
         attributes = []
         for dim in self.dimensions:
@@ -474,14 +486,20 @@ class Cube(ModelObject):
         contents, it might be a constant) is considered derived attribute.
 
         The list contains also aggregate attributes that are base – for
-        example attributes that represent pre-aggregated column in a table."""
+        example attributes that represent pre-aggregated column in a table.
+
+        .. versionadded:: 1.1
+        """
 
         return [attr for attr in self.all_attributes if attr.is_base]
 
     @property
     def all_fact_attributes(self):
         """All cube's attributes from the fact: attributes of dimensions,
-        details and measures.  """
+        details and measures.
+
+        .. versionadded:: 1.1
+        """
         attributes = []
         for dim in self.dimensions:
             attributes += dim.attributes
@@ -498,7 +516,10 @@ class Cube(ModelObject):
         references of attributes that the key attribute depends on. For
         example for attribute `a` which has expression `b + c` the dictionary
         would be: `{"a": ["b", "c"]}`. The result dictionary includes all
-        cubes' attributes and aggregates. """
+        cubes' attributes and aggregates.
+
+        .. versionadded:: 1.1
+        """
 
         attributes = self.all_attributes + self.all_aggregate_attributes
         return {attr.ref:attr.dependencies for attr in attributes}
@@ -592,6 +613,8 @@ class Cube(ModelObject):
         attribute expressions.  It is safe to generate a mapping between
         logical references and their physical object representations from
         expressions in the order of items in the returned list.
+
+        .. versionadded:: 1.1
         """
 
         depsorted = collect_dependencies(attributes, self.all_attributes)
@@ -658,7 +681,7 @@ class Cube(ModelObject):
         """Returns a dictionary of hierarchies. Keys are hierarchy references
         and values are hierarchy level key attribute references.
 
-        .. warn::
+        .. warning::
 
             This method might change in the future. Consider experimental."""
 
@@ -853,6 +876,7 @@ class Dimension(Conceptual):
           hierarchies to inherit from the template
         * all levels that are not covered by hierarchies are not included in the
           final dimension
+
         """
 
         templates = templates or {}
@@ -1035,7 +1059,7 @@ class Dimension(Conceptual):
           values: `None` (fully additive, default), ``time`` (non-additive for
           time dimensions) or ``all`` (non-additive for any other dimension)
         * `attributes` – attributes for dimension. Use either this or levels,
-        not both.
+          not both.
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -2588,4 +2612,29 @@ def depsort_attributes(attributes, all_dependencies):
                               .format(remaining_str))
 
     return sorted_deps
+
+def string_to_dimension_level(astring):
+    """Converts `astring` into a dimension level tuple (`dimension`,
+    `hierarchy`, `level`). The string should have a format:
+    ``dimension@hierarchy:level``. Hierarchy and level are optional.
+
+    Raises `ArgumentError` when `astring` does not match expected pattern.
+    """
+
+    if not astring:
+        raise ArgumentError("Drilldown string should not be empty")
+
+    ident = r"[\w\d_]"
+    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % (ident,
+                                                                    ident,
+                                                                    ident)
+    match = re.match(pattern, astring)
+
+    if match:
+        d = match.groupdict()
+        return (d["dim"], d["hier"], d["level"])
+    else:
+        raise ArgumentError("String '%s' does not match drilldown level "
+                            "pattern 'dimension@hierarchy:level'" % astring)
+
 
