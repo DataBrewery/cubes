@@ -15,7 +15,10 @@ if py3k:
     iterbytes = iter
 
     from urllib.parse import urlparse
-    from urllib.request import urlopen
+    from urllib.request import urlopen, build_opener
+    from urllib.request import HTTPPasswordMgrWithDefaultRealm
+    from urllib.request import HTTPBasicAuthHandler
+    from urllib.parse import urlencode
     from configparser import ConfigParser
     from io import StringIO
     from queue import Queue
@@ -37,7 +40,10 @@ else:
     int_types = int, long
 
     from urlparse import urlparse
-    from urllib2 import urlopen
+    from urllib2 import urlopen, build_opener
+    from urllib2 import HTTPPasswordMgrWithDefaultRealm
+    from urllib2 import HTTPBasicAuthHandler
+    from urllib import urlencode
     from ConfigParser import SafeConfigParser as ConfigParser
     from StringIO import StringIO
     from Queue import Queue

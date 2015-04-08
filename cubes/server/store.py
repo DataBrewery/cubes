@@ -1,13 +1,12 @@
 # -*- coding=utf -*-
-from ...model import *
-from ...browser import *
-from ...stores import Store
-from ...providers import ModelProvider
-from ...errors import *
-from ...logging import get_logger
+from ..model import *
+from ..browser import *
+from ..stores import Store
+from ..providers import ModelProvider
+from ..errors import *
+from ..logging import get_logger
 import json
-import urllib2
-import urllib
+from .. import compat
 
 DEFAULT_SLICER_URL = "http://localhost:5000"
 
@@ -16,10 +15,48 @@ class _default_opener:
         pass
 
     def open(self, url, *args, **kwargs):
-        return urllib2.urlopen(url, *args, **kwargs)
+        return compat.urlopen(url, *args, **kwargs)
 
 class SlicerStore(Store):
     related_model_provider = "slicer"
+
+    __description__ = """
+    Uses external Slicer as a store. Aggregation is performed on the remote
+    server and results are relayed.
+    """
+    __options__ = [
+        {
+            "name": "url",
+            "description": "URL of another/external Slicer",
+            "type": "string"
+        },
+        {
+            "name": "authentication",
+            "description": "Authentication method (pass_parameter or none)",
+            "type": "string"
+        },
+        {
+            "name": "auth_identity",
+            "description": "Authenticated identity (user name, key, ...)",
+            "type": "string"
+        },
+        {
+            "name": "auth_parameter",
+            "description": "Name of authentication URL parameter " \
+                           "(default: api_key",
+            "type": "string"
+        },
+        {
+            "name": "username",
+            "description": "HTTP authentication username",
+            "type": "string"
+        },
+        {
+            "name": "password",
+            "description": "HTTP authentication password",
+            "type": "string"
+        },
+    ]
 
     def __init__(self, url=None, authentication=None,
                  auth_identity=None, auth_parameter=None,
@@ -42,9 +79,9 @@ class SlicerStore(Store):
 
         if "username" in options and "password" in options:
             # make a basic auth-enabled opener
-            _pmgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            _pmgr = compat.HTTPPasswordMgrWithDefaultRealm()
             _pmgr.add_password(None, self.url, options['username'], options['password'])
-            self.opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(_pmgr))
+            self.opener = compat.build_opener(compat.HTTPBasicAuthHandler(_pmgr))
             self.logger.info("Created slicer opener using basic auth credentials with username %s", options['username'])
         else:
             self.opener = _default_opener()
@@ -63,7 +100,7 @@ class SlicerStore(Store):
         if self.authentication == "pass_parameter":
             params[self.auth_parameter] = self.auth_identity
 
-        params_str = urllib.urlencode(params)
+        params_str = compat.urlencode(params)
         request_url = '%s/%s' % (self.url, action)
 
         if params_str:
@@ -103,6 +140,10 @@ class _JSONLinesIterator(object):
 
 
 class SlicerModelProvider(ModelProvider):
+
+    __description__ = """
+    Uses external Slicer server as a model provider.
+    """
 
     def requires_store(self):
         return True
