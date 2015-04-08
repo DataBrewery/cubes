@@ -45,7 +45,7 @@ class Formatter(object):
 
 
 class TextTableFormatter(Formatter):
-    parameters = [
+    __options__ = [
                 {
                     "name": "aggregate_format",
                     "type": "string",
@@ -113,7 +113,7 @@ class TextTableFormatter(Formatter):
 
 class SimpleDataTableFormatter(Formatter):
 
-    parameters = [
+    __options__ = [
                 {
                     "name": "dimension",
                     "type": "string",
@@ -174,7 +174,7 @@ class SimpleDataTableFormatter(Formatter):
         return data_table;
 
 class TextTableFormatter2(Formatter):
-    parameters = [
+    __options__ = [
                 {
                     "name": "measure_format",
                     "type": "string",
@@ -211,7 +211,7 @@ class TextTableFormatter2(Formatter):
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 
 class CrossTableFormatter(Formatter):
-    parameters = [
+    __options__ = [
                 {
                     "name": "aggregates_on",
                     "type": "string",
@@ -338,7 +338,7 @@ class CrossTableFormatter(Formatter):
         return CrossTable(column_hdrs, row_hdrs, data)
 
 class HTMLCrossTableFormatter(CrossTableFormatter):
-    parameters = [
+    __options__ = [
                 {
                     "name": "aggregates_on",
                     "type": "string",
@@ -398,7 +398,7 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
 
 class SimpleHTMLTableFormatter(Formatter):
 
-    parameters = [
+    __options__ = [
                 {
                     "name": "dimension",
                     "type": "string",

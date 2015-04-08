@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from .common import decamelize, to_identifier, coalesce_options
 from .errors import *
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from pkg_resources import iter_entry_points
+from textwrap import dedent
 
 
 __all__ = [
@@ -19,15 +20,15 @@ __all__ = [
 #         laily
 
 
-EXTENSION_TYPES = [
-    "browser",
-    "store",
-    "provider",
-    "formatter",
-    "authorizer",
-    "authenticators",
-    "request_log_handlers",
-]
+EXTENSION_TYPES = {
+    "browser": "Aggregation browser",
+    "store": "Data store",
+    "model_provider": "Model provider",
+    "formatter": "Formatter",
+    "authorizer": "Authorizer",
+    "authenticator": "Authenticator",
+    "request_log_handler": "Request log handler",
+}
 
 # Information about built-in extensions. Supposedly faster loading (?).
 #
@@ -95,8 +96,29 @@ class _Extension(object):
         self.option_types = {}
         self.factory = None
 
+    @property
+    def is_builtin(self):
+        return self.entry is None
+
+    @property
+    def label(self):
+        if hasattr(self.factory, "__label__"):
+            return self.factory.__label__
+        else:
+            return decamelize(self.factory.__name__)
+
+    @property
+    def description(self):
+        if hasattr(self.factory, "__description__"):
+            desc = self.factory.__description__ or ""
+            return dedent(desc)
+        else:
+            return ""
+
     def load(self):
-        self.set_factory(self.entry.load())
+        if self.entry:
+            self.set_factory(self.entry.load())
+        # We don't need to load builtin extension
 
     def set_factory(self, factory):
         self.factory = factory
@@ -107,7 +129,7 @@ class _Extension(object):
         else:
             options = []
 
-        self.options = {}
+        self.options = OrderedDict()
         for option in defaults + options:
             name = option["name"]
             self.options[name] = option
@@ -140,8 +162,6 @@ class ExtensionFinder(object):
             ext = _Extension(self.type_, obj)
             self.extensions[ext.name] = ext
 
-        return ext
-
     def builtin(self, name):
         try:
             ext_mod = self.builtins[name]
@@ -156,7 +176,17 @@ class ExtensionFinder(object):
 
         return ext
 
-    def _get(self, name):
+    def names(self):
+        """Return list of extension names."""
+        if not self.extensions:
+            self.discover()
+
+        names = list(self.builtins.keys())
+        names += self.extensions.keys()
+
+        return sorted(names)
+
+    def get(self, name):
         """Return extenson object by name. Load if necessary."""
         ext = self.extensions.get(name)
 
@@ -164,9 +194,8 @@ class ExtensionFinder(object):
             ext = self.builtin(name)
 
         if not ext:
-            import pdb; pdb.set_trace()
-            raise Exception("nono")
             self.discover()
+
             try:
                 ext = self.extensions[name]
             except KeyError:
@@ -179,7 +208,7 @@ class ExtensionFinder(object):
 
     def factory(self, name):
         """Return extension factory."""
-        ext = self._get(name)
+        ext = self.get(name)
         return ext.factory
 
     def create(self, _ext_name, *args, **kwargs):
@@ -188,7 +217,7 @@ class ExtensionFinder(object):
         according to extensions `__options__` list. This allows options to be
         specified as strings in a configuration files or configuration
         variables."""
-        ext = self._get(_ext_name)
+        ext = self.get(_ext_name)
         return ext.create(*args, **kwargs)
 
 
@@ -211,4 +240,3 @@ formatter = ExtensionFinder("formatters")
 model_provider = ExtensionFinder("providers")
 request_log_handler = ExtensionFinder("request_log_handlers")
 store = ExtensionFinder("stores")
-

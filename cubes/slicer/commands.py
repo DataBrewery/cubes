@@ -27,7 +27,7 @@ from ..metadata import read_model_metadata, write_model_metadata_bundle
 from .. import server
 from ..datastructures import AttributeDict
 from ..workspace import Workspace
-
+from .. import ext
 try:
     from cubes_modeler import ModelEditorSlicerCommand
 except ImportError:
@@ -75,7 +75,62 @@ def serve(ctx, config, visualizer):
     cubes.server.run_server(config, debug=ctx.obj.debug)
 
 ################################################################################
-# Command: serve
+# Command: extension
+
+@cli.command("ext-info")
+@click.argument('extension_type', metavar='TYPE', required=False, default='all')
+@click.argument('extension_name', metavar='NAME', required=False)
+@click.pass_context
+def extension_info(ctx, extension_type, extension_name):
+    """Show info about Cubes extensions"""
+
+    if extension_type == 'all':
+        types = ext.EXTENSION_TYPES.items()
+    else:
+        label = ext.EXTENSION_TYPES[extension_type]
+        types = [(extension_type, label)]
+
+    if extension_name:
+        # Print detailed extension information
+        manager = getattr(ext, extension_type)
+        extension = manager.get(extension_name)
+        extension.load()
+
+        desc = extension.description or "No description."
+        click.echo("{e.name} - {e.label}\n\n"
+                   "{desc}\n"
+                   .format(e=extension, desc=desc))
+
+        if extension.options:
+            click.echo("Configuration options:\n")
+
+            for option in extension.options.values():
+                name = option.get("name")
+                desc = option.get("description", option.get("label"))
+                desc = " - {}".format(desc) if desc else ""
+                type_ = option.get("type_", "string")
+
+                click.echo("    {name} ({type_}){desc}"
+                           .format(name=name, desc=desc,
+                                   type_=type_))
+        else:
+            click.echo("No known options.")
+    else:
+        # List extensions
+        click.echo("Available Cubes extensions:\n")
+        for ext_type, ext_label in types:
+            manager = getattr(ext, ext_type)
+            manager.discover()
+            extensions = manager.names()
+
+
+            names = manager.names()
+
+            click.echo("{}:\n    {}\n".format(ext_type, ", ".join(names)))
+
+
+################################################################################
+# Command: list
 
 @cli.command()
 @click.option('--verbose/--terse', 'verbose', default=False,
@@ -416,6 +471,7 @@ def edit_model(args):
 
 
 def main(*args, **kwargs):
+
     try:
         cli(*args, **kwargs)
 

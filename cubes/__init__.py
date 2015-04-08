@@ -9,7 +9,7 @@ from .model import *
 from .metadata import *
 from .workspace import *
 from .errors import *
-from .formatter import *
+from .formatters import *
 from .computation import *
 from .mapper import *
 from .providers import *

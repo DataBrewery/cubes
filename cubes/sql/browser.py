@@ -69,9 +69,16 @@ class SQLBrowser(AggregationBrowser):
 
     """
 
+    __description__ = """
+    SQL - relational database browser (for ROLAP). Generates statements on top
+    of star or snowflake schemas.
+    """
+
     __options__ = [
         {
             "name": "include_summary",
+            "description": "Include aggregation summary "\
+                           "(requires extra statement)",
             "type": "bool"
         },
         {
@@ -84,6 +91,8 @@ class SQLBrowser(AggregationBrowser):
         },
         {
             "name": "safe_labels",
+            "description": "Use internally SQL statement column labels " \
+                           "without special characters",
             "type": "bool"
         }
 
