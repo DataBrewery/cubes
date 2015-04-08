@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 
 from .browser import SQLBrowser
-from .mapper import distill_naming
+from .mapper import distill_naming, Naming
 from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
@@ -79,6 +79,36 @@ class SQLStore(Store):
 
     default_browser_name = "sql"
 
+    __label__ = "SQL Store",
+    __description__ ="""
+    Relational database store.
+
+    Supported database engines: firebird, mssql, mysql, oracle, postgresql, sqlite,
+    sybase.
+
+    Naming Convention
+    -----------------
+
+    """ \
+    + Naming.__doc__ + \
+    """
+
+    Engine Options
+    --------------
+
+    Options to be passed to SQLAlchemy create_engine start with prefix
+    `sqlalchemy_` such as `sqlalchemy_case_sensitive` (not listed as standard
+    options below). Please refer to the SQLAlchemy documentation for more
+    information.
+    """
+    __options__ = [
+        {
+            "name": "url",
+            "description": "Database URL, such as: postgresql://localhost/dw",
+            "type": "string"
+        }
+    ]
+
     def __init__(self, url=None, engine=None, metadata=None, **options):
         """
         The options are:
@@ -110,9 +140,9 @@ class SQLStore(Store):
 
         * `use_denormalization` - browser will use dernormalized view instead
           of snowflake
-        * `denormalized_view_prefix` - if denormalization is used, then this
+        * `denormalized_prefix` - if denormalization is used, then this
           prefix is added for cube name to find corresponding cube view
-        * `denormalized_view_schema` - schema wehere denormalized views are
+        * `denormalized_schema` - schema wehere denormalized views are
           located (use this if the views are in different schema than fact
           tables, otherwise default schema is going to be used)
         """

@@ -128,6 +128,7 @@ def extension_info(ctx, extension_type, extension_name):
 
             click.echo("{}:\n    {}\n".format(ext_type, ", ".join(names)))
 
+    click.echo()
 
 ################################################################################
 # Command: list

@@ -119,8 +119,6 @@ class Naming(AttributeDict):
 
     Recommended values: `fact_prefix` = ``ft_``, `dimension_prefix` =
     ``dm_``, `explicit_dimension_primary` = ``True``.
-
-    .. versionadded:: 1.1
     """
 
     def __init__(self, *args, **kwargs):
