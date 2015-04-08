@@ -13,7 +13,5 @@ Contents:
    :maxdepth: 2
    
    sql
-   mongo
-   mixpanel
    slicer
 

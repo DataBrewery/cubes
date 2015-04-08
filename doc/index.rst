@@ -48,6 +48,8 @@ Analytical Workspace
     workspace
     auth
     configuration
+    backends/sql
+    backends/slicer
 
 Slicer Server and Tool
 ----------------------
@@ -58,18 +60,6 @@ Slicer Server and Tool
     server
     deployment
     slicer
-
-Backends
---------
-
-.. toctree::
-    :maxdepth: 2
-
-    backends/sql
-    backends/mongo
-    backends/google_analytics
-    backends/mixpanel
-    backends/slicer
 
 Recipes
 -------
