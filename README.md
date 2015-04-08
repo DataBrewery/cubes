@@ -37,9 +37,7 @@ Features:
 Documentation
 =============
 
-Latest release documentation: http://packages.python.org/cubes
-
-Development documentation: http://cubes.databrewery.org/dev/doc
+[Latest documentation](http://cubes.readthedocs.org/en/latest)
 
 Examples
 --------
@@ -59,11 +57,11 @@ https://github.com/DataBrewery/cubes-models
 
 Development
 ============
-Source code is in a Git repository `on GitHub <https://github.com/DataBrewery/cubes>`_. ::
+Source code is in a Git repository [on GitHub](https://github.com/DataBrewery/cubes)
 
     git clone git://github.com/DataBrewery/cubes
 
-After you've cloned, you might want to install all of the development dependencies. ::
+After you've cloned, you might want to install all of the development dependencies.
 
     pip install -e .[dev]
 
@@ -75,21 +73,19 @@ Build the documentation like so. ::
 
 Outputs will go in ``doc/_*``.
 
+
 Requirements
 ------------
 
 Python >= 2.7 and Python >= 3.4.1
-
 
 Most of the requirements are soft (optional) and need to be satisfied only if 
 certain parts of cubes are being used.
 
 * SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.4 - for SQL
   backend
-* Werkzeug from http://werkzeug.pocoo.org/ for Slicer server
+* Flask from http://flask.pocoo.org/ for Slicer server
 * Jinja2 from http://jinja.pocoo.org/docs/ for HTML presenters
-* PyMongo for mongo and mongo2 backend
-* pytz for mongo2 backend
 
 Support
 =======
@@ -125,15 +121,5 @@ information.
 License
 =======
 
-Cubes is licensed under MIT license with following addition.
-
-> If your version of the Software supports interaction with it remotely 
-> through a computer network, the above copyright notice and this permission 
-> notice shall be accessible to all users.
-
-Simply said, that if you use it as part of software as a service (SaaS) you 
-have to provide the copyright notice in an about, legal info, credits or some 
-similar kind of page or info box.
-
-For full license see the LICENSE file.
+Cubes is licensed under MIT license. For full license see the LICENSE file.
 
