@@ -16,7 +16,6 @@ backend. Other notable changes:
 * removal of all non-essential modules as extensions in separate packages
 
 
-
 New Features
 ============
 
@@ -50,6 +49,8 @@ mappings.
 
 
 Example:
+
+.. code-block:: json
 
 	{“name”: “price_with_vat”, “expression”: “price * 1.2”}
 	{“name”: “price_with_discount”, “expression”: “price * (1 - discount / 100)”}
@@ -120,34 +121,37 @@ Model Attributes:
   way: all dimensions are simplified if they are flat and have no details,
   otherwise attribute reference is `dimension.attribute`
 
+* removed public_dimensions()
+
+Other
+-----
+
+* removed ``store_name`` in `Store`
+* added `Drilldown.natural_order`
+
 SQL
 ---
 
-Now a top-level package.
+Now a top-level package as it will receive more attention in the near future.
+Simplified, made code more understandable and maintainable.
 
-* new SQL schema object
+* new SQL schema object holding information about the star/snowflake schema
+* topological sort of joins - joins are now ordered automagically, no longer
+  cryptic exceptions about `to-fact relationships`
 * new QueryContext – replaces QueryBuilder
-* support for table expressions
-* joins are now ordered automagically, no longer cryptic exceptions about
-  `to-fact relationships`
+* support for SQL Alchemy selectables as star/snowflake schema tables
 * removed simple vs. composed aggregation statement (which was required due to
   unpredictability of low-level mapping expressions), now every statement is
   just "simple" statement
-* removed public_dimensions()
-
 
 Other:
 
-* added open_unicode internal method
-* find_dimension() and link_cube() are now global functions. Cube linking has
-  been moved into the provider.
+* `find_dimension()` and `link_cube()` are now global functions. Cube linking
+  has been moved into the provider.
 * added `naming` convention dicitonary to the SQL mapper
 * added SQLSchemaInspector
 * SQLStore accepts metadata object
-* removed store_name in Store
-* added Drilldown.natural_order
 * added compound keys (multiple columns) in joins
-* SQLAlchemy statements can be used as tables in the star schema (python-only)
 
 Fix:
 
@@ -155,11 +159,25 @@ Fix:
   schema
 
 
+Slicer
+------
+
+The ``slicer`` command has been rewritten using Click. There are new commands
+and refreshed commands:
+
+* ``ext-info`` – list extensions and give more details about particuliar
+  extension
+* ``materialize`` and ``aggregate`` – brought back under new ``sql`` command
+  group
+* ``list`` – list cubes
+
+The configuration ``slicer.ini`` is now as default and does not have to be
+explicitly provided if not necessary.
 
 Removed
 -------
 
-* Dropped support for experimental "nonadditive" measures
-* Dropped support for experimental periods-to-date
-* Dropped support of experimental ``expr`` mapping
+* Dropped support for experimental "nonadditive" measures (temporarily)
+* Dropped support for experimental periods-to-date (requires specification)
+* Dropped support of experimental ``expr`` mapping (permanently)
 
