@@ -690,7 +690,8 @@ class AggregationResult(object):
     * `cells` - list of cells that were drilled-down
     * `total_cell_count` - number of total cells in drill-down (after limit,
       before pagination)
-    * `aggregates` – aggregate measures that were selected in aggregation
+    * `aggregates` – aggregates that were selected in aggregation. List of
+    `MeasureAggregate` objects.
     * `remainder` - summary of remaining cells (not yet implemented)
     * `levels` – aggregation levels for dimensions that were used to drill-
       down
@@ -703,8 +704,18 @@ class AggregationResult(object):
     """
     def __init__(self, cell=None, aggregates=None, drilldown=None,
                  has_split=False):
+        """Create an aggergation result object. `cell` – a :class:`cubes.Cell`
+        object used for this aggregation, `aggregates` – list of aggregate
+        objects selected for this a aggregation, `drilldown` – a
+        :class:`cubes.Drilldown` object representing list of dimensions and
+        hierarchies the result is drilled-down by, `has_split` – flag whether
+        the result has a split dimension."""
+
         super(AggregationResult, self).__init__()
         self.cell = cell
+
+        # Note: aggregates HAS to be a list of Aggregate objects, not just
+        # list of strings
         self.aggregates = aggregates
 
         self.drilldown = drilldown

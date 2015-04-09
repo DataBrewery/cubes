@@ -54,14 +54,19 @@ class Formatter(object):
 
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 
-def make_cross_table(result, onrows=None, oncolumns=None, aggregates=None,
-                     aggregates_on=None):
+def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
     """
     Creates a cross table from a drilldown (might be any list of records).
     `onrows` contains list of attribute names to be placed at rows and
     `oncolumns` contains list of attribute names to be placet at columns.
-    `aggregates` is a list of aggregates to be put into cells. If
-    aggregates are not specified, then only ``record_count`` is used.
+    `aggregates_on` specifies where the aggregates will be incuded:
+
+    * ``cells`` (default) – aggregates will be included in the data matrix
+      cell
+    * ``rows`` – there will be one row per aggregate per "on row" dimension
+      member
+    * ``columns`` – there will be one column per aggregate per "on column"
+      dimension member
 
     Returns a named tuble with attributes:
 
@@ -74,8 +79,11 @@ def make_cross_table(result, onrows=None, oncolumns=None, aggregates=None,
 
     """
 
-    cube = result.cell.cube
-    aggregates = cube.get_aggregates(aggregates)
+    if not result.drilldown:
+        # TODO: we should at least create one-row/one-column table
+        raise ArgumentError("Can't create cross-table without drilldown.")
+
+    aggregates = result.aggregates
 
     matrix = {}
     row_hdrs = []
@@ -186,7 +194,6 @@ class CrossTableFormatter(Formatter):
         table = make_cross_table(result,
                                  onrows=onrows,
                                  oncolumns=oncolumns,
-                                 aggregates=aggregates,
                                  aggregates_on=aggregates_on)
 
         d = {
@@ -225,7 +232,6 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
         table = make_cross_table(result,
                                  onrows=onrows,
                                  oncolumns=oncolumns,
-                                 aggregates=aggregates,
                                  aggregates_on=aggregates_on)
 
         output = self.template.render(table=table,
