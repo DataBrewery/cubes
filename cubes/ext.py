@@ -46,13 +46,9 @@ _BUILTIN_EXTENSIONS = {
         "slicer":"cubes.server.browser:SlicerBrowser",
     },
     "formatters": {
-        "text_table": "cubes.formatters:TextTableFormatter",
-        "simple_data_table": "cubes.formatters:SimpleDataTableFormatter",
-        "text_data_table": "cubes.formatters:TextDataTableFormatter",
-        "cross_data_table": "cubes.formatters:CrossTableFormatter",
-        "html_cross_data_table": "cubes.formatters:HTMLCrossTableFormatter",
-        "simple_html_table": "cubes.formatters:SimpleHtmlTableFormatter",
-        "rickshaw_multi_series": "cubes.formatters:RickshawMultiSeriesFormatter",
+        "cross_table": "cubes.formatters:CrossTableFormatter",
+        "csv": "cubes.formatters:CSVFormatter",
+        "html_cross_table": "cubes.formatters:HTMLCrossTableFormatter",
     },
     "providers": {
         "default":"cubes.providers:StaticModelProvider",
