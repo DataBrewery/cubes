@@ -28,6 +28,9 @@ from .. import server
 from ..datastructures import AttributeDict
 from ..workspace import Workspace
 from .. import ext
+
+from ..cells import cuts_from_string, Cell
+
 try:
     from cubes_modeler import ModelEditorSlicerCommand
 except ImportError:
@@ -346,7 +349,7 @@ def sql(ctx, store, config):
     ctx.obj.store = ctx.obj.workspace.get_store(store)
 
 ################################################################################
-# Command: denormalize
+# Command: sql denormalize
 
 @sql.command()
 @click.option('--force', is_flag=True, default=False,
@@ -411,6 +414,9 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
 #     print(ddl)
 
 
+################################################################################
+# Command: sql aggregate
+
 @sql.command("aggregate")
 @click.option('--force', is_flag=True, default=False,
               help='replace existing views')
@@ -453,6 +459,77 @@ def sql_aggregate(ctx, force, index, schema, cube, target, dimensions):
                                             create_index=index,
                                             schema=schema,
                                             dimensions=dimensions)
+
+
+################################################################################
+# Command: aggregate
+
+@cli.command()
+@click.option('--config', type=click.Path(exists=True), required=False,
+              default=DEFAULT_CONFIG)
+
+@click.option('--aggregate', '-a', 'aggregates', multiple=True,
+              help="List of aggregates to get")
+@click.option('--cut', '-c', 'cuts', multiple=True,
+              help="Cell cut")
+@click.option('--split', 'split_str', multiple=False,
+              help="Split cell")
+@click.option('--drilldown', '-d', 'drilldown', multiple=True,
+              help="Drilldown dimensions")
+
+@click.option('--on-row', 'on_rows', multiple=True,
+              help="Attribute to put on row (default is all)")
+@click.option('--on-column', 'on_columns', multiple=True,
+              help="Attribute to put on column (default is none)")
+
+@click.option('--format', "-f", "formatter_name", default="cross_table",
+              help="Output format")
+
+@click.argument('cube_name', metavar='CUBE')
+@click.pass_context
+def aggregate(ctx, config, cube_name, aggregates, cuts, drilldown, formatter_name,
+              split_str, on_rows, on_columns):
+    """Aggregate a cube"""
+    config = read_config(config)
+    workspace = Workspace(config)
+    browser = workspace.browser(cube_name)
+
+    cell_cuts = []
+    for cut_str in cuts:
+        cell_cuts += cuts_from_string(browser.cube, cut_str)
+
+    cell = Cell(browser.cube, cell_cuts)
+
+    split_cuts = cuts_from_string(browser.cube, split_str)
+    if split_cuts:
+        split = Cell(browser.cube, split_cuts)
+    else:
+        split = None
+
+    if not aggregates:
+        aggregates = [agg.name for agg in browser.cube.aggregates]
+
+    # TODO: paging and ordering
+    result = browser.aggregate(cell,
+                               aggregates=aggregates,
+                               drilldown=drilldown,
+                               split=split,
+                               page=None,
+                               page_size=None,
+                               order=None)
+
+    if formatter_name:
+        formatter = ext.formatter(formatter_name)
+        output = formatter.format(browser.cube,
+                                  result,
+                                  onrows=on_rows,
+                                  oncolumns=on_columns,
+                                  aggregates=aggregates,
+                                  aggregates_on="columns")
+    else:
+        output = result.to_dict()
+
+    click.echo(output)
 
 def edit_model(args):
     if not run_modeler:
