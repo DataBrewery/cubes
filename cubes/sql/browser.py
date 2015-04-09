@@ -387,7 +387,9 @@ class SQLBrowser(AggregationBrowser):
 
         # TODO: implement reminder
 
-        result = AggregationResult(cell=cell, aggregates=aggregates)
+        result = AggregationResult(cell=cell, aggregates=aggregates,
+                                   drilldown=drilldown,
+                                   has_split=split is not None)
 
         # Summary
         # -------

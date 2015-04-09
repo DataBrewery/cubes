@@ -29,8 +29,6 @@ __all__ = [
     "levels_from_drilldown",
 
     "TableRow",
-    "CrossTable",
-    "cross_table",
     "SPLIT_DIMENSION_NAME",
 ]
 
@@ -703,10 +701,22 @@ class AggregationResult(object):
         `measures` and `levels` from the aggregate query.
 
     """
-    def __init__(self, cell=None, aggregates=None, drilldown=None):
+    def __init__(self, cell=None, aggregates=None, drilldown=None,
+                 has_split=False):
         super(AggregationResult, self).__init__()
         self.cell = cell
         self.aggregates = aggregates
+
+        self.drilldown = drilldown
+
+        # TODO: Experimental, undocumented
+        if drilldown:
+            attrs = [attr.ref for attr in self.drilldown.all_attributes]
+            self.attributes = attrs
+        else:
+            self.attributes = []
+
+        self.has_split = has_split
 
         if drilldown:
             self.levels = drilldown.result_levels()
@@ -718,7 +728,6 @@ class AggregationResult(object):
         self.total_cell_count = None
         self.remainder = {}
         self.labels = []
-
         self.calculators = []
 
     @property
@@ -731,18 +740,6 @@ class AggregationResult(object):
         if self.calculators:
             val = CalculatedResultIterator(self.calculators, iter(val))
         self._cells = val
-
-    @property
-    def measures(self):
-        return self.aggregates
-
-    @measures.setter
-    def measures(self, val):
-        logger = get_logger()
-        logger.warn("AggregationResult.measures is depreciated. Use "
-                    "`aggregates`")
-        return self.aggregates
-        # decorate iterable with calcs if needed
 
     def to_dict(self):
         """Return dictionary representation of the aggregation result. Can be
@@ -761,6 +758,11 @@ class AggregationResult(object):
         d.set("cell", [cut.to_dict() for cut in self.cell.cuts])
 
         d["levels"] = self.levels
+
+        # TODO: New, undocumented for now
+        d.set("attributes", self.attributes)
+        d["has_split"] = self.has_split
+
 
         return d
 
@@ -854,57 +856,6 @@ class AggregationResult(object):
         # Cache cells from an iterator
         result.cells = list(self.cells)
         return result
-
-CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
-
-
-def cross_table(drilldown, onrows, oncolumns, aggregates):
-    """
-    Creates a cross table from a drilldown (might be any list of records).
-    `onrows` contains list of attribute names to be placed at rows and
-    `oncolumns` contains list of attribute names to be placet at columns.
-    `aggregates` is a list of aggregate measures to be put into cells.
-
-    Returns a named tuble with attributes:
-
-    * `columns` - labels of columns. The tuples correspond to values of
-      attributes in `oncolumns`.
-    * `rows` - labels of rows as list of tuples. The tuples correspond to
-      values of attributes in `onrows`.
-    * `data` - list of aggregated measure data per row. Each row is a list of
-      aggregate measure tuples.
-
-    .. warning::
-
-        Experimental implementation. Interface might change - either
-        arguments or result object.
-
-    """
-
-    logger = get_logger()
-    logger.warn("cross_table() is depreciated, use cross table formatter: "
-                "create_formatter(\"cross_table\", ...)")
-    matrix = {}
-    row_hdrs = []
-    column_hdrs = []
-
-    for record in drilldown:
-        hrow = tuple(record[f] for f in onrows)
-        hcol = tuple(record[f] for f in oncolumns)
-
-        if not hrow in row_hdrs:
-            row_hdrs.append(hrow)
-        if not hcol in column_hdrs:
-            column_hdrs.append(hcol)
-
-        matrix[(hrow, hcol)] = tuple(record[m] for m in aggregates)
-
-    data = []
-    for hrow in row_hdrs:
-        row = [matrix.get((hrow, hcol)) for hcol in column_hdrs]
-        data.append(row)
-
-    return CrossTable(column_hdrs, row_hdrs, data)
 
 
 class Drilldown(object):
