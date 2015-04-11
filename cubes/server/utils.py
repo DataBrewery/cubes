@@ -9,7 +9,7 @@ import json
 import csv
 
 from .errors import *
-from ..common import CSVGenerator, JSONLinesGenerator
+from ..formatters import CSVGenerator, JSONLinesGenerator, SlicerJSONEncoder
 from .. import compat
 
 
@@ -78,7 +78,7 @@ def jsonify(obj):
     return Response(data, mimetype='application/json')
 
 
-def formated_response(response, fields, labels, iterable=None):
+def formatted_response(response, fields, labels, iterable=None):
     """Wraps request which returns response that can be formatted. The
     `data_attribute` is name of data attribute or key in the response that
     contains formateable data."""

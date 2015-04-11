@@ -11,7 +11,7 @@ from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..cells import Cell, cut_from_dict
 from ..browser import SPLIT_DIMENSION_NAME
 from ..errors import *
-from ..common import JSONLinesGenerator, CSVGenerator
+from ..formatters import JSONLinesGenerator, CSVGenerator
 from .. import ext
 from .logging import configured_request_log_handlers, RequestLogger
 from .logging import AsyncRequestLogger
@@ -418,7 +418,7 @@ def cube_facts(cube_name):
     labels = [attr.label or attr.name for attr in attributes]
     labels.insert(0, g.cube.key or "id")
 
-    return formated_response(facts, fields, labels)
+    return formatted_response(facts, fields, labels)
 
 @slicer.route("/cube/<cube_name>/fact/<fact_id>")
 @requires_browser
@@ -486,7 +486,7 @@ def cube_members(cube_name, dimension_name):
     fields = [attr.ref for attr in attributes]
     labels = [attr.label or attr.name for attr in attributes]
 
-    return formated_response(result, fields, labels, iterable=values)
+    return formatted_response(result, fields, labels, iterable=values)
 
 
 @slicer.route("/cube/<cube_name>/cell")

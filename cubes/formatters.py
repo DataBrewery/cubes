@@ -3,14 +3,17 @@
 from __future__ import print_function
 
 from collections import namedtuple
-from .common import SlicerJSONEncoder
 
 from .errors import ArgumentError
 from .compat import StringIO, to_str
 from . import ext
 
 from .browser import SPLIT_DIMENSION_NAME
-from .common import CSVGenerator
+import json
+import csv
+import codecs
+import decimal
+import datetime
 
 try:
     import jinja2
@@ -20,10 +23,13 @@ except ImportError:
 
 
 __all__ = [
-            "create_formatter",
-            "CrossTableFormatter",
-            "HTMLCrossTableFormatter",
-            ]
+    "create_formatter",
+    "CrossTableFormatter",
+    "HTMLCrossTableFormatter",
+    "SlicerJSONEncoder",
+    "CSVGenerator",
+    "JSONLinesGenerator",
+]
 
 def create_formatter(type_, *args, **kwargs):
     """Creates a formatter of type `type`. Passes rest of the arguments to the
@@ -38,8 +44,108 @@ def _jinja_env():
     return env
 
 
-def parse_format_arguments(formatter, args, prefix="f:"):
-    """Parses dictionary of `args` for formatter"""
+class CSVGenerator(object):
+    def __init__(self, records, fields, include_header=True,
+                header=None, dialect=csv.excel, encoding="utf-8", **kwds):
+        # Redirect output to a queue
+        self.records = records
+
+        self.include_header = include_header
+        self.header = header
+
+        self.fields = fields
+        self.queue = compat.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def csvrows(self):
+        if self.include_header:
+            yield self._row_string(self.header or self.fields)
+
+        for record in self.records:
+            row = []
+            for field in self.fields:
+                value = record.get(field)
+                if isinstance(value, compat.string_type):
+                    row.append(value.encode("utf-8"))
+                elif value is not None:
+                    row.append(compat.text_type(value))
+                else:
+                    row.append(None)
+
+            yield self._row_string(row)
+
+    def __iter__(self):
+        return self.csvrows()
+
+    def _row_string(self, row):
+        self.writer.writerow(row)
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = compat.to_unicode(data)
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # empty queue
+        self.queue.truncate(0)
+
+        return data
+
+
+class JSONLinesGenerator(object):
+    def __init__(self, iterable, separator='\n'):
+        """Creates a generator that yields one JSON record per record from
+        `iterable` separated by a newline character.."""
+        self.iterable = iterable
+        self.separator = separator
+
+        self.encoder = SlicerJSONEncoder(indent=None)
+
+    def __iter__(self):
+        for obj in self.iterable:
+            string = self.encoder.encode(obj)
+            yield u"{}{}".format(string, self.separator)
+
+
+class SlicerJSONEncoder(json.JSONEncoder):
+    def __init__(self, *args, **kwargs):
+        """Creates a JSON encoder that will convert some data values and also allows
+        iterables to be used in the object graph.
+
+        :Attributes:
+        * `iterator_limit` - limits number of objects to be fetched from
+          iterator. Default: 1000.
+        """
+
+        super(SlicerJSONEncoder, self).__init__(*args, **kwargs)
+
+        self.iterator_limit = 1000
+
+    def default(self, o):
+        if type(o) == decimal.Decimal:
+            return float(o)
+        if type(o) == datetime.date or type(o) == datetime.datetime:
+            return o.isoformat()
+        if hasattr(o, "to_dict") and callable(getattr(o, "to_dict")):
+            return o.to_dict()
+        else:
+            array = None
+            try:
+                # If it is an iterator, then try to construct array and limit number of objects
+                iterator = iter(o)
+                count = self.iterator_limit
+                array = []
+                for i, obj in enumerate(iterator):
+                    array.append(obj)
+                    if i >= count:
+                        break
+            except TypeError as e:
+                # not iterable
+                pass
+
+            if array is not None:
+                return array
+            else:
+                return json.JSONEncoder.default(self, o)
 
 
 class Formatter(object):
@@ -263,3 +369,4 @@ class CSVFormatter(Formatter):
         rows = [to_str(row) for row in generator.csvrows()]
         output = "".join(rows)
         return output
+

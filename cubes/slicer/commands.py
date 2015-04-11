@@ -28,8 +28,10 @@ from .. import server
 from ..datastructures import AttributeDict
 from ..workspace import Workspace
 from .. import ext
+from ..formatters import CSVGenerator, SlicerJSONEncoder, JSONLinesGenerator
 
 from ..cells import cuts_from_string, Cell
+from ..browser import string_to_dimension_level
 
 try:
     from cubes_modeler import ModelEditorSlicerCommand
@@ -530,6 +532,76 @@ def aggregate(ctx, config, cube_name, aggregates, cuts, drilldown, formatter_nam
         output = result.to_dict()
 
     click.echo(output)
+
+
+################################################################################
+# Command: members
+
+@cli.command()
+@click.option('--config', type=click.Path(exists=True), required=False,
+              default=DEFAULT_CONFIG)
+
+@click.option('--cut', '-c', 'cuts', multiple=True,
+              help="Cell cut")
+
+@click.option('--format', "-f", "output_format", default="json",
+              type=click.Choice(["json", "csv", "json_lines" ]),
+              help="Output format")
+
+@click.argument('cube_name', metavar='CUBE')
+@click.argument('dim_name', metavar='DIMENSION')
+@click.pass_context
+def members(ctx, config, cube_name, cuts, dim_name, output_format):
+    """Aggregate a cube"""
+    config = read_config(config)
+    workspace = Workspace(config)
+    browser = workspace.browser(cube_name)
+    cube = browser.cube
+
+    cell_cuts = []
+    for cut_str in cuts:
+        cell_cuts += cuts_from_string(browser.cube, cut_str)
+
+    cell = Cell(browser.cube, cell_cuts)
+
+    (dim_name, hier_name, level_name) = string_to_dimension_level(dim_name)
+    dimension = cube.dimension(dim_name)
+    hierarchy = dimension.hierarchy(hier_name)
+
+    if level_name:
+        depth = hierarchy.level_index(level_name) + 1
+    else:
+        depth = len(hierarchy)
+
+    # TODO: pagination
+    values = browser.members(cell,
+                             dimension,
+                             depth=depth,
+                             hierarchy=hierarchy,
+                             page=None,
+                             page_size=None)
+
+    attributes = []
+    for level in hierarchy.levels_for_depth(depth):
+        attributes += level.attributes
+
+    fields = [attr.ref for attr in attributes]
+    labels = [attr.label or attr.name for attr in attributes]
+
+    if output_format == "json":
+        encoder = SlicerJSONEncoder(indent=4)
+        result = encoder.iterencode(values)
+    elif output_format == "json_lines":
+        result = JSONLinesGenerator(values)
+    elif output_format == "csv":
+        result = CSVGenerator(values,
+                              fields,
+                              include_header=True,
+                              header=labels)
+
+    out = click.get_binary_stream('stdout')
+    for row in result:
+        out.write(compat.to_str(row))
 
 def edit_model(args):
     if not run_modeler:
