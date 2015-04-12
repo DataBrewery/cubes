@@ -5,6 +5,8 @@
 # generator is – is to remain as much Cubes-independent as possible, just be a
 # low level module somewhere between SQLAlchemy and Cubes.
 
+from __future__ import absolute_import
+
 import sqlalchemy.sql as sql
 
 from expressions import Compiler
