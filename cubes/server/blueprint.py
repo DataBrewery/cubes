@@ -11,7 +11,7 @@ from ..workspace import Workspace, SLICER_INFO_KEYS
 from ..cells import Cell, cut_from_dict
 from ..browser import SPLIT_DIMENSION_NAME
 from ..errors import *
-from ..formatters import JSONLinesGenerator, CSVGenerator
+from ..formatters import JSONLinesGenerator, csv_generator
 from .. import ext
 from .logging import configured_request_log_handlers, RequestLogger
 from .logging import AsyncRequestLogger
@@ -373,13 +373,13 @@ def aggregate(cube_name):
         header = None
 
     fields = result.labels
-    generator = CSVGenerator(result,
+    generator = csv_generator(result,
                              fields,
                              include_header=bool(header),
                              header=header)
 
     headers = {"Content-Disposition": 'attachment; filename="aggregate.csv"'}
-    return Response(generator.csvrows(),
+    return Response(generator,
                     mimetype='text/csv',
                     headers=headers)
 

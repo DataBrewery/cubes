@@ -28,7 +28,7 @@ from .. import server
 from ..datastructures import AttributeDict
 from ..workspace import Workspace
 from .. import ext
-from ..formatters import CSVGenerator, SlicerJSONEncoder, JSONLinesGenerator
+from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator
 
 from ..cells import cuts_from_string, Cell
 from ..browser import string_to_dimension_level
@@ -594,14 +594,14 @@ def members(ctx, config, cube_name, cuts, dim_name, output_format):
     elif output_format == "json_lines":
         result = JSONLinesGenerator(values)
     elif output_format == "csv":
-        result = CSVGenerator(values,
+        result = csv_generator(values,
                               fields,
                               include_header=True,
                               header=labels)
 
-    out = click.get_binary_stream('stdout')
+    out = click.get_text_stream('stdout')
     for row in result:
-        out.write(compat.to_str(row))
+        out.write(row)
 
 def edit_model(args):
     if not run_modeler:

@@ -9,7 +9,7 @@ import json
 import csv
 
 from .errors import *
-from ..formatters import CSVGenerator, JSONLinesGenerator, SlicerJSONEncoder
+from ..formatters import csv_generator, JSONLinesGenerator, SlicerJSONEncoder
 from .. import compat
 
 
@@ -109,14 +109,14 @@ def formatted_response(response, fields, labels, iterable=None):
         return Response(JSONLinesGenerator(iterable),
                         mimetype='application/x-json-lines')
     elif output_format == "csv":
-        generator = CSVGenerator(iterable,
+        generator = csv_generator(iterable,
                                  fields,
                                  include_header=bool(header),
                                  header=header)
 
         headers = {"Content-Disposition": 'attachment; filename="facts.csv"'}
 
-        return Response(generator.csvrows(),
+        return Response(generator,
                         mimetype='text/csv',
                         headers=headers)
 

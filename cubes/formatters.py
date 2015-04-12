@@ -5,7 +5,7 @@ from __future__ import print_function
 from collections import namedtuple
 
 from .errors import ArgumentError
-from .compat import StringIO, to_str
+from . import compat
 from . import ext
 
 from .browser import SPLIT_DIMENSION_NAME
@@ -27,7 +27,7 @@ __all__ = [
     "CrossTableFormatter",
     "HTMLCrossTableFormatter",
     "SlicerJSONEncoder",
-    "CSVGenerator",
+    "csv_generator",
     "JSONLinesGenerator",
 ]
 
@@ -44,51 +44,68 @@ def _jinja_env():
     return env
 
 
-class CSVGenerator(object):
-    def __init__(self, records, fields, include_header=True,
-                header=None, dialect=csv.excel, encoding="utf-8", **kwds):
-        # Redirect output to a queue
-        self.records = records
+def csv_generator_p2(records, fields, include_header=True, header=None,
+                     dialect=csv.excel):
 
-        self.include_header = include_header
-        self.header = header
-
-        self.fields = fields
-        self.queue = compat.StringIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def csvrows(self):
-        if self.include_header:
-            yield self._row_string(self.header or self.fields)
-
-        for record in self.records:
-            row = []
-            for field in self.fields:
-                value = record.get(field)
-                if isinstance(value, compat.string_type):
-                    row.append(value.encode("utf-8"))
-                elif value is not None:
-                    row.append(compat.text_type(value))
-                else:
-                    row.append(None)
-
-            yield self._row_string(row)
-
-    def __iter__(self):
-        return self.csvrows()
-
-    def _row_string(self, row):
-        self.writer.writerow(row)
+    def _row_string(row):
+        writer.writerow(row)
         # Fetch UTF-8 output from the queue ...
-        data = self.queue.getvalue()
+        data = queue.getvalue()
         data = compat.to_unicode(data)
         # ... and reencode it into the target encoding
-        data = self.encoder.encode(data)
+        data = encoder.encode(data)
         # empty queue
-        self.queue.truncate(0)
+        queue.truncate(0)
 
         return data
+
+    queue = compat.StringIO()
+    writer = csv.writer(queue, dialect=dialect)
+    encoder = codecs.getincrementalencoder("utf-8")()
+
+    if include_header:
+        yield _row_string(header or fields)
+
+    for record in records:
+        row = []
+        for field in fields:
+            value = record.get(field)
+            if isinstance(value, compat.string_type):
+                row.append(value.encode("utf-8"))
+            elif value is not None:
+                row.append(compat.text_type(value))
+            else:
+                row.append(None)
+
+        yield _row_string(row)
+
+
+def csv_generator_p3(records, fields, include_header=True, header=None,
+                     dialect=csv.excel):
+
+    def _row_string(row):
+        writer.writerow(row)
+        data = queue.getvalue()
+        queue.truncate(0)
+
+        return data
+
+    queue = compat.StringIO()
+    writer = csv.writer(queue, dialect=dialect)
+
+    if include_header:
+        yield _row_string(header or fields)
+
+    for record in records:
+        row = [record.get(field) for field in fields]
+
+        yield _row_string(row)
+
+
+if compat.py3k:
+    csv_generator = csv_generator_p3
+else:
+    csv_generator = csv_generator_p2
 
 
 class JSONLinesGenerator(object):
@@ -361,12 +378,12 @@ class CSVFormatter(Formatter):
                            for attr in cube.get_attributes([l], aggregated=True)]
 
         fields = result.labels
-        generator = CSVGenerator(result,
-                                 fields,
-                                 include_header=bool(header),
-                                 header=header)
+        generator = csv_generator(result,
+                                  fields,
+                                  include_header=bool(header),
+                                  header=header)
         # TODO: this is Py3 hack over Py2 hack
-        rows = [to_str(row) for row in generator.csvrows()]
+        rows = [compat.to_str(row) for row in generator]
         output = "".join(rows)
         return output
 
