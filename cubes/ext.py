@@ -205,6 +205,8 @@ class ExtensionFinder(object):
     def factory(self, name):
         """Return extension factory."""
         ext = self.get(name)
+        if not ext.factory:
+            ext.load()
         return ext.factory
 
     def create(self, _ext_name, *args, **kwargs):
