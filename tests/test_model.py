@@ -71,7 +71,7 @@ class AttributeTestCase(unittest.TestCase):
     def test_simplify(self):
         """Simplification of attribute reference (with and without details)"""
 
-        level = Level("name", attributes=["name"])
+        level = Level("name", attributes=[Attribute("name")])
         dim = Dimension("group", levels=[level])
         attr = dim.attribute("name")
         self.assertEqual("name", attr.name)
@@ -80,7 +80,7 @@ class AttributeTestCase(unittest.TestCase):
         self.assertEqual("group", str(attr))
         self.assertEqual("group", attr.ref)
 
-        level = Level("name", attributes=["key", "name"])
+        level = Level("name", attributes=[Attribute("key"), Attribute("name")])
         dim = Dimension("group", levels=[level])
         attr = dim.attribute("name")
         self.assertEqual("name", attr.name)
@@ -90,7 +90,7 @@ class AttributeTestCase(unittest.TestCase):
     def test_create_attribute(self):
         """Coalesce attribute object (string or Attribute instance)"""
 
-        level = Level("name", attributes=["key", "name"])
+        level = Level("name", attributes=[Attribute("key"), Attribute("name")])
         dim = Dimension("group", levels=[level])
 
         obj = Attribute.from_metadata("name")
@@ -334,17 +334,18 @@ class LevelTestCase(unittest.TestCase):
 
     def test_has_details(self):
         """Level "has_details" flag"""
-        attrs = create_list_of(Attribute, ["year"])
+        attrs = [Attribute("year")]
         level = Level("year", attrs)
         self.assertFalse(level.has_details)
 
-        attrs = create_list_of(Attribute, ["month", "month_name"])
+        attrs = [Attribute("month"), Attribute("month_name")]
         level = Level("month", attrs)
         self.assertTrue(level.has_details)
 
     def test_operators(self):
         """Level to string conversion"""
-        self.assertEqual("date", str(Level("date", ["foo"])))
+        attrs = [Attribute("foo")]
+        self.assertEqual("date", str(Level("date", attrs)))
 
     def test_create(self):
         """Create level from a dictionary"""
@@ -393,21 +394,21 @@ class LevelTestCase(unittest.TestCase):
     def test_key_label_attributes(self):
         """Test key and label attributes - explicit and implicit"""
 
-        attrs = create_list_of(Attribute, ["code"])
+        attrs = [Attribute("code")]
         level = Level("product", attrs)
         self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
         self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("code", str(level.label_attribute))
 
-        attrs = create_list_of(Attribute, ["code", "name"])
+        attrs = [Attribute("code"), Attribute("name")]
         level = Level("product", attrs)
         self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
         self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("name", str(level.label_attribute))
 
-        attrs = create_list_of(Attribute, ["info", "code", "name"])
+        attrs = [Attribute("info"), Attribute("code"), Attribute("name")]
         level = Level("product", attrs, key="code",
                             label_attribute="name")
         self.assertIsInstance(level.key, Attribute)
@@ -446,13 +447,13 @@ class LevelTestCase(unittest.TestCase):
     def test_comparison(self):
         """Comparison of level instances"""
 
-        attrs = create_list_of(Attribute, ["info", "code", "name"])
+        attrs = [Attribute("info"), Attribute("code"), Attribute("name")]
         level1 = Level("product", attrs, key="code",
                              label_attribute="name")
         level2 = Level("product", attrs, key="code",
                              label_attribute="name")
         level3 = Level("product", attrs)
-        attrs = create_list_of(Attribute, ["month", "month_name"])
+        attrs = [Attribute("month"), Attribute("month_name")]
         level4 = Level("product", attrs)
 
         self.assertEqual(level1, level2)
@@ -463,11 +464,15 @@ class LevelTestCase(unittest.TestCase):
 class HierarchyTestCase(unittest.TestCase):
     def setUp(self):
         self.levels = [
-            Level("year", attributes=["year"]),
+            Level("year", attributes=[Attribute("year")]),
             Level("month",
-                        attributes=["month", "month_name", "month_sname"]),
-            Level("day", attributes=["day"]),
-            Level("week", attributes=["week"])
+                  attributes=[
+                    Attribute("month"),
+                    Attribute("month_name"),
+                    Attribute("month_sname")
+                ]),
+            Level("day", attributes=[Attribute("day")]),
+            Level("week", attributes=[Attribute("week")])
         ]
         self.level_names = [level.name for level in self.levels]
         self.dimension = Dimension("date", levels=self.levels)
@@ -571,8 +576,7 @@ class HierarchyTestCase(unittest.TestCase):
         left = self.hierarchy.levels[0].attributes[0]
         right = clone.levels[0].attributes[0]
         # Make sure that the dimension is not copied
-        self.assertIsNotNone(right.dimension)
-        self.assertIs(left.dimension, right.dimension)
+        self.assertIsNone(right.dimension)
 
         self.assertEqual(self.hierarchy.levels, clone.levels)
         self.assertEqual(self.hierarchy, clone)
@@ -581,11 +585,11 @@ class HierarchyTestCase(unittest.TestCase):
 class DimensionTestCase(unittest.TestCase):
     def setUp(self):
         self.levels = [
-            Level("year", attributes=["year"]),
-            Level("month", attributes=["month", "month_name",
-                                             "month_sname"]),
-            Level("day", attributes=["day"]),
-            Level("week", attributes=["week"])
+            Level("year", attributes=create_list_of(Attribute, ["year"])),
+            Level("month", attributes=create_list_of(Attribute, ["month", "month_name",
+                                             "month_sname"])),
+            Level("day", attributes=create_list_of(Attribute, ["day"])),
+            Level("week", attributes=create_list_of(Attribute, ["week"]))
         ]
         self.level_names = [level.name for level in self.levels]
         self.dimension = Dimension("date", levels=self.levels)

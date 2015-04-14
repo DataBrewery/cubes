@@ -3,9 +3,9 @@ from __future__ import absolute_import
 
 import unittest
 
-from cubes import create_attribute
+from cubes import Attribute
 from cubes.errors import ExpressionError
-from cubes.expressions import attribute_dependencies, depsort_attributes
+from cubes.model import depsort_attributes
 
 
 class ExpressionUnitTestCase(unittest.TestCase):
@@ -23,8 +23,8 @@ class ExpressionUnitTestCase(unittest.TestCase):
             {"name": "indirect_loop2", "expression": "indirect_loop1"},
         ]
 
-        self.attrs = {attr["name"]:create_attribute(attr) for attr in attrs}
-        self.deps = {name:attribute_dependencies(attr)
+        self.attrs = {attr["name"]:Attribute.from_metadata(attr) for attr in attrs}
+        self.deps = {name:attr.dependencies
                      for name, attr in self.attrs.items()}
 
     def attributes(self, *attrs):
