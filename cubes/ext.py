@@ -216,6 +216,14 @@ class ExtensionFinder(object):
         ext = self.get(_ext_name)
         return ext.create(*args, **kwargs)
 
+    def register(self, _ext_name, factory):
+        ext = _Extension(self.type_, name=_ext_name)
+        ext.set_factory(factory)
+        self.extensions[name] = ext
+
+        return ext
+
+
 
 def _load_module(modulepath):
     """Load module `modulepath` and return the last module object in the
