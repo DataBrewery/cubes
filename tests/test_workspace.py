@@ -2,8 +2,9 @@ import unittest
 import os
 import json
 import re
-from cubes.errors import *
-from cubes.workspace import *
+from cubes.errors import NoSuchCubeError, NoSuchDimensionError
+from cubes.errors import NoSuchAttributeError
+from cubes.workspace import Workspace
 from cubes.stores import Store
 from cubes.model import *
 
@@ -16,33 +17,6 @@ class WorkspaceTestCaseBase(CubesTestCaseBase):
         ws = Workspace(config=self.data_path("slicer.ini"))
         ws.import_model(self.model_path("model.json"))
         return ws
-
-class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
-    def test_empty(self):
-        """Just test whether we can create empty workspace"""
-        ws = Workspace()
-        self.assertEqual(0, len(ws.store_infos))
-
-    def test_stores(self):
-        class ImaginaryStore(Store):
-            pass
-
-        ws = Workspace(stores={"default":{"type":"imaginary"}})
-        self.assertTrue("default" in ws.store_infos)
-
-        ws = Workspace(stores=self.data_path("stores.ini"))
-        self.assertEqual(3, len(ws.store_infos) )
-
-        ws = Workspace(config=self.data_path("slicer.ini"))
-        self.assertEqual(2, len(ws.store_infos))
-
-        self.assertTrue("default" in ws.store_infos)
-        self.assertTrue("production" in ws.store_infos)
-
-    def test_duplicate_store(self):
-        with self.assertRaises(CubesError):
-            ws = Workspace(config=self.data_path("slicer.ini"),
-                           stores=self.data_path("stores.ini"))
 
 
 class WorkspaceModelTestCase(WorkspaceTestCaseBase):
