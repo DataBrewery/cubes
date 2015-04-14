@@ -888,7 +888,7 @@ class Dimension(Conceptual):
             except KeyError:
                 raise TemplateRequired(template_name)
 
-            levels = copy.deepcopy(template.levels)
+            levels = [copy.deepcopy(level) for level in template.levels]
 
             # Create copy of template's hierarchies, but reference newly
             # created copies of level objects
@@ -2215,6 +2215,9 @@ class Attribute(AttributeBase):
 
         `cubes.ArgumentError` is raised when unknown ordering type is
         specified.
+
+        Note: copied attributes are dis-owned from dimension. The new
+        dimension has to be assigned after copying.
         """
 
         super(Attribute, self).__init__(name=name, label=label,
@@ -2243,9 +2246,10 @@ class Attribute(AttributeBase):
         self._dimension = dimension
 
     def __deepcopy__(self, memo):
+        # Note: copied attribute is disowned
         return Attribute(self.name,
                          self.label,
-                         dimension=self.dimension,
+                         dimension=None,
                          locales=copy.deepcopy(self.locales, memo),
                          order=copy.deepcopy(self.order, memo),
                          description=self.description,
@@ -2258,8 +2262,8 @@ class Attribute(AttributeBase):
         if not super(Attribute, self).__eq__(other):
             return False
 
-        return str(self.dimension) == str(other.dimension) \
-               and self.locales == other.locales
+        # TODO: we are not comparing dimension (owner) here
+        return self.locales == other.locales
 
     def __hash__(self):
         return hash(self.ref)
