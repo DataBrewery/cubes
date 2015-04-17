@@ -8,8 +8,6 @@ import re
 import sqlalchemy as sa
 import datetime
 
-from cubes import create_dimension, create_cube
-
 from .common import create_table, SQLTestCase
 
 from cubes.errors import HierarchyError

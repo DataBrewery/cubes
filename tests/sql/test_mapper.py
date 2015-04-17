@@ -1,8 +1,9 @@
 import unittest
-# from cubes.sql.mapper import SnowflakeMapper
-# from cubes.model import *
-# from ..common import CubesTestCaseBase
-from .common import CubesTestCaseBase, create_provider
+
+from cubes.sql.mapper import StarSchemaMapper, distill_naming
+from cubes.model import Attribute
+
+from ..common import CubesTestCaseBase, create_provider
 
 class MapperTestCase(CubesTestCaseBase):
     def setUp(self):
@@ -11,7 +12,15 @@ class MapperTestCase(CubesTestCaseBase):
         self.provider = create_provider("mapper_test.json")
 
         self.cube = self.provider.cube("sales")
-        self.mapper = SnowflakeMapper(self.cube, dimension_prefix='dim_', dimension_suffix="_dim")
+        naming = {
+                "dimension_prefix": "dim_",
+                "dimension_suffix": "_dim"
+        }
+        naming = distill_naming(naming)
+        self.mapper = StarSchemaMapper(self.cube, naming)
+        self.localized_mapper = StarSchemaMapper(self.cube,
+                                                 naming,
+                                                 locale="sk")
 
         self.mapper.mappings = {
             "product.name": "product.product_name",
@@ -24,47 +33,30 @@ class MapperTestCase(CubesTestCaseBase):
 
         dim = self.provider.dimension("date")
         attr = Attribute("month", dimension=dim)
-        self.assertEqual("date.month", self.mapper.logical(attr))
+        self.assertEqual("date.month", attr.ref)
 
-        attr = Attribute("month", dimension=dim)
         dim = self.provider.dimension("product")
         attr = Attribute("category", dimension=dim)
-        self.assertEqual("product.category", self.mapper.logical(attr))
-
-        self.assertEqual(True, self.mapper.simplify_dimension_references)
-        dim = self.provider.dimension("flag")
-        attr = Attribute("flag", dimension=dim)
-        self.assertEqual("flag", self.mapper.logical(attr))
-
-        attr = Attribute("measure", dimension=None)
-        self.assertEqual("measure", self.mapper.logical(attr))
-
-    def test_logical_reference_as_string(self):
-        self.assertRaises(AttributeError, self.mapper.logical, "amount")
-
-    def test_dont_simplify_dimension_references(self):
-        self.mapper.simplify_dimension_references = False
+        self.assertEqual("product.category", attr.ref)
 
         dim = self.provider.dimension("flag")
         attr = Attribute("flag", dimension=dim)
-        self.assertEqual("flag.flag", self.mapper.logical(attr))
+        self.assertEqual("flag", attr.ref)
 
         attr = Attribute("measure", dimension=None)
-        self.assertEqual("measure", self.mapper.logical(attr))
+        self.assertEqual("measure", attr.ref)
 
-    def test_logical_split(self):
-        split = self.mapper.split_logical
-
-        self.assertEqual(('foo', 'bar'), split('foo.bar'))
-        self.assertEqual(('foo', 'bar.baz'), split('foo.bar.baz'))
-        self.assertEqual((None, 'foo'), split('foo'))
-
-    def assertMapping(self, expected, logical_ref, locale=None):
+    def assertMapping(self, expected, logical_ref, localized=False):
         """Create string reference by concatentanig table and column name.
         No schema is expected (is ignored)."""
 
-        attr = self.mapper.attributes[logical_ref]
-        ref = self.mapper.physical(attr, locale)
+        attr = self.cube.attribute(logical_ref)
+
+        if localized:
+            ref = self.localized_mapper[attr]
+        else:
+            ref = self.mapper[attr]
+
         sref = ref[1] + "." + ref[2]
         self.assertEqual(expected, sref)
 
@@ -73,21 +65,18 @@ class MapperTestCase(CubesTestCaseBase):
         explicit default prefix) in physical references."""
 
         # No dimension prefix
-        self.mapper.dimension_prefix = ""
-        self.mapper.dimension_suffix = ""
+        self.mapper.naming.dimension_prefix = ""
+        self.mapper.naming.dimension_suffix = ""
         self.assertMapping("date.year", "date.year")
         self.assertMapping("sales.flag", "flag")
         self.assertMapping("sales.amount", "amount")
-        # self.assertEqual("fact.flag", sref("flag.flag"))
 
         # With prefix
-        self.mapper.dimension_prefix = "dm_"
+        self.mapper.naming.dimension_prefix = "dm_"
         self.assertMapping("dm_date.year", "date.year")
         self.assertMapping("dm_date.month_name", "date.month_name")
         self.assertMapping("sales.flag", "flag")
         self.assertMapping("sales.amount", "amount")
-        self.mapper.dimension_prefix = ""
-        self.mapper.dimension_suffix = ""
 
     def test_physical_refs_flat_dims(self):
         self.cube.fact = None
@@ -106,12 +95,19 @@ class MapperTestCase(CubesTestCaseBase):
         """Testing correct mappings of mapped attributes and localized
         attributes in physical references"""
 
+        self.mapper.mappings = self.cube.mappings
         # Test defaults
         self.assertMapping("dim_date_dim.month_name", "date.month_name")
+
+        self.assertMapping("dim_category_dim.category_name_sk",
+                           "product.category_name", localized=True)
+
         self.assertMapping("dim_category_dim.category_name_en",
-                           "product.category_name")
+                           "product.category_name", localized=False)
+
         self.assertMapping("dim_category_dim.category_name_sk",
                            "product.category_name", "sk")
+
         self.assertMapping("dim_category_dim.category_name_en",
                            "product.category_name", "de")
 
@@ -125,5 +121,4 @@ class MapperTestCase(CubesTestCaseBase):
                            "product.subcategory_name", "sk")
         self.assertMapping("dim_category_dim.subcategory_name_en",
                            "product.subcategory_name", "de")
-
 
