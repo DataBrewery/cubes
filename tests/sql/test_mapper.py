@@ -16,11 +16,8 @@ class MapperTestCase(CubesTestCaseBase):
                 "dimension_prefix": "dim_",
                 "dimension_suffix": "_dim"
         }
-        naming = distill_naming(naming)
-        self.mapper = StarSchemaMapper(self.cube, naming)
-        self.localized_mapper = StarSchemaMapper(self.cube,
-                                                 naming,
-                                                 locale="sk")
+        self.naming = distill_naming(naming)
+        self.mapper = StarSchemaMapper(self.cube, self.naming)
 
         self.mapper.mappings = {
             "product.name": "product.product_name",
@@ -46,18 +43,15 @@ class MapperTestCase(CubesTestCaseBase):
         attr = Attribute("measure", dimension=None)
         self.assertEqual("measure", attr.ref)
 
-    def assertMapping(self, expected, logical_ref, localized=False):
+    def assertMapping(self, expected, logical_ref, mapper=None):
         """Create string reference by concatentanig table and column name.
         No schema is expected (is ignored)."""
 
         attr = self.cube.attribute(logical_ref)
-
-        if localized:
-            ref = self.localized_mapper[attr]
-        else:
-            ref = self.mapper[attr]
-
+        mapper = mapper or self.mapper
+        ref = mapper[attr]
         sref = ref[1] + "." + ref[2]
+
         self.assertEqual(expected, sref)
 
     def test_physical_refs_dimensions(self):
@@ -92,33 +86,50 @@ class MapperTestCase(CubesTestCaseBase):
         self.cube.fact = fact
 
     def test_physical_refs_with_mappings_and_locales(self):
-        """Testing correct mappings of mapped attributes and localized
-        attributes in physical references"""
+        """Testing mappings of mapped attributes and localized attributes in
+        physical references"""
 
         self.mapper.mappings = self.cube.mappings
         # Test defaults
+        # Localized mapper is localizing to 'sk', non-localized mapper is
+        # localizing to default 'en'
+        #
+        # Mapper with locale that we have
+        sk_mapper = StarSchemaMapper(self.cube, self.naming, locale="sk")
+
+        # Mapper with locale that we don't have
+        de_mapper = StarSchemaMapper(self.cube, self.naming, locale="de")
+
         self.assertMapping("dim_date_dim.month_name", "date.month_name")
 
-        self.assertMapping("dim_category_dim.category_name_sk",
-                           "product.category_name", localized=True)
-
         self.assertMapping("dim_category_dim.category_name_en",
-                           "product.category_name", localized=False)
+                           "product.category_name")
 
         self.assertMapping("dim_category_dim.category_name_sk",
-                           "product.category_name", "sk")
+                           "product.category_name", sk_mapper)
 
+        # This should default to 'en' since we don't have 'de' locale and the
+        # 'en' locale is the default one
         self.assertMapping("dim_category_dim.category_name_en",
-                           "product.category_name", "de")
+                           "product.category_name", de_mapper)
 
         # Test with mapping
         self.assertMapping("dim_product_dim.product_name", "product.name")
         self.assertMapping("dim_product_dim.category_id", "product.category")
-        self.assertMapping("dim_product_dim.product_name", "product.name", "sk")
+
+        # The product name is not localized, we should get the same for any
+        # mapper
+        self.assertMapping("dim_product_dim.product_name", "product.name",
+                           sk_mapper)
+        self.assertMapping("dim_product_dim.product_name", "product.name",
+                           de_mapper)
+
         self.assertMapping("dim_category_dim.subcategory_name_en",
                            "product.subcategory_name")
         self.assertMapping("dim_category_dim.subcategory_name_sk",
-                           "product.subcategory_name", "sk")
+                           "product.subcategory_name",
+                           sk_mapper)
         self.assertMapping("dim_category_dim.subcategory_name_en",
-                           "product.subcategory_name", "de")
+                           "product.subcategory_name",
+                           de_mapper)
 
