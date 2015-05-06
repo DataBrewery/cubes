@@ -231,10 +231,10 @@ class SimpleAuthorizer(Authorizer):
         roles = roles or {}
         rights = rights or {}
 
-        if not os.path.isabs(roles_file):
+        if roles_file and not os.path.isabs(roles_file):
             roles_file = os.path.join(options["cubes_root"], roles_file)
 
-        if not os.path.isabs(rights_file):
+        if rights_file and not os.path.isabs(rights_file):
             rights_file = os.path.join(options["cubes_root"], rights_file)
 
         if roles_file:
