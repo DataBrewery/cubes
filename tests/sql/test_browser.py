@@ -13,7 +13,10 @@ from .common import create_table, SQLTestCase
 from cubes.errors import HierarchyError
 from cubes.cells import PointCut, SetCut, RangeCut, Cell
 from cubes.sql import SQLBrowser, SQLStore
-from cubes.sql.query import FACT_KEY_LABEL
+from cubes.sql.query import StarSchema, FACT_KEY_LABEL, to_join
+from cubes.sql.query import QueryContext
+from cubes.sql.mapper import map_base_attributes, StarSchemaMapper
+from cubes.sql.mapper import distill_naming
 
 from .dw.demo import create_demo_dw, TinyDemoModelProvider
 #
@@ -22,7 +25,7 @@ from .dw.demo import create_demo_dw, TinyDemoModelProvider
 
 CONNECTION = "sqlite://"
 
-class SQLBrowserTestCase(SQLTestCase):
+class SQLQueryContextTestCase(SQLTestCase):
     @classmethod
     def setUpClass(self):
         self.dw = create_demo_dw(CONNECTION, None, False)
@@ -35,14 +38,28 @@ class SQLBrowserTestCase(SQLTestCase):
             "fact_prefix": "fact_",
             "dimension_prefix": "dim_"
         }
+        naming = distill_naming(naming)
 
-        self.browser = SQLBrowser(self.provider.cube("sales"),
-                                  store=self.store,
-                                  **naming)
+        self.cube = self.provider.cube("sales")
+
+        (fact_name, mappings) = map_base_attributes(self.cube,
+                                                    StarSchemaMapper,
+                                                    naming=naming)
+
+        joins = [to_join(join) for join in self.cube.joins]
+        self.star = StarSchema(self.cube.name,
+                               self.dw.md,
+                               mappings=mappings,
+                               fact=fact_name,
+                               joins=joins)
 
     # Helper methods
-    def cube(self, name):
-        return self.provider.cube(name)
+    def create_context(self, attributes):
+        collected = self.cube.collect_dependencies(attributes)
+        context = QueryContext(self.star,
+                               attributes=collected,
+                               hierarchies=self.cube.distilled_hierarchies)
+        return context
 
     def dimension(self, name):
         return self.provider.dimension(name)
@@ -53,45 +70,40 @@ class SQLBrowserTestCase(SQLTestCase):
     def execute(self, *args, **kwargs):
         return self.dw.engine.execute(*args, **kwargs)
 
-# class SQLValidateTestCase(SQLBrowserTestCase):
-#    def test_basic(self):
-#        self.store.validate(cube)
-
-class SQLStatementsTestCase(SQLBrowserTestCase):
+class SQLStatementsTestCase(SQLQueryContextTestCase):
     """"Test basic SQL statement generation in the browser."""
     def setUp(self):
         super(SQLStatementsTestCase, self).setUp()
 
-        base = base_attributes(self.browser.cube.all_attributes)
-        base = [attr.ref for attr in base]
-        self.view = self.browser.star.get_star(base)
+        attrs = self.dimension("item").attributes
+        attrs += self.dimension("category").attributes
+        attrs += self.dimension("date").attributes
+
+        self.context = self.create_context(attrs)
 
     def select(self, attrs, whereclause=None):
         """Returns a select statement from the star view"""
-        columns = [self.browser.star.column(attr) for attr in attrs]
+        columns = [self.star.column(attr) for attr in attrs]
 
         return sa.select(columns,
-                         from_obj=self.view,
+                         from_obj=self.context.star,
                          whereclause=whereclause)
 
     def test_attribute_column(self):
         """Test proper selection of attribute column."""
         # Test columns with physical rep
-        cube = self.cube("sales")
         dim_item = self.table("dim_item")
         dim_category = self.table("dim_category")
 
-        attr = self.dimension("item").attribute("name")
-        self.assertColumnEqual(self.browser.attribute_column(attr),
+        self.assertColumnEqual(self.context.column("item.name"),
                                dim_item.columns["name"])
 
-        attr = self.dimension("category").attribute("name")
-        self.assertColumnEqual(self.browser.attribute_column(attr),
+        self.assertColumnEqual(self.context.column("category.name"),
                                dim_category.columns["name"])
 
         # TODO: Test derived column
     def test_condition_for_point(self):
-        condition = self.browser.condition_for_point(self.dimension("item"),
+        condition = self.context.condition_for_point(self.dimension("item"),
                                                      ["1"])
 
         select = self.select([FACT_KEY_LABEL], condition)
@@ -110,7 +122,7 @@ class SQLStatementsTestCase(SQLBrowserTestCase):
         # Note:
         # This test requires that there is only one item for 2015-01-01
         # See data in DW demo
-        condition = self.browser.condition_for_point(self.dimension("date"),
+        condition = self.context.condition_for_point(self.dimension("date"),
                                                      [2015,1,1])
 
         select = self.select([FACT_KEY_LABEL], condition)
@@ -134,7 +146,7 @@ class SQLStatementsTestCase(SQLBrowserTestCase):
         # Test upper bound only
 
 @skip("Tests missing")
-class SQLAggregateTestCase(SQLBrowserTestCase):
+class SQLAggregateTestCase(SQLQueryContextTestCase):
     def setUp(self):
         super(self, SQLAggregateTestCase).setUp(self)
 
