@@ -356,7 +356,12 @@ class Workspace(object):
 
         # Get related model provider or override it with configuration
         store_factory = ext.store.factory(type_)
-        provider = store_factory.related_model_provider
+
+        if hasattr(store_factory, "related_model_provider"):
+            provider = store_factory.related_model_provider
+        else:
+            provider = None
+
         provider = config.pop("model_provider", provider)
 
         nsname = config.pop("namespace", None)
@@ -433,7 +438,8 @@ class Workspace(object):
             self.logger.debug("Importing model from dictionary. "
                               "Provider: %s Store: %s NS: %s"
                               % (provider, store, namespace))
-
+        elif model is None:
+            model = {}
         else:
             raise ConfigurationError("Unknown model '%s' "
                                      "(should be a filename or a dictionary)"
@@ -457,7 +463,8 @@ class Workspace(object):
         # Link the model with store
         store = store or model.get("store")
 
-        if store or provider.requires_store():
+        if store or (hasattr(provider, "requires_store") \
+                        and provider.requires_store()):
             provider.bind(self.get_store(store))
 
         # 4. Namespace
