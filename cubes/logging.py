@@ -6,38 +6,41 @@ from logging import getLogger, Formatter, StreamHandler, FileHandler
 from .errors import *
 
 __all__ = [
-           "logger_name",
            "get_logger",
            "create_logger",
            ]
 
-logger_name = "cubes"
+DEFAULT_LOGGER_NAME = "cubes"
+DEFAULT_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 logger = None
 
-def get_logger(path=None):
+# TODO: make name first
+def get_logger(path=None, format_=None, name=None):
     """Get brewery default logger"""
     global logger
 
     if logger:
         return logger
     else:
-        return create_logger(path)
+        return create_logger(path, format_, name)
 
-def create_logger(path=None):
+def create_logger(path=None, format_=None, name=None):
     """Create a default logger"""
     global logger
-    logger = getLogger(logger_name)
-    formatter = Formatter(fmt='%(asctime)s %(levelname)s %(message)s')
+    logger = getLogger(name or DEFAULT_LOGGER_NAME)
 
-    if path:
-        #create a logger which logs to a file
-        handler = FileHandler(path)
-    else:
-        #create a default logger
-        handler = StreamHandler()
+    if not logger.handlers:
+        formatter = Formatter(fmt=format_ or DEFAULT_FORMAT)
 
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+        if path:
+            # create a logger which logs to a file
+            handler = FileHandler(path)
+        else:
+            # create a default logger
+            handler = StreamHandler()
+
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     return logger
 

@@ -18,18 +18,13 @@ class Mapper(object):
     # class yet. It might be moved to the cubes as one of top-level modules
     # and subclassed here.
 
-    def __init__(self, cube, locale=None, schema=None, fact_name=None,
-                 **options):
+    def __init__(self, cube, locale=None, **naming):
         """Abstract class for mappers which maps logical references to
         physical references (tables and columns).
 
         Attributes:
 
         * `cube` - mapped cube
-        * `simplify_dimension_references` – references for flat dimensions
-          (with one level and no details) will be just dimension names, no
-          attribute name. Might be useful when using single-table schema, for
-          example, with couple of one-column dimensions.
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
 
@@ -43,16 +38,11 @@ class Mapper(object):
         self.logger = get_logger()
 
         self.cube = cube
-        # TODO: merge with mappings received as arguments
+
         self.mappings = self.cube.mappings
         self.locale = locale
 
         # TODO: remove this (should be in SQL only)
-
-        if "simplify_dimension_references" in options:
-            self.simplify_dimension_references = options["simplify_dimension_references"]
-        else:
-            self.simplify_dimension_references = True
 
         self._collect_attributes()
 
@@ -64,7 +54,7 @@ class Mapper(object):
 
         self.attributes = collections.OrderedDict()
 
-        for attr in self.cube.all_attributes:
+        for attr in self.cube.all_fact_attributes:
             self.attributes[self.logical(attr)] = attr
 
     def set_locale(self, locale):
@@ -86,6 +76,8 @@ class Mapper(object):
 
         return self.attributes[name]
 
+    # TODO: is this necessary after removing of 'simplify'? Reconsider
+    # requirement for existence of this one.
     def logical(self, attribute, locale=None):
         """Returns logical reference as string for `attribute` in `dimension`.
         If `dimension` is ``Null`` then fact table is assumed. The logical
@@ -94,15 +86,12 @@ class Mapper(object):
         * ``dimension.attribute`` - dimension attribute
         * ``attribute`` - fact measure or detail
 
-        If `simplify_dimension_references` is ``True`` then references for
-        flat dimensios without details is `dimension`.
-
         If `locale` is specified, then locale is added to the reference. This
         is used by backends and other mappers, it has no real use in end-user
         browsing.
         """
 
-        reference = attribute.ref(self.simplify_dimension_references, locale)
+        reference = attribute.localized_ref(locale)
 
         return reference
 

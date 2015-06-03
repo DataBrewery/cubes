@@ -3,7 +3,7 @@
         {
             "name": "sales",
             "measures": [
-                {"name":"amount", "aggregates":["sum", "min"]},
+                "amount",
                 "discount"
             ],
             "aggregates": [

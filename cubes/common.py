@@ -8,9 +8,12 @@ from __future__ import absolute_import
 import itertools
 import sys
 import re
-from collections import OrderedDict
 import os.path
+import decimal
+import datetime
 import json
+
+from collections import OrderedDict
 
 from .errors import *
 from . import compat
@@ -26,7 +29,7 @@ __all__ = [
     "assert_instance",
     "assert_all_instances",
     "read_json_file",
-    "sorted_dependencies"
+    "sorted_dependencies",
 ]
 
 class IgnoringDictionary(OrderedDict):
@@ -103,6 +106,17 @@ class MissingPackage(object):
         raise MissingPackageError("Optional package '%s' is not installed. "
                                   "Please install the package%s%s%s" %
                                       (self.package, source, use, comment))
+
+
+def optional_import(name, feature=None, source=None, comment=None):
+    """Optionally import package `name`. If package does not exist, import a
+    placeholder object, that raises an exception with more detailed
+    description about the missing package."""
+
+    try:
+        return __import__(name)
+    except ImportError:
+        return MissingPackage(name, feature, source, comment)
 
 
 def expand_dictionary(record, separator = '.'):
@@ -243,7 +257,7 @@ def read_json_file(path, kind=None):
                                  % (kind, path))
 
     try:
-        f = open(path)
+        f = compat.open_unicode(path)
     except IOError:
         raise ConfigurationError("Can not open %sfile '%s'"
                                  % (kind, path))

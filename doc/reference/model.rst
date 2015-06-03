@@ -18,27 +18,20 @@ Model - Cubes meta-data objects and functionality for working with them.
         kinds of sources, even during run-time.
 
 
-Creating model objects from metadata
-====================================
+Model Utility Functions
+=======================
 
-Following methods are used to create model objects from a metadata dicitonary.
-
-.. autofunction:: cubes.create_cube
-.. autofunction:: cubes.create_dimension
-.. autofunction:: cubes.create_level
-.. autofunction:: cubes.create_attribute
-.. autofunction:: cubes.create_measure
-.. autofunction:: cubes.create_measure_aggregate
-.. autofunction:: cubes.attribute_list
+.. autofunction:: cubes.object_dict
+.. autofunction:: cubes.create_list_of
+.. autofunction:: cubes.collect_attributes
+.. autofunction:: cubes.collect_dependencies
+.. autofunction:: cubes.depsort_attributes
 
 
 Model components
 ================
 
-.. note::
-
-    The `Model` class is no longer publicly available and should not be used.
-    For more information, please see :class:`cubes.Workspace`.
+.. autoclass:: cubes.ModelObject
 
 Cube
 ----

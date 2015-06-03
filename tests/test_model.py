@@ -2,19 +2,13 @@ import unittest
 import os
 import re
 
+from cubes import read_model_metadata, read_model_metadata_bundle
 from cubes.errors import ArgumentError, ModelError, HierarchyError
 from cubes.errors import ModelInconsistencyError, NoSuchAttributeError
 from cubes.errors import NoSuchDimensionError
-from cubes import Workspace
-from cubes import read_model_metadata
-from cubes import Level, Attribute, Dimension, Hierarchy, Cube
-from cubes import Measure, MeasureAggregate
-from cubes import create_level, create_dimension, create_cube
-from cubes import create_measure_aggregate, create_measure
-from cubes import attribute_list, create_attribute
-from cubes import read_model_metadata_bundle
-# from cubes.model import *
-# from cubes.providers import create_cube
+from cubes.model import Level, Attribute, Measure, MeasureAggregate
+from cubes.model import create_list_of
+from cubes.model import Dimension, Hierarchy, Cube
 
 import copy
 from .common import TESTS_PATH, CubesTestCaseBase
@@ -59,78 +53,62 @@ class AttributeTestCase(unittest.TestCase):
         attr = Attribute("foo")
         self.assertEqual("foo", attr.name)
         self.assertEqual("foo", str(attr))
-        self.assertEqual("foo", attr.ref())
-        self.assertEqual("foo", attr.ref(simplify=False))
-        self.assertEqual("foo", attr.ref(simplify=True))
+        self.assertEqual("foo", attr.ref)
 
     def test_locale(self):
         """References to localizable attributes"""
 
         attr = Attribute("foo")
-        self.assertRaises(ArgumentError, attr.ref, locale="xx")
+        self.assertRaises(ArgumentError, attr.localized_ref, locale="xx")
 
         attr = Attribute("foo", locales=["en", "sk"])
         self.assertEqual("foo", attr.name)
         self.assertEqual("foo", str(attr))
-        self.assertEqual("foo", attr.ref())
-        self.assertEqual("foo.en", attr.ref(locale="en"))
-        self.assertEqual("foo.sk", attr.ref(locale="sk"))
-        self.assertRaises(ArgumentError, attr.ref, locale="xx")
+        self.assertEqual("foo.en", attr.localized_ref("en"))
+        self.assertEqual("foo.sk", attr.localized_ref("sk"))
+        self.assertRaises(ArgumentError, attr.localized_ref, locale="xx")
 
     def test_simplify(self):
         """Simplification of attribute reference (with and without details)"""
 
-        level = Level("name", attributes=["name"])
+        level = Level("name", attributes=[Attribute("name")])
         dim = Dimension("group", levels=[level])
         attr = dim.attribute("name")
         self.assertEqual("name", attr.name)
-        self.assertEqual("name", str(attr))
-        self.assertEqual("group", attr.ref())
-        self.assertEqual("group.name", attr.ref(simplify=False))
-        self.assertEqual("group", attr.ref(simplify=True))
 
-        level = Level("name", attributes=["key", "name"])
+        # Simplified -> dimension name
+        self.assertEqual("group", str(attr))
+        self.assertEqual("group", attr.ref)
+
+        level = Level("name", attributes=[Attribute("key"), Attribute("name")])
         dim = Dimension("group", levels=[level])
         attr = dim.attribute("name")
         self.assertEqual("name", attr.name)
-        self.assertEqual("name", str(attr))
-        self.assertEqual("group.name", attr.ref())
-        self.assertEqual("group.name", attr.ref(simplify=False))
-        self.assertEqual("group.name", attr.ref(simplify=True))
+        self.assertEqual("group.name", str(attr))
+        self.assertEqual("group.name", attr.ref)
 
     def test_create_attribute(self):
         """Coalesce attribute object (string or Attribute instance)"""
 
-        level = Level("name", attributes=["key", "name"])
+        level = Level("name", attributes=[Attribute("key"), Attribute("name")])
         dim = Dimension("group", levels=[level])
 
-        obj = create_attribute("name")
+        obj = Attribute.from_metadata("name")
         self.assertIsInstance(obj, Attribute)
         self.assertEqual("name", obj.name)
 
-        obj = create_attribute({"name": "key"})
+        obj = Attribute.from_metadata({"name": "key"})
         obj.dimension = dim
         self.assertIsInstance(obj, Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(dim, obj.dimension)
 
         attr = dim.attribute("key")
-        obj = create_attribute(attr)
+        obj = Attribute.from_metadata(attr)
         obj.dimension = dim
         self.assertIsInstance(obj, Attribute)
         self.assertEqual("key", obj.name)
         self.assertEqual(obj, attr)
-
-    def test_attribute_list(self):
-        """Create attribute list from strings or Attribute instances"""
-        self.assertEqual([], attribute_list([]))
-
-        names = ["name", "key"]
-        attrs = attribute_list(names)
-
-        for name, attr in zip(names, attrs):
-            self.assertIsInstance(attr, Attribute)
-            self.assertEqual(name, attr.name)
 
 
 class MeasuresTestsCase(CubesTestCaseBase):
@@ -145,38 +123,38 @@ class MeasuresTestsCase(CubesTestCaseBase):
 
     def cube(self, name):
         """Create a cube object `name` from measures test model."""
-        return create_cube(self.cubes_md[name])
+        return Cube.from_metadata(self.cubes_md[name])
 
     def test_basic(self):
         md = {}
         with self.assertRaises(ModelError):
-            measure = create_measure(md)
+            measure = Measure.from_metadata(md)
 
-        measure = create_measure("amount")
+        measure = Measure.from_metadata("amount")
         self.assertIsInstance(measure, Measure)
         self.assertEqual("amount", measure.name)
 
         md = {"name": "amount"}
-        measure = create_measure(md)
+        measure = Measure.from_metadata(md)
         self.assertEqual("amount", measure.name)
 
     def test_copy(self):
         md = {"name": "amount"}
-        measure = create_measure(md)
+        measure = Measure.from_metadata(md)
         measure2 = copy.deepcopy(measure)
         self.assertEqual(measure, measure2)
 
     def test_aggregate(self):
         md = {}
         with self.assertRaises(ModelError):
-            measure = create_measure_aggregate(md)
+            measure = MeasureAggregate.from_metadata(md)
 
-        measure = create_measure_aggregate("amount_sum")
+        measure = MeasureAggregate.from_metadata("amount_sum")
         self.assertIsInstance(measure, MeasureAggregate)
         self.assertEqual("amount_sum", measure.name)
 
     def test_create_default_aggregates(self):
-        measure = create_measure("amount")
+        measure = Measure.from_metadata("amount")
         aggs = measure.default_aggregates()
         self.assertEqual(1, len(aggs))
         agg = aggs[0]
@@ -186,7 +164,7 @@ class MeasuresTestsCase(CubesTestCaseBase):
         self.assertIsNone(agg.formula)
 
         md = {"name": "amount", "aggregates": ["sum", "min"]}
-        measure = create_measure(md)
+        measure = Measure.from_metadata(md)
         aggs = measure.default_aggregates()
         self.assertEqual(2, len(aggs))
         self.assertEqual("amount_sum", aggs[0].name)
@@ -201,7 +179,7 @@ class MeasuresTestsCase(CubesTestCaseBase):
 
     def test_fact_count(self):
         md = {"name": "count", "function": "count"}
-        agg = create_measure_aggregate(md)
+        agg = MeasureAggregate.from_metadata(md)
 
         self.assertEqual("count", agg.name)
         self.assertIsNone(agg.measure)
@@ -356,43 +334,44 @@ class LevelTestCase(unittest.TestCase):
 
     def test_has_details(self):
         """Level "has_details" flag"""
-        attrs = attribute_list(["year"])
+        attrs = [Attribute("year")]
         level = Level("year", attrs)
         self.assertFalse(level.has_details)
 
-        attrs = attribute_list(["month", "month_name"])
+        attrs = [Attribute("month"), Attribute("month_name")]
         level = Level("month", attrs)
         self.assertTrue(level.has_details)
 
     def test_operators(self):
         """Level to string conversion"""
-        self.assertEqual("date", str(Level("date", ["foo"])))
+        attrs = [Attribute("foo")]
+        self.assertEqual("date", str(Level("date", attrs)))
 
     def test_create(self):
         """Create level from a dictionary"""
         desc = "year"
-        level = create_level(desc)
+        level = Level.from_metadata(desc)
         self.assertIsInstance(level, Level)
         self.assertEqual("year", level.name)
         self.assertEqual(["year"], [str(a) for a in level.attributes])
 
         # Test default: Attributes
         desc = {"name": "year"}
-        level = create_level(desc)
+        level = Level.from_metadata(desc)
         self.assertIsInstance(level, Level)
         self.assertEqual("year", level.name)
         self.assertEqual(["year"], [str(a) for a in level.attributes])
 
         # Test default: Attributes
         desc = {"name": "year", "attributes": ["key"]}
-        level = create_level(desc)
+        level = Level.from_metadata(desc)
         self.assertIsInstance(level, Level)
         self.assertEqual("year", level.name)
         self.assertEqual(["key"], [str(a) for a in level.attributes])
         self.assertFalse(level.has_details)
 
         desc = {"name": "year", "attributes": ["key", "label"]}
-        level = create_level(desc)
+        level = Level.from_metadata(desc)
         self.assertTrue(level.has_details)
         self.assertEqual(["key", "label"], [str(a) for a in level.attributes])
 
@@ -406,7 +385,7 @@ class LevelTestCase(unittest.TestCase):
             ]
         }
 
-        level = create_level(desc)
+        level = Level.from_metadata(desc)
         self.assertTrue(level.has_details)
         self.assertEqual(3, len(level.attributes))
         names = [str(a) for a in level.attributes]
@@ -415,21 +394,21 @@ class LevelTestCase(unittest.TestCase):
     def test_key_label_attributes(self):
         """Test key and label attributes - explicit and implicit"""
 
-        attrs = attribute_list(["code"])
+        attrs = [Attribute("code")]
         level = Level("product", attrs)
         self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
         self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("code", str(level.label_attribute))
 
-        attrs = attribute_list(["code", "name"])
+        attrs = [Attribute("code"), Attribute("name")]
         level = Level("product", attrs)
         self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
         self.assertIsInstance(level.label_attribute, Attribute)
         self.assertEqual("name", str(level.label_attribute))
 
-        attrs = attribute_list(["info", "code", "name"])
+        attrs = [Attribute("info"), Attribute("code"), Attribute("name")]
         level = Level("product", attrs, key="code",
                             label_attribute="name")
         self.assertIsInstance(level.key, Attribute)
@@ -445,7 +424,7 @@ class LevelTestCase(unittest.TestCase):
             "key": "code"
         }
 
-        level = create_level(desc)
+        level = Level.from_metadata(desc)
         self.assertIsInstance(level.key, Attribute)
         self.assertEqual("code", str(level.key))
         self.assertIsInstance(level.label_attribute, Attribute)
@@ -457,7 +436,7 @@ class LevelTestCase(unittest.TestCase):
             "label": "Product Type"
         }
 
-        level = create_level(desc)
+        level = Level.from_metadata(desc)
         self.assertEqual(1, len(level.attributes))
 
         attr = level.attributes[0]
@@ -468,13 +447,13 @@ class LevelTestCase(unittest.TestCase):
     def test_comparison(self):
         """Comparison of level instances"""
 
-        attrs = attribute_list(["info", "code", "name"])
+        attrs = [Attribute("info"), Attribute("code"), Attribute("name")]
         level1 = Level("product", attrs, key="code",
                              label_attribute="name")
         level2 = Level("product", attrs, key="code",
                              label_attribute="name")
         level3 = Level("product", attrs)
-        attrs = attribute_list(["month", "month_name"])
+        attrs = [Attribute("month"), Attribute("month_name")]
         level4 = Level("product", attrs)
 
         self.assertEqual(level1, level2)
@@ -485,11 +464,15 @@ class LevelTestCase(unittest.TestCase):
 class HierarchyTestCase(unittest.TestCase):
     def setUp(self):
         self.levels = [
-            Level("year", attributes=["year"]),
+            Level("year", attributes=[Attribute("year")]),
             Level("month",
-                        attributes=["month", "month_name", "month_sname"]),
-            Level("day", attributes=["day"]),
-            Level("week", attributes=["week"])
+                  attributes=[
+                    Attribute("month"),
+                    Attribute("month_name"),
+                    Attribute("month_sname")
+                ]),
+            Level("day", attributes=[Attribute("day")]),
+            Level("week", attributes=[Attribute("week")])
         ]
         self.level_names = [level.name for level in self.levels]
         self.dimension = Dimension("date", levels=self.levels)
@@ -499,9 +482,6 @@ class HierarchyTestCase(unittest.TestCase):
 
     def test_initialization(self):
         """No dimension on initialization should raise an exception."""
-        with self.assertRaises(ModelError):
-            Hierarchy("default", [])
-
         with self.assertRaisesRegex(ModelInconsistencyError, "not be empty"):
             Hierarchy("default", [])
 
@@ -596,8 +576,7 @@ class HierarchyTestCase(unittest.TestCase):
         left = self.hierarchy.levels[0].attributes[0]
         right = clone.levels[0].attributes[0]
         # Make sure that the dimension is not copied
-        self.assertIsNotNone(right.dimension)
-        self.assertIs(left.dimension, right.dimension)
+        self.assertIsNone(right.dimension)
 
         self.assertEqual(self.hierarchy.levels, clone.levels)
         self.assertEqual(self.hierarchy, clone)
@@ -606,11 +585,11 @@ class HierarchyTestCase(unittest.TestCase):
 class DimensionTestCase(unittest.TestCase):
     def setUp(self):
         self.levels = [
-            Level("year", attributes=["year"]),
-            Level("month", attributes=["month", "month_name",
-                                             "month_sname"]),
-            Level("day", attributes=["day"]),
-            Level("week", attributes=["week"])
+            Level("year", attributes=create_list_of(Attribute, ["year"])),
+            Level("month", attributes=create_list_of(Attribute, ["month", "month_name",
+                                             "month_sname"])),
+            Level("day", attributes=create_list_of(Attribute, ["day"])),
+            Level("week", attributes=create_list_of(Attribute, ["week"]))
         ]
         self.level_names = [level.name for level in self.levels]
         self.dimension = Dimension("date", levels=self.levels)
@@ -620,26 +599,29 @@ class DimensionTestCase(unittest.TestCase):
 
     def test_create(self):
         """Dimension from a dictionary"""
-        dim = create_dimension("year")
+        dim = Dimension.from_metadata("year")
         self.assertIsInstance(dim, Dimension)
         self.assertEqual("year", dim.name)
         self.assertEqual(["year"], [str(a) for a in dim.attributes])
 
         # Test default: explicit level attributes
         desc = {"name": "date", "levels": ["year"]}
-        dim = create_dimension(desc)
+        dim = Dimension.from_metadata(desc)
         self.assertTrue(dim.is_flat)
         self.assertFalse(dim.has_details)
         self.assertIsInstance(dim, Dimension)
         self.assertEqual("date", dim.name)
-        self.assertEqual(["year"], [str(a) for a in dim.attributes])
+
+        # Dimension string is a reference and is equal to dimension name if
+        # dimension is flat
+        self.assertEqual(["date"], [str(a) for a in dim.attributes])
 
         desc = {"name": "date", "levels": ["year", "month", "day"]}
-        dim = create_dimension(desc)
+        dim = Dimension.from_metadata(desc)
         self.assertIsInstance(dim, Dimension)
         self.assertEqual("date", dim.name)
-        names = [str(a) for a in dim.attributes]
-        self.assertEqual(["year", "month", "day"], names)
+        refs = [str(a) for a in dim.attributes]
+        self.assertEqual(["date.year", "date.month", "date.day"], refs)
         self.assertFalse(dim.is_flat)
         self.assertFalse(dim.has_details)
         self.assertEqual(3, len(dim.levels))
@@ -650,15 +632,15 @@ class DimensionTestCase(unittest.TestCase):
 
         # Test default: implicit single level attributes
         desc = {"name": "product", "attributes": ["code", "name"]}
-        dim = create_dimension(desc)
-        names = [str(a) for a in dim.attributes]
-        self.assertEqual(["code", "name"], names)
+        dim = Dimension.from_metadata(desc)
+        refs = [str(a) for a in dim.attributes]
+        self.assertEqual(["product.code", "product.name"], refs)
         self.assertEqual(1, len(dim.levels))
         self.assertEqual(1, len(dim.hierarchies))
 
     def test_flat_dimension(self):
         """Flat dimension and 'has details' flags"""
-        dim = create_dimension("foo")
+        dim = Dimension.from_metadata("foo")
         self.assertTrue(dim.is_flat)
         self.assertFalse(dim.has_details)
         self.assertEqual(1, len(dim.levels))
@@ -676,8 +658,8 @@ class DimensionTestCase(unittest.TestCase):
     def test_comparisons(self):
         """Comparison of dimension instances"""
 
-        dim1 = create_dimension(DIM_DATE_DESC)
-        dim2 = create_dimension(DIM_DATE_DESC)
+        dim1 = Dimension.from_metadata(DIM_DATE_DESC)
+        dim2 = Dimension.from_metadata(DIM_DATE_DESC)
 
         self.assertListEqual(dim1.levels, dim2.levels)
         self.assertListEqual(dim1.hierarchies, dim2.hierarchies)
@@ -686,7 +668,7 @@ class DimensionTestCase(unittest.TestCase):
 
     def test_to_dict(self):
         desc = self.dimension.to_dict()
-        dim = create_dimension(desc)
+        dim = Dimension.from_metadata(desc)
 
         self.assertEqual(self.dimension.hierarchies, dim.hierarchies)
         self.assertEqual(self.dimension.levels, dim.levels)
@@ -696,13 +678,13 @@ class DimensionTestCase(unittest.TestCase):
         dims = {"date": self.dimension}
         desc = {"template": "date", "name": "date"}
 
-        dim = create_dimension(desc, dims)
+        dim = Dimension.from_metadata(desc, dims)
         self.assertEqual(self.dimension, dim)
         hier = dim.hierarchy()
         self.assertEqual(4, len(hier.levels))
 
         desc["hierarchy"] = ["year", "month"]
-        dim = create_dimension(desc, dims)
+        dim = Dimension.from_metadata(desc, dims)
         self.assertEqual(1, len(dim.hierarchies))
         hier = dim.hierarchy()
         self.assertEqual(2, len(hier.levels))
@@ -714,10 +696,10 @@ class DimensionTestCase(unittest.TestCase):
         ]
 
         template["default_hierarchy_name"] = "ym"
-        template = create_dimension(template)
+        template = Dimension.from_metadata(template)
         dims = {"date": template}
         desc = {"template": "date", "name":"another_date"}
-        dim = create_dimension(desc, dims)
+        dim = Dimension.from_metadata(desc, dims)
         self.assertEqual(2, len(dim.hierarchies))
         self.assertEqual(["ym", "ymd"],
                          [hier.name for hier in dim.hierarchies])
@@ -733,7 +715,7 @@ class DimensionTestCase(unittest.TestCase):
                 {"name": "y", "levels": ["year"]},
             ]
         }
-        dim_time = create_dimension(md)
+        dim_time = Dimension.from_metadata(md)
         templates = {"time": dim_time}
         md = {
             "name": "date",
@@ -743,7 +725,7 @@ class DimensionTestCase(unittest.TestCase):
             ]
         }
 
-        dim_date = create_dimension(md, templates)
+        dim_date = Dimension.from_metadata(md, templates)
 
         self.assertEqual(dim_date.name, "date")
         self.assertEqual(len(dim_date.hierarchies), 3)
@@ -757,7 +739,7 @@ class DimensionTestCase(unittest.TestCase):
                 { "name": "one", "info": {"units":"$", "format": "foo"}}
             ]
         }
-        tempdim = create_dimension(md)
+        tempdim = Dimension.from_metadata(md)
 
         md = {
             "name": "dim",
@@ -768,7 +750,7 @@ class DimensionTestCase(unittest.TestCase):
         }
 
         templates = {"template": tempdim}
-        dim = create_dimension(md, templates)
+        dim = Dimension.from_metadata(md, templates)
 
         level = dim.level("one")
         self.assertIn("units", level.info)
@@ -779,9 +761,9 @@ class DimensionTestCase(unittest.TestCase):
 class CubeTestCase(unittest.TestCase):
     def setUp(self):
         a = [DIM_DATE_DESC, DIM_PRODUCT_DESC, DIM_FLAG_DESC]
-        self.measures = attribute_list(["amount", "discount"], Measure)
-        self.details = attribute_list(["detail"], Attribute)
-        self.dimensions = [create_dimension(desc) for desc in a]
+        self.measures = create_list_of(Measure, ["amount", "discount"])
+        self.details = create_list_of(Attribute, ["detail"])
+        self.dimensions = [Dimension.from_metadata(desc) for desc in a]
         self.cube = Cube("contracts",
                                 dimensions=self.dimensions,
                                 measures=self.measures,
@@ -794,7 +776,7 @@ class CubeTestCase(unittest.TestCase):
                 "aggregates": ["record_count"],
                 "details": ["some_detail", "another_detail"]
         }
-        cube = create_cube(cube)
+        cube = Cube.from_metadata(cube)
 
         self.assertEqual(cube.name, "cube")
         self.assertEqual(len(cube.aggregates), 1)
@@ -818,7 +800,7 @@ class CubeTestCase(unittest.TestCase):
     def test_attributes(self):
         all_attributes = self.cube.all_attributes
 
-        refs = [a.ref() for a in all_attributes]
+        refs = [a.ref for a in all_attributes]
         expected = [
             'date.year',
             'date.month',
@@ -834,12 +816,12 @@ class CubeTestCase(unittest.TestCase):
         self.assertSequenceEqual(expected, refs)
 
         attributes = self.cube.get_attributes(["date.year", "product.name"])
-        refs = [a.ref() for a in attributes]
+        refs = [a.ref for a in attributes]
         expected = ['date.year', 'product.name']
         self.assertSequenceEqual(expected, refs)
 
         attributes = self.cube.get_attributes(["amount"])
-        refs = [a.ref() for a in attributes]
+        refs = [a.ref for a in attributes]
         self.assertSequenceEqual(["amount"], refs)
 
         with self.assertRaises(NoSuchAttributeError):
@@ -849,12 +831,14 @@ class CubeTestCase(unittest.TestCase):
     def test_to_dict(self):
         desc = self.cube.to_dict()
         dims = dict((dim.name, dim) for dim in self.dimensions)
-        cube = create_cube(desc, dims)
+        cube = Cube.from_metadata(desc, dims)
         self.assertEqual(self.cube.dimensions, cube.dimensions)
         self.assertEqual(self.cube.measures, cube.measures)
         self.assertEqual(self.cube, cube)
 
+    @unittest.skip("requires revision")
     def test_links(self):
+        # TODO: test link alias!
         dims = dict((d.name, d) for d in self.dimensions)
 
         links = [{"name": "date"}]
@@ -874,6 +858,7 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(len(cube.dimensions), 3)
         self.assertIsInstance(cube.dimension("flag"), Dimension)
 
+    @unittest.skip("requires revision")
     def test_link_hierarchies(self):
         dims = dict((d.name, d) for d in self.dimensions)
 
@@ -914,10 +899,10 @@ class CubeTestCase(unittest.TestCase):
             "measures": ["amount", "discount"]
         }
 
-        dims = [create_dimension(md) for md in dims]
+        dims = [Dimension.from_metadata(md) for md in dims]
         dims = dict((dim.name, dim) for dim in dims)
 
-        cube = create_cube(cube)
+        cube = Cube.from_metadata(cube)
 
         measures = cube.measures
         self.assertEqual(measures[0].nonadditive, "time")
@@ -950,24 +935,6 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
         with self.assertRaises(ArgumentError):
             path = self.model_path("model.json")
             desc = read_model_metadata_bundle(path)
-
-@unittest.skip("No more base model in the cubes package")
-class BaseModelTestCase(ModelTestCaseBase):
-    def test_base_ignorance(self):
-        ws = Workspace(load_base_model=False)
-        with self.assertRaises(NoSuchDimensionError):
-            ws.dimension("base_time")
-
-    def test_base_existence(self):
-        ws = Workspace()
-        dim = ws.dimension("base_time")
-        self.assertEqual(dim.name, "base_time")
-
-    def test_select_hierarchies(self):
-        ws = Workspace()
-        dim_time = ws.dimension("base_time")
-        dim_date = ws.dimension("base_date")
-        self.assertLess(len(dim_date.hierarchies), len(dim_time.hierarchies))
 
 def test_suite():
     suite = unittest.TestSuite()

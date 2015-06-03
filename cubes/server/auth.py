@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from ..extensions import Extensible
 from ..errors import *
 from flask import Response, redirect
 import re
@@ -16,7 +15,7 @@ class NotAuthenticated(Exception):
     pass
 
 
-class Authenticator(Extensible):
+class Authenticator(object):
     def authenticate(self, request):
         raise NotImplementedError
 

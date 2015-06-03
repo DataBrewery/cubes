@@ -6,16 +6,17 @@ import sys
 from .metadata import read_model_metadata
 from .auth import NotAuthorized
 from .common import read_json_file
+from .errors import ConfigurationError, ArgumentError, CubesError
 from .logging import get_logger
-from .errors import *
 from .calendar import Calendar
-from .extensions import extensions
-from .localization import LocalizationContext
 from .namespace import Namespace
+from .providers import find_dimension
+from .localization import LocalizationContext
 import os.path
 from .compat import ConfigParser
 from copy import copy
 from collections import OrderedDict, defaultdict
+from . import ext
 from . import compat
 
 __all__ = [
@@ -50,27 +51,6 @@ def interpret_config_value(value):
 def config_items_to_dict(items):
     return dict([ (k, interpret_config_value(v)) for (k, v) in items ])
 
-
-class ModelObjectInfo(object):
-    def __init__(self, name, scope, metadata, provider, model_metadata,
-                  locale, translations):
-        self.name = name
-        self.scope = scope
-        self.metadata = metadata
-        self.provider = provider
-        self.model_metadata = model_metadata
-        self.locale = locale
-        self.translations = translations
-        self.master = None
-        self.instances = {}
-
-    def add_instance(self, instance, lang=None, identity=None):
-        key = (lang, identity)
-        self.instances[key] = instance
-
-    def instance(self, lang=None, identity=None):
-        key = (lang, identity)
-        return self.instances[key]
 
 class Workspace(object):
     def __init__(self, config=None, stores=None, load_base_model=True,
@@ -161,16 +141,6 @@ class Workspace(object):
         # Cache of created global objects
         self._cubes = {}
         # Note: providers are responsible for their own caching
-
-        if config.has_option("workspace", "lookup_method"):
-            method = config.get("workspace", "lookup_method")
-            if method not in ["exact", "recursive"]:
-                raise ConfigurationError("Unknown namespace lookup method '%s'"
-                                         % method)
-            self._lookup_method = method
-        else:
-            # TODO: make this "global"
-            self._lookup_method = "recursive"
 
         # Info
         # ====
@@ -296,7 +266,7 @@ class Workspace(object):
             auth_type = config.get("workspace", "authorization")
             options = dict(config.items("authorization"))
             options["cubes_root"] = self.root_dir
-            self.authorizer = extensions.authorizer(auth_type, **options)
+            self.authorizer = ext.authorizer(auth_type, **options)
         else:
             self.authorizer = None
 
@@ -326,15 +296,6 @@ class Workspace(object):
         for model, path in models:
             self.logger.debug("Loading model %s" % model)
             self.import_model(path)
-
-    @property
-    def lookup_method(self):
-        return self._lookup_method
-
-    @lookup_method.setter
-    def lookup_method(self, value):
-        self.flush_lookup_cache()
-        self._lookup_method = value
 
     def flush_lookup_cache(self):
         """Flushes the cube lookup cache."""
@@ -394,8 +355,13 @@ class Workspace(object):
             model = None
 
         # Get related model provider or override it with configuration
-        ext = extensions.store.get(type_)
-        provider = ext.related_model_provider
+        store_factory = ext.store.factory(type_)
+
+        if hasattr(store_factory, "related_model_provider"):
+            provider = store_factory.related_model_provider
+        else:
+            provider = None
+
         provider = config.pop("model_provider", provider)
 
         nsname = config.pop("namespace", None)
@@ -472,7 +438,8 @@ class Workspace(object):
             self.logger.debug("Importing model from dictionary. "
                               "Provider: %s Store: %s NS: %s"
                               % (provider, store, namespace))
-
+        elif model is None:
+            model = {}
         else:
             raise ConfigurationError("Unknown model '%s' "
                                      "(should be a filename or a dictionary)"
@@ -484,19 +451,20 @@ class Workspace(object):
         # `provider` is a ModelProvider subclass instance
 
         if isinstance(provider, compat.string_type):
-            provider = extensions.model_provider(provider, model)
+            provider = ext.model_provider(provider, model)
 
         # TODO: remove this, if provider is external, it should be specified
         if not provider:
             provider_name = model.get("provider", "default")
-            provider = extensions.model_provider(provider_name, model)
+            provider = ext.model_provider(provider_name, model)
 
         # 3. Store
         # --------
         # Link the model with store
         store = store or model.get("store")
 
-        if store or provider.requires_store():
+        if store or (hasattr(provider, "requires_store") \
+                        and provider.requires_store()):
             provider.bind(self.get_store(store))
 
         # 4. Namespace
@@ -521,6 +489,10 @@ class Workspace(object):
         """Register a slicer as a model and data provider."""
         self.register_store(name, "slicer", url=url, **options)
         self.import_model({}, provider="slicer", store=name)
+
+    def cube_names(self, identity=None):
+        """Return names all available cubes."""
+        return [cube["name"] for cube in self.list_cubes()]
 
     # TODO: this is not loclized!!!
     def list_cubes(self, identity=None):
@@ -565,21 +537,17 @@ class Workspace(object):
 
         # Find the namespace containing the cube – we will need it for linking
         # later
-        # FIXME: nsname is not a name, but a path!
-        (ns, nsname, basename) = self.namespace.find_cube(ref)
+        (namespace, provider, basename) = self.namespace.find_cube(ref)
 
-        recursive = (self.lookup_method == "recursive")
-        cube = ns.cube(basename, locale=locale, recursive=recursive)
+        cube = provider.cube(basename, locale=locale, namespace=namespace)
+        cube.namespace = namespace
+        cube.store = provider.store
 
-        # TODO: use ref – full and name – relative
-        # Set cube name to the full cube reference that includes namespace as
-        # well
-        cube.name = ref
+        # TODO: cube.ref -> should be ref and cube.name should be basename
         cube.basename = basename
+        cube.name = ref
 
-        self.link_cube(cube)
-
-        lookup = ns.translation_lookup(locale)
+        lookup = namespace.translation_lookup(locale)
 
         if lookup:
             # TODO: pass lookup instead of jsut first found translation
@@ -591,28 +559,6 @@ class Workspace(object):
         self._cubes[cube_key] = cube
 
         return cube
-
-    def link_cube(self, cube):
-        """Links dimensions to the cube in the context of `model` with help of
-        `provider`."""
-
-        # Assumption: empty cube
-
-        dimensions = {}
-        for link in cube.dimension_links:
-            dim_name = link["name"]
-            try:
-                dim = self.dimension(dim_name, cube.locale,
-                                     cube.namespace, cube.provider)
-            except TemplateRequired as e:
-                raise ModelError("Dimension template '%s' missing" % dim_name)
-
-            if dim is None:
-                raise CubesError("Dimension object for '%s' is none"
-                                 % dim_name)
-            dimensions[dim_name] = dim
-
-        cube.link_dimensions(dimensions)
 
     def dimension(self, name, locale=None, namespace=None, provider=None):
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
@@ -627,87 +573,9 @@ class Workspace(object):
         3. look in the default (global) namespace
         """
 
-        namespace = namespace or self.namespace
-
-        # Collected dimensions – to be used as templates
-        templates = {}
-
-        # Assumption: all dimensions that are to be used as templates should
-        # be public dimensions. If it is a private dimension, then the
-        # provider should handle the case by itself.
-        missing = [name]
-
-        while missing:
-            dimension = None
-            deferred = set()
-
-            name = missing.pop()
-
-            # First give a chance to provider, then to namespace
-            dimension = None
-            required_template = None
-
-            try:
-                dimension = self._lookup_dimension(name, templates,
-                                                   namespace, provider)
-            except TemplateRequired as e:
-                required_template = e.template
-
-            if required_template in templates:
-                raise BackendError("Some model provider didn't make use of "
-                                   "dimension template '%s' for '%s'"
-                                   % (required_template, name))
-
-            if required_template:
-                missing.append(name)
-                if required_template in missing:
-                    raise ModelError("Dimension templates cycle in '%s'" %
-                                     required_template)
-                missing.append(required_template)
-
-            # Store the created dimension to be used as template
-            if dimension:
-                templates[name] = dimension
-
-        lookup = namespace.translation_lookup(locale)
-
-        if lookup:
-            # TODO: pass lookup instead of jsut first found translation
-            context = LocalizationContext(lookup[0])
-            trans = context.object_localization("cubes", "inner")
-            cube = cube.localized(trans)
-
-        return dimension
-
-    def _lookup_dimension(self, name, templates, namespace, provider):
-        """Look-up a dimension `name` in `provider` and then in `namespace`.
-
-        `templates` is a dictionary with already instantiated dimensions that
-        can be used as templates.
-        """
-
-        dimension = None
-        required_template = None
-
-        # 1. look in the povider
-        if provider:
-            try:
-                dimension = provider.dimension(name, templates=templates)
-            except NoSuchDimensionError:
-                pass
-            else:
-                return dimension
-
-        # 2. Look in the namespace
-        try:
-            dimension = namespace.dimension(name, templates=templates)
-        except NoSuchDimensionError:
-            pass
-        else:
-            return dimension
-
-        raise NoSuchDimensionError("Dimension '%s' not found" % name,
-                                   name=name)
+        return find_dimension(name, locale,
+                              namespace or self.namespace,
+                              provider)
 
     def _browser_options(self, cube):
         """Returns browser configuration options for `cube`. The options are
@@ -764,9 +632,9 @@ class Workspace(object):
         if not browser_name:
             raise ConfigurationError("No store specified for cube '%s'" % cube)
 
-        browser = extensions.browser(browser_name, cube, store=store,
-                                     locale=locale, calendar=self.calendar,
-                                     **options)
+        browser = ext.browser(browser_name, cube, store=store,
+                              locale=locale, calendar=self.calendar,
+                               **options)
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
@@ -792,11 +660,10 @@ class Workspace(object):
         try:
             type_, options = self.store_infos[name]
         except KeyError:
-            raise ConfigurationError("No info for store %s" % name)
+            raise ConfigurationError("Unknown store '{}'".format(name))
 
         # TODO: temporary hack to pass store name and store type
-        store = extensions.store(type_, store_type=type_, store_name=name,
-                                 **options)
+        store = ext.store(type_, store_type=type_, **options)
         self.stores[name] = store
         return store
 

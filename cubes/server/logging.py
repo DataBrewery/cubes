@@ -9,8 +9,8 @@ import csv
 import io
 import json
 
+from .. import ext
 from .. import compat
-from ..extensions import extensions, Extensible
 from ..logging import get_logger
 from ..errors import *
 from ..browser import Drilldown
@@ -57,9 +57,9 @@ def configured_request_log_handlers(config, prefix="query_log",
             type_ = options.pop("type")
             if type_ == "default":
                 logger = default_logger or get_logger()
-                handler = extensions.request_log_handler("default", logger)
+                handler = ext.request_log_handler("default", logger)
             else:
-                handler = extensions.request_log_handler(type_, **options)
+                handler = ext.request_log_handler(type_, **options)
 
             handlers.append(handler)
 
@@ -136,7 +136,7 @@ class AsyncRequestLogger(RequestLogger):
             (args, kwargs) = self.queue.get()
             super(AsyncRequestLogger, self).log(*args, **kwargs)
 
-class RequestLogHandler(Extensible):
+class RequestLogHandler(object):
     def write_record(self, record):
         pass
 

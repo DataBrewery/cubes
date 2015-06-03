@@ -2,8 +2,9 @@ import unittest
 import os
 import json
 import re
-from cubes.errors import *
-from cubes.workspace import *
+from cubes.errors import NoSuchCubeError, NoSuchDimensionError
+from cubes.errors import NoSuchAttributeError
+from cubes.workspace import Workspace
 from cubes.stores import Store
 from cubes.model import *
 
@@ -16,33 +17,6 @@ class WorkspaceTestCaseBase(CubesTestCaseBase):
         ws = Workspace(config=self.data_path("slicer.ini"))
         ws.import_model(self.model_path("model.json"))
         return ws
-
-class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
-    def test_empty(self):
-        """Just test whether we can create empty workspace"""
-        ws = Workspace()
-        self.assertEqual(0, len(ws.store_infos))
-
-    def test_stores(self):
-        class ImaginaryStore(Store):
-            pass
-
-        ws = Workspace(stores={"default":{"type":"imaginary"}})
-        self.assertTrue("default" in ws.store_infos)
-
-        ws = Workspace(stores=self.data_path("stores.ini"))
-        self.assertEqual(3, len(ws.store_infos) )
-
-        ws = Workspace(config=self.data_path("slicer.ini"))
-        self.assertEqual(2, len(ws.store_infos))
-
-        self.assertTrue("default" in ws.store_infos)
-        self.assertTrue("production" in ws.store_infos)
-
-    def test_duplicate_store(self):
-        with self.assertRaises(CubesError):
-            ws = Workspace(config=self.data_path("slicer.ini"),
-                           stores=self.data_path("stores.ini"))
 
 
 class WorkspaceModelTestCase(WorkspaceTestCaseBase):
@@ -58,13 +32,6 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         ws = Workspace()
         ws.import_model(self.model_path("model.json"), namespace="local")
 
-        # This should pass
-        cube = ws.cube("contracts")
-
-        self.assertIsInstance(cube, Cube)
-        self.assertEqual(cube.name, "contracts")
-        ws.lookup_method = "exact"
-
         with self.assertRaises(NoSuchCubeError):
             cube = ws.cube("contracts")
 
@@ -78,14 +45,14 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
 
         # This should not pass, since the dimension is in another namespace
         with self.assertRaises(NoSuchDimensionError):
-            ws.cube("other")
+            ws.cube("store2.other")
 
         ws = Workspace()
         ws.import_model(self.model_path("model.json"), namespace="default")
         ws.import_model(self.model_path("other.json"), namespace="store2")
 
         # This should pass, since the dimension is in the default namespace
-        ws.cube("other")
+        ws.cube("store2.other")
 
     def test_get_dimension(self):
         ws = self.default_workspace()
@@ -136,7 +103,6 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         dim = ws.dimension("date")
         self.assertEqual(3, len(dim.levels))
         self.assertEqual(["year", "month", "day"], dim.level_names)
-
 
         cube = ws.cube("events")
         dim = cube.dimension("date")

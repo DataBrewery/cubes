@@ -5,16 +5,24 @@ from __future__ import absolute_import
 
 import copy
 
+from expressions import inspect_variables
 from collections import OrderedDict, defaultdict
+
 from .common import IgnoringDictionary, to_label
 from .common import assert_instance, assert_all_instances
 from .logging import get_logger
-from .errors import *
+from .errors import ModelError, ArgumentError, ExpressionError, HierarchyError
+from .errors import NoSuchAttributeError, NoSuchDimensionError
+from .errors import ModelInconsistencyError, TemplateRequired
 from .statutils import aggregate_calculator_labels
 from .metadata import *
 from . import compat
 
+import re
+
+
 __all__ = [
+    "ModelObject",
     "Cube",
     "Dimension",
     "Hierarchy",
@@ -24,13 +32,13 @@ __all__ = [
     "Measure",
     "MeasureAggregate",
 
-    "create_cube",
-    "create_dimension",
-    "create_level",
-    "create_attribute",
-    "create_measure",
-    "create_measure_aggregate",
-    "attribute_list",
+    "create_list_of",
+    "object_dict",
+
+    "collect_attributes",
+    "depsort_attributes",
+    "collect_dependencies",
+    "string_to_dimension_level",
 ]
 
 
@@ -119,16 +127,122 @@ class ModelObject(object):
         return copy
 
 
+def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
+    """Make an ordered dictionary from model objects `objects` where keys are
+    object names. If `for_ref` is `True` then object's `ref` (reference) is
+    used instead of object name. Keys are supposed to be unique in the list,
+    otherwise an exception is raised."""
+
+    if by_ref:
+        items = ((obj.ref, obj) for obj in objects)
+    else:
+        items = ((obj.name, obj) for obj in objects)
+
+    ordered = OrderedDict()
+
+    for key, value in items:
+        if key in ordered:
+            error_message = error_message or "Duplicate key {key}"
+            error_dict = error_dict or {}
+            raise ModelError(error_message.format(key=key, **error_dict))
+        ordered[key] = value
+
+    return ordered
+
+
 class Cube(ModelObject):
 
     localizable_attributes = ["label", "description"]
     localizable_lists = ["dimensions", "measures", "aggregates", "details"]
 
+    @classmethod
+    def from_metadata(cls, metadata):
+        """Create a cube object from `metadata` dictionary. The cube has no
+        dimensions attached after creation. You should link the dimensions to the
+        cube according to the `Cube.dimension_links` property using
+        `Cube._add_dimension()`"""
+
+        if "name" not in metadata:
+            raise ModelError("Cube metadata has no name")
+
+        metadata = expand_cube_metadata(metadata)
+        dimension_links = metadata.pop("dimensions", [])
+
+        if "measures" not in metadata and "aggregates" not in metadata:
+            metadata["aggregates"] = [DEFAULT_FACT_COUNT_AGGREGATE]
+
+        # Prepare aggregate and measure lists, do implicit merging
+
+        details = create_list_of(Attribute, metadata.pop("details", []))
+        measures = create_list_of(Measure, metadata.pop("measures", []))
+
+        # Inherit the nonadditive property in each measure
+        nonadditive = metadata.pop("nonadditive", None)
+        if nonadditive:
+            for measure in measures:
+                measure.nonadditive = nonadditive
+
+        aggregates = metadata.pop("aggregates", [])
+        aggregates = create_list_of(MeasureAggregate, aggregates)
+
+        aggregate_dict = dict((a.name, a) for a in aggregates)
+        measure_dict = dict((m.name, m) for m in measures)
+
+        # TODO: Depreciate?
+        if metadata.get("implicit_aggregates", False):
+            implicit_aggregates = []
+            for measure in measures:
+                implicit_aggregates += measure.default_aggregates()
+
+            for aggregate in implicit_aggregates:
+                # an existing aggregate either has the same name,
+                existing = aggregate_dict.get(aggregate.name)
+                if existing:
+                    if existing.function != aggregate.function:
+                        raise ModelError("Aggregate '%s' function mismatch. "
+                                         "Implicit function %s, explicit function:"
+                                         " %s." % (aggregate.name,
+                                                   aggregate.function,
+                                                   existing.function))
+                    continue
+                # or the same function and measure
+                existing = [agg for agg in aggregates
+                            if agg.function == aggregate.function
+                                and agg.measure == measure.name]
+
+                if existing:
+                    continue
+
+                aggregates.append(aggregate)
+                aggregate_dict[aggregate.name] = aggregate
+
+        # Assign implicit aggregate labels
+        # TODO: make this configurable
+
+        for aggregate in aggregates:
+            try:
+                measure = measure_dict[aggregate.measure]
+            except KeyError:
+                measure = aggregate_dict.get(aggregate.measure)
+
+            if aggregate.label is None:
+                aggregate.label = _measure_aggregate_label(aggregate, measure)
+
+            # Inherit nonadditive property from the measure
+            if measure and aggregate.nonadditive is None:
+                aggregate.nonadditive = measure.nonadditive
+
+        return cls(measures=measures,
+                   aggregates=aggregates,
+                   dimension_links=dimension_links,
+                   details=details,
+                   **metadata)
+
     def __init__(self, name, dimensions=None, measures=None, aggregates=None,
                  label=None, details=None, mappings=None, joins=None,
                  fact=None, key=None, description=None, browser_options=None,
                  info=None, dimension_links=None, locale=None, category=None,
-                 store=None, namespace=None, **options):
+                 store=None, **options):
 
         """Create a new Cube model object.
 
@@ -153,7 +267,7 @@ class Cube(ModelObject):
         during cube initialization in `dimensions` by providing a list of
         `Dimension` objects. Alternatively you can set `dimension_links`
         list with dimension names and the link the dimension using
-        :meth:`cubes.Cube.add_dimension()`.
+        :meth:`cubes.Cube.link_dimension()`.
 
         Physical properties of the cube are described in the following
         attributes. They are used by the backends:
@@ -206,8 +320,11 @@ class Cube(ModelObject):
         self.browser_options = browser_options or {}
         self.browser = options.get("browser")
 
-        # Be graceful here
-        self.dimension_links = expand_dimension_links(dimension_links or [])
+        self.dimension_links = OrderedDict()
+        for link in expand_dimension_links(dimension_links or []):
+            link = dict(link)
+            name = link.pop("name")
+            self.dimension_links[name] = link
 
         # Run-time properties
         # Sets in the Namespace.cube() when cube is created
@@ -216,14 +333,13 @@ class Cube(ModelObject):
             self.store_name = store
             self.store = None
         else:
-            self.store_name = None
+            self.store_name = options.get("store")
             self.store = store
 
-        self.store_name = self.store_name or options.get("store")
-        self.provider = None
-        self.namespace = None
+        # TODO: make 'name' to be basename and ref to be full cube reference,
+        # Be conistent!
         # Used by backends
-        self.basename = None
+        self.basename = self.name
 
         self._dimensions = OrderedDict()
 
@@ -232,18 +348,29 @@ class Cube(ModelObject):
                 raise ModelError("Dimensions for cube initialization should be "
                                  "a list of Dimension instances.")
             for dim in dimensions:
-                self.add_dimension(dim)
+                self._add_dimension(dim)
         #
-        # prepare measures and aggregates
+        # Prepare attributes
+        # ------------------
         #
+        # Measures
+
         measures = measures or []
         assert_all_instances(measures, Measure, "measure")
-        self.measures = measures
+        self._measures = object_dict(measures,
+                                    error_message="Duplicate measure {key} in cube {cube}",
+                                    error_dict={"cube": self.name})
 
+        # Aggregates
+        #
         aggregates = aggregates or []
         assert_all_instances(aggregates, MeasureAggregate, "aggregate")
-        self.aggregates = aggregates
 
+        self._aggregates = object_dict(aggregates,
+                                      error_message="Duplicate aggregate {key} in cube {cube}",
+                                      error_dict={"cube": self.name})
+
+        # We don't need to access details by name
         details = details or []
         assert_all_instances(details, Attribute, "detail")
         self.details = details
@@ -251,125 +378,6 @@ class Cube(ModelObject):
     @property
     def measures(self):
         return list(self._measures.values())
-
-    @measures.setter
-    def measures(self, measures):
-        self._measures = OrderedDict()
-        for measure in measures:
-            if measure.name in self._measures:
-                raise ModelError("Duplicate measure %s in cube %s" %
-                                 (measure.name, self.name))
-            self._measures[measure.name] = measure
-
-    @property
-    def aggregates(self):
-        return list(self._aggregates.values())
-
-    @aggregates.setter
-    def aggregates(self, aggregates):
-        self._aggregates = OrderedDict()
-        for agg in aggregates:
-            if agg.name in self._aggregates:
-                raise ModelError("Duplicate aggregate %s in cube %s" %
-                                 (agg.name, self.name))
-
-            # TODO: check for conflicts
-            self._aggregates[agg.name] = agg
-
-    def aggregates_for_measure(self, name):
-        """Returns aggregtates for measure with `name`. Only direct function
-        aggregates are returned. If the measure is specified in an expression,
-        the aggregate is not included in the returned list"""
-
-        return [agg for agg in self.aggregates if agg.measure == name]
-
-    def get_aggregates(self, names=None):
-        """Get a list of aggregates with `names`"""
-        if not names:
-            return self.aggregates
-
-        return [self._aggregates[str(name)] for name in names]
-
-    def link_dimensions(self, dimensions):
-        """Links `dimensions` according to cube's `dimension_links`. The
-        `dimensions` should be a dictionary with keys as dimension names and
-        values as `Dimension` instances."""
-
-        for link in self.dimension_links:
-            link = dict(link)
-            # TODO: use template/rename as well
-            dim_name = link.pop("name")
-            dim = dimensions[dim_name]
-
-            if link:
-                dim = dim.clone(**link)
-
-            self.add_dimension(dim)
-
-    def add_dimension(self, dimension):
-        """Add dimension to cube. Replace dimension with same name. Raises
-        `ModelInconsistencyError` when dimension with same name already exists
-        in the receiver. """
-
-        if not dimension:
-            raise ArgumentError("Trying to add None dimension to cube '%s'."
-                                % self.name)
-        elif not isinstance(dimension, Dimension):
-            raise ArgumentError("Dimension added to cube '%s' is not a "
-                                "Dimension instance. It is '%s'"
-                                % (self.name, type(dimension)))
-
-        if dimension.name in self._dimensions:
-            raise ModelError("Dimension with name %s already exits "
-                             "in cube %s" % (dimension.name, self.name))
-
-        self._dimensions[dimension.name] = dimension
-
-    def remove_dimension(self, dimension):
-        """Remove a dimension from receiver. `dimension` can be either
-        dimension name or dimension object."""
-
-        dim = self.dimension(dimension)
-        del self._dimensions[dim.name]
-
-    @property
-    def dimensions(self):
-        return list(self._dimensions.values())
-
-    @dimensions.setter
-    def dimensions(self, dimensions):
-        self._dimensions.clear()
-
-        for dim in dimensions:
-            self._dimensions[dim.name] = dim
-
-    def dimension(self, obj):
-        """Get dimension object. If `obj` is a string, then dimension with
-        given name is returned, otherwise dimension object is returned if it
-        belongs to the cube.
-
-        Raises `NoSuchDimensionError` when there is no such dimension.
-        """
-
-        # FIXME: raise better exception if dimension does not exist, but is in
-        # the list of required dimensions
-
-        if not obj:
-            raise NoSuchDimensionError("Requested dimension should not be none (cube '%s')" % \
-                                self.name)
-
-        if isinstance(obj, compat.string_type):
-            if obj in self._dimensions:
-                return self._dimensions[obj]
-            else:
-                raise NoSuchDimensionError("cube '%s' has no dimension '%s'" %
-                                    (self.name, obj))
-        elif isinstance(obj, Dimension):
-             return obj
-        else:
-            raise NoSuchDimensionError("Invalid dimension or dimension "
-                                       "reference '%s' for cube '%s'" %
-                                            (obj, self.name))
 
     def measure(self, name):
         """Get measure object. If `obj` is a string, then measure with given
@@ -387,45 +395,6 @@ class Cube(ModelObject):
         except KeyError:
             raise NoSuchAttributeError("Cube '%s' has no measure '%s'" %
                                             (self.name, name))
-    def aggregate(self, name):
-        """Get aggregate object. If `obj` is a string, then aggregate with
-        given name is returned, otherwise aggregate object is returned if it
-        belongs to the cube. Returned object is of `MeasureAggregate` type.
-
-        Raises `NoSuchAttributeError` when there is no such aggregate or when
-        there are multiple aggregates with the same name (which also means
-        that the model is not valid).
-        """
-
-        name = str(name)
-        try:
-            return self._aggregates[name]
-        except KeyError:
-            raise NoSuchAttributeError("cube '%s' has no aggregate '%s'" %
-                                            (self.name, name))
-
-    def nonadditive_type(self, aggregate):
-        """Returns non-additive type of `aggregate`'s measure. If aggregate
-        has no measure specified or is unknown (backend-specific) then `None`
-        is returned."""
-
-        try:
-            measure = self.measure(aggregate.measure)
-        except NoSuchAttributeError:
-            return None
-
-        return measure.nonadditive
-
-
-    def measure_aggregate(self, name):
-        """Returns a measure aggregate by name."""
-        name = str(name)
-        try:
-            return self._aggregates[name]
-        except KeyError:
-            raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
-                                            "'%s'" % (self.name, name))
-
 
     def get_measures(self, measures):
         """Get a list of measures as `Attribute` objects. If `measures` is
@@ -439,9 +408,98 @@ class Cube(ModelObject):
         return array
 
     @property
+    def aggregates(self):
+        return list(self._aggregates.values())
+
+    def aggregate(self, name):
+        """Get aggregate object. If `obj` is a string, then aggregate with
+        given name is returned, otherwise aggregate object is returned if it
+        belongs to the cube. Returned object is of `MeasureAggregate` type.
+
+        Raises `NoSuchAttributeError` when there is no such aggregate or when
+        there are multiple aggregates with the same name (which also means
+        that the model is not valid).
+        """
+        name = str(name)
+        try:
+            return self._aggregates[name]
+        except KeyError:
+            raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                                            "'%s'" % (self.name, name))
+
+    def get_aggregates(self, names=None):
+        """Get a list of aggregates with `names`."""
+        if not names:
+            return self.aggregates
+
+        return [self._aggregates[str(name)] for name in names]
+
+    def aggregates_for_measure(self, name):
+        """Returns aggregtates for measure with `name`. Only direct function
+        aggregates are returned. If the measure is specified in an expression,
+        the aggregate is not included in the returned list"""
+
+        return [agg for agg in self.aggregates if agg.measure == name]
+
+    @property
+    def all_dimension_keys(self):
+        """Returns all attributes that represent keys of dimensions and their
+        levels..
+        """
+
+        attributes = []
+        for dim in self.dimensions:
+            attributes += dim.key_attributes
+
+        return attributes
+
+    @property
     def all_attributes(self):
+        """All cube's attributes: attributes of dimensions, details, measures
+        and aggregates. Use this method if you need to prepare structures for
+        any kind of query. For attributes for more specific types of queries
+        refer to :meth:`Cube.all_fact_attributes` and
+        :meth:`Cube.all_aggregate_attributes`.
+
+        .. versionchanged:: 1.1
+
+            Returns all attributes, including aggregates. Original
+            functionality is available as `all_fact_attributes()`
+
+        """
+
+        attributes = []
+        for dim in self.dimensions:
+            attributes += dim.attributes
+
+        attributes += self.details
+        attributes += self.measures
+        attributes += self.aggregates
+
+        return attributes
+
+    @property
+    def base_attributes(self):
+        """Returns a list of attributes that are not derived from other
+        attributes, do not depend on other cube attributes, variables or
+        parameters. Any attribute that has an expression (regardless of it's
+        contents, it might be a constant) is considered derived attribute.
+
+        The list contains also aggregate attributes that are base – for
+        example attributes that represent pre-aggregated column in a table.
+
+        .. versionadded:: 1.1
+        """
+
+        return [attr for attr in self.all_attributes if attr.is_base]
+
+    @property
+    def all_fact_attributes(self):
         """All cube's attributes from the fact: attributes of dimensions,
-        details and measures."""
+        details and measures.
+
+        .. versionadded:: 1.1
+        """
         attributes = []
         for dim in self.dimensions:
             attributes += dim.attributes
@@ -451,6 +509,20 @@ class Cube(ModelObject):
         attributes += self.measures
 
         return attributes
+
+    @property
+    def attribute_dependencies(self):
+        """Dictionary of dependencies between attributes. Values are
+        references of attributes that the key attribute depends on. For
+        example for attribute `a` which has expression `b + c` the dictionary
+        would be: `{"a": ["b", "c"]}`. The result dictionary includes all
+        cubes' attributes and aggregates.
+
+        .. versionadded:: 1.1
+        """
+
+        attributes = self.all_attributes + self.all_aggregate_attributes
+        return {attr.ref:attr.dependencies for attr in attributes}
 
     @property
     def all_aggregate_attributes(self):
@@ -469,25 +541,29 @@ class Cube(ModelObject):
         """Returns an attribute object (dimension attribute, measure or
         detail)."""
 
+        # TODO: This should be a dictionary once the Cube object becomes
+        # immutable
+
+        name = str(attribute)
+
         for dim in self.dimensions:
             try:
-                return dim.attribute(attribute, by_ref=True)
+                return dim.attribute(name, by_ref=True)
             except KeyError:
                 continue
 
-        attrname = str(attribute)
         for detail in self.details:
-            if detail.name == attrname:
+            if detail.name == name:
                 return detail
 
         for measure in self.measures:
-            if measure.name == attrname:
+            if measure.name == name:
                 return measure
 
         raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
                                    % (self.name, attribute))
 
-    def get_attributes(self, attributes=None, simplify=True, aggregated=False):
+    def get_attributes(self, attributes=None, aggregated=False):
         """Returns a list of cube's attributes. If `aggregated` is `True` then
         attributes after aggregation are returned, otherwise attributes for a
         fact are considered.
@@ -502,28 +578,126 @@ class Cube(ModelObject):
         references in `attrubutes` are considered simplified, otherwise they
         are considered as full (dim.attribute)."""
 
-        names = [str(attr) for attr in attributes or []]
+        # TODO: this should be a dictionary created in __init__ once this
+        # class becomes immutable
 
-        if aggregated:
-            attributes = self.all_aggregate_attributes
-        else:
-            attributes = self.all_attributes
+        if not attributes:
+            if aggregated:
+                return self.all_aggregate_attributes
+            else:
+                return self.all_fact_attributes
 
-        if not names:
-            return attributes
+        everything = object_dict(self.all_attributes, True)
 
-        attr_map = dict((a.ref(simplify), a) for a in attributes)
+        names = (str(attr) for attr in attributes or [])
 
         result = []
         for name in names:
             try:
-                attr = attr_map[name]
+                attr = everything[name]
             except KeyError:
-                raise NoSuchAttributeError("Unknown attribute '%s' in cube "
-                                           "'%s'" % (name, self.name))
+                raise NoSuchAttributeError("Unknown attribute '{}' in cube "
+                                           "'{}'".format(name, self.name))
             result.append(attr)
 
         return result
+
+    def collect_dependencies(self, attributes):
+        """Collect all original and dependant cube attributes for
+        `attributes`, sorted by their dependency: starting with attributes
+        that don't depend on anything. For exapmle, if the `attributes` is [a,
+        b] and a = c * 2, then the result list would be [b, c, a] or [c, b,
+        a].
+
+        This method is supposed to be used by backends that can handle
+        attribute expressions.  It is safe to generate a mapping between
+        logical references and their physical object representations from
+        expressions in the order of items in the returned list.
+
+        .. versionadded:: 1.1
+        """
+
+        depsorted = collect_dependencies(attributes, self.all_attributes)
+
+        return self.get_attributes(depsorted)
+
+    def link_dimension(self, dimension):
+        """Links `dimension` object or a clone of it to the cube according to
+        the specification of cube's dimension link. See
+        :meth:`Dimension.clone` for more information about cloning a
+        dimension."""
+
+        link = self.dimension_links.get(dimension.name)
+
+        if link:
+            dimension = dimension.clone(**link)
+
+        self._add_dimension(dimension)
+
+    # TODO: this method should be used only during object initialization
+    def _add_dimension(self, dimension):
+        """Add dimension to cube. Replace dimension with same name. Raises
+        `ModelInconsistencyError` when dimension with same name already exists
+        in the receiver. """
+
+        if not dimension:
+            raise ArgumentError("Trying to add None dimension to cube '%s'."
+                                % self.name)
+        elif not isinstance(dimension, Dimension):
+            raise ArgumentError("Dimension added to cube '%s' is not a "
+                                "Dimension instance. It is '%s'"
+                                % (self.name, type(dimension)))
+
+        self._dimensions[dimension.name] = dimension
+
+    @property
+    def dimensions(self):
+        return list(self._dimensions.values())
+
+    def dimension(self, obj):
+        """Get dimension object. If `obj` is a string, then dimension with
+        given name is returned, otherwise dimension object is returned if it
+        belongs to the cube.
+
+        Raises `NoSuchDimensionError` when there is no such dimension.
+        """
+
+        # FIXME: raise better exception if dimension does not exist, but is in
+        # the list of required dimensions
+
+        if not obj:
+            raise NoSuchDimensionError("Requested dimension should not be "
+                                       "none (cube '{}')".forma(self.name))
+
+        name = str(obj)
+        try:
+            return self._dimensions[str(name)]
+        except KeyError:
+            raise NoSuchDimensionError("cube '{}' has no dimension '{}'"
+                                       .format(self.name, name))
+
+    @property
+    def distilled_hierarchies(self):
+        """Returns a dictionary of hierarchies. Keys are hierarchy references
+        and values are hierarchy level key attribute references.
+
+        .. warning::
+
+            This method might change in the future. Consider experimental."""
+
+        hierarchies = {}
+        for dim in self.dimensions:
+            for hier in dim.hierarchies:
+                key = (dim.name, hier.name)
+                levels = [key.ref for key in hier.keys()]
+                #levels = [dim.attribute(key) for key in hier.keys()]
+
+                hierarchies[key] = levels
+
+                if dim.default_hierarchy_name == hier.name:
+                    hierarchies[(dim.name, None)] = levels
+
+        return hierarchies
 
     def to_dict(self, **options):
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
@@ -669,8 +843,21 @@ class Cube(ModelObject):
     def __str__(self):
         return self.name
 
+# Note: levels and hierarchies will be depreciated in the future versions.
+# Levels will disappear and hierarchies will be top-level objects.
 
-class Dimension(ModelObject):
+# TODO: Serves just as reminder for future direction. No real use yet.
+class Conceptual(ModelObject):
+    def levels(self):
+        """Return list of levels of the conceptual object. Dimension returns
+        just list of itself, hierarchy returns list of it's dimensions."""
+        raise NotImplementedError("Subclasses sohuld implement levels")
+
+    @property
+    def is_flat(self):
+        raise NotImplementedError("Subclasses should implement is_flat")
+
+class Dimension(Conceptual):
     """
     Cube dimension.
 
@@ -679,10 +866,172 @@ class Dimension(ModelObject):
     localizable_attributes = ["label", "description"]
     localizable_lists = ["levels", "hierarchies"]
 
-    def __init__(self, name, levels, hierarchies=None,
+    @classmethod
+    def from_metadata(cls, metadata, templates=None):
+        """Create a dimension from a `metadata` dictionary.  Some rules:
+
+        * ``levels`` might contain level names as strings – names of levels to
+          inherit from the template
+        * ``hierarchies`` might contain hierarchies as strings – names of
+          hierarchies to inherit from the template
+        * all levels that are not covered by hierarchies are not included in the
+          final dimension
+
+        """
+
+        templates = templates or {}
+
+        if "template" in metadata:
+            template_name = metadata["template"]
+            try:
+                template = templates[template_name]
+            except KeyError:
+                raise TemplateRequired(template_name)
+
+            levels = [copy.deepcopy(level) for level in template.levels]
+
+            # Create copy of template's hierarchies, but reference newly
+            # created copies of level objects
+            hierarchies = []
+            level_dict = dict((level.name, level) for level in levels)
+
+            for hier in template._hierarchies.values():
+                hier_levels = [level_dict[level.name] for level in hier.levels]
+                hier_copy = Hierarchy(hier.name,
+                                      hier_levels,
+                                      label=hier.label,
+                                      info=copy.deepcopy(hier.info))
+                hierarchies.append(hier_copy)
+
+            default_hierarchy_name = template.default_hierarchy_name
+            label = template.label
+            description = template.description
+            info = template.info
+            cardinality = template.cardinality
+            role = template.role
+            category = template.category
+            nonadditive = template.nonadditive
+        else:
+            template = None
+            levels = []
+            hierarchies = []
+            default_hierarchy_name = None
+            label = None
+            description = None
+            cardinality = None
+            role = None
+            category = None
+            info = {}
+            nonadditive = None
+
+        # Fix the metadata, but don't create default level if the template
+        # provides levels.
+        metadata = expand_dimension_metadata(metadata,
+                                             expand_levels=not bool(levels))
+
+        name = metadata.get("name")
+
+        label = metadata.get("label", label)
+        description = metadata.get("description") or description
+        info = metadata.get("info", info)
+        role = metadata.get("role", role)
+        category = metadata.get("category", category)
+        nonadditive = metadata.get("nonadditive", nonadditive)
+
+        # Backward compatibility with an experimental feature
+        cardinality = metadata.get("cardinality", cardinality)
+
+        # Backward compatibility with an experimental feature:
+        if not cardinality:
+            info = metadata.get("info", {})
+            if "high_cardinality" in info:
+               cardinality = "high"
+
+        # Levels
+        # ------
+
+        # We are guaranteed to have "levels" key from expand_dimension_metadata()
+
+        if "levels" in metadata:
+            # Assure level inheritance
+            levels = []
+            for level_md in metadata["levels"]:
+                if isinstance(level_md, compat.string_type):
+                    if not template:
+                        raise ModelError("Can not specify just a level name "
+                                         "(%s) if there is no template for "
+                                         "dimension %s" % (md, name))
+                    level = template.level(level_md)
+                else:
+                    level = Level.from_metadata(level_md)
+                    # raise NotImplementedError("Merging of levels is not yet supported")
+
+                # Update the level's info dictionary
+                if template:
+                    try:
+                        templevel = template.level(level.name)
+                    except KeyError:
+                        pass
+                    else:
+                        new_info = copy.deepcopy(templevel.info)
+                        new_info.update(level.info)
+                        level.info = new_info
+
+                levels.append(level)
+
+        # Hierarchies
+        # -----------
+        if "hierarchies" in metadata:
+            hierarchies_defined = True
+            hierarchies = _create_hierarchies(metadata["hierarchies"],
+                                              levels,
+                                              template)
+        else:
+            hierarchies_defined = False
+            # Keep only hierarchies which include existing levels
+            level_names = set([level.name for level in levels])
+            keep = []
+            for hier in hierarchies:
+                if any(level.name not in level_names for level in hier.levels):
+                    continue
+                else:
+                    keep.append(hier)
+            hierarchies = keep
+
+
+        default_hierarchy_name = metadata.get("default_hierarchy_name",
+                                              default_hierarchy_name)
+
+        if not hierarchies:
+            # Create single default hierarchy
+            hierarchies = [Hierarchy("default", levels=levels)]
+
+        # Recollect levels – keep only those levels that are present in
+        # hierarchies. Retain the original level order
+        used_levels = set()
+        for hier in hierarchies:
+            used_levels |= set(level.name for level in hier.levels)
+
+        levels = [level for level in levels if level.name in used_levels]
+
+        return cls(name=name,
+                         levels=levels,
+                         hierarchies=hierarchies,
+                         default_hierarchy_name=default_hierarchy_name,
+                         label=label,
+                         description=description,
+                         info=info,
+                         cardinality=cardinality,
+                         role=role,
+                         category=category,
+                         nonadditive=nonadditive
+                        )
+
+    # TODO: new signature: __init__(self, name, *attributes, **kwargs):
+    def __init__(self, name, levels=None, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
                  info=None, role=None, cardinality=None, category=None,
-                 master=None, nonadditive=None, **desc):
+                 master=None, nonadditive=None, attributes=None, **desc):
 
         """Create a new dimension
 
@@ -709,6 +1058,8 @@ class Dimension(ModelObject):
         * `nonadditive` – kind of non-additivity of the dimension. Possible
           values: `None` (fully additive, default), ``time`` (non-additive for
           time dimensions) or ``all`` (non-additive for any other dimension)
+        * `attributes` – attributes for dimension. Use either this or levels,
+          not both.
 
         Dimension class is not meant to be mutable. All level attributes will
         have new dimension assigned.
@@ -745,22 +1096,28 @@ class Dimension(ModelObject):
 
         self.nonadditive = nonadditive
 
-        if not levels:
-            raise ModelError("No levels specified for dimension %s" % name)
+        if not levels and not attributes:
+            raise ModelError("No levels or attriutes specified for dimension %s" % name)
+        elif levels and attributes:
+            raise ModelError("Both levels and attributes specified")
+
+        if attributes:
+            # TODO: pass all level initialization arguments here
+            level = Level(name, attributes=attributes)
+            levels = [level]
 
         # Own the levels and their attributes
-        self._levels = OrderedDict()
-        self._attributes = OrderedDict()
-        self._attributes_by_ref = OrderedDict()
-
+        self._levels = object_dict(levels)
         default_roles = _DEFAULT_LEVEL_ROLES.get(self.role)
 
-        for level in levels:
-            self._levels[level.name] = level
+        # Set default roles
+        for level in self._levels.values():
             if default_roles and level.name in default_roles:
                 level.role = level.name
 
         # Collect attributes
+        self._attributes = OrderedDict()
+        self._attributes_by_ref = OrderedDict()
         self._attributes = OrderedDict()
         for level in self.levels:
             for a in level.attributes:
@@ -772,17 +1129,31 @@ class Dimension(ModelObject):
                                      % (self.name, a.name, a.dimension.name))
                 a.dimension = self
                 self._attributes[a.name] = a
-                self._attributes_by_ref[a.ref()] = a
+                self._attributes_by_ref[a.ref] = a
 
         # The hierarchies receive levels with already owned attributes
         if hierarchies:
-            self._hierarchies = OrderedDict((h.name, h) for h in hierarchies)
+            error_message = "Duplicate hierarchy '{key}' in cube '{cube}'"
+            error_dict = {"cube": self.name}
+            self._hierarchies = object_dict(hierarchies,
+                                            error_message=error_message,
+                                            error_dict=error_dict)
         else:
-            hier = Hierarchy("default", self.levels)
-            self._hierarchies = OrderedDict( [("default", hier)] )
+            default = Hierarchy("default", self.levels)
+            self._hierarchies = object_dict([default])
 
         self._flat_hierarchy = None
-        self.default_hierarchy_name = default_hierarchy_name
+
+        # Set default hierarchy specified by ``default_hierarchy_name``, if
+        # the variable is not set then get a hierarchy with name *default* or
+        # the first hierarchy in the hierarchy list.
+
+        default_name = default_hierarchy_name or "default"
+        hierarchy = self._hierarchies.get(default_name,
+                                          list(self._hierarchies.values())[0])
+
+        self._default_hierarchy = hierarchy
+        self.default_hierarchy_name = hierarchy.name
 
     def __eq__(self, other):
         if other is None or type(other) != type(self):
@@ -794,7 +1165,7 @@ class Dimension(ModelObject):
                 and self.description == other.description \
                 and self.cardinality == other.cardinality \
                 and self.category == other.category \
-                and self._default_hierarchy() == other._default_hierarchy() \
+                and self.default_hierarchy_name == other.default_hierarchy_name \
                 and self._levels == other._levels \
                 and self._hierarchies == other._hierarchies
 
@@ -840,7 +1211,7 @@ class Dimension(ModelObject):
     def level_names(self):
         """Get list of level names. Order is not guaranteed, use a hierarchy
         to have known order."""
-        return list(self._levels.keys())
+        return list(self._levels)
 
     def level(self, obj):
         """Get level by name or as Level object. This method is used for
@@ -861,7 +1232,7 @@ class Dimension(ModelObject):
         ``None`` then default hierarchy is returned."""
 
         if obj is None:
-            return self._default_hierarchy()
+            return self._default_hierarchy
         if isinstance(obj, compat.string_type):
             if obj not in self._hierarchies:
                 raise ModelError("No hierarchy %s in dimension %s" %
@@ -873,51 +1244,21 @@ class Dimension(ModelObject):
             raise ValueError("Unknown hierarchy object %s (should be a "
                              "string or Hierarchy instance)" % obj)
 
-    def attribute(self, reference, by_ref=False):
-        """Get dimension attribute from `reference`."""
+    def attribute(self, name, by_ref=False):
+        """Get dimension attribute. `name` is an attribute name (default) or
+        attribute reference if `by_ref` is `True`.`."""
+
         if by_ref:
-            return self._attributes_by_ref[str(reference)]
+            return self._attributes_by_ref[name]
         else:
             try:
-                return self._attributes[str(reference)]
+                return self._attributes[name]
             except KeyError:
-                raise NoSuchAttributeError("Unknown attribute '%s' "
-                                           "in dimension '%s'"
-                                           % (str(reference), self.name),
-                                           str(reference))
+                raise NoSuchAttributeError("Unknown attribute '{}' "
+                                           "in dimension '{}'"
+                                           .format(name, self.name),
+                                           name)
 
-    def _default_hierarchy(self):
-        """Get default hierarchy specified by ``default_hierarchy_name``, if
-        the variable is not set then get a hierarchy with name *default*"""
-
-        if self.default_hierarchy_name:
-            hierarchy_name = self.default_hierarchy_name
-        else:
-            hierarchy_name = "default"
-
-        hierarchy = self._hierarchies.get(hierarchy_name)
-
-        if not hierarchy:
-            if self._hierarchies:
-                hierarchy = list(self._hierarchies.values())[0]
-            else:
-                if len(self.levels) == 1:
-                    if not self._flat_hierarchy:
-                        self._flat_hierarchy = Hierarchy(name=level.name,
-                                                         dimension=self,
-                                                         levels=[levels[0]])
-
-                    return self._flat_hierarchy
-                elif len(self.levels) > 1:
-                    raise ModelError("There are no hierarchies in dimenson %s "
-                                     "and there are more than one level" %
-                                     self.name)
-                else:
-                    raise ModelError("There are no hierarchies in dimenson "
-                                     "%s and there are no levels to make "
-                                     "hierarchy from" % self.name)
-
-        return hierarchy
 
     @property
     def is_flat(self):
@@ -927,6 +1268,7 @@ class Dimension(ModelObject):
 
         return len(self.levels) == 1
 
+    @property
     def key_attributes(self):
         """Return all dimension key attributes, regardless of hierarchy. Order
         is not guaranteed, use a hierarchy to have known order."""
@@ -1134,7 +1476,7 @@ class Dimension(ModelObject):
                                     % (level.key, level.name, self.name)))
 
             for attribute in level.attributes:
-                attr_name = attribute.ref()
+                attr_name = attribute.ref
                 if attr_name in attributes:
                     first = first_occurence[attr_name]
                     results.append(('error',
@@ -1166,7 +1508,7 @@ class Dimension(ModelObject):
 
     def __repr__(self):
         return "<dimension: {name: '%s', levels: %s}>" % (self.name,
-                                                          self._levels.keys())
+                                                          self._levels)
 
     def localizable_dictionary(self):
         locale = {}
@@ -1187,7 +1529,34 @@ class Dimension(ModelObject):
         return locale
 
 
-class Hierarchy(ModelObject):
+def _create_hierarchies(metadata, levels, template):
+    """Create dimension hierarchies from `metadata` (a list of dictionaries or
+    strings) and possibly inherit from `template` dimension."""
+
+    # Convert levels do an ordered dictionary for access by name
+    levels = object_dict(levels)
+    hierarchies = []
+
+    # Construct hierarchies and assign actual level objects
+    for md in metadata:
+        if isinstance(md, compat.string_type):
+            if not template:
+                raise ModelError("Can not specify just a hierarchy name "
+                                 "(%s) if there is no template for "
+                                 "dimension %s" % (md, name))
+            hier = template.hierarchy(md)
+        else:
+            md = dict(md)
+            level_names = md.pop("levels")
+            hier_levels = [levels[level] for level in level_names]
+            hier = Hierarchy(levels=hier_levels, **md)
+
+        hierarchies.append(hier)
+
+    return hierarchies
+
+
+class Hierarchy(Conceptual):
 
     localizable_attributes = ["label", "description"]
 
@@ -1215,16 +1584,14 @@ class Hierarchy(ModelObject):
         super(Hierarchy, self).__init__(name, label, description, info)
 
         if not levels:
-            raise ModelInconsistencyError("Hierarchy level list should not be "
-                                          "empty (in %s)" % self.name)
+            raise ModelInconsistencyError("Hierarchy level list should "
+                                          "not be empty (in %s)" % self.name)
 
         if any(isinstance(level, compat.string_type) for level in levels):
             raise ModelInconsistencyError("Levels should not be provided as "
                                           "strings to Hierarchy.")
 
-        self._levels = OrderedDict()
-        for level in levels:
-            self._levels[level.name] = level
+        self._levels = object_dict(levels)
 
     def __deepcopy__(self, memo):
         return Hierarchy(self.name,
@@ -1245,7 +1612,17 @@ class Hierarchy(ModelObject):
 
     @property
     def level_names(self):
-        return list(self._levels.keys())
+        return list(self._levels)
+
+    def keys(self, depth=None):
+        """Return names of keys for all levels in the hierarchy to `depth`. If
+        `depth` is `None` then all levels are returned."""
+        if depth is not None:
+            levels = self.levels[0:depth]
+        else:
+            levels = self.levels
+
+        return [level.key for level in levels]
 
     def __eq__(self, other):
         if not other or type(other) != type(self):
@@ -1296,7 +1673,7 @@ class Hierarchy(ModelObject):
         if depth + extend > len(self.levels):
             raise HierarchyError("Depth %d is longer than hierarchy "
                                  "levels %s (drilldown: %s)" %
-                                 (depth, self._levels.keys(), drilldown))
+                                 (depth, self._levels, drilldown))
 
         return self.levels[0:depth + extend]
 
@@ -1308,7 +1685,7 @@ class Hierarchy(ModelObject):
         if not level:
             return self.levels[0]
 
-        index = list(self._levels.keys()).index(str(level))
+        index = list(self._levels).index(str(level))
         if index + 1 >= len(self.levels):
             return None
         else:
@@ -1321,7 +1698,7 @@ class Hierarchy(ModelObject):
         if level is None:
             return None
 
-        index = list(self._levels.keys()).index(str(level))
+        index = list(self._levels).index(str(level))
         if index == 0:
             return None
         else:
@@ -1331,7 +1708,7 @@ class Hierarchy(ModelObject):
         """Get order index of level. Can be used for ordering and comparing
         levels within hierarchy."""
         try:
-            return list(self._levels.keys()).index(str(level))
+            return list(self._levels).index(str(level))
         except ValueError:
             raise HierarchyError("Level %s is not part of hierarchy %s"
                                  % (str(level), self.name))
@@ -1466,6 +1843,25 @@ class Level(ModelObject):
     localizable_attributes = ["label", "description"]
     localizable_lists = ["attributes"]
 
+    @classmethod
+    def from_metadata(cls, metadata, name=None, dimension=None):
+        """Create a level object from metadata. `name` can override level name in
+        the metadata."""
+
+        metadata = dict(expand_level_metadata(metadata))
+
+        try:
+            name = name or metadata.pop("name")
+        except KeyError:
+            raise ModelError("No name specified in level metadata")
+
+        attributes = []
+        for attr_metadata in metadata.pop("attributes", []):
+            attr = Attribute(dimension=dimension, **attr_metadata)
+            attributes.append(attr)
+
+        return cls(name=name, attributes=attributes, **metadata)
+
     def __init__(self, name, attributes, key=None, order_attribute=None,
                  order=None, label_attribute=None, label=None, info=None,
                  cardinality=None, role=None, nonadditive=None,
@@ -1479,7 +1875,7 @@ class Level(ModelObject):
         if not attributes:
             raise ModelError("Attribute list should not be empty")
 
-        self.attributes = attribute_list(attributes)
+        self.attributes = attributes
 
         # Note: synchronize with Measure.__init__ if relevant/necessary
         if not nonadditive or nonadditive == "none":
@@ -1517,10 +1913,9 @@ class Level(ModelObject):
             try:
                 self.order_attribute = self.attribute(order_attribute)
             except NoSuchAttributeError:
-                raise NoSuchAttributeError("Unknown order attribute %s in "
-                                           "dimension %s, level %s" %
-                                           (order_attribute,
-                                            str(self.dimension), self.name))
+                raise NoSuchAttributeError("Unknown order attribute {} in "
+                                           "level {}"
+                                           .format(order_attribute, self.name))
         else:
             self.order_attribute = self.attributes[0]
 
@@ -1558,7 +1953,7 @@ class Level(ModelObject):
 
     def __deepcopy__(self, memo):
         if self.order_attribute:
-            order_attribute = str(self.order_attribute)
+            order_attribute = self.order_attribute.name
         else:
             order_attribute = None
 
@@ -1583,9 +1978,9 @@ class Level(ModelObject):
         out["role"] = self.role
 
         if full_attribute_names:
-            out["key"] = self.key.ref()
-            out["label_attribute"] = self.label_attribute.ref()
-            out["order_attribute"] = self.order_attribute.ref()
+            out["key"] = self.key.ref
+            out["label_attribute"] = self.label_attribute.ref
+            out["order_attribute"] = self.order_attribute.ref
         else:
             out["key"] = self.key.name
             out["label_attribute"] = self.label_attribute.name
@@ -1635,8 +2030,25 @@ class AttributeBase(ModelObject):
 
     localizable_attributes = ["label", "description", "format"]
 
+    @classmethod
+    def from_metadata(cls, metadata):
+        """Create an attribute from `metadata` which can be a dictionary or a
+        string representing the attribute name.
+        """
+
+        if isinstance(metadata, compat.string_type):
+            return cls(metadata)
+        elif isinstance(metadata, cls):
+            return copy.copy(metadata)
+        elif isinstance(metadata, dict):
+            if "name" not in metadata:
+                raise ModelError("Model objects metadata require at least "
+                                 "name to be present.")
+            return cls(**metadata)
+
     def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, missing_value=None, **kwargs):
+                 info=None, format=None, missing_value=None, expression=None,
+                 **kwargs):
         """Base class for dimension attributes, measures and measure
         aggregates.
 
@@ -1656,6 +2068,8 @@ class AttributeBase(ModelObject):
           in the data source. Support of this attribute property depends on the
           backend. Please consult the backend documentation for more
           information.
+        * `expression` – arithmetic expression for computing this attribute
+          from other existing attributes.
 
         String representation of the `AttributeBase` returns its `name`.
 
@@ -1678,12 +2092,15 @@ class AttributeBase(ModelObject):
                 self.order = Attribute.DESC
             else:
                 raise ArgumentError("Unknown ordering '%s' for attributes"
-                                    " '%s'" % (order, self.ref()))
+                                    " '%s'" % (order, self.ref))
         else:
             self.order = None
 
+        self.expression = expression
+        self.ref = self.name
+
     def __str__(self):
-        return self.name
+        return self.ref
 
     def __repr__(self):
         return repr(self.to_dict())
@@ -1698,13 +2115,14 @@ class AttributeBase(ModelObject):
             and self.info == other.info \
             and self.description == other.description \
             and self.format == other.format \
+            and self.expression == other.expression \
             and self.missing_value == other.missing_value
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
 
     def to_dict(self, **options):
         d = super(AttributeBase, self).to_dict(**options)
@@ -1712,8 +2130,9 @@ class AttributeBase(ModelObject):
         d["format"] = self.format
         d["order"] = self.order
         d["missing_value"] = self.missing_value
+        d["expression"] = self.expression
 
-        d["ref"] = self.ref()
+        d["ref"] = self.ref
 
         return d
 
@@ -1731,15 +2150,50 @@ class AttributeBase(ModelObject):
         super(AttributeBase, self).localize(trans)
         self.format = trans.get("format", self.format)
 
-    def ref(self, simplify=None, locale=None):
-        return self.name
+    @property
+    def is_base(self):
+        return not self.expression
+
+    def localized_ref(self, locale):
+        """Returns localized attribute reference for locale `locale`.
+        """
+        if locale:
+            if not self.locales:
+                raise ArgumentError("Attribute '{}' is not loalizable "
+                                    "(localization {} requested)"
+                                    .format(self.name, locale))
+            elif locale not in self.locales:
+                raise ArgumentError("Attribute '{}' has no localization {} "
+                                    "(has: {})"
+                                    .format(self.name, locale, self.locales))
+            else:
+                locale_suffix = "." + locale
+        else:
+            locale_suffix = ""
+
+        return self.ref + locale_suffix
+
+    @property
+    def dependencies(self):
+        """Set of attributes that the `attribute` depends on. If the
+        `attribute` is an expresion, then returns the direct dependencies from
+        the expression. If the attribute is an aggregate with an unary
+        function operating on a measure, then the measure is considered as a
+        dependency.  Attribute can't have both expression and measure
+        specified, since you can have only expression or an function, not
+        both.
+        """
+        if not self.expression:
+            return set()
+
+        return inspect_variables(self.expression)
 
 
 class Attribute(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, dimension=None, locales=None,
-                 missing_value=None, **kwargs):
+                 missing_value=None, expression=None, **kwargs):
         """Dimension attribute object. Also used as fact detail.
 
         Attributes:
@@ -1761,36 +2215,58 @@ class Attribute(AttributeBase):
 
         `cubes.ArgumentError` is raised when unknown ordering type is
         specified.
+
+        Note: copied attributes are dis-owned from dimension. The new
+        dimension has to be assigned after copying.
         """
 
         super(Attribute, self).__init__(name=name, label=label,
                                         description=description, order=order,
                                         info=info, format=format,
-                                        missing_value=missing_value)
+                                        missing_value=missing_value,
+                                        expression=expression)
+        self._dimension = None
 
         self.dimension = dimension
         self.locales = locales or []
 
+    @property
+    def dimension(self):
+        return self._dimension
+
+    @dimension.setter
+    def dimension(self, dimension):
+        if dimension:
+            if dimension.is_flat and not dimension.has_details:
+                self.ref = dimension.name
+            else:
+                self.ref = dimension.name + '.' + str(self.name)
+        else:
+            self.ref = reference = str(self.name)
+        self._dimension = dimension
+
     def __deepcopy__(self, memo):
+        # Note: copied attribute is disowned
         return Attribute(self.name,
                          self.label,
-                         dimension=self.dimension,
+                         dimension=None,
                          locales=copy.deepcopy(self.locales, memo),
                          order=copy.deepcopy(self.order, memo),
                          description=self.description,
                          info=copy.deepcopy(self.info, memo),
                          format=self.format,
-                         missing_value=self.missing_value)
+                         missing_value=self.missing_value,
+                         expression=self.expression)
 
     def __eq__(self, other):
         if not super(Attribute, self).__eq__(other):
             return False
 
-        return str(self.dimension) == str(other.dimension) \
-               and self.locales == other.locales
+        # TODO: we are not comparing dimension (owner) here
+        return self.locales == other.locales
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
 
     def to_dict(self, **options):
         # FIXME: Depreciated key "full_name" in favour of "ref"
@@ -1800,65 +2276,20 @@ class Attribute(AttributeBase):
 
         return d
 
-    def ref(self, simplify=True, locale=None):
-        """Return full attribute reference. Append `locale` if it is one of
-        attribute's locales, otherwise raise `cubes.ArgumentError`. If
-        `simplify` is ``True``, then reference to an attribute of flat
-        dimension without details will be just the dimension name.
-        """
-        if locale:
-            if not self.locales:
-                raise ArgumentError("Attribute '%s' is not loalizable "
-                                    "(localization %s requested)"
-                                    % (self.name, locale))
-            elif locale not in self.locales:
-                raise ArgumentError("Attribute '%s' has no localization %s "
-                                    "(has: %s)"
-                                    % (self.name, locale, self.locales))
-            else:
-                locale_suffix = "." + locale
-        else:
-            locale_suffix = ""
-
-        if self.dimension:
-            if simplify and (self.dimension.is_flat
-                             and not self.dimension.has_details):
-                reference = self.dimension.name
-            else:
-                reference = self.dimension.name + '.' + str(self.name)
-        else:
-            reference = str(self.name)
-
-        return reference + locale_suffix
-
     def is_localizable(self):
         return bool(self.locales)
 
 
-def create_measure(md):
-    """Create a measure object from metadata."""
-    if isinstance(md, compat.string_type):
-        md = {"name": md}
-
-    if not "name" in md:
-        raise ModelError("Measure has no name.")
-
-    md = dict(md)
-    if "aggregations" in md:
-        md["aggregates"] = md.pop("aggregations")
-
-    return Measure(**md)
-
-
 class Measure(AttributeBase):
+    """Cube measure attribute – a numerical attribute that can be
+    aggregated."""
 
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, aggregates=None,
                  formula=None, expression=None, nonadditive=None,
                  window_size=None, **kwargs):
-        """Fact measure attribute.
-
-        Properties in addition to the attribute base properties:
+        """Create a measure attribute. Properties in addition to the attribute
+        base properties:
 
         * `formula` – name of a formula for the measure
         * `aggregates` – list of default (relevant) aggregate functions that
@@ -1874,13 +2305,14 @@ class Measure(AttributeBase):
         * measure aggergate object preparation
         * optional validation
 
-        String representation of a `Measure` returns its `name`.
+        String representation of a `Measure` returns its full reference.
         """
         super(Measure, self).__init__(name=name, label=label,
                                       description=description, order=order,
-                                      info=info, format=format, missing_value=None)
+                                      info=info, format=format,
+                                      missing_value=None,
+                                      expression=expression)
 
-        self.expression = expression
         self.formula = formula
         self.aggregates = aggregates
         self.window_size = window_size
@@ -1918,13 +2350,12 @@ class Measure(AttributeBase):
                 and self.window_size == other.window_size
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
 
     def to_dict(self, **options):
         d = super(Measure, self).to_dict(**options)
         d["formula"] = self.formula
         d["aggregates"] = self.aggregates
-        d["expression"] = self.expression
         d["window_size"] = self.window_size
 
         return d
@@ -1964,16 +2395,6 @@ class Measure(AttributeBase):
         return aggregates
 
 
-def create_measure_aggregate(md):
-    if isinstance(md, compat.string_type):
-        md = {"name": md}
-
-    if not "name" in md:
-        raise ModelError("Measure aggregate has no name.")
-
-    return MeasureAggregate(**md)
-
-
 class MeasureAggregate(AttributeBase):
 
     def __init__(self, name, label=None, description=None, order=None,
@@ -1997,11 +2418,11 @@ class MeasureAggregate(AttributeBase):
                                                description=description,
                                                order=order, info=info,
                                                format=format,
-                                               missing_value=missing_value)
+                                               missing_value=missing_value,
+                                               expression=expression)
 
         self.function = function
         self.formula = formula
-        self.expression = expression
         self.measure = measure
         self.nonadditive = nonadditive
         self.window_size = window_size
@@ -2022,175 +2443,59 @@ class MeasureAggregate(AttributeBase):
                                 window_size=self.window_size)
 
     def __eq__(self, other):
-        if not super(Attribute, self).__eq__(other):
+        if not super(MeasureAggregate, self).__eq__(other):
             return False
 
         return str(self.function) == str(other.function) \
             and self.measure == other.measure \
             and self.formula == other.formula \
-            and self.expression == other.expression \
             and self.nonadditive == other.nonadditive \
             and self.window_size == other.window_size
 
     def __hash__(self):
-        return hash(self.ref())
+        return hash(self.ref)
+
+    @property
+    def is_base(self):
+        return not self.expression and not self.function
 
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)
         d["function"] = self.function
         d["formula"] = self.formula
-        d["expression"] = self.expression
         d["measure"] = self.measure
         d["nonadditive"] = self.nonadditive
         d["window_size"] = self.window_size
 
         return d
 
+    @property
+    def dependencies(self):
+        """Set of attributes that the `attribute` depends on. If the
+        `attribute` is an expresion, then returns the direct dependencies from
+        the expression. If the attribute is an aggregate with an unary
+        function operating on a measure, then the measure is considered as a
+        dependency.  Attribute can't have both expression and measure
+        specified, since you can have only expression or an function, not
+        both.
+        """
+        if self.measure:
+            if self.expression:
+                raise ModelError("Aggregate '{}' has both measure and "
+                                 "expression set".format(self.ref))
+            return set([self.measure])
 
-def create_attribute(obj, class_=None):
-    """Makes sure that the `obj` is an ``Attribute`` instance. If `obj` is a
-    string, then new instance is returned. If it is a dictionary, then the
-    dictionary values are used for ``Attribute`` instance initialization."""
+        if not self.expression:
+            return set()
 
-    class_ = class_ or Attribute
-
-    if isinstance(obj, compat.string_type):
-        return class_(obj)
-    elif isinstance(obj, dict):
-        return class_(**obj)
-    else:
-        return obj
-
-
-def attribute_list(attributes, class_=None):
-    """Create a list of attributes from a list of strings or dictionaries.
-    see :func:`cubes.coalesce_attribute` for more information."""
-
-    if not attributes:
-        return []
-
-    result = [create_attribute(attr, class_) for attr in attributes]
-
-    return result
+        return inspect_variables(self.expression)
 
 
-def aggregate_list(aggregates):
-    """Create a list of aggregates from aggregate metadata dictionaries (or
-    list of names)"""
-    return attribute_list(aggregates, class_=MeasureAggregate)
+def create_list_of(class_, objects):
+    """Return a list of model objects of class `class_` from list of object
+    metadata `objects`"""
+    return [class_.from_metadata(obj) for obj in objects]
 
-
-def measure_list(measures):
-    """Create a list of measures from list of measure metadata (dictionaries
-    or strings). The function tries to maintain cetrain level of backward
-    compatibility with older models."""
-
-    result = []
-
-    for md in measures or []:
-        if isinstance(md, Measure):
-            result.append(md)
-            continue
-
-        if isinstance(md, compat.string_type):
-            md = {"name": md}
-        else:
-            md = dict(md)
-
-        if "aggregations" in md and "aggregates" in md:
-            raise ModelError("Both 'aggregations' and 'aggregates' specified "
-                             "in a measure. Use only 'aggregates'")
-
-        if "aggregations" in md:
-            logger = get_logger()
-            logger.warn("'aggregations' is depreciated, use 'aggregates'")
-            md["aggregates"] = md.pop("aggregations")
-
-        # Add default aggregation for 'sum' (backward compatibility)
-        if not "aggregates" in md:
-            md["aggregates"] = ["sum"]
-
-        result.append(create_measure(md))
-
-    return result
-
-
-def create_cube(metadata):
-    """Create a cube object from `metadata` dictionary. The cube has no
-    dimensions attached after creation. You should link the dimensions to the
-    cube according to the `Cube.dimension_links` property using
-    `Cube.add_dimension()`"""
-
-    if "name" not in metadata:
-        raise ModelError("Cube has no name")
-
-    metadata = expand_cube_metadata(metadata)
-    dimension_links = metadata.pop("dimensions", [])
-
-    if "measures" not in metadata and "aggregates" not in metadata:
-        metadata["aggregates"] = [DEFAULT_FACT_COUNT_AGGREGATE]
-
-    # Prepare aggregate and measure lists, do implicit merging
-
-    details = attribute_list(metadata.pop("details", []), Attribute)
-    measures = measure_list(metadata.pop("measures", []))
-
-    # Inherit the nonadditive property in each measure
-    nonadditive = metadata.pop("nonadditive", None)
-    if nonadditive:
-        for measure in measures:
-            measure.nonadditive = nonadditive
-
-    aggregates = metadata.pop("aggregates", [])
-    aggregates = aggregate_list(aggregates)
-    aggregate_dict = dict((a.name, a) for a in aggregates)
-    measure_dict = dict((m.name, m) for m in measures)
-
-    # TODO: change this to False in the future?
-    if metadata.get("implicit_aggregates", True):
-        implicit_aggregates = []
-        for measure in measures:
-            implicit_aggregates += measure.default_aggregates()
-
-        for aggregate in implicit_aggregates:
-            # an existing aggregate either has the same name,
-            existing = aggregate_dict.get(aggregate.name)
-            if existing:
-                if existing.function != aggregate.function:
-                    raise ModelError("Aggregate '%s' function mismatch. "
-                                     "Implicit function %s, explicit function:"
-                                     " %s." % (aggregate.name,
-                                               aggregate.function,
-                                               existing.function))
-                continue
-            # or the same function and measure
-            existing = [ agg for agg in aggregates if agg.function == aggregate.function and agg.measure == measure.name ]
-            if existing:
-                continue
-            aggregates.append(aggregate)
-            aggregate_dict[aggregate.name] = aggregate
-
-    # Assign implicit aggregate labels
-    # TODO: make this configurable
-
-    for aggregate in aggregates:
-        try:
-            measure = measure_dict[aggregate.measure]
-        except KeyError:
-            measure = aggregate_dict.get(aggregate.measure)
-
-        if aggregate.label is None:
-            aggregate.label = _measure_aggregate_label(aggregate, measure)
-
-        # Inherit nonadditive property from the measure
-        if measure and aggregate.nonadditive is None:
-            aggregate.nonadditive = measure.nonadditive
-
-    return Cube(measures=measures,
-                aggregates=aggregates,
-                dimension_links=dimension_links,
-                details=details,
-                **metadata)
 
 def _measure_aggregate_label(aggregate, measure):
     function = aggregate.function
@@ -2208,214 +2513,132 @@ def _measure_aggregate_label(aggregate, measure):
     return label
 
 
-def create_dimension(metadata, templates=None):
-    """Create a dimension from a `metadata` dictionary.
-    Some rules:
+def collect_attributes(attributes, *containers):
+    """Collect attributes from arguments. `containers` are objects with
+    method `all_attributes` or might be `Nulls`. Returns a list of attributes.
+    Note that the function does not check whether the attribute is an actual
+    attribute object or a string."""
+    # Method for decreasing noise/boilerplate
 
-    * ``levels`` might contain level names as strings – names of levels to
-      inherit from the template
-    * ``hierarchies`` might contain hierarchies as strings – names of
-      hierarchies to inherit from the template
-    * all levels that are not covered by hierarchies are not included in the
-      final dimension
+    collected = []
+
+    if attributes:
+        collected += attributes
+
+    for container in containers:
+        if container:
+            collected += container.all_attributes
+
+    return collected
+
+
+def collect_dependencies(attributes, all_attributes):
+    """Collect all original and dependant cube attributes for
+    `attributes`, sorted by their dependency: starting with attributes
+    that don't depend on anything. For exapmle, if the `attributes` is [a,
+    b] and a = c * 2, then the result list would be [b, c, a] or [c, b,
+    a].
+
+    This method is supposed to be used by backends that can handle
+    attribute expressions.  It is safe to generate a mapping between
+    logical references and their physical object representations from
+    expressions in the order of items in the returned list.
+
+    Returns a list of sorted attribute references.
     """
 
-    templates = templates or {}
+    dependencies = {attr.ref:attr.dependencies for attr in all_attributes}
+    # depsorted contains attribute names in order of dependencies starting
+    # with base attributes (those that don't depend on anything, directly
+    # represented by columns) and ending with derived attributes
+    depsorted = depsort_attributes([attr.ref for attr in attributes],
+                                    dependencies)
 
-    if "template" in metadata:
-        template_name = metadata["template"]
+    return depsorted
+
+def depsort_attributes(attributes, all_dependencies):
+    """Returns a sorted list of attributes by their dependencies. `attributes`
+    is a list of attribute names, `all_dependencies` is a dictionary where keys
+    are attribute names and values are direct attribute dependencies (that is
+    attributes in attribute's expression, for example). `all_dependencies`
+    should contain all known attributes, variables and constants.
+
+    Raises an exception when a circular dependecy is detected."""
+
+    bases = set()
+    all_used = set()
+
+    # Gather only relevant dependencies
+    dependencies = {}
+    required = set(attributes)
+
+    # Collect base attributes and relevant dependencies
+    seen = set()
+    while(required):
+        attr = required.pop()
+        seen.add(attr)
+
         try:
-            template = templates[template_name]
-        except KeyError:
-            raise TemplateRequired(template_name)
+            attr_deps = all_dependencies[attr]
+        except KeyError as e:
+            raise ExpressionError("Unknown attribute '{}'".format(e))
 
-        levels = copy.deepcopy(template.levels)
+        if not attr_deps:
+            bases.add(attr)
 
-        # Dis-own the level attributes
-        for level in levels:
-            for attribute in level.attributes:
-                attribute.dimension = None
+        required |= set(attr_deps) - seen
 
-        # Create copy of template's hierarchies, but reference newly
-        # created copies of level objects
-        hierarchies = []
-        level_dict = dict((level.name, level) for level in levels)
+    # Remaining dependencies to be processed (not base attributes)
+    remaining = {attr:all_dependencies[attr] for attr in seen
+                 if attr not in bases}
 
-        for hier in template._hierarchies.values():
-            hier_levels = [level_dict[level.name] for level in hier.levels]
-            hier_copy = Hierarchy(hier.name,
-                                  hier_levels,
-                                  label=hier.label,
-                                  info=copy.deepcopy(hier.info))
-            hierarchies.append(hier_copy)
+    sorted_deps = []
 
-        default_hierarchy_name = template.default_hierarchy_name
-        label = template.label
-        description = template.description
-        info = template.info
-        cardinality = template.cardinality
-        role = template.role
-        category = template.category
-        nonadditive = template.nonadditive
+    while bases:
+        base = bases.pop()
+        sorted_deps.append(base)
+
+        dependants = [attr for attr, deps in remaining.items()
+                           if base in deps]
+
+        for attr in dependants:
+            # Remove the current dependency
+            remaining[attr].remove(base)
+            # If there are no more dependencies, consider the attribute to be
+            # base
+            if not remaining[attr]:
+                bases.add(attr)
+                del remaining[attr]
+
+    if remaining:
+        remaining_str = ", ".join(sorted(remaining))
+        raise ExpressionError("Circular attribute reference (remaining: {})"
+                              .format(remaining_str))
+
+    return sorted_deps
+
+def string_to_dimension_level(astring):
+    """Converts `astring` into a dimension level tuple (`dimension`,
+    `hierarchy`, `level`). The string should have a format:
+    ``dimension@hierarchy:level``. Hierarchy and level are optional.
+
+    Raises `ArgumentError` when `astring` does not match expected pattern.
+    """
+
+    if not astring:
+        raise ArgumentError("Drilldown string should not be empty")
+
+    ident = r"[\w\d_]"
+    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % (ident,
+                                                                    ident,
+                                                                    ident)
+    match = re.match(pattern, astring)
+
+    if match:
+        d = match.groupdict()
+        return (d["dim"], d["hier"], d["level"])
     else:
-        template = None
-        levels = []
-        hierarchies = []
-        default_hierarchy_name = None
-        label = None
-        description = None
-        cardinality = None
-        role = None
-        category = None
-        info = {}
-        nonadditive = None
-
-    # Fix the metadata, but don't create default level if the template
-    # provides levels.
-    metadata = expand_dimension_metadata(metadata,
-                                         expand_levels=not bool(levels))
-
-    name = metadata.get("name")
-
-    label = metadata.get("label", label)
-    description = metadata.get("description") or description
-    info = metadata.get("info", info)
-    role = metadata.get("role", role)
-    category = metadata.get("category", category)
-    nonadditive = metadata.get("nonadditive", nonadditive)
-
-    # Backward compatibility with an experimental feature
-    cardinality = metadata.get("cardinality", cardinality)
-
-    # Backward compatibility with an experimental feature:
-    if not cardinality:
-        info = metadata.get("info", {})
-        if "high_cardinality" in info:
-           cardinality = "high"
-
-    # Levels
-    # ------
-
-    # We are guaranteed to have "levels" key from expand_dimension_metadata()
-
-    if "levels" in metadata:
-        # Assure level inheritance
-        levels = []
-        for level_md in metadata["levels"]:
-            if isinstance(level_md, compat.string_type):
-                if not template:
-                    raise ModelError("Can not specify just a level name "
-                                     "(%s) if there is no template for "
-                                     "dimension %s" % (md, name))
-                level = template.level(level_md)
-            else:
-                level = create_level(level_md)
-                # raise NotImplementedError("Merging of levels is not yet supported")
-
-            # Update the level's info dictionary
-            if template:
-                try:
-                    templevel = template.level(level.name)
-                except KeyError:
-                    pass
-                else:
-                    new_info = copy.deepcopy(templevel.info)
-                    new_info.update(level.info)
-                    level.info = new_info
-
-            levels.append(level)
-
-    # Hierarchies
-    # -----------
-    if "hierarchies" in metadata:
-        hierarchies_defined = True
-        hierarchies = _create_hierarchies(metadata["hierarchies"],
-                                          levels,
-                                          template)
-    else:
-        hierarchies_defined = False
-        # Keep only hierarchies which include existing levels
-        level_names = set([level.name for level in levels])
-        keep = []
-        for hier in hierarchies:
-            if any(level.name not in level_names for level in hier.levels):
-                continue
-            else:
-                keep.append(hier)
-        hierarchies = keep
+        raise ArgumentError("String '%s' does not match drilldown level "
+                            "pattern 'dimension@hierarchy:level'" % astring)
 
 
-    default_hierarchy_name = metadata.get("default_hierarchy_name",
-                                          default_hierarchy_name)
-
-    if not hierarchies:
-        # Create single default hierarchy
-        hierarchies = [Hierarchy("default", levels=levels)]
-
-    # Recollect levels – keep only those levels that are present in
-    # hierarchies. Retain the original level order
-    used_levels = set()
-    for hier in hierarchies:
-        used_levels |= set(level.name for level in hier.levels)
-
-    levels = [level for level in levels if level.name in used_levels]
-
-    return Dimension(name=name,
-                     levels=levels,
-                     hierarchies=hierarchies,
-                     default_hierarchy_name=default_hierarchy_name,
-                     label=label,
-                     description=description,
-                     info=info,
-                     cardinality=cardinality,
-                     role=role,
-                     category=category,
-                     nonadditive=nonadditive
-                    )
-
-def _create_hierarchies(metadata, levels, template):
-    """Create dimension hierarchies from `metadata` (a list of dictionaries or
-    strings) and possibly inherit from `template` dimension."""
-
-    # Convert levels do an ordered dictionary for access by name
-    levels = OrderedDict((level.name, level) for level in levels)
-    hierarchies = []
-
-    # Construct hierarchies and assign actual level objects
-    for md in metadata:
-        if isinstance(md, compat.string_type):
-            if not template:
-                raise ModelError("Can not specify just a hierarchy name "
-                                 "(%s) if there is no template for "
-                                 "dimension %s" % (md, name))
-            hier = template.hierarchy(md)
-        else:
-            md = dict(md)
-            level_names = md.pop("levels")
-            hier_levels = [levels[level] for level in level_names]
-            hier = Hierarchy(levels=hier_levels, **md)
-
-        hierarchies.append(hier)
-
-    return hierarchies
-
-def create_level(metadata, name=None, dimension=None):
-    """Create a level object from metadata. `name` can override level name in
-    the metadata."""
-
-    metadata = dict(expand_level_metadata(metadata))
-
-    try:
-        name = name or metadata.pop("name")
-    except KeyError:
-        raise ModelError("No name specified in level metadata")
-
-    attributes = attribute_list(metadata.pop("attributes"))
-
-    # TODO: this should be depreciated
-    for attribute in attributes:
-        attribute.dimension = dimension
-
-    return Level(name=name,
-                 attributes=attributes,
-                 **metadata)

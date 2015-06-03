@@ -4,9 +4,18 @@ from cubes import Workspace
 from cubes import compat
 from sqlalchemy import create_engine, MetaData
 import json
+from cubes.metadata import read_model_metadata
+from cubes.providers import StaticModelProvider
 
 TESTS_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(TESTS_PATH, 'data')
+
+def create_provider(name):
+    # TODO: this should be rather:
+    # provider = FileModelProvider(path)
+    path = os.path.join(TESTS_PATH, 'models', name)
+    metadata = read_model_metadata(path)
+    return StaticModelProvider(metadata)
 
 class CubesTestCaseBase(unittest.TestCase):
     sql_engine = None
@@ -42,6 +51,7 @@ class CubesTestCaseBase(unittest.TestCase):
         class has an engine or `sql_engine` set, then the existing engine will
         be used as the default SQL store."""
 
+        raise NotImplementedError("Depreciated in this context")
         workspace = Workspace()
 
         if store:

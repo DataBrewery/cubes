@@ -22,7 +22,8 @@ import os
 import re
 
 from collections import OrderedDict, namedtuple
-from .errors import *
+from .errors import ModelError, CubesError, ArgumentError
+from .errors import ModelInconsistencyError
 from . import compat
 
 try:
@@ -60,18 +61,19 @@ def _json_from_url(url):
     parts = compat.urlparse(url)
 
     if parts.scheme in ('', 'file'):
-        handle = open(parts.path)
+        handle = compat.open_unicode(parts.path)
     elif len(parts.scheme) == 1:
-        # TODO: This is temporary hack which can be replaced by proper python
-        # 3.4 functionality later
-        handle = open(url)
+        # TODO: This is temporary hack for MS Windows which can be replaced by
+        # proper python 3.4 functionality later
+        handle = compat.open_unicode(url)
     else:
         handle = compat.urlopen(url)
 
     try:
         desc = json.load(handle)
     except ValueError as e:
-        raise SyntaxError("Syntax error in %s: %s" % (url, e.args))
+        import pdb; pdb.set_trace()
+        raise SyntaxError("Syntax error in %s: %s" % (url, str(e)))
     finally:
         handle.close()
 
@@ -402,13 +404,13 @@ class ModelMetadataValidator(object):
         self.metadata = metadata
 
         data = pkgutil.get_data("cubes", "schemas/model.json")
-        self.model_schema = json.loads(data)
+        self.model_schema = json.loads(compat.to_str(data))
 
         data = pkgutil.get_data("cubes", "schemas/cube.json")
-        self.cube_schema = json.loads(data)
+        self.cube_schema = json.loads(compat.to_str(data))
 
         data = pkgutil.get_data("cubes", "schemas/dimension.json")
-        self.dimension_schema = json.loads(data)
+        self.dimension_schema = json.loads(compat.to_str(data))
 
     def validate(self):
         errors = []

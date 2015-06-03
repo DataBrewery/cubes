@@ -1,0 +1,183 @@
+***********************
+Cubes 1.1 release notes
+***********************
+
+These release notes cover the new features and changes (some of them backward
+incompatible).
+
+Overview
+========
+
+This release brings major refactoring and complexity reduction of the SQL
+backend. Other notable changes:
+
+* implementation of arithmetic expressions
+* removal of all backends but SQL and Slicer into a separate packages
+* removal of all non-essential modules as extensions in separate packages
+
+
+New Features
+============
+
+Model
+-----
+
+* changed all `create_*` methods into a model object class initializers
+  `from_metadata` such as `Cube.from_metadtata()` or
+  `Dimension.from_metadata()`
+
+
+Cube:
+
+* :meth:`Cube.base_attributes` - returns all attributes that don’t have
+  expressions and are very likely represented by a physical column
+* :meth:`Cube.attribute_dependencies` - returns a dictionary saying which
+  attribute directly depends on which other attributes
+* :meth:`Cube.collect_dependencies` - dictionary of all, deep dependencies
+  (whole attribute dependency tree is expanded)
+  
+
+**Attributes**
+
+Expressions
+-----------
+
+Attributes can now carry an arithmetic expression. Attributes used in the
+expressions must be other logical attributes. Only base attributes (those
+without expressions) require to have physical column
+mappings.
+
+
+Example:
+
+.. code-block:: json
+
+	{“name”: “price_with_vat”, “expression”: “price * 1.2”}
+	{“name”: “price_with_discount”, “expression”: “price * (1 - discount / 100)”}
+
+The expressions currently support basic arithmetics and few SQL functions. The
+expression language and operators are inspired (and will very likely follow)
+the Postgres SQL dialect, but is not going to be 100% compatible. Language
+will be extended gently, with regard to other backends or SQL dialects. (Note
+that the expression language is meant to be shared with other, non-Cubes
+tools).
+
+Plugins
+-------
+
+New plugin system. Packages can now advertise in their ``setup.py`` plugins:
+
+..code-block:: python
+
+    entry_points={
+        'cubes.stores': [
+            'my = my_package.MyStore',
+        ],
+        'cubes.authorizers': [
+            'my = my_package.MyAuthorizer',
+        ]
+    }
+
+Extensible obects: `authenticators`, `authorizers`, `browsers`, `formatters`,
+`model_providers` and `stores`.
+
+
+Major Changes
+=============
+
+Modules and Packages
+--------------------
+
+The modules were restructured. The `backend` package was removed, it's content
+was separated into external packages. `sql` became a top-level package, yet
+maintaining it's optional status. It should stay in the Cubes package as it is
+the most used backend.
+
+`browser` was split into two separate packages `browser` and `cells`.
+
+New external packages:
+
+* `cubes-ga`
+* `cubes-mongo`
+* `cubes-mixpanel`
+
+* **important**: No longer generate implicit aggregates by default. Override in model
+
+Model
+-----
+
+* `Cube.all_attributes` was changed to return actually all attributes of the
+  Cube instead of just attributes for a fact table (non-aggregates). There are
+  now three methods: :meth:`Cubes.all_attributes`, `Cubes.all_fact_attributes`
+  and `Cubes.all_aggregation_attributes`.
+
+Model Attributes:
+
+* string representation of attributes now returns attribute reference instead
+  of attribute name
+* `ref` is now a property of all attributes (originally it was a function
+  `ref(locale, simplify)`)
+* attribute reference is now opinionated without ability to have alternative
+  way: all dimensions are simplified if they are flat and have no details,
+  otherwise attribute reference is `dimension.attribute`
+
+* removed public_dimensions()
+
+Other
+-----
+
+* removed ``store_name`` in `Store`
+* added `Drilldown.natural_order`
+
+SQL
+---
+
+Now a top-level package as it will receive more attention in the near future.
+Simplified, made code more understandable and maintainable.
+
+* new SQL schema object holding information about the star/snowflake schema
+* topological sort of joins - joins are now ordered automagically, no longer
+  cryptic exceptions about `to-fact relationships`
+* new QueryContext – replaces QueryBuilder
+* support for SQL Alchemy selectables as star/snowflake schema tables
+* removed simple vs. composed aggregation statement (which was required due to
+  unpredictability of low-level mapping expressions), now every statement is
+  just "simple" statement
+
+Other:
+
+* `find_dimension()` and `link_cube()` are now global functions. Cube linking
+  has been moved into the provider.
+* added `naming` convention dicitonary to the SQL mapper
+* added SQLSchemaInspector
+* SQLStore accepts metadata object
+* added compound keys (multiple columns) in joins
+
+Fix:
+
+* if fact table schema is explicitly specified, use it in the joins as default
+  schema
+
+
+Slicer
+------
+
+The ``slicer`` command has been rewritten using Click. There are new commands
+and refreshed commands:
+
+* ``ext-info`` – list extensions and give more details about particuliar
+  extension
+* ``materialize`` and ``aggregate`` – brought back under new ``sql`` command
+  group
+* ``list`` – list cubes
+
+The configuration ``slicer.ini`` is now as default and does not have to be
+explicitly provided if not necessary.
+
+Removed
+-------
+
+* Dropped support for experimental "nonadditive" measures (temporarily)
+* Dropped support for experimental periods-to-date (requires specification)
+* Dropped support of experimental ``expr`` mapping (permanently)
+

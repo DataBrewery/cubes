@@ -5,10 +5,12 @@
         },
         {
             "name": "amount_default",
+            "implicit_aggregates": true,
             "measures": ["amount"]
         },
         {
             "name": "default_aggregates",
+            "implicit_aggregates": true,
             "measures": [
                     {"name": "amount", "aggregates": ["sum", "min", "max"]}
                 ]
@@ -26,6 +28,7 @@
         },
         {
             "name": "explicit_aggregates_conflict",
+            "implicit_aggregates": true,
             "measures": [
                     {"name": "amount", "aggregates": ["sum", "min", "max"]}
                 ],
@@ -70,6 +73,7 @@
         },
         {
             "name": "amount_sum_combined",
+            "implicit_aggregates": true,
             "measures": [
                 {
                     "name":"amount",

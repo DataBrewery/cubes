@@ -87,9 +87,6 @@ Logical part of the model description:
   localizable models)*
 * ``cubes`` – list of cubes metadata (see below)
 * ``dimensions`` – list of dimension metadata (see below)
-* ``public_dimensions`` – list of dimension names that will be exported from
-  the model as public and might be shared by cubes from other models. By
-  default, all model's dimensions are considered public.
 
 Physical part of the model description:
 
@@ -369,9 +366,11 @@ The measure is described as:
 * ``window_size`` – number of elements within a window for window functions
   such as moving average. If not provided and function requires it then 1 (one
   element) is assumed.
-* ``nonadditive`` – can be `all` (non-additive for any dimension), `time`
-  (non-additive for time dimension, for example account balance) or `none`
-  (default, fully additive)
+
+..
+    * ``nonadditive`` – can be `all` (non-additive for any dimension), `time`
+      (non-additive for time dimension, for example account balance) or `none`
+      (default, fully additive)
 
 .. ``formula`` – name of formula
 .. ``expression`` – arithmetic expression
@@ -533,10 +532,12 @@ specification might contain:
 * ``cardinality`` – cardinality of the dimension with regards to the cube. For
   example one cube might contain housands product types, another might have
   only a few, but they both share the same `products` dimension
-* ``nonadditive`` – nonadditive behavior of the dimension in the cube
 * ``alias`` – how the dimension is going to be called in the cube. For
   example, you might have two date dimensions and name them `start_date` and
   `end_date` using the alias
+
+..
+    * ``nonadditive`` – nonadditive behavior of the dimension in the cube
 
 Example:
 
@@ -599,14 +600,16 @@ The dimension description contains keys:
       -
     * - ``cardinality``
       - dimension cardinality (see Level for more info)
-    * - ``nonadditive``
-      - used when the dimension is nonadditive or semiadditive
     * - ``role``
       - dimension role
     * - ``category``
       - logical category (user oriented metadata)
     * - ``template``
       - name of a dimension that will be used as template 
+        
+..
+    * - ``nonadditive``
+      - used when the dimension is nonadditive or semiadditive
 
 Fields marked with * are required.
 
@@ -671,16 +674,17 @@ hierarchies to omit unnecessary levels.
     mappings would be necessary, then they should be for those two dimensions,
     not for the `date` dimension.
 
-Nonadditive
------------
+..
+    Nonadditive
+    -----------
 
-There are cases where it is not meaningful to add values over certain
-dimension. For example it has no sense to add account balance over time. For
-such dimension the ``nonadditive`` value can be specified:
+    There are cases where it is not meaningful to add values over certain
+    dimension. For example it has no sense to add account balance over time. For
+    such dimension the ``nonadditive`` value can be specified:
 
-* ``all`` – dimension is nonadditive
-* ``time`` – dimension can not be added over dimensions with role `time`
-* ``none`` – dimension is fully additive (same as if no value was specified)
+    * ``all`` – dimension is nonadditive
+    * ``time`` – dimension can not be added over dimensions with role `time`
+    * ``none`` – dimension is fully additive (same as if no value was specified)
 
 Level
 -----

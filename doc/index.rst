@@ -48,6 +48,8 @@ Analytical Workspace
     workspace
     auth
     configuration
+    backends/sql
+    backends/slicer
 
 Slicer Server and Tool
 ----------------------
@@ -58,18 +60,6 @@ Slicer Server and Tool
     server
     deployment
     slicer
-
-Backends
---------
-
-.. toctree::
-    :maxdepth: 2
-
-    backends/sql
-    backends/mongo
-    backends/google_analytics
-    backends/mixpanel
-    backends/slicer
 
 Recipes
 -------
@@ -116,11 +106,14 @@ Release Notes
 Contact and Getting Help
 ========================
 
+Join the chat at `Gitter`_.
+
 If you have questions, problems or suggestions, you can send a message to 
 `Google group`_ or `write to the author`_ (Stefan Urbanek).
 
 Report bugs in `github issues`_ tracking
 
+.. _Gitter: https://gitter.im/DataBrewery/cubes
 .. _github issues: https://github.com/DataBrewery/cubes/issues
 .. _Google group: http://groups.google.com/group/cubes-discuss
 .. _write to the author: stefan.urbanek@gmail.com

@@ -1,0 +1,60 @@
+{
+"cubes": [
+     {
+        "name": "sales",
+        "dimensions": ["date", "item", "category", "department"],
+        "measures": ["price", "discount", "quantity"],
+        "aggregates": [
+            {"name": "price_sum", "measure": "price", "function":"sum"},
+            {"name": "price_avg", "measure": "price", "function":"average"}
+        ],
+        "mappings": {"item.key": "dim_item.item_key",
+                     "category.key": "dim_category.category_key",
+                     "department.key": "dim_department.department_key"},
+        "joins": [
+            {"master":"fact_sales.date_key", "detail":"dim_date.date_key"},
+            {"master":"fact_sales.item_key", "detail":"dim_item.item_key"},
+            {"master":"dim_item.category_key", "detail":"dim_category.category_key"},
+            {"master":"dim_category.department_key", "detail":"dim_department.department_key"}
+        ]
+    }
+],
+"dimensions": [
+    {
+        "name": "date",
+        "levels": [
+            {"name":"year"},
+            {"name":"quarter"},
+            {"name":"month"},
+            {"name":"day"}
+        ],
+        "hierarchies": [
+            {"name": "ymd", "levels":["year", "month", "day"]},
+            {"name": "ym", "levels":["year", "month"]},
+            {"name": "yqmd", "levels":["year", "quarter", "month", "day"]}
+        ],
+        "default_hierarchy_name": "ymd"
+    },
+    {
+        "name": "item",
+        "attributes": ["key", "name", "unit_price"]
+    },
+    {
+        "name": "category",
+        "attributes": ["key", "name"]
+    },
+    {
+        "name": "department",
+        "attributes": ["key", "name"]
+    },
+    {
+        "name": "item_hier",
+        "levels": [
+            {"name": "department", "attributes": ["name", "manager"]},
+            {"name": "category", "attributes": ["name"]},
+            {"name": "item", "attributes": ["name", "unit_price"]}
+        ]
+    }
+]
+}
+

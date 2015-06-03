@@ -8,9 +8,11 @@ import sys
 import traceback
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
-from ..browser import Cell, SPLIT_DIMENSION_NAME, cut_from_dict
+from ..cells import Cell, cut_from_dict
+from ..browser import SPLIT_DIMENSION_NAME
 from ..errors import *
-from ..extensions import extensions
+from ..formatters import JSONLinesGenerator, csv_generator
+from .. import ext
 from .logging import configured_request_log_handlers, RequestLogger
 from .logging import AsyncRequestLogger
 from .utils import *
@@ -118,7 +120,7 @@ def initialize_slicer(state):
             else:
                 options = {}
 
-            current_app.slicer.authenticator = extensions.authenticator(method,
+            current_app.slicer.authenticator = ext.authenticator(method,
                                                                         **options)
         logger.debug("Server authentication method: %s" % (method or "none"))
 
@@ -372,13 +374,13 @@ def aggregate(cube_name):
         header = None
 
     fields = result.labels
-    generator = CSVGenerator(result,
+    generator = csv_generator(result,
                              fields,
                              include_header=bool(header),
                              header=header)
 
     headers = {"Content-Disposition": 'attachment; filename="aggregate.csv"'}
-    return Response(generator.csvrows(),
+    return Response(generator,
                     mimetype='text/csv',
                     headers=headers)
 
@@ -398,10 +400,10 @@ def cube_facts(cube_name):
     if fields:
         attributes = g.cube.get_attributes(fields)
     else:
-        attributes = g.cube.all_attributes
+        attributes = g.cube.all_fact_attributes
 
     # Construct the field list
-    fields = [attr.ref() for attr in attributes]
+    fields = [attr.ref for attr in attributes]
 
     # Get the result
     facts = g.browser.facts(g.cell,
@@ -417,7 +419,7 @@ def cube_facts(cube_name):
     labels = [attr.label or attr.name for attr in attributes]
     labels.insert(0, g.cube.key or "id")
 
-    return formated_response(facts, fields, labels)
+    return formatted_response(facts, fields, labels)
 
 @slicer.route("/cube/<cube_name>/fact/<fact_id>")
 @requires_browser
@@ -482,10 +484,10 @@ def cube_members(cube_name, dimension_name):
     for level in hierarchy.levels_for_depth(depth):
         attributes += level.attributes
 
-    fields = [attr.ref() for attr in attributes]
+    fields = [attr.ref for attr in attributes]
     labels = [attr.label or attr.name for attr in attributes]
 
-    return formated_response(result, fields, labels, iterable=values)
+    return formatted_response(result, fields, labels, iterable=values)
 
 
 @slicer.route("/cube/<cube_name>/cell")

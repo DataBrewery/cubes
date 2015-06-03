@@ -1,0 +1,12 @@
+[run]
+branch = True
+source = cubes
+# omit = 
+
+[report]
+exclude_lines =
+    pragma nocover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+

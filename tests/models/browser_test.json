@@ -16,7 +16,7 @@
 			],
 			"hierarchies": [
 				{ "name": "ymd", "levels": ["year", "month", "day"] },
-				{ "name": "ymd", "levels": ["year", "month"] }
+				{ "name": "ym", "levels": ["year", "month"] }
 			]
 		},
 		{
