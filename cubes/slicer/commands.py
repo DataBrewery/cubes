@@ -13,30 +13,26 @@ from __future__ import print_function
 from .. import compat
 
 import click
-import json
-import sys
-import os
 import cubes
+import json
+import os
+import sys
 
 from collections import OrderedDict
 
 from ..common import MissingPackageError
-from ..logging import create_logger
-from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
-from ..metadata import read_model_metadata, write_model_metadata_bundle
-from .. import server
 from ..datastructures import AttributeDict
-from ..workspace import Workspace
-from .. import ext
+from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
 from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator
+from ..logging import create_logger
+from ..metadata import read_model_metadata, write_model_metadata_bundle
+from ..workspace import Workspace
+
+from .. import ext
+from .. import server
 
 from ..cells import cuts_from_string, Cell
 from ..browser import string_to_dimension_level
-
-try:
-    from cubes_modeler import ModelEditorSlicerCommand
-except ImportError:
-    ModelEditorSlicerCommand = None
 
 
 DEFAULT_CONFIG = "slicer.ini"
@@ -653,3 +649,4 @@ def main(*args, **kwargs):
         else:
             click.echo("\nError: {}".format(e), err=True)
             sys.exit(1)
+
