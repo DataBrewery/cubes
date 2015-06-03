@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from .common import decamelize, to_identifier, coalesce_options
-from .errors import *
+from .errors import ArgumentError, InternalError
 from collections import defaultdict, OrderedDict
 from pkg_resources import iter_entry_points
 from textwrap import dedent
@@ -82,7 +82,15 @@ class _Extension(object):
     * `label` – human readable label (optional)
     * `values` – valid values for the option.
     """
-    def __init__(self, type_, entry=None, name=None):
+    def __init__(self, type_, entry=None, factory=None, name=None):
+        if factory is not None and entry is not None:
+            raise ArgumentError("Can't set both extension factory and entry "
+                                "(in extension '{}')".format(name))
+
+        elif factory is None and entry is None:
+            raise ArgumentError("Neither extension factory nor entry provided "
+                                "(in extension '{}')".format(name))
+
         self.type_ = type_
         self.entry = entry
         self.name = name or entry.name
@@ -90,7 +98,43 @@ class _Extension(object):
         # After loading...
         self.options = []
         self.option_types = {}
-        self.factory = None
+        self._factory = None
+
+        if factory is not None:
+            self.factory = factory
+
+    @property
+    def factory(self):
+        if self._factory is not None:
+            return self._factory
+        elif self.entry:
+            # This must not fail or result in None
+            self.factory = self.entry.load()
+            return self._factory
+        else:
+            raise InternalError("No factory or entry set for extension '{}'"
+                                .format(self.name))
+
+    @factory.setter
+    def factory(self, factory):
+        if factory is None:
+            raise InternalError("Can't set extension factory to None")
+
+        self._factory = factory
+        defaults = _DEFAULT_OPTIONS.get(self.type_, [])
+
+        if hasattr(self._factory, "__options__"):
+            options = self._factory.__options__ or []
+        else:
+            options = []
+
+        self.options = OrderedDict()
+        for option in defaults + options:
+            name = option["name"]
+            self.options[name] = option
+            self.option_types[name] = option.get("type", "string")
+
+        self.option_types = self.option_types or {}
 
     @property
     def is_builtin(self):
@@ -111,37 +155,14 @@ class _Extension(object):
         else:
             return ""
 
-    def load(self):
-        if self.entry:
-            self.set_factory(self.entry.load())
-        # We don't need to load builtin extension
-
-    def set_factory(self, factory):
-        self.factory = factory
-        defaults = _DEFAULT_OPTIONS.get(self.type_, [])
-
-        if hasattr(self.factory, "__options__"):
-            options = self.factory.__options__ or []
-        else:
-            options = []
-
-        self.options = OrderedDict()
-        for option in defaults + options:
-            name = option["name"]
-            self.options[name] = option
-            self.option_types[name] = option.get("type", "string")
-
-        self.option_types = self.option_types or {}
-
     def create(self, *args, **kwargs):
         """Creates an extension. First argument should be extension's name."""
-        if not self.factory:
-            self.load()
+        factory = self.factory
 
         kwargs = coalesce_options(dict(kwargs),
                                   self.option_types)
 
-        return self.factory(*args, **kwargs)
+        return factory(*args, **kwargs)
 
 
 class ExtensionFinder(object):
@@ -166,8 +187,8 @@ class ExtensionFinder(object):
 
         (modname, attr) = ext_mod.split(":")
         module = _load_module(modname)
-        ext = _Extension(self.type_, name=name)
-        ext.set_factory(getattr(module, attr))
+        factory = getattr(module, attr)
+        ext = _Extension(self.type_, name=name, factory=factory)
         self.extensions[name] = ext
 
         return ext
@@ -205,6 +226,11 @@ class ExtensionFinder(object):
     def factory(self, name):
         """Return extension factory."""
         ext = self.get(name)
+
+        if not ext.factory:
+            raise BackendError("Unable to get factory for extension '{}'"
+                               .format(name))
+
         return ext.factory
 
     def create(self, _ext_name, *args, **kwargs):
