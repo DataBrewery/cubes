@@ -476,7 +476,7 @@ class Workspace(object):
             elif isinstance(namespace, compat.string_type):
                 (ns, _) = self.namespace.namespace(namespace, create=True)
             else:
-                ns = namepsace
+                ns = namespace
         elif store == "default":
             ns = self.namespace
         else:
