@@ -689,8 +689,7 @@ class Cube(ModelObject):
         for dim in self.dimensions:
             for hier in dim.hierarchies:
                 key = (dim.name, hier.name)
-                levels = [key.ref for key in hier.keys()]
-                #levels = [dim.attribute(key) for key in hier.keys()]
+                levels = [hier_key.ref for hier_key in hier.keys()]
 
                 hierarchies[key] = levels
 
