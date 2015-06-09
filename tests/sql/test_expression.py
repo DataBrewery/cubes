@@ -34,7 +34,7 @@ class SQLExpressionTestCase(SQLTestCase):
                 [4, 80, 3]]
 
         for row in data:
-            self.engine.execute(insert.values(data))
+            self.engine.execute(insert.values(row))
 
         self.bases = ["id", "price", "quantity"]
         self.columns = {attr:self.table.columns[attr]

@@ -235,7 +235,8 @@ class TinyDemoDataWarehouse(object):
             buffer.append(record)
 
         if buffer:
-            self.engine.execute(table.insert(buffer))
+            for row in buffer:
+                self.engine.execute(table.insert(row))
 
         return table
 
@@ -276,10 +277,12 @@ class TinyDemoDataWarehouse(object):
             }
             values.append(record)
             if len(values) > 100:
-                self.engine.execute(insert.values(values))
+                for row in values:
+                    self.engine.execute(insert.values(row))
                 del values[:]
 
-        self.engine.execute(insert.values(values))
+        for row in values:
+            self.engine.execute(insert.values(row))
 
     def table(self, name):
         return sa.Table(name, self.md, autoload=True)
@@ -335,7 +338,8 @@ class TinyDemoDataWarehouse(object):
     def insert(self, table_name, values):
         """Insert list of `values` into table `table_name`"""
         insert = self.table(table_name).insert()
-        self.engine.execute(insert, values)
+        for row in values:
+            self.engine.execute(insert, row)
 
     def dimension(self, table):
         """Returns a dimension lookup object for `table`."""
