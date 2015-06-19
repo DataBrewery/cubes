@@ -58,7 +58,7 @@ Simple Dimension
 neither hierarchy.*
 
 Similar schema as `Simple Star Schema`_ Note the dimension `year` which is
-represented just by one numeroc attribute.
+represented just by one numeric attribute.
 
 It is important that no attributes are specified for the dimension. There
 dimension will be referenced just by its name and dimension label is going to
@@ -142,7 +142,7 @@ it in the `schema` argument of :meth:`cubes.Workspace.register_store`:
                              url=DATABASE_URL,
                              schema="sales_datamart")
 
-For the :doc:`server` the schema is specifiedn in the ``[store]`` section
+For the :doc:`server` the schema is specified in the ``[store]`` section
 of the `slicer.ini` configuration file:
 
 .. code-block:: ini
@@ -520,7 +520,7 @@ attribute) with the `label` attribute:
 Key and Label Attribute
 -----------------------
 
-*Synopsis: specify which attributes are going to be used for flitering (keys)
+*Synopsis: specify which attributes are going to be used for filtering (keys)
 and which are going to be displayed in the user interface (labels)*
 
 .. image:: images/schemas/schema-label_attributes.png

@@ -54,6 +54,6 @@ class LocalizationTestCase(CubesTestCaseBase):
         self.assertEqual(cube.label, "inner_LAB")
 
     # TODO: test non existent top object
-    # TODO: test non existend child object
+    # TODO: test non existent child object
     # TODO: test plain label
 

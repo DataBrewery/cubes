@@ -1882,7 +1882,7 @@ class Level(ModelObject):
         elif nonadditive in ["all", "any"]:
             self.nonadditive = "all"
         elif nonadditive != "time":
-            raise ModelError("Unknown non-additive diension type '%s'"
+            raise ModelError("Unknown non-additive dimension type '%s'"
                              % nonadditive)
         self.nonadditive = nonadditive
 
