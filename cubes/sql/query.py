@@ -957,7 +957,7 @@ class QueryContext(object):
         conditions = []
 
         for cut in cuts:
-            hierarchy = str(cut.hierarchy) if cut.hierarchy else None
+            hierarchy = str(cut.hierarchy) if cut.hierarchy else "default"
 
             if isinstance(cut, PointCut):
                 path = cut.path
