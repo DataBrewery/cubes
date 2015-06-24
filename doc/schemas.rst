@@ -58,7 +58,7 @@ Simple Dimension
 neither hierarchy.*
 
 Similar schema as `Simple Star Schema`_ Note the dimension `year` which is
-represented just by one numeroc attribute.
+represented just by one numeric attribute.
 
 It is important that no attributes are specified for the dimension. There
 dimension will be referenced just by its name and dimension label is going to
@@ -175,7 +175,7 @@ Python pass it in the `dimension_schema` argument of
                                        schema="facts",
                                        dimension_schema="dimensions")
 
-For the :doc:`server` the dimension schema is specifiedn in the
+For the :doc:`server` the dimension schema is specified in the
 ``[store]`` section of the `slicer.ini` configuration file:
 
 .. code-block:: ini
@@ -248,7 +248,7 @@ dimension. It his case, backends that are aware of the issue, might handle it
 appropriately.
 
 Some front-ends might not even allow to aggregate by levels that are marked as
-`nonadditivy`.
+`nonadditive`.
 
 Mappings
 ========
@@ -520,7 +520,7 @@ attribute) with the `label` attribute:
 Key and Label Attribute
 -----------------------
 
-*Synopsis: specify which attributes are going to be used for flitering (keys)
+*Synopsis: specify which attributes are going to be used for filtering (keys)
 and which are going to be displayed in the user interface (labels)*
 
 .. image:: images/schemas/schema-label_attributes.png
