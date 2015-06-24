@@ -56,8 +56,8 @@ defined as:
 
 Same cuts for Slicer: ``cut=geography:sk|date:2010,6-2012,6``.
 
-If a different hierarchy than default is desired – "from the second quartal of
-2010 to the second quartal of 2012":
+If a different hierarchy than default is desired – "from the second quarter of
+2010 to the second quarter of 2012":
 
 .. code-block:: python
 
