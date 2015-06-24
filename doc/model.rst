@@ -118,7 +118,7 @@ Mappings and Joins
 One can specify shared mappings and joins on the model-level. Those mappings
 and joins are inherited by all the cubes in the model.
 
-The ``mappigns`` dictionary of a cube is merged with model's global mapping
+The ``mappings`` dictionary of a cube is merged with model's global mapping
 dictionary. Cube's values overwrite the model's values.
 
 The ``joins`` can be considered as named templates. They should contain
@@ -134,7 +134,7 @@ Inheritance
 
 .. TODO: move this into recipes
 
-Cubes in a model will inherint mappings and joins from the model. The mappings
+Cubes in a model will inherit mappings and joins from the model. The mappings
 are merged in a way that cube's mappings replace existing model's
 mappings with the same name. Joins are concatenated or merged by their name.
 
@@ -391,7 +391,7 @@ Example:
     ]
 
 `Measure aggregate` is a value computed by aggregating measures over facts.
-It's properties are:
+Its properties are:
 
 * ``name`` – aggregate identifier, such as: `amount_sum`, `price_avg`,
   `total`, `record_count`
