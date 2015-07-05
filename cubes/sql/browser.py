@@ -153,17 +153,17 @@ class SQLBrowser(AggregationBrowser):
         # about relevant joins to be able to retrieve certain attributes.
 
         if options.get("is_denormalized", options.get("use_denormalization")):
-            mapper = DenormalizedMapper
+            self.mapper = DenormalizedMapper
         else:
-            mapper = StarSchemaMapper
+            self.mapper = StarSchemaMapper
 
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
-                          (str(mapper.__name__), cube.name, locale))
+                          (str(self.mapper.__name__), cube.name, locale))
 
         # Prepare the mappings of base attributes
         #
         naming = distill_naming(options)
-        (fact_name, mappings) = map_base_attributes(cube, mapper,
+        (fact_name, mappings) = map_base_attributes(cube, self.mapper,
                                                     naming=naming,
                                                     locale=locale)
 
