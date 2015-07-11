@@ -312,7 +312,7 @@ class ModelEditorSlicerCommand(object):
         MODEL = MODEL or {}
         MODEL["__modeler_options__"] = {"store_type": args.store_type}
 
-        modeler.run(host="127.0.0.1", port=args.port, debug=True)
+        modeler.run(host="0.0.0.0", port=args.port, debug=True)
 
 
 if __name__ == '__main__':
