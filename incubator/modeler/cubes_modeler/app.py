@@ -9,7 +9,8 @@ Note: Use only as local server with slicer:
 """
 
 from flask import Flask, render_template, request
-from cubes import Model, read_model_metadata, create_model_provider
+from cubes import read_model_metadata
+# from cubes import Model, read_model_metadata, create_model_provider
 from cubes import get_logger, write_model_metadata_bundle
 from cubes import expand_dimension_metadata
 import json
@@ -241,7 +242,7 @@ def get_dimension(id):
     return json.dumps(info)
 
 @modeler.route("/new_dimension", methods=["PUT"])
-def new_cube():
+def new_dimension():
     dim_id = dimension_id_sequence.next()
     level = {
         "name": "default",
@@ -311,7 +312,7 @@ class ModelEditorSlicerCommand(object):
         MODEL = MODEL or {}
         MODEL["__modeler_options__"] = {"store_type": args.store_type}
 
-        modeler.run(host="0.0.0.0", port=args.port, debug=True)
+        modeler.run(host="127.0.0.1", port=args.port, debug=True)
 
 
 if __name__ == '__main__':
