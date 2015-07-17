@@ -13,7 +13,6 @@ from ..errors import *
 from ..extensions import extensions
 from .logging import configured_request_log_handlers, RequestLogger
 from .logging import AsyncRequestLogger
-from .utils import *
 from .errors import *
 from .decorators import *
 from .local import *
@@ -83,7 +82,6 @@ def initialize_slicer(state):
 
     with state.app.app_context():
         config = state.options["config"]
-        config = read_server_config(config)
 
         # Create workspace and other app objects
         # We avoid pollution of the current_app context, as we are a Blueprint
@@ -99,7 +97,7 @@ def initialize_slicer(state):
 
         if not hasattr(current_app, 'cubes_workspace'):
             current_app.cubes_workspace = Workspace(config, **_options)
-
+        
         # Configure the application
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
