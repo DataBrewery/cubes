@@ -55,9 +55,9 @@ _BUILTIN_EXTENSIONS = {
         "slicer":"cubes.server.store:SlicerModelProvider",
     },
     "request_log_handlers": {
-        "default":"cubes.server.logging:DefaultRequestLogger",
-        "csv":"cubes.server.logging:CSVRequestLogger",
-        "json":"cubes.server.logging:JSONRequestLogger",
+        "default":"cubes.server.logging:DefaultRequestLogHandler",
+        "csv":"cubes.server.logging:CSVFileRequestLogHandler",
+        "json":"cubes.server.logging:JSONRequestLogHandler",
         "sql":"cubes.sql.logging:SQLRequestLogger",
     },
     "stores": {
