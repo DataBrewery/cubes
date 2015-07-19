@@ -22,7 +22,8 @@ class SlicerTestCaseBase(CubesTestCaseBase):
     def setUp(self):
         super(SlicerTestCaseBase, self).setUp()
 
-        self.slicer = create_server()
+        self.config = compat.ConfigParser()
+        self.slicer = create_server(self.config)
         self.slicer.debug = True
         self.server = Client(self.slicer, BaseResponse)
         self.logger = self.slicer.logger

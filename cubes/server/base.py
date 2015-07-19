@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from .blueprint import slicer
 from flask import Flask
 import shlex
+import os
 
 from .utils import *
 from .. import compat
@@ -32,10 +33,7 @@ def create_server(config=None, **_options):
     """Returns a Flask server application. `config` is a path to a
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 
-    config = read_slicer_config(config)
-
     # Load extensions
-
     if config.has_option("server", "modules"):
         modules = shlex.split(config.get("server", "modules"))
         for module in modules:
@@ -48,12 +46,12 @@ def create_server(config=None, **_options):
 
     return app
 
-
-def run_server(config, debug=False):
+def run_server(config, debug=False, app=None):
     """Run OLAP server with configuration specified in `config`"""
 
-    config = read_server_config(config)
-    app = create_server(config)
+    config = read_slicer_config(config)
+    if app is None:
+        app = create_server(config)
 
     if config.has_option("server", "host"):
         host = config.get("server", "host")
@@ -74,6 +72,18 @@ def run_server(config, debug=False):
         processes = config.getint('server', 'processes')
     else:
         processes = 1
+
+    if config.has_option("server", "pid_file"):
+        path = config.get("server", "pid_file")
+        try:
+            with open(path, "w") as f:
+                f.write(str(os.getpid()))
+        except IOError, e:
+            from ..logging import get_logger
+            logger = get_logger()
+            logger.error("Unable to write PID file '%s'. Check the "
+                         "directory existence or permissions." % path)
+            raise
 
     app.run(host, port, debug=debug, processes=processes,
             use_reloader=use_reloader)

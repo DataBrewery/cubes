@@ -20,6 +20,7 @@ import sys
 
 from collections import OrderedDict
 
+from ..server.base import read_slicer_config
 from ..common import MissingPackageError
 from ..datastructures import AttributeDict
 from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
@@ -61,15 +62,7 @@ def serve(ctx, config, visualizer):
     """Run Slicer HTTP server."""
     config = read_config(config)
 
-    if config.has_option("server", "pid_file"):
-        path = config.get("server", "pid_file")
-        try:
-            with open(path, "w") as f:
-                f.write("%s\n" % os.getpid())
-        except IOError:
-            raise CubesError("Unable to write PID file '%s'. Check the "
-                             "directory existence or permissions." % path)
-
+    # FIXME "visualizer" shouldn't be in "server" section
     if visualizer:
         config.set("server", "visualizer", visualizer)
 
@@ -279,6 +272,7 @@ def test(aggregate, exclude_stores, include_stores, config, cube):
             facts = browser.test(aggregate=aggregate)
         except NotImplementedError:
             click.echo("pass - no test")
+        # FIXME XXX CubesError not defined
         except CubesError as e:
             errors.append((name, e))
             click.echo("ERROR")
@@ -324,13 +318,7 @@ def convert(ctx, model_format, force, model_path, target):
 
 def read_config(cfg):
     """Read the configuration file."""
-    config = compat.ConfigParser()
-    try:
-        config.read(cfg)
-    except Exception as e:
-        raise Exception("Unable to load config: %s" % e)
-
-    return config
+    return read_slicer_config(cfg)
 
 ################################################################################
 # Group: sql
