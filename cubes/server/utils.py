@@ -120,15 +120,4 @@ def formatted_response(response, fields, labels, iterable=None):
                         mimetype='text/csv',
                         headers=headers)
 
-def read_server_config(config):
-    if not config:
-        return compat.ConfigParser()
-    elif isinstance(config, compat.string_type):
-        try:
-            path = config
-            config = compat.ConfigParser()
-            config.read(path)
-        except Exception as e:
-            raise Exception("Unable to load configuration: %s" % e)
-    return config
 

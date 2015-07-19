@@ -78,17 +78,9 @@ class Workspace(object):
         # FIXME: **_options is temporary solution/workaround before we get
         # better configuration. Used internally. Don't use!
 
-        if isinstance(config, compat.string_type):
-            cp = ConfigParser()
-            try:
-                cp.read(config)
-            except Exception as e:
-                raise ConfigurationError("Unable to load config %s. "
-                                "Reason: %s" % (config, str(e)))
-
-            config = cp
-
-        elif not config:
+        assert config is None or isinstance(config, ConfigParser), "config is %r" % (config,)
+        
+        if not config:
             # Read ./slicer.ini
             config = ConfigParser()
 

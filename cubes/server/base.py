@@ -16,7 +16,7 @@ __all__ = (
 # Server Instantiation and Running
 # ================================
 
-def _read_config(config):
+def read_slicer_config(config):
     if not config:
         return compat.ConfigParser()
     elif isinstance(config, compat.string_type):
@@ -32,7 +32,7 @@ def create_server(config=None, **_options):
     """Returns a Flask server application. `config` is a path to a
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 
-    config = read_server_config(config)
+    config = read_slicer_config(config)
 
     # Load extensions
 
