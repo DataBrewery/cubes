@@ -6,6 +6,7 @@ from cubes.errors import *
 from cubes.workspace import *
 from cubes.stores import Store
 from cubes.model import *
+from cubes.server.base import read_slicer_config
 
 from .common import CubesTestCaseBase
 # FIXME: remove this once satisfied
@@ -13,7 +14,8 @@ from .common import CubesTestCaseBase
 class WorkspaceTestCaseBase(CubesTestCaseBase):
     def default_workspace(self, model_name=None):
         model_name = model_name or "model.json"
-        ws = Workspace(config=self.data_path("slicer.ini"))
+        config = read_slicer_config(self.data_path("slicer.ini"))
+        ws = Workspace(config=config)
         ws.import_model(self.model_path("model.json"))
         return ws
 
@@ -33,7 +35,7 @@ class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
         ws = Workspace(stores=self.data_path("stores.ini"))
         self.assertEqual(3, len(ws.store_infos) )
 
-        ws = Workspace(config=self.data_path("slicer.ini"))
+        ws = Workspace(config=read_slicer_config(self.data_path("slicer.ini")))
         self.assertEqual(2, len(ws.store_infos))
 
         self.assertTrue("default" in ws.store_infos)
@@ -41,9 +43,8 @@ class WorkspaceStoresTestCase(WorkspaceTestCaseBase):
 
     def test_duplicate_store(self):
         with self.assertRaises(CubesError):
-            ws = Workspace(config=self.data_path("slicer.ini"),
+            ws = Workspace(config=read_slicer_config(self.data_path("slicer.ini")),
                            stores=self.data_path("stores.ini"))
-
 
 class WorkspaceModelTestCase(WorkspaceTestCaseBase):
     def test_get_cube(self):
