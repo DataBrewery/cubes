@@ -8,6 +8,7 @@ import os
 
 from .utils import *
 from .. import compat
+from ..logging import get_logger
 
 __all__ = (
     "create_server",
@@ -50,6 +51,18 @@ def run_server(config, debug=False, app=None):
     """Run OLAP server with configuration specified in `config`"""
 
     config = read_slicer_config(config)
+
+    logger = get_logger()
+
+    if config.has_option("server", "debug"):
+        if debug is False and config.getboolean("server", "debug"):
+            debug = True
+
+    if debug:
+        logger.warning('Server running under DEBUG, so logging level set to DEBUG.')
+        import logging
+        logger.setLevel(logging.DEBUG)
+
     if app is None:
         app = create_server(config)
 
@@ -79,8 +92,6 @@ def run_server(config, debug=False, app=None):
             with open(path, "w") as f:
                 f.write(str(os.getpid()))
         except IOError, e:
-            from ..logging import get_logger
-            logger = get_logger()
             logger.error("Unable to write PID file '%s'. Check the "
                          "directory existence or permissions." % path)
             raise

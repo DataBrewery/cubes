@@ -103,6 +103,7 @@ def initialize_slicer(state):
             current_app.cubes_workspace = Workspace(config, **_options)
 
         # Configure the application
+        # FIXME XXX this shouldn't be in the "server" section
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
         _store_option(config, "hide_private_cuts", False, "bool")
