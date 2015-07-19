@@ -78,7 +78,7 @@ class Workspace(object):
         # FIXME: **_options is temporary solution/workaround before we get
         # better configuration. Used internally. Don't use!
 
-        assert config is None or isinstance(config, ConfigParser), "config is %r" % (config,)
+        assert config is None or isinstance(config, ConfigParser), "config should be a ConfigParser instance, but is %r" % (config,)
         
         if not config:
             # Read ./slicer.ini
