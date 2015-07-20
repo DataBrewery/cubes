@@ -528,7 +528,7 @@ class SQLBrowser(AggregationBrowser):
         # Basic assertions
 
         if not aggregates:
-            raise ArgumentError("List of aggregates sohuld not be empty")
+            raise ArgumentError("List of aggregates should not be empty")
 
         if not isinstance(drilldown, Drilldown):
             raise InternalError("Drilldown should be a Drilldown object. "
