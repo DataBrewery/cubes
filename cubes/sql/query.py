@@ -25,7 +25,7 @@ from sqlalchemy.sql.expression import and_
 
 from collections import namedtuple
 from ..model import depsort_attributes, object_dict
-from ..errors import InternalError, ModelError, ArgumentError
+from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
 from .. import compat
 from ..browser import SPLIT_DIMENSION_NAME
 from ..cells import PointCut, SetCut, RangeCut
