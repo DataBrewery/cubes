@@ -2301,7 +2301,7 @@ class Measure(AttributeBase):
         other measure that refers to this one (no circular reference).
 
         The `aggregates` is an optional property and is used for:
-        * measure aggergate object preparation
+        * measure aggregate object preparation
         * optional validation
 
         String representation of a `Measure` returns its full reference.
