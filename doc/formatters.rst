@@ -14,7 +14,7 @@ multiple forms using formatters:
     print formatter.format(result, "date")
 
 
-Available formmaters:
+Available formatters:
 
 * `text_table` – text output for result of drilling down through one
   dimension
