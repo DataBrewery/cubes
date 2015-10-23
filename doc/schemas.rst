@@ -142,7 +142,7 @@ it in the `schema` argument of :meth:`cubes.Workspace.register_store`:
                              url=DATABASE_URL,
                              schema="sales_datamart")
 
-For the :doc:`server` the schema is specifiedn in the ``[store]`` section
+For the :doc:`server` the schema is specified in in the ``[store]`` section
 of the `slicer.ini` configuration file:
 
 .. code-block:: ini
