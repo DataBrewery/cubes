@@ -58,7 +58,7 @@ Simple Dimension
 neither hierarchy.*
 
 Similar schema as `Simple Star Schema`_ Note the dimension `year` which is
-represented just by one numeroc attribute.
+represented just by one numeric attribute.
 
 It is important that no attributes are specified for the dimension. There
 dimension will be referenced just by its name and dimension label is going to
