@@ -46,7 +46,7 @@ discount, etc.
 
 The *dimension* provides context for facts. Is used to:
 
-* filter queries or reporst
+* filter queries or reports
 * controls scope of aggregation of facts
 * used for ordering or sorting
 * defines master-detail relationship
