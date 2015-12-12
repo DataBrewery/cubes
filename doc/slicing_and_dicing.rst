@@ -22,7 +22,7 @@ being done by an AggregationBrowser.
 Cell and Cuts
 =============
 
-Cell defines a point of interest – portion of the cube to be aggergated or
+Cell defines a point of interest – portion of the cube to be aggregated or
 browsed.
 
 .. figure:: images/cubes-slice_and_dice-cell.png
