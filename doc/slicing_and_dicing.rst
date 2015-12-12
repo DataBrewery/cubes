@@ -259,7 +259,7 @@ Members
 
 Getting dimension members might be useful for example for populating
 drill-downs or for providing an information to the user what he can use for
-slicing and dicing. In python tehre is :meth:`cubes.AggregationBrowser.members`.
+slicing and dicing. In python there is :meth:`cubes.AggregationBrowser.members`.
 
 For example to get all countries present in a cell:
 
