@@ -404,6 +404,9 @@ It's properties are:
   such as moving average. If not provided and function requires it then 1 (one
   element) is assumed.
 * ``info`` – additional custom information (unspecified)
+* ``expression`` - to be used instead of ``function``, this allows you to use 
+  simple, SQL-like expressions to calculate the value of an aggregate based on
+  attributes of the fact.
 
 Example:
 
@@ -423,10 +426,16 @@ Example:
             "function": "sum"
         },
         {
+            "name": "sales_minus_tax",
+            "label": "Sales less VAT",
+            "expression": "sum(amount) - sum(vat)"
+        },
+        {
             "name": "item_count",
             "label": "Item Count",
             "function": "count"
         }
+
     ]
 
 Note the last aggregate ``item_count`` – it counts number of the facts within
