@@ -1111,3 +1111,55 @@ class QueryContext(object):
 
         return split_column.label(label)
 
+   # namnd added
+    def clause_for_having(self, cell):
+        """Returns a clause for having clause and attr for group. If cell is empty, not contain having or cell is
+        `None` then returns `None`."""
+
+        if not cell:
+            return None
+
+        clauses = self.clauses_for_having(cell.having_clauses)
+        condition = and_(*clauses["condition"])
+        clauses["condition"] = condition
+        return clauses
+
+    # namnd added
+    def clauses_for_having(self, having_clauses):
+        clauses = []
+        groups = []
+        for cut in having_clauses:
+            hierarchy = str(cut.hierarchy) if cut.hierarchy else None
+            if isinstance(cut, PointCut):
+                path = cut.path
+                hav_conds = self.having_condition(str(cut.dimension),
+                                                     path,
+                                                     hierarchy, cut.invert)
+            clauses.append(hav_conds["condition"])
+            groups += hav_conds["group"]
+        # return one dict
+        dict_clause = {"groups": groups, "condition": clauses}
+        return dict_clause
+
+    # namnd added
+    def having_condition(self, dim, path, hierarchy=None, invert=False):
+        """Returns a dict of `Condition` tuple (`attributes`, `conditions`,
+        `group_by`) dimension `dim` point at `path` and list group attrs use having. It is a compound
+        condition - one equality condition for each path element in form:
+        ``level[i].key = path[i]``"""
+        conditions = []
+        groups = []
+        levels = self.level_keys(dim, hierarchy, path)
+        for level_key, value in zip(levels, path):
+            # Prepare condition: dimension.level_key = path_value
+            column = self.column(level_key)
+            conditions.append(column == value)
+            groups.append(column)
+
+        condition = sql.expression.and_(*conditions)
+
+        if invert:
+            condition = sql.expression.not_(condition)
+
+        dict_condition = {"group": groups, "condition": condition}
+        return dict_condition
