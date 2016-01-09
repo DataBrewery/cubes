@@ -36,13 +36,13 @@ NULL_PATH_VALUE = '__null__'
 
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
-    def __init__(self, cube=None, cuts=None,  having_clauses=None):
+    def __init__(self, cube=None, cuts=None,  having_cuts=None):
         if not isinstance(cube, Cube):
             raise ArgumentError("Cell cube should be sublcass of Cube, "
                                 "provided: %s" % type(cube).__name__)
         self.cube = cube
         self.cuts = cuts if cuts is not None else []
-        self.having_clauses = having_clauses if having_clauses is not None else []
+        self.having_cuts = having_cuts if having_cuts is not None else []
 
     def __and__(self, other):
         """Returns a new cell that is a conjunction of the two provided
@@ -52,15 +52,15 @@ class Cell(object):
                                 "cubes '%s' and '%s'."
                                 % (self.name, other.name))
         cuts = self.cuts + other.cuts
-        having_clauses = self.having_clauses + other.having_clauses
-        return Cell(self.cube, cuts=cuts, having_clause=having_clauses)
+        having_cuts = self.having_cuts + other.having_cuts
+        return Cell(self.cube, cuts=cuts, having_cuts=having_cuts)
 
     def to_dict(self):
         """Returns a dictionary representation of the cell"""
         result = {
             "cube": str(self.cube.name),
             "cuts": [cut.to_dict() for cut in self.cuts],
-            "having_clauses": [clause.to_dict() for clause in self.having_clauses]
+            "having_cuts": [clause.to_dict() for clause in self.having_cuts]
         }
 
         return result

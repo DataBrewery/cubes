@@ -579,25 +579,26 @@ class SQLBrowser(AggregationBrowser):
         else:
             selection += aggregate_cols
 
-        # namnd added:
-        # HAVING
+        # madman: HAVING
         # ------
-        having_clauses = context.clause_for_having(cell)
-        havings = having_clauses["condition"]
-        group_clauses = having_clauses["groups"]
-        if group_by is None:
-            group_by = []
-        for group in group_clauses:
-            if group not in group_by:
-                group_by.append(group)
+        having_clauses = None
+        colums_and_havings = context.colums_and_having_cut_for_cell(cell)
+        if colums_and_havings is not None:
+            having_clauses = colums_and_havings[1]
+            group_clauses = colums_and_havings[0]
+            if group_by is None:
+                group_by = []
+            for group in group_clauses:
+                if group not in group_by:
+                    group_by.append(group)
 
         statement = sql.expression.select(selection,
                                           from_obj=context.star,
                                           use_labels=True,
                                           whereclause=condition,
                                           group_by=group_by,
-                                          having=havings)
-        # print("statement: {}".format(statement))
+                                          having=having_clauses)
+
         return (statement, context.get_labels(statement.columns))
 
     def _log_statement(self, statement, label=None):
