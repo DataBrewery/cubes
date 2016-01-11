@@ -1120,7 +1120,7 @@ class QueryContext(object):
             return None
 
         having_cuts = cell.having_cuts
-        hav_condition = and_(*self.conditions_for_cuts(having_cuts))
+        hav_condition = and_(*self.conditions_for_having_cuts(having_cuts))
 
         if hav_condition is None:
             return None
@@ -1142,3 +1142,26 @@ class QueryContext(object):
                 columns.append(column)
 
         return columns
+
+    # madman: get condition in having cuts
+    def conditions_for_having_cuts(self, having_cuts):
+        """
+        Having cuts has only support type PointCut
+        """
+
+        conditions = []
+
+        for cut in having_cuts:
+            hierarchy = str(cut.hierarchy) if cut.hierarchy else None
+
+            if isinstance(cut, PointCut):
+                path = cut.path
+                condition = self.condition_for_point(str(cut.dimension),
+                                                     path,
+                                                     hierarchy, cut.invert)
+            else:
+                raise ArgumentError("Having cut has not support type %s" % type(cut))
+
+            conditions.append(condition)
+
+        return conditions
