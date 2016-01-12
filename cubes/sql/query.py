@@ -966,19 +966,10 @@ class QueryContext(object):
                                                      hierarchy, cut.invert)
 
             elif isinstance(cut, SetCut):
-                set_conds = []
-
-                for path in cut.paths:
-                    condition = self.condition_for_point(str(cut.dimension),
-                                                         path,
+                condition = self.condition_for_set(str(cut.dimension),
+                                                         cut.paths,
                                                          str(cut.hierarchy),
-                                                         invert=False)
-                    set_conds.append(condition)
-
-                condition = sql.expression.or_(*set_conds)
-
-                if cut.invert:
-                    condition = sql.expression.not_(condition)
+                                                         invert=cut.invert)
 
             elif isinstance(cut, RangeCut):
                 condition = self.range_condition(str(cut.dimension),
@@ -1165,3 +1156,24 @@ class QueryContext(object):
             conditions.append(condition)
 
         return conditions
+
+    # madman: fix setcut
+    def condition_for_set(self, dim, path, hierarchy=None, invert=False):
+        """Returns a `Condition` tuple (`attributes`, `conditions`,
+        `group_by`) dimension `dim` point at `path`. It is a compound
+        condition - one equality condition for each path element in form:
+        ``level[i].key IN (path[i])``"""
+        conditions = []
+        levels = self.level_keys(dim, hierarchy, path)
+        for level_key, value in zip(levels, path):
+            column = self.column(level_key)
+            values = []
+            for v in value:
+                values.append([v])
+            if invert:
+                condition = sql.expression.tuple_(column).notin_(values)
+            else:
+                condition = sql.expression.tuple_(column).in_(values)
+            conditions.append(condition)
+        condition = sql.expression.and_(*conditions)
+        return condition
