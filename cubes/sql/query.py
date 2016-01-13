@@ -938,18 +938,18 @@ class QueryContext(object):
 
         return [self._columns[ref] for ref in refs]
 
-    def condition_for_cell(self, cell):
+    def condition_for_cell(self, cell, for_summary=None):
         """Returns a condition for cell `cell`. If cell is empty or cell is
         `None` then returns `None`."""
 
         if not cell:
             return None
 
-        condition = and_(*self.conditions_for_cuts(cell.cuts))
+        condition = and_(*self.conditions_for_cuts(cell.cuts, for_summary))
 
         return condition
 
-    def conditions_for_cuts(self, cuts):
+    def conditions_for_cuts(self, cuts, for_summary=None):
         """Constructs conditions for all cuts in the `cell`. Returns a list of
         SQL conditional expressions.
         """
@@ -966,7 +966,8 @@ class QueryContext(object):
                                                      hierarchy, cut.invert)
 
             elif isinstance(cut, SetCut):
-                condition = self.condition_for_set(str(cut.dimension),
+                if not for_summary or cut.hidden is not True:
+                    condition = self.condition_for_set(str(cut.dimension),
                                                          cut.paths,
                                                          str(cut.hierarchy),
                                                          invert=cut.invert)

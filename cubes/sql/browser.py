@@ -564,7 +564,7 @@ class SQLBrowser(AggregationBrowser):
 
         # WHERE
         # -----
-        condition = context.condition_for_cell(cell)
+        condition = context.condition_for_cell(cell, for_summary)
 
         group_by = selection[:] if not for_summary else None
 
