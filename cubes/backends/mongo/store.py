@@ -9,4 +9,8 @@ class MongoStore(Store):
         self.client = pymongo.MongoClient(url, read_preference=pymongo.read_preferences.ReadPreference.SECONDARY)
         self.database = database
         self.collection = collection
+        self.options = options
+        self.store_type = options['store_type']
+        
+
 

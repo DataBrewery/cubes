@@ -1,25 +1,27 @@
-from ...logging import get_logger
-from ...errors import *
-from ...browser import *
-from ...computation import *
-from ...statutils import calculators_for_aggregates, available_calculators
-from cubes import statutils
-from .mapper import MongoCollectionMapper
-from .datesupport import MongoDateSupport
-from .functions import get_aggregate_function, available_aggregate_functions
-from .util import to_json_safe, collapse_record
-
 import collections
 import copy
-import pymongo
-import bson
+from datetime import datetime
+from functools import partial
+from itertools import groupby
+import json
 import re
 
+import bson
+from cubes import statutils
 from dateutil.relativedelta import relativedelta
-from datetime import datetime
-from itertools import groupby
-from functools import partial
+import pymongo
 import pytz
+
+from ...browser import *
+from ...computation import *
+from ...errors import *
+from ...logging import get_logger
+from ...statutils import calculators_for_aggregates, available_calculators
+from .datesupport import MongoDateSupport
+from .functions import get_aggregate_function, available_aggregate_functions
+from .mapper import MongoCollectionMapper
+from .util import to_json_safe, collapse_record
+from pymongo.cursor import Cursor
 
 
 tz_utc = pytz.timezone('UTC')
@@ -202,7 +204,7 @@ class MongoBrowser(AggregationBrowser):
 
         attributes = []
         for level in levels:
-           attributes += level.attributes
+            attributes += level.attributes
 
         drilldown = Drilldown([(dimension, hierarchy, levels[-1])], cell)
 
@@ -392,14 +394,13 @@ class MongoBrowser(AggregationBrowser):
                 raise BrowserError("Measure cannot be in different database "
                                    "or collection than browser: %r" % phys)
 
-            aggregate_fn_pairs.append( ( escape_level(agg.ref()), sum ) )
-
+            aggregate_fn_pairs.append( ( escape_level(agg.ref()), function ) )
 
             if phys.group:
                 group = phys.group
             elif function:
                 group_applicator = function["group_by"]
-                group = group_applicator(escape_level(agg.ref()))
+                group = group_applicator(escape_level(agg.measure or agg.ref()))
             else:
                 raise ModelError("Neither function or mapping group specified "
                                  "for aggregate '%s' in cube '%s'"
@@ -416,9 +417,10 @@ class MongoBrowser(AggregationBrowser):
             pipeline = []
 
         pipeline.append({ "$match": query_obj })
+        pipeline.append({ "$group": group_obj })
         if fields_obj:
             pipeline.append({ "$project": fields_obj })
-        pipeline.append({ "$group": group_obj })
+        
 
         if not timezone_shift_processing:
             if order:
@@ -436,11 +438,15 @@ class MongoBrowser(AggregationBrowser):
             pipeline.append({ "$limit": page_size })
 
         result_items = []
-        self.logger.debug("PIPELINE: %s", pipeline)
-
-        results = self.data_store.aggregate(pipeline).get('result', [])
+        self.logger.debug("PIPELINE: %s", json.dumps(pipeline))
+        
+        results = self.data_store.aggregate(pipeline)
+        # backwards compatibility
+        # since Pymongo 3.x CommandCursor is always returned 
+        if isinstance(results, Cursor):
+            results = results.get('result', [])
         results = [date_transform(r) for r in results]
-
+        
         if timezone_shift_processing:
             dategrouping = ['year', 'month', 'week', 'day', 'hour', 'minute']
             datenormalize = ['year', 'month', 'week', 'dow', 'day', 'hour', 'minute']

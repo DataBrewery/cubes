@@ -162,7 +162,8 @@ class MongoCollectionMapper(Mapper):
         self.database = database
         self.collection = collection
         self.mappings = mappings or cube.mappings
-
+        
+    
     def physical(self, attribute, locale=None):
         """Returns physical reference as tuple for `attribute`, which should
         be an instance of :class:`cubes.model.Attribute`. If there is no
@@ -180,6 +181,7 @@ class MongoCollectionMapper(Mapper):
             # TODO: should default to non-localized reference if no mapping
             # was found?
             mapped_ref = self.cube.mappings.get(logical)
+                         
 
             if mapped_ref:
                 reference = coalesce_physical(self, mapped_ref)
