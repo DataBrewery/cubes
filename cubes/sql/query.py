@@ -959,6 +959,7 @@ class QueryContext(object):
         for cut in cuts:
             hierarchy = str(cut.hierarchy) if cut.hierarchy else None
 
+            condition = None
             if isinstance(cut, PointCut):
                 path = cut.path
                 condition = self.condition_for_point(str(cut.dimension),
@@ -981,7 +982,8 @@ class QueryContext(object):
             else:
                 raise ArgumentError("Unknown cut type %s" % type(cut))
 
-            conditions.append(condition)
+            if condition is not None:
+                conditions.append(condition)
 
         return conditions
 
