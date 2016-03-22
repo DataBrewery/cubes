@@ -13,14 +13,15 @@ try:
     from sqlalchemy.sql.functions import ReturnTypeFromArgs
 except ImportError:
     from ...common import MissingPackage
+
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
     missing_error = MissingPackage("sqlalchemy", "SQL browser extensions")
+
 
     class ReturnTypeFromArgs(object):
         def __init__(*args, **kwargs):
             # Just fail by trying to call missing package
             missing_error()
-
 
 __all__ = (
     "get_aggregate_function",
@@ -103,21 +104,25 @@ class AggregateFunction(object):
     def __str__(self):
         return self.name
 
+
 class ValueCoalescingFunction(AggregateFunction):
     def coalesce_value(self, aggregate, value):
         """Coalesce the value before aggregation of `aggregate`. `value` is a
         SQLAlchemy expression.  Default implementation coalesces to zero 0."""
-        # TODO: use measure's missing value (we need to get the measure object
-        # somehow)
-        return sql.functions.coalesce(value, 0)
+        # Using default value - 0 or "coalesce" attribute from "info" dict
+
+        coalesce = aggregate.info.get('coalesce', 0)
+        return sql.functions.coalesce(value, coalesce)
 
 
 class SummaryCoalescingFunction(AggregateFunction):
     def coalesce_aggregate(self, aggregate, value):
         """Coalesce the aggregated value of `aggregate`. `value` is a
         SQLAlchemy expression.  Default implementation does nothing."""
-        # TODO: use aggregates's missing value
-        return sql.functions.coalesce(value, 0)
+        # Using default value - 0 or "coalesce" attribute from "info" dict
+
+        coalesce = aggregate.info.get('coalesce', 0)
+        return sql.functions.coalesce(value, coalesce)
 
 
 class GenerativeFunction(AggregateFunction):
@@ -201,4 +206,3 @@ def available_aggregate_functions():
     """Returns a list of available aggregate function names."""
     _create_function_dict()
     return _function_dict.keys()
-
