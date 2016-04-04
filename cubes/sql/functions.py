@@ -171,6 +171,8 @@ class stddev(ReturnTypeFromArgs):
 class variance(ReturnTypeFromArgs):
     pass
 
+class quantile(ReturnTypeFromArgs):
+    pass
 
 _functions = (
     SummaryCoalescingFunction("sum", sql.functions.sum),
@@ -181,7 +183,9 @@ _functions = (
     ValueCoalescingFunction("max", sql.functions.max),
     ValueCoalescingFunction("avg", avg),
     ValueCoalescingFunction("stddev", stddev),
-    ValueCoalescingFunction("variance", variance)
+    ValueCoalescingFunction("variance", variance),
+    ValueCoalescingFunction("median", quantile, 0.5)
+
 )
 
 _function_dict = {}
