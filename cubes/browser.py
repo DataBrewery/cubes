@@ -145,8 +145,12 @@ class AggregationBrowser(object):
 
         drilldon = Drilldown(drilldown, cell)
 
+        builtin_aggregates = [agg for agg in aggregates
+                              if agg.function and \
+                              self.is_builtin_function(agg.function)]
+
         result = self.provide_aggregate(cell,
-                                        aggregates=aggregates,
+                                        aggregates=builtin_aggregates,
                                         drilldown=drilldon,
                                         split=split,
                                         order=order,
@@ -163,13 +167,16 @@ class AggregationBrowser(object):
 
         result.calculators = calculators_for_aggregates(self.cube,
                                                         calculated_aggs,
-                                                        drilldown,
+                                                        drilldon,
                                                         split)
 
         # Do calculated measures on summary if no drilldown or split
-        if result.summary:
-            for calc in result.calculators:
-                calc(result.summary)
+        for calc in result.calculators:
+            if result.summary:
+                calc(result)
+            # if result.cells:
+            #     calc(list(result.cells))
+
 
         return result
 
@@ -250,7 +257,7 @@ class AggregationBrowser(object):
                                                                agg.name))
                 dependencies.append(aggregate)
 
-        aggregates += dependencies
+        # aggregates += dependencies
         return aggregates
 
     def prepare_order(self, order, is_aggregate=False):

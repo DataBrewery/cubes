@@ -421,11 +421,28 @@ class Cube(ModelObject):
         that the model is not valid).
         """
         name = str(name)
-        try:
-            return self._aggregates[name]
-        except KeyError:
-            raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
-                                            "'%s'" % (self.name, name))
+        measures = name.split(',')
+        if len(measures) == 1:
+            try:
+                return self._aggregates[name]
+            except KeyError:
+                raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                                                "'%s'" % (self.name, name))
+        elif len(measures) > 1:
+            res_agg = None
+            for agg_name, agg in self._aggregates.items():
+                if agg.measure == name:
+                    res_agg = agg
+                    # try:
+                    #     return agg
+                    # except KeyError:
+                    #     raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                    #                                     "'%s'" % (self.name, name))
+            if res_agg:
+                return res_agg
+            else:
+                raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                                                "'%s'" % (self.name, name))
 
     def get_aggregates(self, names=None):
         """Get a list of aggregates with `names`."""
