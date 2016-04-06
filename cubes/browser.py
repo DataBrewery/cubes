@@ -169,11 +169,12 @@ class AggregationBrowser(object):
                                                         calculated_aggs,
                                                         drilldon,
                                                         split)
+        result.cells = result._cells
 
         # Do calculated measures on summary if no drilldown or split
         for calc in result.calculators:
             if result.summary:
-                calc(result)
+                calc(result.summary)
             # if result.cells:
             #     calc(list(result.cells))
 

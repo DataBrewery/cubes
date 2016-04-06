@@ -195,7 +195,7 @@ class WindowFunction(object):
         print '__call_4_', self.target_attribute
         print '__call_5_', self.function
 
-        record = record.summary
+        #record = record.summary
 
         key = get_key(record, self.window_key)
 
@@ -295,7 +295,7 @@ class CellsFunction(object):
         for r in self.function(self.getattrs(cells, self.source_attributes)):
             cells[i][self.target_attribute] = r
             i += 1
-        result.cells = cells
+        result._cells = cells
 
 
 
