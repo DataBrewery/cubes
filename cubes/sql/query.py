@@ -32,7 +32,6 @@ from ..cells import PointCut, SetCut, RangeCut
 
 from .expressions import compile_attributes
 
-
 # Default label for all fact keys
 FACT_KEY_LABEL = '__fact_key__'
 
@@ -50,6 +49,7 @@ Note that either `extract` or `function` can be used, not both."""
 
 Column = namedtuple("Column", ["schema", "table", "column",
                                "extract", "function"])
+
 
 #
 # IMPORTANT: If you decide to extend the above Mapping functionality by adding
@@ -135,7 +135,6 @@ def to_join_key(obj):
     .. versionadded:: 1.1
     """
 
-
     if obj is None:
         return JoinKey(None, None, None)
 
@@ -173,18 +172,19 @@ def to_join_key(obj):
 
     return JoinKey(schema, table, column)
 
+
 """Table join specification. `master` and `detail` are TableColumnReference
 tuples. `method` denotes which table members should be considered in the join:
 *master* – all master members (left outer join), *detail* – all detail members
 (right outer join) and *match* – members must match (inner join)."""
 
 Join = namedtuple("Join",
-                  ["master", # Master table (fact in star schema)
-                   "detail", # Detail table (dimension in star schema)
+                  ["master",  # Master table (fact in star schema)
+                   "detail",  # Detail table (dimension in star schema)
                    "alias",  # Optional alias for the detail table
                    "method"  # Method how the table is joined
-                  ]
-                 )
+                   ]
+                  )
 
 
 def to_join(obj):
@@ -226,14 +226,14 @@ def to_join(obj):
 
 # Internal table reference
 _TableRef = namedtuple("_TableRef",
-                       ["schema", # Database schema
-                        "name",   # Table name
+                       ["schema",  # Database schema
+                        "name",  # Table name
                         "alias",  # Optional table alias instead of name
-                        "key",    # Table key (for caching or referencing)
+                        "key",  # Table key (for caching or referencing)
                         "table",  # SQLAlchemy Table object, reflected
-                        "join"    # join which joins this table as a detail
-                       ]
-                      )
+                        "join"  # join which joins this table as a detail
+                        ]
+                       )
 
 
 class SchemaError(InternalError):
@@ -421,7 +421,7 @@ class StarSchema(object):
                                key=(self.schema, self.fact_name),
                                table=self.fact_table,
                                join=None
-                              )
+                               )
 
         self._tables[fact_table.key] = fact_table
 
@@ -468,7 +468,7 @@ class StarSchema(object):
                             alias=alias,
                             key=key,
                             join=join
-                           )
+                            )
 
             self._tables[key] = ref
 
@@ -534,7 +534,6 @@ class StarSchema(object):
             raise NoSuchTableError(msg)
 
         return table
-
 
     def column(self, logical):
         """Return a column for `logical` reference. The returned column will
@@ -702,7 +701,7 @@ class StarSchema(object):
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
-        star_tables = {table_ref.key:table_ref.table for table_ref in tables}
+        star_tables = {table_ref.key: table_ref.table for table_ref in tables}
 
         # Here the `star` contains mapping table key -> table, which will be
         # gradually replaced by JOINs
@@ -881,11 +880,10 @@ class QueryContext(object):
 
         # Collect all the columns
         #
-        bases = {attr:self.star_schema.column(attr) for attr in base_names}
+        bases = {attr: self.star_schema.column(attr) for attr in base_names}
         bases[FACT_KEY_LABEL] = self.star_schema.fact_key_column
 
-        self._columns = compile_attributes(bases, dependants, parameters,
-                                           star_schema.label)
+        self._columns = compile_attributes(bases, dependants, parameters, coalesce_measure, star_schema.label)
 
         self.label_attributes = {}
         if self.safe_labels:
@@ -1004,7 +1002,6 @@ class QueryContext(object):
         levels = self.level_keys(dim, hierarchy, path)
 
         for level_key, value in zip(levels, path):
-
             # Prepare condition: dimension.level_key = path_value
             column = self.column(level_key)
             conditions.append(column == value)
@@ -1110,4 +1107,3 @@ class QueryContext(object):
         label = label or SPLIT_DIMENSION_NAME
 
         return split_column.label(label)
-

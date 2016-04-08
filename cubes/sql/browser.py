@@ -16,6 +16,7 @@ from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
 from .mapper import distill_naming
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
+from logging import DEBUG
 
 import collections
 
@@ -26,6 +27,7 @@ try:
 
 except ImportError:
     from ...common import MissingPackage
+
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 __all__ = [
@@ -77,7 +79,7 @@ class SQLBrowser(AggregationBrowser):
     __options__ = [
         {
             "name": "include_summary",
-            "description": "Include aggregation summary "\
+            "description": "Include aggregation summary " \
                            "(requires extra statement)",
             "type": "bool"
         },
@@ -111,6 +113,9 @@ class SQLBrowser(AggregationBrowser):
         self.cube = cube
         self.locale = locale or cube.locale
         self.debug = debug
+
+        if self.debug:
+            self.logger.setLevel(DEBUG)
 
         # Database connection and metadata
         # --------------------------------
@@ -213,7 +218,7 @@ class SQLBrowser(AggregationBrowser):
         Number of SQL queries: 1."""
 
         (statement, labels) = self.denormalized_statement(attributes=fields,
-                                                include_fact_key=True)
+                                                          include_fact_key=True)
         condition = statement.columns[FACT_KEY_LABEL] == key_value
         statement = statement.where(condition)
 
@@ -396,9 +401,9 @@ class SQLBrowser(AggregationBrowser):
 
         if self.include_summary or not (drilldown or split):
             (statement, labels) = self.aggregation_statement(cell,
-                                                   aggregates=aggregates,
-                                                   drilldown=drilldown,
-                                                   for_summary=True)
+                                                             aggregates=aggregates,
+                                                             drilldown=drilldown,
+                                                             for_summary=True)
 
             cursor = self.execute(statement, "aggregation summary")
             row = cursor.first()
@@ -426,9 +431,9 @@ class SQLBrowser(AggregationBrowser):
             self.logger.debug("preparing drilldown statement")
 
             (statement, labels) = self.aggregation_statement(cell,
-                                                   aggregates=aggregates,
-                                                   drilldown=drilldown,
-                                                   split=split)
+                                                             aggregates=aggregates,
+                                                             drilldown=drilldown,
+                                                             split=split)
             # Get the total cell count before the pagination
             #
             if self.include_cell_count:
@@ -453,8 +458,8 @@ class SQLBrowser(AggregationBrowser):
         # at least one of the bult-in aggregates is NULL
         if result.cells is not None and self.exclude_null_agregates:
             native_aggs = [agg.ref for agg in aggregates
-                               if agg.function and \
-                                   self.is_builtin_function(agg.function)]
+                           if agg.function and \
+                           self.is_builtin_function(agg.function)]
             result.exclude_if_null = native_agges
 
         return result
@@ -540,7 +545,7 @@ class SQLBrowser(AggregationBrowser):
         self.logger.debug("prepare aggregation statement. cell: '%s' "
                           "drilldown: '%s' for summary: %s" %
                           (",".join([str(cut) for cut in cell.cuts]),
-                          drilldown, for_summary))
+                           drilldown, for_summary))
 
         # TODO: it is verylikely that the _create_context is not getting all
         # attributes, for example those that aggregate depends on
@@ -555,7 +560,7 @@ class SQLBrowser(AggregationBrowser):
         #     * master drilldown items
 
         selection = context.get_columns([attr.ref for attr in
-                                                drilldown.all_attributes])
+                                         drilldown.all_attributes])
 
         # SPLIT
         # -----
@@ -589,13 +594,14 @@ class SQLBrowser(AggregationBrowser):
 
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
-        self.logger.debug("%s\n%s\n" % (label, str(statement)))
+        self.logger.debug("%s\n%s\n" % (label, str(statement.compile(compile_kwargs={"literal_binds": True}))))
 
 
 class ResultIterator(object):
     """
     Iterator that returns SQLAlchemy ResultProxy rows as dictionaries
     """
+
     def __init__(self, result, labels):
         self.result = result
         self.batch = None
