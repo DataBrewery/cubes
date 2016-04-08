@@ -156,13 +156,10 @@ class AggregationBrowser(object):
 
         drilldon = Drilldown(drilldown, cell)
 
-        builtin_aggregates = [agg for agg in aggregates
-                              if agg.function and \
-                              self.is_builtin_function(agg.function)]
-
+        aggregates = [agg for agg in aggregates if not agg.custom_agg]
 
         result = self.provide_aggregate(cell,
-                                        aggregates=builtin_aggregates,
+                                        aggregates=aggregates,
                                         drilldown=drilldon,
                                         split=split,
                                         order=order,
