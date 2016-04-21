@@ -925,6 +925,7 @@ class Dimension(Conceptual):
             info = template.info
             cardinality = template.cardinality
             role = template.role
+            native_time = template.native_time
             category = template.category
             nonadditive = template.nonadditive
         else:
@@ -936,6 +937,7 @@ class Dimension(Conceptual):
             description = None
             cardinality = None
             role = None
+            native_time = None
             category = None
             info = {}
             nonadditive = None
@@ -951,6 +953,7 @@ class Dimension(Conceptual):
         description = metadata.get("description") or description
         info = metadata.get("info", info)
         role = metadata.get("role", role)
+        native_time = metadata.get("native_time", native_time)
         category = metadata.get("category", category)
         nonadditive = metadata.get("nonadditive", nonadditive)
 
@@ -1039,6 +1042,7 @@ class Dimension(Conceptual):
                          info=info,
                          cardinality=cardinality,
                          role=role,
+                         native_time=native_time,
                          category=category,
                          nonadditive=nonadditive
                         )
@@ -1046,7 +1050,7 @@ class Dimension(Conceptual):
     # TODO: new signature: __init__(self, name, *attributes, **kwargs):
     def __init__(self, name, levels=None, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
-                 info=None, role=None, cardinality=None, category=None,
+                 info=None, role=None, native_time=None, cardinality=None, category=None,
                  master=None, nonadditive=None, attributes=None, **desc):
 
         """Create a new dimension
@@ -1091,6 +1095,7 @@ class Dimension(Conceptual):
         super(Dimension, self).__init__(name, label, description, info)
 
         self.role = role
+        self.native_time = native_time
         self.cardinality = cardinality
         self.category = category
 
@@ -1397,6 +1402,7 @@ class Dimension(Conceptual):
         out["default_hierarchy_name"] = self.hierarchy().name
 
         out["role"] = self.role
+        out["native_time"] = self.native_time
         out["cardinality"] = self.cardinality
         out["category"] = self.category
 

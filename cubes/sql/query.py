@@ -22,6 +22,7 @@ import logging
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
 from sqlalchemy.sql.expression import and_
+from sqlalchemy import func
 
 from collections import namedtuple
 from ..model import depsort_attributes, object_dict
@@ -588,6 +589,10 @@ class StarSchema(object):
 
         self._columns[logical] = column
 
+        element_key = str(column._element.key)
+        if element_key not in self._columns.keys():
+            self._columns[element_key] = column._element
+
         return column
 
     def _master_key(self, join):
@@ -982,7 +987,7 @@ class QueryContext(object):
                 condition = self.range_condition(str(cut.dimension),
                                                  hierarchy,
                                                  cut.from_path,
-                                                 cut.to_path, cut.invert)
+                                                 cut.to_path, cut.invert, native_time=cut.dimension.native_time)
 
             else:
                 raise ArgumentError("Unknown cut type %s" % type(cut))
@@ -1014,12 +1019,16 @@ class QueryContext(object):
         return condition
 
     def range_condition(self, dim, hierarchy, from_path, to_path,
-                        invert=False):
+                        invert=False, native_time=None):
         """Return a condition for a hierarchical range (`from_path`,
         `to_path`). Return value is a `Condition` tuple."""
 
-        lower = self._boundary_condition(dim, hierarchy, from_path, 0)
-        upper = self._boundary_condition(dim, hierarchy, to_path, 1)
+        if native_time:
+            lower = self._native_date_boundary_condition(dim, hierarchy, from_path, 0)
+            upper = self._native_date_boundary_condition(dim, hierarchy, to_path, 1)
+        else:
+            lower = self._boundary_condition(dim, hierarchy, from_path, 0)
+            upper = self._boundary_condition(dim, hierarchy, to_path, 1)
 
         conditions = []
         if lower is not None:
@@ -1071,6 +1080,40 @@ class QueryContext(object):
 
         if last is not None:
             condition = sql.expression.or_(condition, last)
+
+        return condition
+
+    def _native_date_boundary_condition(self, dim, hierarchy, path, bound, first=True):
+        """Return a `Condition` tuple for a boundary condition. If `bound` is
+        1 then path is considered to be upper bound (operators < and <= are
+        used), otherwise path is considered as lower bound (operators > and >=
+        are used )"""
+        # TODO: make this non-recursive
+
+        if not path:
+            return None
+        levels = self.level_keys(dim, hierarchy, path)
+
+        conditions = []
+
+        # Select required operator according to bound
+        # 0 - lower bound
+        # 1 - upper bound
+        if bound == 1:
+            # 1 - upper bound (that is <= and < operator)
+            operator = sql.operators.le if first else sql.operators.lt
+        else:
+            # else - lower bound (that is >= and > operator)
+            operator = sql.operators.ge if first else sql.operators.gt
+
+        column = self.column(levels[-1])
+        base_column = column._element.expr
+        while len(path) < 3:
+            path.append('1')
+
+        value = func.date('-'.join(path))
+        conditions.append(operator(base_column, value))
+        condition = sql.expression.and_(*conditions)
 
         return condition
 
