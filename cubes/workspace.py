@@ -494,7 +494,7 @@ class Workspace(object):
         """Return names all available cubes."""
         return [cube["name"] for cube in self.list_cubes()]
 
-    # TODO: this is not loclized!!!
+    # TODO: this is not localized!!!
     def list_cubes(self, identity=None):
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
@@ -550,7 +550,7 @@ class Workspace(object):
         lookup = namespace.translation_lookup(locale)
 
         if lookup:
-            # TODO: pass lookup instead of jsut first found translation
+            # TODO: pass lookup instead of just first found translation
             context = LocalizationContext(lookup[0])
             trans = context.object_localization("cubes", cube.name)
             cube = cube.localized(trans)
@@ -622,7 +622,7 @@ class Workspace(object):
         options.update(cube_options)
 
         # TODO: Construct options for the browser from cube's options
-        # dictionary and workspece default configuration
+        # dictionary and workspace default configuration
 
         browser_name = cube.browser
         if not browser_name and hasattr(store, "default_browser_name"):

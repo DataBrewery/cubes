@@ -118,7 +118,7 @@ Mappings and Joins
 One can specify shared mappings and joins on the model-level. Those mappings
 and joins are inherited by all the cubes in the model.
 
-The ``mappigns`` dictionary of a cube is merged with model's global mapping
+The ``mappings`` dictionary of a cube is merged with model's global mapping
 dictionary. Cube's values overwrite the model's values.
 
 The ``joins`` can be considered as named templates. They should contain

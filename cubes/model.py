@@ -694,7 +694,7 @@ class Cube(ModelObject):
                 hierarchies[key] = levels
 
                 if dim.default_hierarchy_name == hier.name:
-                    hierarchies[(dim.name, None)] = levels
+                    hierarchies[(dim.name, "default")] = levels
 
         return hierarchies
 
@@ -773,7 +773,7 @@ class Cube(ModelObject):
         results = []
 
         # Check whether all attributes, measures and keys are Attribute objects
-        # This is internal consistency chceck
+        # This is internal consistency check
 
         measures = set()
 
@@ -1090,13 +1090,13 @@ class Dimension(Conceptual):
         elif nonadditive in ["all", "any"]:
             self.nonadditive = "all"
         elif nonadditive != "time":
-            raise ModelError("Unknown non-additive diension type '%s'"
+            raise ModelError("Unknown non-additive dimension type '%s'"
                              % nonadditive)
 
         self.nonadditive = nonadditive
 
         if not levels and not attributes:
-            raise ModelError("No levels or attriutes specified for dimension %s" % name)
+            raise ModelError("No levels or attributes specified for dimension %s" % name)
         elif levels and attributes:
             raise ModelError("Both levels and attributes specified")
 
@@ -1354,7 +1354,7 @@ class Dimension(Conceptual):
             else:
                 default_hierarchy_name = hierarchies[0].name
 
-        # TODO: should we do deppcopy on info?
+        # TODO: should we do deepcopy on info?
         name = alias or self.name
 
         return Dimension(name=name,
@@ -1438,7 +1438,7 @@ class Dimension(Conceptual):
                 if len(self._hierarchies) > 1 and \
                         not "default" in self._hierarchies:
                     results.append(('error',
-                                    "No defaut hierarchy specified, there is "
+                                    "No default hierarchy specified, there is "
                                     "more than one hierarchy in dimension "
                                     "'%s'" % self.name))
 
@@ -1882,7 +1882,7 @@ class Level(ModelObject):
         elif nonadditive in ["all", "any"]:
             self.nonadditive = "all"
         elif nonadditive != "time":
-            raise ModelError("Unknown non-additive diension type '%s'"
+            raise ModelError("Unknown non-additive dimension type '%s'"
                              % nonadditive)
         self.nonadditive = nonadditive
 
@@ -2158,7 +2158,7 @@ class AttributeBase(ModelObject):
         """
         if locale:
             if not self.locales:
-                raise ArgumentError("Attribute '{}' is not loalizable "
+                raise ArgumentError("Attribute '{}' is not localizable "
                                     "(localization {} requested)"
                                     .format(self.name, locale))
             elif locale not in self.locales:
@@ -2175,7 +2175,7 @@ class AttributeBase(ModelObject):
     @property
     def dependencies(self):
         """Set of attributes that the `attribute` depends on. If the
-        `attribute` is an expresion, then returns the direct dependencies from
+        `attribute` is an expression, then returns the direct dependencies from
         the expression. If the attribute is an aggregate with an unary
         function operating on a measure, then the measure is considered as a
         dependency.  Attribute can't have both expression and measure
@@ -2301,7 +2301,7 @@ class Measure(AttributeBase):
         other measure that refers to this one (no circular reference).
 
         The `aggregates` is an optional property and is used for:
-        * measure aggergate object preparation
+        * measure aggregate object preparation
         * optional validation
 
         String representation of a `Measure` returns its full reference.
@@ -2400,12 +2400,12 @@ class MeasureAggregate(AttributeBase):
                  info=None, format=None, missing_value=None, measure=None,
                  function=None, formula=None, expression=None,
                  nonadditive=None, window_size=None, **kwargs):
-        """Masure aggregate
+        """Measure aggregate
 
         Attributes:
 
         * `function` – aggregation function for the measure
-        * `formula` – name of a formula that contains the arithemtic
+        * `formula` – name of a formula that contains the arithmetic
           expression (optional)
         * `measure` – measure name for this aggregate (optional)
         * `expression` – arithmetic expression (only if backend supported)
