@@ -11,6 +11,8 @@ aggregated data.
 
 *Focus on data analysis, in human way*
 
+**Note**: Stable version is the [1.0 branch](https://github.com/DataBrewery/cubes/tree/release-1.0.1). Default branch *master* is for development.
+
 Overview
 ========
 
