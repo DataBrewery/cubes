@@ -221,7 +221,7 @@ The level description:
 
 Cardinality values and their meaning:
 
-* ``tiny`` – few values, each value can have it's representation on the
+* ``tiny`` – few values, each value can have its representation on the
   screen, recommended: up to 5.
 * ``low`` – can be used in a list UI element, recommended 5 to 50 (if sorted)
 * ``medium`` – UI element is a search/text field, recommended for more than 50
@@ -372,7 +372,7 @@ Parameters:
 * `pagesize` - size of a page for paginated results
 * `order` - list of attributes to be ordered by
 * `split` – split cell, same syntax as the `cut`, defines virtual binary
-  (flag) dimension that inticates whether a cell belongs to the `split` cut
+  (flag) dimension that indicates whether a cell belongs to the `split` cut
   (`true`) or not (`false`). The dimension attribute is called
   `__within_split__`. Consult the backend you are using for more information,
   whether this feature is supported or not.
