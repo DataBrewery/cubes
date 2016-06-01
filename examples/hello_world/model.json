@@ -39,7 +39,7 @@
                     },
                     {
                         "name": "double_amount_sum",
-                        "expression": "1 + sum(double_amount) - 1"
+                        "expression": "0 + sum(double_amount)"
                     },
                     {
                         "name": "record_count",
