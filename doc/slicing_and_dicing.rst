@@ -22,7 +22,7 @@ being done by an AggregationBrowser.
 Cell and Cuts
 =============
 
-Cell defines a point of interest – portion of the cube to be aggergated or
+Cell defines a point of interest – portion of the cube to be aggregated or
 browsed.
 
 .. figure:: images/cubes-slice_and_dice-cell.png
@@ -259,7 +259,7 @@ Members
 
 Getting dimension members might be useful for example for populating
 drill-downs or for providing an information to the user what he can use for
-slicing and dicing. In python tehre is :meth:`cubes.AggregationBrowser.members`.
+slicing and dicing. In python there is :meth:`cubes.AggregationBrowser.members`.
 
 For example to get all countries present in a cell:
 
