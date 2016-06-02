@@ -7,23 +7,22 @@ Cubes - Online Analytical Processing Framework for Python
 
 Cubes is a light-weight Python framework and set of tools for Online
 Analytical Processing (OLAP), multidimensional analysis and browsing of
-aggregated data. 
+aggregated data.
 
 *Focus on data analysis, in human way*
 
-**Note**: Stable version is the [1.0 branch](https://github.com/DataBrewery/cubes/tree/release-1.0.1). Default branch *master* is for development.
 
 Overview
 ========
 
-Purpose is to provide a framework for giving analyst or any application 
-end-user understandable and natural way of presenting the multidimensional 
-data. One of the main features is the logical model, which serves as 
+Purpose is to provide a framework for giving analyst or any application
+end-user understandable and natural way of presenting the multidimensional
+data. One of the main features is the logical model, which serves as
 abstraction over physical data to provide end-user layer.
 
 Features:
 
-* OLAP and aggregated browsing (default backend is for relational databse - 
+* OLAP and aggregated browsing (default backend is for relational databse -
   ROLAP)
 * multidimensional analysis
 * logical view of analysed data - how analysts look at data, how they think of
@@ -35,6 +34,17 @@ Features:
 * OLAP server – HTTP server based on Flask Blueprint, can be [easily
   integrated](http://pythonhosted.org/cubes/deployment.html) into your
   application.
+
+Download
+========
+
+Current recommended version is 1.1.x. It hasn't been yet tagged so please use the *master* branch.
+This version includes SQL backend support out of the box, and other backends have been moved to separate
+projects (ie. MongoDB). This branch (currently *master*) will be soon tagged as 1.1 release.
+
+Previous stable version was 1.0.1. This version included all backend types, but no further
+development will be done on this branch.
+
 
 Documentation
 =============
@@ -59,6 +69,7 @@ https://github.com/DataBrewery/cubes-models
 
 Development
 ============
+
 Source code is in a Git repository [on GitHub](https://github.com/DataBrewery/cubes)
 
     git clone git://github.com/DataBrewery/cubes
@@ -81,7 +92,7 @@ Requirements
 
 Python >= 2.7 and Python >= 3.4.1
 
-Most of the requirements are soft (optional) and need to be satisfied only if 
+Most of the requirements are soft (optional) and need to be satisfied only if
 certain parts of cubes are being used.
 
 * SQLAlchemy from http://www.sqlalchemy.org/ version >= 0.7.4 - for SQL
@@ -92,7 +103,7 @@ certain parts of cubes are being used.
 Support
 =======
 
-If you have questions, problems or suggestions, you can send a message to the 
+If you have questions, problems or suggestions, you can send a message to the
 [Google group cubes-discuss](http://groups.google.com/group/cubes-discuss).
 
 IRC channel #databrewery on server irc.freenode.net
@@ -116,7 +127,7 @@ Authors
 =======
 
 Cubes is written and maintained by Stefan Urbanek (@Stiivi on Twitter)
-<stefan.urbanek@gmail.com> and various contributors. See AUTHORS file for more 
+<stefan.urbanek@gmail.com> and various contributors. See AUTHORS file for more
 information.
 
 
