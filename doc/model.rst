@@ -62,7 +62,7 @@ has two levels: `country` and `region`. Each level can have more attributes,
 such as code, name, population... In our example report we are interested only
 in geographical names, that is: `country.name` and `region.name`.
 
-.. How the physical attributes are located is described in the :doc:`mapping` 
+.. How the physical attributes are located is described in the :doc:`mapping`
 .. chapter.
 
 Model
@@ -96,7 +96,7 @@ Physical part of the model description:
   dictionary. This dictionary is inherited by every cube in the model.
 * ``joins`` - backend-specific join specification (used for example in
   the SQL backend). It should be a list of dictionaries. This list is
-  inherited by the cubes in the model. 
+  inherited by the cubes in the model.
 * ``browser_options`` – options passed to the browser. The options are merged
   with options in the cubes.
 
@@ -251,7 +251,7 @@ To expose only certain dimensions from a model specify a list of dimension
 names in the ``public_dimensions`` model property. Only dimensions from the
 list can be shared by other cubes in the workspace.
 
-.. note:: 
+.. note::
 
     Some backends, such as Mixpanel, don't share dimensions at all.
 
@@ -260,7 +260,7 @@ Cubes
 
 Cube descriptions are stored as a dictionary for key ``cubes`` in the model
 description dictionary or in json files with prefix ``cube_`` like
-``cube_contracts``. 
+``cube_contracts``.
 
 
 .. list-table::
@@ -404,9 +404,10 @@ It's properties are:
   such as moving average. If not provided and function requires it then 1 (one
   element) is assumed.
 * ``info`` – additional custom information (unspecified)
-* ``expression`` - to be used instead of ``function``, this allows you to use 
+* ``expression`` - to be used instead of ``function``, this allows you to use
   simple, SQL-like expressions to calculate the value of an aggregate based on
-  attributes of the fact.
+  attributes of the fact. Alternatively, remind that fields can also be
+  calculated at database level if your database system supports views.
 
 Example:
 
@@ -452,7 +453,7 @@ measures. For a measure:
             "aggregates": ["sum", "min", "max"]
         }
     ]
-    
+
 The following aggregates are created:
 
 .. code-block:: javascript
@@ -614,8 +615,8 @@ The dimension description contains keys:
     * - ``category``
       - logical category (user oriented metadata)
     * - ``template``
-      - name of a dimension that will be used as template 
-        
+      - name of a dimension that will be used as template
+
 ..
     * - ``nonadditive``
       - used when the dimension is nonadditive or semiadditive
@@ -727,7 +728,7 @@ Dimension hierarchy levels are described as:
       - name of attribute that is used for sorting, default is the first
         attribute (key)
     * - ``cardinality``
-      - symbolic approximation of the number of level's members 
+      - symbolic approximation of the number of level's members
     * - ``role``
       - Level role (see below)
     * - ``info``
@@ -754,7 +755,7 @@ Example of month level of date dimension:
         "label_attribute": "month_name",
         "attributes": ["month", "month_name", "month_sname"]
     },
-    
+
 Example of supplier level of supplier dimension:
 
 .. code-block:: javascript
