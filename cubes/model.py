@@ -2505,7 +2505,10 @@ def _measure_aggregate_label(aggregate, measure):
         if measure:
             measure_label = measure.label or measure.name
         else:
-            measure_label = aggregate.measure
+            if aggregate.measure:
+                measure_label = aggregate.measure
+            else:
+                measure_label = aggregate.name
 
         label = template.format(measure=measure_label)
 
