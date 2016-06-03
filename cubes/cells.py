@@ -661,7 +661,7 @@ def cut_from_dict(desc, cube=None):
 
 
 PATH_PART_ESCAPE_PATTERN = re.compile(r"([\\!|:;,-])")
-PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|;,-])")
+PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|:;,-])")
 
 
 def _path_part_escape(path_part):
