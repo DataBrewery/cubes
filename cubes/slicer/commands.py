@@ -599,22 +599,6 @@ def members(ctx, config, cube_name, cuts, dim_name, output_format):
     for row in result:
         out.write(row)
 
-def edit_model(args):
-    if not run_modeler:
-        sys.stderr.write("ERROR: 'cubes_modeler' package needs to be "
-                         "installed to edit the model.\n")
-        exit(1)
-
-    if args.port:
-        port = int(args.port)
-    else:
-        port = 5000
-
-    import webbrowser
-    webbrowser.open("http://127.0.0.1:%s" % port)
-
-    run_modeler(args.model, args.target)
-
 
 def main(*args, **kwargs):
 
