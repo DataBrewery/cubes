@@ -27,6 +27,7 @@ from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator
 from ..logging import create_logger
 from ..metadata import read_model_metadata, write_model_metadata_bundle
 from ..workspace import Workspace
+from ..errors import CubesError
 
 from .. import ext
 from .. import server
