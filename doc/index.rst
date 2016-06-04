@@ -75,6 +75,7 @@ Extension Development
 .. toctree::
     :maxdepth: 2
 
+    extensions/plugins
     extensions/backends
     extensions/providers
     extensions/auth

@@ -10,6 +10,7 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
+    plugins
     backends
     providers
     auth

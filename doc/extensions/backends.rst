@@ -9,6 +9,10 @@ Two objects play major role in Cubes backends:
 * `store` – represents a database connection, shared by multiple browsers
 
 
+.. seealso::
+
+    :doc:`plugins`
+
 Store
 =====
 

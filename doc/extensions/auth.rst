@@ -2,6 +2,10 @@
 Authenticators and Authorizers
 ******************************
 
+.. seealso::
+
+    :doc:`plugins`
+
 Authorizer
 ==========
 
@@ -150,3 +154,5 @@ later passed to the authorizer (it does not have to be the same value as a
 user name). The identity might even be `None` which might be interpreted by
 some authorizers guest or not-logged-in visitor. The method should raise
 `NotAuthenticated` when the credetials don't match.
+
+

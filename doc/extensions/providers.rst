@@ -150,4 +150,6 @@ Example:
             return create_cube(cube)
 
 
+.. seealso::
 
+    :doc:`plugins`
