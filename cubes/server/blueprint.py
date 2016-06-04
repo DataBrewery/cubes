@@ -47,7 +47,7 @@ API_VERSION = 2
 # Cross-origin resource sharing – 20 days cache
 CORS_MAX_AGE = 1728000
 
-slicer = Blueprint("slicer", __name__, template_folder="templates", static_folder="visualizer")
+slicer = Blueprint("slicer", __name__, template_folder="templates")
 
 # Before
 # ------
@@ -596,27 +596,12 @@ def logout():
         return "logged out"
 
 
-_VIS_CONFIG_PATTERN = re.compile(r"<!--\s*VISUALIZER CONFIG.+?-->(?msu)")
-_VIS_CONFIG_SCRIPT_TEMPLATE = Template(u"""
-<script type="text/javascript">
-VisualizerConfig.cubesUrl = "{{serverUrl}}";
-VisualizerConfig.splashScreen = false;
-</script>
-""")
-
-
 @slicer.route("/visualizer/")
 @slicer.route("/visualizer/index.html")
 def get_visualizer():
     viz = current_app.slicer.visualizer
 
-    # Use the default visualizer
-    if viz == "default":
-        with open(safe_join(slicer.static_folder, 'index.html'), 'rb') as indexfd:
-            index_contents = indexfd.read().decode('utf8')
-        index_contents = _VIS_CONFIG_PATTERN.sub(_VIS_CONFIG_SCRIPT_TEMPLATE.render(serverUrl=url_for('.show_index', _external=True)), index_contents)
-        return make_response(index_contents)
-    elif viz:
+    if viz:
         return redirect(viz)
     else:
         raise PageNotFoundError("Visualizer not configured")

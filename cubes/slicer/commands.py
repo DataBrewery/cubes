@@ -55,7 +55,7 @@ def cli(ctx, debug):
 @cli.command()
 @click.argument('config', type=click.Path(exists=True), default=DEFAULT_CONFIG)
 @click.option('--visualizer',
-              help="Visualizer URL or 'default' for built-in visualizer")
+              help="Visualizer URL for /visualizer path")
 @click.pass_context
 def serve(ctx, config, visualizer):
     """Run Slicer HTTP server."""
