@@ -421,11 +421,28 @@ class Cube(ModelObject):
         that the model is not valid).
         """
         name = str(name)
-        try:
-            return self._aggregates[name]
-        except KeyError:
-            raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
-                                            "'%s'" % (self.name, name))
+        measures = name.split(',')
+        if len(measures) == 1:
+            try:
+                return self._aggregates[name]
+            except KeyError:
+                raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                                                "'%s'" % (self.name, name))
+        elif len(measures) > 1:
+            res_agg = None
+            for agg_name, agg in self._aggregates.items():
+                if agg.measure == name:
+                    res_agg = agg
+                    # try:
+                    #     return agg
+                    # except KeyError:
+                    #     raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                    #                                     "'%s'" % (self.name, name))
+            if res_agg:
+                return res_agg
+            else:
+                raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
+                                                "'%s'" % (self.name, name))
 
     def get_aggregates(self, names=None):
         """Get a list of aggregates with `names`."""
@@ -908,6 +925,7 @@ class Dimension(Conceptual):
             info = template.info
             cardinality = template.cardinality
             role = template.role
+            native_time = template.native_time
             category = template.category
             nonadditive = template.nonadditive
         else:
@@ -919,6 +937,7 @@ class Dimension(Conceptual):
             description = None
             cardinality = None
             role = None
+            native_time = None
             category = None
             info = {}
             nonadditive = None
@@ -934,6 +953,7 @@ class Dimension(Conceptual):
         description = metadata.get("description") or description
         info = metadata.get("info", info)
         role = metadata.get("role", role)
+        native_time = metadata.get("native_time", native_time)
         category = metadata.get("category", category)
         nonadditive = metadata.get("nonadditive", nonadditive)
 
@@ -1022,6 +1042,7 @@ class Dimension(Conceptual):
                          info=info,
                          cardinality=cardinality,
                          role=role,
+                         native_time=native_time,
                          category=category,
                          nonadditive=nonadditive
                         )
@@ -1029,7 +1050,7 @@ class Dimension(Conceptual):
     # TODO: new signature: __init__(self, name, *attributes, **kwargs):
     def __init__(self, name, levels=None, hierarchies=None,
                  default_hierarchy_name=None, label=None, description=None,
-                 info=None, role=None, cardinality=None, category=None,
+                 info=None, role=None, native_time=None, cardinality=None, category=None,
                  master=None, nonadditive=None, attributes=None, **desc):
 
         """Create a new dimension
@@ -1074,6 +1095,7 @@ class Dimension(Conceptual):
         super(Dimension, self).__init__(name, label, description, info)
 
         self.role = role
+        self.native_time = native_time
         self.cardinality = cardinality
         self.category = category
 
@@ -1380,6 +1402,7 @@ class Dimension(Conceptual):
         out["default_hierarchy_name"] = self.hierarchy().name
 
         out["role"] = self.role
+        out["native_time"] = self.native_time
         out["cardinality"] = self.cardinality
         out["category"] = self.category
 
@@ -2399,7 +2422,8 @@ class MeasureAggregate(AttributeBase):
     def __init__(self, name, label=None, description=None, order=None,
                  info=None, format=None, missing_value=None, measure=None,
                  function=None, formula=None, expression=None,
-                 nonadditive=None, window_size=None, **kwargs):
+                 nonadditive=None, window_size=None, custom_agg=None,
+                 drilldowns_required=None, **kwargs):
         """Masure aggregate
 
         Attributes:
@@ -2425,6 +2449,8 @@ class MeasureAggregate(AttributeBase):
         self.measure = measure
         self.nonadditive = nonadditive
         self.window_size = window_size
+        self.custom_agg = custom_agg
+        self.drilldowns_required = drilldowns_required
 
     def __deepcopy__(self, memo):
         return MeasureAggregate(self.name,
@@ -2439,7 +2465,9 @@ class MeasureAggregate(AttributeBase):
                                 formula=self.formula,
                                 expression=self.expression,
                                 nonadditive=self.nonadditive,
-                                window_size=self.window_size)
+                                window_size=self.window_size,
+                                custom_agg=self.custom_agg,
+                                drilldowns_required=self.drilldowns_required)
 
     def __eq__(self, other):
         if not super(MeasureAggregate, self).__eq__(other):
@@ -2449,14 +2477,16 @@ class MeasureAggregate(AttributeBase):
             and self.measure == other.measure \
             and self.formula == other.formula \
             and self.nonadditive == other.nonadditive \
-            and self.window_size == other.window_size
+            and self.window_size == other.window_size \
+            and self.custom_agg == other.custom_agg \
+            and self.drilldowns_required == other.drilldowns_required
 
     def __hash__(self):
         return hash(self.ref)
 
     @property
     def is_base(self):
-        return not self.expression and not self.function
+        return not self.expression and not self.function and not self.custom_agg
 
     def to_dict(self, **options):
         d = super(MeasureAggregate, self).to_dict(**options)
@@ -2465,6 +2495,8 @@ class MeasureAggregate(AttributeBase):
         d["measure"] = self.measure
         d["nonadditive"] = self.nonadditive
         d["window_size"] = self.window_size
+        d["custom_agg"] = self.custom_agg
+        d["drilldowns_required"] = self.custom_agg
 
         return d
 

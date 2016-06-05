@@ -470,7 +470,8 @@ def cube_members(cube_name, dimension_name):
                                depth=depth,
                                hierarchy=hierarchy,
                                page=g.page,
-                               page_size=g.page_size)
+                               page_size=g.page_size,
+                               order=g.order)
 
     result = {
         "dimension": dimension.name,

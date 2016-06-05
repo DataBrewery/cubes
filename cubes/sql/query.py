@@ -22,6 +22,7 @@ import logging
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
 from sqlalchemy.sql.expression import and_
+from sqlalchemy import func
 
 from collections import namedtuple
 from ..model import depsort_attributes, object_dict
@@ -31,7 +32,6 @@ from ..browser import SPLIT_DIMENSION_NAME
 from ..cells import PointCut, SetCut, RangeCut
 
 from .expressions import compile_attributes
-
 
 # Default label for all fact keys
 FACT_KEY_LABEL = '__fact_key__'
@@ -50,6 +50,7 @@ Note that either `extract` or `function` can be used, not both."""
 
 Column = namedtuple("Column", ["schema", "table", "column",
                                "extract", "function"])
+
 
 #
 # IMPORTANT: If you decide to extend the above Mapping functionality by adding
@@ -135,7 +136,6 @@ def to_join_key(obj):
     .. versionadded:: 1.1
     """
 
-
     if obj is None:
         return JoinKey(None, None, None)
 
@@ -173,18 +173,19 @@ def to_join_key(obj):
 
     return JoinKey(schema, table, column)
 
+
 """Table join specification. `master` and `detail` are TableColumnReference
 tuples. `method` denotes which table members should be considered in the join:
 *master* – all master members (left outer join), *detail* – all detail members
 (right outer join) and *match* – members must match (inner join)."""
 
 Join = namedtuple("Join",
-                  ["master", # Master table (fact in star schema)
-                   "detail", # Detail table (dimension in star schema)
+                  ["master",  # Master table (fact in star schema)
+                   "detail",  # Detail table (dimension in star schema)
                    "alias",  # Optional alias for the detail table
                    "method"  # Method how the table is joined
-                  ]
-                 )
+                   ]
+                  )
 
 
 def to_join(obj):
@@ -226,14 +227,14 @@ def to_join(obj):
 
 # Internal table reference
 _TableRef = namedtuple("_TableRef",
-                       ["schema", # Database schema
-                        "name",   # Table name
+                       ["schema",  # Database schema
+                        "name",  # Table name
                         "alias",  # Optional table alias instead of name
-                        "key",    # Table key (for caching or referencing)
+                        "key",  # Table key (for caching or referencing)
                         "table",  # SQLAlchemy Table object, reflected
-                        "join"    # join which joins this table as a detail
-                       ]
-                      )
+                        "join"  # join which joins this table as a detail
+                        ]
+                       )
 
 
 class SchemaError(InternalError):
@@ -421,7 +422,7 @@ class StarSchema(object):
                                key=(self.schema, self.fact_name),
                                table=self.fact_table,
                                join=None
-                              )
+                               )
 
         self._tables[fact_table.key] = fact_table
 
@@ -468,7 +469,7 @@ class StarSchema(object):
                             alias=alias,
                             key=key,
                             join=join
-                           )
+                            )
 
             self._tables[key] = ref
 
@@ -535,7 +536,6 @@ class StarSchema(object):
 
         return table
 
-
     def column(self, logical):
         """Return a column for `logical` reference. The returned column will
         have a label same as the `logical`.
@@ -588,6 +588,10 @@ class StarSchema(object):
         column = column.label(logical)
 
         self._columns[logical] = column
+
+        element_key = str(column._element.key)
+        if element_key not in self._columns.keys():
+            self._columns[element_key] = column._element
 
         return column
 
@@ -702,7 +706,7 @@ class StarSchema(object):
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
-        star_tables = {table_ref.key:table_ref.table for table_ref in tables}
+        star_tables = {table_ref.key: table_ref.table for table_ref in tables}
 
         # Here the `star` contains mapping table key -> table, which will be
         # gradually replaced by JOINs
@@ -881,11 +885,10 @@ class QueryContext(object):
 
         # Collect all the columns
         #
-        bases = {attr:self.star_schema.column(attr) for attr in base_names}
+        bases = {attr: self.star_schema.column(attr) for attr in base_names}
         bases[FACT_KEY_LABEL] = self.star_schema.fact_key_column
 
-        self._columns = compile_attributes(bases, dependants, parameters,
-                                           star_schema.label)
+        self._columns = compile_attributes(bases, dependants, parameters, coalesce_measure, star_schema.label)
 
         self.label_attributes = {}
         if self.safe_labels:
@@ -984,7 +987,7 @@ class QueryContext(object):
                 condition = self.range_condition(str(cut.dimension),
                                                  hierarchy,
                                                  cut.from_path,
-                                                 cut.to_path, cut.invert)
+                                                 cut.to_path, cut.invert, native_time=cut.dimension.native_time)
 
             else:
                 raise ArgumentError("Unknown cut type %s" % type(cut))
@@ -1004,7 +1007,6 @@ class QueryContext(object):
         levels = self.level_keys(dim, hierarchy, path)
 
         for level_key, value in zip(levels, path):
-
             # Prepare condition: dimension.level_key = path_value
             column = self.column(level_key)
             conditions.append(column == value)
@@ -1017,12 +1019,16 @@ class QueryContext(object):
         return condition
 
     def range_condition(self, dim, hierarchy, from_path, to_path,
-                        invert=False):
+                        invert=False, native_time=None):
         """Return a condition for a hierarchical range (`from_path`,
         `to_path`). Return value is a `Condition` tuple."""
 
-        lower = self._boundary_condition(dim, hierarchy, from_path, 0)
-        upper = self._boundary_condition(dim, hierarchy, to_path, 1)
+        if native_time:
+            lower = self._native_date_boundary_condition(dim, hierarchy, from_path, 0)
+            upper = self._native_date_boundary_condition(dim, hierarchy, to_path, 1)
+        else:
+            lower = self._boundary_condition(dim, hierarchy, from_path, 0)
+            upper = self._boundary_condition(dim, hierarchy, to_path, 1)
 
         conditions = []
         if lower is not None:
@@ -1077,6 +1083,40 @@ class QueryContext(object):
 
         return condition
 
+    def _native_date_boundary_condition(self, dim, hierarchy, path, bound, first=True):
+        """Return a `Condition` tuple for a boundary condition. If `bound` is
+        1 then path is considered to be upper bound (operators < and <= are
+        used), otherwise path is considered as lower bound (operators > and >=
+        are used )"""
+        # TODO: make this non-recursive
+
+        if not path:
+            return None
+        levels = self.level_keys(dim, hierarchy, path)
+
+        conditions = []
+
+        # Select required operator according to bound
+        # 0 - lower bound
+        # 1 - upper bound
+        if bound == 1:
+            # 1 - upper bound (that is <= and < operator)
+            operator = sql.operators.le if first else sql.operators.lt
+        else:
+            # else - lower bound (that is >= and > operator)
+            operator = sql.operators.ge if first else sql.operators.gt
+
+        column = self.column(levels[-1])
+        base_column = column._element.expr
+        while len(path) < 3:
+            path.append('1')
+
+        value = func.date('-'.join(path))
+        conditions.append(operator(base_column, value))
+        condition = sql.expression.and_(*conditions)
+
+        return condition
+
     def level_keys(self, dimension, hierarchy, path):
         """Return list of key attributes of levels for `path` in `hierarchy`
         of `dimension`."""
@@ -1110,4 +1150,3 @@ class QueryContext(object):
         label = label or SPLIT_DIMENSION_NAME
 
         return split_column.label(label)
-

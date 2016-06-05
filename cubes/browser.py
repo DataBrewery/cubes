@@ -17,6 +17,8 @@ from .model import Dimension, Cube, string_to_dimension_level
 
 from . import compat
 
+from . import customagg
+
 
 __all__ = [
     "AggregationBrowser",
@@ -127,6 +129,15 @@ class AggregationBrowser(object):
         aggregates = self.prepare_aggregates(aggregates)
         order = self.prepare_order(order, is_aggregate=True)
 
+        custom_aggregates = [agg for agg in aggregates if agg.custom_agg]
+
+        if len(custom_aggregates) > 1:
+            raise ArgumentError("Only one custom aggregate allowed")
+        elif len(custom_aggregates) > 0:
+            drilldown.extend(custom_aggregates[0].drilldowns_required)
+
+
+
         converters = {
             "time": CalendarMemberConverter(self.calendar)
         }
@@ -144,6 +155,8 @@ class AggregationBrowser(object):
             split = Cell(self.cube, cuts)
 
         drilldon = Drilldown(drilldown, cell)
+
+        aggregates = [agg for agg in aggregates if not agg.custom_agg]
 
         result = self.provide_aggregate(cell,
                                         aggregates=aggregates,
@@ -163,13 +176,19 @@ class AggregationBrowser(object):
 
         result.calculators = calculators_for_aggregates(self.cube,
                                                         calculated_aggs,
-                                                        drilldown,
+                                                        drilldon,
                                                         split)
+        result.cells = result._cells
+
+        for ca in custom_aggregates:
+            fn = getattr(customagg, ca.custom_agg)
+            fn(result, ca.measure, ca.name)
 
         # Do calculated measures on summary if no drilldown or split
-        if result.summary:
-            for calc in result.calculators:
+        for calc in result.calculators:
+            if result.summary:
                 calc(result.summary)
+
 
         return result
 
@@ -214,6 +233,9 @@ class AggregationBrowser(object):
         # attributes
         # TODO: perhaps we might merge (without duplicates)
 
+        add_custom_aggs = False if aggregates is None else True
+
+
         if aggregates and measures:
             raise ArgumentError("Only aggregates or measures can be "
                                 "specified, not both")
@@ -238,6 +260,7 @@ class AggregationBrowser(object):
         for agg in aggregates:
             if agg.measure and \
                     not self.is_builtin_function(agg.function) \
+                    and not agg.custom_agg \
                     and agg.measure not in seen:
                 seen.add(agg.measure)
 
@@ -251,6 +274,29 @@ class AggregationBrowser(object):
                 dependencies.append(aggregate)
 
         aggregates += dependencies
+
+
+        if add_custom_aggs:
+            seen = set(a.name for a in aggregates)
+            dependencies = []
+            # Resolve aggregate dependencies for custom aggregate functions:
+            for agg in aggregates:
+                if agg.measure and \
+                        not self.is_builtin_function(agg.function) \
+                        and agg.custom_agg:
+                    for m in agg.measure.split(','):
+                        if m not in seen:
+                            seen.add(m)
+
+                        try:
+                            aggregate = self.cube.aggregate(m)
+                            dependencies.append(aggregate)
+                        except NoSuchAttributeError as e:
+                            pass
+
+            aggregates += dependencies
+        else:
+            return [ agg for agg in aggregates if not agg.custom_agg ]
         return aggregates
 
     def prepare_order(self, order, is_aggregate=False):

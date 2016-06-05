@@ -35,13 +35,13 @@ def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
         try:
             factory = CALCULATED_AGGREGATIONS[aggregate.function]
         except KeyError:
-            import pdb; pdb.set_trace()
             raise ArgumentError("Unknown post-calculation function '%s' for "
                                 "aggregate '%s'" % (aggregate.function,
                                                     aggregate.name))
 
         if aggregate.measure:
-            source = cube.measure_aggregate(aggregate.measure)
+            # source = cube.measure_aggregate(aggregate.measure)
+            source = cube.aggregate(aggregate.measure)
         else:
             raise InternalError("No measure specified for aggregate '%s' in "
                                 "cube '%s'" % (aggregate.name, cube.name))
@@ -61,6 +61,8 @@ def weighted_moving_average(values):
         idx += 1
     return round(total / denom, 4)
 
+def weighted_moving_average2(values):
+    return values[0][0]*values[0][1]
 
 def simple_moving_average(values):
     # use all the values
@@ -92,6 +94,7 @@ def simple_variance(values):
 def simple_stdev(values):
     mean, var = _variance(values)
     return round(sqrt(var), 2)
+
 
 def _window_function_factory(aggregate, source, drilldown_paths, split_cell, window_function, label):
     """Returns a moving average window function. `aggregate` is the target
@@ -144,10 +147,11 @@ def _window_function_factory(aggregate, source, drilldown_paths, split_cell, win
 
     function = WindowFunction(window_function, window_key,
                               target_attribute=aggregate.name,
-                              source_attribute=source,
+                              source_attribute=aggregate.measure,
                               window_size=window_size,
                               label=label)
     return function
+
 
 def get_key(record, composite_key):
     """Extracts a tuple of values from the `record` by `composite_key`"""
@@ -189,12 +193,18 @@ class WindowFunction(object):
             values = deque()
             self.window_values[key] = values
 
-        value = record.get(self.source_attribute)
+        if len(self.source_attribute.split(',')) == 1:
+            value = record.get(self.source_attribute)
+        else:
+            values = []
+            for m in self.source_attribute.split(','):
+                values.append([record.get(m)])
+            values = zip(*values)
 
         # TODO: What about those window functions that would want to have empty
         # values?
-        if value is not None:
-            values.append(value)
+        # if value is not None:
+        #     values.append(value)
 
         # Keep the window within the window size:
         while len(values) > self.window_size:
@@ -209,6 +219,9 @@ class WindowFunction(object):
 # TODO: make CALCULATED_AGGREGATIONS a namespace (see extensions.py)
 CALCULATED_AGGREGATIONS = {
     "wma": partial(_window_function_factory, window_function=weighted_moving_average, label='Weighted Moving Avg. of {measure}'),
+
+    "wma2": partial(_window_function_factory, window_function=weighted_moving_average2, label='Weighted Moving Avg. of {measure}'),
+
     "sma": partial(_window_function_factory, window_function=simple_moving_average, label='Simple Moving Avg. of {measure}'),
     "sms": partial(_window_function_factory, window_function=simple_moving_sum, label='Simple Moving Sum of {measure}'),
     "smstd": partial(_window_function_factory, window_function=simple_stdev, label='Moving Std. Deviation of {measure}'),
