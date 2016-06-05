@@ -21,7 +21,6 @@ from ..stores import Store
 from ..errors import ArgumentError, StoreError, ConfigurationError
 from ..browser import Drilldown
 from ..cells import Cell
-from ..computation import XXXX
 from .utils import CreateTableAsSelect, CreateOrReplaceView
 from ..model import string_to_dimension_level
 

@@ -24,6 +24,7 @@ from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator
 from ..metadata import read_model_metadata, write_model_metadata_bundle
 from ..workspace import Workspace
 from ..errors import CubesError
+from ..server import run_server
 
 from .. import ext
 
@@ -69,7 +70,7 @@ def serve(ctx, config, visualizer):
     if visualizer:
         config.set("server", "visualizer", visualizer)
 
-    cubes.server.run_server(config, debug=ctx.obj.debug)
+    run_server(config, debug=ctx.obj.debug)
 
 ################################################################################
 # Command: extension
