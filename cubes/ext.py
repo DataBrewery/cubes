@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from .common import decamelize, to_identifier, coalesce_options
-from .errors import ArgumentError, InternalError
-from collections import defaultdict, OrderedDict
-from pkg_resources import iter_entry_points
+from collections import OrderedDict
 from textwrap import dedent
+from pkg_resources import iter_entry_points
+
+from .common import decamelize, coalesce_options
+from .errors import ArgumentError, InternalError, BackendError
 
 
 __all__ = [
@@ -244,11 +245,10 @@ class ExtensionFinder(object):
 
     def register(self, _ext_name, factory):
         ext = _Extension(self.type_, name=_ext_name)
-        ext.set_factory(factory)
-        self.extensions[name] = ext
+        ext.factory = factory
+        self.extensions["name"] = ext
 
         return ext
-
 
 
 def _load_module(modulepath):
@@ -258,8 +258,8 @@ def _load_module(modulepath):
     mod = __import__(modulepath)
     path = []
     for token in modulepath.split(".")[1:]:
-       path.append(token)
-       mod = getattr(mod, token)
+        path.append(token)
+        mod = getattr(mod, token)
     return mod
 
 

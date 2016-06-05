@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 """Logical model model providers."""
 import copy
-import json
-import re
 
-from .logging import get_logger
-from .errors import *
-from .model import *
-from .metadata import *
+from .errors import ModelError, TemplateRequired, CubesError, BackendError
+from .errors import NoSuchDimensionError, NoSuchCubeError
+from .localization import LocalizationContext
+from .model import Cube, Dimension
 
 __all__ = [
     "ModelProvider",
@@ -85,7 +83,6 @@ def find_dimension(name, locale=None, provider=None, namespace=None):
 
     while missing:
         dimension = None
-        deferred = set()
 
         name = missing.pop()
 
@@ -136,7 +133,6 @@ def _lookup_dimension(name, templates, namespace, provider):
     """
 
     dimension = None
-    required_template = None
 
     # 1. look in the povider
     if provider:
@@ -445,11 +441,11 @@ class StaticModelProvider(ModelProvider):
 
         for cube in self.metadata.get("cubes", []):
             info = {
-                    "name": cube["name"],
-                    "label": cube.get("label", cube["name"]),
-                    "category": (cube.get("category") or cube.get("info", {}).get("category")),
-                    "info": cube.get("info", {})
-                }
+                "name": cube["name"],
+                "label": cube.get("label", cube["name"]),
+                "category": (cube.get("category") or cube.get("info", {}).get("category")),
+                "info": cube.get("info", {})
+            }
             cubes.append(info)
 
         return cubes

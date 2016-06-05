@@ -28,9 +28,9 @@ class InternalError(CubesError):
     """Superclass for all errors that happened on the server side:
     configuration issues, connection problems, model inconsistencies...
 
-    If you handle this exception, don't display content of this error to the clients (such as over the web),
-    as it might contain information about the server configuration, database
-    or other internals.
+    If you handle this exception, don't display content of this error to the
+    clients (such as over the web), as it might contain information about the
+    server configuration, database or other internals.
     """
     error_type = "internal_error"
 
@@ -112,9 +112,6 @@ class HierarchyError(UserError):
     hierarchy"""
     error_type = "hierarchy"
 
-class ExpressionError(ModelError):
-    """Raised when attribute expression is invalid.
-    """
 
 # Helper exceptions
 # =================

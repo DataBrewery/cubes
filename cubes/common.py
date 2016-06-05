@@ -5,17 +5,13 @@ levels"""
 
 from __future__ import absolute_import
 
-import itertools
-import sys
 import re
 import os.path
-import decimal
-import datetime
 import json
 
 from collections import OrderedDict
 
-from .errors import *
+from .errors import ModelInconsistencyError, ArgumentError, ConfigurationError
 from . import compat
 
 __all__ = [
@@ -105,7 +101,7 @@ class MissingPackage(object):
 
         raise MissingPackageError("Optional package '%s' is not installed. "
                                   "Please install the package%s%s%s" %
-                                      (self.package, source, use, comment))
+                                  (self.package, source, use, comment))
 
 
 def optional_import(name, feature=None, source=None, comment=None):
@@ -119,7 +115,7 @@ def optional_import(name, feature=None, source=None, comment=None):
         return MissingPackage(name, feature, source, comment)
 
 
-def expand_dictionary(record, separator = '.'):
+def expand_dictionary(record, separator='.'):
     """Return expanded dictionary: treat keys are paths separated by
     `separator`, create sub-dictionaries as necessary"""
 
@@ -165,7 +161,7 @@ def get_localizable_attributes(obj):
 
     try:
         if obj.description:
-                locale["description"] = obj.description
+            locale["description"] = obj.description
     except:
         pass
     return locale
@@ -228,7 +224,7 @@ def coalesce_option_value(value, value_type, label=None):
             label = ""
 
         raise ArgumentError("Unable to convert %svalue '%s' into type %s" %
-                                                (label, astring, value_type))
+                            (label, astring, value_type))
     return return_value
 
 def coalesce_options(options, types):

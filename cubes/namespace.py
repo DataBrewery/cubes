@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-from .errors import NoSuchCubeError, NoSuchDimensionError
+from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 from .common import read_json_file
 from . import compat
 
@@ -41,7 +41,6 @@ class Namespace(object):
             path = path.split(".")
 
         namespace = self
-        found = False
         for i, element in enumerate(path):
             remainder = path[i+1:]
             if element in namespace.namespaces:

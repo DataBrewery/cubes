@@ -3,11 +3,10 @@
 from __future__ import absolute_import
 
 import os.path
-import json
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from .cells import Cell, cut_from_string, cut_from_dict, PointCut
 from .model import string_to_dimension_level
-from .errors import *
+from .errors import UserError, ConfigurationError, NoSuchDimensionError
 from .common import read_json_file, sorted_dependencies
 from . import compat
 
@@ -103,7 +102,7 @@ class _SimpleAccessRight(object):
 
         * `allowed_cubes` are merged (union)
         * `denied_cubes` are merged (union)
-        * `cube_restrictions` from `other` with same cube replace restrictions
+        * `cell_restrictions` from `other` with same cube replace restrictions
           from the receiver"""
 
         self.roles |= other.roles
@@ -111,7 +110,7 @@ class _SimpleAccessRight(object):
         self.denied_cubes |= other.denied_cubes
 
         for cube, restrictions in other.cell_restrictions.items():
-            if not cube in self.cube_restrictions:
+            if not cube in self.cell_restrictions:
                 self.cell_restrictions[cube] = restrictions
             else:
                 self.cell_restrictions[cube] += restrictions
@@ -185,12 +184,12 @@ class _SimpleAccessRight(object):
 
 def right_from_dict(info):
     return _SimpleAccessRight(
-               roles=info.get('roles'),
-               allowed_cubes=info.get('allowed_cubes'),
-               denied_cubes=info.get('denied_cubes'),
-               cell_restrictions=info.get('cell_restrictions'),
-               hierarchy_limits=info.get('hierarchy_limits')
-           )
+        roles=info.get('roles'),
+        allowed_cubes=info.get('allowed_cubes'),
+        denied_cubes=info.get('denied_cubes'),
+        cell_restrictions=info.get('cell_restrictions'),
+        hierarchy_limits=info.get('hierarchy_limits')
+    )
 
 class SimpleAuthorizer(Authorizer):
     __options__ = [
@@ -291,7 +290,7 @@ class SimpleAuthorizer(Authorizer):
             self.identity_dimension = None
             self.identity_hierarchy = None
 
-    def expand_roles(self, right):
+    def expand_roles(self, info):
         """Merge `right` with its roles. `right` has to be a dictionary.
         """
         right = right_from_dict(info)

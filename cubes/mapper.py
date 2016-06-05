@@ -4,7 +4,6 @@
 import collections
 
 from .logging import get_logger
-from .errors import *
 
 __all__ = (
     "Mapper",
@@ -32,7 +31,7 @@ class Mapper(object):
 
         super(Mapper, self).__init__()
 
-        if cube == None:
+        if cube is None:
             raise Exception("Cube for mapper should not be None.")
 
         self.logger = get_logger()

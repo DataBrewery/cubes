@@ -86,19 +86,6 @@ class LocalizationContext(object):
 
         return trans.get(key, default)
 
-    def _lookup_ns_translation(self, context_type, name):
-        """ Find translation which contains context and object"""
-
-        lookup = ns.translation_lookup(lang)
-        for trans in lookup:
-            if context_type in trans and name in trans[context_type]:
-                return trans[context_type][name]
-
-        if self.parent:
-            return self.parent.translation(contxet_type, name)
-        else:
-            return {}
-
     def _get_translation(self, obj, type_):
         """Returns translation in language `lang` for model object `obj` of
         type `type_`. The type can be: ``cube`` or ``dimension``. Looks in
@@ -116,9 +103,9 @@ class LocalizationContext(object):
             ns = ns.parent
 
         lookup_map = {
-                "cube": "cubes",
-                "dimension": "dimensions",
-                "defaults": "defaults"
+            "cube": "cubes",
+            "dimension": "dimensions",
+            "defaults": "defaults"
         }
 
         objkey = lookup_map[type_]

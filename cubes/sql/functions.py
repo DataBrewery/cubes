@@ -4,11 +4,7 @@
 # called `formulas`) once implemented.  There is no need for complexity of
 # this type.
 
-from collections import namedtuple
-from ..errors import InternalError, NoSuchAttributeError, ModelError
-
 try:
-    import sqlalchemy
     import sqlalchemy.sql as sql
     from sqlalchemy.sql.functions import ReturnTypeFromArgs
 except ImportError:
@@ -20,6 +16,8 @@ except ImportError:
         def __init__(*args, **kwargs):
             # Just fail by trying to call missing package
             missing_error()
+
+from ..errors import ModelError
 
 
 __all__ = (

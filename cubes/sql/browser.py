@@ -3,13 +3,23 @@
 
 from __future__ import absolute_import
 
+import collections
+
+try:
+    import sqlalchemy
+    import sqlalchemy.sql as sql
+
+except ImportError:
+    from ...common import MissingPackage
+    sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
+
 from ..statutils import available_calculators
 from ..browser import AggregationBrowser, AggregationResult, Drilldown
 from ..logging import get_logger
-from ..errors import ArgumentError, ModelError, InternalError
+from ..errors import ArgumentError, InternalError
 from ..stores import Store
-from ..cells import Cell, PointCut, RangeCut, SetCut
-from ..model import Attribute, collect_attributes
+from ..cells import Cell, PointCut
+from ..model import collect_attributes
 
 from .functions import available_aggregate_functions
 from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
@@ -17,16 +27,6 @@ from .mapper import distill_naming
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
 
-import collections
-
-try:
-    import sqlalchemy
-    import sqlalchemy.sql as sql
-    from sqlalchemy.sql.expression import and_
-
-except ImportError:
-    from ...common import MissingPackage
-    sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 __all__ = [
     "SQLBrowser",
@@ -213,7 +213,7 @@ class SQLBrowser(AggregationBrowser):
         Number of SQL queries: 1."""
 
         (statement, labels) = self.denormalized_statement(attributes=fields,
-                                                include_fact_key=True)
+                                                          include_fact_key=True)
         condition = statement.columns[FACT_KEY_LABEL] == key_value
         statement = statement.where(condition)
 
@@ -268,7 +268,7 @@ class SQLBrowser(AggregationBrowser):
         the generated statements. By default it tests only denormalized
         statement by fetching one row. If `aggregate` is `True` then test also
         aggregation."""
-        (statement, labels) = self.denormalized_statement()
+        (statement, _) = self.denormalized_statement()
         statement = statement.limit(1)
         result = self.connectable.execute(statement)
         result.close()
@@ -396,9 +396,9 @@ class SQLBrowser(AggregationBrowser):
 
         if self.include_summary or not (drilldown or split):
             (statement, labels) = self.aggregation_statement(cell,
-                                                   aggregates=aggregates,
-                                                   drilldown=drilldown,
-                                                   for_summary=True)
+                                                             aggregates=aggregates,
+                                                             drilldown=drilldown,
+                                                             for_summary=True)
 
             cursor = self.execute(statement, "aggregation summary")
             row = cursor.first()
@@ -426,9 +426,9 @@ class SQLBrowser(AggregationBrowser):
             self.logger.debug("preparing drilldown statement")
 
             (statement, labels) = self.aggregation_statement(cell,
-                                                   aggregates=aggregates,
-                                                   drilldown=drilldown,
-                                                   split=split)
+                                                             aggregates=aggregates,
+                                                             drilldown=drilldown,
+                                                             split=split)
             # Get the total cell count before the pagination
             #
             if self.include_cell_count:
@@ -453,9 +453,8 @@ class SQLBrowser(AggregationBrowser):
         # at least one of the bult-in aggregates is NULL
         if result.cells is not None and self.exclude_null_agregates:
             native_aggs = [agg.ref for agg in aggregates
-                               if agg.function and \
-                                   self.is_builtin_function(agg.function)]
-            result.exclude_if_null = native_agges
+                           if agg.function and self.is_builtin_function(agg.function)]
+            result.exclude_if_null = native_aggs
 
         return result
 
@@ -540,7 +539,7 @@ class SQLBrowser(AggregationBrowser):
         self.logger.debug("prepare aggregation statement. cell: '%s' "
                           "drilldown: '%s' for summary: %s" %
                           (",".join([str(cut) for cut in cell.cuts]),
-                          drilldown, for_summary))
+                           drilldown, for_summary))
 
         # TODO: it is verylikely that the _create_context is not getting all
         # attributes, for example those that aggregate depends on
@@ -555,7 +554,7 @@ class SQLBrowser(AggregationBrowser):
         #     * master drilldown items
 
         selection = context.get_columns([attr.ref for attr in
-                                                drilldown.all_attributes])
+                                         drilldown.all_attributes])
 
         # SPLIT
         # -----
@@ -613,7 +612,7 @@ class ResultIterator(object):
             row = self.batch.popleft()
 
             if self.exclude_if_null \
-                    and any(cell[agg] is None for agg in self.exclude_if_nul):
+                    and any(row[agg] is None for agg in self.exclude_if_null):
                 continue
 
             yield dict(zip(self.labels, row))

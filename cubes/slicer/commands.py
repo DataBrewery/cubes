@@ -10,27 +10,22 @@ environment variable.
 from __future__ import absolute_import
 from __future__ import print_function
 
-from .. import compat
-
-import click
-import cubes
 import json
 import os
 import sys
+import click
+import cubes
 
-from collections import OrderedDict
+from .. import compat
 
-from ..common import MissingPackageError
 from ..datastructures import AttributeDict
 from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
 from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator
-from ..logging import create_logger
 from ..metadata import read_model_metadata, write_model_metadata_bundle
 from ..workspace import Workspace
 from ..errors import CubesError
 
 from .. import ext
-from .. import server
 
 from ..cells import cuts_from_string, Cell
 from ..browser import string_to_dimension_level
@@ -65,8 +60,8 @@ def serve(ctx, config, visualizer):
     if config.has_option("server", "pid_file"):
         path = config.get("server", "pid_file")
         try:
-            with open(path, "w") as f:
-                f.write("%s\n" % os.getpid())
+            with open(path, "w") as handle:
+                handle.write("%s\n" % os.getpid())
         except IOError:
             raise CubesError("Unable to write PID file '%s'. Check the "
                              "directory existence or permissions." % path)
@@ -120,12 +115,9 @@ def extension_info(ctx, extension_type, extension_name):
     else:
         # List extensions
         click.echo("Available Cubes extensions:\n")
-        for ext_type, ext_label in types:
+        for ext_type, _ in types:
             manager = getattr(ext, ext_type)
             manager.discover()
-            extensions = manager.names()
-
-
             names = manager.names()
 
             click.echo("{}:\n    {}\n".format(ext_type, ", ".join(names)))
@@ -389,11 +381,11 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
                                                      target))
 
         store.create_denormalized_view(cube, target,
-                                            materialize=materialize,
-                                            replace=force,
-                                            create_index=index,
-                                            keys_only=False,
-                                            schema=schema)
+                                       materialize=materialize,
+                                       replace=force,
+                                       create_index=index,
+                                       keys_only=False,
+                                       schema=schema)
 
 
 # TODO: Nice to have it back
@@ -404,12 +396,12 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
 #     # Shortcuts
 #     workspace = ctx.obj.workspace
 #     store = ctx.obj.store
-# 
+#
 #     ddl = store.ddl_for_model(args.url, model, fact_prefix=args.fact_prefix,
 #                                 dimension_prefix=args.dimension_prefix,
 #                                 fact_suffix=args.fact_suffix,
 #                                 dimension_suffix=args.dimension_suffix)
-# 
+#
 #     print(ddl)
 
 
@@ -448,16 +440,15 @@ def sql_aggregate(ctx, force, index, schema, cube, target, dimensions):
     for cube_name, target in cubes:
         cube = workspace.cube(cube_name)
         store = workspace.get_store(cube.store_name or "default")
-        view_name = store.naming.denormalized_table_name(cube_name)
 
         print("denormalizing cube '%s' into '%s'" % (cube_name,
                                                      target))
 
         store.create_cube_aggregate(cube, target,
-                                            replace=force,
-                                            create_index=index,
-                                            schema=schema,
-                                            dimensions=dimensions)
+                                    replace=force,
+                                    create_index=index,
+                                    schema=schema,
+                                    dimensions=dimensions)
 
 
 ################################################################################
@@ -592,9 +583,9 @@ def members(ctx, config, cube_name, cuts, dim_name, output_format):
         result = JSONLinesGenerator(values)
     elif output_format == "csv":
         result = csv_generator(values,
-                              fields,
-                              include_header=True,
-                              header=labels)
+                               fields,
+                               include_header=True,
+                               header=labels)
 
     out = click.get_text_stream('stdout')
     for row in result:

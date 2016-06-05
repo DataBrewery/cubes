@@ -2,7 +2,10 @@
 
 from __future__ import absolute_import
 
-import sys
+import os.path
+
+from collections import OrderedDict, defaultdict
+
 from .metadata import read_model_metadata
 from .auth import NotAuthorized
 from .common import read_json_file
@@ -12,10 +15,7 @@ from .calendar import Calendar
 from .namespace import Namespace
 from .providers import find_dimension
 from .localization import LocalizationContext
-import os.path
 from .compat import ConfigParser
-from copy import copy
-from collections import OrderedDict, defaultdict
 from . import ext
 from . import compat
 
@@ -84,7 +84,7 @@ class Workspace(object):
                 cp.read(config)
             except Exception as e:
                 raise ConfigurationError("Unable to load config %s. "
-                                "Reason: %s" % (config, str(e)))
+                                         "Reason: %s" % (config, str(e)))
 
             config = cp
 
@@ -160,9 +160,11 @@ class Workspace(object):
         elif config.has_section("info"):
             info = dict(config.items("info"))
             if "visualizer" in info:
-                info["visualizers"] = [ {"label": info.get("label",
-                                                info.get("name", "Default")),
-                                         "url": info["visualizer"]} ]
+                info["visualizers"] = [{
+                    "label": info.get("label", info.get("name", "Default")),
+                    "url": info["visualizer"]
+                }]
+
             for key in SLICER_INFO_KEYS:
                 self.info[key] = info.get(key)
 
@@ -180,7 +182,7 @@ class Workspace(object):
                 store_config.read(stores)
             except Exception as e:
                 raise ConfigurationError("Unable to read stores from %s. "
-                                "Reason: %s" % (stores, str(e) ))
+                                         "Reason: %s" % (stores, str(e) ))
 
             for store in store_config.sections():
                 self._register_store_dict(store,
@@ -306,7 +308,7 @@ class Workspace(object):
         """Returns namespace with ference `ref`"""
         if not ref or ref == "default":
             return self.namespace
-        return self.namespace(ref)[0]
+        return self.namespace.namespace(ref)[0]
 
     def add_translation(self, locale, trans, ns="default"):
         """Add translation `trans` for `locale`. `ns` is a namespace. If no
@@ -634,7 +636,7 @@ class Workspace(object):
 
         browser = ext.browser(browser_name, cube, store=store,
                               locale=locale, calendar=self.calendar,
-                               **options)
+                              **options)
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
@@ -666,10 +668,3 @@ class Workspace(object):
         store = ext.store(type_, store_type=type_, **options)
         self.stores[name] = store
         return store
-
-    def close(self):
-        """Closes the workspace with all open stores and other associated
-        resources."""
-
-        for store in self.open_stores:
-            store.close()

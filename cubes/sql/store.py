@@ -2,18 +2,6 @@
 
 from __future__ import absolute_import
 
-from .browser import SQLBrowser
-from .mapper import distill_naming, Naming
-from ..logging import get_logger
-from ..common import coalesce_options
-from ..stores import Store
-from ..errors import ArgumentError, StoreError, ConfigurationError
-from ..browser import Drilldown
-from ..cells import Cell
-from ..computation import *
-from .utils import CreateTableAsSelect, CreateOrReplaceView
-from ..model import string_to_dimension_level
-
 try:
     import sqlalchemy as sa
     import sqlalchemy.sql as sql
@@ -24,6 +12,19 @@ except ImportError:
     from ..common import MissingPackage
 
     reflection = sa = sql = MissingPackage("sqlalchemy", "SQL")
+
+from .browser import SQLBrowser
+from .mapper import distill_naming, Naming
+from ..logging import get_logger
+from ..common import coalesce_options
+from ..stores import Store
+from ..errors import ArgumentError, StoreError, ConfigurationError
+from ..browser import Drilldown
+from ..cells import Cell
+from ..computation import XXXX
+from .utils import CreateTableAsSelect, CreateOrReplaceView
+from ..model import string_to_dimension_level
+
 
 __all__ = [
     "sqlalchemy_options",
@@ -242,6 +243,7 @@ class SQLStore(Store):
             master_table = (join.master.schema, join.master.table)
             tables.add(master_table)
 
+            detail_table = (join.detail.schema, join.detail.table)
             detail_alias = (join.detail.schema, join.alias or join.detail.table)
 
             if detail_alias in aliases:
@@ -249,11 +251,11 @@ class SQLStore(Store):
             else:
                 aliases.add(detail_alias)
 
-            detail_table = (join.detail.schema, join.detail.table)
             alias_map[detail_alias] = detail_table
 
             if detail_table in tables and not join.alias:
-                issues.append(("join", "duplicate detail table %s (no alias specified)" % detail_table, join))
+                issues.append(("join", "duplicate detail table %s (no alias specified)"
+                               % detail_table, join))
             else:
                 tables.add(detail_table)
 
@@ -328,7 +330,7 @@ class SQLStore(Store):
         # they can not conform to the cubes implicit naming schema dim.attr
 
         (statement, _) = browser.denormalized_statement(attributes,
-                                                   include_fact_key=True)
+                                                        include_fact_key=True)
 
         schema = schema or self.naming.schema
         view_name = view_name or self.naming.denormalized_table_name(cube.name)

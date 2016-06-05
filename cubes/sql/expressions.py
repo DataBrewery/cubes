@@ -12,7 +12,7 @@ import sqlalchemy.sql as sql
 from expressions import Compiler
 from .functions import get_aggregate_function
 
-from ..errors import ExpressionError, InternalError
+from ..errors import ExpressionError
 
 
 __all__ = [
@@ -203,11 +203,11 @@ class SQLExpressionCompiler(Compiler):
 
     def compile_unary(self, context, operator, operand):
         if operator == "-":
-            result =  (- operand)
+            result = (- operand)
         elif operator == "+":
-            result =  (+ operand)
+            result = (+ operand)
         elif operator == "~":
-            result =  (~ operand)
+            result = (~ operand)
         elif operator == "not":
             result = sql.expression.not_(operand)
         else:

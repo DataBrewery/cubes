@@ -4,11 +4,10 @@ from __future__ import absolute_import
 
 import copy
 import re
-from collections import namedtuple
 
 from collections import OrderedDict
 
-from .errors import *
+from .errors import ArgumentError, CubesError
 from .model import Dimension, Cube
 from .logging import get_logger
 from . import compat
@@ -49,7 +48,7 @@ class Cell(object):
         if self.cube != other.cube:
             raise ArgumentError("Can not combine two cells from different "
                                 "cubes '%s' and '%s'."
-                                % (self.name, other.name))
+                                % (self.cube.name, other.cube.name))
         cuts = self.cuts + other.cuts
         return Cell(self.cube, cuts=cuts)
 
@@ -291,13 +290,13 @@ class Cell(object):
         if isinstance(rollup, compat.string_type):
             rollup = [rollup]
 
-        if type(rollup) == list or type(rollup) == tuple:
+        if isinstance(rollup, (list, tuple)):
             for dim_name in rollup:
                 cut = cuts.get(dim_name)
                 if cut is None:
                     continue
                 #     raise ValueError("No cut to roll-up for dimension '%s'" % dim_name)
-                if type(cut) != PointCut:
+                if isinstance(cut, PointCut):
                     raise NotImplementedError("Only PointCuts are currently supported for "
                                               "roll-up (rollup dimension: %s)" % dim_name)
 
@@ -318,7 +317,7 @@ class Cell(object):
                     raise NotImplementedError("Only PointCuts are currently supported for "
                                               "roll-up (rollup dimension: %s)" % dim_name)
 
-                dim = selfcube.dimension(cut.dimension)
+                dim = self.cube.dimension(cut.dimension)
                 hier = dim.default_hierarchy
 
                 rollup_path = hier.rollup(cut.path, level_name)
@@ -326,7 +325,8 @@ class Cell(object):
                 cut = PointCut(cut.dimension, rollup_path)
                 new_cuts.append(cut)
         else:
-            raise ArgumentError("Rollup is of unknown type: %s" % self.drilldown.__class__)
+            raise ArgumentError("Rollup is of unknown type: %s" %
+                                type(self.drilldown))
 
         cell = Cell(cube=self.cube, cuts=new_cuts)
         return cell
@@ -572,7 +572,7 @@ def cut_from_string(string, cube=None, member_converters=None,
     role_member_converters = role_member_converters or {}
 
     dim_hier_pattern = re.compile(r"(?P<invert>!)?"
-                                   "(?P<dim>\w+)(@(?P<hier>\w+))?")
+                                  "(?P<dim>\w+)(@(?P<hier>\w+))?")
 
     try:
         (dimspec, string) = DIMENSION_STRING_SEPARATOR.split(string)
@@ -857,7 +857,8 @@ class RangeCut(Cut):
 
         range_str = from_path_str + RANGE_CUT_SEPARATOR_CHAR + to_path_str
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = ("!" if self.invert else "") + dim_str + DIMENSION_STRING_SEPARATOR_CHAR + range_str
+        string = ("!" if self.invert else "") + dim_str \
+                 + DIMENSION_STRING_SEPARATOR_CHAR + range_str
 
         return string
 
@@ -909,7 +910,8 @@ class SetCut(Cut):
 
         set_string = SET_CUT_SEPARATOR_CHAR.join(path_strings)
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = ("!" if self.invert else "") + dim_str + DIMENSION_STRING_SEPARATOR_CHAR + set_string
+        string = ("!" if self.invert else "") + dim_str \
+                 + DIMENSION_STRING_SEPARATOR_CHAR + set_string
 
         return string
 

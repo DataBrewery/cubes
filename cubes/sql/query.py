@@ -18,14 +18,14 @@ Star/snowflake schema query construction structures
 from __future__ import absolute_import
 
 import logging
+from collections import namedtuple
 
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
 from sqlalchemy.sql.expression import and_
 
-from collections import namedtuple
-from ..model import depsort_attributes, object_dict
-from ..errors import InternalError, ModelError, ArgumentError
+from ..model import object_dict
+from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
 from .. import compat
 from ..browser import SPLIT_DIMENSION_NAME
 from ..cells import PointCut, SetCut, RangeCut
@@ -877,7 +877,6 @@ class QueryContext(object):
         #
         self.star = star_schema.get_star(base_names)
         # TODO: determne from self.star
-        coalesce_measure = False
 
         # Collect all the columns
         #

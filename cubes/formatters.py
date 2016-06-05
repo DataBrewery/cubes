@@ -2,24 +2,25 @@
 
 from __future__ import print_function
 
-from collections import namedtuple
-
-from .errors import ArgumentError
-from . import compat
-from . import ext
-
-from .browser import SPLIT_DIMENSION_NAME
 import json
 import csv
 import codecs
 import decimal
 import datetime
 
+from collections import namedtuple
+
 try:
     import jinja2
 except ImportError:
     from .common import MissingPackage
     jinja2 = MissingPackage("jinja2", "Templating engine")
+
+from .errors import ArgumentError
+from . import compat
+from . import ext
+
+from .browser import SPLIT_DIMENSION_NAME
 
 
 __all__ = [
@@ -138,9 +139,9 @@ class SlicerJSONEncoder(json.JSONEncoder):
         self.iterator_limit = 1000
 
     def default(self, o):
-        if type(o) == decimal.Decimal:
+        if isinstance(o, decimal.Decimal):
             return float(o)
-        if type(o) == datetime.date or type(o) == datetime.datetime:
+        if isinstance(o, (datetime.date, datetime.datetime)):
             return o.isoformat()
         if hasattr(o, "to_dict") and callable(getattr(o, "to_dict")):
             return o.to_dict()
@@ -170,6 +171,10 @@ class Formatter(object):
     built-in subclasses"""
     def __call__(self, *args, **kwargs):
         return self.format(*args, **kwargs)
+
+    def format(self, *args, **kwargs):
+        raise NotImplementedError("Subclasses are expected to implement "
+                                  "the format() method")
 
 
 # Main pre-formatting
@@ -212,7 +217,6 @@ def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
     row_hdrs = []
     column_hdrs = []
 
-    labels = [agg.label for agg in aggregates]
     agg_refs = [agg.ref for agg in aggregates]
 
     if aggregates_on is None or aggregates_on == "cells":
@@ -221,9 +225,9 @@ def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
             hrow = tuple(record[f] for f in onrows)
             hcol = tuple(record[f] for f in oncolumns)
 
-            if not hrow in row_hdrs:
+            if hrow not in row_hdrs:
                 row_hdrs.append(hrow)
-            if not hcol in column_hdrs:
+            if hcol not in column_hdrs:
                 column_hdrs.append(hcol)
 
             matrix[(hrow, hcol)] = tuple(record[a] for a in agg_refs)
@@ -234,7 +238,7 @@ def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
             base_hrow = [record[f] for f in onrows]
             base_hcol = [record[f] for f in oncolumns]
 
-            for i, agg in enumerate(aggregates):
+            for agg in aggregates:
 
                 if aggregates_on == "rows":
                     hrow = tuple(base_hrow + [agg.label or agg.name])
@@ -244,10 +248,10 @@ def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
                     hrow = tuple(base_hrow)
                     hcol = tuple(base_hcol + [agg.label or agg.name])
 
-                if not hrow in row_hdrs:
+                if hrow not in row_hdrs:
                     row_hdrs.append(hrow)
 
-                if not hcol in column_hdrs:
+                if hcol not in column_hdrs:
                     column_hdrs.append(hcol)
 
                 matrix[(hrow, hcol)] = record[agg.ref]

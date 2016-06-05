@@ -4,13 +4,13 @@ from __future__ import absolute_import
 
 import itertools
 
-from .errors import *
+from .errors import ArgumentError
 
 __all__ = [
-        "combined_cuboids",
-        "combined_levels",
-        "hierarchical_cuboids"
-        ]
+    "combined_cuboids",
+    "combined_levels",
+    "hierarchical_cuboids"
+]
 
 def combined_cuboids(dimensions, required=None):
     """Returns a list of all combinations of `dimensions` as tuples. For

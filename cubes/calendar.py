@@ -7,12 +7,12 @@ import re
 
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import MO, TU, WE, TH, FR, SA, SU
-from dateutil.tz import *
-from datetime import datetime, timedelta
-from time import strftime, gmtime
+from dateutil.tz import gettz, tzlocal, tzstr
+from datetime import datetime
+from time import gmtime
 
 from .model import Hierarchy
-from .errors import *
+from .errors import ArgumentError, ConfigurationError
 from . import compat
 
 __all__ = (

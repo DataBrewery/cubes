@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from .errors import *
-
 __all__ = (
-            "Store"
-        )
+    "Store"
+)
 
 
 # Note: this class does not have much use right now besides being discoverable

@@ -2,18 +2,15 @@
 
 from __future__ import absolute_import
 
-import re
-
 from collections import namedtuple
-
 
 from .statutils import calculators_for_aggregates, available_calculators
 from .calendar import CalendarMemberConverter
 from .logging import get_logger
 from .common import IgnoringDictionary
-from .errors import *
-from .cells import Cell, PointCut, RangeCut, SetCut
-from .model import Dimension, Cube, string_to_dimension_level
+from .errors import ArgumentError, NoSuchAttributeError, HierarchyError
+from .cells import Cell, PointCut, RangeCut, SetCut, cuts_from_string
+from .model import string_to_dimension_level
 
 from . import compat
 
@@ -285,15 +282,12 @@ class AggregationBrowser(object):
                     except NoSuchAttributeError:
                         measure = self.cube.measure(name)
 
-                    self.logger.warn("ordering of post-processed aggregate"
-                                     " %s will be based on measure %s"
-                                     % (attribute.name, measure.name))
                     attribute = measure
             else:
                 attribute = self.cube.attribute(name)
 
             if attribute:
-                new_order.append( (attribute, direction) )
+                new_order.append((attribute, direction))
 
         return new_order
 
@@ -380,11 +374,6 @@ class AggregationBrowser(object):
     def provide_members(self, *args, **kwargs):
         raise NotImplementedError("{} does not provide members functionality." \
                                   .format(str(type(self))))
-
-    def values(self, *args, **kwargs):
-        # TODO: depreciated
-        self.logger.warn("values() is depreciated, use members()")
-        return self.members(*args, **kwargs)
 
     def test(self, **options):
         """Tests whether the cube can be used. Refer to the backend's
@@ -506,8 +495,9 @@ class AggregationBrowser(object):
                     key = args.get("id")
                 result = self.fact(key)
 
-            elif query_type == "values":
-                result = self.values(query_cell, **args)
+            elif query_type in ("values", "members"):
+                # TODO: `values` are deprecated
+                result = self.members(query_cell, **args)
 
             elif query_type == "details":
                 # FIXME: depreciate this raw form
@@ -612,7 +602,7 @@ class AggregationBrowser(object):
         if not details:
             return None
 
-        if (dimension.is_flat and not dimension.has_details):
+        if dimension.is_flat and not dimension.has_details:
             name = dimension.all_attributes[0].name
             value = details.get(name)
             item = {name: value}
@@ -947,14 +937,12 @@ class Drilldown(object):
 
         return levels
 
-        return levels
-
     def high_cardinality_levels(self, cell):
         """Returns list of levels in the drilldown that are of high
         cardinality and there is no cut for that level in the `cell`."""
 
         for item in self.drilldown:
-            dim, hier, levels = item[0:3]
+            dim, hier, _ = item[0:3]
             not_contained = []
 
             for level in item.levels:

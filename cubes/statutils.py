@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 
 from collections import deque
-from .errors import *
 from functools import partial
 from math import sqrt
 
+from .errors import ArgumentError, InternalError, ModelError
 from . import compat
 
 __all__ = [
-        "CALCULATED_AGGREGATIONS",
-        "calculators_for_aggregates",
-        "available_calculators",
-        "aggregate_calculator_labels"
+    "CALCULATED_AGGREGATIONS",
+    "calculators_for_aggregates",
+    "available_calculators",
+    "aggregate_calculator_labels"
 ]
+
 
 def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
                                split=None):
@@ -35,7 +36,6 @@ def calculators_for_aggregates(cube, aggregates, drilldown_levels=None,
         try:
             factory = CALCULATED_AGGREGATIONS[aggregate.function]
         except KeyError:
-            import pdb; pdb.set_trace()
             raise ArgumentError("Unknown post-calculation function '%s' for "
                                 "aggregate '%s'" % (aggregate.function,
                                                     aggregate.name))
@@ -208,12 +208,24 @@ class WindowFunction(object):
 
 # TODO: make CALCULATED_AGGREGATIONS a namespace (see extensions.py)
 CALCULATED_AGGREGATIONS = {
-    "wma": partial(_window_function_factory, window_function=weighted_moving_average, label='Weighted Moving Avg. of {measure}'),
-    "sma": partial(_window_function_factory, window_function=simple_moving_average, label='Simple Moving Avg. of {measure}'),
-    "sms": partial(_window_function_factory, window_function=simple_moving_sum, label='Simple Moving Sum of {measure}'),
-    "smstd": partial(_window_function_factory, window_function=simple_stdev, label='Moving Std. Deviation of {measure}'),
-    "smrsd": partial(_window_function_factory, window_function=simple_relative_stdev, label='Moving Relative St. Dev. of {measure}'),
-    "smvar": partial(_window_function_factory, window_function=simple_variance, label='Moving Variance of {measure}')
+    "wma": partial(_window_function_factory,
+                   window_function=weighted_moving_average,
+                   label='Weighted Moving Avg. of {measure}'),
+    "sma": partial(_window_function_factory,
+                   window_function=simple_moving_average,
+                   label='Simple Moving Avg. of {measure}'),
+    "sms": partial(_window_function_factory,
+                   window_function=simple_moving_sum,
+                   label='Simple Moving Sum of {measure}'),
+    "smstd": partial(_window_function_factory,
+                     window_function=simple_stdev,
+                     label='Moving Std. Deviation of {measure}'),
+    "smrsd": partial(_window_function_factory,
+                     window_function=simple_relative_stdev,
+                     label='Moving Relative St. Dev. of {measure}'),
+    "smvar": partial(_window_function_factory,
+                     window_function=simple_variance,
+                     label='Moving Variance of {measure}')
 }
 
 def available_calculators():
