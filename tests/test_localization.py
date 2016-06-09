@@ -2,7 +2,7 @@ import unittest
 from cubes import Namespace
 from cubes import StaticModelProvider
 from cubes import read_json_file
-from cubes.localization import LocalizationContext, ModelObjectLocalizationContext
+from cubes.metadata.localization import LocalizationContext, ModelObjectLocalizationContext
 from .common import CubesTestCaseBase
 
 class LocalizationTestCase(CubesTestCaseBase):

@@ -5,7 +5,7 @@ import unittest
 
 from cubes import Attribute
 from cubes.errors import ExpressionError
-from cubes.model import depsort_attributes
+from cubes.metadata import depsort_attributes
 
 
 class ExpressionUnitTestCase(unittest.TestCase):

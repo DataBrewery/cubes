@@ -24,7 +24,7 @@ import sqlalchemy as sa
 import sqlalchemy.sql as sql
 from sqlalchemy.sql.expression import and_
 
-from ..model import object_dict
+from ..metadata import object_dict
 from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
 from .. import compat
 from ..browser import SPLIT_DIMENSION_NAME

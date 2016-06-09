@@ -52,7 +52,7 @@ _BUILTIN_EXTENSIONS = {
         "html_cross_table": "cubes.formatters:HTMLCrossTableFormatter",
     },
     "providers": {
-        "default":"cubes.providers:StaticModelProvider",
+        "default":"cubes.metadata.providers:StaticModelProvider",
         "slicer":"cubes.server.store:SlicerModelProvider",
     },
     "request_log_handlers": {

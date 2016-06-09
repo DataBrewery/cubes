@@ -10,7 +10,7 @@ from .logging import get_logger
 from .common import IgnoringDictionary
 from .errors import ArgumentError, NoSuchAttributeError, HierarchyError
 from .cells import Cell, PointCut, RangeCut, SetCut, cuts_from_string
-from .model import string_to_dimension_level
+from .metadata import string_to_dimension_level
 
 from . import compat
 
@@ -28,6 +28,7 @@ __all__ = [
     "TableRow",
     "SPLIT_DIMENSION_NAME",
 ]
+
 
 SPLIT_DIMENSION_NAME = '__within_split__'
 NULL_PATH_VALUE = '__null__'

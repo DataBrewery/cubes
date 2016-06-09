@@ -6,15 +6,14 @@ import os.path
 
 from collections import OrderedDict, defaultdict
 
-from .metadata import read_model_metadata
+from .metadata import read_model_metadata, find_dimension
+from .metadata import LocalizationContext
 from .auth import NotAuthorized
 from .common import read_json_file
 from .errors import ConfigurationError, ArgumentError, CubesError
 from .logging import get_logger
 from .calendar import Calendar
 from .namespace import Namespace
-from .providers import find_dimension
-from .localization import LocalizationContext
 from .compat import ConfigParser
 from . import ext
 from . import compat

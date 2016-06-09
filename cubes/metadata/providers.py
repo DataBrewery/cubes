@@ -2,15 +2,17 @@
 """Logical model model providers."""
 import copy
 
-from .errors import ModelError, TemplateRequired, CubesError, BackendError
-from .errors import NoSuchDimensionError, NoSuchCubeError
+from ..errors import ModelError, TemplateRequired, CubesError, BackendError
+from ..errors import NoSuchDimensionError, NoSuchCubeError
 from .localization import LocalizationContext
-from .model import Cube, Dimension
+from .cube import Cube
+from .dimension import Dimension
 
 __all__ = [
     "ModelProvider",
     "StaticModelProvider",
     "link_cube",
+    "find_dimension",
 ]
 
 

@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import os.path
 from collections import defaultdict
 from .cells import Cell, cut_from_string, cut_from_dict, PointCut
-from .model import string_to_dimension_level
+from .metadata import string_to_dimension_level
 from .errors import UserError, ConfigurationError, NoSuchDimensionError
 from .common import read_json_file, sorted_dependencies
 from . import compat

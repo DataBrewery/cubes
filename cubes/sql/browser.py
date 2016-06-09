@@ -19,7 +19,7 @@ from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 from ..stores import Store
 from ..cells import Cell, PointCut
-from ..model import collect_attributes
+from ..metadata import collect_attributes
 from .. import compat
 
 from .functions import available_aggregate_functions

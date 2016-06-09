@@ -8,7 +8,7 @@ import re
 from collections import OrderedDict
 
 from .errors import ArgumentError, CubesError
-from .model import Dimension, Cube
+from .metadata import Dimension, Cube
 from .logging import get_logger
 from . import compat
 

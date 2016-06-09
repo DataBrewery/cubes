@@ -1,7 +1,7 @@
 import unittest
 
 from cubes.sql.mapper import StarSchemaMapper, distill_naming
-from cubes.model import Attribute
+from cubes.metadata import Attribute
 
 from ..common import CubesTestCaseBase, create_provider
 

@@ -11,7 +11,7 @@ from dateutil.tz import gettz, tzlocal, tzstr
 from datetime import datetime
 from time import gmtime
 
-from .model import Hierarchy
+from .metadata import Hierarchy
 from .errors import ArgumentError, ConfigurationError
 from . import compat
 

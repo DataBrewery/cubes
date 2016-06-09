@@ -1,8 +1,7 @@
 # -*- coding=utf -*-
-from ..model import *
+from ..metadata import *
 from ..browser import *
 from ..stores import Store
-from ..providers import ModelProvider
 from ..errors import *
 from ..logging import get_logger
 import json

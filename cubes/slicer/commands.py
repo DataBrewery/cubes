@@ -14,7 +14,6 @@ import json
 import os
 import sys
 import click
-import cubes
 
 from .. import compat
 

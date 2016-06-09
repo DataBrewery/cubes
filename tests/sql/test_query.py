@@ -16,7 +16,7 @@ from cubes.sql.query import NoSuchAttributeError
 from cubes.sql.query import JoinKey, to_join_key, Join, to_join
 from cubes.sql.query import QueryContext
 from cubes.errors import ArgumentError, ModelError
-from cubes.model import create_list_of, Attribute
+from cubes.metadata import create_list_of, Attribute
 from .common import create_table, SQLTestCase
 
 CONNECTION = "sqlite://"

@@ -6,9 +6,9 @@ from cubes import read_model_metadata, read_model_metadata_bundle
 from cubes.errors import ArgumentError, ModelError, HierarchyError
 from cubes.errors import ModelInconsistencyError, NoSuchAttributeError
 from cubes.errors import NoSuchDimensionError
-from cubes.model import Level, Attribute, Measure, MeasureAggregate
-from cubes.model import create_list_of
-from cubes.model import Dimension, Hierarchy, Cube
+from cubes.metadata import Level, Attribute, Measure, MeasureAggregate
+from cubes.metadata import create_list_of
+from cubes.metadata import Dimension, Hierarchy, Cube
 
 import copy
 from .common import TESTS_PATH, CubesTestCaseBase
