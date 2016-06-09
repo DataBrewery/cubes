@@ -20,7 +20,7 @@ from .errors import ArgumentError
 from . import compat
 from . import ext
 
-from .browser import SPLIT_DIMENSION_NAME
+from .query import SPLIT_DIMENSION_NAME
 
 
 __all__ = [

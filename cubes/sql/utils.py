@@ -7,7 +7,7 @@ import sqlalchemy.sql as sql
 
 from collections import OrderedDict
 
-from ..browser import SPLIT_DIMENSION_NAME
+from ..query import SPLIT_DIMENSION_NAME
 
 __all__ = [
     "CreateTableAsSelect",

@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
 from ..metadata import *
-from ..browser import *
+from ..query import *
 from ..stores import Store
 from ..errors import *
 from ..logging import get_logger

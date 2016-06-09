@@ -2,23 +2,17 @@
 from __future__ import absolute_import
 
 from unittest import TestCase, skip
-import os
-import json
-import re
 import sqlalchemy as sa
-import datetime
 
-from .common import create_table, SQLTestCase
-
-from cubes.errors import HierarchyError
-from cubes.cells import PointCut, SetCut, RangeCut, Cell
-from cubes.sql import SQLBrowser, SQLStore
+from cubes.sql import SQLStore
 from cubes.sql.query import StarSchema, FACT_KEY_LABEL, to_join
 from cubes.sql.query import QueryContext
 from cubes.sql.mapper import map_base_attributes, StarSchemaMapper
 from cubes.sql.mapper import distill_naming
 
 from .dw.demo import create_demo_dw, TinyDemoModelProvider
+from .common import SQLTestCase
+
 #
 # TODO: this should be workspace-free test
 #

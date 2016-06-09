@@ -4,15 +4,16 @@ from __future__ import absolute_import
 
 from collections import namedtuple
 
-from .statutils import calculators_for_aggregates, available_calculators
-from .calendar import CalendarMemberConverter
-from .logging import get_logger
-from .common import IgnoringDictionary
-from .errors import ArgumentError, NoSuchAttributeError, HierarchyError
-from .cells import Cell, PointCut, RangeCut, SetCut, cuts_from_string
-from .metadata import string_to_dimension_level
+from ..calendar import CalendarMemberConverter
+from ..logging import get_logger
+from ..common import IgnoringDictionary
+from ..errors import ArgumentError, NoSuchAttributeError, HierarchyError
+from ..metadata import string_to_dimension_level
 
-from . import compat
+from .statutils import calculators_for_aggregates, available_calculators
+from .cells import Cell, PointCut, RangeCut, SetCut, cuts_from_string
+
+from .. import compat
 
 
 __all__ = [

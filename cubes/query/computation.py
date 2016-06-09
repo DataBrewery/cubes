@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 import itertools
 
-from .errors import ArgumentError
+from ..errors import ArgumentError
 
 __all__ = [
     "combined_cuboids",

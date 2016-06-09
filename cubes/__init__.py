@@ -3,13 +3,11 @@
 __version__ = "1.1"
 
 from .common import *
-from .browser import *
-from .cells import *
+from .query import *
 from .metadata import *
 from .workspace import *
 from .errors import *
 from .formatters import *
-from .computation import *
 from .mapper import *
 from .calendar import *
 from .auth import *

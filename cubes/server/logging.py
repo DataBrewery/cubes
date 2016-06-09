@@ -13,7 +13,7 @@ from .. import ext
 from .. import compat
 from ..logging import get_logger
 from ..errors import *
-from ..browser import Drilldown
+from ..query import Drilldown
 
 __all__ = [
     "create_request_log_handler",

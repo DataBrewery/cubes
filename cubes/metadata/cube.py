@@ -6,7 +6,8 @@ from __future__ import absolute_import
 from collections import OrderedDict, defaultdict
 
 from ..common import assert_all_instances, get_localizable_attributes
-from ..statutils import aggregate_calculator_labels
+# TODO: This should belong here
+from ..query.statutils import aggregate_calculator_labels
 from ..errors import ModelError, ArgumentError, NoSuchAttributeError
 from ..errors import NoSuchDimensionError
 from .base import ModelObject, object_dict

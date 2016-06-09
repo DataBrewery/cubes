@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-from flask import Blueprint, Response, request, g, current_app, url_for, safe_join, make_response
-from flask import render_template, redirect
-from jinja2 import Template
-import json, re
-from functools import wraps
+import json
 import sys
 import traceback
+from collections import OrderedDict
+
+from flask import Blueprint, Response, request, g, current_app, safe_join, make_response
+from flask import render_template, redirect
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
-from ..cells import Cell, cut_from_dict
-from ..browser import SPLIT_DIMENSION_NAME
+from ..query import Cell, cut_from_dict
+from ..query import SPLIT_DIMENSION_NAME
 from ..errors import *
 from ..formatters import JSONLinesGenerator, csv_generator
 from .. import ext
@@ -21,7 +21,6 @@ from .decorators import *
 from .local import *
 from .auth import NotAuthenticated
 
-from collections import OrderedDict
 
 from cubes import __version__
 

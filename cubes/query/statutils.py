@@ -4,8 +4,8 @@ from collections import deque
 from functools import partial
 from math import sqrt
 
-from .errors import ArgumentError, InternalError, ModelError
-from . import compat
+from ..errors import ArgumentError, InternalError, ModelError
+from .. import compat
 
 __all__ = [
     "CALCULATED_AGGREGATIONS",

@@ -1,8 +1,8 @@
 import unittest
 
-from cubes.cells import Cell, PointCut, SetCut, RangeCut
-from cubes.cells import string_from_path, cut_from_string, path_from_string
-from cubes.cells import cut_from_dict
+from cubes.query import Cell, PointCut, SetCut, RangeCut
+from cubes.query import string_from_path, cut_from_string, path_from_string
+from cubes.query import cut_from_dict
 from cubes.errors import CubesError, ArgumentError
 from cubes.errors import HierarchyError, NoSuchDimensionError
 

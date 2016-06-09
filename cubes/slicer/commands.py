@@ -28,8 +28,8 @@ from ..server.base import read_slicer_config
 
 from .. import ext
 
-from ..cells import cuts_from_string, Cell
-from ..browser import string_to_dimension_level
+from ..query import cuts_from_string, Cell
+from ..metadata import string_to_dimension_level
 
 
 DEFAULT_CONFIG = "slicer.ini"

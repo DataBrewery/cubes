@@ -13,12 +13,12 @@ except ImportError:
     from ...common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
-from ..statutils import available_calculators
-from ..browser import AggregationBrowser, AggregationResult, Drilldown
+from ..query import available_calculators
+from ..query import AggregationBrowser, AggregationResult, Drilldown
+from ..query import Cell, PointCut
 from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 from ..stores import Store
-from ..cells import Cell, PointCut
 from ..metadata import collect_attributes
 from .. import compat
 
