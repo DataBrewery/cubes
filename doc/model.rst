@@ -13,7 +13,7 @@ focus on data instead on ways of how to get the data in understandable form.
         Example database schemas and their respective models.
 
     :doc:`reference/model`
-        Reference of model classes and fucntions.
+        Reference of model classes and functions.
 
     `Cubes Models <https://github.com/DataBrewery/cubes-models>`_
         Repository of basic cubes models.
