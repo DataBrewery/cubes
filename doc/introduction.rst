@@ -15,7 +15,7 @@ functionality.
 Features:
 
 * logical view of analysed data - how analysts look at data, how they think of
-  data, not not how the data are physically implemented in the data stores
+  data, not how the data are physically implemented in the data stores
 * OLAP and aggregated browsing (default backend is for relational database - 
   ROLAP)
 * hierarchical dimensions (attributes that have hierarchical dependencies,
