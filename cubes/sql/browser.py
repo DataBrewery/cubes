@@ -391,12 +391,6 @@ class SQLBrowser(AggregationBrowser):
         """
 
         # TODO: implement reminder
-        for agg in aggregates:
-            if agg.dependencies:
-                try:
-                    aggregates += self.cube.get_aggregates(agg.dependencies)
-                except KeyError:
-                    pass
 
         result = AggregationResult(cell=cell, aggregates=aggregates,
                                    drilldown=drilldown,
