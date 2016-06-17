@@ -16,7 +16,7 @@ setups.
         Backend references.
 
     :doc:`reference/model`
-        Developer's reference of model classes and fucntions.
+        Developer's reference of model classes and functions.
 
 Basic Schemas
 =============
@@ -175,7 +175,7 @@ Python pass it in the `dimension_schema` argument of
                                        schema="facts",
                                        dimension_schema="dimensions")
 
-For the :doc:`server` the dimension schema is specifiedn in the
+For the :doc:`server` the dimension schema is specified in the
 ``[store]`` section of the `slicer.ini` configuration file:
 
 .. code-block:: ini

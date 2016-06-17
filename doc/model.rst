@@ -40,7 +40,7 @@ types, ...). They just ask for `customer.name` or `category.code`.
 In addition to abstraction over physical model, localization abstraction is
 included. When working in multi-lingual environment, only one version of
 report/query has to be written, locales can be switched as desired. If
-requesting "contract type name", analyst just writes `constract_type.name` and
+requesting "contract type name", analyst just writes `contract_type.name` and
 Cubes framework takes care about appropriate localisation of the value.
 
 Example: Analysts wants to report contract amounts by geography which has two
@@ -134,7 +134,7 @@ Inheritance
 
 .. TODO: move this into recipes
 
-Cubes in a model will inherint mappings and joins from the model. The mappings
+Cubes in a model will inherit mappings and joins from the model. The mappings
 are merged in a way that cube's mappings replace existing model's
 mappings with the same name. Joins are concatenated or merged by their name.
 
@@ -482,7 +482,7 @@ both lists are merged together.
 .. note::
 
     To prevent automated creation of default aggregates from measures, there
-    is an advanced cube option ``implicit_aggergates``. Set this property to
+    is an advanced cube option ``implicit_aggregates``. Set this property to
     `False` if you want to keep only explicit list of aggregates.
 
 

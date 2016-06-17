@@ -611,7 +611,7 @@ def main(*args, **kwargs):
             click.echo("\n" \
                   "Error: Internal error occured.\n"
                   "Reason: {}\n\n" \
-                  "Please report the error and informatiob about what you " \
+                  "Please report the error and information about what you " \
                   "were doing to the Cubes development team.\n"
                   .format(e), err=True)
             sys.exit(1)

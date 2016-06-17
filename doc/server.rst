@@ -78,7 +78,7 @@ List of Cubes
 
 Request: ``GET /cubes``
 
-Get list of basic informatiob about served cubes. The cube description
+Get list of basic information about served cubes. The cube description
 dictionaries contain keys: `name`, `label`, `description` and `category`.
 
 .. code-block:: javascript
@@ -326,7 +326,7 @@ example:
 
 * ``date:yesterday``
 * ``date:90daysago-today`` – get cell for last 90 days
-* ``expliration_date:lastmonth-next2months`` – all facts with `expiration
+* ``expiration_date:lastmonth-next2months`` – all facts with `expiration
   date` within last month (whole) and next 2 months (whole)
 * ``date:yearago`` – all facts since the same day of the year last year
 
@@ -364,10 +364,10 @@ Parameters:
   ``dimension@hierarchy`` as in ``drilldown=date@ywd`` for implicit level or
   ``drilldown=date@ywd:week`` to explicitly specify level.
 * `aggregates` – list of aggregates to be computed, separated by ``|``, for
-  example: ``aggergates=amount_sum|discount_avg|count``
+  example: ``aggregates=amount_sum|discount_avg|count``
 * `measures` – list of measures for which their respecive aggregates will be
   computed (see below). Separated by ``|``, for
-  example: ``aggergates=proce|discount``
+  example: ``aggregates=proce|discount``
 * `page` - page number for paginated results
 * `pagesize` - size of a page for paginated results
 * `order` - list of attributes to be ordered by
