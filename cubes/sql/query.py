@@ -631,6 +631,7 @@ class StarSchema(object):
         # Nowe we have to resolve all dependencies.
 
         required = {}
+        relevant_orig = set(relevant)
         while relevant:
             table = relevant.pop()
             required[table.key] = table
@@ -653,7 +654,11 @@ class StarSchema(object):
         fact = self.table(fact_key, "fact master")
         masters = {fact_key: fact}
 
-        sorted_tables = [fact]
+        sorted_tables = []
+        # Very fast query for joined dimensions and very big fact tables
+        # dirty, dirty hack
+        if fact in relevant_orig:
+            sorted_tables.append(fact)
 
         while required:
             details = [table for table in required.values()
