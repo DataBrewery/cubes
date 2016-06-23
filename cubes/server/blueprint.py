@@ -379,7 +379,7 @@ def aggregate(cube_name):
                              include_header=bool(header),
                              header=header)
 
-    headers = {"Content-Disposition": 'attachment; filename="aggregate.csv"'}
+    headers = {"Content-Disposition": 'attachment; filename="aggregate_%s.csv"' % cube_name}
     return Response(generator,
                     mimetype='text/csv',
                     headers=headers)
