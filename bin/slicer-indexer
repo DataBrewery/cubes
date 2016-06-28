@@ -50,7 +50,7 @@ def create_index(args):
 
 parser = argparse.ArgumentParser(description='Cubes indexer')
 
-parser.add_argument('config', help='server confuguration .ini file')
+parser.add_argument('config', help='server configuration .ini file')
 parser.add_argument('cube', help='cube name')
 parser.set_defaults(func=create_index)
 parser.add_argument('--engine')
