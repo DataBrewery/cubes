@@ -245,7 +245,8 @@ class SQLBrowser(AggregationBrowser):
         cell = cell or Cell(self.cube)
 
         (statement, labels) = self.denormalized_statement(cell=cell,
-                                                          attributes=attrs)
+                                                          attributes=attrs,
+                                                          include_fact_key=True)
 
         if fact_list is not None:
             in_condition = self.star.fact_key_column.in_(fact_list)
