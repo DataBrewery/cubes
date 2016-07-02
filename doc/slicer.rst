@@ -12,7 +12,7 @@ Usage::
     slicer command [command_options]
 
 or::
-    
+
     slicer command sub_command [sub_command_options]
 
 Commands are:
@@ -57,12 +57,12 @@ Example server configuration file ``slicer.ini``::
 
     [model]
     path: models/model_04.json
-    
+
 To run local server::
 
     slicer serve slicer.ini
 
-In the ``[server]`` section, space separated list of modules to be imported can 
+In the ``[server]`` section, space separated list of modules to be imported can
 be specified under option ``modules``::
 
     [server]
@@ -105,7 +105,7 @@ Optional arguments::
       -w, --no-warnings     disable warnings
       -t TRANSLATION, --translation TRANSLATION
                             model translation file
-                            
+
 For more information see Model Validation in :doc:`model`
 
 Example output::
@@ -132,11 +132,11 @@ The tool output contains recommendation whether the model can be used:
 
 * `model can be used` - if there are no errors, no warnings and no defaults used,
   mostly when the model is explicitly described in every detail
-* `model can be used, make sure that defaults reflect reality` - there are no 
-  errors, no warnings, but the model might be not complete and default 
+* `model can be used, make sure that defaults reflect reality` - there are no
+  errors, no warnings, but the model might be not complete and default
   assumptions are applied
-* `not recommended to use the model, some issues might emerge` - there are just 
-  warnings, no validation errors. Some queries or any other operations might 
+* `not recommended to use the model, some issues might emerge` - there are just
+  warnings, no validation errors. Some queries or any other operations might
   produce invalid or unexpected output
 * `model can not be used` - model contain errors and it is unusable
 
@@ -153,15 +153,15 @@ Usage::
 
 Positional arguments::
 
-    config                server confuguration .ini file
+    config                server configuration .ini file
     cubes                 list of cubes to be tested
 
 Optional arguments::
 
-    --aggregate               Test aggregate of whole cube 
-    -E, --exclude-store TEXT                               
-    --store TEXT                                           
-    --help                    Show this message and exit.  
+    --aggregate               Test aggregate of whole cube
+    -E, --exclude-store TEXT
+    --store TEXT
+    --help                    Show this message and exit.
 
 
 ..
@@ -171,7 +171,7 @@ Optional arguments::
     .. note::
 
         This is experimental command.
-        
+
     Generates DDL schema of a model for SQL backend
 
     Usage::
@@ -243,11 +243,11 @@ a cube named ``contracts``. The browser will use the view if option
 Denormalize all cubes in the model::
 
     slicer sql denormalize
-    
+
 Denormalize only one cube::
 
     slicer sql denormalize contracts
-    
+
 Create materialized denormalized view with indexes::
 
     slicer denormalize --materialize --index slicer.ini
@@ -283,7 +283,7 @@ command line argument ``--prefix``.
     table name and is in the same schema. It is not even possible to
     ``--force`` it. A view prefix or different schema has to be specified.
 
-    
+
 sql aggregate
 ---------------
 

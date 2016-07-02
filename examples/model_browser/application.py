@@ -6,10 +6,11 @@ Use:
 
 """
 
-from flask import Flask, render_template, request
-from cubes import Workspace
 import argparse
 import ConfigParser
+
+from cubes import Workspace
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
@@ -23,6 +24,7 @@ app = Flask(__name__)
 workspace = None
 model = None
 cube_name = None
+
 
 @app.route("/")
 @app.route("/<dim_name>")
@@ -41,9 +43,10 @@ def report(dim_name=None):
         physical = None
 
     return render_template('index.html',
-                            dimensions=cube.dimensions,
-                            dimension=dimension,
-                            mapping=physical)
+                           dimensions=cube.dimensions,
+                           dimension=dimension,
+                           mapping=physical)
+
 
 def get_browser():
     global cube_name
@@ -57,7 +60,7 @@ def get_browser():
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Cubes model browser.')
-    parser.add_argument('config', help='server confuguration .ini file')
+    parser.add_argument('config', help='server configuration .ini file')
     parser.add_argument('cube', nargs='?', default=None, help='cube name')
     args = parser.parse_args()
 

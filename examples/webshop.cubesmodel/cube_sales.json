@@ -1,61 +1,61 @@
 {
-    "name": "sales", 
-    "label": "Webshop / Sales", 
+    "name": "sales",
+    "label": "Webshop / Sales",
     "dimensions": [
-        "date_sale", 
-        "customer", 
-        "product", 
+        "date_sale",
+        "customer",
+        "product",
         "country"
-    ], 
+    ],
     "measures": [
-        { "name": "quantity" }, 
+        { "name": "quantity" },
         { "name": "price_total" }
-    ], 
+    ],
     "aggregates": [
         {
-            "name": "quantity_sum", 
+            "name": "quantity_sum",
             "label": "Total Quantity",
             "function": "sum",
             "measure": "quantity"
         },
         {
-            "name": "quantity_avg", 
+            "name": "quantity_avg",
             "label": "Average Quantity",
             "function": "avg",
             "measure": "quantity"
         },
         {
-            "name": "quantity_max", 
+            "name": "quantity_max",
             "label": "Maximum Quantity",
             "function": "max",
             "measure": "quantity"
         },
         {
-            "name": "price_total_sum", 
+            "name": "price_total_sum",
             "label": "Total Price",
             "function": "sum",
             "measure": "price_total"
         },
         {
-            "name": "price_total_avg", 
+            "name": "price_total_avg",
             "label": "Average Price",
             "function": "avg",
             "measure": "price_total"
         },
         {
-            "name": "price_total_max", 
+            "name": "price_total_max",
             "label": "Maximum Price",
             "function": "max",
             "measure": "price_total"
         },
         {
-            "name": "price_total_min", 
+            "name": "price_total_min",
             "label": "Minimum Price",
             "function": "min",
             "measure": "price_total"
         },
         {
-            "name": "record_count", 
+            "name": "record_count",
             "label": "Visit count",
             "function": "count"
         }
