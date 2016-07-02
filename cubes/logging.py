@@ -27,6 +27,7 @@ def create_logger(path=None, format_=None, name=None):
     """Create a default logger"""
     global logger
     logger = getLogger(name or DEFAULT_LOGGER_NAME)
+    logger.propagate = False
 
     if not logger.handlers:
         formatter = Formatter(fmt=format_ or DEFAULT_FORMAT)

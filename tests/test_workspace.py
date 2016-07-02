@@ -7,6 +7,7 @@ from cubes.errors import NoSuchAttributeError
 from cubes.workspace import Workspace
 from cubes.stores import Store
 from cubes.model import *
+from cubes.server.base import read_slicer_config
 
 from .common import CubesTestCaseBase
 # FIXME: remove this once satisfied
@@ -14,10 +15,10 @@ from .common import CubesTestCaseBase
 class WorkspaceTestCaseBase(CubesTestCaseBase):
     def default_workspace(self, model_name=None):
         model_name = model_name or "model.json"
-        ws = Workspace(config=self.data_path("slicer.ini"))
+        config = read_slicer_config(self.data_path("slicer.ini"))
+        ws = Workspace(config=config)
         ws.import_model(self.model_path("model.json"))
         return ws
-
 
 class WorkspaceModelTestCase(WorkspaceTestCaseBase):
     def test_get_cube(self):

@@ -4,9 +4,11 @@ from __future__ import absolute_import
 from .blueprint import slicer
 from flask import Flask
 import shlex
+import os
 
 from .utils import *
 from .. import compat
+from ..logging import get_logger
 
 __all__ = (
     "create_server",
@@ -16,7 +18,7 @@ __all__ = (
 # Server Instantiation and Running
 # ================================
 
-def _read_config(config):
+def read_slicer_config(config):
     if not config:
         return compat.ConfigParser()
     elif isinstance(config, compat.string_type):
@@ -32,10 +34,7 @@ def create_server(config=None, **_options):
     """Returns a Flask server application. `config` is a path to a
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 
-    config = read_server_config(config)
-
     # Load extensions
-
     if config.has_option("server", "modules"):
         modules = shlex.split(config.get("server", "modules"))
         for module in modules:
@@ -48,12 +47,24 @@ def create_server(config=None, **_options):
 
     return app
 
-
-def run_server(config, debug=False):
+def run_server(config, debug=False, app=None):
     """Run OLAP server with configuration specified in `config`"""
 
-    config = read_server_config(config)
-    app = create_server(config)
+    config = read_slicer_config(config)
+
+    logger = get_logger()
+
+    if config.has_option("server", "debug"):
+        if debug is False and config.getboolean("server", "debug"):
+            debug = True
+
+    if debug:
+        logger.warning('Server running under DEBUG, so logging level set to DEBUG.')
+        import logging
+        logger.setLevel(logging.DEBUG)
+
+    if app is None:
+        app = create_server(config)
 
     if config.has_option("server", "host"):
         host = config.get("server", "host")
@@ -74,6 +85,16 @@ def run_server(config, debug=False):
         processes = config.getint('server', 'processes')
     else:
         processes = 1
+
+    if config.has_option("server", "pid_file"):
+        path = config.get("server", "pid_file")
+        try:
+            with open(path, "w") as f:
+                f.write(str(os.getpid()))
+        except IOError as e:
+            logger.error("Unable to write PID file '%s'. Check the "
+                         "directory existence or permissions." % path)
+            raise
 
     app.run(host, port, debug=debug, processes=processes,
             use_reloader=use_reloader)
