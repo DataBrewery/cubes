@@ -481,8 +481,8 @@ class SQLBrowser(AggregationBrowser):
         attributes = attributes or self.cube.all_fact_attributes
 
         refs = [attr.ref for attr in collect_attributes(attributes, cell)]
-        attributes = self.cube.get_attributes(refs)
-        context = self._create_context(attributes)
+        context_attributes = self.cube.get_attributes(refs)
+        context = self._create_context(context_attributes)
 
         if include_fact_key:
             selection = [self.star.fact_key_column]
