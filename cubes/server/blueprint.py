@@ -13,9 +13,9 @@ from ..browser import SPLIT_DIMENSION_NAME
 from ..errors import *
 from ..formatters import JSONLinesGenerator, csv_generator
 from .. import ext
+from ..logging import get_logger
 from .logging import configured_request_log_handlers, RequestLogger
 from .logging import AsyncRequestLogger
-from .utils import *
 from .errors import *
 from .decorators import *
 from .local import *
@@ -85,8 +85,8 @@ def initialize_slicer(state):
 
     with state.app.app_context():
         config = state.options["config"]
-        config = read_server_config(config)
 
+        logger = get_logger()
         # Create workspace and other app objects
         # We avoid pollution of the current_app context, as we are a Blueprint
         params = CustomDict()
@@ -103,6 +103,7 @@ def initialize_slicer(state):
             current_app.cubes_workspace = Workspace(config, **_options)
 
         # Configure the application
+        # FIXME XXX this shouldn't be in the "server" section
         _store_option(config, "prettyprint", False, "bool")
         _store_option(config, "json_record_limit", 1000, "int")
         _store_option(config, "hide_private_cuts", False, "bool")
