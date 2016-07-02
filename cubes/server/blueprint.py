@@ -414,11 +414,11 @@ def cube_facts(cube_name):
                              page_size=g.page_size)
 
     # Add cube key to the fields (it is returned in the result)
-    fields.insert(0, g.cube.key or "id")
+    fields.insert(0, g.cube.key or "__fact_key__")
 
     # Construct the header
     labels = [attr.label or attr.name for attr in attributes]
-    labels.insert(0, g.cube.key or "id")
+    labels.insert(0, g.cube.key or "__fact_key__")
 
     return formatted_response(facts, fields, labels)
 
