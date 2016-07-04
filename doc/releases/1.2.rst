@@ -1,0 +1,15 @@
+***********************
+Cubes 1.2 release notes
+***********************
+
+These release notes cover the new features and changes (some of them backward
+incompatible).
+
+Overview
+========
+
+* restructured source code – preparations for modularisation
+
+New Features
+============
+
