@@ -6,7 +6,7 @@ from cubes.errors import NoSuchCubeError, NoSuchDimensionError
 from cubes.errors import NoSuchAttributeError
 from cubes.workspace import Workspace
 from cubes.stores import Store
-from cubes.model import *
+from cubes.metadata import *
 from cubes.server.base import read_slicer_config
 
 from .common import CubesTestCaseBase
