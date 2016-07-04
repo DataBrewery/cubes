@@ -937,18 +937,18 @@ class QueryContext(object):
 
         return [self._columns[ref] for ref in refs]
 
-    def condition_for_cell(self, cell):
+    def condition_for_cell(self, cell, for_summary=None):
         """Returns a condition for cell `cell`. If cell is empty or cell is
         `None` then returns `None`."""
 
         if not cell:
             return None
 
-        condition = and_(*self.conditions_for_cuts(cell.cuts))
+        condition = and_(*self.conditions_for_cuts(cell.cuts, for_summary))
 
         return condition
 
-    def conditions_for_cuts(self, cuts):
+    def conditions_for_cuts(self, cuts, for_summary=None):
         """Constructs conditions for all cuts in the `cell`. Returns a list of
         SQL conditional expressions.
         """
@@ -958,6 +958,7 @@ class QueryContext(object):
         for cut in cuts:
             hierarchy = str(cut.hierarchy) if cut.hierarchy else None
 
+            condition = None
             if isinstance(cut, PointCut):
                 path = cut.path
                 condition = self.condition_for_point(str(cut.dimension),
@@ -965,19 +966,11 @@ class QueryContext(object):
                                                      hierarchy, cut.invert)
 
             elif isinstance(cut, SetCut):
-                set_conds = []
-
-                for path in cut.paths:
-                    condition = self.condition_for_point(str(cut.dimension),
-                                                         path,
+                if not for_summary or cut.hidden is not True:
+                    condition = self.condition_for_set(str(cut.dimension),
+                                                         cut.paths,
                                                          str(cut.hierarchy),
-                                                         invert=False)
-                    set_conds.append(condition)
-
-                condition = sql.expression.or_(*set_conds)
-
-                if cut.invert:
-                    condition = sql.expression.not_(condition)
+                                                         invert=cut.invert)
 
             elif isinstance(cut, RangeCut):
                 condition = self.range_condition(str(cut.dimension),
@@ -988,7 +981,8 @@ class QueryContext(object):
             else:
                 raise ArgumentError("Unknown cut type %s" % type(cut))
 
-            conditions.append(condition)
+            if condition is not None:
+                conditions.append(condition)
 
         return conditions
 
@@ -1110,3 +1104,78 @@ class QueryContext(object):
 
         return split_column.label(label)
 
+    # madman: get having clause and attributes
+    def colums_and_having_cut_for_cell(self, cell):
+        """Returns attributes and having clause. If cell is empty, not contain having or cell is
+        `None` then returns `None`."""
+
+        if not cell:
+            return None
+
+        having_cuts = cell.having_cuts
+        hav_condition = and_(*self.conditions_for_having_cuts(having_cuts))
+
+        if hav_condition is None:
+            return None
+
+        colums = self.colums_in_having_cuts(having_cuts)
+
+        return (colums, hav_condition)
+
+    # madman: get attributes in having cuts
+    def colums_in_having_cuts(self, having_cus):
+
+        columns = []
+
+        for cut in having_cus:
+            hierarchy = str(cut.hierarchy) if cut.hierarchy else None
+            levels = self.hierarchies[(str(cut.dimension), hierarchy)]
+            for level_key in levels:
+                column = self.column(level_key)
+                columns.append(column)
+
+        return columns
+
+    # madman: get condition in having cuts
+    def conditions_for_having_cuts(self, having_cuts):
+        """
+        Having cuts has only support type PointCut
+        """
+
+        conditions = []
+
+        for cut in having_cuts:
+            hierarchy = str(cut.hierarchy) if cut.hierarchy else None
+
+            if isinstance(cut, PointCut):
+                path = cut.path
+                condition = self.condition_for_point(str(cut.dimension),
+                                                     path,
+                                                     hierarchy, cut.invert)
+            else:
+                raise ArgumentError("Having cut has not support type %s" % type(cut))
+
+            conditions.append(condition)
+
+        return conditions
+
+    # madman: fix setcut
+    def condition_for_set(self, dim, path, hierarchy=None, invert=False):
+        """Returns a `Condition` tuple (`attributes`, `conditions`,
+        `group_by`) dimension `dim` point at `path`. It is a compound
+        condition - one equality condition for each path element in form:
+        ``level[i].key IN (path[i])``"""
+        conditions = []
+        levels = self.level_keys(dim, hierarchy, path)
+        for level_key, value in zip(levels, path):
+            column = self.column(level_key)
+            values = []
+            for v in value:
+                values.append([v])
+            if invert:
+                condition = sql.expression.tuple_(column).notin_(values)
+            else:
+                condition = sql.expression.tuple_(column).in_(values)
+            conditions.append(condition)
+        condition = sql.expression.and_(*conditions)
+        return condition
