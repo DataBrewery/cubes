@@ -120,6 +120,9 @@ class SQLExpressionContext(object):
     def add_column(self, name, column):
         self._columns[name] = column
 
+    def add_function(self, name):
+        SQL_ALL_FUNCTIONS.append(name)
+
 
 def compile_attributes(bases, dependants, parameters, coalesce=None,
                        label=None):
@@ -130,6 +133,9 @@ def compile_attributes(bases, dependants, parameters, coalesce=None,
     compiler = SQLExpressionCompiler()
 
     for attr in dependants:
+        if hasattr(attr, 'expression_custom_function') and attr.expression_custom_function:
+            context.add_function(attr.expression_custom_function)
+
         # TODO: remove this hasattr with something nicer
         if hasattr(attr, "function") and attr.function:
             # Assumption: only aggregates have function, no measures or other
