@@ -2423,7 +2423,7 @@ class MeasureAggregate(AttributeBase):
                  info=None, format=None, missing_value=None, measure=None,
                  function=None, formula=None, expression=None,
                  nonadditive=None, window_size=None, custom_agg=None,
-                 drilldowns_required=None, **kwargs):
+                 drilldowns_required=None, expression_custom_function=None, **kwargs):
         """Masure aggregate
 
         Attributes:
@@ -2451,6 +2451,7 @@ class MeasureAggregate(AttributeBase):
         self.window_size = window_size
         self.custom_agg = custom_agg
         self.drilldowns_required = drilldowns_required
+        self.expression_custom_function = expression_custom_function
 
     def __deepcopy__(self, memo):
         return MeasureAggregate(self.name,
@@ -2467,19 +2468,21 @@ class MeasureAggregate(AttributeBase):
                                 nonadditive=self.nonadditive,
                                 window_size=self.window_size,
                                 custom_agg=self.custom_agg,
-                                drilldowns_required=self.drilldowns_required)
+                                drilldowns_required=self.drilldowns_required,
+                                expression_custom_function=self.expression_custom_function)
 
     def __eq__(self, other):
         if not super(MeasureAggregate, self).__eq__(other):
             return False
 
         return str(self.function) == str(other.function) \
-            and self.measure == other.measure \
-            and self.formula == other.formula \
-            and self.nonadditive == other.nonadditive \
-            and self.window_size == other.window_size \
-            and self.custom_agg == other.custom_agg \
-            and self.drilldowns_required == other.drilldowns_required
+               and self.measure == other.measure \
+               and self.formula == other.formula \
+               and self.nonadditive == other.nonadditive \
+               and self.window_size == other.window_size \
+               and self.custom_agg == other.custom_agg \
+               and self.drilldowns_required == other.drilldowns_required \
+               and self.expression_custom_function == other.expression_custom_function
 
     def __hash__(self):
         return hash(self.ref)
@@ -2497,6 +2500,7 @@ class MeasureAggregate(AttributeBase):
         d["window_size"] = self.window_size
         d["custom_agg"] = self.custom_agg
         d["drilldowns_required"] = self.custom_agg
+        d["expression_custom_function"] = self.expression_custom_function
 
         return d
 
