@@ -2,6 +2,7 @@
 
 import os
 from .base import create_server
+from .base import read_slicer_config
 from .utils import str_to_bool
 
 # Set the configuration file
@@ -10,7 +11,8 @@ try:
 except KeyError:
     CONFIG_PATH = os.path.join(os.getcwd(), "slicer.ini")
 
-application = create_server(CONFIG_PATH)
+config = read_slicer_config(CONFIG_PATH)
+application = create_server(config)
 
 debug = os.environ.get("SLICER_DEBUG")
 if debug and str_to_bool(debug):
