@@ -7,22 +7,18 @@ multiple forms using formatters:
 
 .. code-block:: python
 
-    formatter = cubes.create_formatter("text_table")
+    formatter = cubes.create_formatter("cross_table")
 
     result = browser.aggregate(cell, drilldown="date")
 
-    print formatter.format(result, "date")
+    print formatter.format(result, "date")  # This line doesn't work any more - what should it be?
 
 
 Available formatters:
 
-* `text_table` – text output for result of drilling down through one
-  dimension
-* `simple_data_table` – returns a dictionary with `header` and `rows`
-* `simple_html_table` – returns a HTML table representation of result table
-  cells
 * `cross_table` – cross table structure with attributes `rows` – row headings,
   `columns` – column headings and `data` with rows of cells
+* `csv` - comma-separated values
 * `html_cross_table` – HTML version of the `cross_table` formatter
 
 .. seealso::
