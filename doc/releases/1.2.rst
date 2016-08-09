@@ -9,7 +9,15 @@ Overview
 ========
 
 * restructured source code – preparations for modularisation
+  * created new query module
+
+
 
 New Features
 ============
 
+Changes
+=======
+
+* renamed `StarSchema` to `Denormalizer`
+* separated `QueryContext` for being future query prepare

@@ -25,7 +25,8 @@ from .. import compat
 from .functions import available_aggregate_functions
 from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
 from .mapper import distill_naming
-from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
+from .denormalizer import Denormalizer, to_join, FACT_KEY_LABEL
+from .preparer import QueryContext
 from .utils import paginate_query, order_query
 
 
@@ -50,7 +51,7 @@ class SQLBrowser(AggregationBrowser):
     * `metadata` – SQLAlchemy metadata, if `store` is an engine or a
        connection (not a `Store` object)
     * `tables` – tables and/or table expressions used in the star schema
-      (refer to the :class:`StarSchema` for more information)
+      (refer to the :class:`Denormalizer` for more information)
     * `options` - passed to the mapper
 
     Tuning:
@@ -176,7 +177,7 @@ class SQLBrowser(AggregationBrowser):
         else:
             joins = []
 
-        self.star = StarSchema(self.cube.name,
+        self.star = Denormalizer(self.cube.name,
                                metadata,
                                mappings=mappings,
                                fact=fact_name,

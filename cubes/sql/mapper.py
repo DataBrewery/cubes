@@ -8,7 +8,7 @@ import re
 from ..errors import ModelError
 from ..datastructures import AttributeDict
 
-from .query import to_column
+from .denormalizer import to_column
 
 
 # Note about the future of this module:

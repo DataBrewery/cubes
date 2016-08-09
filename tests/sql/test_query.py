@@ -11,10 +11,10 @@ import sqlalchemy as sa
 import sqlalchemy.sql as sql
 
 from datetime import datetime
-from cubes.sql.query import StarSchema, Column, SchemaError
-from cubes.sql.query import NoSuchAttributeError
-from cubes.sql.query import JoinKey, to_join_key, Join, to_join
-from cubes.sql.query import QueryContext
+from cubes.sql.denormalizer import Denormalizer, Column, SchemaError
+from cubes.sql.denormalizer import NoSuchAttributeError
+from cubes.sql.denormalizer import JoinKey, to_join_key, Join, to_join
+from cubes.sql.preparer import QueryContext
 from cubes.errors import ArgumentError, ModelError
 from cubes.metadata import create_list_of, Attribute
 from .common import create_table, SQLTestCase
@@ -70,16 +70,16 @@ class SchemaBasicsTestCase(SQLTestCase):
     def test_physical_table(self):
         """Test denormalized table selection of few columns"""
         # Test passing fact by table object
-        star = StarSchema("star", self.md, {}, self.test_fact)
+        star = Denormalizer("star", self.md, {}, self.test_fact)
         self.assertIs(star.physical_table("test"), self.test_fact)
 
         # Test passing fact by name
-        star = StarSchema("star", self.md, {}, "test")
+        star = Denormalizer("star", self.md, {}, "test")
         self.assertIs(star.physical_table("test"), self.test_fact)
 
         # Test passing fact by name and in a list of tables
 
-        star = StarSchema("star", self.md, {}, "test",
+        star = Denormalizer("star", self.md, {}, "test",
                          tables = {"test": self.test_fact})
 
         self.assertIs(star.physical_table("test"), self.test_fact)
@@ -92,7 +92,7 @@ class SchemaBasicsTestCase(SQLTestCase):
         """Test single table references"""
         key = (None, "test")
 
-        star = StarSchema("star", self.md, {}, self.test_fact)
+        star = Denormalizer("star", self.md, {}, self.test_fact)
 
         ref = star.table(key)
         self.assertIs(ref.table, self.test_fact)
@@ -101,13 +101,13 @@ class SchemaBasicsTestCase(SQLTestCase):
         self.assertEqual(ref.key, key)
 
         # Test passing fact by name
-        star = StarSchema("star", self.md, {}, "test")
+        star = Denormalizer("star", self.md, {}, "test")
 
         ref = star.table(key)
         self.assertIs(ref.table, self.test_fact)
 
         # Test passing fact by name and in a list of tables
-        star = StarSchema("star", self.md, {}, "test",
+        star = Denormalizer("star", self.md, {}, "test",
                          tables = {"test": self.test_fact})
 
         ref = star.table(key)
@@ -124,7 +124,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "total":   Column(None, "test", "amount", None, None),
         }
 
-        star = StarSchema("star", self.md, mappings, self.test_fact)
+        star = Denormalizer("star", self.md, mappings, self.test_fact)
 
         column = star.column("category")
         self.assertEqual(column.name, "category")
@@ -148,7 +148,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "category": Column(None, "test", "__unknown__", None, None),
         }
 
-        star = StarSchema("star", self.md, mappings, self.test_fact)
+        star = Denormalizer("star", self.md, mappings, self.test_fact)
 
         with self.assertRaises(SchemaError):
             column = star.column("category")
@@ -159,7 +159,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "year": Column(None, "test", "date", "year", None),
         }
 
-        star = StarSchema("star", self.md, mappings, self.test_fact)
+        star = Denormalizer("star", self.md, mappings, self.test_fact)
 
         column = star.column("year")
         base = list(column.base_columns)[0]
@@ -175,7 +175,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             "year":     Column(None, "test", "date", "year", None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.test_fact)
+        schema = Denormalizer("star", self.md, mappings, self.test_fact)
 
         # Assumed fact
         tables = schema.required_tables([])
@@ -195,8 +195,8 @@ class SchemaBasicsTestCase(SQLTestCase):
             "year":     Column(None, "test", "date", "year", None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.test_fact)
-        star = schema.get_star(["category", "total"])
+        schema = Denormalizer("star", self.md, mappings, self.test_fact)
+        star = schema.denormalized_statement(["category", "total"])
 
         selection = [schema.column("category"), schema.column("total")]
 
@@ -342,7 +342,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size_label":     Column(None, "dim_size", "label", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
         test_table = schema.table((None, "test"))
         category_table = schema.table((None, "dim_category"))
@@ -369,7 +369,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         with self.assertRaisesRegex(ModelError, "^Detail table.*joined twice"):
-            StarSchema("star", self.md, {}, self.fact, joins=joins)
+            Denormalizer("star", self.md, {}, self.fact, joins=joins)
 
     def test_no_join_detail_table(self):
         joins = [
@@ -377,7 +377,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         with self.assertRaisesRegex(ModelError, r"^No detail table"):
-            StarSchema("star", self.md, {}, self.fact, joins=joins)
+            Denormalizer("star", self.md, {}, self.fact, joins=joins)
 
     def test_join(self):
         """Test single join, two joins"""
@@ -391,7 +391,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":           Column(None, "dim_category", "size", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
         # Doe we have the joined table in the table list?
         table = schema.table((None, "dim_category"))
@@ -432,7 +432,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":           Column(None, "dim_category", "size", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
         # Doe we have the joined table in the table list?
         table = schema.table((None, "dim_category"))
@@ -452,7 +452,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertColumnEqual(schema.column("size"),
                                self.dim_category.columns["size"])
 
-        schema.get_star(["category_label"])
+        schema.denormalized_statement(["category_label"])
 
     def test_compound_join_different_length(self):
         """Test compound (multi-column) join key"""
@@ -475,11 +475,11 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":           Column(None, "dim_category", "size", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
         # Doe we have the joined table in the table list?
         with self.assertRaisesRegex(ModelError, "different number"):
-            schema.get_star(["category_label"])
+            schema.denormalized_statement(["category_label"])
 
     def test_join_alias(self):
         """Test single aliased join, test two joins on same table, one aliased
@@ -494,7 +494,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":  Column(None, "dim_fruit", "size", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
         # Doe we have the joined table in the table list?
         table = schema.table((None, "dim_fruit"))
@@ -512,7 +512,7 @@ class SchemaJoinsTestCase(SQLTestCase):
                                self.dim_category.columns["size"])
 
         # Check selectable statement
-        star = schema.get_star(["code", "size"])
+        star = schema.denormalized_statement(["code", "size"])
         selection = [schema.column("code"), schema.column("size")]
         select = sql.expression.select(selection,
                                        from_obj=star)
@@ -533,9 +533,9 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size":  Column(None, "dim_fruit", "size", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
-        star = schema.get_star(["size"])
+        star = schema.denormalized_statement(["size"])
         selection = [schema.column("size")]
         select = sql.expression.select(selection,
                                        from_obj=star)
@@ -557,12 +557,12 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size_label":     Column(None, "dim_size", "label", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
         # Construct the select for the very last attribute in the snowflake
         # arm
         # star = schema.star(["category_label", "size_label"])
-        star = schema.get_star(["size_label", "category_label"])
+        star = schema.denormalized_statement(["size_label", "category_label"])
         select = sql.expression.select([schema.column("size_label")],
                                        from_obj=star)
         result = self.engine.execute(select)
@@ -583,7 +583,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             "size_label":     Column(None, "dim_size", "label", None, None),
         }
 
-        schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
+        schema = Denormalizer("star", self.md, mappings, self.fact, joins=joins)
 
         table = schema.table((None, "dim_fruit"))
         self.assertTrue(table.table.is_derived_from(self.dim_category))
@@ -597,7 +597,7 @@ class SchemaJoinsTestCase(SQLTestCase):
 
         # Construct the select for the very last attribute in the snowflake
         # arm
-        star = schema.get_star(["size_label"])
+        star = schema.denormalized_statement(["size_label"])
         select = sql.expression.select([schema.column("size_label")],
                                        from_obj=star)
         result = self.engine.execute(select)
@@ -636,7 +636,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         }
 
         with self.assertRaisesRegex(ArgumentError, "requires alias"):
-            StarSchema("star", self.md, mappings,
+            Denormalizer("star", self.md, mappings,
                        fact=fact_statement,
                        tables=tables,
                        joins=joins)
@@ -645,12 +645,12 @@ class SchemaJoinsTestCase(SQLTestCase):
             "dim_category": cat_statement.alias("dim_category")
         }
 
-        schema = StarSchema("star", self.md, mappings,
+        schema = Denormalizer("star", self.md, mappings,
                             fact=fact_statement.alias("test"),
                             tables=tables,
                             joins=joins)
 
-        star = schema.get_star(["size"])
+        star = schema.denormalized_statement(["size"])
         selection = [schema.column("size")]
         select = sql.expression.select(selection,
                                        from_obj=star)
@@ -676,7 +676,7 @@ class QueryTestCase(SQLTestCase):
             "category": None,
         }
 
-        self.schema = StarSchema("star", self.md, mappings, self.fact)
+        self.schema = Denormalizer("star", self.md, mappings, self.fact)
         self.base_attributes = create_list_of(Attribute, mappings.keys())
         # self.base_attributes = list(mappings.keys())
         self.base_deps = {attr:[] for attr in self.base_attributes}

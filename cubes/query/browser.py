@@ -123,7 +123,7 @@ class AggregationBrowser(object):
         if "measures" in options:
             raise ArgumentError("measures in aggregate are depreciated")
 
-        aggregates = self.prepare_aggregates(aggregates)
+        aggregates = self.prepare_aggregate_list(aggregates)
         order = self.prepare_order(order, is_aggregate=True)
 
         converters = {
@@ -190,7 +190,8 @@ class AggregationBrowser(object):
         raise NotImplementedError("{} does not provide aggregate functionality." \
                                   .format(str(type(self))))
 
-    def prepare_aggregates(self, aggregates=None, measures=None):
+    # TODO: Rename >> v2.0 
+    def prepare_aggregate_list(self, aggregates=None, measures=None):
         """Prepares the aggregate list for aggregatios. `aggregates` might be a
         list of aggregate names or `MeasureAggregate` objects.
 

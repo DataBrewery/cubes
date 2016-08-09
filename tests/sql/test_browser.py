@@ -5,8 +5,8 @@ from unittest import TestCase, skip
 import sqlalchemy as sa
 
 from cubes.sql import SQLStore
-from cubes.sql.query import StarSchema, FACT_KEY_LABEL, to_join
-from cubes.sql.query import QueryContext
+from cubes.sql.denormalizer import Denormalizer, FACT_KEY_LABEL, to_join
+from cubes.sql.preparer import QueryContext
 from cubes.sql.mapper import map_base_attributes, StarSchemaMapper
 from cubes.sql.mapper import distill_naming
 
@@ -41,11 +41,11 @@ class SQLQueryContextTestCase(SQLTestCase):
                                                     naming=naming)
 
         joins = [to_join(join) for join in self.cube.joins]
-        self.star = StarSchema(self.cube.name,
-                               self.dw.md,
-                               mappings=mappings,
-                               fact=fact_name,
-                               joins=joins)
+        self.star = Denormalizer(self.cube.name,
+                                 self.dw.md,
+                                 mappings=mappings,
+                                 fact=fact_name,
+                                 joins=joins)
 
     # Helper methods
     def create_context(self, attributes):
