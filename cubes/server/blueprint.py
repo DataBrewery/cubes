@@ -111,6 +111,9 @@ def initialize_slicer(state):
 
         _store_option(config, "authentication", "none")
 
+        # Enable query preparer requests
+        _store_option(config, "enable_preparer", False, "bool")
+
         method = current_app.slicer.authentication
         if method is None or method == "none":
             current_app.slicer.authenticator = None
@@ -375,14 +378,67 @@ def aggregate(cube_name):
 
     fields = result.labels
     generator = csv_generator(result,
-                             fields,
-                             include_header=bool(header),
-                             header=header)
+                              fields,
+                              include_header=bool(header),
+                              header=header)
 
     headers = {"Content-Disposition": 'attachment; filename="aggregate.csv"'}
     return Response(generator,
                     mimetype='text/csv',
                     headers=headers)
+
+
+@slicer.route("/cube/<cube_name>/aggregate_query")
+@requires_browser
+@log_request("aggregate_query", "aggregates")
+def prepare_aggregate(cube_name):
+    if not current_app.slicer.enable_preparer:
+        raise NotAvailableError("Prepared queries are not available from this "
+                                "serer")
+
+    output_format = validated_parameter(request.args, "format",
+                                        values=["json", "text"],
+                                        default="json")
+
+    aggregates = []
+    for agg in request.args.getlist("aggregates") or []:
+        aggregates += agg.split("|")
+
+    drilldown = []
+
+    ddlist = request.args.getlist("drilldown")
+    if ddlist:
+        for ddstring in ddlist:
+            drilldown += ddstring.split("|")
+
+    prepare_cell("split", "split")
+
+    query = g.browser.prepare_aggregate(g.cell,
+                                        aggregates=aggregates,
+                                        drilldown=drilldown,
+                                        split=g.split,
+                                        page=g.page,
+                                        page_size=g.page_size,
+                                        order=g.order)
+
+    if output_format == "json":
+
+        result = {}
+        result["queries"] = g.browser.query_string_representation(query)
+
+        return jsonify(result)
+
+    elif output_format == "text":
+        queries = g.browser.query_string_representation(query)
+
+        text = ""
+        for label, query in queries.items():
+            text += query + ";\n\n"
+
+        return text
+
+    else:
+        raise RequestError("unknown response format '%s'" % output_format)
 
 
 @slicer.route("/cube/<cube_name>/facts")

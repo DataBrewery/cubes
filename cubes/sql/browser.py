@@ -15,6 +15,7 @@ except ImportError:
 
 from ..query import available_calculators
 from ..query import AggregationBrowser, AggregationResult, Drilldown
+from ..query import PreparedQuery
 from ..query import Cell, PointCut
 from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
@@ -351,7 +352,63 @@ class SQLBrowser(AggregationBrowser):
 
     def provide_aggregate(self, cell, aggregates, drilldown, split, order,
                           page, page_size, **options):
-        """Return aggregated result.
+        """Return aggregated result. For argument description see
+        `:meth:SQLBrowser.prepare_aggregate`.
+        """
+
+        query = self.prepare_aggregate(cell, aggregates, drilldown, split,
+                                       order, page, page_size, **options)
+
+        result = AggregationResult(cell=cell,
+                                   aggregates=aggregates,
+                                   drilldown=drilldown,
+                                   has_split=split is not None)
+
+        # Summary
+        # -------
+
+        if self.include_summary or not (drilldown or split):
+            statement = query.queries["summary"]
+            labels = query.info["summary_labels"]
+
+            cursor = self.execute(statement, "aggregation summary")
+            row = cursor.first()
+
+            if row:
+                # Convert SQLAlchemy object into a dictionary
+                record = dict(zip(labels, row))
+            else:
+                record = None
+
+            result.summary = record
+
+        # Drill-down
+        # ----------
+        #
+        # Note that a split cell if present prepends the drilldown
+
+        if drilldown or split:
+            statement = query.queries["aggregate"]
+            labels = query.info["aggregate_labels"]
+            
+            cursor = self.execute(statement, "aggregation drilldown")
+
+            result.cells = ResultIterator(cursor, labels)
+            result.labels = labels
+
+        # If exclude_null_aggregates is True then don't include cells where
+        # at least one of the bult-in aggregates is NULL
+        if result.cells is not None and self.exclude_null_agregates:
+            native_aggs = [agg.ref for agg in aggregates
+                           if agg.function and self.is_builtin_function(agg.function)]
+            result.exclude_if_null = native_aggs
+
+        return result
+
+    # TODO: Move to query preparer
+    def prepare_aggregate(self, cell, aggregates, drilldown, split, order,
+                          page, page_size, **options):
+        """Return prepared aggregate query
 
         Arguments:
 
@@ -388,11 +445,30 @@ class SQLBrowser(AggregationBrowser):
 
         """
 
-        # TODO: implement reminder
+        # FIXME: this is from Browser.aggregate()
+        # FIXME: this is temporary during refactoring
+        # ---- START ----
+        
+        aggregates = self.prepare_aggregate_list(aggregates)
+        order = self.prepare_order(order, is_aggregate=True)
 
-        result = AggregationResult(cell=cell, aggregates=aggregates,
-                                   drilldown=drilldown,
-                                   has_split=split is not None)
+        if cell is None:
+            cell = Cell(self.cube)
+        elif isinstance(cell, compat.string_type):
+            cuts = cuts_from_string(self.cube, cell,
+                                    role_member_converters=converters)
+            cell = Cell(self.cube, cuts)
+
+        if isinstance(split, compat.string_type):
+            cuts = cuts_from_string(self.cube, split,
+                                    role_member_converters=converters)
+            split = Cell(self.cube, cuts)
+
+        drilldown = Drilldown(drilldown, cell)
+        # ---- END ----
+
+        statements = {}
+        info = {}
 
         # Summary
         # -------
@@ -403,16 +479,8 @@ class SQLBrowser(AggregationBrowser):
                                                              drilldown=drilldown,
                                                              for_summary=True)
 
-            cursor = self.execute(statement, "aggregation summary")
-            row = cursor.first()
-
-            if row:
-                # Convert SQLAlchemy object into a dictionary
-                record = dict(zip(labels, row))
-            else:
-                record = None
-
-            result.summary = record
+            statements["summary"] = statement
+            info["summary_labels"] = labels
 
         # Drill-down
         # ----------
@@ -423,7 +491,6 @@ class SQLBrowser(AggregationBrowser):
             if not (page_size and page is not None):
                 self.assert_low_cardinality(cell, drilldown)
 
-            result.levels = drilldown.result_levels(include_split=bool(split))
             natural_order = drilldown.natural_order
 
             self.logger.debug("preparing drilldown statement")
@@ -432,12 +499,14 @@ class SQLBrowser(AggregationBrowser):
                                                              aggregates=aggregates,
                                                              drilldown=drilldown,
                                                              split=split)
+            info["aggregate_labels"] = labels
+
             # Get the total cell count before the pagination
             #
             if self.include_cell_count:
                 count_statement = statement.alias().count()
                 counts = self.execute(count_statement)
-                result.total_cell_count = counts.scalar()
+                statements["cell_count"] = counts
 
             # Order and paginate
             #
@@ -447,19 +516,11 @@ class SQLBrowser(AggregationBrowser):
                                     labels=labels)
             statement = paginate_query(statement, page, page_size)
 
-            cursor = self.execute(statement, "aggregation drilldown")
+            statements["aggregate"] = statement
 
-            result.cells = ResultIterator(cursor, labels)
-            result.labels = labels
+        query = PreparedQuery("aggregate", statements, "sql", info)
 
-        # If exclude_null_aggregates is True then don't include cells where
-        # at least one of the bult-in aggregates is NULL
-        if result.cells is not None and self.exclude_null_agregates:
-            native_aggs = [agg.ref for agg in aggregates
-                           if agg.function and self.is_builtin_function(agg.function)]
-            result.exclude_if_null = native_aggs
-
-        return result
+        return query
 
     def _create_context(self, attributes):
         """Create a query context for `attributes`. The `attributes` should
@@ -592,6 +653,16 @@ class SQLBrowser(AggregationBrowser):
     def _log_statement(self, statement, label=None):
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s\n" % (label, str(statement)))
+
+    # TODO: experimental
+    def query_string_representation(self, query):
+        """Returns a dictionary of queries as strings."""
+        out = {}
+
+        for key, value in query.queries.items():
+            out[key] = self.store.compile(value)
+
+        return out
 
 
 class ResultIterator(object):

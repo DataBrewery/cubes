@@ -13,6 +13,7 @@ except ImportError:
 
     reflection = sa = sql = MissingPackage("sqlalchemy", "SQL")
 
+from .. import compat
 from .browser import SQLBrowser
 from .mapper import distill_naming, Naming
 from ..logging import get_logger
@@ -371,6 +372,14 @@ class SQLStore(Store):
 
     def execute(self, *args, **kwargs):
         return self.connectable.execute(*args, **kwargs)
+
+    def compile(self, statement, bind_literals=True):
+        """Returns a compiled statement"""
+        kwargs = {"literal_binds": bind_literals}
+        text = statement.compile(bind=self.connectable,
+                                 compile_kwargs=kwargs)
+        return compat.text_type(text)
+
 
     # FIXME: requires review
     def validate_model(self):

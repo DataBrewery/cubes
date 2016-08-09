@@ -77,6 +77,13 @@ class NotAuthenticatedError(ServerError):
         return headers
 
 
+class NotAvailableError(ServerError):
+    code = 501
+    error_type = "not_available"
+    def __init__(self, message=None):
+        super(NotAvailableError, self).__init__(message)
+
+
 # TODO: Rename this to plain NotFoundError
 class PageNotFoundError(ServerError):
     code = 404

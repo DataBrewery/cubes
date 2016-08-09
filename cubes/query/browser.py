@@ -28,6 +28,8 @@ __all__ = [
 
     "TableRow",
     "SPLIT_DIMENSION_NAME",
+
+    "PreparedQuery",
 ]
 
 
@@ -142,11 +144,11 @@ class AggregationBrowser(object):
                                     role_member_converters=converters)
             split = Cell(self.cube, cuts)
 
-        drilldon = Drilldown(drilldown, cell)
+        drilldown = Drilldown(drilldown, cell)
 
         result = self.provide_aggregate(cell,
                                         aggregates=aggregates,
-                                        drilldown=drilldon,
+                                        drilldown=drilldown,
                                         split=split,
                                         order=order,
                                         page=page,
@@ -1124,3 +1126,23 @@ def levels_from_drilldown(cell, drilldown):
         result.append(DrilldownItem(dim, hier, levels, keys))
 
     return result
+
+
+class PreparedQuery(object):
+    """Prepared query statements. Used for faters repeated query execution or
+    for export to other tools.
+    
+    Attributes:
+
+    * `type` – query type: fact, facts, aggregate, members
+    * `queries` – a dictionary of queries in backen's native form
+    * `backend` – backend type
+    * `info` – custom dictionary
+    """
+
+    def __init__(self, type_, queries, backend=None, info=None):
+        self.type = type
+        self.queries = queries or {}
+        self.backend = backend
+        self.info = info or {}
+
