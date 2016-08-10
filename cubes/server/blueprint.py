@@ -435,7 +435,8 @@ def prepare_aggregate(cube_name):
         for label, query in queries.items():
             text += query + ";\n\n"
 
-        return text
+        return Response(text,
+                        mimetype='text/plain')
 
     else:
         raise RequestError("unknown response format '%s'" % output_format)

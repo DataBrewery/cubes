@@ -505,8 +505,7 @@ class SQLBrowser(AggregationBrowser):
             #
             if self.include_cell_count:
                 count_statement = statement.alias().count()
-                counts = self.execute(count_statement)
-                statements["cell_count"] = counts
+                statements["cell_count"] = count_statement
 
             # Order and paginate
             #
