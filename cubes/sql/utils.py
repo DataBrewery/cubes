@@ -19,10 +19,12 @@ __all__ = [
     "paginate_query"
 ]
 
+
 class CreateTableAsSelect(Executable, ClauseElement):
     def __init__(self, table, select):
         self.table = table
         self.select = select
+
 
 @compiles(CreateTableAsSelect)
 def visit_create_table_as_select(element, compiler, **kw):
@@ -33,6 +35,8 @@ def visit_create_table_as_select(element, compiler, **kw):
         element.table,
         compiler.process(element.select)
     )
+
+
 @compiles(CreateTableAsSelect, "sqlite")
 def visit_create_table_as_select(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
@@ -43,10 +47,12 @@ def visit_create_table_as_select(element, compiler, **kw):
         compiler.process(element.select)
     )
 
+
 class CreateOrReplaceView(Executable, ClauseElement):
     def __init__(self, view, select):
         self.view = view
         self.select = select
+
 
 @compiles(CreateOrReplaceView)
 def visit_create_or_replace_view(element, compiler, **kw):
@@ -58,6 +64,7 @@ def visit_create_or_replace_view(element, compiler, **kw):
         compiler.process(element.select)
     )
 
+
 @compiles(CreateOrReplaceView, "sqlite")
 def visit_create_or_replace_view(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
@@ -67,6 +74,7 @@ def visit_create_or_replace_view(element, compiler, **kw):
         full_name,
         compiler.process(element.select)
     )
+
 
 @compiles(CreateOrReplaceView, "mysql")
 def visit_create_or_replace_view(element, compiler, **kw):
@@ -145,11 +153,14 @@ def order_query(statement, order, natural_order=None, labels=None):
 
     # Collect the corresponding attribute columns
     for attribute, direction in order:
-        attribute = str(attribute)
-        column = order_column(columns[attribute], direction)
+        try:
+            attribute = str(attribute)
+            column = order_column(columns[attribute], direction)
 
-        if attribute not in final_order:
-            final_order[attribute] = column
+            if attribute not in final_order:
+                final_order[attribute] = column
+        except KeyError:
+            continue
 
     # Collect natural order for selected columns that have no explicit
     # ordering
@@ -160,4 +171,3 @@ def order_query(statement, order, natural_order=None, labels=None):
     statement = statement.order_by(*final_order.values())
 
     return statement
-
