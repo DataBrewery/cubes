@@ -72,7 +72,6 @@ def _json_from_url(url):
     try:
         desc = json.load(handle)
     except ValueError as e:
-        import pdb; pdb.set_trace()
         raise SyntaxError("Syntax error in %s: %s" % (url, str(e)))
     finally:
         handle.close()

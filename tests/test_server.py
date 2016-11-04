@@ -102,7 +102,6 @@ class SlicerModelTestCase(SlicerTestCaseBase):
 
     def test_get_cube(self):
         response, status = self.get("cube/sales/model")
-        import pdb; pdb.set_trace()
         self.assertEqual(200, status)
         self.assertIsInstance(response, dict)
         self.assertNotIn("error", response)
