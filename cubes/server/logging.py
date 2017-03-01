@@ -214,7 +214,7 @@ class JSONRequestLogHandler(RequestLogHandler):
 
             use = {
                 "dimension": str(dim),
-                "hierarchy": str(cut.hierarchy),
+                "hierarchy": str(cut.hierarchy) if cut.hierarchy else None,
                 "level": str(level_name),
                 "value": str(cut)
             }

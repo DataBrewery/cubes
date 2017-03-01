@@ -247,6 +247,29 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         cell = cell.drilldown("date", 2)
         self.assertEqual([2010, 1, 2], cell.cut_for_dimension("date").path)
 
+    def test_cell_contains_level(self):
+        cell = Cell(
+            self.cube,
+            [
+                PointCut('supplier', ['org']),
+            ]
+        )
+
+        dimension = self.cube.dimension('supplier')
+        level = dimension.level('supplier')
+
+        contains = cell.contains_level(
+            dim=dimension,
+            level=level,
+            hierarchy='default',
+        )
+
+        msg = (
+            'Default hierarchy of Cut should match '
+            'default hierarchy of Dimension'
+        )
+        self.assertEqual(contains, True, msg)
+
 
 def test_suite():
     suite = unittest.TestSuite()

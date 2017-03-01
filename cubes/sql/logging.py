@@ -110,7 +110,7 @@ class SQLRequestLogHandler(RequestLogHandler):
                 use = {
                     "query_id": query_id,
                     "dimension": str(dim),
-                    "hierarchy": str(cut.hierarchy),
+                    "hierarchy": str(cut.hierarchy) if cut.hierarchy else None,
                     "level": str(level_name),
                     "used_as": "cell",
                     "value": str(cut)

@@ -970,7 +970,7 @@ class QueryContext(object):
                 for path in cut.paths:
                     condition = self.condition_for_point(str(cut.dimension),
                                                          path,
-                                                         str(cut.hierarchy),
+                                                         hierarchy,
                                                          invert=False)
                     set_conds.append(condition)
 
@@ -1006,6 +1006,7 @@ class QueryContext(object):
 
             # Prepare condition: dimension.level_key = path_value
             column = self.column(level_key)
+
             conditions.append(column == value)
 
         condition = sql.expression.and_(*conditions)

@@ -394,7 +394,7 @@ class Cell(object):
         hierarchy = dim.hierarchy(hierarchy)
 
         for cut in self.dimension_cuts(dim):
-            if str(cut.hierarchy) != str(hierarchy):
+            if str(cut.hierarchy or 'default') != str(hierarchy):
                 continue
             if isinstance(cut, PointCut):
                 if level in hierarchy.levels_for_path(cut.path):
