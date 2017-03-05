@@ -258,11 +258,7 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         dimension = self.cube.dimension('supplier')
         level = dimension.level('supplier')
 
-        contains = cell.contains_level(
-            dim=dimension,
-            level=level,
-            hierarchy='default',
-        )
+        contains = cell.contains_level(dimension, level)
 
         msg = (
             'Default hierarchy of Cut should match '
