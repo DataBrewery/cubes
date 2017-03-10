@@ -313,7 +313,7 @@ def aggregate(cube_name):
     cube = g.cube
 
     output_format = validated_parameter(request.args, "format",
-                                        values=["json", "csv"],
+                                        values=["json", "csv", 'xlsx'],
                                         default="json")
 
     header_type = validated_parameter(request.args, "header",
