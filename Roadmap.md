@@ -1,36 +1,20 @@
 Roadmap
 =======
 
-v1.1
+v1.x
 ====
 
-- SQL refactoring (simplification)
-- Expressions 
-
-v1.2
-====
-
-- Configuration
-- Plugin system
-- Parameters (requires Expressions)
-
-v1.3
-====
-
-- Drill-across
-- New aggregation API
-- Depreciation of Browser
-
-v1.4
-====
-
-- Tags instead of categories, for all model objects
-
+There are no new feautures going to be added to v1 of cubes. All new development is now towards 2.0.
 
 v2.0
 ====
 
-- Hierarchies as top-level model objects
-- No Level objects
-- No hierarchy in dimensions but dimensions in hierarchies
+Primary goal:
+
+- (#393) Full static type annotations, therefore full move to Python >= 3.6 and dropping Python 2 support.
+
+Secondary goals:
+
+- (#118) Add cube representations – once cube might have multiple physical representations in form of denormalizations or aggregates.
+- (#398) Separation of user-oriented metadata from metadata required for query building
 
