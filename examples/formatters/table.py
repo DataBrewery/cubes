@@ -34,10 +34,10 @@ result = result.cached()
 #
 # 1. Create text output
 #
-print "Text output"
-print "-----------"
+print("Text output")
+print("-----------")
 
-print text_formatter(result, "item")
+print(text_formatter(result, "item"))
 
 
 #
@@ -57,4 +57,4 @@ with open("cross_table.html", "w") as f:
                                 oncolumns=["item.category_label"])
     f.write(data)
 
-print "Check also table.html and cross_table.html files"
+print("Check also table.html and cross_table.html files")
