@@ -7,10 +7,13 @@ import os
 import re
 import shutil
 
+from typing import Optional, List, Any, Dict, IO, cast
+
 from urllib.parse import urlparse
+from urllib.request import urlopen
 from collections import OrderedDict
 
-from ..common import IgnoringDictionary, to_label
+from ..common import IgnoringDictionary, to_label, JSONType
 from ..errors import ModelError, ArgumentError, CubesError
 
 __all__ = (
@@ -25,10 +28,21 @@ __all__ = (
 class ModelObject(object):
     """Base classs for all model objects."""
 
-    localizable_attributes = []
-    localizable_lists = []
+    localizable_attributes: List[str] = []
+    localizable_lists: List[str] = []
 
-    def __init__(self, name=None, label=None, description=None, info=None):
+    name: Optional[str]
+    label: Optional[str]
+    description: Optional[str]
+    info: Optional[JSONType]
+
+    ref: str
+
+    def __init__(self,
+                 name: Optional[str]=None,
+                 label: Optional[str]=None,
+                 description: Optional[str]=None,
+                 info: Optional[JSONType]=None) -> None:
         """Initializes model object basics. Assures that the `info` is a
         dictionary."""
 
@@ -37,7 +51,8 @@ class ModelObject(object):
         self.description = description
         self.info = info or {}
 
-    def to_dict(self, create_label=None, **options):
+    # FIXME: Consolidate the options
+    def to_dict(self, **options: Any) -> JSONType:
         """Convert to a dictionary. If `with_mappings` is ``True`` (which is
         default) then `joins`, `mappings`, `fact` and `options` are included.
         Should be set to ``False`` when returning a dictionary that will be
@@ -49,7 +64,7 @@ class ModelObject(object):
         out["name"] = self.name
         out["info"] = self.info
 
-        if create_label:
+        if options.get("create_label"):
             out["label"] = self.label or to_label(self.name)
         else:
             out["label"] = self.label
@@ -58,10 +73,11 @@ class ModelObject(object):
 
         return out
 
-    def localized(self, context):
+    def localized(self, context: Any) -> ModelObject:
         """Returns a copy of the cube translated with `translation`"""
 
-        acopy = self.__class__.__new__(self.__class__)
+        acopy: Any
+        acopy = self.__class__.__new__(self.__class__)  # type: ignore
         acopy.__dict__ = self.__dict__.copy()
 
         d = acopy.__dict__
@@ -81,7 +97,10 @@ class ModelObject(object):
         return acopy
 
 
-def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
+def object_dict(objects:List[ModelObject],
+                by_ref:bool=False,
+                error_message:Optional[str]=None,
+                error_dict:Dict[str,Any]=None) -> Dict[str,Any]:
     """Make an ordered dictionary from model objects `objects` where keys are
     object names. If `for_ref` is `True` then object's `ref` (reference) is
     used instead of object name. Keys are supposed to be unique in the list,
@@ -92,7 +111,7 @@ def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
     else:
         items = ((obj.name, obj) for obj in objects)
 
-    ordered = OrderedDict()
+    ordered: Dict[str,Any] = OrderedDict()
 
     for key, value in items:
         if key in ordered:
@@ -112,11 +131,12 @@ def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
 # strip_mappings(cube) -> remove mappings from cube
 # strip_mappings
 
-def _json_from_url(url):
+def _json_from_url(url: str) -> JSONType:
     """Opens `resource` either as a file with `open()`or as URL with
     `urlopen()`. Returns opened handle. """
 
     parts = urlparse(url)
+    handle: IO[Any]
 
     if parts.scheme in ('', 'file'):
         handle = open(parts.path, encoding="utf-8")
@@ -125,7 +145,7 @@ def _json_from_url(url):
         # proper python 3.4 functionality later
         handle = open(url, encoding="utf-8")
     else:
-        handle = urlopen(url)
+        handle = cast(IO[Any], urlopen(url))
 
     try:
         desc = json.load(handle)
@@ -137,7 +157,7 @@ def _json_from_url(url):
     return desc
 
 
-def read_model_metadata(source):
+def read_model_metadata(source: str) -> JSONType:
     """Reads a model description from `source` which can be a filename, URL,
     file-like object or a path to a directory. Returns a model description
     dictionary."""
@@ -156,7 +176,7 @@ def read_model_metadata(source):
         return json.load(source)
 
 
-def read_model_metadata_bundle(path):
+def read_model_metadata_bundle(path: str) -> JSONType:
     """Load logical model a directory specified by `path`.  Returns a model
     description dictionary. Model directory bundle has structure:
 
@@ -223,7 +243,9 @@ def read_model_metadata_bundle(path):
     return model
 
 
-def write_model_metadata_bundle(path, metadata, replace=False):
+def write_model_metadata_bundle(path: str,
+                                metadata: JSONType,
+                                replace:bool =False) -> None:
     """Writes a model metadata bundle into new directory `target` from
     `metadata`. Directory should not exist."""
 

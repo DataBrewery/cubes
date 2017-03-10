@@ -2,11 +2,12 @@
 
 import copy
 
-from expressions import inspect_variables
+from typing import Optional, Any, List, Dict, Set, Type, Iterable, cast
+from expressions import inspect_variables  # type: ignore
 
 from .base import ModelObject
 from ..errors import ModelError, ArgumentError, ExpressionError
-from ..common import get_localizable_attributes
+from ..common import get_localizable_attributes, JSONType
 
 __all__ = [
     "AttributeBase",
@@ -23,7 +24,7 @@ __all__ = [
 ]
 
 
-def expand_attribute_metadata(metadata):
+def expand_attribute_metadata(metadata: JSONType) -> JSONType:
     """Fixes metadata of an attribute. If `metadata` is a string it will be
     converted into a dictionary with key `"name"` set to the string value."""
     if isinstance(metadata, str):
@@ -66,25 +67,48 @@ class AttributeBase(ModelObject):
 
     localizable_attributes = ["label", "description", "format"]
 
+    format: str
+    missing_value: str
+    # FIXME: Remove this reference
+    dimension: Optional[Any]
+    expression: Optional[str]
+    order: str
+
+    # Expected in subclasses
+    # TODO: Review these
+    ref: str
+    locales: List[str]
+
     @classmethod
-    def from_metadata(cls, metadata):
+    def from_metadata(cls, metadata: JSONType) -> AttributeBase:
         """Create an attribute from `metadata` which can be a dictionary or a
         string representing the attribute name.
         """
 
+        attribute: AttributeBase
+
         if isinstance(metadata, str):
-            return cls(metadata)
+            attribute = cls(metadata)
         elif isinstance(metadata, cls):
-            return copy.copy(metadata)
+            attribute = copy.copy(metadata)
         elif isinstance(metadata, dict):
             if "name" not in metadata:
                 raise ModelError("Model objects metadata require at least "
                                  "name to be present.")
-            return cls(**metadata)
+            attribute = cls(**metadata)
 
-    def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, missing_value=None, expression=None,
-                 **kwargs):
+        return attribute
+
+    def __init__(self,
+                 name: str,
+                 label: Optional[str]=None,
+                 description: Optional[str]=None,
+                 order: Optional[str]=None,
+                 info: Optional[JSONType]=None,
+                 format: Optional[str]=None,
+                 missing_value: Optional[str]=None,
+                 expression: Optional[str]=None,
+                 **kwargs: Any) -> None:
         super(AttributeBase, self).__init__(name, label, description, info)
 
         self.format = format
@@ -108,13 +132,13 @@ class AttributeBase(ModelObject):
         else:
             self.order = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.ref
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self.to_dict())
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, AttributeBase):
             return False
 
@@ -127,13 +151,13 @@ class AttributeBase(ModelObject):
             and self.expression == other.expression \
             and self.missing_value == other.missing_value
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.ref)
 
-    def to_dict(self, **options):
+    def to_dict(self, **options: Any) -> JSONType:
         d = super(AttributeBase, self).to_dict(**options)
 
         d["format"] = self.format
@@ -145,25 +169,25 @@ class AttributeBase(ModelObject):
 
         return d
 
-    def localizable_dictionary(self):
+    def localizable_dictionary(self) -> Dict[str,str]:
         locale = {}
         locale.update(get_localizable_attributes(self))
 
         return locale
 
-    def is_localizable(self):
+    def is_localizable(self) -> bool:
         return False
 
-    def localize(self, trans):
+    def localize(self, trans: JSONType) -> None:
         """Localize the attribute, allow localization of the format."""
         super(AttributeBase, self).localized(trans)
         self.format = trans.get("format", self.format)
 
     @property
-    def is_base(self):
+    def is_base(self) -> bool:
         return not self.expression
 
-    def localized_ref(self, locale):
+    def localized_ref(self, locale: str) -> str:
         """Returns localized attribute reference for locale `locale`.
         """
         if locale:
@@ -183,7 +207,7 @@ class AttributeBase(ModelObject):
         return self.ref + locale_suffix
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> Set[str]:
         """Set of attributes that the `attribute` depends on. If the
         `attribute` is an expresion, then returns the direct dependencies from
         the expression. If the attribute is an aggregate with an unary
@@ -200,9 +224,21 @@ class AttributeBase(ModelObject):
 
 class Attribute(AttributeBase):
 
-    def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, dimension=None, locales=None,
-                 missing_value=None, expression=None, **kwargs):
+    # FIXME: Reconsider necessity of this attribute
+    _dimension: Any
+
+    def __init__(self,
+                 name: str,
+                 label: str=None,
+                 description: Optional[str]=None,
+                 order: Optional[str]=None,
+                 info: Optional[JSONType]=None,
+                 format: Optional[str]=None,
+                 dimension: Optional[Any]=None,
+                 locales: Optional[List[str]]=None,
+                 missing_value: Optional[str]=None,
+                 expression: Optional[str]=None,
+                 **kwargs: Any) -> None:
         """Dimension attribute object. Also used as fact detail.
 
         Attributes:
@@ -229,9 +265,12 @@ class Attribute(AttributeBase):
         dimension has to be assigned after copying.
         """
 
-        super(Attribute, self).__init__(name=name, label=label,
-                                        description=description, order=order,
-                                        info=info, format=format,
+        super(Attribute, self).__init__(name=name,
+                                        label=label,
+                                        description=description,
+                                        order=order,
+                                        info=info,
+                                        format=format,
                                         missing_value=missing_value,
                                         expression=expression)
         self._dimension = None
@@ -240,11 +279,12 @@ class Attribute(AttributeBase):
         self.locales = locales or []
 
     @property
-    def dimension(self):
+    def dimension(self) -> Any:
         return self._dimension
 
+    # FIXME: Remove mutability, See Issue #282
     @dimension.setter
-    def dimension(self, dimension):
+    def dimension(self, dimension: Any) -> None:
         if dimension:
             if dimension.is_flat and not dimension.has_details:
                 self.ref = dimension.name
@@ -254,7 +294,7 @@ class Attribute(AttributeBase):
             self.ref = str(self.name)
         self._dimension = dimension
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: Any) -> Attribute:
         # Note: copied attribute is disowned
         return Attribute(self.name,
                          self.label,
@@ -267,17 +307,17 @@ class Attribute(AttributeBase):
                          missing_value=self.missing_value,
                          expression=self.expression)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not super(Attribute, self).__eq__(other):
             return False
 
         # TODO: we are not comparing dimension (owner) here
         return self.locales == other.locales
 
-    def __hash__(self):
+    def __hash__(self) -> int: 
         return hash(self.ref)
 
-    def to_dict(self, **options):
+    def to_dict(self, **options: Any) -> JSONType:
         # FIXME: Depreciated key "full_name" in favour of "ref"
         d = super(Attribute, self).to_dict(**options)
 
@@ -285,7 +325,7 @@ class Attribute(AttributeBase):
 
         return d
 
-    def is_localizable(self):
+    def is_localizable(self) -> bool:
         return bool(self.locales)
 
 
@@ -293,10 +333,27 @@ class Measure(AttributeBase):
     """Cube measure attribute – a numerical attribute that can be
     aggregated."""
 
-    def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, missing_value=None, aggregates=None,
-                 formula=None, expression=None, nonadditive=None,
-                 window_size=None, **kwargs):
+    formula: Optional[str]
+    aggregates: Optional[List[Any]]
+    window_size: Optional[int]
+    nonadditive: Optional[str]
+
+    def __init__(self, name: str,
+                 label: str=None,
+                 description: Optional[str]=None,
+                 order: Optional[str]=None,
+                 info: Optional[JSONType]=None,
+                 format: Optional[str]=None,
+                 dimension: Optional[Any]=None,
+                 locales: Optional[List[str]]=None,
+                 missing_value: Optional[str]=None,
+                 expression: Optional[str]=None,
+                 # FIXME: Remove this argument
+                 aggregates: Optional[List[Any]]=None,
+                 formula: Optional[str]=None,
+                 nonadditive: Optional[str]=None,
+                 window_size: Optional[int]=None,
+                 **kwargs: Any) -> None:
         """Create a measure attribute. Properties in addition to the attribute
         base properties:
 
@@ -337,7 +394,7 @@ class Measure(AttributeBase):
             raise ModelError("Unknown non-additive measure type '%s'"
                              % nonadditive)
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: Any) -> Measure:
         return Measure(self.name, self.label,
                        order=copy.deepcopy(self.order, memo),
                        description=self.description,
@@ -350,7 +407,7 @@ class Measure(AttributeBase):
                        nonadditive=self.nonadditive,
                        window_size=self.window_size)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not super(Measure, self).__eq__(other):
             return False
 
@@ -358,10 +415,10 @@ class Measure(AttributeBase):
                 and self.formula == other.formula \
                 and self.window_size == other.window_size
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.ref)
 
-    def to_dict(self, **options):
+    def to_dict(self, **options: Any) -> JSONType:
         d = super(Measure, self).to_dict(**options)
         d["formula"] = self.formula
         d["aggregates"] = self.aggregates
@@ -369,7 +426,7 @@ class Measure(AttributeBase):
 
         return d
 
-    def default_aggregates(self):
+    def default_aggregates(self) -> List[MeasureAggregate]:
         """Creates default measure aggregates from a list of receiver's
         measures. This is just a convenience function, correct models should
         contain explicit list of aggregates. If no aggregates are specified,
@@ -405,10 +462,27 @@ class Measure(AttributeBase):
 
 class MeasureAggregate(AttributeBase):
 
-    def __init__(self, name, label=None, description=None, order=None,
-                 info=None, format=None, missing_value=None, measure=None,
-                 function=None, formula=None, expression=None,
-                 nonadditive=None, window_size=None, **kwargs):
+    function: str
+    formula: str
+    measure: str
+    nonadditive: str
+    window_size: int
+
+    def __init__(self, name: str,
+                 label: str=None,
+                 description: Optional[str]=None,
+                 order: Optional[str]=None,
+                 info: Optional[JSONType]=None,
+                 format: Optional[str]=None,
+                 locales: Optional[List[str]]=None,
+                 missing_value: Optional[str]=None,
+                 expression: Optional[str]=None,
+                 measure: Optional[str]=None,
+                 function: Optional[str]=None,
+                 formula: Optional[str]=None,
+                 nonadditive: Optional[str]=None,
+                 window_size: Optional[int]=None,
+                 **kwargs:Any) -> None:
         """Masure aggregate
 
         Attributes:
@@ -435,7 +509,7 @@ class MeasureAggregate(AttributeBase):
         self.nonadditive = nonadditive
         self.window_size = window_size
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: Any) -> MeasureAggregate:
         return MeasureAggregate(self.name,
                                 self.label,
                                 order=copy.deepcopy(self.order, memo),
@@ -450,7 +524,7 @@ class MeasureAggregate(AttributeBase):
                                 nonadditive=self.nonadditive,
                                 window_size=self.window_size)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not super(MeasureAggregate, self).__eq__(other):
             return False
 
@@ -460,14 +534,14 @@ class MeasureAggregate(AttributeBase):
             and self.nonadditive == other.nonadditive \
             and self.window_size == other.window_size
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.ref)
 
     @property
-    def is_base(self):
+    def is_base(self) -> bool:
         return not self.expression and not self.function
 
-    def to_dict(self, **options):
+    def to_dict(self, **options: Any) -> JSONType:
         d = super(MeasureAggregate, self).to_dict(**options)
         d["function"] = self.function
         d["formula"] = self.formula
@@ -478,7 +552,7 @@ class MeasureAggregate(AttributeBase):
         return d
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> Set[str]:
         """Set of attributes that the `attribute` depends on. If the
         `attribute` is an expresion, then returns the direct dependencies from
         the expression. If the attribute is an aggregate with an unary
@@ -499,20 +573,24 @@ class MeasureAggregate(AttributeBase):
         return inspect_variables(self.expression)
 
 
-def create_list_of(class_, objects):
+# FIXME: [typing] Reconsider this from type perspective
+def create_list_of(class_: Type[AttributeBase], objects: List[Any]) \
+        -> List[AttributeBase]:
     """Return a list of model objects of class `class_` from list of object
     metadata `objects`"""
     return [class_.from_metadata(obj) for obj in objects]
 
 
-def collect_attributes(attributes, *containers):
+# FIXME: [typing] Reconsider this from type perspective
+def collect_attributes(attributes: List[AttributeBase],
+                       *containers: Any) -> List[AttributeBase]:
     """Collect attributes from arguments. `containers` are objects with
     method `all_attributes` or might be `Nulls`. Returns a list of attributes.
     Note that the function does not check whether the attribute is an actual
     attribute object or a string."""
     # Method for decreasing noise/boilerplate
 
-    collected = []
+    collected: List[AttributeBase] = []
 
     if attributes:
         collected += attributes
@@ -524,7 +602,8 @@ def collect_attributes(attributes, *containers):
     return collected
 
 
-def collect_dependencies(attributes, all_attributes):
+def collect_dependencies(attributes: List[AttributeBase],
+                         all_attributes: List[AttributeBase]) -> List[Any]:
     """Collect all original and dependant cube attributes for
     `attributes`, sorted by their dependency: starting with attributes
     that don't depend on anything. For exapmle, if the `attributes` is [a,
@@ -544,11 +623,13 @@ def collect_dependencies(attributes, all_attributes):
     # with base attributes (those that don't depend on anything, directly
     # represented by columns) and ending with derived attributes
     depsorted = depsort_attributes([attr.ref for attr in attributes],
-                                   dependencies)
+                                   cast(Dict[str, List[str]], dependencies))
 
     return depsorted
 
-def depsort_attributes(attributes, all_dependencies):
+def depsort_attributes(attributes: List[str],
+                       all_dependencies: Dict[str, List[str]]
+                       ) -> List[str]:
     """Returns a sorted list of attributes by their dependencies. `attributes`
     is a list of attribute names, `all_dependencies` is a dictionary where keys
     are attribute names and values are direct attribute dependencies (that is
@@ -557,13 +638,14 @@ def depsort_attributes(attributes, all_dependencies):
 
     Raises an exception when a circular dependecy is detected."""
 
-    bases = set()
+    bases: Set[str] = set()
 
     # Gather only relevant dependencies
-    required = set(attributes)
+    required: Set[str] = set(attributes)
 
     # Collect base attributes and relevant dependencies
-    seen = set()
+    seen: Set[str] = set()
+
     while required:
         attr = required.pop()
         seen.add(attr)
@@ -579,8 +661,8 @@ def depsort_attributes(attributes, all_dependencies):
         required |= set(attr_deps) - seen
 
     # Remaining dependencies to be processed (not base attributes)
-    remaining = {attr:all_dependencies[attr] for attr in seen
-                 if attr not in bases}
+    remaining: Dict[str,List[str]] = {attr:all_dependencies[attr] for attr in seen
+                                      if attr not in bases}
 
     sorted_deps = []
 
