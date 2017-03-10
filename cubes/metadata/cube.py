@@ -1,8 +1,6 @@
 # -*- encoding: utf-8 -*-
 """Cube logical model"""
 
-from __future__ import absolute_import
-
 from collections import OrderedDict, defaultdict
 
 from ..common import assert_all_instances, get_localizable_attributes
@@ -15,8 +13,6 @@ from .attributes import Attribute, Measure, MeasureAggregate
 from .attributes import create_list_of, collect_dependencies
 from .attributes import expand_attribute_metadata
 from .dimension import Dimension
-
-from .. import compat
 
 
 __all__ = [
@@ -222,7 +218,7 @@ class Cube(ModelObject):
         # Run-time properties
         # Sets in the Namespace.cube() when cube is created
         # Used by workspace internally to search for dimensions
-        if isinstance(store, compat.string_type):
+        if isinstance(store, str):
             self.store_name = store
             self.store = None
         else:
@@ -768,7 +764,7 @@ def expand_dimension_links(metadata):
     links = []
 
     for link in metadata:
-        if isinstance(link, compat.string_type):
+        if isinstance(link, str):
             link = {"name": link}
         elif "name" not in link:
             raise ModelError("Dimension link has no name")

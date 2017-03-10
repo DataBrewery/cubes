@@ -1,8 +1,6 @@
 # -*- encoding: utf-8 -*-
 """Logical to Physical Mappers"""
 
-from __future__ import absolute_import
-
 import re
 
 from ..errors import ModelError

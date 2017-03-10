@@ -2,18 +2,16 @@
 # -*- encoding: utf-8 -*-
 """Cube logical model"""
 
-from __future__ import absolute_import
-
 import json
 import os
 import re
 import shutil
 
+from urllib.parse import urlparse
 from collections import OrderedDict
 
 from ..common import IgnoringDictionary, to_label
 from ..errors import ModelError, ArgumentError, CubesError
-from .. import compat
 
 __all__ = (
     "ModelObject",
@@ -118,16 +116,16 @@ def _json_from_url(url):
     """Opens `resource` either as a file with `open()`or as URL with
     `urlopen()`. Returns opened handle. """
 
-    parts = compat.urlparse(url)
+    parts = urlparse(url)
 
     if parts.scheme in ('', 'file'):
-        handle = compat.open_unicode(parts.path)
+        handle = open(parts.path, encoding="utf-8")
     elif len(parts.scheme) == 1:
         # TODO: This is temporary hack for MS Windows which can be replaced by
         # proper python 3.4 functionality later
-        handle = compat.open_unicode(url)
+        handle = open(url, encoding="utf-8")
     else:
-        handle = compat.urlopen(url)
+        handle = urlopen(url)
 
     try:
         desc = json.load(handle)
@@ -144,8 +142,8 @@ def read_model_metadata(source):
     file-like object or a path to a directory. Returns a model description
     dictionary."""
 
-    if isinstance(source, compat.string_type):
-        parts = compat.urlparse(source)
+    if isinstance(source, str):
+        parts = urlparse(source)
         if parts.scheme in ('', 'file') and os.path.isdir(parts.path):
             source = parts.path
             return read_model_metadata_bundle(source)

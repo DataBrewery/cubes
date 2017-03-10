@@ -1,7 +1,5 @@
 # -*- encoding=utf -*-
 
-from __future__ import absolute_import
-
 try:
     import sqlalchemy as sa
     import sqlalchemy.sql as sql

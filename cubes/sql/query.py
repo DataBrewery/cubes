@@ -15,8 +15,6 @@ Star/snowflake schema query construction structures
 # similar attributes. No calls to Cubes object functions should be allowed
 # here.
 
-from __future__ import absolute_import
-
 import logging
 from collections import namedtuple
 
@@ -26,7 +24,6 @@ from sqlalchemy.sql.expression import and_
 
 from ..metadata import object_dict
 from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
-from .. import compat
 from ..query import SPLIT_DIMENSION_NAME
 from ..query import PointCut, SetCut, RangeCut
 
@@ -74,7 +71,7 @@ def to_column(obj, default_table=None, default_schema=None):
     if obj is None:
         raise ArgumentError("Mapping object can not be None")
 
-    if isinstance(obj, compat.string_type):
+    if isinstance(obj, str):
         obj = obj.split(".")
 
     if isinstance(obj, (tuple, list)):
@@ -139,7 +136,7 @@ def to_join_key(obj):
     if obj is None:
         return JoinKey(None, None, None)
 
-    if isinstance(obj, compat.string_type):
+    if isinstance(obj, str):
         obj = obj.split(".")
 
     if isinstance(obj, (tuple, list)):
@@ -365,7 +362,7 @@ class StarSchema(object):
         # ----------
 
         # Fact Initialization
-        if isinstance(fact, compat.string_type):
+        if isinstance(fact, str):
             self.fact_name = fact
             self.fact_table = self.physical_table(fact)
         else:

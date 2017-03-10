@@ -1,4 +1,22 @@
+"""A setuptools based setup module.
+
+See:
+https://packaging.python.org/en/latest/distributing.html
+https://github.com/pypa/sampleproject
+"""
+
+# Always prefer setuptools over distutils
 from setuptools import setup, find_packages
+# To use a consistent encoding
+from codecs import open
+from os import path
+
+here = path.abspath(path.dirname(__file__))
+
+# Get the long description from the README file
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
+
 
 requirements = [
     "python-dateutil",
@@ -15,13 +33,24 @@ extras = {
 }
 
 setup(
-    name="cubes",
-    version='1.1',
+    name = "cubes",
 
-    # Project uses reStructuredText, so ensure that the docutils get
-    # installed or upgraded on the target machine
-    install_requires=requirements,
-    extras_require=extras,
+    # Versions should comply with PEP440.  For a discussion on single-sourcing
+    # the version across setup.py and the project code, see
+    # https://packaging.python.org/en/latest/single_source_version.html
+    version = '2.0',
+
+    description = "Lightweight framework for Online Analytical Processing (OLAP) and multidimensional analysis",
+    long_description=long_description,
+    url = "http://cubes.databrewery.org",
+
+    # Author details
+    author = "Stefan Urbanek",
+    author_email = "stefan.urbanek@gmail.com",
+    license = "MIT",
+
+    install_requires = requirements,
+    extras_require = extras,
 
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
 
@@ -37,11 +66,15 @@ setup(
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python',
+
         'Topic :: Database',
         'Topic :: Scientific/Engineering',
         'Topic :: Utilities'
+
+        # Specify the Python versions you support here. In particular, ensure
+        # that you indicate whether you support Python 2, Python 3 or both.
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
     ],
 
     entry_points={
@@ -50,13 +83,7 @@ setup(
 
     test_suite="tests",
 
-    # metadata for upload to PyPI
-    author="Stefan Urbanek",
-    author_email="stefan.urbanek@gmail.com",
-    description="Lightweight framework for Online Analytical Processing (OLAP) and multidimensional analysis",
-    license="MIT license with following addition: If your version of the Software supports interaction with it remotely through a computer network, the above copyright notice and this permission notice shall be accessible to all users.",
-    keywords="olap multidimensional data analysis",
-    url="http://cubes.databrewery.org"
+    keywords = "olap multidimensional data analysis",
 
     # could also include long_description, download_url, classifiers, etc.
 )

@@ -1,13 +1,10 @@
 # -*- encoding: utf-8 -*-
 
-from __future__ import absolute_import
-
 import copy
 
 from expressions import inspect_variables
 
 from .base import ModelObject
-from .. import compat
 from ..errors import ModelError, ArgumentError, ExpressionError
 from ..common import get_localizable_attributes
 
@@ -29,7 +26,7 @@ __all__ = [
 def expand_attribute_metadata(metadata):
     """Fixes metadata of an attribute. If `metadata` is a string it will be
     converted into a dictionary with key `"name"` set to the string value."""
-    if isinstance(metadata, compat.string_type):
+    if isinstance(metadata, str):
         metadata = {"name": metadata}
 
     return metadata
@@ -75,7 +72,7 @@ class AttributeBase(ModelObject):
         string representing the attribute name.
         """
 
-        if isinstance(metadata, compat.string_type):
+        if isinstance(metadata, str):
             return cls(metadata)
         elif isinstance(metadata, cls):
             return copy.copy(metadata)

@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-
 import copy
 import re
 
@@ -10,7 +8,6 @@ from collections import OrderedDict
 from ..errors import ArgumentError, CubesError
 from ..metadata import Dimension, Cube
 from ..logging import get_logger
-from .. import compat
 
 
 __all__ = [
@@ -91,7 +88,7 @@ class Cell(object):
         """
 
         # Fix for wrong early design decision:
-        if isinstance(cut, Dimension) or isinstance(cut, compat.string_type):
+        if isinstance(cut, Dimension) or isinstance(cut, str):
             raise CubesError("slice() should now be called with a cut (since v0.9.2). To get "
                              "original behaviour of one-dimension point cut, "
                              "use cell.slice(PointCut(dim,path))")
@@ -287,7 +284,7 @@ class Cell(object):
         new_cuts = []
 
         # If it is a string, handle it as list of single string
-        if isinstance(rollup, compat.string_type):
+        if isinstance(rollup, str):
             rollup = [rollup]
 
         if isinstance(rollup, (list, tuple)):
@@ -668,19 +665,19 @@ def _path_part_escape(path_part):
     if path_part is None:
         return NULL_PATH_VALUE
 
-    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", compat.to_unicode(path_part))
+    return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
 
 
 def _path_part_unescape(path_part):
     if path_part == NULL_PATH_VALUE:
         return None
 
-    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", compat.to_unicode(path_part))
+    return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", path_part)
 
 
 def string_from_cuts(cuts):
     """Returns a string represeting `cuts`. String can be used in URLs"""
-    strings = [compat.to_unicode(cut) for cut in cuts]
+    strings = [str(cut) for cut in cuts]
     string = CUT_STRING_SEPARATOR_CHAR.join(strings)
     return string
 
@@ -696,7 +693,7 @@ def string_from_path(path):
     if not path:
         return ""
 
-    path = [_path_part_escape(compat.to_unicode(s)) for s in path]
+    path = [_path_part_escape(str(s)) for s in path]
 
     if not all(map(RE_ELEMENT.match, path)):
         get_logger().warn("Can not convert path to string: "

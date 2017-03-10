@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-from __future__ import absolute_import
-
 import copy
 import re
 
@@ -13,7 +11,7 @@ from ..errors import ModelError, ArgumentError, HierarchyError
 from ..errors import NoSuchAttributeError
 from ..errors import ModelInconsistencyError, TemplateRequired
 from ..common import get_localizable_attributes
-from .. import compat
+
 
 __all__ = [
     "Dimension",
@@ -145,7 +143,7 @@ class Dimension(Conceptual):
             # Assure level inheritance
             levels = []
             for level_md in metadata["levels"]:
-                if isinstance(level_md, compat.string_type):
+                if isinstance(level_md, str):
                     if not template:
                         raise ModelError("Can not specify just a level name "
                                          "(%s) if there is no template for "
@@ -403,7 +401,7 @@ class Dimension(Conceptual):
     def level(self, obj):
         """Get level by name or as Level object. This method is used for
         coalescing value"""
-        if isinstance(obj, compat.string_type):
+        if isinstance(obj, str):
             if obj not in self._levels:
                 raise KeyError("No level %s in dimension %s" %
                                (obj, self.name))
@@ -420,7 +418,7 @@ class Dimension(Conceptual):
 
         if obj is None:
             return self._default_hierarchy
-        if isinstance(obj, compat.string_type):
+        if isinstance(obj, str):
             if obj not in self._hierarchies:
                 raise ModelError("No hierarchy %s in dimension %s" %
                                  (obj, self.name))
@@ -726,7 +724,7 @@ def _create_hierarchies(metadata, levels, template):
 
     # Construct hierarchies and assign actual level objects
     for md in metadata:
-        if isinstance(md, compat.string_type):
+        if isinstance(md, str):
             if not template:
                 raise ModelError("Can not specify just a hierarchy name "
                                  "({}) if there is no template".format(md))
@@ -773,7 +771,7 @@ class Hierarchy(Conceptual):
             raise ModelInconsistencyError("Hierarchy level list should "
                                           "not be empty (in %s)" % self.name)
 
-        if any(isinstance(level, compat.string_type) for level in levels):
+        if any(isinstance(level, str) for level in levels):
             raise ModelInconsistencyError("Levels should not be provided as "
                                           "strings to Hierarchy.")
 
@@ -1241,7 +1239,7 @@ def expand_dimension_metadata(metadata, expand_levels=False):
     `expand_levels` is `True` then levels metadata are expanded as well.
     """
 
-    if isinstance(metadata, compat.string_type):
+    if isinstance(metadata, str):
         metadata = {"name":metadata, "levels": [metadata]}
     else:
         metadata = dict(metadata)
@@ -1310,7 +1308,7 @@ def expand_level_metadata(metadata):
     then it is going to be used as level name and as its only attribute. If a
     dictionary is provided and has no attributes, then level will contain only
     attribute with the same name as the level name."""
-    if isinstance(metadata, compat.string_type):
+    if isinstance(metadata, str):
         metadata = {"name":metadata, "attributes": [metadata]}
     else:
         metadata = dict(metadata)

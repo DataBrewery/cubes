@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-
 from collections import namedtuple
 
 from ..calendar import CalendarMemberConverter
@@ -13,8 +11,6 @@ from ..metadata import string_to_dimension_level
 from .statutils import calculators_for_aggregates, available_calculators
 from .cells import Cell, PointCut, RangeCut, SetCut, cuts_from_string
 from ..metadata import Dimension
-
-from .. import compat
 
 
 __all__ = [
@@ -133,12 +129,12 @@ class AggregationBrowser(object):
 
         if cell is None:
             cell = Cell(self.cube)
-        elif isinstance(cell, compat.string_type):
+        elif isinstance(cell, str):
             cuts = cuts_from_string(self.cube, cell,
                                     role_member_converters=converters)
             cell = Cell(self.cube, cuts)
 
-        if isinstance(split, compat.string_type):
+        if isinstance(split, str):
             cuts = cuts_from_string(self.cube, split,
                                     role_member_converters=converters)
             split = Cell(self.cube, cuts)
@@ -261,7 +257,7 @@ class AggregationBrowser(object):
         new_order = []
 
         for item in order:
-            if isinstance(item, compat.string_type):
+            if isinstance(item, str):
                 name = item
                 direction = None
             else:
@@ -1074,7 +1070,7 @@ def levels_from_drilldown(cell, drilldown):
         drilldown = [(dim, None, level) for dim, level in drilldown.items()]
 
     for obj in drilldown:
-        if isinstance(obj, compat.string_type):
+        if isinstance(obj, str):
             obj = string_to_dimension_level(obj)
         elif isinstance(obj, DrilldownItem):
             obj = (obj.dimension, obj.hierarchy, obj.levels[-1])

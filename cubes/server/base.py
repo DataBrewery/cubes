@@ -1,13 +1,13 @@
 # -*- encoding: utf-8 -*-
 
-from __future__ import absolute_import
-from .blueprint import slicer
-from flask import Flask
 import shlex
 import os
 
+from flask import Flask
+from configparser import ConfigParser
+
+from .blueprint import slicer
 from .utils import *
-from .. import compat
 from ..logging import get_logger
 
 __all__ = (
@@ -20,11 +20,11 @@ __all__ = (
 
 def read_slicer_config(config):
     if not config:
-        return compat.ConfigParser()
-    elif isinstance(config, compat.string_type):
+        return ConfigParser()
+    elif isinstance(config, str):
         try:
             path = config
-            config = compat.ConfigParser()
+            config = ConfigParser()
             config.read(path)
         except Exception as e:
             raise Exception("Unable to load configuration: %s" % e)

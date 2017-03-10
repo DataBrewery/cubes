@@ -1,8 +1,6 @@
 # -*- encoding=utf -*-
 """SQL Browser"""
 
-from __future__ import absolute_import
-
 import collections
 
 try:
@@ -20,7 +18,6 @@ from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 from ..stores import Store
 from ..metadata import collect_attributes
-from .. import compat
 
 from .functions import available_aggregate_functions
 from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
@@ -540,7 +537,7 @@ class SQLBrowser(AggregationBrowser):
 
         self.logger.debug("prepare aggregation statement. cell: '%s' "
                           "drilldown: '%s' for summary: %s" %
-                          (",".join([compat.to_unicode(cut) for cut in cell.cuts]),
+                          (",".join([str(cut) for cut in cell.cuts]),
                            drilldown, for_summary))
 
         # TODO: it is verylikely that the _create_context is not getting all

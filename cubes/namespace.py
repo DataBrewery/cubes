@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-
 from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 from .common import read_json_file
-from . import compat
 
 __all__ = [
     "Namespace",
@@ -37,7 +34,7 @@ class Namespace(object):
         if not path:
             return (self, None)
 
-        if isinstance(path, compat.string_type):
+        if isinstance(path, str):
             path = path.split(".")
 
         namespace = self
@@ -173,7 +170,7 @@ class Namespace(object):
             self.translations[lang] = trans
 
         # Is it a path?
-        if isinstance(translation, compat.string_type):
+        if isinstance(translation, str):
             translation = read_json_file(translation)
 
         trans.update(translation)

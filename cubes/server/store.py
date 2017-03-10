@@ -5,7 +5,11 @@ from ..stores import Store
 from ..errors import *
 from ..logging import get_logger
 import json
-from .. import compat
+
+from urllib.request import urlopen, build_opener
+from urllib.request import HTTPPasswordMgrWithDefaultRealm
+from urllib.request import HTTPBasicAuthHandler
+from urllib.parse import urlencode
 
 DEFAULT_SLICER_URL = "http://localhost:5000"
 
@@ -14,7 +18,7 @@ class _default_opener:
         pass
 
     def open(self, url, *args, **kwargs):
-        return compat.urlopen(url, *args, **kwargs)
+        return urlopen(url, *args, **kwargs)
 
 class SlicerStore(Store):
     related_model_provider = "slicer"
@@ -78,9 +82,9 @@ class SlicerStore(Store):
 
         if "username" in options and "password" in options:
             # make a basic auth-enabled opener
-            _pmgr = compat.HTTPPasswordMgrWithDefaultRealm()
+            _pmgr = HTTPPasswordMgrWithDefaultRealm()
             _pmgr.add_password(None, self.url, options['username'], options['password'])
-            self.opener = compat.build_opener(compat.HTTPBasicAuthHandler(_pmgr))
+            self.opener = build_opener(HTTPBasicAuthHandler(_pmgr))
             self.logger.info("Created slicer opener using basic auth credentials with username %s", options['username'])
         else:
             self.opener = _default_opener()
@@ -99,7 +103,7 @@ class SlicerStore(Store):
         if self.authentication == "pass_parameter":
             params[self.auth_parameter] = self.auth_identity
 
-        params_str = compat.urlencode(params)
+        params_str = urlencode(params)
         request_url = '%s/%s' % (self.url, action)
 
         if params_str:

@@ -4,8 +4,10 @@ from collections import deque
 from functools import partial
 from math import sqrt
 
+from functools import reduce
+
 from ..errors import ArgumentError, InternalError, ModelError
-from .. import compat
+
 
 __all__ = [
     "CALCULATED_AGGREGATIONS",
@@ -64,10 +66,10 @@ def weighted_moving_average(values):
 
 def simple_moving_average(values):
     # use all the values
-    return round(compat.reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
+    return round(reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
 
 def simple_moving_sum(values):
-    return compat.reduce(lambda i, c: i + c, values, 0)
+    return reduce(lambda i, c: i + c, values, 0)
 
 
 def _variance(values):

@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
-
+import json
+import csv
 import codecs
 import csv
 import datetime
 import decimal
-import json
 import os
 import tempfile
+from io import StringIO
+
 from collections import namedtuple
 
 try:
@@ -26,7 +27,6 @@ except ImportError:
     openpyxl = MissingPackage('openpyxl', 'pyexcel or other xlsx/xlsm reader/writer')
 
 from .errors import ArgumentError
-from . import compat
 from . import ext
 
 from .query import SPLIT_DIMENSION_NAME
@@ -55,21 +55,16 @@ def _jinja_env():
     return env
 
 
-def csv_generator_p2(records, fields, include_header=True, header=None,
+def csv_generator(records, fields, include_header=True, header=None,
                      dialect=csv.excel):
     def _row_string(row):
         writer.writerow(row)
-        # Fetch UTF-8 output from the queue ...
         data = queue.getvalue()
-        data = compat.to_unicode(data)
-        # ... and reencode it into the target encoding
-        data = encoder.encode(data)
-        # empty queue
         queue.truncate(0)
 
         return data
 
-    queue = compat.StringIO()
+    queue = StringIO()
     writer = csv.writer(queue, dialect=dialect)
     encoder = codecs.getincrementalencoder("utf-8")()
 
@@ -99,7 +94,7 @@ def csv_generator_p3(records, fields, include_header=True, header=None,
 
         return data
 
-    queue = compat.StringIO()
+    queue = StringIO()
     writer = csv.writer(queue, dialect=dialect)
 
     if include_header:
@@ -411,8 +406,8 @@ class CSVFormatter(Formatter):
                                   fields,
                                   include_header=bool(header),
                                   header=header)
-        # TODO: this is Py3 hack over Py2 hack
-        rows = [compat.to_str(row) for row in generator]
+
+        rows = [row.decode("utf-8") for row in generator]
         output = "".join(rows)
         return output
 

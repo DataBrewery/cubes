@@ -2,13 +2,11 @@
 """Metadata validation
 """
 
-from __future__ import absolute_import
-
 import pkgutil
 import json
+from ..common import to_str
 
 from collections import namedtuple
-from .. import compat
 
 try:
     import jsonschema
@@ -37,13 +35,13 @@ class ModelMetadataValidator(object):
         self.metadata = metadata
 
         data = pkgutil.get_data("cubes", "schemas/model.json")
-        self.model_schema = json.loads(compat.to_str(data))
+        self.model_schema = json.loads(to_str(data))
 
         data = pkgutil.get_data("cubes", "schemas/cube.json")
-        self.cube_schema = json.loads(compat.to_str(data))
+        self.cube_schema = json.loads(to_str(data))
 
         data = pkgutil.get_data("cubes", "schemas/dimension.json")
-        self.dimension_schema = json.loads(compat.to_str(data))
+        self.dimension_schema = json.loads(to_str(data))
 
     def validate(self):
         errors = []
@@ -82,7 +80,7 @@ class ModelMetadataValidator(object):
         dims = self.metadata.get("dimensions")
         if dims and isinstance(dims, list):
             for dim in dims:
-                if isinstance(dim, compat.string_type):
+                if isinstance(dim, str):
                     err = ValidationError("default", "model", None,
                                           "dimensions",
                                           "Dimension '%s' is not described, "

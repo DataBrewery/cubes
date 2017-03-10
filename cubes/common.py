@@ -3,8 +3,6 @@
 """Utility functions for computing combinations of dimensions and hierarchy
 levels"""
 
-from __future__ import absolute_import
-
 import re
 import os.path
 import json
@@ -12,7 +10,6 @@ import json
 from collections import OrderedDict
 
 from .errors import ModelInconsistencyError, ArgumentError, ConfigurationError
-from . import compat
 
 __all__ = [
     "IgnoringDictionary",
@@ -26,7 +23,14 @@ __all__ = [
     "assert_all_instances",
     "read_json_file",
     "sorted_dependencies",
+    "to_str",
 ]
+
+
+def to_str(b:bin) -> str:
+    """Convert UTF-8 binary `b` into string."""
+    return b.decode("utf-8")
+
 
 class IgnoringDictionary(OrderedDict):
     """Simple dictionary extension that will ignore any keys of which values
@@ -199,7 +203,7 @@ def coalesce_option_value(value, value_type, label=None):
         if value_type in ('string', 'str'):
             return_value = str(value)
         elif value_type == 'list':
-            if isinstance(value, compat.string_type):
+            if isinstance(value, str):
                 return_value = value.split(",")
             else:
                 return_value = list(value)
@@ -210,7 +214,7 @@ def coalesce_option_value(value, value_type, label=None):
         elif value_type in ["bool", "boolean"]:
             if not value:
                 return_value = False
-            elif isinstance(value, compat.string_type):
+            elif isinstance(value, str):
                 return_value = value.lower() in ["1", "true", "yes", "on"]
             else:
                 return_value = bool(value)
@@ -253,7 +257,7 @@ def read_json_file(path, kind=None):
                                  % (kind, path))
 
     try:
-        f = compat.open_unicode(path)
+        f = open(path, encoding="utf-8")
     except IOError:
         raise ConfigurationError("Can not open %sfile '%s'"
                                  % (kind, path))

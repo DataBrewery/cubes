@@ -7,15 +7,10 @@ To enable full user exception debugging set the ``CUBES_ERROR_DEBUG``
 environment variable.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
-
 import json
 import os
 import sys
 import click
-
-from .. import compat
 
 from ..datastructures import AttributeDict
 from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
