@@ -11,14 +11,19 @@ import os
 import tempfile
 from collections import namedtuple
 
-from openpyxl import Workbook
-
 try:
     import jinja2
 except ImportError:
     from .common import MissingPackage
 
     jinja2 = MissingPackage("jinja2", "Templating engine")
+
+try:
+    import openpyxl
+except ImportError:
+    from .common import MissingPackage
+
+    openpyxl = MissingPackage('openpyxl', 'pyexcel or other xlsx/xlsm reader/writer')
 
 from .errors import ArgumentError
 from . import compat
@@ -107,7 +112,7 @@ def csv_generator_p3(records, fields, include_header=True, header=None,
 
 
 def xlsx_generator(records, fields, include_header=True, header=None):
-    workbook = Workbook()
+    workbook = openpyxl.Workbook()
     worksheet = workbook.active
     if include_header:
         header = header or fields
@@ -429,9 +434,9 @@ class XLSXFormatter(Formatter):
 
         fields = result.labels
         generator = csv_generator(result,
-                                   fields,
-                                   include_header=bool(header),
-                                   header=header)
+                                  fields,
+                                  include_header=bool(header),
+                                  header=header)
         rows = [compat.to_str(row) for row in generator]
         output = "".join(rows)
         return output
