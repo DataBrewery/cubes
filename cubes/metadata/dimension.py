@@ -4,7 +4,9 @@ import copy
 import re
 
 from collections import OrderedDict
-from typing import List, Optional, Dict, Set, Any, Union, Tuple, cast, Sequence
+from typing import List, Optional, Dict, Set, Any, Union, Tuple, \
+                    Sequence, Sized, \
+                    cast
 
 from .base import ModelObject, object_dict
 from .attributes import Attribute, expand_attribute_metadata
@@ -18,6 +20,7 @@ __all__ = [
     "Dimension",
     "Hierarchy",
     "Level",
+    "HierarchyPath",
 
     "string_to_dimension_level",
 ]
@@ -29,6 +32,7 @@ _DEFAULT_LEVEL_ROLES = {
              "isoyear", "isoweek", "isoweekday")
 }
 
+HierarchyPath = List[str]
 
 class Dimension(ModelObject):
     """
@@ -762,7 +766,7 @@ def _create_hierarchies(metadata: JSONType, levels: List[Level],
     return hierarchies
 
 
-class Hierarchy(ModelObject):
+class Hierarchy(ModelObject, Sized):
 
     localizable_attributes = ["label", "description"]
 
@@ -873,7 +877,7 @@ class Hierarchy(ModelObject):
             return True
         return item in [level.name for level in self.levels]
 
-    def levels_for_path(self, path: List[str],
+    def levels_for_path(self, path: HierarchyPath,
                         drilldown:bool=False) -> List[Level]:
         """Returns levels for given path. If path is longer than hierarchy
         levels, `cubes.ArgumentError` exception is raised"""
@@ -937,7 +941,7 @@ class Hierarchy(ModelObject):
 
         return level == self.levels[-1]
 
-    def rollup(self, path: List[str],
+    def rollup(self, path: HierarchyPath,
                level:Optional[Level]=None) -> List[str]:
         """Rolls-up the path to the `level`. If `level` is ``None`` then path
         is rolled-up only one level.
@@ -945,6 +949,8 @@ class Hierarchy(ModelObject):
         If `level` is deeper than last level of `path` the
         `cubes.HierarchyError` exception is raised. If `level` is the same as
         `path` level, nothing happens."""
+
+        last: Optional[int]
 
         if level:
             last = self.level_index(level) + 1
@@ -963,7 +969,7 @@ class Hierarchy(ModelObject):
         else:
             return path[0:last]
 
-    def path_is_base(self, path: List[str]) -> bool:
+    def path_is_base(self, path: HierarchyPath) -> bool:
         """Returns True if path is base path for the hierarchy. Base path is a
         path where there are no more levels to be added - no drill down
         possible."""

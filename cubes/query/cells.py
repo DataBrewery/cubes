@@ -4,9 +4,14 @@ import copy
 import re
 
 from collections import OrderedDict
+from typing import List, Optional, Set, Union, Dict, Sequence, Tuple, \
+                    Callable, Any, \
+                    cast
 
+from ..common import JSONType
 from ..errors import ArgumentError, CubesError
-from ..metadata import Dimension, Cube
+from ..metadata import Dimension, Cube, Attribute, Hierarchy, Level, \
+                        HierarchyPath
 from ..logging import get_logger
 
 
@@ -30,71 +35,71 @@ __all__ = [
 NULL_PATH_VALUE = '__null__'
 
 
+# Function that takes dimension hierarchy path and returns a member value
+MemberConverter = Callable[[Dimension, Hierarchy, HierarchyPath], HierarchyPath]
+
+
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
-    def __init__(self, cube=None, cuts=None):
-        if not isinstance(cube, Cube):
-            raise ArgumentError("Cell cube should be sublcass of Cube, "
-                                "provided: %s" % type(cube).__name__)
-        self.cube = cube
-        self.cuts = cuts if cuts is not None else []
 
-    def __and__(self, other):
+    cube: Cube
+    cuts: List[Cut]
+
+    # TODO: Remove `cube` from the cell
+    def __init__(self, cube: Cube, cuts: Sequence[Cut]=None) -> None:
+        self.cube = cube
+        self.cuts = list(cuts) if cuts is not None else []
+
+    def __and__(self, other: Cell) -> Cell:
         """Returns a new cell that is a conjunction of the two provided
         cells. The cube has to match."""
         if self.cube != other.cube:
             raise ArgumentError("Can not combine two cells from different "
-                                "cubes '%s' and '%s'."
-                                % (self.cube.name, other.cube.name))
+                                "cubes")
         cuts = self.cuts + other.cuts
         return Cell(self.cube, cuts=cuts)
 
-    def to_dict(self):
+    def to_dict(self) -> JSONType:
         """Returns a dictionary representation of the cell"""
+        cube_name: Optional[str]
+
+        if self.cube:
+            cube_name = self.cube.name
+        else:
+            cube_name = None
+
         result = {
-            "cube": str(self.cube.name),
+            "cube": cube_name,
             "cuts": [cut.to_dict() for cut in self.cuts]
         }
 
         return result
 
     @property
-    def all_attributes(self):
+    def all_attributes(self) -> List[Attribute]:
         """Returns an unordered set of key attributes used in the cell's
         cuts."""
-        attributes = set()
+        attributes: Set[Attribute] = set()
 
         for cut in self.cuts:
             depth = cut.level_depth()
             if depth:
                 dim = self.cube.dimension(cut.dimension)
                 hier = dim.hierarchy(cut.hierarchy)
-                keys = [dim.attribute(level.key.name) for level in hier[0:depth]]
+                keys = [dim.attribute(level.key.name)
+                        for level in hier.levels[0:depth]]
                 attributes |= set(keys)
 
         return list(attributes)
 
-    # Backward compatibility
-    # TODO: issue warning
-    @property
-    def key_attributes(self):
-        return self.all_attributes
-
-
-    def slice(self, cut):
+    def slice(self, cut: Cut) -> Cell:
         """Returns new cell by slicing receiving cell with `cut`. Cut with
         same dimension as `cut` will be replaced, if there is no cut with the
         same dimension, then the `cut` will be appended.
         """
 
-        # Fix for wrong early design decision:
-        if isinstance(cut, Dimension) or isinstance(cut, str):
-            raise CubesError("slice() should now be called with a cut (since v0.9.2). To get "
-                             "original behaviour of one-dimension point cut, "
-                             "use cell.slice(PointCut(dim,path))")
-
-        cuts = self.cuts[:]
-        index = self._find_dimension_cut(cut.dimension)
+        cuts: List[Cut] = self.cuts[:]
+        index = self._dimension_cut_index(cut.dimension)
         if index is not None:
             cuts[index] = cut
         else:
@@ -102,7 +107,9 @@ class Cell(object):
 
         return Cell(cube=self.cube, cuts=cuts)
 
-    def _find_dimension_cut(self, dimension):
+    # FIXME: Remove the union
+    def _dimension_cut_index(self, dimension: Union[str, Dimension]) \
+                -> Optional[int]:
         """Returns index of first occurence of cut for `dimension`. Returns
         ``None`` if no cut with `dimension` is found."""
         names = [str(cut.dimension) for cut in self.cuts]
@@ -113,7 +120,9 @@ class Cell(object):
         except ValueError:
             return None
 
-    def point_slice(self, dimension, path):
+    def point_slice(self,
+            dimension: Union[str, Dimension],
+            path: HierarchyPath) -> Cell:
         """
         Create another cell by slicing receiving cell through `dimension`
         at `path`. Receiving object is not modified. If cut with dimension
@@ -141,7 +150,9 @@ class Cell(object):
             cuts.append(cut)
         return Cell(cube=self.cube, cuts=cuts)
 
-    def drilldown(self, dimension, value, hierarchy=None):
+    def drilldown(self, dimension: Union[str, Dimension],
+                  value: str,
+                  hierarchy: Union[str, Hierarchy]=None) -> Cell:
         """Create another cell by drilling down `dimension` next level on
         current level's key `value`.
 
@@ -167,7 +178,7 @@ class Cell(object):
         Returns new derived cell object.
         """
         dimension = self.cube.dimension(dimension)
-        dim_cut = self.cut_for_dimension(dimension)
+        dim_cut = self.point_cut_for_dimension(dimension)
 
         old_path = dim_cut.path if dim_cut else []
         new_cut = PointCut(dimension, old_path + [value], hierarchy=hierarchy)
@@ -177,7 +188,7 @@ class Cell(object):
 
         return Cell(cube=self.cube, cuts=cuts)
 
-    def multi_slice(self, cuts):
+    def multi_slice(self, cuts: List[Cut]) -> Cell:
         """Create another cell by slicing through multiple slices. `cuts` is a
         list of `Cut` object instances. See also :meth:`Cell.slice`."""
 
@@ -190,7 +201,9 @@ class Cell(object):
 
         return cell
 
-    def cut_for_dimension(self, dimension):
+    # FIXME: Use dimension_cut_index
+    def cut_for_dimension(self, dimension: Union[str, Dimension]) \
+            -> Optional[Cut]:
         """Return first found cut for given `dimension`"""
         dimension = self.cube.dimension(dimension)
 
@@ -203,7 +216,8 @@ class Cell(object):
 
         return None
 
-    def point_cut_for_dimension(self, dimension):
+    def point_cut_for_dimension(self, dimension: Union[str, Dimension]) \
+            -> Optional[PointCut]:
         """Return first point cut for given `dimension`"""
 
         dimension = self.cube.dimension(dimension)
@@ -216,7 +230,9 @@ class Cell(object):
 
         return None
 
-    def rollup_dim(self, dimension, level=None, hierarchy=None):
+    def rollup_dim(self, dimension: Union[str, Dimension],
+                   level:Union[Level]=None,
+                   hierarchy:Union[str, Hierarchy]=None) -> Cell:
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. If there is no level to go up (we are at the top level),
         then the cut is removed.
@@ -253,7 +269,9 @@ class Cell(object):
 
         return Cell(cube=self.cube, cuts=cuts)
 
-    def rollup(self, rollup):
+    # FIXME: Complex type!
+    def rollup(self,
+               rollup: Union[str, List[str], Dict[str,str]]) -> Cell:
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. It works in similar way as drill down in
         :meth:`AggregationBrowser.aggregate` but in the opposite direction (it
@@ -276,7 +294,8 @@ class Cell(object):
         #     * see reasons above for rollup_dim()
         #     * used only by Slicer server
 
-        cuts = OrderedDict()
+        cut: Optional[Cut]
+        cuts: Dict[str, Cut] = OrderedDict()
         for cut in self.cuts:
             dim = self.cube.dimension(cut.dimension)
             cuts[dim.name] = cut
@@ -298,9 +317,9 @@ class Cell(object):
                                               "roll-up (rollup dimension: %s)" % dim_name)
 
                 dim = self.cube.dimension(cut.dimension)
-                hier = dim.default_hierarchy
+                hier = dim.hierarchy()
 
-                rollup_path = hier.rollup(cut.path)
+                rollup_path = hier.rollup(cast(PointCut, cut).path)
 
                 cut = PointCut(cut.dimension, rollup_path)
                 new_cuts.append(cut)
@@ -315,9 +334,9 @@ class Cell(object):
                                               "roll-up (rollup dimension: %s)" % dim_name)
 
                 dim = self.cube.dimension(cut.dimension)
-                hier = dim.default_hierarchy
+                hier = dim.hierarchy()
 
-                rollup_path = hier.rollup(cut.path, level_name)
+                rollup_path = hier.rollup(cast(PointCut, cut).path, hier[level_name])
 
                 cut = PointCut(cut.dimension, rollup_path)
                 new_cuts.append(cut)
@@ -328,22 +347,26 @@ class Cell(object):
         cell = Cell(cube=self.cube, cuts=new_cuts)
         return cell
 
-    def level_depths(self):
+    def level_depths(self) -> Dict[str, int]:
         """Returns a dictionary of dimension names as keys and level depths
         (index of deepest level)."""
 
-        levels = {}
+        depth: int
+        depths: Dict[str,int] = {}
 
         for cut in self.cuts:
-            level = cut.level_depth()
+            depth = cut.level_depth()
             dim = self.cube.dimension(cut.dimension)
             dim_name = str(dim)
 
-            levels[dim_name] = max(level, levels.get(dim_name))
+            depths[dim_name] = max(depth, depths.get(dim_name, 0))
 
-        return levels
+        return depths
 
-    def deepest_levels(self, include_empty=False):
+    # TODO: Needed?
+    # TODO: Complex return type
+    def deepest_levels(self, include_empty: bool=False) \
+            -> List[Tuple[Dimension, Hierarchy, Optional[Level]]]:
         """Returns a list of tuples: (`dimension`, `hierarchy`, `level`) where
         `level` is the deepest level specified in the respective cut. If no
         level is specified (empty path) and `include_empty` is `True`, then the
@@ -359,18 +382,20 @@ class Cell(object):
         levels = []
 
         for cut in self.cuts:
+            item: Tuple[Dimension, Hierarchy, Optional[Level]]
+
             depth = cut.level_depth()
             dim = self.cube.dimension(cut.dimension)
             hier = dim.hierarchy(cut.hierarchy)
             if depth:
-                item = (dim, hier, hier[depth-1])
+                item = (dim, hier, hier.levels[depth-1])
             elif include_empty:
                 item = (dim, hier, None)
             levels.append(item)
 
         return levels
 
-    def is_base(self, dimension, hierarchy=None):
+    def is_base(self, dimension: Dimension, hierarchy: Hierarchy=None) -> bool:
         """Returns ``True`` when cell is base cell for `dimension`. Cell
         is base if there is a point cut with path referring to the
         most detailed level of the dimension `hierarchy`."""
@@ -382,7 +407,9 @@ class Cell(object):
         else:
             return False
 
-    def contains_level(self, dim, level, hierarchy=None):
+    def contains_level(self, dim: Dimension,
+                       level: Level,
+                       hierarchy: Hierarchy=None) -> bool:
         """Returns `True` if one of the cuts contains `level` of dimension
         `dim`. If `hierarchy` is not specified, then dimension's default
         hierarchy is used."""
@@ -402,7 +429,8 @@ class Cell(object):
                         return True
         return False
 
-    def dimension_cuts(self, dimension, exclude=False):
+    def dimension_cuts(self, dimension: Union[str, Dimension],
+                       exclude: bool=False) -> List[Cut]:
         """Returns cuts for `dimension`. If `exclude` is `True` then the
         effect is reversed: return all cuts except those with `dimension`."""
         dimension = self.cube.dimension(dimension)
@@ -414,7 +442,7 @@ class Cell(object):
                 cuts.append(cut)
         return cuts
 
-    def public_cell(self):
+    def public_cell(self) -> Cell:
         """Returns a cell that contains only non-hidden cuts. Hidden cuts are
         mostly generated cuts by a backend or an extension. Public cell is a
         cell to be presented to the front-end."""
@@ -423,7 +451,7 @@ class Cell(object):
 
         return Cell(self.cube, cuts)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         """cells are considered equal if:
             * they refer to the same cube
             * they have same set of cuts (regardless of their order)
@@ -440,25 +468,26 @@ class Cell(object):
 
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
-    def to_str(self):
+    def to_str(self) -> str:
         """Return string representation of the cell by using standard
         cuts-to-string conversion."""
         return string_from_cuts(self.cuts)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation of the cell by using standard
         cuts-to-string conversion."""
         return string_from_cuts(self.cuts)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'Cell(%s: %s)' % (str(self.cube), self.to_str() or 'All')
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         """Returns `True` if the cell contains cuts."""
         return bool(self.cuts)
+
 
 CUT_STRING_SEPARATOR_CHAR = "|"
 DIMENSION_STRING_SEPARATOR_CHAR = ":"
@@ -486,9 +515,11 @@ set: date:2004;2010;2011,04
 
 """
 
-
-def cuts_from_string(cube, string, member_converters=None,
-                     role_member_converters=None):
+def cuts_from_string(cube: Cube,
+                     string: str,
+                     member_converters: Dict[str, MemberConverter]=None,
+                     role_member_converters: Dict[str, MemberConverter]=None) \
+                             -> List[Cut]:
     """Return list of cuts specified in `string`. You can use this function to
     parse cuts encoded in a URL.
 
@@ -548,8 +579,11 @@ def cuts_from_string(cube, string, member_converters=None,
 
 
 
-def cut_from_string(string, cube=None, member_converters=None,
-                    role_member_converters=None):
+def cut_from_string(string: str,
+                    cube:Cube=None,
+                    member_converters:Dict[str, MemberConverter]=None,
+                    role_member_converters:Dict[str, MemberConverter]=None) \
+                            -> Cut:
     """Returns a cut from `string` with dimension `dimension and assumed
     hierarchy `hierarchy`. The string should match one of the following
     patterns:
@@ -564,6 +598,12 @@ def cut_from_string(string, cube=None, member_converters=None,
     `dimension` can specify a hierarchy in form ``dimension@hierarchy`` such
     as ``date@dqmy``.
     """
+
+    dim_name: str
+    dimension: Dimension
+    hier_name: str
+    hierarchy: Hierarchy
+    cut: Cut
 
     member_converters = member_converters or {}
     role_member_converters = role_member_converters or {}
@@ -581,18 +621,19 @@ def cut_from_string(string, cube=None, member_converters=None,
     if match:
         d = match.groupdict()
         invert = (not not d["invert"])
-        dimension = d["dim"]
-        hierarchy = d["hier"]
+        dim_name = d["dim"]
+        hier_name = d["hier"]
     else:
         raise ArgumentError("Dimension spec '%s' does not match "
                             "pattern 'dimension@hierarchy'" % dimspec)
 
-    converter = member_converters.get(dimension)
+    converter = member_converters.get(dim_name)
     if cube:
         role = cube.dimension(dimension).role
-        converter = converter or role_member_converters.get(role)
-        dimension = cube.dimension(dimension)
-        hierarchy = dimension.hierarchy(hierarchy)
+        if role is not None:
+            converter = converter or role_member_converters.get(role)
+            dimension = cube.dimension(dim_name)
+            hierarchy = dimension.hierarchy(hier_name)
 
     # special case: completely empty string means single path element of ''
     # FIXME: why?
@@ -634,7 +675,7 @@ def cut_from_string(string, cube=None, member_converters=None,
 
     return cut
 
-def cut_from_dict(desc, cube=None):
+def cut_from_dict(desc: JSONType, cube: Cube=None) -> Cut:
     """Returns a cut from `desc` dictionary. If `cube` is specified, then the
     dimension is looked up in the cube and set as `Dimension` instances, if
     specified as strings."""
@@ -661,28 +702,28 @@ PATH_PART_ESCAPE_PATTERN = re.compile(r"([\\!|:;,-])")
 PATH_PART_UNESCAPE_PATTERN = re.compile(r"\\([\\!|:;,-])")
 
 
-def _path_part_escape(path_part):
+def _path_part_escape(path_part: str) -> str:
     if path_part is None:
         return NULL_PATH_VALUE
 
     return PATH_PART_ESCAPE_PATTERN.sub(r"\\\1", path_part)
 
 
-def _path_part_unescape(path_part):
+def _path_part_unescape(path_part: str) -> Optional[str]:
     if path_part == NULL_PATH_VALUE:
         return None
 
     return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", path_part)
 
 
-def string_from_cuts(cuts):
+def string_from_cuts(cuts: Sequence[Cut]) -> str:
     """Returns a string represeting `cuts`. String can be used in URLs"""
     strings = [str(cut) for cut in cuts]
     string = CUT_STRING_SEPARATOR_CHAR.join(strings)
     return string
 
 
-def string_from_path(path):
+def string_from_path(path: HierarchyPath) -> str:
     """Returns a string representing dimension `path`. If `path` is ``None``
     or empty, then returns empty string. The ptah elements are comma ``,``
     spearated.
@@ -705,7 +746,8 @@ def string_from_path(path):
     return string
 
 
-def string_from_hierarchy(dimension, hierarchy):
+def string_from_hierarchy(dimension: Union[str, Dimension],
+                          hierarchy: Optional[Union[str, Hierarchy]]) -> str:
     """Returns a string in form ``dimension@hierarchy`` or ``dimension`` if
     `hierarchy` is ``None``"""
     if hierarchy:
@@ -714,7 +756,7 @@ def string_from_hierarchy(dimension, hierarchy):
         return _path_part_escape(str(dimension))
 
 
-def path_from_string(string):
+def path_from_string(string: str) -> HierarchyPath:
     """Returns a dimension point path from `string`. The path elements are
     separated by comma ``,`` character.
 
@@ -731,18 +773,27 @@ def path_from_string(string):
 
 
 class Cut(object):
-    def __init__(self, dimension, hierarchy=None, invert=False,
-                 hidden=False):
+
+    dimension: Dimension
+    hierarchy: Optional[Hierarchy]
+    invert: bool
+    hidden: bool
+
+    def __init__(self,
+            dimension: Dimension,
+            hierarchy: Hierarchy=None,
+            invert: bool=False,
+            hidden: bool=False) -> None:
         """Abstract class for a cell cut."""
         self.dimension = dimension
         self.hierarchy = hierarchy
         self.invert = invert
         self.hidden = hidden
 
-    def to_dict(self):
+    def to_dict(self) -> JSONType:
         """Returns dictionary representation fo the receiver. The keys are:
         `dimension`."""
-        d = OrderedDict()
+        d: JSONType = OrderedDict()
 
         # Placeholder for 'type' to be at the beginning of the list
         d['type'] = None
@@ -755,12 +806,12 @@ class Cut(object):
 
         return d
 
-    def level_depth(self):
+    def level_depth(self) -> int:
         """Returns deepest level number. Subclasses should implement this
         method"""
         raise NotImplementedError
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.to_dict())
 
 
@@ -768,12 +819,18 @@ class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a
     dimension"""
 
-    def __init__(self, dimension, path, hierarchy=None, invert=False,
-                 hidden=False):
+    path: HierarchyPath
+
+    def __init__(self,
+            dimension: Dimension,
+            path: HierarchyPath,
+            hierarchy: Hierarchy=None,
+            invert: bool=False,
+            hidden: bool=False) -> None:
         super(PointCut, self).__init__(dimension, hierarchy, invert, hidden)
         self.path = path
 
-    def to_dict(self):
+    def to_dict(self) -> JSONType:
         """Returns dictionary representation of the receiver. The keys are:
         `dimension`, `type`=``point`` and `path`."""
         d = super(PointCut, self).to_dict()
@@ -781,11 +838,11 @@ class PointCut(Cut):
         d["path"] = self.path
         return d
 
-    def level_depth(self):
+    def level_depth(self) -> int:
         """Returns index of deepest level."""
         return len(self.path)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation of point cut, you can use it in
         URLs"""
         path_str = string_from_path(self.path)
@@ -794,7 +851,7 @@ class PointCut(Cut):
 
         return string
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, PointCut):
             return False
         if self.dimension != other.dimension:
@@ -805,7 +862,7 @@ class PointCut(Cut):
             return False
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
 
@@ -814,13 +871,21 @@ class RangeCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, from_path, to_path, hierarchy=None,
-                 invert=False, hidden=False):
+    from_path: Optional[HierarchyPath]
+    to_path: Optional[HierarchyPath]
+
+    def __init__(self,
+            dimension: Dimension,
+            from_path: Optional[HierarchyPath],
+            to_path: Optional[HierarchyPath],
+            hierarchy: Hierarchy=None,
+            invert: bool=False,
+            hidden: bool=False) -> None:
         super(RangeCut, self).__init__(dimension, hierarchy, invert, hidden)
         self.from_path = from_path
         self.to_path = to_path
 
-    def to_dict(self):
+    def to_dict(self) -> JSONType:
         """Returns dictionary representation of the receiver. The keys are:
         `dimension`, `type`=``range``, `from` and `to` paths."""
         d = super(RangeCut, self).to_dict()
@@ -829,17 +894,17 @@ class RangeCut(Cut):
         d["to"] = self.to_path
         return d
 
-    def level_depth(self):
+    def level_depth(self) -> int:
         """Returns index of deepest level which is equivalent to the longest
         path."""
         if self.from_path and not self.to_path:
             return len(self.from_path)
         elif not self.from_path and self.to_path:
             return len(self.to_path)
-        else:
+        elif self.from_path and self.to_path:
             return max(len(self.from_path), len(self.to_path))
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation of point cut, you can use it in
         URLs"""
         if self.from_path:
@@ -859,7 +924,7 @@ class RangeCut(Cut):
 
         return string
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, RangeCut):
             return False
         if self.dimension != other.dimension:
@@ -872,7 +937,7 @@ class RangeCut(Cut):
             return False
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
 
@@ -881,12 +946,19 @@ class SetCut(Cut):
     dimension that has ordered points. For dimensions with unordered points
     behaviour is unknown."""
 
-    def __init__(self, dimension, paths, hierarchy=None, invert=False,
-                 hidden=False):
+    paths: List[HierarchyPath]
+
+    def __init__(self,
+            dimension: Dimension,
+            paths: List[HierarchyPath],
+            hierarchy:Hierarchy=None,
+            invert:bool=False,
+            hidden:bool=False) -> None:
+
         super(SetCut, self).__init__(dimension, hierarchy, invert, hidden)
         self.paths = paths
 
-    def to_dict(self):
+    def to_dict(self) -> JSONType:
         """Returns dictionary representation of the receiver. The keys are:
         `dimension`, `type`=``range`` and `set` as a list of paths."""
         d = super(SetCut, self).to_dict()
@@ -894,12 +966,12 @@ class SetCut(Cut):
         d["paths"] = self.paths
         return d
 
-    def level_depth(self):
+    def level_depth(self) -> int:
         """Returns index of deepest level which is equivalent to the longest
         path."""
         return max([len(path) for path in self.paths])
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation of set cut, you can use it in URLs"""
         path_strings = []
         for path in self.paths:
@@ -912,7 +984,7 @@ class SetCut(Cut):
 
         return string
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, SetCut):
             return False
         elif self.dimension != other.dimension:
@@ -923,6 +995,6 @@ class SetCut(Cut):
             return False
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 

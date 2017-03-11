@@ -30,9 +30,10 @@ __all__ = [
 ]
 
 
+# Types
+
 JSONType = Dict[str, Any]
 OptionsType = Dict[str, str]
-
 
 def to_str(b: bytes) -> str:
     """Convert UTF-8 binary `b` into string."""
