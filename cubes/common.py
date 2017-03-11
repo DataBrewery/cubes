@@ -31,6 +31,7 @@ __all__ = [
 
 
 JSONType = Dict[str, Any]
+OptionsType = Dict[str, str]
 
 
 def to_str(b: bytes) -> str:

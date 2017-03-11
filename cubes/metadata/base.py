@@ -31,15 +31,15 @@ class ModelObject(object):
     localizable_attributes: List[str] = []
     localizable_lists: List[str] = []
 
-    name: Optional[str]
+    name: str
     label: Optional[str]
     description: Optional[str]
-    info: Optional[JSONType]
+    info: JSONType
 
     ref: str
 
     def __init__(self,
-                 name: Optional[str]=None,
+                 name: str,
                  label: Optional[str]=None,
                  description: Optional[str]=None,
                  info: Optional[JSONType]=None) -> None:

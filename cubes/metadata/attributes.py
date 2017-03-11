@@ -2,7 +2,8 @@
 
 import copy
 
-from typing import Optional, Any, List, Dict, Set, Type, Iterable, cast
+from typing import Optional, Any, List, Dict, Set, Type, Iterable, cast, \
+        TypeVar, Sequence
 from expressions import inspect_variables  # type: ignore
 
 from .base import ModelObject
@@ -22,6 +23,9 @@ __all__ = [
     "collect_dependencies",
     "expand_attribute_metadata",
 ]
+
+
+T = TypeVar("T", "AttributeBase", covariant=True)
 
 
 def expand_attribute_metadata(metadata: JSONType) -> JSONType:
@@ -67,12 +71,13 @@ class AttributeBase(ModelObject):
 
     localizable_attributes = ["label", "description", "format"]
 
-    format: str
-    missing_value: str
+    format: Optional[str]
+    missing_value: Optional[str]
     # FIXME: Remove this reference
     dimension: Optional[Any]
     expression: Optional[str]
-    order: str
+    # FIXME: Make non-optional enum
+    order: Optional[str]
 
     # Expected in subclasses
     # TODO: Review these
@@ -462,11 +467,11 @@ class Measure(AttributeBase):
 
 class MeasureAggregate(AttributeBase):
 
-    function: str
-    formula: str
-    measure: str
-    nonadditive: str
-    window_size: int
+    function: Optional[str]
+    formula: Optional[str]
+    measure: Optional[str]
+    nonadditive: Optional[str]
+    window_size: Optional[int]
 
     def __init__(self, name: str,
                  label: str=None,
@@ -573,26 +578,24 @@ class MeasureAggregate(AttributeBase):
         return inspect_variables(self.expression)
 
 
-# FIXME: [typing] Reconsider this from type perspective
-def create_list_of(class_: Type[AttributeBase], objects: List[Any]) \
-        -> List[AttributeBase]:
+def create_list_of(class_: Type[T], objects: Sequence[JSONType]) -> List[T]:
     """Return a list of model objects of class `class_` from list of object
     metadata `objects`"""
     return [class_.from_metadata(obj) for obj in objects]
 
 
 # FIXME: [typing] Reconsider this from type perspective
-def collect_attributes(attributes: List[AttributeBase],
-                       *containers: Any) -> List[AttributeBase]:
+def collect_attributes(attributes: Sequence[T],
+                       *containers: Any) -> List[T]:
     """Collect attributes from arguments. `containers` are objects with
     method `all_attributes` or might be `Nulls`. Returns a list of attributes.
     Note that the function does not check whether the attribute is an actual
     attribute object or a string."""
     # Method for decreasing noise/boilerplate
 
-    collected: List[AttributeBase] = []
+    collected: List[T] = []
 
-    if attributes:
+    if len(attributes) > 0:
         collected += attributes
 
     for container in containers:
@@ -602,8 +605,8 @@ def collect_attributes(attributes: List[AttributeBase],
     return collected
 
 
-def collect_dependencies(attributes: List[AttributeBase],
-                         all_attributes: List[AttributeBase]) -> List[Any]:
+def collect_dependencies(attributes: Sequence[T],
+                         all_attributes: Sequence[T]) -> List[str]:
     """Collect all original and dependant cube attributes for
     `attributes`, sorted by their dependency: starting with attributes
     that don't depend on anything. For exapmle, if the `attributes` is [a,
