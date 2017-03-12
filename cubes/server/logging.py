@@ -190,7 +190,7 @@ class XLSXFileRequestLogHandler(RequestLogHandler):
         for key in REQUEST_LOG_ITEMS:
             item = record.get(key)
             if item is not None:
-                item = compat.text_type(item)
+                item = str(item)
             out.append(item)
 
         with io.open(self.path, 'ab') as f:
