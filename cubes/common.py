@@ -11,6 +11,7 @@ import json
 
 from collections import OrderedDict
 
+from .types import JSONType
 from .errors import ModelInconsistencyError, ArgumentError, ConfigurationError
 
 __all__ = [
@@ -29,11 +30,6 @@ __all__ = [
     "JSONType",
 ]
 
-
-# Types
-
-JSONType = Dict[str, Any]
-OptionsType = Dict[str, str]
 
 def to_str(b: bytes) -> str:
     """Convert UTF-8 binary `b` into string."""

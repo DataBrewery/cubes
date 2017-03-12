@@ -5,9 +5,8 @@ from collections import OrderedDict, defaultdict
 
 from typing import Optional, List, Dict, Any, Union, Set, Sequence, Tuple
 
-from ..common import assert_all_instances, get_localizable_attributes, \
-                        JSONType, OptionsType
-
+from ..types import JSONType, OptionsType
+from ..common import assert_all_instances, get_localizable_attributes
 from ..errors import ModelError, ArgumentError, NoSuchAttributeError, \
                         NoSuchDimensionError
 from .base import ModelObject, object_dict
@@ -226,7 +225,7 @@ class Cube(ModelObject):
         self.details = details
 
     @classmethod
-    def from_metadata(cls, metadata: JSONType) -> Cube:
+    def from_metadata(cls, metadata: JSONType) -> "Cube":
         """Create a cube object from `metadata` dictionary. The cube has no
         dimensions attached after creation. You should link the dimensions to the
         cube according to the `Cube.dimension_links` property using

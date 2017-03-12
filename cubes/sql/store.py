@@ -490,7 +490,7 @@ class SQLStore(Store):
                 level_index = len(hierarchy)
 
             for depth in range(0, level_index):
-                level = hierarchy[depth]
+                level = hierarchy.levels[depth]
                 self.create_conformed_rollup(cube, dim, level=level,
                                              schema=schema,
                                              dimension_prefix=dimension_prefix or "",

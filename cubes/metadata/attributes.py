@@ -25,7 +25,7 @@ __all__ = [
 ]
 
 
-T = TypeVar("T", "AttributeBase", covariant=True)
+T = TypeVar("T", "AttributeBase", "Attribute", "Measure", "MeasureAggregate")
 
 
 def expand_attribute_metadata(metadata: JSONType) -> JSONType:
@@ -85,7 +85,7 @@ class AttributeBase(ModelObject):
     locales: List[str]
 
     @classmethod
-    def from_metadata(cls, metadata: JSONType) -> AttributeBase:
+    def from_metadata(cls, metadata: JSONType) -> "AttributeBase":
         """Create an attribute from `metadata` which can be a dictionary or a
         string representing the attribute name.
         """
@@ -299,7 +299,7 @@ class Attribute(AttributeBase):
             self.ref = str(self.name)
         self._dimension = dimension
 
-    def __deepcopy__(self, memo: Any) -> Attribute:
+    def __deepcopy__(self, memo: Any) -> "Attribute":
         # Note: copied attribute is disowned
         return Attribute(self.name,
                          self.label,
@@ -399,7 +399,7 @@ class Measure(AttributeBase):
             raise ModelError("Unknown non-additive measure type '%s'"
                              % nonadditive)
 
-    def __deepcopy__(self, memo: Any) -> Measure:
+    def __deepcopy__(self, memo: Any) -> "Measure":
         return Measure(self.name, self.label,
                        order=copy.deepcopy(self.order, memo),
                        description=self.description,
@@ -431,7 +431,7 @@ class Measure(AttributeBase):
 
         return d
 
-    def default_aggregates(self) -> List[MeasureAggregate]:
+    def default_aggregates(self) -> List["MeasureAggregate"]:
         """Creates default measure aggregates from a list of receiver's
         measures. This is just a convenience function, correct models should
         contain explicit list of aggregates. If no aggregates are specified,
@@ -514,7 +514,7 @@ class MeasureAggregate(AttributeBase):
         self.nonadditive = nonadditive
         self.window_size = window_size
 
-    def __deepcopy__(self, memo: Any) -> MeasureAggregate:
+    def __deepcopy__(self, memo: Any) -> "MeasureAggregate":
         return MeasureAggregate(self.name,
                                 self.label,
                                 order=copy.deepcopy(self.order, memo),

@@ -8,7 +8,7 @@ from typing import List, Optional, Set, Union, Dict, Sequence, Tuple, \
                     Callable, Any, \
                     cast
 
-from ..common import JSONType
+from ..types import JSONType
 from ..errors import ArgumentError, CubesError
 from ..metadata import Dimension, Cube, Attribute, Hierarchy, Level, \
                         HierarchyPath
@@ -39,6 +39,259 @@ NULL_PATH_VALUE = '__null__'
 MemberConverter = Callable[[Dimension, Hierarchy, HierarchyPath], HierarchyPath]
 
 
+CUT_STRING_SEPARATOR_CHAR = "|"
+DIMENSION_STRING_SEPARATOR_CHAR = ":"
+PATH_STRING_SEPARATOR_CHAR = ","
+RANGE_CUT_SEPARATOR_CHAR = "-"
+SET_CUT_SEPARATOR_CHAR = ";"
+
+CUT_STRING_SEPARATOR = re.compile(r'(?<!\\)\|')
+DIMENSION_STRING_SEPARATOR = re.compile(r'(?<!\\):')
+PATH_STRING_SEPARATOR = re.compile(r'(?<!\\),')
+RANGE_CUT_SEPARATOR = re.compile(r'(?<!\\)-')
+SET_CUT_SEPARATOR = re.compile(r'(?<!\\);')
+
+PATH_ELEMENT = r"(?:\\.|[^:;|-])*"
+
+RE_ELEMENT = re.compile(r"^%s$" % PATH_ELEMENT)
+RE_POINT = re.compile(r"^%s$" % PATH_ELEMENT)
+RE_SET = re.compile(r"^(%s)(;(%s))*$" % (PATH_ELEMENT, PATH_ELEMENT))
+RE_RANGE = re.compile(r"^(%s)?-(%s)?$" % (PATH_ELEMENT, PATH_ELEMENT))
+
+"""
+point: date:2004
+range: date:2004-2010
+set: date:2004;2010;2011,04
+
+"""
+
+class Cut(object):
+
+    dimension: Dimension
+    hierarchy: Optional[Hierarchy]
+    invert: bool
+    hidden: bool
+
+    def __init__(self,
+            dimension: Dimension,
+            hierarchy: Hierarchy=None,
+            invert: bool=False,
+            hidden: bool=False) -> None:
+        """Abstract class for a cell cut."""
+        self.dimension = dimension
+        self.hierarchy = hierarchy
+        self.invert = invert
+        self.hidden = hidden
+
+    def to_dict(self) -> JSONType:
+        """Returns dictionary representation fo the receiver. The keys are:
+        `dimension`."""
+        d: JSONType = OrderedDict()
+
+        # Placeholder for 'type' to be at the beginning of the list
+        d['type'] = None
+
+        d["dimension"] = str(self.dimension)
+        d["hierarchy"] = str(self.hierarchy) if self.hierarchy else None
+        d["level_depth"] = self.level_depth()
+        d["invert"] = self.invert
+        d["hidden"] = self.hidden
+
+        return d
+
+    def level_depth(self) -> int:
+        """Returns deepest level number. Subclasses should implement this
+        method"""
+        raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return str(self.to_dict())
+
+
+class PointCut(Cut):
+    """Object describing way of slicing a cube (cell) through point in a
+    dimension"""
+
+    path: HierarchyPath
+
+    def __init__(self,
+            dimension: Dimension,
+            path: HierarchyPath,
+            hierarchy: Hierarchy=None,
+            invert: bool=False,
+            hidden: bool=False) -> None:
+        super(PointCut, self).__init__(dimension, hierarchy, invert, hidden)
+        self.path = path
+
+    def to_dict(self) -> JSONType:
+        """Returns dictionary representation of the receiver. The keys are:
+        `dimension`, `type`=``point`` and `path`."""
+        d = super(PointCut, self).to_dict()
+        d["type"] = "point"
+        d["path"] = self.path
+        return d
+
+    def level_depth(self) -> int:
+        """Returns index of deepest level."""
+        return len(self.path)
+
+    def __str__(self) -> str:
+        """Return string representation of point cut, you can use it in
+        URLs"""
+        path_str = string_from_path(self.path)
+        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
+        string = ("!" if self.invert else "") + dim_str + DIMENSION_STRING_SEPARATOR_CHAR + path_str
+
+        return string
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, PointCut):
+            return False
+        if self.dimension != other.dimension:
+            return False
+        elif self.path != other.path:
+            return False
+        elif self.invert != other.invert:
+            return False
+        return True
+
+    def __ne__(self, other: Any) -> bool:
+        return not self.__eq__(other)
+
+
+class RangeCut(Cut):
+    """Object describing way of slicing a cube (cell) between two points of a
+    dimension that has ordered points. For dimensions with unordered points
+    behaviour is unknown."""
+
+    from_path: Optional[HierarchyPath]
+    to_path: Optional[HierarchyPath]
+
+    def __init__(self,
+            dimension: Dimension,
+            from_path: Optional[HierarchyPath],
+            to_path: Optional[HierarchyPath],
+            hierarchy: Hierarchy=None,
+            invert: bool=False,
+            hidden: bool=False) -> None:
+        super(RangeCut, self).__init__(dimension, hierarchy, invert, hidden)
+        self.from_path = from_path
+        self.to_path = to_path
+
+    def to_dict(self) -> JSONType:
+        """Returns dictionary representation of the receiver. The keys are:
+        `dimension`, `type`=``range``, `from` and `to` paths."""
+        d = super(RangeCut, self).to_dict()
+        d["type"] = "range"
+        d["from"] = self.from_path
+        d["to"] = self.to_path
+        return d
+
+    def level_depth(self) -> int:
+        """Returns index of deepest level which is equivalent to the longest
+        path."""
+        if self.from_path and not self.to_path:
+            return len(self.from_path)
+        elif not self.from_path and self.to_path:
+            return len(self.to_path)
+        elif self.from_path and self.to_path:
+            return max(len(self.from_path), len(self.to_path))
+
+    def __str__(self) -> str:
+        """Return string representation of point cut, you can use it in
+        URLs"""
+        if self.from_path:
+            from_path_str = string_from_path(self.from_path)
+        else:
+            from_path_str = string_from_path([])
+
+        if self.to_path:
+            to_path_str = string_from_path(self.to_path)
+        else:
+            to_path_str = string_from_path([])
+
+        range_str = from_path_str + RANGE_CUT_SEPARATOR_CHAR + to_path_str
+        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
+        string = ("!" if self.invert else "") + dim_str \
+                 + DIMENSION_STRING_SEPARATOR_CHAR + range_str
+
+        return string
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, RangeCut):
+            return False
+        if self.dimension != other.dimension:
+            return False
+        elif self.from_path != other.from_path:
+            return False
+        elif self.to_path != other.to_path:
+            return False
+        elif self.invert != other.invert:
+            return False
+        return True
+
+    def __ne__(self, other: Any) -> bool:
+        return not self.__eq__(other)
+
+
+class SetCut(Cut):
+    """Object describing way of slicing a cube (cell) between two points of a
+    dimension that has ordered points. For dimensions with unordered points
+    behaviour is unknown."""
+
+    paths: List[HierarchyPath]
+
+    def __init__(self,
+            dimension: Dimension,
+            paths: List[HierarchyPath],
+            hierarchy:Hierarchy=None,
+            invert:bool=False,
+            hidden:bool=False) -> None:
+
+        super(SetCut, self).__init__(dimension, hierarchy, invert, hidden)
+        self.paths = paths
+
+    def to_dict(self) -> JSONType:
+        """Returns dictionary representation of the receiver. The keys are:
+        `dimension`, `type`=``range`` and `set` as a list of paths."""
+        d = super(SetCut, self).to_dict()
+        d["type"] = "set"
+        d["paths"] = self.paths
+        return d
+
+    def level_depth(self) -> int:
+        """Returns index of deepest level which is equivalent to the longest
+        path."""
+        return max([len(path) for path in self.paths])
+
+    def __str__(self) -> str:
+        """Return string representation of set cut, you can use it in URLs"""
+        path_strings = []
+        for path in self.paths:
+            path_strings.append(string_from_path(path))
+
+        set_string = SET_CUT_SEPARATOR_CHAR.join(path_strings)
+        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
+        string = ("!" if self.invert else "") + dim_str \
+                 + DIMENSION_STRING_SEPARATOR_CHAR + set_string
+
+        return string
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, SetCut):
+            return False
+        elif self.dimension != other.dimension:
+            return False
+        elif self.paths != other.paths:
+            return False
+        elif self.invert != other.invert:
+            return False
+        return True
+
+    def __ne__(self, other: Any) -> bool:
+        return not self.__eq__(other)
+
+
 class Cell(object):
     """Part of a cube determined by slicing dimensions. Immutable object."""
 
@@ -50,7 +303,7 @@ class Cell(object):
         self.cube = cube
         self.cuts = list(cuts) if cuts is not None else []
 
-    def __and__(self, other: Cell) -> Cell:
+    def __and__(self, other: "Cell") -> "Cell":
         """Returns a new cell that is a conjunction of the two provided
         cells. The cube has to match."""
         if self.cube != other.cube:
@@ -92,7 +345,7 @@ class Cell(object):
 
         return list(attributes)
 
-    def slice(self, cut: Cut) -> Cell:
+    def slice(self, cut: Cut) -> "Cell":
         """Returns new cell by slicing receiving cell with `cut`. Cut with
         same dimension as `cut` will be replaced, if there is no cut with the
         same dimension, then the `cut` will be appended.
@@ -122,7 +375,7 @@ class Cell(object):
 
     def point_slice(self,
             dimension: Union[str, Dimension],
-            path: HierarchyPath) -> Cell:
+            path: HierarchyPath) -> "Cell":
         """
         Create another cell by slicing receiving cell through `dimension`
         at `path`. Receiving object is not modified. If cut with dimension
@@ -152,7 +405,7 @@ class Cell(object):
 
     def drilldown(self, dimension: Union[str, Dimension],
                   value: str,
-                  hierarchy: Union[str, Hierarchy]=None) -> Cell:
+                  hierarchy: Union[str, Hierarchy]=None) -> "Cell":
         """Create another cell by drilling down `dimension` next level on
         current level's key `value`.
 
@@ -188,7 +441,7 @@ class Cell(object):
 
         return Cell(cube=self.cube, cuts=cuts)
 
-    def multi_slice(self, cuts: List[Cut]) -> Cell:
+    def multi_slice(self, cuts: List[Cut]) -> "Cell":
         """Create another cell by slicing through multiple slices. `cuts` is a
         list of `Cut` object instances. See also :meth:`Cell.slice`."""
 
@@ -232,7 +485,7 @@ class Cell(object):
 
     def rollup_dim(self, dimension: Union[str, Dimension],
                    level:Union[Level]=None,
-                   hierarchy:Union[str, Hierarchy]=None) -> Cell:
+                   hierarchy:Union[str, Hierarchy]=None) -> "Cell":
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. If there is no level to go up (we are at the top level),
         then the cut is removed.
@@ -271,7 +524,7 @@ class Cell(object):
 
     # FIXME: Complex type!
     def rollup(self,
-               rollup: Union[str, List[str], Dict[str,str]]) -> Cell:
+               rollup: Union[str, List[str], Dict[str,str]]) -> "Cell":
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. It works in similar way as drill down in
         :meth:`AggregationBrowser.aggregate` but in the opposite direction (it
@@ -442,7 +695,7 @@ class Cell(object):
                 cuts.append(cut)
         return cuts
 
-    def public_cell(self) -> Cell:
+    def public_cell(self) -> "Cell":
         """Returns a cell that contains only non-hidden cuts. Hidden cuts are
         mostly generated cuts by a backend or an extension. Public cell is a
         cell to be presented to the front-end."""
@@ -488,32 +741,6 @@ class Cell(object):
         """Returns `True` if the cell contains cuts."""
         return bool(self.cuts)
 
-
-CUT_STRING_SEPARATOR_CHAR = "|"
-DIMENSION_STRING_SEPARATOR_CHAR = ":"
-PATH_STRING_SEPARATOR_CHAR = ","
-RANGE_CUT_SEPARATOR_CHAR = "-"
-SET_CUT_SEPARATOR_CHAR = ";"
-
-CUT_STRING_SEPARATOR = re.compile(r'(?<!\\)\|')
-DIMENSION_STRING_SEPARATOR = re.compile(r'(?<!\\):')
-PATH_STRING_SEPARATOR = re.compile(r'(?<!\\),')
-RANGE_CUT_SEPARATOR = re.compile(r'(?<!\\)-')
-SET_CUT_SEPARATOR = re.compile(r'(?<!\\);')
-
-PATH_ELEMENT = r"(?:\\.|[^:;|-])*"
-
-RE_ELEMENT = re.compile(r"^%s$" % PATH_ELEMENT)
-RE_POINT = re.compile(r"^%s$" % PATH_ELEMENT)
-RE_SET = re.compile(r"^(%s)(;(%s))*$" % (PATH_ELEMENT, PATH_ELEMENT))
-RE_RANGE = re.compile(r"^(%s)?-(%s)?$" % (PATH_ELEMENT, PATH_ELEMENT))
-
-"""
-point: date:2004
-range: date:2004-2010
-set: date:2004;2010;2011,04
-
-"""
 
 def cuts_from_string(cube: Cube,
                      string: str,
@@ -771,230 +998,4 @@ def path_from_string(string: str) -> HierarchyPath:
 
     return path
 
-
-class Cut(object):
-
-    dimension: Dimension
-    hierarchy: Optional[Hierarchy]
-    invert: bool
-    hidden: bool
-
-    def __init__(self,
-            dimension: Dimension,
-            hierarchy: Hierarchy=None,
-            invert: bool=False,
-            hidden: bool=False) -> None:
-        """Abstract class for a cell cut."""
-        self.dimension = dimension
-        self.hierarchy = hierarchy
-        self.invert = invert
-        self.hidden = hidden
-
-    def to_dict(self) -> JSONType:
-        """Returns dictionary representation fo the receiver. The keys are:
-        `dimension`."""
-        d: JSONType = OrderedDict()
-
-        # Placeholder for 'type' to be at the beginning of the list
-        d['type'] = None
-
-        d["dimension"] = str(self.dimension)
-        d["hierarchy"] = str(self.hierarchy) if self.hierarchy else None
-        d["level_depth"] = self.level_depth()
-        d["invert"] = self.invert
-        d["hidden"] = self.hidden
-
-        return d
-
-    def level_depth(self) -> int:
-        """Returns deepest level number. Subclasses should implement this
-        method"""
-        raise NotImplementedError
-
-    def __repr__(self) -> str:
-        return str(self.to_dict())
-
-
-class PointCut(Cut):
-    """Object describing way of slicing a cube (cell) through point in a
-    dimension"""
-
-    path: HierarchyPath
-
-    def __init__(self,
-            dimension: Dimension,
-            path: HierarchyPath,
-            hierarchy: Hierarchy=None,
-            invert: bool=False,
-            hidden: bool=False) -> None:
-        super(PointCut, self).__init__(dimension, hierarchy, invert, hidden)
-        self.path = path
-
-    def to_dict(self) -> JSONType:
-        """Returns dictionary representation of the receiver. The keys are:
-        `dimension`, `type`=``point`` and `path`."""
-        d = super(PointCut, self).to_dict()
-        d["type"] = "point"
-        d["path"] = self.path
-        return d
-
-    def level_depth(self) -> int:
-        """Returns index of deepest level."""
-        return len(self.path)
-
-    def __str__(self) -> str:
-        """Return string representation of point cut, you can use it in
-        URLs"""
-        path_str = string_from_path(self.path)
-        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = ("!" if self.invert else "") + dim_str + DIMENSION_STRING_SEPARATOR_CHAR + path_str
-
-        return string
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, PointCut):
-            return False
-        if self.dimension != other.dimension:
-            return False
-        elif self.path != other.path:
-            return False
-        elif self.invert != other.invert:
-            return False
-        return True
-
-    def __ne__(self, other: Any) -> bool:
-        return not self.__eq__(other)
-
-
-class RangeCut(Cut):
-    """Object describing way of slicing a cube (cell) between two points of a
-    dimension that has ordered points. For dimensions with unordered points
-    behaviour is unknown."""
-
-    from_path: Optional[HierarchyPath]
-    to_path: Optional[HierarchyPath]
-
-    def __init__(self,
-            dimension: Dimension,
-            from_path: Optional[HierarchyPath],
-            to_path: Optional[HierarchyPath],
-            hierarchy: Hierarchy=None,
-            invert: bool=False,
-            hidden: bool=False) -> None:
-        super(RangeCut, self).__init__(dimension, hierarchy, invert, hidden)
-        self.from_path = from_path
-        self.to_path = to_path
-
-    def to_dict(self) -> JSONType:
-        """Returns dictionary representation of the receiver. The keys are:
-        `dimension`, `type`=``range``, `from` and `to` paths."""
-        d = super(RangeCut, self).to_dict()
-        d["type"] = "range"
-        d["from"] = self.from_path
-        d["to"] = self.to_path
-        return d
-
-    def level_depth(self) -> int:
-        """Returns index of deepest level which is equivalent to the longest
-        path."""
-        if self.from_path and not self.to_path:
-            return len(self.from_path)
-        elif not self.from_path and self.to_path:
-            return len(self.to_path)
-        elif self.from_path and self.to_path:
-            return max(len(self.from_path), len(self.to_path))
-
-    def __str__(self) -> str:
-        """Return string representation of point cut, you can use it in
-        URLs"""
-        if self.from_path:
-            from_path_str = string_from_path(self.from_path)
-        else:
-            from_path_str = string_from_path([])
-
-        if self.to_path:
-            to_path_str = string_from_path(self.to_path)
-        else:
-            to_path_str = string_from_path([])
-
-        range_str = from_path_str + RANGE_CUT_SEPARATOR_CHAR + to_path_str
-        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = ("!" if self.invert else "") + dim_str \
-                 + DIMENSION_STRING_SEPARATOR_CHAR + range_str
-
-        return string
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, RangeCut):
-            return False
-        if self.dimension != other.dimension:
-            return False
-        elif self.from_path != other.from_path:
-            return False
-        elif self.to_path != other.to_path:
-            return False
-        elif self.invert != other.invert:
-            return False
-        return True
-
-    def __ne__(self, other: Any) -> bool:
-        return not self.__eq__(other)
-
-
-class SetCut(Cut):
-    """Object describing way of slicing a cube (cell) between two points of a
-    dimension that has ordered points. For dimensions with unordered points
-    behaviour is unknown."""
-
-    paths: List[HierarchyPath]
-
-    def __init__(self,
-            dimension: Dimension,
-            paths: List[HierarchyPath],
-            hierarchy:Hierarchy=None,
-            invert:bool=False,
-            hidden:bool=False) -> None:
-
-        super(SetCut, self).__init__(dimension, hierarchy, invert, hidden)
-        self.paths = paths
-
-    def to_dict(self) -> JSONType:
-        """Returns dictionary representation of the receiver. The keys are:
-        `dimension`, `type`=``range`` and `set` as a list of paths."""
-        d = super(SetCut, self).to_dict()
-        d["type"] = "set"
-        d["paths"] = self.paths
-        return d
-
-    def level_depth(self) -> int:
-        """Returns index of deepest level which is equivalent to the longest
-        path."""
-        return max([len(path) for path in self.paths])
-
-    def __str__(self) -> str:
-        """Return string representation of set cut, you can use it in URLs"""
-        path_strings = []
-        for path in self.paths:
-            path_strings.append(string_from_path(path))
-
-        set_string = SET_CUT_SEPARATOR_CHAR.join(path_strings)
-        dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
-        string = ("!" if self.invert else "") + dim_str \
-                 + DIMENSION_STRING_SEPARATOR_CHAR + set_string
-
-        return string
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, SetCut):
-            return False
-        elif self.dimension != other.dimension:
-            return False
-        elif self.paths != other.paths:
-            return False
-        elif self.invert != other.invert:
-            return False
-        return True
-
-    def __ne__(self, other: Any) -> bool:
-        return not self.__eq__(other)
 

@@ -73,7 +73,7 @@ class ModelObject(object):
 
         return out
 
-    def localized(self, context: Any) -> ModelObject:
+    def localized(self, context: Any) -> "ModelObject":
         """Returns a copy of the cube translated with `translation`"""
 
         acopy: Any

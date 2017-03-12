@@ -8,12 +8,14 @@ from typing import List, Optional, Dict, Set, Any, Union, Tuple, \
                     Sequence, Sized, \
                     cast
 
+from ..common import get_localizable_attributes
+from ..types import JSONType
+from ..errors import ModelError, ArgumentError, HierarchyError, \
+        NoSuchAttributeError, ModelInconsistencyError, TemplateRequired
+
 from .base import ModelObject, object_dict
 from .attributes import Attribute, expand_attribute_metadata
-from ..errors import ModelError, ArgumentError, HierarchyError
-from ..errors import NoSuchAttributeError
-from ..errors import ModelInconsistencyError, TemplateRequired
-from ..common import get_localizable_attributes, JSONType
+
 
 
 __all__ = [
@@ -33,6 +35,633 @@ _DEFAULT_LEVEL_ROLES = {
 }
 
 HierarchyPath = List[str]
+
+class Level(ModelObject):
+    """Object representing a hierarchy level. Holds all level attributes.
+
+    This object is immutable, except localization. You have to set up all
+    attributes in the initialisation process.
+
+    Attributes:
+
+    * `name`: level name
+    * `attributes`: list of all level attributes. Raises `ModelError` when
+      `attribute` list is empty.
+    * `key`: name of level key attribute (for example: ``customer_number`` for
+      customer level, ``region_code`` for region level, ``month`` for month
+      level).  key will be used as a grouping field for aggregations. Key
+      should be unique within level. If not specified, then the first
+      attribute is used as key.
+    * `order`: ordering of the level. `asc` for ascending, `desc` for
+      descending or might be unspecified.
+    * `order_attribute`: name of attribute that is going to be used for
+      sorting, default is first attribute (usually key)
+    * `label_attribute`: name of attribute containing label to be displayed
+      (for example: ``customer_name`` for customer level, ``region_name`` for
+      region level, ``month_name`` for month level)
+    * `label`: human readable label of the level
+    * `role`: role of the level within a special dimension
+    * `info`: custom information dictionary, might be used to store
+      application/front-end specific information
+    * `cardinality` – approximation of the number of level's members. Used
+      optionally by backends and front ends.
+    * `nonadditive` – kind of non-additivity of the level. Possible
+      values: `None` (fully additive, default), ``time`` (non-additive for
+      time dimensions) or ``all`` (non-additive for any other dimension)
+
+    Cardinality values:
+
+    * ``tiny`` – few values, each value can have it's representation on the
+      screen, recommended: up to 5.
+    * ``low`` – can be used in a list UI element, recommended 5 to 50 (if sorted)
+    * ``medium`` – UI element is a search/text field, recommended for more than 50
+      elements
+    * ``high`` – backends might refuse to yield results without explicit
+      pagination or cut through this level.
+
+    Note: the `attributes` are going to be owned by the `dimension`.
+
+    """
+
+    localizable_attributes = ["label", "description"]
+    localizable_lists = ["attributes"]
+
+    def __init__(self,
+                 name: str,
+                 attributes: List[Attribute],
+                 key:Optional[str]=None,
+                 order_attribute:Optional[str]=None,
+                 order:Optional[str]=None,
+                 label_attribute:Optional[str]=None,
+                 label:Optional[str]=None,
+                 info:Optional[JSONType]=None,
+                 cardinality:Optional[str]=None,
+                 role:Optional[str]=None,
+                 nonadditive:Optional[str]=None,
+                 description:Optional[str]=None) -> None:
+
+        super(Level, self).__init__(name, label, description, info)
+
+        self.cardinality = cardinality
+        self.role = role
+
+        if not attributes:
+            raise ModelError("Attribute list should not be empty")
+
+        self.attributes = attributes
+
+        # Note: synchronize with Measure.__init__ if relevant/necessary
+        if not nonadditive or nonadditive == "none":
+            self.nonadditive = None
+        elif nonadditive in ["all", "any"]:
+            self.nonadditive = "all"
+        elif nonadditive != "time":
+            raise ModelError("Unknown non-additive diension type '%s'"
+                             % nonadditive)
+        self.nonadditive = nonadditive
+
+        if key:
+            self.key = self.attribute(key)
+        elif len(self.attributes) >= 1:
+            self.key = self.attributes[0]
+        else:
+            raise ModelInconsistencyError("Attribute list should not be empty")
+
+        # Set second attribute to be label attribute if label attribute is not
+        # set. If dimension is flat (only one attribute), then use the only
+        # key attribute as label.
+
+        if label_attribute:
+            self.label_attribute = self.attribute(label_attribute)
+        else:
+            if len(self.attributes) > 1:
+                self.label_attribute = self.attributes[1]
+            else:
+                self.label_attribute = self.key
+
+        # Set first attribute to be order attribute if order attribute is not
+        # set
+
+        if order_attribute:
+            try:
+                self.order_attribute = self.attribute(order_attribute)
+            except NoSuchAttributeError:
+                raise NoSuchAttributeError("Unknown order attribute {} in "
+                                           "level {}"
+                                           .format(order_attribute, self.name))
+        else:
+            self.order_attribute = self.attributes[0]
+
+        self.order = order
+
+        self.cardinality = cardinality
+
+    @classmethod
+    def from_metadata(cls, metadata: JSONType,
+                      name: str=None,
+                      dimension: "Dimension"=None) -> "Level":
+        """Create a level object from metadata. `name` can override level name in
+        the metadata."""
+
+        metadata = dict(expand_level_metadata(metadata))
+
+        try:
+            name = name or metadata.pop("name")
+        except KeyError:
+            raise ModelError("No name specified in level metadata")
+
+        attributes = []
+        for attr_metadata in metadata.pop("attributes", []):
+            attr = Attribute(dimension=dimension, **attr_metadata)
+            attributes.append(attr)
+
+        return cls(name=name, attributes=attributes, **metadata)
+
+    def __eq__(self, other: Any) -> bool:
+        if not other or type(other) != type(self):
+            return False
+        elif self.name != other.name \
+                or self.label != other.label \
+                or self.key != other.key \
+                or self.cardinality != other.cardinality \
+                or self.role != other.role \
+                or self.label_attribute != other.label_attribute \
+                or self.order_attribute != other.order_attribute \
+                or self.nonadditive != other.nonadditive \
+                or self.attributes != other.attributes:
+            return False
+
+        return True
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __ne__(self, other: Any) -> bool:
+        return not self.__eq__(other)
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return str(self.to_dict())
+
+    def __deepcopy__(self, memo: Any) -> "Level":
+        if self.order_attribute:
+            order_attribute = self.order_attribute.name
+        else:
+            order_attribute = None
+
+        return Level(self.name,
+                     attributes=copy.deepcopy(self.attributes, memo),
+                     key=self.key.name,
+                     order_attribute=order_attribute,
+                     order=self.order,
+                     label_attribute=self.label_attribute.name,
+                     info=copy.copy(self.info),
+                     label=copy.copy(self.label),
+                     cardinality=self.cardinality,
+                     nonadditive=self.nonadditive,
+                     role=self.role
+                     )
+
+    def to_dict(self, **options: Any) -> JSONType:
+        """Convert to dictionary"""
+
+        full_attribute_names = cast(bool, options.get("full_attribute_names"))
+
+        out = super(Level, self).to_dict(**options)
+
+        out["role"] = self.role
+
+        if full_attribute_names:
+            out["key"] = self.key.ref
+            out["label_attribute"] = self.label_attribute.ref
+            out["order_attribute"] = self.order_attribute.ref
+        else:
+            out["key"] = self.key.name
+            out["label_attribute"] = self.label_attribute.name
+            out["order_attribute"] = self.order_attribute.name
+
+        out["order"] = self.order
+        out["cardinality"] = self.cardinality
+        out["nonadditive"] = self.nonadditive
+
+        out["attributes"] = [attr.to_dict(**options) for attr in
+                             self.attributes]
+        return out
+
+    def attribute(self, name: str) -> Attribute:
+        """Get attribute by `name`"""
+
+        attrs = [attr for attr in self.attributes if attr.name == name]
+
+        if attrs:
+            return attrs[0]
+        else:
+            raise NoSuchAttributeError(name)
+
+    @property
+    def has_details(self) -> bool:
+        """Is ``True`` when level has more than one attribute, for all levels
+        with only one attribute it is ``False``."""
+
+        return len(self.attributes) > 1
+
+    def localizable_dictionary(self) -> JSONType:
+        locale: JSONType = {}
+        locale.update(get_localizable_attributes(self))
+
+        adict: JSONType = {}
+        locale["attributes"] = adict
+
+        for attribute in self.attributes:
+            adict[attribute.name] = attribute.localizable_dictionary()
+
+        return locale
+
+
+def string_to_dimension_level(astring: str) -> Tuple[str,str,str]:
+    """Converts `astring` into a dimension level tuple (`dimension`,
+    `hierarchy`, `level`). The string should have a format:
+    ``dimension@hierarchy:level``. Hierarchy and level are optional.
+
+    Raises `ArgumentError` when `astring` does not match expected pattern.
+    """
+
+    if not astring:
+        raise ArgumentError("Drilldown string should not be empty")
+
+    ident = r"[\w\d_]"
+    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % (ident,
+                                                                    ident,
+                                                                    ident)
+    match = re.match(pattern, astring)
+
+    if match:
+        d = match.groupdict()
+        return (d["dim"], d["hier"], d["level"])
+    else:
+        raise ArgumentError("String '%s' does not match drilldown level "
+                            "pattern 'dimension@hierarchy:level'" % astring)
+
+
+class Hierarchy(ModelObject, Sized):
+
+    localizable_attributes = ["label", "description"]
+
+    levels: List[Level]
+    _levels: Dict[str, Level]
+
+    def __init__(self,
+                 name: str,
+                 levels: List[Level],
+                 label: Optional[str]=None,
+                 info: Optional[JSONType]=None,
+                 description: Optional[str]=None) -> None:
+        """Dimension hierarchy - specifies order of dimension levels.
+
+        Attributes:
+
+        * `name`: hierarchy name
+        * `levels`: ordered list of levels or level names from `dimension`
+
+        * `label`: human readable name
+        * `description`: user description of the hierarchy
+        * `info` - custom information dictionary, might be used to store
+          application/front-end specific information
+
+        Note: The `levels` should have attributes already owned by a
+        dimension.
+        """
+
+        super(Hierarchy, self).__init__(name, label, description, info)
+
+        if not levels:
+            raise ModelInconsistencyError("Hierarchy level list should "
+                                          "not be empty (in %s)" % self.name)
+
+        if any(isinstance(level, str) for level in levels):
+            raise ModelInconsistencyError("Levels should not be provided as "
+                                          "strings to Hierarchy.")
+
+        self._levels = object_dict(levels)
+
+    def __deepcopy__(self, memo: Any) -> "Hierarchy":
+        return Hierarchy(self.name,
+                         label=self.label,
+                         description=self.description,
+                         info=copy.deepcopy(self.info, memo),
+                         levels=copy.deepcopy(self.levels, memo))
+
+    @property
+    def levels(self) -> List[Level]:
+        return list(self._levels.values())
+
+    # FIXME: Remove setter
+    @levels.setter
+    def levels(self, levels: List[Level]) -> None:
+        self._levels.clear()
+        for level in levels:
+            self._levels[level.name] = level
+
+    @property
+    def level_names(self) -> List[str]:
+        return list(self._levels)
+
+    def keys(self, depth:Optional[int]=None) -> List[Attribute]:
+        """Return names of keys for all levels in the hierarchy to `depth`. If
+        `depth` is `None` then all levels are returned."""
+        levels: Sequence[Level]
+
+        if depth is not None:
+            levels = self.levels[0:depth]
+        else:
+            levels = self.levels
+
+        return [level.key for level in levels]
+
+    def __eq__(self, other: Any) -> bool:
+        if not other or type(other) != type(self):
+            return False
+
+        return self.name == other.name and self.label == other.label \
+                and self.levels == other.levels
+
+    def __ne__(self, other: Any) -> bool:
+        return not self.__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __len__(self) -> int:
+        return len(self.levels)
+
+    def __getitem__(self, item: str) -> Level:
+        try:
+            return self._levels[item]
+        except IndexError:
+            raise HierarchyError("Hierarchy '%s' has only %d levels, "
+                                 "asking for deeper level"
+                                 % (self.name, len(self._levels)))
+
+    def __contains__(self, item: Level) -> bool:
+        if item in self.levels:
+            return True
+        return item in [level.name for level in self.levels]
+
+    def levels_for_path(self, path: HierarchyPath,
+                        drilldown:bool=False) -> List[Level]:
+        """Returns levels for given path. If path is longer than hierarchy
+        levels, `cubes.ArgumentError` exception is raised"""
+
+        depth = 0 if not path else len(path)
+        return self.levels_for_depth(depth, drilldown)
+
+    def levels_for_depth(self, depth:int,
+                         drilldown:bool=False) -> List[Level]:
+        """Returns levels for given `depth`. If `path` is longer than
+        hierarchy levels, `cubes.ArgumentError` exception is raised"""
+
+        depth = depth or 0
+        extend = 1 if drilldown else 0
+
+        if depth + extend > len(self.levels):
+            raise HierarchyError("Depth %d is longer than hierarchy "
+                                 "levels %s (drilldown: %s)" %
+                                 (depth, self._levels, drilldown))
+
+        return self.levels[0:depth + extend]
+
+    def next_level(self, level: Optional[Level]) -> Optional[Level]:
+        """Returns next level in hierarchy after `level`. If `level` is last
+        level, returns ``None``. If `level` is ``None``, then the first level
+        is returned."""
+
+        if not level:
+            return self.levels[0]
+
+        index = list(self._levels).index(str(level))
+        if index + 1 >= len(self.levels):
+            return None
+        else:
+            return self.levels[index + 1]
+
+    def previous_level(self, level: Optional[Level]) -> Optional[Level]:
+        """Returns previous level in hierarchy after `level`. If `level` is
+        first level or ``None``, returns ``None``"""
+
+        if level is None:
+            return None
+
+        index = list(self._levels).index(str(level))
+        if index == 0:
+            return None
+        else:
+            return self.levels[index - 1]
+
+    def level_index(self, level: Level) -> int:
+        """Get order index of level. Can be used for ordering and comparing
+        levels within hierarchy."""
+        try:
+            return list(self._levels).index(str(level))
+        except ValueError:
+            raise HierarchyError("Level %s is not part of hierarchy %s"
+                                 % (str(level), self.name))
+
+    def is_last(self, level: Level) -> bool:
+        """Returns `True` if `level` is last level of the hierarchy."""
+
+        return level == self.levels[-1]
+
+    def rollup(self, path: HierarchyPath,
+               level:Optional[Level]=None) -> List[str]:
+        """Rolls-up the path to the `level`. If `level` is ``None`` then path
+        is rolled-up only one level.
+
+        If `level` is deeper than last level of `path` the
+        `cubes.HierarchyError` exception is raised. If `level` is the same as
+        `path` level, nothing happens."""
+
+        last: Optional[int]
+
+        if level:
+            last = self.level_index(level) + 1
+            if last > len(path):
+                raise HierarchyError("Can not roll-up: level '%s' – it is "
+                                     "deeper than deepest element of path %s" %
+                                     (str(level), path))
+        else:
+            if len(path) > 0:
+                last = len(path) - 1
+            else:
+                last = None
+
+        if last is None:
+            return []
+        else:
+            return path[0:last]
+
+    def path_is_base(self, path: HierarchyPath) -> bool:
+        """Returns True if path is base path for the hierarchy. Base path is a
+        path where there are no more levels to be added - no drill down
+        possible."""
+
+        return path is not None and len(path) == len(self.levels)
+
+    def key_attributes(self) -> List[Attribute]:
+        """Return all dimension key attributes as a single list."""
+
+        return [level.key for level in self.levels]
+
+    @property
+    def all_attributes(self) -> List[Attribute]:
+        """Return all dimension attributes as a single list."""
+
+        attributes: List[Attribute] = []
+        for level in self.levels:
+            attributes.extend(level.attributes)
+
+        return attributes
+
+    def to_dict(self, **options: Any) -> JSONType:
+        """Convert to dictionary. Keys:
+
+        * `name`: hierarchy name
+        * `label`: human readable label (localizable)
+        * `levels`: level names
+
+        """
+        depth = cast(int, options.get("depth"))
+
+        out = super(Hierarchy, self).to_dict(**options)
+
+        levels = [str(l) for l in self.levels]
+
+        if depth:
+            out["levels"] = levels[0:depth]
+        else:
+            out["levels"] = levels
+        out["info"] = self.info
+
+        return out
+
+    def localizable_dictionary(self) -> JSONType:
+        locale = {}
+        locale.update(get_localizable_attributes(self))
+
+        return locale
+
+
+def expand_dimension_metadata(metadata: JSONType,
+                              expand_levels: bool=False) -> JSONType:
+    """
+    Expands `metadata` to be as complete as possible dimension metadata. If
+    `expand_levels` is `True` then levels metadata are expanded as well.
+    """
+
+    if isinstance(metadata, str):
+        metadata = {"name":metadata, "levels": [metadata]}
+    else:
+        metadata = dict(metadata)
+
+    if not "name" in metadata:
+        raise ModelError("Dimension has no name")
+
+    name = metadata["name"]
+
+    # Fix levels
+    levels = metadata.get("levels", [])
+    if not levels and expand_levels:
+        attributes = ["attributes", "key", "order_attribute", "order",
+                      "label_attribute"]
+        level = {}
+        for attr in attributes:
+            if attr in metadata:
+                level[attr] = metadata[attr]
+
+        level["cardinality"] = metadata.get("cardinality")
+
+        # Default: if no attributes, then there is single flat attribute
+        # whith same name as the dimension
+        level["name"] = name
+        level["label"] = metadata.get("label")
+
+        levels = [level]
+
+    if levels:
+        levels = [expand_level_metadata(level) for level in levels]
+        metadata["levels"] = levels
+
+    # Fix hierarchies
+    if "hierarchy" in metadata and "hierarchies" in metadata:
+        raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies'"
+                                      " specified. Use only one")
+
+    hierarchy = metadata.get("hierarchy")
+    if hierarchy:
+        hierarchies = [{"name": "default", "levels": hierarchy}]
+    else:
+        hierarchies = metadata.get("hierarchies")
+
+    if hierarchies:
+        metadata["hierarchies"] = hierarchies
+
+    return metadata
+
+
+def expand_hierarchy_metadata(metadata: JSONType) -> JSONType:
+    """Returns a hierarchy metadata as a dictionary. Makes sure that required
+    properties are present. Raises exception on missing values."""
+
+    try:
+        name = metadata["name"]
+    except KeyError:
+        raise ModelError("Hierarchy has no name")
+
+    if not "levels" in metadata:
+        raise ModelError("Hierarchy '%s' has no levels" % name)
+
+    return metadata
+
+def expand_level_metadata(metadata: JSONType) -> JSONType:
+    """Returns a level description as a dictionary. If provided as string,
+    then it is going to be used as level name and as its only attribute. If a
+    dictionary is provided and has no attributes, then level will contain only
+    attribute with the same name as the level name."""
+    if isinstance(metadata, str):
+        metadata = {"name":metadata, "attributes": [metadata]}
+    else:
+        metadata = dict(metadata)
+
+    try:
+        name = metadata["name"]
+    except KeyError:
+        raise ModelError("Level has no name")
+
+    attributes = metadata.get("attributes")
+
+    if not attributes:
+        attribute = {
+            "name": name,
+            "label": metadata.get("label")
+        }
+
+        attributes = [attribute]
+
+    # TODO: this should belong to attributes.py
+    metadata["attributes"] = [expand_attribute_metadata(a) for a in attributes]
+
+    # TODO: Backward compatibility – depreciate later
+    if "cardinality" not in metadata:
+        info = metadata.get("info", {})
+        if "high_cardinality" in info:
+            metadata["cardinality"] = "high"
+
+    return metadata
+
 
 class Dimension(ModelObject):
     """
@@ -56,24 +685,24 @@ class Dimension(ModelObject):
     role: Optional[str]
     cardinality: Optional[str]
     category: Optional[str]
-    master: Optional[Dimension]
+    master: Optional["Dimension"]
     nonadditive: Optional[str]
 
     # TODO: new signature: __init__(self, name, *attributes, **kwargs):
     def __init__(self,
                  name: str,
-                 levels:Optional[List[Level]]=None,
-                 hierarchies:Optional[List[Hierarchy]]=None,
-                 default_hierarchy_name:Optional[str]=None,
-                 label:Optional[str]=None,
-                 description:Optional[str]=None,
-                 info:Optional[JSONType]=None,
-                 role:Optional[str]=None,
-                 cardinality:Optional[str]=None,
-                 category:Optional[str]=None,
-                 master:Optional[Dimension]=None,
-                 nonadditive:Optional[str]=None,
-                 attributes:Optional[List[Attribute]]=None,
+                 levels: Optional[List[Level]]=None,
+                 hierarchies: Optional[List[Hierarchy]]=None,
+                 default_hierarchy_name: Optional[str]=None,
+                 label: Optional[str]=None,
+                 description: Optional[str]=None,
+                 info: Optional[JSONType]=None,
+                 role: Optional[str]=None,
+                 cardinality: Optional[str]=None,
+                 category: Optional[str]=None,
+                 master: Optional["Dimension"]=None,
+                 nonadditive: Optional[str]=None,
+                 attributes: Optional[List[Attribute]]=None,
                  **desc: Any) -> None:
 
         """Create a new dimension
@@ -199,7 +828,7 @@ class Dimension(ModelObject):
     @classmethod
     def from_metadata(cls,
                       metadata: JSONType,
-                      templates:Dict[str,Dimension]=None) -> Dimension:
+                      templates:Dict[str,"Dimension"]=None) -> "Dimension":
         """Create a dimension from a `metadata` dictionary.  Some rules:
 
         * ``levels`` might contain level names as strings – names of levels to
@@ -492,7 +1121,7 @@ class Dimension(ModelObject):
               default_hierarchy_name: Optional[str]=None,
               cardinality: Optional[str]=None,
               alias: Optional[str]=None,
-              **extra: Any) -> Dimension:
+              **extra: Any) -> "Dimension":
         """Returns a clone of the receiver with some modifications. `master`
         of the clone is set to the receiver.
 
@@ -765,634 +1394,4 @@ def _create_hierarchies(metadata: JSONType, levels: List[Level],
 
     return hierarchies
 
-
-class Hierarchy(ModelObject, Sized):
-
-    localizable_attributes = ["label", "description"]
-
-    levels: List[Level]
-    _levels: Dict[str, Level]
-
-    def __init__(self,
-                 name: str,
-                 levels: List[Level],
-                 label: Optional[str]=None,
-                 info: Optional[JSONType]=None,
-                 description: Optional[str]=None) -> None:
-        """Dimension hierarchy - specifies order of dimension levels.
-
-        Attributes:
-
-        * `name`: hierarchy name
-        * `levels`: ordered list of levels or level names from `dimension`
-
-        * `label`: human readable name
-        * `description`: user description of the hierarchy
-        * `info` - custom information dictionary, might be used to store
-          application/front-end specific information
-
-        Some collection operations might be used, such as ``level in hierarchy``
-        or ``hierarchy[index]``. String value ``str(hierarchy)`` gives the
-        hierarchy name.
-
-        Note: The `levels` should have attributes already owned by a
-        dimension.
-        """
-
-        super(Hierarchy, self).__init__(name, label, description, info)
-
-        if not levels:
-            raise ModelInconsistencyError("Hierarchy level list should "
-                                          "not be empty (in %s)" % self.name)
-
-        if any(isinstance(level, str) for level in levels):
-            raise ModelInconsistencyError("Levels should not be provided as "
-                                          "strings to Hierarchy.")
-
-        self._levels = object_dict(levels)
-
-    def __deepcopy__(self, memo: Any) -> Hierarchy:
-        return Hierarchy(self.name,
-                         label=self.label,
-                         description=self.description,
-                         info=copy.deepcopy(self.info, memo),
-                         levels=copy.deepcopy(self.levels, memo))
-
-    @property
-    def levels(self) -> List[Level]:
-        return list(self._levels.values())
-
-    # FIXME: Remove setter
-    @levels.setter
-    def levels(self, levels: List[Level]) -> None:
-        self._levels.clear()
-        for level in levels:
-            self._levels[level.name] = level
-
-    @property
-    def level_names(self) -> List[str]:
-        return list(self._levels)
-
-    def keys(self, depth:Optional[int]=None) -> List[Attribute]:
-        """Return names of keys for all levels in the hierarchy to `depth`. If
-        `depth` is `None` then all levels are returned."""
-        levels: Sequence[Level]
-
-        if depth is not None:
-            levels = self.levels[0:depth]
-        else:
-            levels = self.levels
-
-        return [level.key for level in levels]
-
-    def __eq__(self, other: Any) -> bool:
-        if not other or type(other) != type(self):
-            return False
-
-        return self.name == other.name and self.label == other.label \
-                and self.levels == other.levels
-
-    def __ne__(self, other: Any) -> bool:
-        return not self.__eq__(other)
-
-    def __hash__(self) -> int:
-        return hash(self.name)
-
-    def __str__(self) -> str:
-        return self.name
-
-    def __len__(self) -> int:
-        return len(self.levels)
-
-    def __getitem__(self, item: str) -> Level:
-        try:
-            return self._levels[item]
-        except IndexError:
-            raise HierarchyError("Hierarchy '%s' has only %d levels, "
-                                 "asking for deeper level"
-                                 % (self.name, len(self._levels)))
-
-    def __contains__(self, item: Level) -> bool:
-        if item in self.levels:
-            return True
-        return item in [level.name for level in self.levels]
-
-    def levels_for_path(self, path: HierarchyPath,
-                        drilldown:bool=False) -> List[Level]:
-        """Returns levels for given path. If path is longer than hierarchy
-        levels, `cubes.ArgumentError` exception is raised"""
-
-        depth = 0 if not path else len(path)
-        return self.levels_for_depth(depth, drilldown)
-
-    def levels_for_depth(self, depth:int,
-                         drilldown:bool=False) -> List[Level]:
-        """Returns levels for given `depth`. If `path` is longer than
-        hierarchy levels, `cubes.ArgumentError` exception is raised"""
-
-        depth = depth or 0
-        extend = 1 if drilldown else 0
-
-        if depth + extend > len(self.levels):
-            raise HierarchyError("Depth %d is longer than hierarchy "
-                                 "levels %s (drilldown: %s)" %
-                                 (depth, self._levels, drilldown))
-
-        return self.levels[0:depth + extend]
-
-    def next_level(self, level: Optional[Level]) -> Optional[Level]:
-        """Returns next level in hierarchy after `level`. If `level` is last
-        level, returns ``None``. If `level` is ``None``, then the first level
-        is returned."""
-
-        if not level:
-            return self.levels[0]
-
-        index = list(self._levels).index(str(level))
-        if index + 1 >= len(self.levels):
-            return None
-        else:
-            return self.levels[index + 1]
-
-    def previous_level(self, level: Optional[Level]) -> Optional[Level]:
-        """Returns previous level in hierarchy after `level`. If `level` is
-        first level or ``None``, returns ``None``"""
-
-        if level is None:
-            return None
-
-        index = list(self._levels).index(str(level))
-        if index == 0:
-            return None
-        else:
-            return self.levels[index - 1]
-
-    def level_index(self, level: Level) -> int:
-        """Get order index of level. Can be used for ordering and comparing
-        levels within hierarchy."""
-        try:
-            return list(self._levels).index(str(level))
-        except ValueError:
-            raise HierarchyError("Level %s is not part of hierarchy %s"
-                                 % (str(level), self.name))
-
-    def is_last(self, level: Level) -> bool:
-        """Returns `True` if `level` is last level of the hierarchy."""
-
-        return level == self.levels[-1]
-
-    def rollup(self, path: HierarchyPath,
-               level:Optional[Level]=None) -> List[str]:
-        """Rolls-up the path to the `level`. If `level` is ``None`` then path
-        is rolled-up only one level.
-
-        If `level` is deeper than last level of `path` the
-        `cubes.HierarchyError` exception is raised. If `level` is the same as
-        `path` level, nothing happens."""
-
-        last: Optional[int]
-
-        if level:
-            last = self.level_index(level) + 1
-            if last > len(path):
-                raise HierarchyError("Can not roll-up: level '%s' – it is "
-                                     "deeper than deepest element of path %s" %
-                                     (str(level), path))
-        else:
-            if len(path) > 0:
-                last = len(path) - 1
-            else:
-                last = None
-
-        if last is None:
-            return []
-        else:
-            return path[0:last]
-
-    def path_is_base(self, path: HierarchyPath) -> bool:
-        """Returns True if path is base path for the hierarchy. Base path is a
-        path where there are no more levels to be added - no drill down
-        possible."""
-
-        return path is not None and len(path) == len(self.levels)
-
-    def key_attributes(self) -> List[Attribute]:
-        """Return all dimension key attributes as a single list."""
-
-        return [level.key for level in self.levels]
-
-    @property
-    def all_attributes(self) -> List[Attribute]:
-        """Return all dimension attributes as a single list."""
-
-        attributes: List[Attribute] = []
-        for level in self.levels:
-            attributes.extend(level.attributes)
-
-        return attributes
-
-    def to_dict(self, **options: Any) -> JSONType:
-        """Convert to dictionary. Keys:
-
-        * `name`: hierarchy name
-        * `label`: human readable label (localizable)
-        * `levels`: level names
-
-        """
-        depth = cast(int, options.get("depth"))
-
-        out = super(Hierarchy, self).to_dict(**options)
-
-        levels = [str(l) for l in self.levels]
-
-        if depth:
-            out["levels"] = levels[0:depth]
-        else:
-            out["levels"] = levels
-        out["info"] = self.info
-
-        return out
-
-    def localizable_dictionary(self) -> JSONType:
-        locale = {}
-        locale.update(get_localizable_attributes(self))
-
-        return locale
-
-
-class Level(ModelObject):
-    """Object representing a hierarchy level. Holds all level attributes.
-
-    This object is immutable, except localization. You have to set up all
-    attributes in the initialisation process.
-
-    Attributes:
-
-    * `name`: level name
-    * `attributes`: list of all level attributes. Raises `ModelError` when
-      `attribute` list is empty.
-    * `key`: name of level key attribute (for example: ``customer_number`` for
-      customer level, ``region_code`` for region level, ``month`` for month
-      level).  key will be used as a grouping field for aggregations. Key
-      should be unique within level. If not specified, then the first
-      attribute is used as key.
-    * `order`: ordering of the level. `asc` for ascending, `desc` for
-      descending or might be unspecified.
-    * `order_attribute`: name of attribute that is going to be used for
-      sorting, default is first attribute (usually key)
-    * `label_attribute`: name of attribute containing label to be displayed
-      (for example: ``customer_name`` for customer level, ``region_name`` for
-      region level, ``month_name`` for month level)
-    * `label`: human readable label of the level
-    * `role`: role of the level within a special dimension
-    * `info`: custom information dictionary, might be used to store
-      application/front-end specific information
-    * `cardinality` – approximation of the number of level's members. Used
-      optionally by backends and front ends.
-    * `nonadditive` – kind of non-additivity of the level. Possible
-      values: `None` (fully additive, default), ``time`` (non-additive for
-      time dimensions) or ``all`` (non-additive for any other dimension)
-
-    Cardinality values:
-
-    * ``tiny`` – few values, each value can have it's representation on the
-      screen, recommended: up to 5.
-    * ``low`` – can be used in a list UI element, recommended 5 to 50 (if sorted)
-    * ``medium`` – UI element is a search/text field, recommended for more than 50
-      elements
-    * ``high`` – backends might refuse to yield results without explicit
-      pagination or cut through this level.
-
-    Note: the `attributes` are going to be owned by the `dimension`.
-
-    """
-
-    localizable_attributes = ["label", "description"]
-    localizable_lists = ["attributes"]
-
-    def __init__(self,
-                 name: str,
-                 attributes: List[Attribute],
-                 key:Optional[str]=None,
-                 order_attribute:Optional[str]=None,
-                 order:Optional[str]=None,
-                 label_attribute:Optional[str]=None,
-                 label:Optional[str]=None,
-                 info:Optional[JSONType]=None,
-                 cardinality:Optional[str]=None,
-                 role:Optional[str]=None,
-                 nonadditive:Optional[str]=None,
-                 description:Optional[str]=None) -> None:
-
-        super(Level, self).__init__(name, label, description, info)
-
-        self.cardinality = cardinality
-        self.role = role
-
-        if not attributes:
-            raise ModelError("Attribute list should not be empty")
-
-        self.attributes = attributes
-
-        # Note: synchronize with Measure.__init__ if relevant/necessary
-        if not nonadditive or nonadditive == "none":
-            self.nonadditive = None
-        elif nonadditive in ["all", "any"]:
-            self.nonadditive = "all"
-        elif nonadditive != "time":
-            raise ModelError("Unknown non-additive diension type '%s'"
-                             % nonadditive)
-        self.nonadditive = nonadditive
-
-        if key:
-            self.key = self.attribute(key)
-        elif len(self.attributes) >= 1:
-            self.key = self.attributes[0]
-        else:
-            raise ModelInconsistencyError("Attribute list should not be empty")
-
-        # Set second attribute to be label attribute if label attribute is not
-        # set. If dimension is flat (only one attribute), then use the only
-        # key attribute as label.
-
-        if label_attribute:
-            self.label_attribute = self.attribute(label_attribute)
-        else:
-            if len(self.attributes) > 1:
-                self.label_attribute = self.attributes[1]
-            else:
-                self.label_attribute = self.key
-
-        # Set first attribute to be order attribute if order attribute is not
-        # set
-
-        if order_attribute:
-            try:
-                self.order_attribute = self.attribute(order_attribute)
-            except NoSuchAttributeError:
-                raise NoSuchAttributeError("Unknown order attribute {} in "
-                                           "level {}"
-                                           .format(order_attribute, self.name))
-        else:
-            self.order_attribute = self.attributes[0]
-
-        self.order = order
-
-        self.cardinality = cardinality
-
-    @classmethod
-    def from_metadata(cls, metadata: JSONType,
-                      name: str=None,
-                      dimension: Dimension=None) -> Level:
-        """Create a level object from metadata. `name` can override level name in
-        the metadata."""
-
-        metadata = dict(expand_level_metadata(metadata))
-
-        try:
-            name = name or metadata.pop("name")
-        except KeyError:
-            raise ModelError("No name specified in level metadata")
-
-        attributes = []
-        for attr_metadata in metadata.pop("attributes", []):
-            attr = Attribute(dimension=dimension, **attr_metadata)
-            attributes.append(attr)
-
-        return cls(name=name, attributes=attributes, **metadata)
-
-    def __eq__(self, other: Any) -> bool:
-        if not other or type(other) != type(self):
-            return False
-        elif self.name != other.name \
-                or self.label != other.label \
-                or self.key != other.key \
-                or self.cardinality != other.cardinality \
-                or self.role != other.role \
-                or self.label_attribute != other.label_attribute \
-                or self.order_attribute != other.order_attribute \
-                or self.nonadditive != other.nonadditive \
-                or self.attributes != other.attributes:
-            return False
-
-        return True
-
-    def __hash__(self) -> int:
-        return hash(self.name)
-
-    def __ne__(self, other: Any) -> bool:
-        return not self.__eq__(other)
-
-    def __str__(self) -> str:
-        return self.name
-
-    def __repr__(self) -> str:
-        return str(self.to_dict())
-
-    def __deepcopy__(self, memo: Any) -> Level:
-        if self.order_attribute:
-            order_attribute = self.order_attribute.name
-        else:
-            order_attribute = None
-
-        return Level(self.name,
-                     attributes=copy.deepcopy(self.attributes, memo),
-                     key=self.key.name,
-                     order_attribute=order_attribute,
-                     order=self.order,
-                     label_attribute=self.label_attribute.name,
-                     info=copy.copy(self.info),
-                     label=copy.copy(self.label),
-                     cardinality=self.cardinality,
-                     nonadditive=self.nonadditive,
-                     role=self.role
-                     )
-
-    def to_dict(self, **options: Any) -> JSONType:
-        """Convert to dictionary"""
-
-        full_attribute_names = cast(bool, options.get("full_attribute_names"))
-
-        out = super(Level, self).to_dict(**options)
-
-        out["role"] = self.role
-
-        if full_attribute_names:
-            out["key"] = self.key.ref
-            out["label_attribute"] = self.label_attribute.ref
-            out["order_attribute"] = self.order_attribute.ref
-        else:
-            out["key"] = self.key.name
-            out["label_attribute"] = self.label_attribute.name
-            out["order_attribute"] = self.order_attribute.name
-
-        out["order"] = self.order
-        out["cardinality"] = self.cardinality
-        out["nonadditive"] = self.nonadditive
-
-        out["attributes"] = [attr.to_dict(**options) for attr in
-                             self.attributes]
-        return out
-
-    def attribute(self, name: str) -> Attribute:
-        """Get attribute by `name`"""
-
-        attrs = [attr for attr in self.attributes if attr.name == name]
-
-        if attrs:
-            return attrs[0]
-        else:
-            raise NoSuchAttributeError(name)
-
-    @property
-    def has_details(self) -> bool:
-        """Is ``True`` when level has more than one attribute, for all levels
-        with only one attribute it is ``False``."""
-
-        return len(self.attributes) > 1
-
-    def localizable_dictionary(self) -> JSONType:
-        locale: JSONType = {}
-        locale.update(get_localizable_attributes(self))
-
-        adict: JSONType = {}
-        locale["attributes"] = adict
-
-        for attribute in self.attributes:
-            adict[attribute.name] = attribute.localizable_dictionary()
-
-        return locale
-
-
-def string_to_dimension_level(astring: str) -> Tuple[str,str,str]:
-    """Converts `astring` into a dimension level tuple (`dimension`,
-    `hierarchy`, `level`). The string should have a format:
-    ``dimension@hierarchy:level``. Hierarchy and level are optional.
-
-    Raises `ArgumentError` when `astring` does not match expected pattern.
-    """
-
-    if not astring:
-        raise ArgumentError("Drilldown string should not be empty")
-
-    ident = r"[\w\d_]"
-    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % (ident,
-                                                                    ident,
-                                                                    ident)
-    match = re.match(pattern, astring)
-
-    if match:
-        d = match.groupdict()
-        return (d["dim"], d["hier"], d["level"])
-    else:
-        raise ArgumentError("String '%s' does not match drilldown level "
-                            "pattern 'dimension@hierarchy:level'" % astring)
-
-
-def expand_dimension_metadata(metadata: JSONType,
-                              expand_levels: bool=False) -> JSONType:
-    """
-    Expands `metadata` to be as complete as possible dimension metadata. If
-    `expand_levels` is `True` then levels metadata are expanded as well.
-    """
-
-    if isinstance(metadata, str):
-        metadata = {"name":metadata, "levels": [metadata]}
-    else:
-        metadata = dict(metadata)
-
-    if not "name" in metadata:
-        raise ModelError("Dimension has no name")
-
-    name = metadata["name"]
-
-    # Fix levels
-    levels = metadata.get("levels", [])
-    if not levels and expand_levels:
-        attributes = ["attributes", "key", "order_attribute", "order",
-                      "label_attribute"]
-        level = {}
-        for attr in attributes:
-            if attr in metadata:
-                level[attr] = metadata[attr]
-
-        level["cardinality"] = metadata.get("cardinality")
-
-        # Default: if no attributes, then there is single flat attribute
-        # whith same name as the dimension
-        level["name"] = name
-        level["label"] = metadata.get("label")
-
-        levels = [level]
-
-    if levels:
-        levels = [expand_level_metadata(level) for level in levels]
-        metadata["levels"] = levels
-
-    # Fix hierarchies
-    if "hierarchy" in metadata and "hierarchies" in metadata:
-        raise ModelInconsistencyError("Both 'hierarchy' and 'hierarchies'"
-                                      " specified. Use only one")
-
-    hierarchy = metadata.get("hierarchy")
-    if hierarchy:
-        hierarchies = [{"name": "default", "levels": hierarchy}]
-    else:
-        hierarchies = metadata.get("hierarchies")
-
-    if hierarchies:
-        metadata["hierarchies"] = hierarchies
-
-    return metadata
-
-
-def expand_hierarchy_metadata(metadata: JSONType) -> JSONType:
-    """Returns a hierarchy metadata as a dictionary. Makes sure that required
-    properties are present. Raises exception on missing values."""
-
-    try:
-        name = metadata["name"]
-    except KeyError:
-        raise ModelError("Hierarchy has no name")
-
-    if not "levels" in metadata:
-        raise ModelError("Hierarchy '%s' has no levels" % name)
-
-    return metadata
-
-def expand_level_metadata(metadata: JSONType) -> JSONType:
-    """Returns a level description as a dictionary. If provided as string,
-    then it is going to be used as level name and as its only attribute. If a
-    dictionary is provided and has no attributes, then level will contain only
-    attribute with the same name as the level name."""
-    if isinstance(metadata, str):
-        metadata = {"name":metadata, "attributes": [metadata]}
-    else:
-        metadata = dict(metadata)
-
-    try:
-        name = metadata["name"]
-    except KeyError:
-        raise ModelError("Level has no name")
-
-    attributes = metadata.get("attributes")
-
-    if not attributes:
-        attribute = {
-            "name": name,
-            "label": metadata.get("label")
-        }
-
-        attributes = [attribute]
-
-    # TODO: this should belong to attributes.py
-    metadata["attributes"] = [expand_attribute_metadata(a) for a in attributes]
-
-    # TODO: Backward compatibility – depreciate later
-    if "cardinality" not in metadata:
-        info = metadata.get("info", {})
-        if "high_cardinality" in info:
-            metadata["cardinality"] = "high"
-
-    return metadata
 

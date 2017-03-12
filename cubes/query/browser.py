@@ -1088,9 +1088,9 @@ def levels_from_drilldown(cell, drilldown):
 
         if level:
             index = hier.level_index(level)
-            levels = hier[:index + 1]
+            levels = hier.levels[:index + 1]
         elif dim.is_flat:
-            levels = hier[:]
+            levels = hier.levels[:]
         else:
             cut = cell.point_cut_for_dimension(dim)
             if cut:
@@ -1115,7 +1115,7 @@ def levels_from_drilldown(cell, drilldown):
                                      "%d levels, can not drill to %d" %
                                      (hier, dim, len(hier), depth + 1))
 
-            levels = hier[:depth + 1]
+            levels = hier.levels[:depth + 1]
 
         levels = tuple(levels)
         keys = [level.key.ref for level in levels]

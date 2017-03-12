@@ -66,36 +66,6 @@ def csv_generator(records, fields, include_header=True, header=None,
 
     queue = StringIO()
     writer = csv.writer(queue, dialect=dialect)
-    encoder = codecs.getincrementalencoder("utf-8")()
-
-    if include_header:
-        yield _row_string(header or fields)
-
-    for record in records:
-        row = []
-        for field in fields:
-            value = record.get(field)
-            if isinstance(value, compat.string_type):
-                row.append(value.encode("utf-8"))
-            elif value is not None:
-                row.append(compat.text_type(value))
-            else:
-                row.append(None)
-
-        yield _row_string(row)
-
-
-def csv_generator_p3(records, fields, include_header=True, header=None,
-                     dialect=csv.excel):
-    def _row_string(row):
-        writer.writerow(row)
-        data = queue.getvalue()
-        queue.truncate(0)
-
-        return data
-
-    queue = StringIO()
-    writer = csv.writer(queue, dialect=dialect)
 
     if include_header:
         yield _row_string(header or fields)
@@ -120,12 +90,6 @@ def xlsx_generator(records, fields, include_header=True, header=None):
     os.close(fd)
     workbook.save(filename=fn)
     return fn
-
-
-if compat.py3k:
-    csv_generator = csv_generator_p3
-else:
-    csv_generator = csv_generator_p2
 
 
 class JSONLinesGenerator(object):
@@ -432,6 +396,6 @@ class XLSXFormatter(Formatter):
                                   fields,
                                   include_header=bool(header),
                                   header=header)
-        rows = [compat.to_str(row) for row in generator]
+        rows = [str(row) for row in generator]
         output = "".join(rows)
         return output
