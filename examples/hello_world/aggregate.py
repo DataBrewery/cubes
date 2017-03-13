@@ -43,7 +43,7 @@ print("\n"
       "==================================================")
 
 cut = PointCut("item", ["e"])
-cell = Cell(browser.cube, cuts = [cut])
+cell = Cell(cuts = [cut])
 
 result = browser.aggregate(cell, drilldown=["item"])
 

@@ -584,7 +584,7 @@ class SQLStore(Store):
             drilldown.append((dimension, hierarchy, levels[-1]))
             keys += [l.key for l in levels]
 
-        cell = Cell(cube)
+        cell = Cell()
         drilldown = Drilldown(drilldown, cell)
 
         # Create statement of all dimension level keys for

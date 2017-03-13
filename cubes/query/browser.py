@@ -128,16 +128,16 @@ class AggregationBrowser(object):
         }
 
         if cell is None:
-            cell = Cell(self.cube)
+            cell = Cell()
         elif isinstance(cell, str):
             cuts = cuts_from_string(self.cube, cell,
                                     role_member_converters=converters)
-            cell = Cell(self.cube, cuts)
+            cell = Cell(cuts)
 
         if isinstance(split, str):
             cuts = cuts_from_string(self.cube, split,
                                     role_member_converters=converters)
-            split = Cell(self.cube, cuts)
+            split = Cell(cuts)
 
         drilldon = Drilldown(drilldown, cell)
 
@@ -341,7 +341,7 @@ class AggregationBrowser(object):
         order = self.prepare_order(order, is_aggregate=False)
 
         if cell is None:
-            cell = Cell(self.cube)
+            cell = Cell()
 
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)

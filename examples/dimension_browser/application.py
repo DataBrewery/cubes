@@ -51,7 +51,7 @@ def report(dim_name=None):
     # browsing.
 
     cutstr = request.args.get("cut")
-    cell = Cell(cube, cuts_from_string(cube, cutstr))
+    cell = Cell(cuts_from_string(cube, cutstr))
 
     # Get the cut of actually browsed dimension, so we know "where we are" -
     # the current dimension path
