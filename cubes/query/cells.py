@@ -10,8 +10,9 @@ from typing import List, Optional, Set, Union, Dict, Sequence, Tuple, \
 
 from ..types import JSONType
 from ..errors import ArgumentError, CubesError
-from ..metadata import Dimension, Cube, Attribute, Hierarchy, Level, \
-                        HierarchyPath
+from ..metadata.dimension import Dimension, Hierarchy, Level, HierarchyPath
+from ..metadata.attributes import Attribute
+from ..metadata.cube import Cube
 from ..logging import get_logger
 
 
@@ -989,6 +990,8 @@ def path_from_string(string: str) -> HierarchyPath:
 
     Returns an empty list when string is empty or ``None``.
     """
+
+    path: HierarchyPath
 
     if not string:
         return []

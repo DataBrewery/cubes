@@ -8,14 +8,13 @@ from flask import Blueprint, Response, request, g, current_app, safe_join, make_
 from flask import render_template, redirect
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
-from ..query import Cell, cut_from_dict
-from ..query import SPLIT_DIMENSION_NAME
+from ..query import Cell, cut_from_dict, SPLIT_DIMENSION_NAME
 from ..errors import *
 from ..formatters import JSONLinesGenerator, csv_generator
 from .. import ext
 from ..logging import get_logger
-from .logging import configured_request_log_handlers, RequestLogger
-from .logging import AsyncRequestLogger
+from .logging import configured_request_log_handlers, RequestLogger, \
+        AsyncRequestLogger
 from .errors import *
 from .decorators import *
 from .local import *
