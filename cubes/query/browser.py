@@ -542,7 +542,7 @@ class AggregationBrowser(object):
 
         if dimension:
             cuts = [cut for cut in cell.cuts
-                    if str(cut.dimension) == str(dimension)]
+                    if cut.dimension == str(dimension)]
         else:
             cuts = cell.cuts
 
@@ -691,7 +691,10 @@ class AggregationResult(object):
         `measures` and `levels` from the aggregate query.
 
     """
-    def __init__(self, cell=None, aggregates=None, drilldown=None,
+
+    cell: Cell
+
+    def __init__(self, cell: Cell=None, aggregates=None, drilldown=None,
                  has_split=False):
         """Create an aggergation result object. `cell` – a :class:`cubes.Cell`
         object used for this aggregation, `aggregates` – list of aggregate
@@ -936,7 +939,7 @@ class Drilldown(object):
 
         return levels
 
-    def high_cardinality_levels(self, cell):
+    def high_cardinality_levels(self, cell: Cell):
         """Returns list of levels in the drilldown that are of high
         cardinality and there is no cut for that level in the `cell`."""
 
@@ -1036,7 +1039,7 @@ DrilldownItem = namedtuple("DrilldownItem",
 
 
 # TODO: move this to Drilldown
-def levels_from_drilldown(cell, drilldown):
+def levels_from_drilldown(cell: Cell, drilldown):
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
 

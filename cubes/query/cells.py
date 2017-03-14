@@ -67,14 +67,14 @@ set: date:2004;2010;2011,04
 
 class Cut(object):
 
-    dimension: Dimension
-    hierarchy: Optional[Hierarchy]
+    dimension: str
+    hierarchy: Optional[str]
     invert: bool
     hidden: bool
 
     def __init__(self,
-            dimension: Dimension,
-            hierarchy: Hierarchy=None,
+            dimension: str,
+            hierarchy: str=None,
             invert: bool=False,
             hidden: bool=False) -> None:
         """Abstract class for a cell cut."""
@@ -91,8 +91,8 @@ class Cut(object):
         # Placeholder for 'type' to be at the beginning of the list
         d['type'] = None
 
-        d["dimension"] = str(self.dimension)
-        d["hierarchy"] = str(self.hierarchy) if self.hierarchy else None
+        d["dimension"] = self.dimension
+        d["hierarchy"] = self.hierarchy if self.hierarchy else None
         d["level_depth"] = self.level_depth()
         d["invert"] = self.invert
         d["hidden"] = self.hidden
@@ -115,9 +115,9 @@ class PointCut(Cut):
     path: HierarchyPath
 
     def __init__(self,
-            dimension: Dimension,
+            dimension: str,
             path: HierarchyPath,
-            hierarchy: Hierarchy=None,
+            hierarchy: str=None,
             invert: bool=False,
             hidden: bool=False) -> None:
         super(PointCut, self).__init__(dimension, hierarchy, invert, hidden)
@@ -168,10 +168,10 @@ class RangeCut(Cut):
     to_path: Optional[HierarchyPath]
 
     def __init__(self,
-            dimension: Dimension,
+            dimension: str,
             from_path: Optional[HierarchyPath],
             to_path: Optional[HierarchyPath],
-            hierarchy: Hierarchy=None,
+            hierarchy: str=None,
             invert: bool=False,
             hidden: bool=False) -> None:
         super(RangeCut, self).__init__(dimension, hierarchy, invert, hidden)
@@ -242,9 +242,9 @@ class SetCut(Cut):
     paths: List[HierarchyPath]
 
     def __init__(self,
-            dimension: Dimension,
+            dimension: str,
             paths: List[HierarchyPath],
-            hierarchy:Hierarchy=None,
+            hierarchy:str=None,
             invert:bool=False,
             hidden:bool=False) -> None:
 
@@ -297,7 +297,6 @@ class Cell(object):
 
     cuts: List[Cut]
 
-    # TODO: Remove `cube` from the cell
     def __init__(self, cuts: Sequence[Cut]=None) -> None:
         self.cuts = list(cuts) if cuts is not None else []
 
@@ -348,20 +347,20 @@ class Cell(object):
 
         return Cell(cuts=cuts)
 
-    def _dimension_cut_index(self, dimension: Dimension) \
+    def _dimension_cut_index(self, dimension: str) \
                 -> Optional[int]:
         """Returns index of first occurence of cut for `dimension`. Returns
         ``None`` if no cut with `dimension` is found."""
-        names = [str(cut.dimension) for cut in self.cuts]
+        names = [cut.dimension for cut in self.cuts]
 
         try:
-            index = names.index(str(dimension))
+            index = names.index(dimension)
             return index
         except ValueError:
             return None
 
     def point_slice(self,
-            dimension: Dimension,
+            dimension: str,
             path: HierarchyPath) -> "Cell":
         """
         Create another cell by slicing receiving cell through `dimension`
@@ -389,7 +388,7 @@ class Cell(object):
             cuts.append(cut)
         return Cell(cuts=cuts)
 
-    def drilldown(self, dimension: Dimension,
+    def drilldown(self, dimension: str,
                   value: str,
                   hierarchy: Union[str, Hierarchy]=None) -> "Cell":
         """Create another cell by drilling down `dimension` next level on
@@ -416,7 +415,6 @@ class Cell(object):
 
         Returns new derived cell object.
         """
-        dimension = dimension
         dim_cut = self.point_cut_for_dimension(dimension)
 
         old_path = dim_cut.path if dim_cut else []
@@ -454,7 +452,7 @@ class Cell(object):
 
         return None
 
-    def point_cut_for_dimension(self, dimension: Dimension) \
+    def point_cut_for_dimension(self, dimension: str) \
             -> Optional[PointCut]:
         """Return first point cut for given `dimension`"""
 
@@ -466,9 +464,9 @@ class Cell(object):
 
         return None
 
-    def rollup_dim(self, dimension: Dimension,
+    def rollup_dim(self, dimension: str,
                    level:Union[Level]=None,
-                   hierarchy:Union[str, Hierarchy]=None) -> "Cell":
+                   hierarchy:str=None) -> "Cell":
         """Rolls-up cell - goes one or more levels up through dimension
         hierarchy. If there is no level to go up (we are at the top level),
         then the cut is removed.
@@ -533,7 +531,7 @@ class Cell(object):
         cuts: Dict[str, Cut] = OrderedDict()
         for cut in self.cuts:
             dim = cut.dimension
-            cuts[dim.name] = cut
+            cuts[dim] = cut
 
         new_cuts = []
 
@@ -591,8 +589,7 @@ class Cell(object):
 
         for cut in self.cuts:
             depth = cut.level_depth()
-            dim = cut.dimension
-            dim_name = str(dim)
+            dim_name = cut.dimension
 
             depths[dim_name] = max(depth, depths.get(dim_name, 0))
 
@@ -630,40 +627,7 @@ class Cell(object):
 
         return levels
 
-    def is_base(self, dimension: Dimension, hierarchy: Hierarchy=None) -> bool:
-        """Returns ``True`` when cell is base cell for `dimension`. Cell
-        is base if there is a point cut with path referring to the
-        most detailed level of the dimension `hierarchy`."""
-
-        hierarchy = dimension.hierarchy(hierarchy)
-        cut = self.point_cut_for_dimension(dimension)
-        if cut:
-            return cut.level_depth() >= len(hierarchy)
-        else:
-            return False
-
-    def contains_level(self, dim: Dimension,
-                       level: Level,
-                       hierarchy: Hierarchy=None) -> bool:
-        """Returns `True` if one of the cuts contains `level` of dimension
-        `dim`. If `hierarchy` is not specified, then dimension's default
-        hierarchy is used."""
-
-        hierarchy = dim.hierarchy(hierarchy)
-
-        for cut in self.dimension_cuts(dim):
-            if str(cut.hierarchy) != str(hierarchy):
-                continue
-            if isinstance(cut, PointCut):
-                if level in hierarchy.levels_for_path(cut.path):
-                    return True
-            if isinstance(cut, SetCut):
-                for path in cut.paths:
-                    if level in hierarchy.levels_for_path(path):
-                        return True
-        return False
-
-    def dimension_cuts(self, dimension: Dimension,
+    def dimension_cuts(self, dimension: str,
                        exclude: bool=False) -> List[Cut]:
         """Returns cuts for `dimension`. If `exclude` is `True` then the
         effect is reversed: return all cuts except those with `dimension`."""
@@ -804,11 +768,8 @@ def cut_from_string(string: str,
     as ``date@dqmy``.
     """
 
-    dim_name: str
-    dimension: Dimension
-    hier_name: str
-    hierarchy: Hierarchy
-    cut: Cut
+    dimension: str
+    hierarchy: str
 
     member_converters = member_converters or {}
     role_member_converters = role_member_converters or {}
@@ -951,14 +912,14 @@ def string_from_path(path: HierarchyPath) -> str:
     return string
 
 
-def string_from_hierarchy(dimension: Dimension,
-                          hierarchy: Optional[Union[str, Hierarchy]]) -> str:
+def string_from_hierarchy(dimension: str,
+                          hierarchy: Optional[str]) -> str:
     """Returns a string in form ``dimension@hierarchy`` or ``dimension`` if
     `hierarchy` is ``None``"""
     if hierarchy:
-        return "%s@%s" % (_path_part_escape(str(dimension)), _path_part_escape(str(hierarchy)))
+        return "%s@%s" % (_path_part_escape(dimension), _path_part_escape(hierarchy))
     else:
-        return _path_part_escape(str(dimension))
+        return _path_part_escape(dimension)
 
 
 def path_from_string(string: str) -> HierarchyPath:
