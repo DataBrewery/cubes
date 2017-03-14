@@ -164,8 +164,7 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         self.cube = self.provider.cube("contracts")
 
     def test_cutting(self):
-        full_cube = Cell(self.cube)
-        self.assertEqual(self.cube, full_cube.cube)
+        full_cube = Cell()
         self.assertEqual(0, len(full_cube.cuts))
 
         cell = full_cube.slice(PointCut("date", [2010]))

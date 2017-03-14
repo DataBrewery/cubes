@@ -78,7 +78,7 @@ class SlicerBrowser(AggregationBrowser):
     def facts(self, cell=None, fields=None, order=None, page=None,
               page_size=None):
 
-        cell = cell or Cell(self.cube)
+        cell = cell or Cell()
         if fields:
             attributes = self.cube.get_attributes(fields)
         else:
@@ -145,7 +145,7 @@ class SlicerBrowser(AggregationBrowser):
         return response
 
     def cell_details(self, cell, dimension=None):
-        cell = cell or Cell(self.cube)
+        cell = cell or Cell()
 
         params = {}
         if cell:

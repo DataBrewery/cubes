@@ -953,11 +953,11 @@ class QueryContext(object):
         conditions = []
 
         for cut in cuts:
-            hierarchy = str(cut.hierarchy) if cut.hierarchy else None
+            hierarchy = cut.hierarchy
 
             if isinstance(cut, PointCut):
                 path = cut.path
-                condition = self.condition_for_point(str(cut.dimension),
+                condition = self.condition_for_point(cut.dimension,
                                                      path,
                                                      hierarchy, cut.invert)
 
@@ -965,9 +965,9 @@ class QueryContext(object):
                 set_conds = []
 
                 for path in cut.paths:
-                    condition = self.condition_for_point(str(cut.dimension),
+                    condition = self.condition_for_point(cut.dimension,
                                                          path,
-                                                         str(cut.hierarchy),
+                                                         cut.hierarchy,
                                                          invert=False)
                     set_conds.append(condition)
 
@@ -977,7 +977,7 @@ class QueryContext(object):
                     condition = sql.expression.not_(condition)
 
             elif isinstance(cut, RangeCut):
-                condition = self.range_condition(str(cut.dimension),
+                condition = self.range_condition(cut.dimension,
                                                  hierarchy,
                                                  cut.from_path,
                                                  cut.to_path, cut.invert)

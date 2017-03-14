@@ -471,11 +471,11 @@ def aggregate(ctx, config, cube_name, aggregates, cuts, drilldown, formatter_nam
     for cut_str in cuts:
         cell_cuts += cuts_from_string(browser.cube, cut_str)
 
-    cell = Cell(browser.cube, cell_cuts)
+    cell = Cell(cell_cuts)
 
     split_cuts = cuts_from_string(browser.cube, split_str)
     if split_cuts:
-        split = Cell(browser.cube, split_cuts)
+        split = Cell(split_cuts)
     else:
         split = None
 
@@ -533,7 +533,7 @@ def members(ctx, config, cube_name, cuts, dim_name, output_format):
     for cut_str in cuts:
         cell_cuts += cuts_from_string(browser.cube, cut_str)
 
-    cell = Cell(browser.cube, cell_cuts)
+    cell = Cell(cell_cuts)
 
     (dim_name, hier_name, level_name) = string_to_dimension_level(dim_name)
     dimension = cube.dimension(dim_name)

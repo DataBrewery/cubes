@@ -186,16 +186,16 @@ class AggregationBrowser:
         }
 
         if cell is None:
-            cell = Cell(self.cube)
+            cell = Cell()
         elif isinstance(cell, str):
             cuts = cuts_from_string(self.cube, cell,
                                     role_member_converters=converters)
-            cell = Cell(self.cube, cuts)
+            cell = Cell(cuts)
 
         if isinstance(split, str):
             cuts = cuts_from_string(self.cube, split,
                                     role_member_converters=converters)
-            split = Cell(self.cube, cuts)
+            split = Cell(cuts)
 
         drilldon = Drilldown(drilldown, cell)
 
@@ -409,7 +409,7 @@ class AggregationBrowser:
         prepared_order = self.prepare_order(order, is_aggregate=False)
 
         if cell is None:
-            cell = Cell(self.cube)
+            cell = Cell()
 
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
@@ -617,7 +617,7 @@ class AggregationBrowser:
 
         if dimension:
             cuts = [cut for cut in cell.cuts
-                    if str(cut.dimension) == str(dimension)]
+                    if cut.dimension == str(dimension)]
         else:
             cuts = cell.cuts
 
@@ -771,7 +771,10 @@ class AggregationResult(Iterable):
         `measures` and `levels` from the aggregate query.
 
     """
-    def __init__(self, cell=None, aggregates=None, drilldown=None,
+
+    cell: Cell
+
+    def __init__(self, cell: Cell=None, aggregates=None, drilldown=None,
                  has_split=False):
         """Create an aggergation result object. `cell` – a :class:`cubes.Cell`
         object used for this aggregation, `aggregates` – list of aggregate
@@ -1016,7 +1019,7 @@ class Drilldown(Iterable):
 
         return levels
 
-    def high_cardinality_levels(self, cell):
+    def high_cardinality_levels(self, cell: Cell):
         """Returns list of levels in the drilldown that are of high
         cardinality and there is no cut for that level in the `cell`."""
 

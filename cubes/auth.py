@@ -345,9 +345,9 @@ class SimpleAuthorizer(Authorizer):
                 cut.hidden = True
                 restriction_cuts.append(cut)
 
-            restriction = Cell(cube, restriction_cuts)
+            restriction = Cell(restriction_cuts)
         else:
-            restriction = Cell(cube)
+            restriction = Cell()
 
         ident_dim = None
         if self.identity_dimension:
@@ -368,7 +368,7 @@ class SimpleAuthorizer(Authorizer):
 
             # TODO: set as hidden
             cut = PointCut(ident_dim, [identity], hierarchy=hier, hidden=True)
-            restriction = restriction & Cell(cube, [cut])
+            restriction = restriction & Cell([cut])
 
         if cell:
             return cell & restriction

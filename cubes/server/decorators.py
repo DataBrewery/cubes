@@ -34,7 +34,7 @@ def prepare_cell(argname="cut", target="cell", restrict=False):
                                  role_member_converters=converters)
 
     if cuts:
-        cell = Cell(g.cube, cuts)
+        cell = Cell(cuts)
     else:
         cell = None
 

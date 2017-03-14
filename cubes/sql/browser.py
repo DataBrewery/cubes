@@ -239,7 +239,7 @@ class SQLBrowser(AggregationBrowser):
         Number of SQL queries: 1.
         """
         attrs = self.cube.get_attributes(fields)
-        cell = cell or Cell(self.cube)
+        cell = cell or Cell()
 
         (statement, labels) = self.denormalized_statement(cell=cell,
                                                           attributes=attrs,
@@ -276,7 +276,7 @@ class SQLBrowser(AggregationBrowser):
         dd = Drilldown()
 
         (statement, labels) = self.aggregation_statement(aggregates=aggs,
-                                                         cell=Cell(self.cube),
+                                                         cell=Cell(),
                                                          drilldown=dd,
                                                          for_summary=True)
         result = self.connectable.execute(statement)
@@ -318,7 +318,7 @@ class SQLBrowser(AggregationBrowser):
         hierarchy = dimension.hierarchy(hierarchy)
 
         cut = PointCut(dimension, path, hierarchy=hierarchy)
-        cell = Cell(self.cube, [cut])
+        cell = Cell([cut])
 
         attributes = []
         for level in hierarchy.levels[0:len(path)]:
