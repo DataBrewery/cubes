@@ -18,7 +18,7 @@ from .attributes import Attribute, Measure, MeasureAggregate, create_list_of, \
 from .dimension import Dimension
 
 # TODO: This should belong here
-from ..query.statutils import aggregate_calculator_labels
+# from ..query.statutils import aggregate_calculator_labels
 
 
 __all__ = [
@@ -42,7 +42,8 @@ IMPLICIT_AGGREGATE_LABELS = {
 }
 
 
-IMPLICIT_AGGREGATE_LABELS.update(aggregate_calculator_labels())
+# FIXME: This causes circular dependency
+# IMPLICIT_AGGREGATE_LABELS.update(aggregate_calculator_labels())
 
 
 class Cube(ModelObject):
@@ -367,6 +368,9 @@ class Cube(ModelObject):
             raise NoSuchAttributeError("Cube '%s' has no measure aggregate "
                                        "'%s'" % (self.name, name))
 
+    # TODO: We should probably don't return all on None
+    # Recommended replacement: just use plain aggregate() and check for list
+    # in the caller.
     def get_aggregates(self, names: Optional[List[str]]=None) \
             -> List[MeasureAggregate]:
         """Get a list of aggregates with `names`."""

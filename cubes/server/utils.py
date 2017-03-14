@@ -9,7 +9,6 @@ import csv
 from .errors import *
 from ..formatters import csv_generator, JSONLinesGenerator, SlicerJSONEncoder,\
                             xlsx_generator
-from .. import compat
 
 
 def str_to_bool(string):
