@@ -3,7 +3,7 @@
 from collections import namedtuple
 
 from typing import Optional, List, Dict, Any, Union, Tuple, Set, cast, \
-                    Iterator, Iterable
+                    Iterator, Iterable, Mapping
 
 from ..types import JSONType
 
@@ -20,7 +20,8 @@ from ..metadata.cube import Cube
 
 from ..stores import Store
 
-from .statutils import calculators_for_aggregates, available_calculators
+from .statutils import calculators_for_aggregates, available_calculators, \
+                        _CalculatorFunction, _RecordType
 from .cells import Cell, PointCut, RangeCut, SetCut, cuts_from_string, Cut
 from ..metadata import Dimension
 
@@ -82,10 +83,12 @@ class AggregationBrowser:
     __extension_type__ = "browser"
     __extension_suffix__ = "Browser"
 
-    builtin_functions = []
+    # Functions that are supported by this browser
+    builtin_functions: List[str] = []
 
     cube: Cube
-    store: Store
+    # TODO: Review when store can be optional
+    store: Optional[Store]
     calendar: Optional[Calendar]
     locale: Optional[str]
 
@@ -128,7 +131,7 @@ class AggregationBrowser:
             aggregates: List[str]=None,
             drilldown: _DrilldownType=None,
             split: Cell=None,
-            order: str=None,
+            order: Optional[List[_OrderArgType]]=None,
             page: int=None,
             page_size: int=None,
             **options: Any) -> "AggregationResult":
@@ -178,8 +181,10 @@ class AggregationBrowser:
         if "measures" in options:
             raise ArgumentError("measures in aggregate are depreciated")
 
+        prepared_aggregates: List[MeasureAggregate]
         prepared_aggregates = self.prepare_aggregates(aggregates)
-        order = self.prepare_order(order, is_aggregate=True)
+        prepared_order: List[_OrderType]
+        prepared_order = self.prepare_order(order, is_aggregate=True)
 
         converters = {
             "time": CalendarMemberConverter(self.calendar)
@@ -197,7 +202,7 @@ class AggregationBrowser:
                                     role_member_converters=converters)
             split = Cell(cuts)
 
-        drilldon = Drilldown(drilldown, cell)
+        drilldon = Drilldown(drilldown, cell=cell, cube=self.cube)
 
         result = self.provide_aggregate(cell,
                                         aggregates=prepared_aggregates,
@@ -233,7 +238,7 @@ class AggregationBrowser:
             aggregates: List[MeasureAggregate]=None,
             drilldown: _DrilldownType=None,
             split: Cell=None,
-            order: str=None,
+            order: Optional[List[_OrderArgType]]=None,
             page: int=None,
             page_size: int=None,
             **options: Any) -> "AggregationResult":
@@ -252,7 +257,8 @@ class AggregationBrowser:
         raise NotImplementedError("{} does not provide aggregate functionality." \
                                   .format(str(type(self))))
 
-    def prepare_aggregates(self, aggregates: List[Any]=None) -> List[Any]:
+    def prepare_aggregates(self, aggregates: List[Any]=None) \
+            -> List[MeasureAggregate]:
         """Prepares the aggregate list for aggregatios. `aggregates` might be a
         list of aggregate names or `MeasureAggregate` objects.
 
@@ -290,6 +296,7 @@ class AggregationBrowser:
             # another aggregate measure and therefore we need to include it in
             # the queried aggregates.
             if agg.measure \
+                    and agg.function is not None \
                     and not self.is_builtin_function(agg.function) \
                     and agg.measure not in seen:
 
@@ -659,11 +666,12 @@ class AggregationBrowser:
 
         return details
 
+    # FIXME: [typing] fix the return type to RecordType, see #410
     def _path_details(self,
             dimension: Dimension,
             path: List[str],
             hierarchy:Union[str, Hierarchy]=None) \
-                    -> Optional[List[Dict[str,str]]]:
+                    -> Optional[List[Dict[str,Optional[str]]]]:
         """Returns a list of details for a path. Each element of the list
         corresponds to one level of the path and is represented by a
         dictionary. The keys are dimension level attributes. Returns ``None``
@@ -773,6 +781,9 @@ class AggregationResult(Iterable):
     """
 
     cell: Cell
+    calculators: List[_CalculatorFunction]
+    # FIXME: [typing] See #410
+    summary: Mapping[str, Any]
 
     def __init__(self, cell: Cell=None, aggregates=None, drilldown=None,
                  has_split=False):
@@ -942,7 +953,10 @@ class AggregationResult(Iterable):
 
 
 class Drilldown(Iterable):
-    def __init__(self, drilldown=None, cell=None):
+    def __init__(self,
+            drilldown: _DrilldownType=None,
+            cell: Cell=None,
+            cube: Cube=None) -> None:
         """Creates a drilldown object for `drilldown` specifictation of `cell`.
         The drilldown object can be used by browsers for convenient access to
         various drilldown properties.
@@ -957,7 +971,7 @@ class Drilldown(Iterable):
         or dimension name ``drilldown["date"]``. Iterating the object yields
         all drilldown items.
         """
-        self.drilldown = levels_from_drilldown(cell, drilldown)
+        self.drilldown = levels_from_drilldown(cube, cell, drilldown)
         self.dimensions = []
         self._contained_dimensions = set()
 
@@ -1117,7 +1131,10 @@ class Drilldown(Iterable):
 
 
 # TODO: move this to Drilldown
-def levels_from_drilldown(cell: Cell, drilldown: _DrilldownType) -> Drilldown:
+def levels_from_drilldown(
+        cube: Cube,
+        cell: Cell,
+        drilldown: _DrilldownType) -> Drilldown:
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
 
@@ -1156,7 +1173,7 @@ def levels_from_drilldown(cell: Cell, drilldown: _DrilldownType) -> Drilldown:
                                 (obj, ))
 
         dim, hier, level = obj
-        dim = cell.cube.dimension(dim)
+        dim = cube.dimension(dim)
 
         hier = dim.hierarchy(hier)
 

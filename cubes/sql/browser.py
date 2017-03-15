@@ -273,7 +273,7 @@ class SQLBrowser(AggregationBrowser):
         result.close()
 
         aggs = self.cube.all_aggregate_attributes
-        dd = Drilldown()
+        dd = Drilldown(cube=self.cube)
 
         (statement, labels) = self.aggregation_statement(aggregates=aggs,
                                                          cell=Cell(),

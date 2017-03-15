@@ -30,8 +30,9 @@ __all__ = [
 ]
 
 
-# CalculatorFunction = Callable[[RecordType], RecordType]
-
+# FIXME: [typing] This shuold be a function without side-effect
+_RecordType = Any
+_CalculatorFunction = Callable[[_RecordType], None]
 _ValueType = Union[int, float]
 
 # [x] -> x
