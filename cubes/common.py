@@ -78,7 +78,7 @@ class MissingPackageError(Exception):
     pass
 
 
-class MissingPackage(object):
+class MissingPackage:
     """Bogus class to handle missing optional packages - packages that are not
     necessarily required for Cubes, but are needed for certain features."""
 
@@ -115,7 +115,7 @@ class MissingPackage(object):
             source = ""
 
         if self.comment:
-            comment = f". {elf.comment}"
+            comment = f". {self.comment}"
         else:
             comment = ""
 

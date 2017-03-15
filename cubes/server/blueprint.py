@@ -8,7 +8,8 @@ from flask import Blueprint, Response, request, g, current_app, safe_join, make_
 from flask import render_template, redirect
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
-from ..query import Cell, cut_from_dict, SPLIT_DIMENSION_NAME
+from ..query.constants import SPLIT_DIMENSION_NAME
+from ..query import Cell, cut_from_dict
 from ..errors import *
 from ..formatters import JSONLinesGenerator, csv_generator
 from .. import ext

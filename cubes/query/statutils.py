@@ -8,7 +8,7 @@ from functools import reduce
 
 from typing import List, Callable, List, Union, Sequence, Optional, Any
 
-from ..types import _UnknownType
+from ..types import _UnknownType, _RecordType
 from ..errors import ArgumentError, InternalError, ModelError
 from ..metadata import MeasureAggregate, HierarchyPath, Level
 from ..metadata.cube import Cube
@@ -17,6 +17,8 @@ from ..query.cells import Cell
 # FIXME: Circular dependency. We need to fix the type
 # from ..query.browser import Drilldown
 Drilldown = Any
+
+from .constants import SPLIT_DIMENSION_NAME
 
 
 from statistics import variance, stdev, mean
@@ -31,7 +33,6 @@ __all__ = [
 
 
 # FIXME: [typing] This shuold be a function without side-effect
-_RecordType = Any
 _CalculatorFunction = Callable[[_RecordType], None]
 _ValueType = Union[int, float]
 
@@ -163,7 +164,6 @@ def _window_function_factory(
 
     window_key = []
     if split_cell:
-        from .browser import SPLIT_DIMENSION_NAME
         window_key.append(SPLIT_DIMENSION_NAME)
 
     for dditem in key_drilldown_paths:

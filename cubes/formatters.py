@@ -29,7 +29,7 @@ except ImportError:
 from .errors import ArgumentError
 from . import ext
 
-from .query import SPLIT_DIMENSION_NAME
+from .query.constants import SPLIT_DIMENSION_NAME
 
 __all__ = [
     "create_formatter",

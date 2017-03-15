@@ -191,12 +191,16 @@ class RangeCut(Cut):
     def level_depth(self) -> int:
         """Returns index of deepest level which is equivalent to the longest
         path."""
+        depth: int = 0
+
         if self.from_path and not self.to_path:
-            return len(self.from_path)
+            depth = len(self.from_path)
         elif not self.from_path and self.to_path:
-            return len(self.to_path)
+            depth = len(self.to_path)
         elif self.from_path and self.to_path:
-            return max(len(self.from_path), len(self.to_path))
+            depth = max(len(self.from_path), len(self.to_path))
+
+        return depth
 
     def __str__(self) -> str:
         """Return string representation of point cut, you can use it in
@@ -316,20 +320,25 @@ class Cell(object):
 
         return result
 
-    @property
-    def all_attributes(self) -> List[Attribute]:
+    def collect_key_attributes(self, cube: Cube) -> List[Attribute]:
         """Returns an unordered set of key attributes used in the cell's
         cuts."""
         attributes: Set[Attribute] = set()
 
+        dim: Dimension
+        hier: Hierarchy
+
         for cut in self.cuts:
             depth = cut.level_depth()
-            if depth:
-                dim: Dimension = cut.dimension
-                hier: Hierarchy = dim.hierarchy(cut.hierarchy)
-                keys = [dim.attribute(level.key.name)
-                        for level in hier.levels[0:depth]]
-                attributes |= set(keys)
+
+            if depth == 0:
+                continue
+
+            dim = cube.dimension(cut.dimension)
+            hier = dim.hierarchy(cut.hierarchy)
+            keys = [dim.attribute(level.key.name)
+                    for level in hier.levels[0:depth]]
+            attributes |= set(keys)
 
         return list(attributes)
 
@@ -383,7 +392,7 @@ class Cell(object):
 
         """
 
-        cuts = self.dimension_cuts(dimension, exclude=True)
+        cuts = self.cuts_for_dimension(dimension, exclude=True)
         if path:
             cut = PointCut(dimension, path)
             cuts.append(cut)
@@ -391,7 +400,7 @@ class Cell(object):
 
     def drilldown(self, dimension: str,
                   value: str,
-                  hierarchy: Union[str, Hierarchy]=None) -> "Cell":
+                  hierarchy: str=None) -> "Cell":
         """Create another cell by drilling down `dimension` next level on
         current level's key `value`.
 
@@ -465,122 +474,6 @@ class Cell(object):
 
         return None
 
-    def rollup_dim(self, dimension: str,
-                   level:Union[Level]=None,
-                   hierarchy:str=None) -> "Cell":
-        """Rolls-up cell - goes one or more levels up through dimension
-        hierarchy. If there is no level to go up (we are at the top level),
-        then the cut is removed.
-
-        If no `hierarchy` is specified, then the default dimension's hierarchy
-        is used.
-
-        Returns new cell object.
-        """
-
-        # FIXME: make this the default roll-up
-        # Reason:
-        #     * simpler to use
-        #     * can be used more nicely in Jinja templates
-
-        dim_cut = self.point_cut_for_dimension(dimension)
-
-        if not dim_cut:
-            return copy.copy(self)
-            # raise ValueError("No cut to roll-up for dimension '%s'" % dimension.name)
-
-        cuts = [cut for cut in self.cuts if cut is not dim_cut]
-
-        hier = dimension.hierarchy(hierarchy)
-        rollup_path = hier.rollup(dim_cut.path, level)
-
-        # If the rollup path is empty, we are at the top level therefore we
-        # are removing the cut for the dimension.
-
-        if rollup_path:
-            new_cut = PointCut(dimension, rollup_path, hierarchy=hierarchy)
-            cuts.append(new_cut)
-
-        return Cell(cuts=cuts)
-
-    # FIXME: Complex type!
-    def rollup(self,
-               rollup: Union[str, List[str], Dict[str,str]]) -> "Cell":
-        """Rolls-up cell - goes one or more levels up through dimension
-        hierarchy. It works in similar way as drill down in
-        :meth:`AggregationBrowser.aggregate` but in the opposite direction (it
-        is like ``cd ..`` in a UNIX shell).
-
-        Roll-up can be:
-
-            * a string - single dimension to be rolled up one level
-            * an array - list of dimension names to be rolled-up one level
-            * a dictionary where keys are dimension names and values are
-              levels to be rolled up-to
-
-        .. note::
-
-                Only default hierarchy is currently supported.
-        """
-
-        # FIXME: rename this to something like really_complex_rollup :-)
-        # Reason:
-        #     * see reasons above for rollup_dim()
-        #     * used only by Slicer server
-
-        cut: Optional[Cut]
-        cuts: Dict[str, Cut] = OrderedDict()
-        for cut in self.cuts:
-            dim = cut.dimension
-            cuts[dim] = cut
-
-        new_cuts = []
-
-        # If it is a string, handle it as list of single string
-        if isinstance(rollup, str):
-            rollup = [rollup]
-
-        if isinstance(rollup, (list, tuple)):
-            for dim_name in rollup:
-                cut = cuts.get(dim_name)
-                if cut is None:
-                    continue
-                #     raise ValueError("No cut to roll-up for dimension '%s'" % dim_name)
-                if isinstance(cut, PointCut):
-                    raise NotImplementedError("Only PointCuts are currently supported for "
-                                              "roll-up (rollup dimension: %s)" % dim_name)
-
-                dim = cut.dimension
-                hier = dim.hierarchy()
-
-                rollup_path = hier.rollup(cast(PointCut, cut).path)
-
-                cut = PointCut(cut.dimension, rollup_path)
-                new_cuts.append(cut)
-
-        elif isinstance(self.drilldown, dict):
-            for (dim_name, level_name) in rollup.items():
-                cut = cuts[dim_name]
-                if not cut:
-                    raise ArgumentError("No cut to roll-up for dimension '%s'" % dim_name)
-                if type(cut) != PointCut:
-                    raise NotImplementedError("Only PointCuts are currently supported for "
-                                              "roll-up (rollup dimension: %s)" % dim_name)
-
-                dim = cut.dimension
-                hier = dim.hierarchy()
-
-                rollup_path = hier.rollup(cast(PointCut, cut).path, hier[level_name])
-
-                cut = PointCut(cut.dimension, rollup_path)
-                new_cuts.append(cut)
-        else:
-            raise ArgumentError("Rollup is of unknown type: %s" %
-                                type(self.drilldown))
-
-        cell = Cell(cuts=new_cuts)
-        return cell
-
     def level_depths(self) -> Dict[str, int]:
         """Returns a dictionary of dimension names as keys and level depths
         (index of deepest level)."""
@@ -596,40 +489,9 @@ class Cell(object):
 
         return depths
 
-    # TODO: Needed?
-    # TODO: Complex return type
-    def deepest_levels(self, include_empty: bool=False) \
-            -> List[Tuple[Dimension, Hierarchy, Optional[Level]]]:
-        """Returns a list of tuples: (`dimension`, `hierarchy`, `level`) where
-        `level` is the deepest level specified in the respective cut. If no
-        level is specified (empty path) and `include_empty` is `True`, then the
-        level will be `None`. If `include_empty` is `True` then empty levels
-        are not included in the result.
-
-        This method is currently used for preparing the periods-to-date
-        conditions.
-
-        See also: :meth:`cubes.Drilldown.deepest_levels`
-        """
-
-        levels = []
-
-        for cut in self.cuts:
-            item: Tuple[Dimension, Hierarchy, Optional[Level]]
-
-            depth = cut.level_depth()
-            dim = cut.dimension
-            hier = dim.hierarchy(cut.hierarchy)
-            if depth:
-                item = (dim, hier, hier.levels[depth-1])
-            elif include_empty:
-                item = (dim, hier, None)
-            levels.append(item)
-
-        return levels
-
-    def dimension_cuts(self, dimension: str,
-                       exclude: bool=False) -> List[Cut]:
+    def cuts_for_dimension(self,
+            dimension: str,
+            exclude: bool=False) -> List[Cut]:
         """Returns cuts for `dimension`. If `exclude` is `True` then the
         effect is reversed: return all cuts except those with `dimension`."""
         cuts = []
@@ -769,8 +631,9 @@ def cut_from_string(string: str,
     as ``date@dqmy``.
     """
 
-    dimension: str
-    hierarchy: str
+    dimension: Dimension
+    hierarchy: Hierarchy
+    cut: Cut
 
     member_converters = member_converters or {}
     role_member_converters = role_member_converters or {}
@@ -805,14 +668,14 @@ def cut_from_string(string: str,
     # special case: completely empty string means single path element of ''
     # FIXME: why?
     if string == '':
-        return PointCut(dimension, [''], hierarchy, invert)
+        return PointCut(dimension.name, [''], hierarchy.name, invert)
 
     elif RE_POINT.match(string):
         path = path_from_string(string)
 
         if converter:
             path = converter(dimension, hierarchy, path)
-        cut = PointCut(dimension, path, hierarchy, invert)
+        cut = PointCut(dimension.name, path, hierarchy.name, invert)
 
     elif RE_SET.match(string):
         paths = list(map(path_from_string, SET_CUT_SEPARATOR.split(string)))
@@ -823,7 +686,7 @@ def cut_from_string(string: str,
                 converted.append(converter(dimension, hierarchy, path))
             paths = converted
 
-        cut = SetCut(dimension, paths, hierarchy, invert)
+        cut = SetCut(dimension.name, paths, hierarchy.name, invert)
 
     elif RE_RANGE.match(string):
         (from_path, to_path) = list(map(path_from_string,
@@ -833,7 +696,7 @@ def cut_from_string(string: str,
             from_path = converter(dimension, hierarchy, from_path)
             to_path = converter(dimension, hierarchy, to_path)
 
-        cut = RangeCut(dimension, from_path, to_path, hierarchy, invert)
+        cut = RangeCut(dimension.name, from_path, to_path, hierarchy.name, invert)
 
     else:
         raise ArgumentError("Unknown cut format (check that keys "

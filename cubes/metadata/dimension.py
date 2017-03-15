@@ -28,10 +28,11 @@ __all__ = [
 ]
 
 
+# FIXME: See #354
 _DEFAULT_LEVEL_ROLES = {
-    "time": ("year", "quarter", "month", "day", "hour", "minute", "second",
+    "time": ["year", "quarter", "month", "day", "hour", "minute", "second",
              "week", "weeknum", "dow",
-             "isoyear", "isoweek", "isoweekday")
+             "isoyear", "isoweek", "isoweekday"]
 }
 
 HierarchyPath = List[str]
@@ -157,25 +158,41 @@ class Level(ModelObject):
         self.cardinality = cardinality
 
     @classmethod
-    def from_metadata(cls, metadata: JSONType,
-                      name: str=None,
-                      dimension: "Dimension"=None) -> "Level":
+    def from_metadata(cls,
+            metadata: JSONType,
+            name: str=None,
+            dimension: "Dimension"=None) -> "Level":
         """Create a level object from metadata. `name` can override level name in
         the metadata."""
 
+        level_name: str
+
         metadata = dict(expand_level_metadata(metadata))
 
-        try:
-            name = name or metadata.pop("name")
-        except KeyError:
+        if name is None and "name" not in metadata:
             raise ModelError("No name specified in level metadata")
+        else:
+            level_name = name or metadata["name"]
 
         attributes = []
         for attr_metadata in metadata.pop("attributes", []):
             attr = Attribute(dimension=dimension, **attr_metadata)
             attributes.append(attr)
 
-        return cls(name=name, attributes=attributes, **metadata)
+        return cls(
+                name=level_name,
+                attributes=attributes,
+                key=metadata.get("key"),
+                order_attribute=metadata.get("order_attribute"),
+                order=metadata.get("order"),
+                label_attribute=metadata.get("label_attribute"),
+                label=metadata.get("label"),
+                info=metadata.get("info"),
+                cardinality=metadata.get("cardinality"),
+                role=metadata.get("role"),
+                nonadditive=metadata.get("nonadditive"),
+                description=metadata.get("description"),
+            )
 
     def __eq__(self, other: Any) -> bool:
         if not other or type(other) != type(self):
@@ -206,6 +223,8 @@ class Level(ModelObject):
         return str(self.to_dict())
 
     def __deepcopy__(self, memo: Any) -> "Level":
+        order_attribute: Optional[str]
+
         if self.order_attribute:
             order_attribute = self.order_attribute.name
         else:
@@ -412,20 +431,11 @@ class Hierarchy(ModelObject, Sized):
             return True
         return item in [level.name for level in self.levels]
 
-    def levels_for_path(self, path: HierarchyPath,
-                        drilldown:bool=False) -> List[Level]:
-        """Returns levels for given path. If path is longer than hierarchy
-        levels, `cubes.ArgumentError` exception is raised"""
-
-        depth = 0 if not path else len(path)
-        return self.levels_for_depth(depth, drilldown)
-
     def levels_for_depth(self, depth:int,
                          drilldown:bool=False) -> List[Level]:
         """Returns levels for given `depth`. If `path` is longer than
         hierarchy levels, `cubes.ArgumentError` exception is raised"""
 
-        depth = depth or 0
         extend = 1 if drilldown else 0
 
         if depth + extend > len(self.levels):
@@ -462,14 +472,14 @@ class Hierarchy(ModelObject, Sized):
         else:
             return self.levels[index - 1]
 
-    def level_index(self, level: Level) -> int:
-        """Get order index of level. Can be used for ordering and comparing
-        levels within hierarchy."""
+    def level_index(self, name: str) -> int:
+        """Get order index of level `name`. Can be used for ordering and
+        comparing levels within hierarchy."""
         try:
-            return list(self._levels).index(str(level))
+            return list(self._levels).index(name)
         except ValueError:
-            raise HierarchyError("Level %s is not part of hierarchy %s"
-                                 % (str(level), self.name))
+            raise HierarchyError(f"Level {name} is not part of hierarchy "
+                                 f"{self.name}")
 
     def is_last(self, level: Level) -> bool:
         """Returns `True` if `level` is last level of the hierarchy."""
@@ -487,8 +497,8 @@ class Hierarchy(ModelObject, Sized):
 
         last: Optional[int]
 
-        if level:
-            last = self.level_index(level) + 1
+        if level is not None:
+            last = self.level_index(level.name) + 1
             if last > len(path):
                 raise HierarchyError("Can not roll-up: level '%s' – it is "
                                      "deeper than deepest element of path %s" %
@@ -779,8 +789,14 @@ class Dimension(ModelObject):
             levels = [level]
 
         # Own the levels and their attributes
-        self._levels = object_dict(levels)
-        default_roles = _DEFAULT_LEVEL_ROLES.get(self.role)
+        self._levels = object_dict(levels or [])
+        
+        # FIXME: See #354
+        default_roles: List[str]
+        if self.role is not None:
+            default_roles = _DEFAULT_LEVEL_ROLES.get(self.role, [])
+        else:
+            default_roles = []
 
         # Set default roles
         for level in self._levels.values():
@@ -839,6 +855,18 @@ class Dimension(ModelObject):
           final dimension
 
         """
+
+        template: Optional[Dimension]
+        default_hierarchy_name: Optional[str]
+        label: Optional[str]
+        levels: List[Level]
+        hierarchies: List[Hierarchy]
+        description: Optional[str]
+        cardinality: Optional[str]
+        role: Optional[str]
+        category: Optional[str]
+        info: JSONType
+        nonadditive: Optional[str]
 
         templates = templates or {}
 
@@ -1367,8 +1395,10 @@ class Dimension(ModelObject):
         return locale
 
 
-def _create_hierarchies(metadata: JSONType, levels: List[Level],
-                        template: Dimension) -> List[Hierarchy]:
+def _create_hierarchies(
+        metadata: JSONType,
+        levels: List[Level],
+        template: Optional[Dimension]) -> List[Hierarchy]:
     """Create dimension hierarchies from `metadata` (a list of dictionaries or
     strings) and possibly inherit from `template` dimension."""
 
@@ -1380,10 +1410,11 @@ def _create_hierarchies(metadata: JSONType, levels: List[Level],
     # Construct hierarchies and assign actual level objects
     for md in metadata:
         if isinstance(md, str):
-            if not template:
+            if template is not None:
+                hier = template.hierarchy(md)
+            else:
                 raise ModelError("Can not specify just a hierarchy name "
                                  "({}) if there is no template".format(md))
-            hier = template.hierarchy(md)
         else:
             md = dict(md)
             level_names = md.pop("levels")

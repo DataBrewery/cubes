@@ -24,8 +24,8 @@ from sqlalchemy.sql.expression import and_
 
 from ..metadata import object_dict
 from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
-from ..query import SPLIT_DIMENSION_NAME
-from ..query import PointCut, SetCut, RangeCut
+from ..query.constants import SPLIT_DIMENSION_NAME
+from ..query.cells import PointCut, SetCut, RangeCut
 
 from .expressions import compile_attributes
 

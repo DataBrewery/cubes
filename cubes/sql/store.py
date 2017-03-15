@@ -17,7 +17,8 @@ from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
 from ..errors import ArgumentError, StoreError, ConfigurationError
-from ..query import Drilldown, Cell
+from ..query.drilldown import Drilldown
+from ..query.cells import Cell
 from .utils import CreateTableAsSelect, CreateOrReplaceView
 from ..metadata import string_to_dimension_level
 

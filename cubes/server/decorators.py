@@ -4,9 +4,8 @@ from functools import wraps
 
 from ..workspace import Workspace
 from ..auth import NotAuthorized
-from ..query import Cell, cut_from_dict
-from ..query import SPLIT_DIMENSION_NAME
-from ..query import cuts_from_string
+from ..query.cells import Cell, cut_from_dict, cust_from_string
+from ..query.constants import SPLIT_DIMENSION_NAME
 from ..errors import *
 from .utils import *
 from .errors import *

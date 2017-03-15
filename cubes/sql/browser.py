@@ -1,6 +1,12 @@
 # -*- encoding=utf -*-
 """SQL Browser"""
 
+
+from typing import (
+    Iterable,
+    List,
+)
+
 import collections
 
 try:
@@ -8,22 +14,26 @@ try:
     import sqlalchemy.sql as sql
 
 except ImportError:
-    from ...common import MissingPackage
+    from ..common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 from ..query import available_calculators
-from ..query import AggregationBrowser, AggregationResult, Drilldown
-from ..query import Cell, PointCut
+from ..query.browser import AggregationBrowser
+from ..query.result import AggregationResult
+from ..query.drilldown import Drilldown
+from ..query.cells import Cell, PointCut
 from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 from ..stores import Store
-from ..metadata import collect_attributes
+from ..metadata import AttributeBase, Measure, MeasureAggregate
 
 from .functions import available_aggregate_functions
 from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
 from .mapper import distill_naming
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
+
+from ..types import _RecordType
 
 
 __all__ = [
@@ -384,11 +394,11 @@ class SQLBrowser(AggregationBrowser):
 
         """
 
-        # TODO: implement reminder
-
-        result = AggregationResult(cell=cell, aggregates=aggregates,
-                                   drilldown=drilldown,
-                                   has_split=split is not None)
+        cells: Optional[Iterable[_RecordType]] = None
+        labels: Optional[List[str]] = None
+        summary: Optional[_RecordType] = None
+        levels: Optional[Mapping[str, List[str]]] = None
+        total_cell_count: Optional[int] = None
 
         # Summary
         # -------
@@ -404,11 +414,9 @@ class SQLBrowser(AggregationBrowser):
 
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                record = dict(zip(labels, row))
+                summary = dict(zip(labels, row))
             else:
-                record = None
-
-            result.summary = record
+                summary = None
 
         # Drill-down
         # ----------
@@ -419,7 +427,7 @@ class SQLBrowser(AggregationBrowser):
             if not (page_size and page is not None):
                 self.assert_low_cardinality(cell, drilldown)
 
-            result.levels = drilldown.result_levels(include_split=bool(split))
+            levels = drilldown.result_levels(include_split=bool(split))
             natural_order = drilldown.natural_order
 
             self.logger.debug("preparing drilldown statement")
@@ -433,7 +441,7 @@ class SQLBrowser(AggregationBrowser):
             if self.include_cell_count:
                 count_statement = statement.alias().count()
                 counts = self.execute(count_statement)
-                result.total_cell_count = counts.scalar()
+                total_cell_count = counts.scalar()
 
             # Order and paginate
             #
@@ -445,8 +453,21 @@ class SQLBrowser(AggregationBrowser):
 
             cursor = self.execute(statement, "aggregation drilldown")
 
-            result.cells = ResultIterator(cursor, labels)
-            result.labels = labels
+            cells = ResultIterator(cursor, labels)
+            labels = labels
+
+        result = AggregationResult(
+                cube=self.cube,
+                cell=cell,
+                cells=cells or [],
+                labels=labels,
+                levels=levels,
+                aggregates=aggregates,
+                drilldown=drilldown,
+                summary=summary,
+                total_cell_count=total_cell_count,
+                has_split=split is not None)
+
 
         # If exclude_null_aggregates is True then don't include cells where
         # at least one of the bult-in aggregates is NULL
@@ -476,9 +497,13 @@ class SQLBrowser(AggregationBrowser):
         correct labels to be applied to the iterated result in case of
         `safe_labels`."""
 
+        attributes: List[AttributeBase]
         attributes = attributes or self.cube.all_fact_attributes
 
-        refs = [attr.ref for attr in collect_attributes(attributes, cell)]
+        cell_keys: List[AttributeBase]
+        cell_keys = cell.collect_key_attributes(self.cube) 
+
+        refs = [attr.ref for attr in attributes + cell_keys]
         context_attributes = self.cube.get_attributes(refs)
         context = self._create_context(context_attributes)
 
@@ -542,7 +567,16 @@ class SQLBrowser(AggregationBrowser):
 
         # TODO: it is verylikely that the _create_context is not getting all
         # attributes, for example those that aggregate depends on
-        refs = collect_attributes(aggregates, cell, drilldown, split)
+
+        all_attributes: List[AttributeBase]
+        all_attributes = list(aggregates)
+        all_attributes += cell.collect_key_attributes(self.cube)
+        all_attributes += drilldown.all_attributes
+        if split is not None:
+            all_attributes += split.collect_key_attributes(self.cube)
+
+        refs: List[str]
+        refs = [attr.ref for attr in all_attributes]
         attributes = self.cube.get_attributes(refs, aggregated=True)
         context = self._create_context(attributes)
 
