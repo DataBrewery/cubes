@@ -4,6 +4,8 @@ import json
 import logging
 from ..logging import get_logger
 from ..query import *
+from ..query.result import AggregationResult, Facts
+
 
 class SlicerBrowser(AggregationBrowser):
     """Aggregation browser for Cubes Slicer OLAP server."""
