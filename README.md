@@ -35,16 +35,6 @@ Features:
   integrated](http://pythonhosted.org/cubes/deployment.html) into your
   application.
 
-Download
-========
-
-Current recommended version is 1.1.x. It hasn't been yet tagged so please use the *master* branch.
-This version includes SQL backend support out of the box, and other backends have been moved to separate
-projects (ie. MongoDB). This branch (currently *master*) will be soon tagged as 1.1 release.
-
-Previous stable version was 1.0.1. This version included all backend types, but no further
-development will be done on this branch.
-
 
 Documentation
 =============
@@ -90,7 +80,7 @@ Outputs will go in ``doc/_*``.
 Requirements
 ------------
 
-Python >= 2.7 and Python >= 3.4.1
+Python >= 3.6.1
 
 Most of the requirements are soft (optional) and need to be satisfied only if
 certain parts of cubes are being used.
