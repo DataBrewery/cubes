@@ -263,11 +263,11 @@ class SQLStore(Store):
         physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
         for table in tables:
             try:
-                physical_table = sqlalchemy.Table(table[1], self.metadata,
+                physical_table = sa.Table(table[1], self.metadata,
                                         autoload=True,
                                         schema=table[0] or self.mapper.schema)
                 physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
-            except sqlalchemy.exc.NoSuchTableError:
+            except sa.exc.NoSuchTableError:
                 issues.append(("join", "table %s.%s does not exist" % table, join))
 
         # check attributes
@@ -639,7 +639,7 @@ class SQLSchemaInspector(object):
         to specified configuration and naming conventions."""
         self.engine = engine
         self.naming = naming
-        self.metadata = metadata or MetaData(engine)
+        self.metadata = metadata or sa.MetaData(engine)
 
         self.inspector = reflection.Inspector.from_engine(engine)
 

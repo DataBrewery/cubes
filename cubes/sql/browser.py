@@ -5,6 +5,8 @@
 from typing import (
     Iterable,
     List,
+    Optional,
+    Mapping,
 )
 
 import collections

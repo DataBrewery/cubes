@@ -13,7 +13,7 @@ from queue import Queue
 from .. import ext
 from ..logging import get_logger
 from ..errors import *
-from ..query import Drilldown
+from ..query.drilldown import Drilldown
 
 __all__ = [
     "create_request_log_handler",
