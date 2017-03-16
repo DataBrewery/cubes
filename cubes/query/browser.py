@@ -16,6 +16,7 @@ from typing import (
         Tuple,
         Union,
         cast,
+        NamedTuple,
     )
 
 # FIXME: Update afetr Python 3.6.1
@@ -75,6 +76,12 @@ _OrderArgType = Union[str, Union[_OrderType, Tuple[str,str]]]
 _ReportResult = Union[AggregationResult, Facts, JSONType, List[JSONType]] 
 
 
+class BrowserFeatures(NamedTuple):
+    actions: Iterable[str]
+    aggregate_functions: Iterable[str]
+    post_aggregate_functions: Iterable[str]
+
+
 class AggregationBrowser:
     """Class for browsing data cube aggregations
 
@@ -113,7 +120,7 @@ class AggregationBrowser:
         self.calendar = None
 
     # TODO: Make this an explicit structure
-    def features(self) -> JSONType:
+    def features(self) -> BrowserFeatures:
         """Returns a dictionary of available features for the browsed cube.
         Default implementation returns an empty dictionary.
 
@@ -126,7 +133,7 @@ class AggregationBrowser:
 
         Subclasses are advised to override this method.
         """
-        return {}
+        return BrowserFeatures()
 
     # TODO: No *options
     def aggregate(self,

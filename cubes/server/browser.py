@@ -2,6 +2,8 @@
 
 import json
 import logging
+
+from ..query.browser import BrowserFeatures
 from ..logging import get_logger
 from ..query import *
 
@@ -18,15 +20,15 @@ class SlicerBrowser(AggregationBrowser):
         self.locale = locale
         self.store = store
 
-    def features(self):
+    def features(self) -> BrowserFeatures:
 
         # Get the original features as provided by the Slicer server.
         # They are stored in browser_options in the Slicer model provider's
         # cube().
-        features = dict(self.cube.browser_options.get("features", {}))
+        features = BrowserFeatures(**dict(self.cube.browser_options.get("features", {})))
 
         # Replace only the actions, as we are not just a simple proxy.
-        features["actions"] = ["aggregate", "facts", "fact", "cell", "members"]
+        features.actions = ["aggregate", "facts", "fact", "cell", "members"]
 
         return features
 

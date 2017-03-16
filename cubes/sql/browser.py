@@ -18,7 +18,7 @@ except ImportError:
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
 
 from ..query import available_calculators
-from ..query.browser import AggregationBrowser
+from ..query.browser import AggregationBrowser, BrowserFeatures
 from ..query.result import AggregationResult
 from ..query.drilldown import Drilldown
 from ..query.cells import Cell, PointCut
@@ -201,11 +201,11 @@ class SQLBrowser(AggregationBrowser):
         cube, however in the future they might depend on the SQL engine or
         other factors."""
 
-        features = {
+        features = BrowserFeatures(**{
             "actions": ["aggregate", "fact", "members", "facts", "cell"],
             "aggregate_functions": available_aggregate_functions(),
             "post_aggregate_functions": available_calculators()
-        }
+        })
 
         return features
 
