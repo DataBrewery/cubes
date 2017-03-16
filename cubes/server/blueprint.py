@@ -301,7 +301,7 @@ def cube_model(cube_name):
                               create_label=True,
                               hierarchy_limits=hier_limits)
 
-    response["features"] = workspace.cube_features(g.cube)
+    response["features"] = workspace.cube_features(g.cube).asdict
 
     return jsonify(response)
 

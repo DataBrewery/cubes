@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from collections import namedtuple
+from enum import Enum
 
 from typing import (
         Any,
@@ -19,7 +20,7 @@ from typing import (
         NamedTuple,
     )
 
-# FIXME: Update afetr Python 3.6.1
+# FIXME: Update after Python 3.6.1
 Collection = List
 
 from ..types import JSONType
@@ -76,10 +77,39 @@ _OrderArgType = Union[str, Union[_OrderType, Tuple[str,str]]]
 _ReportResult = Union[AggregationResult, Facts, JSONType, List[JSONType]] 
 
 
-class BrowserFeatures(NamedTuple):
-    actions: Iterable[str]
-    aggregate_functions: Iterable[str]
-    post_aggregate_functions: Iterable[str]
+class BrowserFeatureAction(Enum):
+    aggregate = 1
+    fact = 2
+    facts = 3
+    members = 4
+    cell = 5
+
+    @classmethod
+    def from_string(cls, actions: Iterable[str]) -> List['BrowserFeatureAction']:
+        if not actions:
+            return []
+
+        return [cls[action] for action in actions if action in cls.__members__.keys()]
+
+
+class _BaseBrowserFeatures(NamedTuple):
+    actions: List[BrowserFeatureAction]
+    aggregate_functions: List[str]
+    post_aggregate_functions: List[str]
+
+
+class BrowserFeatures(_BaseBrowserFeatures):
+    @property
+    def asdict(self) -> JSONType:
+        result = {}
+        if self.actions:
+            result['actions'] = [action.name for action in self.actions]
+        if self.aggregate_functions:
+            result['aggregate_functions'] = self.aggregate_functions
+        if self.post_aggregate_functions:
+            result['post_aggregate_functions'] = self.post_aggregate_functions
+
+        return result
 
 
 class AggregationBrowser:
