@@ -3,7 +3,13 @@
 """Utility functions for computing combinations of dimensions and hierarchy
 levels"""
 
-from typing import Any, Dict, Optional, List
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 import re
 import os.path
@@ -83,9 +89,9 @@ class MissingPackage:
     necessarily required for Cubes, but are needed for certain features."""
 
     package: str
-    feature: str
-    source: str
-    comment: str
+    feature: Optional[str]
+    source: Optional[str]
+    comment: Optional[str]
 
     def __init__(self,
             package: str,
@@ -229,6 +235,7 @@ def coalesce_option_value(value: Any, value_type: str, label: str=None) -> Any:
         `string` (no conversion), `integer`, `float`, `list` – comma separated
         list of strings.
     """
+    return_value: Union[str, List[str], float, int, bool]
     value_type = value_type.lower()
 
     try:
@@ -259,8 +266,8 @@ def coalesce_option_value(value: Any, value_type: str, label: str=None) -> Any:
         else:
             label = ""
 
-        raise ArgumentError("Unable to convert %svalue '%s' into type %s" %
-                            (label, astring, value_type))
+        raise ArgumentError(f"Unable to convert {label}value '{value}' "
+                            f"into type {value_type}")
     return return_value
 
 
