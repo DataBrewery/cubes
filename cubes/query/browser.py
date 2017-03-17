@@ -28,7 +28,7 @@ from ..types import JSONType
 from ..calendar import CalendarMemberConverter, Calendar
 from ..logging import get_logger
 from ..common import IgnoringDictionary
-from ..errors import ArgumentError, NoSuchAttributeError, HierarchyError
+from ..errors import ArgumentError, NoSuchAttributeError, HierarchyError, InternalError
 from ..stores import Store
 
 from ..metadata import (
@@ -84,24 +84,40 @@ class BrowserFeatureAction(Enum):
     members = 4
     cell = 5
 
-    @classmethod
-    def from_string(cls, actions: Iterable[str]) -> List['BrowserFeatureAction']:
-        if not actions:
-            return []
 
-        return [cls[action] for action in actions if action in cls.__members__.keys()]
-
-
-class _BaseBrowserFeatures(NamedTuple):
+class BrowserFeatures(object):
     actions: List[BrowserFeatureAction]
     aggregate_functions: List[str]
     post_aggregate_functions: List[str]
 
+    def __init__(self,
+                 actions: Optional[List[BrowserFeatureAction]]=None,
+                 aggregate_functions: Optional[List[str]]=None,
+                 post_aggregate_functions: Optional[List[str]]=None) -> None:
+        self.actions = actions
+        self.aggregate_functions = aggregate_functions
+        self.post_aggregate_functions = post_aggregate_functions
 
-class BrowserFeatures(_BaseBrowserFeatures):
-    @property
-    def asdict(self) -> JSONType:
-        result = {}
+    @classmethod
+    def from_dict(cls, data: JSONType) -> 'BrowserFeatures':
+        actions_names: List[str] = data.get('actions')
+        aggregate_functions: List[str] = data.get('aggregate_functions')
+        post_aggregate_functions: List[str] = data.get('post_aggregate_functions')
+
+        try:
+            actions = [BrowserFeatureAction[action] for action in actions_names]
+        except KeyError:
+            raise InternalError('Some actions are not valid.')
+
+        return BrowserFeatures(
+            actions=actions,
+            aggregate_functions=aggregate_functions,
+            post_aggregate_functions=post_aggregate_functions
+        )
+
+
+    def to_dict(self) -> JSONType:
+        result: JSONType = {}
         if self.actions:
             result['actions'] = [action.name for action in self.actions]
         if self.aggregate_functions:
