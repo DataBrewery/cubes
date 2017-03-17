@@ -18,7 +18,7 @@ from .logging import get_logger
 from .calendar import Calendar
 from .namespace import Namespace
 from .stores import Store
-from .query.browser import AggregationBrowser
+from .query.browser import AggregationBrowser, BrowserFeatures
 from .types import _CubeKey, JSONType
 from . import ext
 
@@ -678,7 +678,7 @@ class Workspace:
 
         return browser
 
-    def cube_features(self, cube: Cube, identity: Any=None) -> JSONType:
+    def cube_features(self, cube: Cube, identity: Any=None) -> BrowserFeatures:
         """Returns browser features for `cube`"""
         # TODO: this might be expensive, make it a bit cheaper
         # recycle the feature-providing browser or something. Maybe use class
