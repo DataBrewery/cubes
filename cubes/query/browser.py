@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from collections import namedtuple
+from enum import Enum
 
 from typing import (
         Any,
@@ -16,9 +17,10 @@ from typing import (
         Tuple,
         Union,
         cast,
+        NamedTuple,
     )
 
-# FIXME: Update afetr Python 3.6.1
+# FIXME: Update after Python 3.6.1
 Collection = List
 
 from ..types import JSONType
@@ -26,7 +28,7 @@ from ..types import JSONType
 from ..calendar import CalendarMemberConverter, Calendar
 from ..logging import get_logger
 from ..common import IgnoringDictionary
-from ..errors import ArgumentError, NoSuchAttributeError, HierarchyError
+from ..errors import ArgumentError, NoSuchAttributeError, HierarchyError, InternalError
 from ..stores import Store
 
 from ..metadata import (
@@ -75,6 +77,57 @@ _OrderArgType = Union[str, Union[_OrderType, Tuple[str,str]]]
 _ReportResult = Union[AggregationResult, Facts, JSONType, List[JSONType]] 
 
 
+class BrowserFeatureAction(Enum):
+    aggregate = 1
+    fact = 2
+    facts = 3
+    members = 4
+    cell = 5
+
+
+class BrowserFeatures(object):
+    actions: List[BrowserFeatureAction]
+    aggregate_functions: List[str]
+    post_aggregate_functions: List[str]
+
+    def __init__(self,
+                 actions: Optional[List[BrowserFeatureAction]]=None,
+                 aggregate_functions: Optional[List[str]]=None,
+                 post_aggregate_functions: Optional[List[str]]=None) -> None:
+        self.actions = actions
+        self.aggregate_functions = aggregate_functions
+        self.post_aggregate_functions = post_aggregate_functions
+
+    @classmethod
+    def from_dict(cls, data: JSONType) -> 'BrowserFeatures':
+        actions_names: List[str] = data.get('actions')
+        aggregate_functions: List[str] = data.get('aggregate_functions')
+        post_aggregate_functions: List[str] = data.get('post_aggregate_functions')
+
+        try:
+            actions = [BrowserFeatureAction[action] for action in actions_names]
+        except KeyError:
+            raise InternalError('Some actions are not valid.')
+
+        return BrowserFeatures(
+            actions=actions,
+            aggregate_functions=aggregate_functions,
+            post_aggregate_functions=post_aggregate_functions
+        )
+
+
+    def to_dict(self) -> JSONType:
+        result: JSONType = {}
+        if self.actions:
+            result['actions'] = [action.name for action in self.actions]
+        if self.aggregate_functions:
+            result['aggregate_functions'] = self.aggregate_functions
+        if self.post_aggregate_functions:
+            result['post_aggregate_functions'] = self.post_aggregate_functions
+
+        return result
+
+
 class AggregationBrowser:
     """Class for browsing data cube aggregations
 
@@ -113,7 +166,7 @@ class AggregationBrowser:
         self.calendar = None
 
     # TODO: Make this an explicit structure
-    def features(self) -> JSONType:
+    def features(self) -> BrowserFeatures:
         """Returns a dictionary of available features for the browsed cube.
         Default implementation returns an empty dictionary.
 
@@ -126,7 +179,7 @@ class AggregationBrowser:
 
         Subclasses are advised to override this method.
         """
-        return {}
+        return BrowserFeatures()
 
     # TODO: No *options
     def aggregate(self,
