@@ -76,14 +76,12 @@ _DrilldownType = Union[
 class Drilldown(Iterable, Sized):
 
     drilldown: List[DrilldownItem]
-    cell: Cell
     cube: Cube
     dimensions: List[Dimension]
     _contained_dimensions: Set[str]
 
     def __init__(self,
             cube: Cube,
-            cell: Cell,
             items: _DrilldownType=None) -> None:
         """Creates a drilldown object for `drilldown` specifictation of `cell`.
         The drilldown object can be used by browsers for convenient access to
@@ -101,7 +99,7 @@ class Drilldown(Iterable, Sized):
         """
 
         self.cube = cube
-        self.drilldown = levels_from_drilldown(cube, cell, items)
+        self.drilldown = levels_from_drilldown(cube, items)
         self.dimensions = []
         self._contained_dimensions = set()
 
@@ -152,8 +150,6 @@ class Drilldown(Iterable, Sized):
 
         This method is currently used for preparing the periods-to-date
         conditions.
-
-        See also: :meth:`cubes.Cell.deepest_levels`
         """
 
         levels = []
@@ -292,7 +288,6 @@ class Drilldown(Iterable, Sized):
 # TODO: move this to Drilldown
 def levels_from_drilldown(
         cube: Cube,
-        cell: Cell,
         drilldown: Optional[_DrilldownType]) -> List[DrilldownItem]:
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
@@ -331,7 +326,7 @@ def levels_from_drilldown(
                                 f"or a tuple of three elements. Is: {obj}")
 
         dim_any, hier_any, level_any = obj
-
+        
         dim: Dimension = cube.dimension(dim_any)
         hier: Hierarchy = dim.hierarchy(hier_any)
 
@@ -340,33 +335,8 @@ def levels_from_drilldown(
         if level_any:
             index = hier.level_index(str(level_any))
             levels = hier.levels[:index + 1]
-        elif dim.is_flat:
-            levels = hier.levels[:]
         else:
-            cut = cell.point_cut_for_dimension(dim.name)
-            if cut:
-                cut_hierarchy = dim.hierarchy(cut.hierarchy)
-                depth = cut.level_depth()
-                # inverted cut means not to auto-drill to the next level
-                if cut.invert:
-                    depth -= 1
-                # a flat dimension means not to auto-drill to the next level
-            else:
-                cut_hierarchy = hier
-                depth = 0
-
-            if cut_hierarchy != hier:
-                raise HierarchyError("Cut hierarchy %s for dimension %s is "
-                                     "different than drilldown hierarchy %s. "
-                                     "Can not determine implicit next level."
-                                     % (hier, dim, cut_hierarchy))
-
-            if depth >= len(hier):
-                raise HierarchyError("Hierarchy %s in dimension %s has only "
-                                     "%d levels, can not drill to %d" %
-                                     (hier, dim, len(hier), depth + 1))
-
-            levels = hier.levels[:depth + 1]
+            levels = hier.levels[:1]
 
         keys = [level.key.ref for level in levels]
         result.append(DrilldownItem(dim, hier, levels, keys))

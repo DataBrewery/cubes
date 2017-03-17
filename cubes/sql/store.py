@@ -586,7 +586,7 @@ class SQLStore(Store):
             keys += [l.key for l in levels]
 
         cell = Cell()
-        drilldown = Drilldown(drilldown, cell, cube=cube)
+        drilldown = Drilldown(drilldown, cube=cube)
 
         # Create statement of all dimension level keys for
         # getting structure for table creation

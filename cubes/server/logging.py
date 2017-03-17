@@ -211,7 +211,7 @@ class JSONRequestLogHandler(RequestLogHandler):
 
         if drilldown is not None:
             if cell:
-                drilldown = Drilldown(drilldown, cell=cell, cube=cube)
+                drilldown = Drilldown(drilldown, cube=cube)
                 record["drilldown"] = str(drilldown)
             else:
                 drilldown = []

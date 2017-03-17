@@ -121,7 +121,7 @@ class AggregationBrowser:
 
         * `actions` – list of actions that can be done with the cube, such as
           ``facts``, ``aggregate``, ``members``, ...
-        * `post_processed_aggregates` – list of aggregates that are computed
+        * `post_aggregate_functions` – list of aggregates that are computed
           after the result is fetched from the source (not natively).
 
         Subclasses are advised to override this method.
@@ -205,11 +205,11 @@ class AggregationBrowser:
                                     role_member_converters=converters)
             split = Cell(cuts)
 
-        drilldon = Drilldown(self.cube, cell=cell, items=drilldown)
+        drilldown = Drilldown(self.cube, items=drilldown)
 
         result = self.provide_aggregate(cell,
                                         aggregates=prepared_aggregates,
-                                        drilldown=drilldon,
+                                        drilldown=drilldown,
                                         split=split,
                                         order=order,
                                         page=page,
