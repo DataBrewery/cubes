@@ -12,6 +12,7 @@ from typing import (
 # - Type that was not yet determined with satisfaction
 # - Type that needs to be redesigned
 #
+# FIXME: The following types should be fixed
 _UnknownType = Any
 
 

@@ -192,10 +192,10 @@ class AttributeBase(ModelObject):
     def is_base(self) -> bool:
         return not self.expression
 
-    def localized_ref(self, locale: str) -> str:
+    def localized_ref(self, locale: Optional[str]) -> str:
         """Returns localized attribute reference for locale `locale`.
         """
-        if locale:
+        if locale is not None:
             if not self.locales:
                 raise ArgumentError("Attribute '{}' is not loalizable "
                                     "(localization {} requested)"

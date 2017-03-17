@@ -281,12 +281,14 @@ class SQLStore(Store):
             table = physical_tables.get(table_ref)
 
             if table is None:
-                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
+                logical = attr.localized_ref()
+                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], logical, attr))
             else:
                 try:
                     c = table.c[ref.column]
                 except KeyError:
-                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
+                    logical = attr.localized_ref()
+                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, logical, attr))
 
         return issues
 
