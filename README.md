@@ -3,6 +3,58 @@ Cubes - Online Analytical Processing Framework for Python
 
 [![Join the chat at https://gitter.im/DataBrewery/cubes](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/DataBrewery/cubes?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+IMPORTANT: 2.0 Development
+==========================
+
+This branch is under development and might be unstable or broken, especially
+during work on type annotations. To work on the 2.0 branch a special
+environment must be set up.
+
+Please come back to this README regularily for changes in the environment
+setup as some of the changes in external dependencies might be implemented and
+publicly released.
+
+Development Environment
+-----------------------
+
+### Typeshed
+
+We need to get typeshed with changes that are not yet merged with MyPy.
+
+Download MyPy sources:
+
+    git clone https://github.com/python/mypy
+    cd mypy
+    
+Download `typeshed` (under development):
+
+    git clone https://github.com/stiivi/typeshed
+
+Link the custom typeshed with mypy:
+
+    cd mypy
+    git submodule update --init --reference ../typeshed typeshed
+
+Note: Make sure that the `--reference` points to the `stiivi/typeshed`
+repository.
+
+
+Change to your Cubes development virtual environment and install this patched
+mypy:
+
+    # In the patched mypy directory execute:
+    python setup.py develop
+
+If you have mypy installed, you might want to uninstall it first:
+
+    pip uninstall mypy
+
+
+
+
+-----------------------------------------------------------------------------
+
+
 [![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=Stiivi&url=https://github.com/databrewery/cubes&title=Cubes&language=&tags=github&category=software)
 
 Cubes is a light-weight Python framework and set of tools for Online

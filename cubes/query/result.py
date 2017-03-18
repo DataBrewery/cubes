@@ -47,8 +47,11 @@ class TableRow(NamedTuple):
 
 
 class Facts(Iterable):
+    facts: Iterable[_RecordType]
+    attributes: List[str]
+
     def __init__(self,
-            facts: List[JSONType],
+            facts: Iterable[_RecordType],
             attributes: List[str]) -> None:
         """A facts iterator object returned by the browser's `facts()`
         method."""
@@ -56,7 +59,7 @@ class Facts(Iterable):
         self.facts = facts or []
         self.attributes = attributes
 
-    def __iter__(self) -> Iterator[JSONType]:
+    def __iter__(self) -> Iterator[_RecordType]:
         return iter(self.facts)
 
 

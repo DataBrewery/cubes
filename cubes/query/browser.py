@@ -14,16 +14,17 @@ from typing import (
         Optional,
         Set,
         Sized,
+        Sequence,
         Tuple,
         Union,
         cast,
         NamedTuple,
     )
 
-# FIXME: Update after Python 3.6.1
-Collection = List
+# FIXME: [typing] Update after Python 3.6.1
+Collection = Sequence
 
-from ..types import JSONType
+from ..types import JSONType, _RecordType, ValueType
 
 from ..calendar import CalendarMemberConverter, Calendar
 from ..logging import get_logger
@@ -55,7 +56,6 @@ from .cells import (
 
 from .statutils import (
         _CalculatorFunction,
-        _RecordType,
         available_calculators,
         calculators_for_aggregates,
     )
@@ -289,15 +289,13 @@ class AggregationBrowser:
         return result
 
     def provide_aggregate(self,
-            cell: Cell=None,
-            measures: List[Measure]=None,
-            aggregates: List[MeasureAggregate]=None,
-            drilldown: _DrilldownType=None,
+            cell: Cell,
+            aggregates: Collection[MeasureAggregate],
+            drilldown: Drilldown,
             split: Cell=None,
-            order: Optional[List[_OrderArgType]]=None,
+            order: Collection[_OrderType]=None,
             page: int=None,
-            page_size: int=None,
-            **options: Any) -> AggregationResult:
+            page_size: int=None) -> AggregationResult:
         """Method to be implemented by subclasses. The arguments are prepared
         by the superclass. Arguments:
 
@@ -439,8 +437,11 @@ class AggregationBrowser:
 
     def facts(self,
             cell: Cell=None,
-            fields: List[str]=None,
-            **options: Any) -> Facts:
+            fields: Collection[AttributeBase]=None,
+            order: List[_OrderArgType]=None,
+            page: int=None,
+            page_size: int=None,
+            fact_list: List[ValueType]=None) -> Facts:
         """Return an iterable object with of all facts within cell.
         `fields` is list of fields to be considered in the output.
 
@@ -449,7 +450,10 @@ class AggregationBrowser:
         raise NotImplementedError("{} does not provide facts functionality." \
                                   .format(str(type(self))))
 
-    def fact(self, key: str) -> JSONType:
+    def fact(self,
+            key: ValueType,
+            fields: Collection[AttributeBase]=None) \
+            -> Optional[_RecordType]:
         """Returns a single fact from cube specified by fact key `key`"""
         raise NotImplementedError("{} does not provide fact functionality." \
                                   .format(str(type(self))))
@@ -461,10 +465,10 @@ class AggregationBrowser:
             level: Level=None,
             hierarchy: Hierarchy=None,
             attributes: List[str]=None,
+            order: Optional[List[_OrderArgType]]=None,
             page: int=None,
             page_size: int=None,
-            order: Optional[List[_OrderArgType]]=None,
-            **options: Any) -> AggregationResult:
+            **options: Any) -> Iterable[_RecordType]:
         """Return members of `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned. If no `hierarchy` is specified,
         then default dimension hierarchy is used.
@@ -490,24 +494,38 @@ class AggregationBrowser:
             index = hierarchy.level_index(level.name)
             levels = hierarchy.levels_for_depth(index+1)
 
+        attribute_objs: Collection[AttributeBase]
+        if attributes is not None:
+            attribute_objs = self.cube.all_fact_attributes
+        else:
+            attribute_objs = self.cube.get_attributes(attributes)
+
         result = self.provide_members(cell,
                                       dimension=dimension,
                                       hierarchy=hierarchy,
                                       levels=levels,
-                                      attributes=attributes,
+                                      attributes=attribute_objs,
                                       order=prepared_order,
                                       page=page,
                                       page_size=page_size,
                                       **options)
         return result
 
-    # FIXME: [important] Properly annotate this one
-    def provide_members(self, *args: Any, **kwargs: Any) -> Any:
+    def provide_members(self,
+            cell: Cell,
+            dimension: Dimension,
+            depth: int=None,
+            hierarchy: Hierarchy=None,
+            levels: Collection[Level]=None,
+            attributes: Collection[AttributeBase]=None,
+            page: int=None,
+            page_size: int=None,
+            order: List[_OrderType]=None) -> Iterable[_RecordType]:
         raise NotImplementedError("{} does not provide members functionality." \
                                   .format(str(type(self))))
 
     # FIXME: [important] Properly annotate this one
-    def test(self, **options: Any) -> Any:
+    def test(self, aggregate: bool=False) -> None:
         """Tests whether the cube can be used. Refer to the backend's
         documentation for more information about what is being tested."""
         raise NotImplementedError("{} does not provide test functionality." \
@@ -761,10 +779,11 @@ class AggregationBrowser:
 
         return result
 
+    # TODO: [typing] Improve the return type
     def path_details(self,
             dimension: Dimension,
             path: HierarchyPath,
-            hierarchy: Hierarchy) -> Dict[str, Optional[str]]:
+            hierarchy: Hierarchy) -> Optional[_RecordType]:
         """Returns empty path details. Default fall-back for backends that do
         not support the path details. The level key and label are the same
         derived from the key."""

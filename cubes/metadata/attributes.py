@@ -2,8 +2,18 @@
 
 import copy
 
-from typing import Optional, Any, List, Dict, Set, Type, Iterable, cast, \
-        TypeVar, Sequence
+from typing import (
+        Any,
+        Dict,
+        Iterable,
+        List,
+        Optional,
+        Sequence,
+        Set,
+        Type,
+        TypeVar,
+        cast,
+    )
 from expressions import inspect_variables  # type: ignore
 
 from .base import ModelObject

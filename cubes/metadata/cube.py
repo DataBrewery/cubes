@@ -5,6 +5,9 @@ from collections import OrderedDict, defaultdict
 
 from typing import Optional, List, Dict, Any, Union, Set, Sequence, Tuple
 
+# FIXME: [typing] Update after Python 3.6.1
+Collection = Sequence
+
 from ..types import JSONType, OptionsType
 from ..common import assert_all_instances, get_localizable_attributes
 from ..errors import ModelError, ArgumentError, NoSuchAttributeError, \
@@ -441,7 +444,7 @@ class Cube(ModelObject):
         return [attr for attr in self.all_attributes if attr.is_base]
 
     @property
-    def all_fact_attributes(self) -> List[AttributeBase]:
+    def all_fact_attributes(self) -> List[Attribute]:
         """All cube's attributes from the fact: attributes of dimensions,
         details and measures.
 
@@ -510,9 +513,10 @@ class Cube(ModelObject):
         raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
                                    % (self.name, attribute))
 
+    # TODO: Rename to collect_attributes
     def get_attributes(self,
-                       attributes:Sequence[Union[str,AttributeBase]]=None,
-                       aggregated:bool=False) -> List[AttributeBase]:
+                       attributes:Collection[Union[str,AttributeBase]]=None,
+                       aggregated:bool=False) -> Collection[AttributeBase]:
         """Returns a list of cube's attributes. If `aggregated` is `True` then
         attributes after aggregation are returned, otherwise attributes for a
         fact are considered.
@@ -536,14 +540,15 @@ class Cube(ModelObject):
             else:
                 return self.all_fact_attributes
 
-        everything = object_dict(self.all_attributes, True)
+        lookup: Dict[str, AttributeBase]
+        lookup = object_dict(self.all_attributes, True)
 
         names = (str(attr) for attr in attributes or [])
 
         result = []
         for name in names:
             try:
-                attr = everything[name]
+                attr = lookup[name]
             except KeyError:
                 raise NoSuchAttributeError("Unknown attribute '{}' in cube "
                                            "'{}'".format(name, self.name))
