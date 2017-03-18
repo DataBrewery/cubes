@@ -2,10 +2,13 @@
 # TODO: This module requires redesign if not removal. Namespaces are not good
 # idea if one of the objectives is to preserve model quality.
 
-from typing import List, Dict, Optional, Set, Tuple, Union
+from typing import List, Dict, Optional, Set, Tuple, Union, Any
 from .types import JSONType
-from .metadata.providers import ModelProvider
 from .metadata.dimension import Dimension
+# from .metadata.providers import ModelProvider
+# FIXME: [Tech-debt] This needs to go away with redesign of namespaces/providers
+# FIXME: [typing] Workaround for circular dependency
+ModelProvider = Any
 
 from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 from .common import read_json_file

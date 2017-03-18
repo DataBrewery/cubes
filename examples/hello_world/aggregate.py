@@ -49,7 +49,6 @@ result = browser.aggregate(cell, drilldown=["item:subcategory"])
 
 print(("%-20s%10s%10s%10s\n"+"-"*50) % ("Sub-category", "Count", "Total", "Double"))
 
-import pdb; pdb.set_trace()
 for row in result.table_rows("item"):
     print("%-20s%10d%10d%10d" % ( row.label,
                               row.record["record_count"],
