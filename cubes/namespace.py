@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+# TODO: This module requires redesign if not removal. Namespaces are not good
+# idea if one of the objectives is to preserve model quality.
+
+from typing import List, Dict, Optional, Set, Tuple, Union
+from .types import JSONType
+from .metadata.providers import ModelProvider
+from .metadata.dimension import Dimension
 
 from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 from .common import read_json_file
@@ -8,7 +15,16 @@ __all__ = [
 ]
 
 class Namespace(object):
-    def __init__(self, name=None, parent=None):
+
+    parent: Optional["Namespace"]
+    name: Optional[str]
+    namespaces: Dict[str, "Namespace"]
+    providers: List[ModelProvider]
+    translations: Dict[str, JSONType]
+
+    def __init__(self,
+            name: Optional[str]=None,
+            parent:"Namespace"=None) -> None:
         """Creates a cubes namespace – an object that provides model objects
         from the providers."""
         # TODO: Assign this on __init__, namespaces should not be freely
@@ -19,7 +35,8 @@ class Namespace(object):
         self.providers = []
         self.translations = {}
 
-    def namespace(self, path, create=False):
+    def namespace(self, path: Union[str, List[str]], create: bool=False) \
+            -> Tuple["Namespace", Optional[str]]:
         """Returns a tuple (`namespace`, `remainder`) where `namespace` is
         the deepest namespace in the namespace hierarchy and `remainder` is
         the remaining part of the path that has no namespace (is an object
@@ -35,16 +52,18 @@ class Namespace(object):
             return (self, None)
 
         if isinstance(path, str):
-            path = path.split(".")
+            path_elements = path.split(".")
+        else:
+            path_elements = path
 
         namespace = self
-        for i, element in enumerate(path):
-            remainder = path[i+1:]
+        for i, element in enumerate(path_elements):
+            remainder = path_elements[i+1:]
             if element in namespace.namespaces:
                 namespace = namespace.namespaces[element]
                 found = True
             else:
-                remainder = path[i:]
+                remainder = path_elements[i:]
                 break
 
         if not create:
@@ -55,10 +74,10 @@ class Namespace(object):
 
             return (namespace, None)
 
-    def create_namespace(self, name):
+    def create_namespace(self, name: str) -> "Namespace":
         """Create a namespace `name` in the receiver."""
         if self.name:
-            nsname = "%s.%s" % (self.name, name)
+            nsname = f"{self.name}.{name}"
         else:
             nsname = name
 
@@ -67,7 +86,8 @@ class Namespace(object):
 
         return namespace
 
-    def find_cube(self, cube_ref):
+    def find_cube(self, cube_ref: str) \
+            -> Tuple["Namespace", ModelProvider, str]:
         """Returns a tuple (`namespace`, `provider`, `basename`) where
         `namespace` is a namespace conaining `cube`, `provider` providers the
         model for the cube and `basename` is a name of the `cube` within the
@@ -78,8 +98,13 @@ class Namespace(object):
         Raises `NoSuchCubeError` when there is no cube with given reference.
         """
 
+        path: List[str]
+
         cube_ref = str(cube_ref)
+
+        split: List[str]
         split = cube_ref.split(".")
+
         if len(split) > 1:
             path = split[0:-1]
             cube_ref = split[-1]
@@ -110,12 +135,15 @@ class Namespace(object):
         return (namespace, provider, basename)
 
 
-    def list_cubes(self, recursive=False):
+    def list_cubes(self, recursive: bool=False) -> List[JSONType]:
         """Retursn a list of cube info dictionaries with keys: `name`,
         `label`, `description`, `category` and `info`."""
 
+        all_cubes: List[JSONType]
         all_cubes = []
+        cube_names: Set[str]
         cube_names = set()
+
         for provider in self.providers:
             cubes = provider.list_cubes()
             # Cehck for duplicity
@@ -138,8 +166,13 @@ class Namespace(object):
 
     # TODO: change to find_dimension() analogous to the find_cube(). Let the
     # caller to perform actual dimension creation using the provider
-    def dimension(self, name, locale=None, templates=None, local_only=False):
-        dim = None
+    def dimension(self,
+            name: str,
+            locale: str=None,
+            templates: Dict[str, Dimension]=None,
+            local_only: bool=False) -> Dimension:
+
+        dim: Dimension
 
         for provider in self.providers:
             # TODO: use locale
@@ -153,15 +186,15 @@ class Namespace(object):
 
         # If we are not looking for dimension within this namespace only,
         # traverse the namespace hierarchy, if there is one
-        if not local_only and self.parent:
+        if not local_only and self.parent is not None:
             return self.parent.dimension(name, locale, templates)
 
-        raise NoSuchDimensionError("Unknown dimension '%s'" % str(name), name)
+        raise NoSuchDimensionError(f"Unknown dimension '{name}'", name)
 
-    def add_provider(self, provider):
+    def add_provider(self, provider: ModelProvider) -> None:
         self.providers.append(provider)
 
-    def add_translation(self, lang, translation):
+    def add_translation(self, lang: str, translation: JSONType) -> None:
         """Registers and merges `translation` for language `lang`"""
         try:
             trans = self.translations[lang]
@@ -175,21 +208,28 @@ class Namespace(object):
 
         trans.update(translation)
 
-    def translation_lookup(self, lang):
+    def translation_lookup(self, lang: str) -> List[JSONType]:
         """Returns translation in language `lang` for model object `obj`
         within `context` (cubes, dimensions, attributes, ...).  Looks in
         parent if current namespace does not have the translation."""
 
+        lookup: List[JSONType]
         lookup = []
+        visited: Set["Namespace"]
         visited = set()
 
         # Find namespaces with translation language
         ns = self
-        while ns and ns not in visited:
+
+        while ns is not None and ns not in visited:
             if lang in ns.translations:
                 lookup.append(ns.translations[lang])
             visited.add(ns)
-            ns = ns.parent
+
+            if ns.parent is None:
+                break
+            else:
+                ns = ns.parent
 
         return lookup
 
