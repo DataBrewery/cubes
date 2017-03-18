@@ -3,10 +3,7 @@
 # Global Context – top level namespace and objects in other namespaces
 # Local Context - within object being translated
 
-# TODO: work in progress
-# TODO: rename to something nicer
-# TODO: reuse the lookup function
-# TODO: Change this to use translation lookup instead of just one translation
+# TODO: Should go away with new approach to model object description in #398
 
 class ModelObjectLocalizationContext(object):
     def __init__(self, translation, context, object_type, object_name):

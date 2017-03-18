@@ -94,9 +94,9 @@ class BrowserFeatures(object):
                  actions: Optional[List[BrowserFeatureAction]]=None,
                  aggregate_functions: Optional[List[str]]=None,
                  post_aggregate_functions: Optional[List[str]]=None) -> None:
-        self.actions = actions
-        self.aggregate_functions = aggregate_functions
-        self.post_aggregate_functions = post_aggregate_functions
+        self.actions = actions or []
+        self.aggregate_functions = aggregate_functions or []
+        self.post_aggregate_functions = post_aggregate_functions or []
 
     @classmethod
     def from_dict(cls, data: JSONType) -> 'BrowserFeatures':
