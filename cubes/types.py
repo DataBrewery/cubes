@@ -20,6 +20,7 @@ _UnknownType = Any
 # --------------------
 JSONType = Dict[str, Any]
 OptionsType = Dict[str, str]
+OptionValue = Any
 
 # Used in Workspace
 # TODO: Should be namedtuple: ref, identity, locale
@@ -28,3 +29,4 @@ _CubeKey = Tuple[str, Any, Optional[str]]
 
 # TODO: [typing] See #410
 _RecordType = Mapping[str, Any]
+ValueType = Any

@@ -11,6 +11,10 @@ except ImportError:
 
     reflection = sa = sql = MissingPackage("sqlalchemy", "SQL")
 
+from typing import Any
+from .types import Connectable, Engine, MetaData
+from ..types import OptionsType, OptionValue, JSONType
+
 from .browser import SQLBrowser
 from .mapper import distill_naming, Naming
 from ..logging import get_logger
@@ -107,7 +111,16 @@ class SQLStore(Store):
         }
     ]
 
-    def __init__(self, url=None, engine=None, metadata=None, **options):
+    connectable: Connectable
+    metadata: MetaData
+    options: OptionsType
+    schema: Optional[str]
+
+    def __init__(self,
+            url: str=None,
+            engine: Engine=None,
+            metadata: MetaData=None,
+            **options: OptionValue) -> None:
         """
         The options are:
 
@@ -156,14 +169,15 @@ class SQLStore(Store):
         self.options = coalesce_options(options, OPTION_TYPES)
         self.naming = distill_naming(self.options)
 
-        if not engine:
+        if engine is None:
             # Process SQLAlchemy options
             sa_options = sqlalchemy_options(options)
-            engine = sa.create_engine(url, **sa_options)
+            self.connectable = sa.create_engine(url, **sa_options)
+        else:
+            self.connectable = engine
 
         self.logger = get_logger(name=__name__)
 
-        self.connectable = engine
         self.schema = self.naming.schema
 
         # Load metadata here. This might be too expensive operation to be

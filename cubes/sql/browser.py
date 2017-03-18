@@ -3,21 +3,27 @@
 
 
 from typing import (
+    Any,
     Iterable,
     List,
-    Optional,
     Mapping,
+    Optional,
+    TYPE_CHECKING,
+    Type,
 )
 
 import collections
 
+# Soft-dependency import
 try:
     import sqlalchemy
     import sqlalchemy.sql as sql
-
 except ImportError:
     from ..common import MissingPackage
     sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
+
+from .types import Connectable
+from ..types import _RecordType, ValueType
 
 from ..query import available_calculators
 from ..query.browser import AggregationBrowser, BrowserFeatures, BrowserFeatureAction
@@ -28,12 +34,19 @@ from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 from ..stores import Store
 from ..metadata import AttributeBase, Measure, MeasureAggregate
+from ..metadata.cube import Cube
 
 from .functions import available_aggregate_functions
-from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
-from .mapper import distill_naming
+from .mapper import (
+        Mapper,
+        DenormalizedMapper,
+        StarSchemaMapper,
+        map_base_attributes,
+        distill_naming,
+    )
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
+from .store import SQLStore
 
 from ..types import _RecordType
 
@@ -108,18 +121,24 @@ class SQLBrowser(AggregationBrowser):
 
     ]
 
-    def __init__(self, cube, store, locale=None, debug=False, **kwargs):
+    locale: Optional[str]
+    connectable: Connectable
+    star: StarSchema
+    # FIXME: [Typing] see Cube.distilled_hierarchies
+    hierarchies: Dict[Tuple[str,Optional[str]],List[str]]
+
+    def __init__(self,
+            cube: Cube,
+            store: SQLStore, 
+            locale: str=None,
+            debug: bool=False,
+            **kwargs: Any) -> None:
         """Create a SQL Browser."""
 
-        super(SQLBrowser, self).__init__(cube, store)
-
-        if not cube:
-            raise ArgumentError("Cube for browser should not be None.")
+        super().__init__(cube, store=store, locale=locale or cube.locale)
 
         self.logger = get_logger()
 
-        self.cube = cube
-        self.locale = locale or cube.locale
         self.debug = debug
 
         # Database connection and metadata
@@ -162,6 +181,7 @@ class SQLBrowser(AggregationBrowser):
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
 
+        mapper: Type[Mapper]
         if options.get("is_denormalized", options.get("use_denormalization")):
             mapper = DenormalizedMapper
         else:
@@ -198,7 +218,7 @@ class SQLBrowser(AggregationBrowser):
         #
         self.hierarchies = self.cube.distilled_hierarchies
 
-    def features(self):
+    def features(self) -> BrowserFeatures:
         """Return SQL features. Currently they are all the same for every
         cube, however in the future they might depend on the SQL engine or
         other factors."""
@@ -217,13 +237,13 @@ class SQLBrowser(AggregationBrowser):
 
         return features
 
-    def is_builtin_function(self, funcname):
+    def is_builtin_function(self, funcname: str) -> bool:
         """Returns `True` if the function `funcname` is backend's built-in
         function."""
 
         return funcname in available_aggregate_functions()
 
-    def fact(self, key_value, fields=None):
+    def fact(self, key_value: ValueType, fields: List[str]=None) -> _RecordType:
         """Get a single fact with key `key_value` from cube.
 
         Number of SQL queries: 1."""

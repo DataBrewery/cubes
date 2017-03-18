@@ -209,7 +209,7 @@ class Naming(AttributeDict):
         return _match_names(self.fact_name_pattern, table_names)
 
 
-class Mapper(object):
+class Mapper:
     """A dictionary-like object that provides physical column references for
     cube attributes. Does implicit mapping of an attribute.
 
