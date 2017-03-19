@@ -57,6 +57,7 @@ from ..query.drilldown import Drilldown
 from ..query.cells import Cell, PointCut
 from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
+
 from ..stores import Store
 
 from .functions import available_aggregate_functions
@@ -69,7 +70,9 @@ from .mapper import (
     )
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
-from .store import SQLStore
+
+if TYPE_CHECKING:
+    from .store import SQLStore
 
 from ..types import _RecordType
 
@@ -152,7 +155,7 @@ class SQLBrowser(AggregationBrowser):
 
     def __init__(self,
             cube: Cube,
-            store: SQLStore, 
+            store: "SQLStore", 
             locale: str=None,
             debug: bool=False,
             **kwargs: Any) -> None:

@@ -10,7 +10,7 @@ except ImportError:
 
     reflection = sa = sql = MissingPackage("sqlalchemy", "SQL")
 
-from typing import Any
+from typing import Any, Optional
 from .types import Connectable, Engine, MetaData, RowProxy, ResultProxy
 from ..types import OptionsType, OptionValue, JSONType
 

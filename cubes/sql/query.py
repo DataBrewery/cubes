@@ -7,13 +7,19 @@ Star/snowflake schema query construction structures
 
 """
 
-# Note for developers and maintainers
-# -----------------------------------
-#
-# This module is to be remained implemented in a way that it does not use any
-# of the Cubes objects. It might use duck-typing and assume objects with
-# similar attributes. No calls to Cubes object functions should be allowed
-# here.
+from typing import (
+        List,
+        Mapping,
+        NamedTuple,
+        Optional,
+        # FIXME: [typing] remove this in Python 3.6.1
+        Sequence as Collection,
+        Sequence,
+        Tuple,
+        Union,
+    )
+
+from .types import _PhysicalReference
 
 import logging
 from collections import namedtuple
@@ -45,8 +51,12 @@ applied on the `column`.
 
 Note that either `extract` or `function` can be used, not both."""
 
-Column = namedtuple("Column", ["schema", "table", "column",
-                               "extract", "function"])
+class ColumnReference(NamedTuple):
+    schema: Optional[str]
+    table: str
+    column: str
+    extract: Optional[str]
+    function: Optional[str]
 
 #
 # IMPORTANT: If you decide to extend the above Mapping functionality by adding
@@ -58,7 +68,11 @@ Column = namedtuple("Column", ["schema", "table", "column",
 # See similar comment in the column() method of the StarSchema.
 #
 
-def to_column(obj, default_table=None, default_schema=None):
+
+def to_column(
+        obj: _PhysicalReference,
+        default_table: str=None,
+        default_schema: str=None) -> ColumnReference:
     """Utility function that will create a `Column` reference object from an
     anonymous tuple, dictionary or a similar object. `obj` can also be a
     string in form ``schema.table.column`` where shcema or both schema and
@@ -106,7 +120,7 @@ def to_column(obj, default_table=None, default_schema=None):
     table = table or default_table
     schema = schema or default_schema
 
-    return Column(schema, table, column, extract, function)
+    return ColumnReference(schema, table, column, extract, function)
 
 
 # TODO: remove this and use just Column
@@ -131,7 +145,6 @@ def to_join_key(obj):
 
     .. versionadded:: 1.1
     """
-
 
     if obj is None:
         return JoinKey(None, None, None)
@@ -170,18 +183,36 @@ def to_join_key(obj):
 
     return JoinKey(schema, table, column)
 
+
 """Table join specification. `master` and `detail` are TableColumnReference
 tuples. `method` denotes which table members should be considered in the join:
 *master* – all master members (left outer join), *detail* – all detail members
 (right outer join) and *match* – members must match (inner join)."""
 
-Join = namedtuple("Join",
-                  ["master", # Master table (fact in star schema)
-                   "detail", # Detail table (dimension in star schema)
-                   "alias",  # Optional alias for the detail table
-                   "method"  # Method how the table is joined
-                  ]
-                 )
+
+class Join(NamedTuple):
+    # Master table (fact in star schema)
+    master: str
+    # Detail table (dimension in star schema)
+    detail: str
+    # Optional alias for the detail table
+    alias: Optional[str]
+    # Method how the table is joined
+    method: str
+
+
+_JoinKeyFreeType = Union[
+    str,
+    List[str],
+]
+
+
+_JoinFreeType = Union[
+    Tuple[_JoinKeyFreeType, _JoinKeyFreeType],
+    Tuple[_JoinKeyFreeType, _JoinKeyFreeType, str],
+    Tuple[_JoinKeyFreeType, _JoinKeyFreeType, str, str],
+    Mapping[str, str],
+]
 
 
 def to_join(obj):
@@ -222,15 +253,19 @@ def to_join(obj):
 
 
 # Internal table reference
-_TableRef = namedtuple("_TableRef",
-                       ["schema", # Database schema
-                        "name",   # Table name
-                        "alias",  # Optional table alias instead of name
-                        "key",    # Table key (for caching or referencing)
-                        "table",  # SQLAlchemy Table object, reflected
-                        "join"    # join which joins this table as a detail
-                       ]
-                      )
+class _TableRef(NamedTuple):
+    # Database schema
+    schema: str
+    # Table name
+    name: str
+    # Optional table alias instead of name
+    alias: Optional[str]
+    # Table key (for caching or referencing)
+    key: str
+    # SQLAlchemy Table object, reflected
+    table: sa.Table
+    # join which joins this table as a detail
+    join: Join
 
 
 class SchemaError(InternalError):
@@ -412,13 +447,14 @@ class StarSchema(object):
 
         # Collect the fact table as the root master table
         #
-        fact_table = _TableRef(schema=self.schema,
-                               name=self.fact_name,
-                               alias=self.fact_name,
-                               key=(self.schema, self.fact_name),
-                               table=self.fact_table,
-                               join=None
-                              )
+        fact_table = _TableRef(
+                schema=self.schema,
+                name=self.fact_name,
+                alias=self.fact_name,
+                key=(self.schema, self.fact_name),
+                table=self.fact_table,
+                join=None
+            )
 
         self._tables[fact_table.key] = fact_table
 
@@ -426,7 +462,6 @@ class StarSchema(object):
         # We don't need to collect the master tables as they are expected to
         # be referenced as 'details'. The exception is the fact table that is
         # provided explicitly for the snowflake schema.
-
 
         # Collect details for duplicate verification. It sohuld not be
         # possible to join one detail multiple times with the same name. Alias
@@ -459,13 +494,14 @@ class StarSchema(object):
                                  .format(_format_key(key), self.label))
             details.add(key)
 
-            ref = _TableRef(table=table,
-                            schema=join.detail.schema,
-                            name=join.detail.table,
-                            alias=alias,
-                            key=key,
-                            join=join
-                           )
+            ref = _TableRef(
+                    table=table,
+                    schema=join.detail.schema,
+                    name=join.detail.table,
+                    alias=alias,
+                    key=key,
+                    join=join,
+                )
 
             self._tables[key] = ref
 
@@ -531,7 +567,6 @@ class StarSchema(object):
             raise NoSuchTableError(msg)
 
         return table
-
 
     def column(self, logical):
         """Return a column for `logical` reference. The returned column will
@@ -699,7 +734,7 @@ class StarSchema(object):
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
-        star_tables = {table_ref.key:table_ref.table for table_ref in tables}
+        star_tables = {table_ref.key: table_ref.table for table_ref in tables}
 
         # Here the `star` contains mapping table key -> table, which will be
         # gradually replaced by JOINs
@@ -711,7 +746,7 @@ class StarSchema(object):
         # 2. construct the condition
         # 3. use the appropriate SQL JOIN
         # 4. wrap the star with detail
-        # 
+        #
         # TODO: support MySQL partition (see Issue list)
 
         # First table does not need to be joined. It is the "fact" (or other
@@ -877,7 +912,7 @@ class QueryContext(object):
 
         # Collect all the columns
         #
-        bases = {attr:self.star_schema.column(attr) for attr in base_names}
+        bases = {attr: self.star_schema.column(attr) for attr in base_names}
         bases[FACT_KEY_LABEL] = self.star_schema.fact_key_column
 
         self._columns = compile_attributes(bases, dependants, parameters,
@@ -1106,4 +1141,3 @@ class QueryContext(object):
         label = label or SPLIT_DIMENSION_NAME
 
         return split_column.label(label)
-
