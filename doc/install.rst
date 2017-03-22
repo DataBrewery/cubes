@@ -6,13 +6,17 @@ There are two options how to install cubes: basic common installation -
 recommended mostly for users starting with Cubes. Then there is customized 
 installation with requirements explained.
 
+Dependencies:
+
+* `SQLAlchemy`_
+* `expressions`
+* `python-dateutil`
+
 Basic Installation
 ==================
 
 The cubes has optional requirements:
 
-* `SQLAlchemy`_ for SQL database aggregation browsing backend (version >=
-  0.7.4)
 * `Flask`_ for Slicer OLAP HTTP server
 
 .. note::

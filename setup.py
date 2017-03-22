@@ -21,14 +21,14 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 requirements = [
     "python-dateutil",
     "jsonschema",
-    "expressions>=0.2.3"
+    "expressions>=0.2.3",
+    "sqlalchemy>0.9.0",
 ]
 
 extras = {
-    'sql': 'sqlalchemy>= 0.9.0',
     'slicer': 'werkzeug',
     'html': 'jinja',
-    'all': ['cubes[%s]' % extra for extra in ['sql', 'slicer', 'html']],
+    'all': ['cubes[%s]' % extra for extra in ['slicer', 'html']],
     'dev': ['cubes[all]', 'sphinx'],
 }
 
