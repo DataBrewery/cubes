@@ -19,38 +19,20 @@ Development Environment
 
 ### Typeshed
 
-We need to get typeshed with changes that are not yet merged with MyPy.
+We need to get typeshed with changes that might not yet been merged with MyPy.
 
-Download MyPy sources:
-
-    git clone https://github.com/python/mypy
-    cd mypy
-    
-Download `typeshed` (under development):
+Download modified `typeshed`:
 
     git clone https://github.com/stiivi/typeshed
 
-Link the custom typeshed with mypy:
+Use custom typeshed while running mypy, for example:
 
-    cd mypy
-    git submodule update --init --reference ../typeshed typeshed
+    mypy --custom-typeshed-dir ../typeshed
 
-Note: Make sure that the `--reference` points to the `stiivi/typeshed`
-repository.
+Or add the option to the `mypy.ini` file:
 
-
-Change to your Cubes development virtual environment and install this patched
-mypy:
-
-    # In the patched mypy directory execute:
-    python setup.py develop
-
-If you have mypy installed, you might want to uninstall it first:
-
-    pip uninstall mypy
-
-
-
+    [mypy]
+    custom_typeshed_dir = ../typeshed
 
 -----------------------------------------------------------------------------
 
