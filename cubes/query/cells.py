@@ -4,9 +4,18 @@ import copy
 import re
 
 from collections import OrderedDict
-from typing import List, Optional, Set, Union, Dict, Sequence, Tuple, \
-                    Callable, Any, \
-                    cast
+from typing import (
+        Any,
+        Callable,
+        Collection,
+        Dict,
+        List,
+        Optional,
+        Set,
+        Tuple,
+        Union,
+        cast,
+    )
 
 from ..types import JSONType
 from ..errors import ArgumentError, CubesError
@@ -302,7 +311,7 @@ class Cell(object):
 
     cuts: List[Cut]
 
-    def __init__(self, cuts: Sequence[Cut]=None) -> None:
+    def __init__(self, cuts: Collection[Cut]=None) -> None:
         self.cuts = list(cuts) if cuts is not None else []
 
     def __and__(self, other: "Cell") -> "Cell":
@@ -746,7 +755,7 @@ def _path_part_unescape(path_part: str) -> Optional[str]:
     return PATH_PART_UNESCAPE_PATTERN.sub(r"\1", path_part)
 
 
-def string_from_cuts(cuts: Sequence[Cut]) -> str:
+def string_from_cuts(cuts: Collection[Cut]) -> str:
     """Returns a string represeting `cuts`. String can be used in URLs"""
     strings = [str(cut) for cut in cuts]
     string = CUT_STRING_SEPARATOR_CHAR.join(strings)

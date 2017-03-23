@@ -4,8 +4,7 @@
 import re
 
 from typing import (
-        # FIXME: [typing] remove this alias for Python 3.6.1
-        Sequence as Collection,
+        Collection,
         Dict,
         List,
         Mapping,
@@ -21,7 +20,7 @@ from ..types import JSONType
 from ..errors import ModelError
 from ..datastructures import AttributeDict
 
-from .query import to_column, ColumnReference
+from ..metadata.physical import ColumnReference
 
 from ..metadata.cube import Cube
 from ..metadata.attributes import AttributeBase
@@ -79,7 +78,7 @@ NAMING_DEFAULTS = {
 }
 
 
-def distill_naming(dictionary: Dict[str,str]) -> Dict[str,str]:
+def distill_naming(dictionary: Dict[str,str]) -> Naming:
     """Distill only keys and values related to the naming conventions."""
     d = {key: value for key, value in dictionary.items()
          if key in NAMING_DEFAULTS}
@@ -137,7 +136,7 @@ class Naming(AttributeDict):
     ``dm_``, `explicit_dimension_primary` = ``True``.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: str, **kwargs: str) -> None:
         """Creates a `Naming` object instance from a dictionary. If `fact_key`
         or `dimension_key` are not specified, then they are set to ``id`` by
         default."""

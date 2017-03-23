@@ -3,10 +3,7 @@
 
 from collections import OrderedDict, defaultdict
 
-from typing import Optional, List, Dict, Any, Union, Set, Sequence, Tuple
-
-# FIXME: [typing] Update after Python 3.6.1
-Collection = Sequence
+from typing import Collection, Optional, List, Dict, Any, Union, Set, Tuple
 
 from ..types import JSONType, OptionsType
 from ..common import assert_all_instances, get_localizable_attributes
@@ -112,7 +109,8 @@ class Cube(ModelObject):
 
     locale: Optional[str]
     category: Optional[str]
-    joins: Optional[JSONType]
+    # TODO: [typing] use List[Join]
+    joins: Optional[List[JSONType]]
     # FIXME: Make dimension link a real metadata object
     dimension_links: JSONType
     basename: str
@@ -556,7 +554,7 @@ class Cube(ModelObject):
 
         return result
 
-    def collect_dependencies(self, attributes: List[AttributeBase])\
+    def collect_dependencies(self, attributes: Collection[AttributeBase])\
                 -> List[AttributeBase]:
         """Collect all original and dependant cube attributes for
         `attributes`, sorted by their dependency: starting with attributes

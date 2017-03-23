@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 
-from typing import Optional, List, Any, Dict, IO, cast, Sequence
+from typing import Optional, List, Any, Dict, IO, cast, Collection
 
 from urllib.parse import urlparse
 from urllib.request import urlopen
@@ -97,7 +97,7 @@ class ModelObject(object):
         return acopy
 
 
-def object_dict(objects:Sequence[ModelObject],
+def object_dict(objects:Collection[ModelObject],
                 by_ref:bool=False,
                 error_message:Optional[str]=None,
                 error_dict:Dict[str,Any]=None) -> Dict[str,Any]:

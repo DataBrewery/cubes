@@ -4,11 +4,11 @@ import copy
 
 from typing import (
         Any,
+        Collection,
         Dict,
         Iterable,
         List,
         Optional,
-        Sequence,
         Set,
         Type,
         TypeVar,
@@ -588,14 +588,14 @@ class MeasureAggregate(AttributeBase):
         return inspect_variables(self.expression)
 
 
-def create_list_of(class_: Type[T], objects: Sequence[JSONType]) -> List[T]:
+def create_list_of(class_: Type[T], objects: Collection[JSONType]) -> List[T]:
     """Return a list of model objects of class `class_` from list of object
     metadata `objects`"""
     return [class_.from_metadata(obj) for obj in objects]
 
 
 # FIXME: [typing] Reconsider this from type perspective
-def collect_attributes(attributes: Sequence[T],
+def collect_attributes(attributes: Collection[T],
                        *containers: Any) -> List[T]:
     """Collect attributes from arguments. `containers` are objects with
     method `all_attributes` or might be `Nulls`. Returns a list of attributes.
@@ -615,8 +615,8 @@ def collect_attributes(attributes: Sequence[T],
     return collected
 
 
-def collect_dependencies(attributes: Sequence[T],
-                         all_attributes: Sequence[T]) -> List[str]:
+def collect_dependencies(attributes: Collection[T],
+                         all_attributes: Collection[T]) -> List[str]:
     """Collect all original and dependant cube attributes for
     `attributes`, sorted by their dependency: starting with attributes
     that don't depend on anything. For exapmle, if the `attributes` is [a,

@@ -1,6 +1,6 @@
 """Physical Metadata"""
 
-from typing import Any, List, Optional, Hashable
+from typing import Any, List, Optional, Hashable, NamedTuple
 from enum import Enum
 
 from ..types import JSONType
@@ -9,8 +9,11 @@ from ..errors import ArgumentError
 
 
 # TODO: [typing] Make JoinMethod enum
-# class JoinMethod(Enum):
-#     pass
+class JoinMethod(Enum):
+    default = 0
+    match = 1
+    master = 2
+    detail = 3
 
 
 class JoinKey(Hashable):
@@ -28,7 +31,7 @@ class JoinKey(Hashable):
         self.schema = schema
 
     @classmethod
-    def from_dict(cls, obj: JSONType) -> JoinKey:
+    def from_dict(cls, obj: JSONType) -> "JoinKey":
         """Utility function that will create JoinKey from multiple types of
         JSON representations:
 
@@ -107,23 +110,23 @@ class Join(Hashable):
 
     # TODO: [typingI nvestigate optional keys - where, how?
     # Master table (fact in star schema)
-    master: Optional[JoinKey]
+    master: JoinKey
     # Detail table (dimension in star schema)
-    detail: Optional[JoinKey]
+    detail: JoinKey
     # Optional alias for the detail table
     alias: Optional[str]
     # Method how the table is joined
-    method: Optional[str]
+    method: JoinMethod
 
     def __init__(self,
-            master: Optional[JoinKey],
-            detail: Optional[JoinKey],
+            master: JoinKey,
+            detail: JoinKey,
             alias: Optional[str]=None,
-            method: str=None) -> None: 
+            method: Optional[JoinMethod]=None) -> None: 
         self.master = master
         self.detail = detail
         self.alias = alias
-        self.method = method
+        self.method = method or JoinMethod.match
 
 
     def __hash__(self) -> int:
@@ -140,7 +143,7 @@ class Join(Hashable):
                     and self.method == other.method
 
     @classmethod
-    def from_dict(cls, obj: JSONType) -> Join:
+    def from_dict(cls, obj: JSONType) -> "Join":
         """Create `Join` tuple from a JSON dictionary with keys:
 
         * ``master`` – master table and key specification (see `JoinKey`)
@@ -151,10 +154,11 @@ class Join(Hashable):
         Alternative JSON structure is accepted: a list [`master`, `detail`,
         `alias`, `method`]. This is deprecated and will be removed.
         """
-        master: Optional[JoinKey]
-        detail: Optional[JoinKey]
+        master: JoinKey
+        detail: JoinKey
         alias: Optional[str]
-        method: Optional[str]
+        method_name: Optional[str]
+        method: JoinMethod
 
         # TODO: Deprecated, remove
         if isinstance(obj, list):
@@ -171,19 +175,29 @@ class Join(Hashable):
             master = JoinKey.from_dict(obj[0])
             detail = JoinKey.from_dict(obj[1])
             alias = obj[2]
-            method = obj[3]
+            method_name = obj[3]
 
         elif isinstance(obj, dict):
-            if "master" in obj:
+            if "master" not in obj:
+                raise ArgumentError(f"Join '{obj}' has no master.")
+            else: 
                 master = JoinKey.from_dict(obj["master"])
-            if "detail" in obj:
+
+            if "detail" not in obj:
+                raise ArgumentError(f"Join '{obj}' has no detail.")
+            else:
                 detail = JoinKey.from_dict(obj["detail"])
 
             alias = obj.get("alias")
-            method = obj.get("method")
+            method_name = obj.get("method")
 
         else:
             raise ArgumentError(f"Invalid Join specification: '{obj}'")
+
+        if method_name is None:
+            method = JoinMethod.match
+        else:
+            method = JoinMethod[method_name.lower()]  # type: ignore
 
         return Join(master=master, detail=detail, alias=alias, method=method)
 
@@ -231,7 +245,7 @@ class ColumnReference(Hashable):
                     and self.function == other.function
 
     @classmethod
-    def from_dict(cls, obj: JSONType) -> ColumnReference:
+    def from_dict(cls, obj: JSONType) -> "ColumnReference":
         """Create a `Column` reference object from a JSON object which can be:
 
         * string with optional schema and table in format

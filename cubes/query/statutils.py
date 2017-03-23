@@ -6,7 +6,7 @@ from math import sqrt
 
 from functools import reduce
 
-from typing import List, Callable, List, Union, Sequence, Optional, Any
+from typing import List, Callable, List, Union, Optional, Sequence, Any
 
 from ..types import _UnknownType, _RecordType
 from ..errors import ArgumentError, InternalError, ModelError

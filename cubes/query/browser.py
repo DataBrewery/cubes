@@ -14,15 +14,11 @@ from typing import (
         Optional,
         Set,
         Sized,
-        Sequence,
         Tuple,
         Union,
         cast,
         NamedTuple,
     )
-
-# FIXME: [typing] Update after Python 3.6.1
-Collection = Sequence
 
 from ..types import JSONType, _RecordType, ValueType
 

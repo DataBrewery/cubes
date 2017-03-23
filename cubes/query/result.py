@@ -2,6 +2,7 @@
 
 from typing import (
         Any,
+        Collection,
         Iterable,
         Iterator,
         List,
@@ -11,8 +12,6 @@ from typing import (
         cast,
     )
 
-# FIXME: [typing] Python 3.6.1
-Collection = List
 
 from ..types import JSONType, _RecordType
 
