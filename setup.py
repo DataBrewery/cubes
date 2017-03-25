@@ -23,6 +23,7 @@ requirements = [
     "jsonschema",
     "expressions>=0.2.3",
     "sqlalchemy>0.9.0",
+    "click",
 ]
 
 extras = {

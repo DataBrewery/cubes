@@ -5,7 +5,7 @@ from enum import Enum
 
 from typing import (
         Any,
-        # Collection,
+        Collection,
         Dict,
         Iterable,
         Iterator,
@@ -183,7 +183,7 @@ class AggregationBrowser:
             aggregates: List[str]=None,
             drilldown: _DrilldownType=None,
             split: Cell=None,
-            order: Optional[List[_OrderArgType]]=None,
+            order: Optional[Collection[_OrderArgType]]=None,
             page: int=None,
             page_size: int=None,
             **options: Any) -> AggregationResult:
@@ -233,9 +233,9 @@ class AggregationBrowser:
         if "measures" in options:
             raise ArgumentError("measures in aggregate are depreciated")
 
-        prepared_aggregates: List[MeasureAggregate]
+        prepared_aggregates: Collection[MeasureAggregate]
         prepared_aggregates = self.prepare_aggregates(aggregates)
-        prepared_order: List[_OrderType]
+        prepared_order: Collection[_OrderType]
         prepared_order = self.prepare_order(order, is_aggregate=True)
 
         converters = {
@@ -260,10 +260,9 @@ class AggregationBrowser:
                                         aggregates=prepared_aggregates,
                                         drilldown=drilldown,
                                         split=split,
-                                        order=order,
+                                        order=prepared_order,
                                         page=page,
-                                        page_size=page_size,
-                                        **options)
+                                        page_size=page_size)
 
         #
         # Find post-aggregation calculations and decorate the result
@@ -288,10 +287,10 @@ class AggregationBrowser:
             cell: Cell,
             aggregates: Collection[MeasureAggregate],
             drilldown: Drilldown,
-            split: Cell=None,
-            order: Collection[_OrderType]=None,
-            page: int=None,
-            page_size: int=None) -> AggregationResult:
+            split: Optional[Cell]=None,
+            order: Optional[Collection[_OrderType]]=None,
+            page: Optional[int]=None,
+            page_size: Optional[int]=None) -> AggregationResult:
         """Method to be implemented by subclasses. The arguments are prepared
         by the superclass. Arguments:
 
@@ -357,8 +356,8 @@ class AggregationBrowser:
         return prepared + dependencies
 
     def prepare_order(self,
-            order: Optional[List[_OrderArgType]],
-            is_aggregate: bool=False) -> List[_OrderType]:
+            order: Optional[Collection[_OrderArgType]],
+            is_aggregate: bool=False) -> Collection[_OrderType]:
         """Prepares an order list. Returns list of tuples (`attribute`,
         `order_direction`). `attribute` is cube's attribute object."""
 
@@ -460,8 +459,8 @@ class AggregationBrowser:
             depth: int=None,
             level: Level=None,
             hierarchy: Hierarchy=None,
-            attributes: List[str]=None,
-            order: Optional[List[_OrderArgType]]=None,
+            attributes: Collection[str]=None,
+            order: Optional[Collection[_OrderArgType]]=None,
             page: int=None,
             page_size: int=None,
             **options: Any) -> Iterable[_RecordType]:
@@ -514,9 +513,10 @@ class AggregationBrowser:
             hierarchy: Hierarchy=None,
             levels: Collection[Level]=None,
             attributes: Collection[AttributeBase]=None,
-            page: int=None,
-            page_size: int=None,
-            order: List[_OrderType]=None) -> Iterable[_RecordType]:
+            page: Optional[int]=None,
+            page_size: Optional[int]=None,
+            order: Optional[Collection[_OrderType]]=None,
+            ) -> Iterable[_RecordType]:
         raise NotImplementedError("{} does not provide members functionality." \
                                   .format(str(type(self))))
 
@@ -624,6 +624,8 @@ class AggregationBrowser:
             # Note: we do not just convert name into function from symbol for possible future
             # more fine-tuning of queries as strings
 
+            # FIXME: [2.0] dimension was removed from cell, the following code
+            # does not work any more.
             # Handle rollup
             rollup = query.get("rollup")
             if rollup:

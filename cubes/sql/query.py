@@ -8,14 +8,15 @@ Star/snowflake schema query construction structures
 """
 
 from typing import (
+        Any,
         cast,
+        Callable,
         Collection,
         Dict,
         List,
         Mapping,
         NamedTuple,
         Optional,
-        # FIXME: [typing] remove this in Python 3.6.1
         Set,
         Tuple,
         Union,
@@ -29,10 +30,12 @@ from logging import Logger, getLogger
 from collections import namedtuple
 
 from ..metadata import object_dict
+from ..metadata.dimension import HierarchyPath
 from ..metadata.physical import ColumnReference, JoinKey, Join
+from ..metadata.attributes import AttributeBase
 from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
 from ..query.constants import SPLIT_DIMENSION_NAME
-from ..query.cells import PointCut, SetCut, RangeCut
+from ..query.cells import Cell, Cut, PointCut, SetCut, RangeCut
 
 from .expressions import compile_attributes
 
@@ -54,6 +57,16 @@ class _TableKey(NamedTuple):
     schema: Optional[str]
     table: str
 
+# FIXME: [typing] Move this to _TableKey in Python 3.6.1 as __str__
+def _format_key(key: _TableKey) -> str:
+    """Format table key `key` to a string."""
+    table = key.table or "<FACT>"
+
+    if key.schema is not None:
+        return f"{key.schema}.{table}"
+    else:
+        return table
+
 # Internal table reference
 class _TableRef(NamedTuple):
     # Database schema
@@ -67,8 +80,7 @@ class _TableRef(NamedTuple):
     # SQLAlchemy Table object, reflected
     table: sa.FromClause
     # join which joins this table as a detail
-    join: Join
-
+    join: Optional[Join]
 
 class SchemaError(InternalError):
     """Error related to the physical star schema."""
@@ -84,18 +96,6 @@ class NoSuchAttributeError(SchemaError):
     """Error related to the physical star schema."""
     pass
 
-
-# FIXME: [typing] Move this to _TableKey in Python 3.6.1 as __str__
-def _format_key(key: Tuple[str, str]) -> str:
-    """Format table key `key` to a string."""
-    schema, table = key
-
-    table = table or "(FACT)"
-
-    if schema:
-        return f"{schema}.{table}"
-    else:
-        return table
 
 class StarSchema:
     """Represents a star/snowflake table schema. Attributes:
@@ -444,8 +444,13 @@ class StarSchema:
         """Generate join detail key, use schema defaults"""
         # Note: we don't include fact as detail table by default. Fact can not
         # be detail (at least for now, we don't have a case where it could be)
-        return _TableKey(join.detail.schema or self.schema,
-                         join.alias or join.detail.table)
+        detail_table: str
+        if join.detail.table is None:
+            raise ModelError("Missing join detail table in '{join}'")
+        else:
+            detail_table = join.alias or join.detail.table
+
+        return _TableKey(join.detail.schema or self.schema, detail_table)
 
     def required_tables(self, attributes: Collection[str]) -> List[_TableRef]:
         """Get all tables that are required to be joined to get `attributes`.
@@ -460,9 +465,12 @@ class StarSchema:
             self.logger.debug("no joins to be searched for")
 
         # Get the physical mappings for attributes
+        column_refs: Collection[ColumnReference]
         column_refs = [self.mappings[attr] for attr in attributes]
 
         # Generate table keys
+        # FIXME: [typing] We need to resolve this non-optional
+        # ColumnReference.table. See also: column() method of this class.
         relevant: Set[_TableRef]
         relevant = set(self.table(_TableKey(ref.schema, ref.table))
                        for ref in column_refs)
@@ -679,6 +687,10 @@ class StarSchema:
         return star
 
 
+# TODO: [typing] Make the hierarchy non-optional, explicit
+_WildHierarchyKeyType = Tuple[str, Optional[str]]
+_WildHierarchyDictType = Dict[_WildHierarchyKeyType, List[str]]
+
 class QueryContext(object):
     """Context for execution of a query with given set of attributes and
     underlying star schema. The context is used for providing columns for
@@ -694,12 +706,21 @@ class QueryContext(object):
     .. versionadded:: 1.1
     """
 
+    star_schema: StarSchema
+    attributes: Dict[str, AttributeBase]
+    hierarchies: _WildHierarchyDictType
+    safe_labels: bool
+    star: sa.FromClause
+    _columns: Dict[str, sa.ColumnElement]
+    # FIXME: Rename to label_to_attribute or label_attr_map
+    label_attributes: Dict[str, str]
+    
+    # TODO: Pass parameters here
     def __init__(self,
-            star_schema,
-            attributes,
-            hierarchies=None,
-            parameters=None,
-            safe_labels=None) -> None:
+            star_schema: StarSchema,
+            attributes: Collection[AttributeBase] ,
+            hierarchies: Optional[_WildHierarchyDictType]=None,
+            safe_labels: bool=False) -> None:
         """Creates a query context for `cube`.
 
         * `attributes` – list of all attributes that are relevant to the
@@ -730,8 +751,8 @@ class QueryContext(object):
 
         self.star_schema = star_schema
 
-        self.attributes = object_dict(attributes, True)
-        self.hierarchies = hierarchies
+        self.attributes = object_dict(attributes, by_ref=True)
+        self.hierarchies = hierarchies or {}
         self.safe_labels = safe_labels
 
         # Collect base attributes
@@ -750,28 +771,30 @@ class QueryContext(object):
         bases = {attr: self.star_schema.column(attr) for attr in base_names}
         bases[FACT_KEY_LABEL] = self.star_schema.fact_key_column
 
-        self._columns = compile_attributes(bases, dependants, parameters,
-                                           star_schema.label)
+        # FIXME: [typing] correct the type once sql.expressions are annotated
+        self._columns = compile_attributes(bases=bases,
+                                           dependants=dependants,
+                                           parameters=None,
+                                           label=star_schema.label)  # type: ignore
 
         self.label_attributes = {}
         if self.safe_labels:
             # Re-label the columns using safe labels. It is up to the owner of
             # the context to determine which column is which attribute
 
-            for i, item in enumerate(list(self._columns.items())):
-                attr, column = item
-                label = "a{}".format(i)
-                self._columns[attr] = column.label(label)
-                self.label_attributes[label] = attr
+            for i, item in enumerate(self._columns.items()):
+                attr_name, column = item
+                label = f"a{i}"
+                self._columns[attr_name] = column.label(label)
+                self.label_attributes[label] = attr_name
         else:
             for attr in attributes:
-                attr = attr.ref
-                column = self._columns[attr]
-                self._columns[attr] = column.label(attr)
+                column = self._columns[attr.ref]
+                self._columns[attr.ref] = column.label(attr.ref)
                 # Identity mappign
-                self.label_attributes[attr] = attr
+                self.label_attributes[attr.ref] = attr.ref
 
-    def column(self, ref):
+    def column(self, ref: str) -> sa.ColumnElement:
         """Get a column expression for attribute with reference `ref`. Column
         has the same label as the attribute reference, unless `safe_labels` is
         provided to the query context. If `safe_labels` translation is
@@ -788,7 +811,7 @@ class QueryContext(object):
                                 "properly initialized or dependencies were "
                                 "not correctly ordered?".format(ref))
 
-    def get_labels(self, columns):
+    def get_labels(self, columns: Collection[sa.ColumnElement]) -> List[str]:
         """Returns real attribute labels for columns `columns`. It is highly
         recommended that the owner of the context uses this method before
         iterating over statement result."""
@@ -799,40 +822,38 @@ class QueryContext(object):
         else:
             return [col.name for col in columns]
 
-    def get_columns(self, refs):
+    def get_columns(self, refs: Collection[str]) -> List[sa.ColumnElement]:
         """Get columns for attribute references `refs`.  """
 
         return [self._columns[ref] for ref in refs]
 
-    def condition_for_cell(self, cell):
+    def condition_for_cell(self, cell: Cell) -> sa.ColumnElement:
         """Returns a condition for cell `cell`. If cell is empty or cell is
         `None` then returns `None`."""
 
-        if not cell:
-            return None
-
-        condition = and_(*self.conditions_for_cuts(cell.cuts))
+        condition = sa.and_(*self.conditions_for_cuts(cell.cuts))
 
         return condition
 
-    def conditions_for_cuts(self, cuts):
+    def conditions_for_cuts(self, cuts: List[Cut]) -> List[sa.ColumnElement]:
         """Constructs conditions for all cuts in the `cell`. Returns a list of
         SQL conditional expressions.
         """
 
+        conditions: List[sa.ColumnElement]
         conditions = []
+        path: HierarchyPath
 
         for cut in cuts:
-            hierarchy = cut.hierarchy
-
             if isinstance(cut, PointCut):
                 path = cut.path
                 condition = self.condition_for_point(cut.dimension,
                                                      path,
-                                                     hierarchy, cut.invert)
+                                                     cut.hierarchy,
+                                                     cut.invert)
 
             elif isinstance(cut, SetCut):
-                set_conds = []
+                set_conds: List[sa.ColumnElement] = []
 
                 for path in cut.paths:
                     condition = self.condition_for_point(cut.dimension,
@@ -841,14 +862,14 @@ class QueryContext(object):
                                                          invert=False)
                     set_conds.append(condition)
 
-                condition = sql.expression.or_(*set_conds)
+                condition = sa.or_(*set_conds)
 
                 if cut.invert:
-                    condition = sql.expression.not_(condition)
+                    condition = sa.not_(condition)
 
             elif isinstance(cut, RangeCut):
                 condition = self.range_condition(cut.dimension,
-                                                 hierarchy,
+                                                 cut.hierarchy,
                                                  cut.from_path,
                                                  cut.to_path, cut.invert)
 
@@ -859,12 +880,17 @@ class QueryContext(object):
 
         return conditions
 
-    def condition_for_point(self, dim, path, hierarchy=None, invert=False):
+    def condition_for_point(self,
+            dim: str,
+            path: HierarchyPath,
+            hierarchy: Optional[str]=None,
+            invert: bool=False) -> sa.ColumnElement:
         """Returns a `Condition` tuple (`attributes`, `conditions`,
         `group_by`) dimension `dim` point at `path`. It is a compound
         condition - one equality condition for each path element in form:
         ``level[i].key = path[i]``"""
 
+        conditions: List[sa.ColumnElement]
         conditions = []
 
         levels = self.level_keys(dim, hierarchy, path)
@@ -875,40 +901,62 @@ class QueryContext(object):
             column = self.column(level_key)
             conditions.append(column == value)
 
-        condition = sql.expression.and_(*conditions)
+        condition = sa.and_(*conditions)
 
         if invert:
-            condition = sql.expression.not_(condition)
+            condition = sa.not_(condition)
 
         return condition
 
-    def range_condition(self, dim, hierarchy, from_path, to_path,
-                        invert=False):
+    def range_condition(self,
+            dim: str,
+            hierarchy: Optional[str],
+            from_path: Optional[HierarchyPath],
+            to_path: Optional[HierarchyPath],
+            invert: bool=False) -> sa.ColumnElement:
         """Return a condition for a hierarchical range (`from_path`,
         `to_path`). Return value is a `Condition` tuple."""
 
-        lower = self._boundary_condition(dim, hierarchy, from_path, 0)
-        upper = self._boundary_condition(dim, hierarchy, to_path, 1)
+        assert(from_path is not None or to_path is not None,
+               "Range cut must have at least one boundary")
 
+        conditions: List[sa.ColumnElement]
         conditions = []
-        if lower is not None:
-            conditions.append(lower)
-        if upper is not None:
-            conditions.append(upper)
 
-        condition = sql.expression.and_(*conditions)
+        bound_check: Optional[sa.ColumnElement]
+        condition: sa.ColumnElement
+
+        # Lower bound check
+        #
+        bound_check = self._boundary_condition(dim, hierarchy, from_path, 0)
+        if bound_check is not None:
+            conditions.append(bound_check)
+
+        # Upper bound check
+        bound_check = self._boundary_condition(dim, hierarchy, to_path, 1)
+        if bound_check is not None:
+            conditions.append(bound_check)
+
+        condition = sa.and_(*conditions)
 
         if invert:
-            condition = sql.expression.not_(condition)
+            condition = sa.not_(condition)
 
         return condition
 
-    def _boundary_condition(self, dim, hierarchy, path, bound, first=True):
+    def _boundary_condition(self,
+            dim: str,
+            hierarchy: Optional[str],
+            path: Optional[HierarchyPath],
+            bound: int,
+            first: bool=True) -> Optional[sa.ColumnElement]:
         """Return a `Condition` tuple for a boundary condition. If `bound` is
         1 then path is considered to be upper bound (operators < and <= are
         used), otherwise path is considered as lower bound (operators > and >=
         are used )"""
         # TODO: make this non-recursive
+
+        column: sa.ColumnElement
 
         if not path:
             return None
@@ -918,7 +966,7 @@ class QueryContext(object):
 
         levels = self.level_keys(dim, hierarchy, path)
 
-        conditions = []
+        conditions: List[sa.ColumnElement] = []
 
         for level_key, value in zip(levels[:-1], path[:-1]):
             column = self.column(level_key)
@@ -927,29 +975,34 @@ class QueryContext(object):
         # Select required operator according to bound
         # 0 - lower bound
         # 1 - upper bound
+        operator: Callable[[Any, Any], sa.ColumnElement]
         if bound == 1:
             # 1 - upper bound (that is <= and < operator)
-            operator = sql.operators.le if first else sql.operators.lt
+            operator = sa.le if first else sa.lt
         else:
             # else - lower bound (that is >= and > operator)
-            operator = sql.operators.ge if first else sql.operators.gt
+            operator = sa.ge if first else sa.gt
 
         column = self.column(levels[-1])
         conditions.append(operator(column, path[-1]))
-        condition = sql.expression.and_(*conditions)
+        condition = sa.and_(*conditions)
 
         if last is not None:
-            condition = sql.expression.or_(condition, last)
+            condition = sa.or_(condition, last)
 
         return condition
 
-    def level_keys(self, dimension, hierarchy, path):
+    def level_keys(self,
+            dimension: str,
+            hierarchy: Optional[str],
+            path: HierarchyPath) -> List[str]:
         """Return list of key attributes of levels for `path` in `hierarchy`
         of `dimension`."""
 
         # Note: If something does not work here, make sure that hierarchies
         # contains "default hierarchy", that is (dimension, None) tuple.
         #
+        # FIXME [typing] Make hierarchy non-optional, explicit
         try:
             levels = self.hierarchies[(str(dimension), hierarchy)]
         except KeyError as e:
@@ -966,11 +1019,13 @@ class QueryContext(object):
 
         return levels[0:depth]
 
-    def column_for_split(self, split_cell, label=None):
+    def column_for_split(self, split_cell: Cell, label: str=None) \
+            -> sa.ColumnElement:
         """Create a column for a cell split from list of `cust`."""
 
+        condition: sa.ColumnElement
         condition = self.condition_for_cell(split_cell)
-        split_column = sql.expression.case([(condition, True)],
+        split_column = sa.case([(condition, True)],
                                            else_=False)
 
         label = label or SPLIT_DIMENSION_NAME

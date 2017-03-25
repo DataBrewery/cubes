@@ -78,7 +78,7 @@ NAMING_DEFAULTS = {
 }
 
 
-def distill_naming(dictionary: Dict[str,str]) -> Naming:
+def distill_naming(dictionary: Dict[str,str]) -> "Naming":
     """Distill only keys and values related to the naming conventions."""
     d = {key: value for key, value in dictionary.items()
          if key in NAMING_DEFAULTS}
@@ -266,7 +266,7 @@ class Mapper:
 
         schema, table = self.attribute_table(attribute)
 
-        return to_column((schema, table, column_name))
+        return ColumnReference(column=column_name, table=table, schema=schema)
 
     def attribute_table(self, attribute: AttributeBase) -> Tuple[Optional[str], str]:
         """Return a tuple (schema, table) for attribute."""
@@ -338,14 +338,13 @@ class StarSchemaMapper(Mapper):
 
         physical = self.mappings.get(logical)
 
-        if physical:
+        if physical is not None:
             # TODO: Should we not get defaults here somehow?
-            column = to_column(physical)
-            return column
-
-        # No mappings exist or no mapping was found - we are going to create
-        # default physical reference
-        return super(StarSchemaMapper, self).__getitem__(attribute)
+            return ColumnReference.from_dict(physical)
+        else:
+            # No mappings exist or no mapping was found - we are going to
+            # create default physical reference
+            return super(StarSchemaMapper, self).__getitem__(attribute)
 
 
 def map_base_attributes(

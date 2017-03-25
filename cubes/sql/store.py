@@ -1,17 +1,14 @@
 # -*- encoding=utf -*-
 
-try:
-    import sqlalchemy as sa
+if False:
+    import sqlalchemy as sax
     import sqlalchemy.sql as sql
     from sqlalchemy.engine import reflection
     from sqlalchemy.schema import Index
-except ImportError:
-    from ..common import MissingPackage
 
-    reflection = sa = sql = MissingPackage("sqlalchemy", "SQL")
+from . import sqlalchemy as sa
 
 from typing import Any, Optional
-from .types import Connectable, Engine, MetaData, RowProxy, ResultProxy
 from ..types import OptionsType, OptionValue, JSONType
 
 from .browser import SQLBrowser
@@ -110,15 +107,15 @@ class SQLStore(Store):
         }
     ]
 
-    connectable: Connectable
-    metadata: MetaData
+    connectable: sa.Connectable
+    metadata: sa.MetaData
     options: OptionsType
     schema: Optional[str]
 
     def __init__(self,
             url: str=None,
-            engine: Engine=None,
-            metadata: MetaData=None,
+            engine: sa.Engine=None,
+            metadata: sa.MetaData=None,
             **options: OptionValue) -> None:
         """
         The options are:
@@ -393,7 +390,7 @@ class SQLStore(Store):
                 index = sa.schema.Index(name, column)
                 index.create(self.connectable)
 
-    def execute(self, *args, **kwargs) -> ResultProxy:
+    def execute(self, *args, **kwargs) -> sa.ResultProxy:
         return self.connectable.execute(*args, **kwargs)
 
     # FIXME: requires review

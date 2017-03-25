@@ -574,6 +574,8 @@ class SQLBrowser(AggregationBrowser):
         if result.cells is not None and self.exclude_null_agregates:
             native_aggs = [agg.ref for agg in aggregates
                            if agg.function and self.is_builtin_function(agg.function)]
+            # FIXME: [typing] Resolve this missing attribute in AggResult
+            # Hint: look into the result iterator wrapper in this module
             result.exclude_if_null = native_aggs
 
         return result
@@ -587,7 +589,6 @@ class SQLBrowser(AggregationBrowser):
         return QueryContext(self.star,
                             attributes=collected,
                             hierarchies=self.hierarchies,
-                            parameters=None,
                             safe_labels=self.safe_labels)
 
     def denormalized_statement(self,
@@ -600,10 +601,15 @@ class SQLBrowser(AggregationBrowser):
         correct labels to be applied to the iterated result in case of
         `safe_labels`."""
 
-        cell_keys: List[Attribute]
+        selection: List[sa.ColumnElement]
+
+        cell_keys: Collection[AttributeBase]
         cell_keys = cell.collect_key_attributes(self.cube) 
 
-        refs = [attr.ref for attr in attributes + cell_keys]
+        refs: List[str]
+        refs = [attr.ref for attr in attributes]
+        refs += [attr.ref for attr in cell_keys]
+
         context_attributes = self.cube.get_attributes(refs)
         context = self._create_context(context_attributes)
 
@@ -617,9 +623,9 @@ class SQLBrowser(AggregationBrowser):
 
         cell_condition = context.condition_for_cell(cell)
 
-        statement = sql.expression.select(selection,
-                                          from_obj=context.star,
-                                          whereclause=cell_condition)
+        statement = sa.select(selection,
+                              from_obj=context.star,
+                              whereclause=cell_condition)
 
         return (statement, context.get_labels(statement.columns))
 
@@ -633,7 +639,7 @@ class SQLBrowser(AggregationBrowser):
             aggregates: Collection[AttributeBase],
             drilldown:Drilldown=None,
             split:Cell=None,
-            for_summary:bool=False) -> Tuple[Select, List[str]]:
+            for_summary:bool=False) -> Tuple[sa.Select, List[str]]:
         """Builds a statement to aggregate the `cell` and reutrns a tuple
         (`statement`, `labels`). `statement` is a SQLAlchemy statement object,
         `labels` is a list of attribute names selected in the statement. The

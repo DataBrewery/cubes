@@ -132,18 +132,18 @@ class Cube(ModelObject):
 
     def __init__(self,
                  name: str,
-                 dimensions: Optional[List[Dimension]]=None,
-                 measures: Optional[List[Measure]]=None,
-                 aggregates: Optional[List[MeasureAggregate]]=None,
+                 dimensions: Optional[Collection[Dimension]]=None,
+                 measures: Optional[Collection[Measure]]=None,
+                 aggregates: Optional[Collection[MeasureAggregate]]=None,
                  label: Optional[str]=None,
-                 details: Optional[List[Attribute]]=None,
-                 mappings: Optional[JSONType]=None,
+                 details: Optional[Collection[Attribute]]=None,
+                 mappings: Optional[Collection[JSONType]]=None,
                  joins: Optional[JSONType]=None,
                  fact: Optional[str]=None,
                  key: Optional[str]=None,
                  description: Optional[str]=None,
                  browser_options: Optional[OptionsType]=None,
-                 info: JSONType=None,
+                 info: Optional[JSONType]=None,
                  dimension_links: Optional[JSONType]=None,
                  locale: Optional[str]=None,
                  category: Optional[str]=None,
@@ -555,7 +555,7 @@ class Cube(ModelObject):
         return result
 
     def collect_dependencies(self, attributes: Collection[AttributeBase])\
-                -> List[AttributeBase]:
+                -> Collection[AttributeBase]:
         """Collect all original and dependant cube attributes for
         `attributes`, sorted by their dependency: starting with attributes
         that don't depend on anything. For exapmle, if the `attributes` is [a,

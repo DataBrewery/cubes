@@ -19,10 +19,10 @@ class JoinMethod(Enum):
 class JoinKey(Hashable):
     schema: Optional[str]
     table: Optional[str]
-    columns: Optional[List[str]]
+    columns: List[str]
 
     def __init__(self,
-            columns: Optional[List[str]],
+            columns: List[str],
             table: Optional[str]=None,
             schema: Optional[str]=None,
             ) -> None:
@@ -46,11 +46,7 @@ class JoinKey(Hashable):
 
         table: Optional[str]
         schema: Optional[str]
-        columns: Optional[List[str]]
-
-        # FIXME: [typing] How this can be used? Investigate downstream.
-        if obj is None:
-            return JoinKey(None, None, None)
+        columns: List[str]
 
         # TODO: Legacy - deprecated
         if isinstance(obj, (list, tuple)):
@@ -81,12 +77,7 @@ class JoinKey(Hashable):
 
     def __hash__(self) -> int:
         column_hash: int
-
-        if self.columns is not None:
-            # TODO: This requires python/mypy#1746
-            column_hash = list_hash(self.columns)  # type: ignore
-        else:
-            column_hash = 0
+        column_hash = list_hash(self.columns) # type: ignore
 
         return hash(self.schema) ^ hash(self.table) ^ column_hash
 
@@ -255,6 +246,9 @@ class ColumnReference(Hashable):
 
         if obj is None:
             raise ArgumentError("Mapping object can not be None")
+
+        extract: Optional[str] = None
+        function: Optional[str] = None
 
         if isinstance(obj, str):
             split: List[Optional[str]]
