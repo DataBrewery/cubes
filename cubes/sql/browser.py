@@ -32,7 +32,6 @@ from ..metadata.dimension import Hierarchy, HierarchyPath, Dimension, Level
 from ..metadata.cube import Cube
 from ..metadata.physical import Join
 
-from .types import Connectable
 from ..types import _RecordType, ValueType
 
 from ..query import available_calculators

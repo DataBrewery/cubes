@@ -1,18 +1,11 @@
 # -*- encoding=utf -*-
 
-if False:
-    import sqlalchemy as sax
-    import sqlalchemy.sql as sql
-    from sqlalchemy.engine import reflection
-    from sqlalchemy.schema import Index
-
 from . import sqlalchemy as sa
 
 from typing import Any, Optional
 from ..types import OptionsType, OptionValue, JSONType
 
 from typing import Any
-from .types import Connectable, Engine, MetaData
 from ..types import OptionsType, OptionValue, JSONType
 
 from .browser import SQLBrowser
