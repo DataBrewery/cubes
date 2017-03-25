@@ -4,18 +4,7 @@
 # called `formulas`) once implemented.  There is no need for complexity of
 # this type.
 
-try:
-    import sqlalchemy.sql as sql
-    from sqlalchemy.sql.functions import ReturnTypeFromArgs
-except ImportError:
-    from ...common import MissingPackage
-    sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
-    missing_error = MissingPackage("sqlalchemy", "SQL browser extensions")
-
-    class ReturnTypeFromArgs(object):
-        def __init__(*args, **kwargs):
-            # Just fail by trying to call missing package
-            missing_error()
+from . import sqlalchemy as sa
 
 from ..errors import ModelError
 
@@ -107,7 +96,7 @@ class ValueCoalescingFunction(AggregateFunction):
         SQLAlchemy expression.  Default implementation coalesces to zero 0."""
         # TODO: use measure's missing value (we need to get the measure object
         # somehow)
-        return sql.functions.coalesce(value, 0)
+        return sa.coalesce(value, 0)
 
 
 class SummaryCoalescingFunction(AggregateFunction):
@@ -115,7 +104,7 @@ class SummaryCoalescingFunction(AggregateFunction):
         """Coalesce the aggregated value of `aggregate`. `value` is a
         SQLAlchemy expression.  Default implementation does nothing."""
         # TODO: use aggregates's missing value
-        return sql.functions.coalesce(value, 0)
+        return sa.coalesce(value, 0)
 
 
 class GenerativeFunction(AggregateFunction):
@@ -140,38 +129,38 @@ class FactCountFunction(AggregateFunction):
             # TODO: pass the fact column somehow more nicely, maybe in a map:
             # aggregate: column
             column = context["__fact_key__"]
-            return sql.functions.count(column)
+            return sa.count(column)
         else:
-            return sql.functions.count(1)
+            return sa.count(1)
 
 
 class FactCountDistinctFunction(AggregateFunction):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         """Creates a function that provides distinct fact (record) counts."""
-        function = lambda x: sql.functions.count(sql.expression.distinct(x))
+        function = lambda x: sa.count(sa.distinct(x))
         super(FactCountDistinctFunction, self).__init__(name, function)
 
 
-class avg(ReturnTypeFromArgs):
+class avg(sa.ReturnTypeFromArgs):
     pass
 
 
 # Works with PostgreSQL
-class stddev(ReturnTypeFromArgs):
+class stddev(sa.ReturnTypeFromArgs):
     pass
 
 
-class variance(ReturnTypeFromArgs):
+class variance(sa.ReturnTypeFromArgs):
     pass
 
 
 _functions = (
-    SummaryCoalescingFunction("sum", sql.functions.sum),
-    SummaryCoalescingFunction("count_nonempty", sql.functions.count),
+    SummaryCoalescingFunction("sum", sa.sum),
+    SummaryCoalescingFunction("count_nonempty", sa.count),
     FactCountFunction("count"),
     FactCountDistinctFunction("count_distinct"),
-    ValueCoalescingFunction("min", sql.functions.min),
-    ValueCoalescingFunction("max", sql.functions.max),
+    ValueCoalescingFunction("min", sa.min),
+    ValueCoalescingFunction("max", sa.max),
     ValueCoalescingFunction("avg", avg),
     ValueCoalescingFunction("stddev", stddev),
     ValueCoalescingFunction("variance", variance)

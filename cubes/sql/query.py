@@ -7,231 +7,80 @@ Star/snowflake schema query construction structures
 
 """
 
-# Note for developers and maintainers
-# -----------------------------------
-#
-# This module is to be remained implemented in a way that it does not use any
-# of the Cubes objects. It might use duck-typing and assume objects with
-# similar attributes. No calls to Cubes object functions should be allowed
-# here.
+from typing import (
+        Any,
+        cast,
+        Callable,
+        Collection,
+        Dict,
+        List,
+        Mapping,
+        NamedTuple,
+        Optional,
+        Set,
+        Tuple,
+        Union,
+    )
 
-import logging
+from ..types import JSONType
+
+from . import sqlalchemy as sa
+
+from logging import Logger, getLogger
 from collections import namedtuple
 
-import sqlalchemy as sa
-import sqlalchemy.sql as sql
-from sqlalchemy.sql.expression import and_
-
 from ..metadata import object_dict
+from ..metadata.dimension import HierarchyPath
+from ..metadata.physical import ColumnReference, JoinKey, Join
+from ..metadata.attributes import AttributeBase
 from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
 from ..query.constants import SPLIT_DIMENSION_NAME
-from ..query.cells import PointCut, SetCut, RangeCut
+from ..query.cells import Cell, Cut, PointCut, SetCut, RangeCut
 
 from .expressions import compile_attributes
 
 
 # Default label for all fact keys
 FACT_KEY_LABEL = '__fact_key__'
+DEFAULT_FACT_KEY = 'id'
 
 # Attribute -> Column
 # IF attribute has no 'expression' then mapping is used
 # IF attribute has expression, the expression is used and underlying mappings
 
-"""Physical column (or column expression) reference. `schema` is a database
-schema name, `table` is a table (or table expression) name containing the
-`column`. `extract` is an element to be extracted from complex data type such
-as date or JSON (in postgres). `function` is name of unary function to be
-applied on the `column`.
+# 
+# END OF FREE TYPES
+# --------------------------------------------------------------------------
 
-Note that either `extract` or `function` can be used, not both."""
+# TODO: [typing] Make this public
+class _TableKey(NamedTuple):
+    schema: Optional[str]
+    table: str
 
-Column = namedtuple("Column", ["schema", "table", "column",
-                               "extract", "function"])
+# FIXME: [typing] Move this to _TableKey in Python 3.6.1 as __str__
+def _format_key(key: _TableKey) -> str:
+    """Format table key `key` to a string."""
+    table = key.table or "<FACT>"
 
-#
-# IMPORTANT: If you decide to extend the above Mapping functionality by adding
-# other mapping attributes (not recommended, but still) or by changing the way
-# how existing attributes are used, make sure that there are NO OTHER COLUMNS
-# than the `column` used. Every column used MUST be accounted in the
-# relevant_joins() call.
-#
-# See similar comment in the column() method of the StarSchema.
-#
-
-def to_column(obj, default_table=None, default_schema=None):
-    """Utility function that will create a `Column` reference object from an
-    anonymous tuple, dictionary or a similar object. `obj` can also be a
-    string in form ``schema.table.column`` where shcema or both schema and
-    table can be ommited. `default_table` and `default_schema` are used when
-    no table or schema is provided in `obj`.
-
-    .. versionadded:: 1.1
-    """
-
-    if obj is None:
-        raise ArgumentError("Mapping object can not be None")
-
-    if isinstance(obj, str):
-        obj = obj.split(".")
-
-    if isinstance(obj, (tuple, list)):
-        if len(obj) == 1:
-            column = obj[0]
-            table = None
-            schema = None
-        elif len(obj) == 2:
-            table, column = obj
-            schema = None
-        elif len(obj) == 3:
-            schema, table, column = obj
-        else:
-            raise ArgumentError("Join key can have 1 to 3 items"
-                                " has {}: {}".format(len(obj), obj))
-        extract = None
-        function = None
-
-    elif hasattr(obj, "get"):
-        schema = obj.get("schema")
-        table = obj.get("table")
-        column = obj.get("column")
-        extract = obj.get("extract")
-        function = obj.get("function")
-
-    else:  # pragma nocover
-        schema = obj.schema
-        table = obj.table
-        extract = obj.extract
-        function = obj.function
-
-    table = table or default_table
-    schema = schema or default_schema
-
-    return Column(schema, table, column, extract, function)
-
-
-# TODO: remove this and use just Column
-JoinKey = namedtuple("JoinKey",
-                     ["schema",
-                      "table",
-                      "column"])
-
-
-def to_join_key(obj):
-    """Utility function that will create JoinKey tuple from an anonymous
-    tuple, dictionary or similar object. `obj` can also be a string in form
-    ``schema.table.column`` where schema or both schema and table can be
-    ommited. Dictionary representation of a join key has values: ``schema``,
-    ``table`` and ``column``. With the dicitonary representation, the
-    ``column`` can be a list of columns in the same table. Both master and
-    detail joins have to have the same number of columns in the join key.
-
-    Note that Cubes at this low level does not know which table is used for a
-    dimension, therefore the default dimension schema from mapper's naming can
-    not be assumed here and has to be explicitly mentioned.
-
-    .. versionadded:: 1.1
-    """
-
-
-    if obj is None:
-        return JoinKey(None, None, None)
-
-    if isinstance(obj, str):
-        obj = obj.split(".")
-
-    if isinstance(obj, (tuple, list)):
-        if len(obj) == 1:
-            column = obj[0]
-            table = None
-            schema = None
-        elif len(obj) == 2:
-            table, column = obj
-            schema = None
-        elif len(obj) == 3:
-            schema, table, column = obj
-        else:
-            raise ArgumentError("Join key can have 1 to 3 items"
-                                " has {}: {}".format(len(obj), obj))
-
-    elif hasattr(obj, "get"):
-        schema = obj.get("schema")
-        table = obj.get("table")
-        column = obj.get("column")
-
-    else:  # pragma nocover
-        schema = obj.schema
-        table = obj.table
-        column = obj.column
-
-    # Make it immutable and hashable, as the whole Join object has to be
-    # hashable
-    if isinstance(column, list):
-        column = tuple(column)
-
-    return JoinKey(schema, table, column)
-
-"""Table join specification. `master` and `detail` are TableColumnReference
-tuples. `method` denotes which table members should be considered in the join:
-*master* – all master members (left outer join), *detail* – all detail members
-(right outer join) and *match* – members must match (inner join)."""
-
-Join = namedtuple("Join",
-                  ["master", # Master table (fact in star schema)
-                   "detail", # Detail table (dimension in star schema)
-                   "alias",  # Optional alias for the detail table
-                   "method"  # Method how the table is joined
-                  ]
-                 )
-
-
-def to_join(obj):
-    """Utility conversion function that will create `Join` tuple from an
-    anonymous tuple, dictionary or similar object.
-
-    .. versionadded:: 1.1
-    """
-
-    if isinstance(obj, (tuple, list)):
-        alias = None
-        method = None
-
-        if len(obj) == 3:
-            alias = obj[2]
-        elif len(obj) == 4:
-            alias, method = obj[2], obj[3]
-        elif len(obj) < 2 or len(obj) > 4:
-            raise ArgumentError("Join object can have 1 to 4 items"
-                                " has {}: {}".format(len(obj), obj))
-
-        master = to_join_key(obj[0])
-        detail = to_join_key(obj[1])
-
-        return Join(master, detail, alias, method)
-
-    elif hasattr(obj, "get"):  # pragma nocover
-        return Join(to_join_key(obj.get("master")),
-                    to_join_key(obj.get("detail")),
-                    obj.get("alias"),
-                    obj.get("method"))
-
-    else:  # pragma nocover
-        return Join(to_join_key(obj.master),
-                    to_join_key(obj.detail),
-                    obj.alias,
-                    obj.method)
-
+    if key.schema is not None:
+        return f"{key.schema}.{table}"
+    else:
+        return table
 
 # Internal table reference
-_TableRef = namedtuple("_TableRef",
-                       ["schema", # Database schema
-                        "name",   # Table name
-                        "alias",  # Optional table alias instead of name
-                        "key",    # Table key (for caching or referencing)
-                        "table",  # SQLAlchemy Table object, reflected
-                        "join"    # join which joins this table as a detail
-                       ]
-                      )
-
+class _TableRef(NamedTuple):
+    # Database schema
+    schema: Optional[str]
+    # Table name
+    name: str
+    # Optional table alias instead of name
+    alias: Optional[str]
+    # Table key (for caching or referencing)
+    key: _TableKey
+    # SQLAlchemy Table object, reflected
+    table: sa.FromClause
+    # join which joins this table as a detail
+    join: Optional[Join]
 
 class SchemaError(InternalError):
     """Error related to the physical star schema."""
@@ -248,30 +97,7 @@ class NoSuchAttributeError(SchemaError):
     pass
 
 
-def _format_key(key):
-    """Format table key `key` to a string."""
-    schema, table = key
-
-    table = table or "(FACT)"
-
-    if schema:
-        return "{}.{}".format(schema, table)
-    else:
-        return table
-
-
-def _make_compound_key(table, key):
-    """Returns a list of columns from `column_key` for `table` representing
-    potentially a compound key. The `column_key` can be a name of a single
-    column or list of column names."""
-
-    if not isinstance(key, (list, tuple)):
-        key = [key]
-
-    return [table.columns[name] for name in key]
-
-
-class StarSchema(object):
+class StarSchema:
     """Represents a star/snowflake table schema. Attributes:
 
     * `label` – user specific label for the star schema, used for the schema
@@ -328,17 +154,39 @@ class StarSchema(object):
     .. versionadded:: 1.1
     """
 
-    def __init__(self, label, metadata, mappings, fact, fact_key='id',
-                 joins=None, tables=None, schema=None):
+    label: str
+    metadata: sa.MetaData
+    # FIXME: [typing] rename to `mapping` (sg.) or `column_references`
+    mappings: Mapping[str, ColumnReference]
+    # joins: Collection[_JoinWildType]
+    joins: Collection[Join]
+    schema: Optional[str]
+    table_expressions: Mapping[str, sa.FromClause]
+
+    # FIXME: [typing] this should be ColumnExpression or some superclass of Col
+    _columns: Dict[str, sa.ColumnElement]
+    _tables: Dict[_TableKey, _TableRef]
+    
+    logger: Logger
+    fact_name: str
+    fact_table: sa.FromClause
+    fact_key: str
+    # FIXME: [typing] change to SA expression (same as above)
+    fact_key_column: sa.Column
+
+    def __init__(self,
+            label: str,
+            metadata: sa.MetaData,
+            # FIXME: [typing] This should be already prepared
+            mappings: Mapping[str, ColumnReference],
+            fact_name: str,
+            fact_key: Optional[str]=None,
+            joins: Optional[Collection[Join]]=None,
+            tables: Optional[Mapping[str, sa.FromClause]]=None,
+            schema: Optional[str]=None) -> None:
 
         # TODO: expectation is, that the snowlfake is already localized, the
         # owner of the snowflake should generate one snowflake per locale.
-        # TODO: use `facts` instead of `fact`
-
-        if fact is None:
-            raise ArgumentError("Fact table or table name not specified "
-                                "for star/snowflake schema {}"
-                                .format(label))
 
         self.label = label
         self.metadata = metadata
@@ -354,7 +202,7 @@ class StarSchema(object):
         # Keys are tuples (schema, table)
         self._tables = {}
 
-        self.logger = logging.getLogger("cubes.starschema")
+        self.logger = getLogger("cubes.starschema")
 
         # TODO: perform JOIN discovery based on foreign keys
 
@@ -362,33 +210,21 @@ class StarSchema(object):
         # ----------
 
         # Fact Initialization
-        if isinstance(fact, str):
-            self.fact_name = fact
-            self.fact_table = self.physical_table(fact)
+        self.fact_name = fact_name
+        self.fact_table = self.physical_table(fact_name)
+
+        # Try to get the fact key
+        if fact_key is not None:
+            try:
+                self.fact_key_column = self.fact_table.columns[self.fact_key]
+            except KeyError:
+                raise ModelError(f"Unknown column '{fact_key}' "
+                                 f"in fact table '{fact_name}' for '{label}'.")
+        elif DEFAULT_FACT_KEY in self.fact_table.columns:
+            self.fact_key_column = self.fact_table.columns[DEFAULT_FACT_KEY]
         else:
-            # We expect fact to be a statement
-            try:
-                self.fact_name = fact.name
-            except AttributeError:
-                raise ArgumentError("Fact table statement requires alias()")
-
-            self.fact_table = fact
-
-        self.fact_key = fact_key
-
-        # Try to get the fact key, if does not exist, then consider the first
-        # table column as the fact key.
-        try:
-            self.fact_key_column = self.fact_table.columns[self.fact_key]
-        except KeyError:
-            try:
-                self.fact_key_column = list(self.fact_table.columns)[0]
-            except Exception as e:
-                raise ModelError("Unable to get key column for fact "
-                                 "table '%s' in '%s'. Reason: %s"
-                                 % (self.fact_name, label, str(e)))
-            else:
-                self.fact_key = self.fact_key_column.name
+            # Get the first column
+            self.fact_key_column = list(self.fact_table.columns)[0]
 
         self.fact_key_column = self.fact_key_column.label(FACT_KEY_LABEL)
 
@@ -396,7 +232,7 @@ class StarSchema(object):
         # --------------------------
         self._collect_tables()
 
-    def _collect_tables(self):
+    def _collect_tables(self) -> None:
         """Collect and prepare all important information about the tables in
         the schema. The collected information is a list:
 
@@ -412,13 +248,14 @@ class StarSchema(object):
 
         # Collect the fact table as the root master table
         #
-        fact_table = _TableRef(schema=self.schema,
-                               name=self.fact_name,
-                               alias=self.fact_name,
-                               key=(self.schema, self.fact_name),
-                               table=self.fact_table,
-                               join=None
-                              )
+        fact_table = _TableRef(
+                schema=self.schema,
+                name=self.fact_name,
+                alias=self.fact_name,
+                key=_TableKey(self.schema, self.fact_name),
+                table=self.fact_table,
+                join=None
+            )
 
         self._tables[fact_table.key] = fact_table
 
@@ -427,11 +264,10 @@ class StarSchema(object):
         # be referenced as 'details'. The exception is the fact table that is
         # provided explicitly for the snowflake schema.
 
-
         # Collect details for duplicate verification. It sohuld not be
         # possible to join one detail multiple times with the same name. Alias
         # has to be used.
-        details = set()
+        seen: Set[_TableKey] = set()
 
         for join in self.joins:
             # just ask for the table
@@ -451,30 +287,29 @@ class StarSchema(object):
             else:
                 alias = join.detail.table
 
-            key = (join.detail.schema or self.schema, alias)
+            key = _TableKey(join.detail.schema or self.schema, alias)
 
-            if key in details:
+            if key in seen:
                 raise ModelError("Detail table '{}' joined twice in star"
                                  " schema {}. Join alias is required."
                                  .format(_format_key(key), self.label))
-            details.add(key)
+            seen.add(key)
 
-            ref = _TableRef(table=table,
-                            schema=join.detail.schema,
-                            name=join.detail.table,
-                            alias=alias,
-                            key=key,
-                            join=join
-                           )
+            self._tables[key] = _TableRef(
+                                    table=table,
+                                    schema=join.detail.schema,
+                                    name=join.detail.table,
+                                    alias=alias,
+                                    key=key,
+                                    join=join,
+                                )
 
-            self._tables[key] = ref
 
-    def table(self, key, role=None):
-        """Return a table reference for `key` which has form of a
-        tuple (`schema`, `table`). `schema` should be ``None`` for named table
-        expressions, which take precedence before the physical tables in the
-        default schema. If there is no named table expression then physical
-        table is considered.
+    def table(self, key: _TableKey, role: str=None) -> _TableRef:
+        """Return a table reference for `key`. `schema` should be ``None`` for
+        named table expressions, which take precedence before the physical
+        tables in the default schema. If there is no named table expression
+        then physical table is considered.
 
         The returned object has the following properties:
 
@@ -490,33 +325,36 @@ class StarSchema(object):
         table, which role of the table was expected, such as master or detail.
         """
 
-        if key is None:
-            raise ArgumentError("Table key should not be None")
+        assert(key is not None, "Table key should not be None")
 
-        key = (key[0] or self.schema, key[1] or self.fact_name)
+        key = _TableKey(key[0] or self.schema, key[1] or self.fact_name)
 
         try:
             return self._tables[key]
         except KeyError:
-            if role:
-                for_role = " (as {})".format(role)
+            if role is not None:
+                role_str = " (as {})".format(role)
             else:
-                for_role = ""
+                role_str = ""
 
-            schema = '"{}".'.format(key[0]) if key[0] else ""
+            schema_str = f'"{key[0]}".' if key[0] is not None else ""
 
-            raise SchemaError("Unknown star table {}\"{}\"{}. Missing join?"
-                              .format(schema, key[1], for_role))
+            raise SchemaError(f"Unknown star table {schema_str}"
+                              f"\"{key[1]}\"{role_str}. Missing join?")
 
-    def physical_table(self, name, schema=None):
-        """Return a physical table or table expression, regardless whether it
-        exists or not in the star."""
+    def physical_table(self, name: str, schema: Optional[str]=None) \
+            -> sa.FromClause:
+        """Return a physical table or table expression by name, regardless
+        whether it exists or not in the star."""
 
         # Return a statement or an explicitly craeted table if it exists
-        if not schema and name in self.table_expressions:
+        if schema is None and name in self.table_expressions:
             return self.table_expressions[name]
 
+        coalesced_schema: Optional[str]
         coalesced_schema = schema or self.schema
+
+        table: sa.Table
 
         try:
             table = sa.Table(name,
@@ -524,16 +362,18 @@ class StarSchema(object):
                              autoload=True,
                              schema=coalesced_schema)
 
-        except sa.exc.NoSuchTableError:
-            in_schema = (" in schema '{}'"
-                         .format(schema)) if schema else ""
-            msg = "No such fact table '{}'{}.".format(name, in_schema)
-            raise NoSuchTableError(msg)
+        except sa.NoSuchTableError:
+            schema_str: str
+            if schema is not None:
+                schema_str = f" in schema '{schema}'"
+            else:
+                schema_str = ""
+
+            raise NoSuchTableError(f"No such fact table '{name}'{schema_str}")
 
         return table
 
-
-    def column(self, logical):
+    def column(self, logical: str) -> sa.ColumnElement:
         """Return a column for `logical` reference. The returned column will
         have a label same as the `logical`.
         """
@@ -552,55 +392,67 @@ class StarSchema(object):
         #
         # -- END OF IMPORTANT MESSAGE ---
 
+        column_ref: ColumnReference
+
         if logical in self._columns:
             return self._columns[logical]
 
         try:
-            mapping = self.mappings[logical]
+            column_ref = self.mappings[logical]
         except KeyError:
             if logical == FACT_KEY_LABEL:
                 return self.fact_key_column
             else:
                 raise NoSuchAttributeError(logical)
 
-        key = (mapping.schema or self.schema, mapping.table or self.fact_name)
+        table_key = _TableKey(column_ref.schema or self.schema,
+                              column_ref.table or self.fact_name)
 
-        ref = self.table(key)
-        table = ref.table
+        table = self.table(table_key).table
 
         try:
-            column = table.columns[mapping.column]
+            column = table.columns[column_ref.column]
         except KeyError:
+            avail: str
             avail = ", ".join(str(c) for c in table.columns)
-            raise SchemaError("Unknown column '%s' in table '%s' possible: %s"
-                              % (mapping.column, mapping.table, avail))
+            raise SchemaError(f"Unknown column '{column_ref.column}' "
+                              f"in table '{column_ref.table}' "
+                              f"possible: {avail}")
 
-        # Extract part of the date
-        if mapping.extract:
-            column = sql.expression.extract(mapping.extract, column)
-        if mapping.function:
-            # FIXME: add some protection here for the function name!
-            column = getattr(sql.expression.func, mapping.function)(column)
+        # Apply the `extract` operator/function on date field
+        #
+        if column_ref.extract is not None:
+            column = sa.extract(column_ref.extract, column)
+
+        if column_ref.function is not None:
+            # TODO: add some protection here for the function name!
+            column = getattr(sa.func, column_ref.function)(column)
 
         column = column.label(logical)
 
+        # Cache the column
         self._columns[logical] = column
 
         return column
 
-    def _master_key(self, join):
+    def _master_key(self, join: Join) -> _TableKey:
         """Generate join master key, use schema defaults"""
-        return (join.master.schema or self.schema,
-                join.master.table or self.fact_name)
+        return _TableKey(join.master.schema or self.schema,
+                         join.master.table or self.fact_name)
 
-    def _detail_key(self, join):
+    def _detail_key(self, join: Join) -> _TableKey:
         """Generate join detail key, use schema defaults"""
         # Note: we don't include fact as detail table by default. Fact can not
         # be detail (at least for now, we don't have a case where it could be)
-        return (join.detail.schema or self.schema,
-                join.alias or join.detail.table)
+        detail_table: str
+        if join.detail.table is None:
+            raise ModelError("Missing join detail table in '{join}'")
+        else:
+            detail_table = join.alias or join.detail.table
 
-    def required_tables(self, attributes):
+        return _TableKey(join.detail.schema or self.schema, detail_table)
+
+    def required_tables(self, attributes: Collection[str]) -> List[_TableRef]:
         """Get all tables that are required to be joined to get `attributes`.
         `attributes` is a list of `StarSchema` attributes (or objects with
         same kind of attributes).
@@ -613,17 +465,23 @@ class StarSchema(object):
             self.logger.debug("no joins to be searched for")
 
         # Get the physical mappings for attributes
-        mappings = [self.mappings[attr] for attr in attributes]
+        column_refs: Collection[ColumnReference]
+        column_refs = [self.mappings[attr] for attr in attributes]
 
         # Generate table keys
-        relevant = set(self.table((m.schema, m.table)) for m in mappings)
+        # FIXME: [typing] We need to resolve this non-optional
+        # ColumnReference.table. See also: column() method of this class.
+        relevant: Set[_TableRef]
+        relevant = set(self.table(_TableKey(ref.schema, ref.table))
+                       for ref in column_refs)
 
         # Dependencies
         # ------------
         # `required` now contains tables that contain requested `attributes`.
         # Nowe we have to resolve all dependencies.
 
-        required = {}
+        required: Dict[_TableKey, _TableRef] = {}
+
         while relevant:
             table = relevant.pop()
             required[table.key] = table
@@ -631,26 +489,36 @@ class StarSchema(object):
             if not table.join:
                 continue
 
-            master = self._master_key(table.join)
-            if master not in required:
-                relevant.add(self.table(master))
+            # Add Master if not already added
+            key: _TableKey
+            key = self._master_key(table.join)
+            if key not in required:
+                relevant.add(self.table(key))
 
-            detail = self._detail_key(table.join)
-            if detail not in required:
-                relevant.add(self.table(detail))
+            # Add Detail if not already added
+            key = self._detail_key(table.join)
+            if key not in required:
+                relevant.add(self.table(key))
 
         # Sort the tables
         # ---------------
 
-        fact_key = (self.schema, self.fact_name)
-        fact = self.table(fact_key, "fact master")
-        masters = {fact_key: fact}
+        fact_key: _TableKey
+        fact_key = _TableKey(self.schema, self.fact_name)
 
+        fact: _TableRef
+        fact = self.table(fact_key, "fact master")
+
+        masters: Dict[_TableKey, _TableRef]
+        masters = {}
+        masters[fact_key] = fact
+
+        sorted_tables: List[_TableRef]
         sorted_tables = [fact]
 
         while required:
             details = [table for table in required.values()
-                       if table.join
+                       if table.join is not None
                        and self._master_key(table.join) in masters]
 
             if not details:
@@ -662,20 +530,22 @@ class StarSchema(object):
 
                 del required[detail.key]
 
+        # We should end up with only one table in the list, all of them should
+        # be consumed by joins.
         if len(required) > 1:
             keys = [_format_key(table.key)
                     for table in required.values()
                     if table.key != fact_key]
 
-            raise ModelError("Some tables are not joined: {}"
-                             .format(", ".join(keys)))
+            joined_str = ", ".join(keys)
+            raise ModelError(f"Some tables are not joined: {joined_str}")
 
         return sorted_tables
 
     # Note: This is "The Method"
     # ==========================
 
-    def get_star(self, attributes):
+    def get_star(self, attributes: Collection[str]) -> sa.FromClause:
         """The main method for generating underlying star schema joins.
         Returns a denormalized JOIN expression that includes all relevant
         tables containing base `attributes` (attributes representing actual
@@ -692,14 +562,15 @@ class StarSchema(object):
             result = engine.execute(statement)
         """
 
-        attributes = [str(attr) for attr in attributes]
         # Collect all the tables first:
+        tables: List[_TableRef]
         tables = self.required_tables(attributes)
 
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
-        star_tables = {table_ref.key:table_ref.table for table_ref in tables}
+        star_tables: Dict[_TableKey, sa.FromClause]
+        star_tables = {table_ref.key: table_ref.table for table_ref in tables}
 
         # Here the `star` contains mapping table key -> table, which will be
         # gradually replaced by JOINs
@@ -711,19 +582,22 @@ class StarSchema(object):
         # 2. construct the condition
         # 3. use the appropriate SQL JOIN
         # 4. wrap the star with detail
-        # 
+        #
         # TODO: support MySQL partition (see Issue list)
 
         # First table does not need to be joined. It is the "fact" (or other
         # central table) of the schema.
+        star: sa.FromClause
         star = tables[0].table
 
         for table in tables[1:]:
-            if not table.join:
+            join: Join
+
+            if table.join is None:
                 raise ModelError("Missing join for table '{}'"
                                  .format(_format_key(table.key)))
-
-            join = table.join
+            else:
+                join = table.join
 
             # Get the physical table object (aliased) and already constructed
             # key (properly aliased)
@@ -743,8 +617,8 @@ class StarSchema(object):
             master_table = self.table(master_key).table
 
             try:
-                master_columns = _make_compound_key(master_table,
-                                                    master.column)
+                master_columns = [master_table.columns[name]
+                                  for name in master.columns]
             except KeyError as e:
                 raise ModelError('Unable to find master key column "{key}" '
                                  'in table "{table}" for star {schema} '
@@ -755,8 +629,8 @@ class StarSchema(object):
             # Detail table.column
             # -------------------
             try:
-                detail_columns = _make_compound_key(detail_table,
-                                                    join.detail.column)
+                detail_columns = [detail_table.columns[name]
+                                  for name in join.detail.columns]
             except KeyError as e:
                 raise ModelError('Unable to find detail key column "{key}" '
                                  'in table "{table}" for star {schema} '
@@ -774,10 +648,12 @@ class StarSchema(object):
 
             # The JOIN ON condition
             # ---------------------
+            key_conditions: List[sa.ColumnElement]
             key_conditions = [left == right
                               for left, right
                               in zip(master_columns, detail_columns)]
-            onclause = and_(*key_conditions)
+            onclause: sa.ColumnElement
+            onclause = sa.and_(*key_conditions)
 
             # Determine the join type based on the join method. If the method
             # is "detail" then we need to swap the order of the tables
@@ -796,9 +672,7 @@ class StarSchema(object):
             else:
                 raise ModelError("Unknown join method '%s'" % join.method)
 
-            star = sql.expression.join(left, right,
-                                       onclause=onclause,
-                                       isouter=is_outer)
+            star = sa.join(left, right, onclause=onclause, isouter=is_outer)
 
             # Consume the detail
             if detail_key not in star_tables:
@@ -812,6 +686,10 @@ class StarSchema(object):
 
         return star
 
+
+# TODO: [typing] Make the hierarchy non-optional, explicit
+_WildHierarchyKeyType = Tuple[str, Optional[str]]
+_WildHierarchyDictType = Dict[_WildHierarchyKeyType, List[str]]
 
 class QueryContext(object):
     """Context for execution of a query with given set of attributes and
@@ -828,8 +706,21 @@ class QueryContext(object):
     .. versionadded:: 1.1
     """
 
-    def __init__(self, star_schema, attributes, hierarchies=None,
-                 parameters=None, safe_labels=None):
+    star_schema: StarSchema
+    attributes: Dict[str, AttributeBase]
+    hierarchies: _WildHierarchyDictType
+    safe_labels: bool
+    star: sa.FromClause
+    _columns: Dict[str, sa.ColumnElement]
+    # FIXME: Rename to label_to_attribute or label_attr_map
+    label_attributes: Dict[str, str]
+    
+    # TODO: Pass parameters here
+    def __init__(self,
+            star_schema: StarSchema,
+            attributes: Collection[AttributeBase] ,
+            hierarchies: Optional[_WildHierarchyDictType]=None,
+            safe_labels: bool=False) -> None:
         """Creates a query context for `cube`.
 
         * `attributes` – list of all attributes that are relevant to the
@@ -860,8 +751,8 @@ class QueryContext(object):
 
         self.star_schema = star_schema
 
-        self.attributes = object_dict(attributes, True)
-        self.hierarchies = hierarchies
+        self.attributes = object_dict(attributes, by_ref=True)
+        self.hierarchies = hierarchies or {}
         self.safe_labels = safe_labels
 
         # Collect base attributes
@@ -877,31 +768,33 @@ class QueryContext(object):
 
         # Collect all the columns
         #
-        bases = {attr:self.star_schema.column(attr) for attr in base_names}
+        bases = {attr: self.star_schema.column(attr) for attr in base_names}
         bases[FACT_KEY_LABEL] = self.star_schema.fact_key_column
 
-        self._columns = compile_attributes(bases, dependants, parameters,
-                                           star_schema.label)
+        # FIXME: [typing] correct the type once sql.expressions are annotated
+        self._columns = compile_attributes(bases=bases,
+                                           dependants=dependants,
+                                           parameters=None,
+                                           label=star_schema.label)  # type: ignore
 
         self.label_attributes = {}
         if self.safe_labels:
             # Re-label the columns using safe labels. It is up to the owner of
             # the context to determine which column is which attribute
 
-            for i, item in enumerate(list(self._columns.items())):
-                attr, column = item
-                label = "a{}".format(i)
-                self._columns[attr] = column.label(label)
-                self.label_attributes[label] = attr
+            for i, item in enumerate(self._columns.items()):
+                attr_name, column = item
+                label = f"a{i}"
+                self._columns[attr_name] = column.label(label)
+                self.label_attributes[label] = attr_name
         else:
             for attr in attributes:
-                attr = attr.ref
-                column = self._columns[attr]
-                self._columns[attr] = column.label(attr)
+                column = self._columns[attr.ref]
+                self._columns[attr.ref] = column.label(attr.ref)
                 # Identity mappign
-                self.label_attributes[attr] = attr
+                self.label_attributes[attr.ref] = attr.ref
 
-    def column(self, ref):
+    def column(self, ref: str) -> sa.ColumnElement:
         """Get a column expression for attribute with reference `ref`. Column
         has the same label as the attribute reference, unless `safe_labels` is
         provided to the query context. If `safe_labels` translation is
@@ -918,7 +811,7 @@ class QueryContext(object):
                                 "properly initialized or dependencies were "
                                 "not correctly ordered?".format(ref))
 
-    def get_labels(self, columns):
+    def get_labels(self, columns: Collection[sa.ColumnElement]) -> List[str]:
         """Returns real attribute labels for columns `columns`. It is highly
         recommended that the owner of the context uses this method before
         iterating over statement result."""
@@ -929,40 +822,38 @@ class QueryContext(object):
         else:
             return [col.name for col in columns]
 
-    def get_columns(self, refs):
+    def get_columns(self, refs: Collection[str]) -> List[sa.ColumnElement]:
         """Get columns for attribute references `refs`.  """
 
         return [self._columns[ref] for ref in refs]
 
-    def condition_for_cell(self, cell):
+    def condition_for_cell(self, cell: Cell) -> sa.ColumnElement:
         """Returns a condition for cell `cell`. If cell is empty or cell is
         `None` then returns `None`."""
 
-        if not cell:
-            return None
-
-        condition = and_(*self.conditions_for_cuts(cell.cuts))
+        condition = sa.and_(*self.conditions_for_cuts(cell.cuts))
 
         return condition
 
-    def conditions_for_cuts(self, cuts):
+    def conditions_for_cuts(self, cuts: List[Cut]) -> List[sa.ColumnElement]:
         """Constructs conditions for all cuts in the `cell`. Returns a list of
         SQL conditional expressions.
         """
 
+        conditions: List[sa.ColumnElement]
         conditions = []
+        path: HierarchyPath
 
         for cut in cuts:
-            hierarchy = cut.hierarchy
-
             if isinstance(cut, PointCut):
                 path = cut.path
                 condition = self.condition_for_point(cut.dimension,
                                                      path,
-                                                     hierarchy, cut.invert)
+                                                     cut.hierarchy,
+                                                     cut.invert)
 
             elif isinstance(cut, SetCut):
-                set_conds = []
+                set_conds: List[sa.ColumnElement] = []
 
                 for path in cut.paths:
                     condition = self.condition_for_point(cut.dimension,
@@ -971,14 +862,14 @@ class QueryContext(object):
                                                          invert=False)
                     set_conds.append(condition)
 
-                condition = sql.expression.or_(*set_conds)
+                condition = sa.or_(*set_conds)
 
                 if cut.invert:
-                    condition = sql.expression.not_(condition)
+                    condition = sa.not_(condition)
 
             elif isinstance(cut, RangeCut):
                 condition = self.range_condition(cut.dimension,
-                                                 hierarchy,
+                                                 cut.hierarchy,
                                                  cut.from_path,
                                                  cut.to_path, cut.invert)
 
@@ -989,12 +880,17 @@ class QueryContext(object):
 
         return conditions
 
-    def condition_for_point(self, dim, path, hierarchy=None, invert=False):
+    def condition_for_point(self,
+            dim: str,
+            path: HierarchyPath,
+            hierarchy: Optional[str]=None,
+            invert: bool=False) -> sa.ColumnElement:
         """Returns a `Condition` tuple (`attributes`, `conditions`,
         `group_by`) dimension `dim` point at `path`. It is a compound
         condition - one equality condition for each path element in form:
         ``level[i].key = path[i]``"""
 
+        conditions: List[sa.ColumnElement]
         conditions = []
 
         levels = self.level_keys(dim, hierarchy, path)
@@ -1005,40 +901,62 @@ class QueryContext(object):
             column = self.column(level_key)
             conditions.append(column == value)
 
-        condition = sql.expression.and_(*conditions)
+        condition = sa.and_(*conditions)
 
         if invert:
-            condition = sql.expression.not_(condition)
+            condition = sa.not_(condition)
 
         return condition
 
-    def range_condition(self, dim, hierarchy, from_path, to_path,
-                        invert=False):
+    def range_condition(self,
+            dim: str,
+            hierarchy: Optional[str],
+            from_path: Optional[HierarchyPath],
+            to_path: Optional[HierarchyPath],
+            invert: bool=False) -> sa.ColumnElement:
         """Return a condition for a hierarchical range (`from_path`,
         `to_path`). Return value is a `Condition` tuple."""
 
-        lower = self._boundary_condition(dim, hierarchy, from_path, 0)
-        upper = self._boundary_condition(dim, hierarchy, to_path, 1)
+        assert(from_path is not None or to_path is not None,
+               "Range cut must have at least one boundary")
 
+        conditions: List[sa.ColumnElement]
         conditions = []
-        if lower is not None:
-            conditions.append(lower)
-        if upper is not None:
-            conditions.append(upper)
 
-        condition = sql.expression.and_(*conditions)
+        bound_check: Optional[sa.ColumnElement]
+        condition: sa.ColumnElement
+
+        # Lower bound check
+        #
+        bound_check = self._boundary_condition(dim, hierarchy, from_path, 0)
+        if bound_check is not None:
+            conditions.append(bound_check)
+
+        # Upper bound check
+        bound_check = self._boundary_condition(dim, hierarchy, to_path, 1)
+        if bound_check is not None:
+            conditions.append(bound_check)
+
+        condition = sa.and_(*conditions)
 
         if invert:
-            condition = sql.expression.not_(condition)
+            condition = sa.not_(condition)
 
         return condition
 
-    def _boundary_condition(self, dim, hierarchy, path, bound, first=True):
+    def _boundary_condition(self,
+            dim: str,
+            hierarchy: Optional[str],
+            path: Optional[HierarchyPath],
+            bound: int,
+            first: bool=True) -> Optional[sa.ColumnElement]:
         """Return a `Condition` tuple for a boundary condition. If `bound` is
         1 then path is considered to be upper bound (operators < and <= are
         used), otherwise path is considered as lower bound (operators > and >=
         are used )"""
         # TODO: make this non-recursive
+
+        column: sa.ColumnElement
 
         if not path:
             return None
@@ -1048,7 +966,7 @@ class QueryContext(object):
 
         levels = self.level_keys(dim, hierarchy, path)
 
-        conditions = []
+        conditions: List[sa.ColumnElement] = []
 
         for level_key, value in zip(levels[:-1], path[:-1]):
             column = self.column(level_key)
@@ -1057,29 +975,34 @@ class QueryContext(object):
         # Select required operator according to bound
         # 0 - lower bound
         # 1 - upper bound
+        operator: Callable[[Any, Any], sa.ColumnElement]
         if bound == 1:
             # 1 - upper bound (that is <= and < operator)
-            operator = sql.operators.le if first else sql.operators.lt
+            operator = sa.le if first else sa.lt
         else:
             # else - lower bound (that is >= and > operator)
-            operator = sql.operators.ge if first else sql.operators.gt
+            operator = sa.ge if first else sa.gt
 
         column = self.column(levels[-1])
         conditions.append(operator(column, path[-1]))
-        condition = sql.expression.and_(*conditions)
+        condition = sa.and_(*conditions)
 
         if last is not None:
-            condition = sql.expression.or_(condition, last)
+            condition = sa.or_(condition, last)
 
         return condition
 
-    def level_keys(self, dimension, hierarchy, path):
+    def level_keys(self,
+            dimension: str,
+            hierarchy: Optional[str],
+            path: HierarchyPath) -> List[str]:
         """Return list of key attributes of levels for `path` in `hierarchy`
         of `dimension`."""
 
         # Note: If something does not work here, make sure that hierarchies
         # contains "default hierarchy", that is (dimension, None) tuple.
         #
+        # FIXME [typing] Make hierarchy non-optional, explicit
         try:
             levels = self.hierarchies[(str(dimension), hierarchy)]
         except KeyError as e:
@@ -1096,14 +1019,15 @@ class QueryContext(object):
 
         return levels[0:depth]
 
-    def column_for_split(self, split_cell, label=None):
+    def column_for_split(self, split_cell: Cell, label: str=None) \
+            -> sa.ColumnElement:
         """Create a column for a cell split from list of `cust`."""
 
+        condition: sa.ColumnElement
         condition = self.condition_for_cell(split_cell)
-        split_column = sql.expression.case([(condition, True)],
+        split_column = sa.case([(condition, True)],
                                            else_=False)
 
         label = label or SPLIT_DIMENSION_NAME
 
         return split_column.label(label)
-

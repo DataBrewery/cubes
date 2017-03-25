@@ -3,7 +3,7 @@
 
 # TODO: This should be moved under query sub-module
 
-from typing import Optional, Any, Sequence, Tuple, Dict
+from typing import Optional, Any, Collection, Tuple, Dict
 from logging import Logger
 import collections
 

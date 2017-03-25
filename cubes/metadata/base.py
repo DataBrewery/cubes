@@ -7,7 +7,16 @@ import os
 import re
 import shutil
 
-from typing import Optional, List, Any, Dict, IO, cast, Sequence
+from typing import (
+        Any,
+        Collection,
+        Dict,
+        IO,
+        List,
+        Optional,
+        TypeVar,
+        cast,
+    )
 
 from urllib.parse import urlparse
 from urllib.request import urlopen
@@ -97,10 +106,16 @@ class ModelObject(object):
         return acopy
 
 
-def object_dict(objects:Sequence[ModelObject],
+
+_T = TypeVar("_T", bound=ModelObject)
+
+# TODO: [typing] Make `objects` collection of Protocol of `Named` objects
+# See PEP 544.
+#
+def object_dict(objects:Collection[_T],
                 by_ref:bool=False,
                 error_message:Optional[str]=None,
-                error_dict:Dict[str,Any]=None) -> Dict[str,Any]:
+                error_dict:Dict[str,_T]=None) -> Dict[str,_T]:
     """Make an ordered dictionary from model objects `objects` where keys are
     object names. If `for_ref` is `True` then object's `ref` (reference) is
     used instead of object name. Keys are supposed to be unique in the list,

@@ -3,11 +3,28 @@
 
 import re
 
+from typing import (
+        Collection,
+        Dict,
+        List,
+        Mapping,
+        Optional,
+        Pattern,
+        Tuple,
+        Type,
+    )
+
+
+from ..types import JSONType
+
 from ..errors import ModelError
 from ..datastructures import AttributeDict
 
-from .query import to_column
+from ..metadata.physical import ColumnReference
 
+from ..metadata.cube import Cube
+from ..metadata.attributes import AttributeBase
+from ..metadata.dimension import Dimension
 
 # Note about the future of this module:
 #
@@ -61,7 +78,7 @@ NAMING_DEFAULTS = {
 }
 
 
-def distill_naming(dictionary):
+def distill_naming(dictionary: Dict[str,str]) -> "Naming":
     """Distill only keys and values related to the naming conventions."""
     d = {key: value for key, value in dictionary.items()
          if key in NAMING_DEFAULTS}
@@ -69,11 +86,12 @@ def distill_naming(dictionary):
     return Naming(d)
 
 
-def _match_names(pattern, names):
+def _match_names(pattern: Pattern, names: Collection[str]) \
+        -> Collection[Tuple[str,str]]:
     """Match names to patterns and return a tuple of matching name with
     extracted value (stripped of suffix/prefix)."""
 
-    result = []
+    result: List[Tuple[str,str]] = []
 
     for name in names:
         match = pattern.match(name)
@@ -118,7 +136,7 @@ class Naming(AttributeDict):
     ``dm_``, `explicit_dimension_primary` = ``True``.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: str, **kwargs: str) -> None:
         """Creates a `Naming` object instance from a dictionary. If `fact_key`
         or `dimension_key` are not specified, then they are set to ``id`` by
         default."""
@@ -142,7 +160,7 @@ class Naming(AttributeDict):
                          .format(self.dimension_key_prefix or "", self.dimension_key_suffix or ""))
         self["dim_key_pattern"] = pat
 
-    def dimension_table_name(self, name):
+    def dimension_table_name(self, name: str) -> str:
         """Constructs a physical dimension table name for dimension `name`"""
 
         table_name = "{}{}{}".format(self.dimension_prefix or "",
@@ -150,7 +168,7 @@ class Naming(AttributeDict):
                                      self.dimension_suffix or "")
         return table_name
 
-    def fact_table_name(self, name):
+    def fact_table_name(self, name: str) -> str:
         """Constructs a physical fact table name for fact/cube `name`"""
 
         table_name = "{}{}{}".format(self.fact_prefix or "",
@@ -158,7 +176,7 @@ class Naming(AttributeDict):
                                      self.fact_suffix or "")
         return table_name
 
-    def denormalized_table_name(self, name):
+    def denormalized_table_name(self, name: str) -> str:
         """Constructs a physical fact table name for fact/cube `name`"""
 
         table_name = "{}{}{}".format(self.denormalized_prefix or "",
@@ -167,7 +185,7 @@ class Naming(AttributeDict):
         return table_name
 
     # TODO: require list of dimensions here
-    def aggregated_table_name(self, name):
+    def aggregated_table_name(self, name: str) -> str:
         """Constructs a physical fact table name for fact/cube `name`"""
 
         table_name = "{}{}{}".format(self.aggregated_prefix or "",
@@ -175,7 +193,7 @@ class Naming(AttributeDict):
                                      self.aggregated_suffix or "")
         return table_name
 
-    def dimension_primary_key(self, name):
+    def dimension_primary_key(self, name:str ) -> str:
         """Constructs a dimension primary key name for dimension `name`"""
 
         if self.explicit_dimension_primary:
@@ -186,7 +204,7 @@ class Naming(AttributeDict):
         else:
             return self.dimension_key
 
-    def dimension_keys(self, keys):
+    def dimension_keys(self, keys: List[str]) -> Collection[Tuple[str, str]]:
         """Return a list of tuples (`key`, `dimension`) for every key in
         `keys` that matches dimension key naming. Useful when trying to
         identify dimensions and their foreign keys in a fact table that
@@ -194,14 +212,14 @@ class Naming(AttributeDict):
 
         return _match_names(self.dim_key_pattern, keys)
 
-    def dimensions(self, table_names):
+    def dimensions(self, table_names: List[str]) -> Collection[Tuple[str, str]]:
         """Return a list of tuples (`table`, `dimension`) for all tables that
         match dimension naming scheme. Usefult when trying to identify
         dimension tables in a database that follow the naming convention."""
 
         return _match_names(self.dim_name_pattern, table_names)
 
-    def facts(self, table_names):
+    def facts(self, table_names: List[str]) -> Collection[Tuple[str, str]]:
         """Return a list of tuples (`table`, `fact`) for all tables that
         match fact table naming scheme. Useful when trying to identify fact
         tables in a database that follow the naming convention."""
@@ -216,7 +234,12 @@ class Mapper:
     .. versionchanged:: 1.1
     """
 
-    def __init__(self, cube, naming, locale=None):
+    naming: Naming
+    locale: Optional[str]
+    mappings: JSONType
+    fact_name: str
+
+    def __init__(self, cube: Cube, naming: Naming, locale: str=None) -> None:
         """Creates a mapping for `cube` using `naming` conventions within
         optional `locale`. `naming` has to be a :class:`cubes.Naming`
         object."""
@@ -226,7 +249,7 @@ class Mapper:
         self.fact_name = cube.fact or naming.fact_table_name(cube.name)
 
 
-    def __getitem__(self, attribute):
+    def __getitem__(self, attribute: AttributeBase) -> ColumnReference:
         """Returns implicit physical column reference for `attribute`, which
         should be an instance of :class:`cubes.model.Attribute`. If there is
         no dimension specified in attribute, then fact table is assumed. The
@@ -243,19 +266,22 @@ class Mapper:
 
         schema, table = self.attribute_table(attribute)
 
-        return to_column((schema, table, column_name))
+        return ColumnReference(column=column_name, table=table, schema=schema)
 
-    def attribute_table(self, attribute):
+    def attribute_table(self, attribute: AttributeBase) -> Tuple[Optional[str], str]:
         """Return a tuple (schema, table) for attribute."""
 
+        # TODO: Attribute.dimension is a candidate for removal.
+        dimension: Optional[Dimension]
         dimension = attribute.dimension
 
-        if dimension:
+        if dimension is not None:
+            schema: Optional[str]
             schema = self.naming.dimension_schema or self.naming.schema
             if dimension.is_flat and not dimension.has_details:
                 table = self.fact_name
             else:
-                table = self.naming.dimension_table_name(dimension)
+                table = self.naming.dimension_table_name(dimension.name)
 
         else:
             table = self.fact_name
@@ -265,17 +291,17 @@ class Mapper:
 
 
 class DenormalizedMapper(Mapper):
-    def __getitem__(self, attribute):
-        if attribute.expression:
+    def __getitem__(self, attribute: AttributeBase) -> ColumnReference:
+        if attribute.expression is not None:
             raise ModelError("Attribute '{}' has an expression, it can not "
                              "have a direct physical representation"
                              .format(attribute.name))
 
-        return super(DenormalizedMapper, self).__getitem__(attribute)
+        return super().__getitem__(attribute)
 
 
 class StarSchemaMapper(Mapper):
-    def __getitem__(self, attribute):
+    def __getitem__(self, attribute: AttributeBase) -> ColumnReference:
         """Find physical reference for a star schema as follows:
 
         1. if there is mapping for `dimension.attribute`, use the mapping
@@ -292,7 +318,7 @@ class StarSchemaMapper(Mapper):
         `name_sk` for attribute `name` and locale `sk`.
         """
 
-        if attribute.expression:
+        if attribute.expression is not None:
             raise ModelError("Attribute '{}' has an expression, it can not "
                              "have a direct physical representation"
                              .format(attribute.name))
@@ -301,6 +327,7 @@ class StarSchemaMapper(Mapper):
         # localized, then use specified if exists otherwise use default
         # locale of the attribute (first one specified in the list)
 
+        locale: Optional[str]
         if attribute.is_localizable():
             locale = self.locale if self.locale in attribute.locales \
                                 else attribute.locales[0]
@@ -311,17 +338,20 @@ class StarSchemaMapper(Mapper):
 
         physical = self.mappings.get(logical)
 
-        if physical:
+        if physical is not None:
             # TODO: Should we not get defaults here somehow?
-            column = to_column(physical)
-            return column
+            return ColumnReference.from_dict(physical)
+        else:
+            # No mappings exist or no mapping was found - we are going to
+            # create default physical reference
+            return super(StarSchemaMapper, self).__getitem__(attribute)
 
-        # No mappings exist or no mapping was found - we are going to create
-        # default physical reference
-        return super(StarSchemaMapper, self).__getitem__(attribute)
 
-
-def map_base_attributes(cube, mapper_class, naming, locale=None):
+def map_base_attributes(
+        cube: Cube,
+        mapper_class: Type[Mapper],
+        naming: Naming,
+        locale: Optional[str]=None) -> Tuple[str, Mapping[str, ColumnReference]]:
     """Map all base attributes of `cube` using mapping function `mapper`.
     `naming` is a naming convention object. Returns a tuple (`fact_name`,
     `mapping`) where `fact_name` is a fact table name and `mapping` is a
@@ -330,7 +360,8 @@ def map_base_attributes(cube, mapper_class, naming, locale=None):
 
     base = [attr for attr in cube.all_attributes if attr.is_base]
 
-    mapper = mapper_class(cube, naming, locale)
+    mapper: Mapper
+    mapper = mapper_class(cube=cube, naming=naming, locale=locale)
     mapped = {attr.ref:mapper[attr] for attr in base}
 
     return (mapper.fact_name, mapped)

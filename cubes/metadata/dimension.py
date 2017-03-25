@@ -4,9 +4,18 @@ import copy
 import re
 
 from collections import OrderedDict
-from typing import List, Optional, Dict, Set, Any, Union, Tuple, \
-                    Sequence, Sized, \
-                    cast
+from typing import (
+        Any,
+        Collection,
+        Dict,
+        List,
+        Optional,
+        Set,
+        Sized,
+        Tuple,
+        Union,
+        cast,
+    )
 
 from ..common import get_localizable_attributes
 from ..types import JSONType
@@ -390,7 +399,7 @@ class Hierarchy(ModelObject, Sized):
     def keys(self, depth:Optional[int]=None) -> List[Attribute]:
         """Return names of keys for all levels in the hierarchy to `depth`. If
         `depth` is `None` then all levels are returned."""
-        levels: Sequence[Level]
+        levels: Collection[Level]
 
         if depth is not None:
             levels = self.levels[0:depth]

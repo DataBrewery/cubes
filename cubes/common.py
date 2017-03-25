@@ -5,9 +5,12 @@ levels"""
 
 from typing import (
     Any,
+    Collection,
     Dict,
+    Hashable,
     List,
     Optional,
+    TypeVar,
     Union,
 )
 
@@ -363,3 +366,11 @@ def sorted_dependencies(graph: Any) -> Any:
                             % ", ".join(nonempty))
     return L
 
+def list_hash(values: Collection[Hashable]) -> int:
+    """Return a hash value of a sequence of hashable items."""
+    hash_value = 0
+    
+    for value in values:
+        hash_value = hash_value ^ hash(value)
+
+    return hash_value

@@ -3,7 +3,7 @@
 
 from collections import OrderedDict, defaultdict
 
-from typing import Optional, List, Dict, Any, Union, Set, Sequence, Tuple
+from typing import Collection, Optional, List, Dict, Any, Union, Set, Tuple
 
 from ..types import JSONType, OptionsType
 from ..common import assert_all_instances, get_localizable_attributes
@@ -109,7 +109,8 @@ class Cube(ModelObject):
 
     locale: Optional[str]
     category: Optional[str]
-    joins: Optional[JSONType]
+    # TODO: [typing] use List[Join]
+    joins: Optional[List[JSONType]]
     # FIXME: Make dimension link a real metadata object
     dimension_links: JSONType
     basename: str
@@ -131,18 +132,18 @@ class Cube(ModelObject):
 
     def __init__(self,
                  name: str,
-                 dimensions: Optional[List[Dimension]]=None,
-                 measures: Optional[List[Measure]]=None,
-                 aggregates: Optional[List[MeasureAggregate]]=None,
+                 dimensions: Optional[Collection[Dimension]]=None,
+                 measures: Optional[Collection[Measure]]=None,
+                 aggregates: Optional[Collection[MeasureAggregate]]=None,
                  label: Optional[str]=None,
-                 details: Optional[List[Attribute]]=None,
-                 mappings: Optional[JSONType]=None,
+                 details: Optional[Collection[Attribute]]=None,
+                 mappings: Optional[Collection[JSONType]]=None,
                  joins: Optional[JSONType]=None,
                  fact: Optional[str]=None,
                  key: Optional[str]=None,
                  description: Optional[str]=None,
                  browser_options: Optional[OptionsType]=None,
-                 info: JSONType=None,
+                 info: Optional[JSONType]=None,
                  dimension_links: Optional[JSONType]=None,
                  locale: Optional[str]=None,
                  category: Optional[str]=None,
@@ -441,7 +442,7 @@ class Cube(ModelObject):
         return [attr for attr in self.all_attributes if attr.is_base]
 
     @property
-    def all_fact_attributes(self) -> List[AttributeBase]:
+    def all_fact_attributes(self) -> List[Attribute]:
         """All cube's attributes from the fact: attributes of dimensions,
         details and measures.
 
@@ -510,9 +511,10 @@ class Cube(ModelObject):
         raise NoSuchAttributeError("Cube '%s' has no attribute '%s'"
                                    % (self.name, attribute))
 
+    # TODO: Rename to collect_attributes
     def get_attributes(self,
-                       attributes:Sequence[Union[str,AttributeBase]]=None,
-                       aggregated:bool=False) -> List[AttributeBase]:
+                       attributes:Collection[Union[str,AttributeBase]]=None,
+                       aggregated:bool=False) -> Collection[AttributeBase]:
         """Returns a list of cube's attributes. If `aggregated` is `True` then
         attributes after aggregation are returned, otherwise attributes for a
         fact are considered.
@@ -536,14 +538,15 @@ class Cube(ModelObject):
             else:
                 return self.all_fact_attributes
 
-        everything = object_dict(self.all_attributes, True)
+        lookup: Dict[str, AttributeBase]
+        lookup = object_dict(self.all_attributes, True)
 
         names = (str(attr) for attr in attributes or [])
 
         result = []
         for name in names:
             try:
-                attr = everything[name]
+                attr = lookup[name]
             except KeyError:
                 raise NoSuchAttributeError("Unknown attribute '{}' in cube "
                                            "'{}'".format(name, self.name))
@@ -551,8 +554,8 @@ class Cube(ModelObject):
 
         return result
 
-    def collect_dependencies(self, attributes: List[AttributeBase])\
-                -> List[AttributeBase]:
+    def collect_dependencies(self, attributes: Collection[AttributeBase])\
+                -> Collection[AttributeBase]:
         """Collect all original and dependant cube attributes for
         `attributes`, sorted by their dependency: starting with attributes
         that don't depend on anything. For exapmle, if the `attributes` is [a,

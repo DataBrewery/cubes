@@ -28,5 +28,6 @@ OptionValue = Any
 _CubeKey = Tuple[str, Any, Optional[str]]
 
 # TODO: [typing] See #410
+# Placeholders
 _RecordType = Mapping[str, Any]
 ValueType = Any
