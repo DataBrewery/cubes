@@ -61,7 +61,6 @@ from .mapper import (
     )
 from .query import StarSchema, QueryContext, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
-from .store import SQLStore
 
 if TYPE_CHECKING:
     from .store import SQLStore
