@@ -18,16 +18,34 @@ from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator, x
 from ..metadata import read_model_metadata, write_model_metadata_bundle
 from ..workspace import Workspace
 from ..errors import CubesError
-from ..server import run_server
-from ..server.base import read_slicer_config
+from ..server import SlicerServer
 
 from .. import ext
 
 from ..query import cuts_from_string, Cell
 from ..metadata import string_to_dimension_level
 
+from configparser import ConfigParser
+# import slicer_flask
+
 
 DEFAULT_CONFIG = "slicer.ini"
+DEFAULT_SERVER_TYPE = "flask"
+
+# Server Instantiation and Running
+# ================================
+
+def read_slicer_config(config):
+    if not config:
+        return ConfigParser()
+    elif isinstance(config, str):
+        try:
+            path = config
+            config = ConfigParser()
+            config.read(path)
+        except Exception as e:
+            raise Exception("Unable to load configuration: %s" % e)
+    return config
 
 
 @click.group()
@@ -46,18 +64,42 @@ def cli(ctx, debug):
 
 @cli.command()
 @click.argument('config', type=click.Path(exists=True), default=DEFAULT_CONFIG)
+@click.option('--type', '-t', 'server_type',
+              help="Server type to run. Default 'flask'")
 @click.option('--visualizer',
               help="Visualizer URL for /visualizer path")
 @click.pass_context
-def serve(ctx, config, visualizer):
-    """Run Slicer HTTP server."""
+def serve(ctx, config, server_type, visualizer):
+    """Run Slicer server."""
     config = read_config(config)
 
     # FIXME: "visualizer" shouldn't be in "server" section
     if visualizer:
         config.set("server", "visualizer", visualizer)
 
-    run_server(config, debug=ctx.obj.debug)
+    server: SlicerServer
+    if server_type is not None:
+        server = ext.server(server_type, config, debug=ctx.obj.debug)
+    else:
+        try:
+            server = ext.server(DEFAULT_SERVER_TYPE, config, debug=ctx.obj.debug)
+        except Exception as e:
+            click.echo("ERROR: Unable to create default Flask server.",
+                       err=True)
+            click.echo("\n"
+                       "Make sure that the 'slicer_flask' package is installed."
+                       "\nSee: https://github.com/DataBrewery/slicer-flask",
+                       err=True)
+            click.echo("\n"
+                       "Note: Cubes core package no longer comes with built-in "
+                       "server. Servers are now extensions that need to be "
+                       "installed separately.\n\n"
+                       "See: https://github.com/DataBrewery/cubes/issues/421",
+                       err=True)
+            exit(1)
+
+    server.run()
+
 
 ################################################################################
 # Command: extension

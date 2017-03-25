@@ -29,6 +29,7 @@ EXTENSION_TYPES = {
     "authorizer": "Authorizer",
     "authenticator": "Authenticator",
     "request_log_handler": "Request log handler",
+    "server": "Server",
 }
 
 # Information about built-in extensions. Supposedly faster loading (?).
@@ -44,7 +45,7 @@ _BUILTIN_EXTENSIONS = {
     },
     "browsers": {
         "sql":"cubes.sql.browser:SQLBrowser",
-        "slicer":"cubes.server.browser:SlicerBrowser",
+        "slicer":"cubes.modules.http.browser:SlicerBrowser",
     },
     "formatters": {
         "cross_table": "cubes.formatters:CrossTableFormatter",
@@ -65,7 +66,7 @@ _BUILTIN_EXTENSIONS = {
     },
     "stores": {
         "sql":"cubes.sql.store:SQLStore",
-        "slicer":"cubes.server.store:SlicerStore",
+        "slicer":"cubes.modules.http.store:SlicerStore",
     },
 }
 
@@ -272,3 +273,4 @@ formatter = ExtensionFinder("formatters")
 model_provider = ExtensionFinder("providers")
 request_log_handler = ExtensionFinder("request_log_handlers")
 store = ExtensionFinder("stores")
+server = ExtensionFinder("servers")

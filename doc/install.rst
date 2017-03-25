@@ -15,10 +15,6 @@ Dependencies:
 Basic Installation
 ==================
 
-The cubes has optional requirements:
-
-* `Flask`_ for Slicer OLAP HTTP server
-
 .. note::
 
     If you never used Python before, you might have to get the `pip installer`_ 
@@ -45,7 +41,6 @@ or with all of the extras. ::
 If you are developing cubes, you should install ``cubes[all]``.
 
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
-.. _Flask: http://flask.pocoo.org/
 .. _pip installer: http://www.pip-installer.org/en/latest/installing.html#install-or-upgrade-pip
 
 Quick Start or Hello World!
@@ -90,9 +85,11 @@ Install::
     pip install -r requirements-optional.txt
     python setup.py install
 
-.. note::
 
-    The requirements for SQLAlchemy_ and Flask_ are optional and you do not
-    need them if you are going to use another kind of backend or don't going
-    to use the Slicer server.
+Server
+======
+
+TODO: Write this piece of documentation.
+
+Install Slicer Flask server from https://github.com/DataBrewery/slicer-flask.
 

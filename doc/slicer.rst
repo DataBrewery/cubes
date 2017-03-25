@@ -3,7 +3,7 @@ slicer - Command Line Tool
 
 Cubes comes with a command line tool that can:
 
-* run OLAP server
+* run OLAP server (requires separate module)
 * build and compute cubes
 * validate and translate models
 
@@ -43,9 +43,23 @@ serve
 
 Run Cubes OLAP HTTP server.
 
+Optional arguments::
+
+      --type              type of the Slicer server. Default: flask.
+
+.. todo::
+
+    Fix the server package installation documentation.
+
+.. note:: 
+
+    Server is no longer bundled with Cubes core. Install it from
+    https://github.com/DataBrewery/slicer-flask
+
 Example server configuration file ``slicer.ini``::
 
     [server]
+    type: flask
     host: localhost
     port: 5000
     reload: yes
