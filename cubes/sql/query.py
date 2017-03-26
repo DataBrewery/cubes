@@ -691,7 +691,7 @@ class StarSchema:
 _WildHierarchyKeyType = Tuple[str, Optional[str]]
 _WildHierarchyDictType = Dict[_WildHierarchyKeyType, List[str]]
 
-class QueryContext(object):
+class QueryContext:
     """Context for execution of a query with given set of attributes and
     underlying star schema. The context is used for providing columns for
     attributes and generating conditions for cells. Context is reponsible for
@@ -720,7 +720,7 @@ class QueryContext(object):
             star_schema: StarSchema,
             attributes: Collection[AttributeBase] ,
             hierarchies: Optional[_WildHierarchyDictType]=None,
-            safe_labels: bool=False) -> None:
+            safe_labels: Optional[bool]=False) -> None:
         """Creates a query context for `cube`.
 
         * `attributes` – list of all attributes that are relevant to the

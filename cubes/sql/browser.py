@@ -144,6 +144,11 @@ class SQLBrowser(AggregationBrowser):
     # FIXME: [Typing] see Cube.distilled_hierarchies
     hierarchies: Dict[Tuple[str,Optional[str]],List[str]]
 
+    include_summary: bool
+    include_cell_count: bool
+    safe_labels: bool
+    exclude_null_aggregates: bool
+
     def __init__(self,
             cube: Cube,
             store: "SQLStore", 
@@ -179,10 +184,12 @@ class SQLBrowser(AggregationBrowser):
         options.update(store.options)
         options.update(kwargs)
 
-        self.include_summary = options.get("include_summary", True)
-        self.include_cell_count = options.get("include_cell_count", True)
+        # FIXME: [typing] Remove the `type: ignore` once Options are
+        # implemented
+        self.include_summary = options.get("include_summary", True) # type: ignore
+        self.include_cell_count = options.get("include_cell_count", True) # type: ignore
 
-        self.safe_labels = options.get("safe_labels", False)
+        self.safe_labels = options.get("safe_labels", False)  # type: ignore
         if self.safe_labels:
             self.logger.debug("using safe labels for cube {}"
                               .format(cube.name))
@@ -370,7 +377,8 @@ class SQLBrowser(AggregationBrowser):
             attributes: Collection[AttributeBase]=None,
             page: int=None,
             page_size: int=None,
-            order: List[_OrderType]=None) -> Iterable[_RecordType]:
+            order: Optional[Collection[_OrderType]]=None) \
+                    -> Iterable[_RecordType]:
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
@@ -495,7 +503,7 @@ class SQLBrowser(AggregationBrowser):
 
         """
 
-        cells: Optional[Iterable[_RecordType]] = None
+        cells: Optional[ResultIterator] = None
         labels: Optional[List[str]] = None
         summary: Optional[_RecordType] = None
         levels: Optional[Mapping[str, List[str]]] = None
@@ -558,6 +566,14 @@ class SQLBrowser(AggregationBrowser):
             cells = ResultIterator(cursor, labels)
             labels = labels
 
+
+        # If exclude_null_aggregates is True then don't include cells where
+        # at least one of the bult-in aggregates is NULL
+        if cells is not None and self.exclude_null_agregates:
+            native_aggs = [agg.ref for agg in aggregates
+                           if agg.function and self.is_builtin_function(agg.function)]
+            cells.exclude_if_null = native_aggs
+
         result = AggregationResult(
                 cube=self.cube,
                 cell=cell,
@@ -569,16 +585,6 @@ class SQLBrowser(AggregationBrowser):
                 summary=summary,
                 total_cell_count=total_cell_count,
                 has_split=split is not None)
-
-
-        # If exclude_null_aggregates is True then don't include cells where
-        # at least one of the bult-in aggregates is NULL
-        if result.cells is not None and self.exclude_null_agregates:
-            native_aggs = [agg.ref for agg in aggregates
-                           if agg.function and self.is_builtin_function(agg.function)]
-            # FIXME: [typing] Resolve this missing attribute in AggResult
-            # Hint: look into the result iterator wrapper in this module
-            result.exclude_if_null = native_aggs
 
         return result
 
