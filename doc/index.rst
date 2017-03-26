@@ -59,7 +59,6 @@ Slicer Server and Tool
     :maxdepth: 2
 
     server
-    deployment
     slicer
 
 Recipes
