@@ -46,7 +46,7 @@ If you are developing cubes, you should install ``cubes[all]``.
 
 .. _SQLAlchemy: http://www.sqlalchemy.org/download.html
 .. _Flask: http://flask.pocoo.org/
-.. _pip installer: http://www.pip-installer.org/en/latest/installing.html#install-or-upgrade-pip
+.. _pip installer: https://pip.pypa.io/en/stable/installing/
 
 Quick Start or Hello World!
 ===========================
