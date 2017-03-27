@@ -68,7 +68,7 @@ def sqlalchemy_options(options, prefix="sqlalchemy_"):
     return sa_options
 
 
-class SQLStore(Store):
+class SQLStore(Store, name="sql"):
     def model_provider_name(self):
         return 'default'
 

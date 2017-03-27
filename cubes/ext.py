@@ -1,11 +1,25 @@
 # -*- coding: utf-8 -*-
+
+from typing import (
+        Any,
+        cast,
+        Collection,
+        Dict,
+        List,
+        Optional,
+        Type,
+        TypeVar,
+        Union,
+    )
+
 from collections import OrderedDict
 from textwrap import dedent
 from pkg_resources import iter_entry_points
 
 from .common import decamelize, coalesce_options
-from .errors import ArgumentError, InternalError, BackendError
+from .errors import ArgumentError, InternalError, ConfigurationError
 
+from importlib import import_module
 
 __all__ = [
     "EXTENSION_TYPES",
@@ -20,6 +34,41 @@ __all__ = [
 #     modules: a dictionary of extension names and module name to be loaded
 #         laily
 
+BUILTIN_EXTENSION_MODULES = {
+    "authenticator": {
+        "admin_admin": "cubes.server.auth",
+        "pass_parameter": "cubes.server.auth",
+        "http_basic_proxy": "cubes.server.auth",
+    },
+    "authorizer": {
+        "simple": "cubes.auth",
+    },
+    "browser": {
+        "sql":"cubes.sql.browser",
+        "slicer":"cubes.server.browser",
+    },
+    "formatter": {
+        "cross_table": "cubes.formatters",
+        "csv": "cubes.formatters",
+        'xlsx': 'cubes.formatters',
+        "html_cross_table": "cubes.formatters",
+    },
+    "model_provider": {
+        "default":"cubes.metadata.providers",
+        "slicer":"cubes.server.store",
+    },
+    "request_log_handler": {
+        "default": "cubes.server.logging",
+        "csv": "cubes.server.logging",
+        'xlsx': 'cubes.server.logging',
+        "json": "cubes.server.logging",
+        "sql": "cubes.sql.logging",
+    },
+    "store": {
+        "sql":"cubes.sql.store",
+        "slicer":"cubes.server.store",
+    },
+}
 
 EXTENSION_TYPES = {
     "browser": "Aggregation browser",
@@ -31,244 +80,163 @@ EXTENSION_TYPES = {
     "request_log_handler": "Request log handler",
 }
 
-# Information about built-in extensions. Supposedly faster loading (?).
-#
-_BUILTIN_EXTENSIONS = {
-    "authenticators": {
-        "admin_admin": "cubes.server.auth:AdminAdminAuthenticator",
-        "pass_parameter": "cubes.server.auth:PassParameterAuthenticator",
-        "http_basic_proxy": "cubes.server.auth:HTTPBasicProxyAuthenticator",
-    },
-    "authorizers": {
-        "simple": "cubes.auth:SimpleAuthorizer",
-    },
-    "browsers": {
-        "sql":"cubes.sql.browser:SQLBrowser",
-        "slicer":"cubes.server.browser:SlicerBrowser",
-    },
-    "formatters": {
-        "cross_table": "cubes.formatters:CrossTableFormatter",
-        "csv": "cubes.formatters:CSVFormatter",
-        'xlsx': 'cubes.formatters:XLSXFormatter',
-        "html_cross_table": "cubes.formatters:HTMLCrossTableFormatter",
-    },
-    "providers": {
-        "default":"cubes.metadata.providers:StaticModelProvider",
-        "slicer":"cubes.server.store:SlicerModelProvider",
-    },
-    "request_log_handlers": {
-        "default": "cubes.server.logging:DefaultRequestLogHandler",
-        "csv": "cubes.server.logging:CSVFileRequestLogHandler",
-        'xlsx': 'cubes.server.logging:XLSXFileRequestLogHandler',
-        "json": "cubes.server.logging:JSONRequestLogHandler",
-        "sql": "cubes.sql.logging:SQLRequestLogger",
-    },
-    "stores": {
-        "sql":"cubes.sql.store:SQLStore",
-        "slicer":"cubes.server.store:SlicerStore",
-    },
-}
+from enum import Enum
 
-_DEFAULT_OPTIONS = {
-}
+from .errors import ArgumentError
 
-class _Extension(object):
-    """
-    Cubes Extension wrapper.
-
-    `options` – List of extension options.  The options is a list of
-    dictionaries with keys:
-
-    * `name` – option name
-    * `type` – option data type (default is ``string``)
-    * `description` – description (optional)
-    * `label` – human readable label (optional)
-    * `values` – valid values for the option.
-    """
-    def __init__(self, type_, entry=None, factory=None, name=None):
-        if factory is not None and entry is not None:
-            raise ArgumentError("Can't set both extension factory and entry "
-                                "(in extension '{}')".format(name))
-
-        elif factory is None and entry is None:
-            raise ArgumentError("Neither extension factory nor entry provided "
-                                "(in extension '{}')".format(name))
-
-        self.type_ = type_
-        self.entry = entry
-        self.name = name or entry.name
-
-        # After loading...
-        self.options = []
-        self.option_types = {}
-        self._factory = None
-
-        if factory is not None:
-            self.factory = factory
-
-    @property
-    def factory(self):
-        if self._factory is not None:
-            return self._factory
-        elif self.entry:
-            # This must not fail or result in None
-            self.factory = self.entry.load()
-            return self._factory
-        else:
-            raise InternalError("No factory or entry set for extension '{}'"
-                                .format(self.name))
-
-    @factory.setter
-    def factory(self, factory):
-        if factory is None:
-            raise InternalError("Can't set extension factory to None")
-
-        self._factory = factory
-        defaults = _DEFAULT_OPTIONS.get(self.type_, [])
-
-        if hasattr(self._factory, "__options__"):
-            options = self._factory.__options__ or []
-        else:
-            options = []
-
-        self.options = OrderedDict()
-        for option in defaults + options:
-            name = option["name"]
-            self.options[name] = option
-            self.option_types[name] = option.get("type", "string")
-
-        self.option_types = self.option_types or {}
-
-    @property
-    def is_builtin(self):
-        return self.entry is None
-
-    @property
-    def label(self):
-        if hasattr(self.factory, "__label__"):
-            return self.factory.__label__
-        else:
-            return decamelize(self.factory.__name__)
-
-    @property
-    def description(self):
-        if hasattr(self.factory, "__description__"):
-            desc = self.factory.__description__ or ""
-            return dedent(desc)
-        else:
-            return ""
-
-    def create(self, *args, **kwargs):
-        """Creates an extension. First argument should be extension's name."""
-        factory = self.factory
-
-        kwargs = coalesce_options(dict(kwargs),
-                                  self.option_types)
-
-        return factory(*args, **kwargs)
+TRUE_VALUES = ["1", "true", "yes"]
+FALSE_VALUES = ["0", "false", "no"]
 
 
-class ExtensionFinder(object):
-    def __init__(self, type_):
-        self.type_ = type_
-        self.group = "cubes.{}".format(type_)
-        self.extensions = {}
+class Parameter:
+    name: str
+    default: Any
+    type: str
+    desc: Optional[str]
+    label: str
+    values: Collection[str]
 
-        self.builtins = _BUILTIN_EXTENSIONS.get(self.type_, {})
+    def __init__(self,
+            name: str,
+            type_: Optional[str]=None,
+            default: Optional[Any]=None,
+            desc: Optional[str]=None,
+            label: Optional[str]=None,
+            values: Optional[Collection[str]]=None) -> None:
+        self.name = name
+        self.default = default
+        self.type = type_ or "string"
+        self.desc = desc
+        self.label = label or name
+        self.values = values or []
 
-    def discover(self, name=None):
-        """Find all entry points."""
-        for obj in iter_entry_points(group=self.group, name=name):
-            ext = _Extension(self.type_, obj)
-            self.extensions[ext.name] = ext
+    def coalesce_value(self, value: Any) -> Any:
+        """ Convert string into an object value of `value_type`. The type might
+        be: `string` (no conversion), `integer`, `float`
+        """
 
-    def builtin(self, name):
+        return_value: Any
+
         try:
-            ext_mod = self.builtins[name]
+            if self.type == "string":
+                return_value = str(value)
+            elif self.type == "float":
+                return_value = float(value)
+            elif self.type == "integer":
+                return_value = int(value)
+            elif self.type == "bool":
+                if not value:
+                    return_value = False
+                elif isinstance(value, str):
+                    return_value = value.lower() in TRUE_VALUES
+                else:
+                    return_value = bool(value)
+            else:
+                raise ConfigurationError(f"Unknown option value type {self.type}")
+
+        except ValueError:
+            label: str
+
+            if self.label:
+                label = f"parameter {self.label} "
+            else:
+                label = f"parameter {self.name} "
+
+            raise ConfigurationError(f"Unable to convert {label} value '{value}' "
+                                     f"into type {self.type}")
+
+        return return_value
+
+
+T = TypeVar('T', bound=Type["Extensible"])
+import inspect
+
+# TODO: Lazy extensions [name, module]
+
+class ExtensionRegistry:
+    classes: Dict[str, Dict[str, Type["Extensible"]]]
+
+    def __init__(self) -> None:
+        self.classes = {}
+        for type_ in EXTENSION_TYPES.keys():
+            self.classes[type_] = {}
+
+    def register_extension(cls,
+            type_: str,
+            name: str,
+            extension: Type["Extensible"]) -> None:
+        if type_ == "undefined":
+            raise InternalError(f"Extension '{extension}' has no concrete "
+                                f"Extensible subclass as it's superclass.")
+        if type_ not in EXTENSION_TYPES:
+            raise InternalError(f"Unsupported extension type '{type_}'")
+
+        cls.classes[type_][name] = extension
+
+    def _register_builtin(self, type_: str, name: str) -> None:
+        if type_ in BUILTIN_EXTENSION_MODULES:
+            ext_modules = BUILTIN_EXTENSION_MODULES[type_]
+            if name in ext_modules:
+                import_module(ext_modules[name])
+
+    def get_extension(self, type_: str, name: str) -> Type["Extensible"]:
+        ext_class: Type["Extensible"]
+        registry = self.classes[type_]
+
+        if not name in registry:
+            self._register_builtin(type_, name)
+
+        try:
+            ext_class = registry[name]
         except KeyError:
-            return None
+            raise InternalError(f"Unknown extension '{name}' of type '{type_}'")
 
-        (modname, attr) = ext_mod.split(":")
-        module = _load_module(modname)
-        factory = getattr(module, attr)
-        ext = _Extension(self.type_, name=name, factory=factory)
-        self.extensions[name] = ext
-
-        return ext
-
-    def names(self):
-        """Return list of extension names."""
-        if not self.extensions:
-            self.discover()
-
-        names = list(self.builtins.keys())
-        names += self.extensions.keys()
-
-        return sorted(names)
-
-    def get(self, name):
-        """Return extenson object by name. Load if necessary."""
-        ext = self.extensions.get(name)
-
-        if not ext:
-            ext = self.builtin(name)
-
-        if not ext:
-            self.discover()
-
-            try:
-                ext = self.extensions[name]
-            except KeyError:
-                raise InternalError("Unknown '{}' extension '{}'"
-                                    .format(self.type_, name))
-        return ext
-
-    def __call__(self, _ext_name, *args, **kwargs):
-        return self.create(_ext_name, *args, **kwargs)
-
-    def factory(self, name):
-        """Return extension factory."""
-        ext = self.get(name)
-
-        if not ext.factory:
-            raise BackendError("Unable to get factory for extension '{}'"
-                               .format(name))
-
-        return ext.factory
-
-    def create(self, _ext_name, *args, **kwargs):
-        """Create an instance of extension `_ext_name` with given arguments.
-        The keyword arguments are converted to their appropriate types
-        according to extensions `__options__` list. This allows options to be
-        specified as strings in a configuration files or configuration
-        variables."""
-        ext = self.get(_ext_name)
-        return ext.create(*args, **kwargs)
-
-    def register(self, _ext_name, factory):
-        ext = _Extension(self.type_, name=_ext_name)
-        ext.factory = factory
-        self.extensions["name"] = ext
-
-        return ext
+        return ext_class
 
 
-def _load_module(modulepath):
-    """Load module `modulepath` and return the last module object in the
-    module path."""
+class Extensible:
+    __extension_type__ = "undefined"
+    __registry__: ExtensionRegistry = ExtensionRegistry()
+    __parameters__: List[Parameter] = []
 
-    mod = __import__(modulepath)
-    path = []
-    for token in modulepath.split(".")[1:]:
-        path.append(token)
-        mod = getattr(mod, token)
-    return mod
+    def __init_subclass__(cls, name: Optional[str]=None, abstract: bool=False) -> None:
+        if name is not None and abstract \
+                or name is None and not abstract:
+            raise InternalError(
+               f"Extension class {cls} should have either name "
+               f"or abstract flag specified.")
 
+        if name is not None:
+            cls.__registry__.register_extension(cls.__extension_type__,
+                                                name, cls)
+        else:
+            if cls.__extension_type__ == "undefined":
+                raise InternalError(f"Abstract extension '{cls}' has no "
+                                    f"concrete __extension_type__ "
+                                    f"assigned")
 
-authenticator = ExtensionFinder("authenticators")
-authorizer = ExtensionFinder("authorizers")
-browser = ExtensionFinder("browsers")
-formatter = ExtensionFinder("formatters")
-model_provider = ExtensionFinder("providers")
-request_log_handler = ExtensionFinder("request_log_handlers")
-store = ExtensionFinder("stores")
+    @classmethod
+    def concrete_extension(cls: T, name: str) -> Type[T]:
+        ext: Type["Extensible"]
+        ext = cls.__registry__.get_extension(cls.__extension_type__, name)
+        return cast(Type[T], ext)
+
+    @classmethod
+    def create_with_params(cls: T, params: Dict[str, Any]) -> T:
+        kwargs: Dict[str, Any]
+        kwargs = {}
+
+        for param in cls.__parameters__:
+            if param.name in params: 
+                value = params[param.name]
+                kwargs[param.name] = param.coalesce_value(value)
+            elif param.default:
+                value = param.default
+                kwargs[param.name] = param.coalesce_value(value)
+            else:
+                typename = cls.__extension_type__
+                raise ConfigurationError(f"Invalid parameter '{param.name}' "
+                                         f"for extension: {typename}")
+
+        return cast(T, cls(**kwargs))  # type: ignore
+
