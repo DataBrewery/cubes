@@ -79,42 +79,7 @@ setup(
     ],
 
     entry_points={
-        'console_scripts': [
-            'slicer = cubes.slicer.commands:main'
-        ],
-        "authenticators": [
-            "admin_admin = cubes.server.auth:AdminAdminAuthenticator",
-            "pass_parameter = cubes.server.auth:PassParameterAuthenticator",
-            "http_basic_proxy = cubes.server.auth:HTTPBasicProxyAuthenticator",
-        ],
-        "authorizers": [
-            "simple = cubes.auth:SimpleAuthorizer",
-        ],
-        "browsers": [
-            "sql":"cubes.sql.browser:SQLBrowser",
-            "slicer":"cubes.server.browser:SlicerBrowser",
-        ],
-        "formatters": [
-            "cross_table = cubes.formatters:CrossTableFormatter",
-            "csv = cubes.formatters:CSVFormatter",
-            'xlsx': 'cubes.formatters:XLSXFormatter',
-            "html_cross_table = cubes.formatters:HTMLCrossTableFormatter",
-        ],
-        "providers": [
-            "default":"cubes.metadata.providers:StaticModelProvider",
-            "slicer":"cubes.server.store:SlicerModelProvider",
-        ],
-        "request_log_handlers": [
-            "default = cubes.server.logging:DefaultRequestLogHandler",
-            "csv = cubes.server.logging:CSVFileRequestLogHandler",
-            'xlsx': 'cubes.server.logging:XLSXFileRequestLogHandler',
-            "json = cubes.server.logging:JSONRequestLogHandler",
-            "sql = cubes.sql.logging:SQLRequestLogger",
-        ],
-        "stores": [
-            "sql":"cubes.sql.store:SQLStore",
-            "slicer":"cubes.server.store:SlicerStore",
-        ],
+        'console_scripts': [ 'slicer = cubes.slicer.commands:main' ],
     },
 
     test_suite="tests",

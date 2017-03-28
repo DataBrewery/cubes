@@ -150,9 +150,7 @@ class Parameter:
 
 
 T = TypeVar('T', bound=Type["Extensible"])
-import inspect
 
-# TODO: Lazy extensions [name, module]
 
 class ExtensionDescription(NamedTuple):
     type: str
