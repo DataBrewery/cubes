@@ -137,12 +137,14 @@ class AsyncRequestLogger(RequestLogger):
             (args, kwargs) = self.queue.get()
             super(AsyncRequestLogger, self).log(*args, **kwargs)
 
-class RequestLogHandler(object):
+class RequestLogHandler(ext.Extensible, abstract=True):
+    __extension_type__ = "request_log_handler"
+
     def write_record(self, record):
         pass
 
 
-class DefaultRequestLogHandler(RequestLogHandler):
+class DefaultRequestLogHandler(RequestLogHandler, name="default"):
     def __init__(self, logger=None, **options):
         self.logger = logger
 
@@ -162,7 +164,7 @@ class DefaultRequestLogHandler(RequestLogHandler):
                             identity_str, record["elapsed_time"]))
 
 
-class CSVFileRequestLogHandler(RequestLogHandler):
+class CSVFileRequestLogHandler(RequestLogHandler, name="csv"):
     def __init__(self, path=None, **options):
         self.path = path
 
@@ -180,7 +182,7 @@ class CSVFileRequestLogHandler(RequestLogHandler):
             writer.writerow(out)
 
 
-class XLSXFileRequestLogHandler(RequestLogHandler):
+class XLSXFileRequestLogHandler(RequestLogHandler, name="xlsx"):
     def __init__(self, path=None, **options):
         self.path = path
 
@@ -198,7 +200,7 @@ class XLSXFileRequestLogHandler(RequestLogHandler):
             writer.writerow(out)
 
 
-class JSONRequestLogHandler(RequestLogHandler):
+class JSONRequestLogHandler(RequestLogHandler, name="json"):
     def __init__(self, path=None, **options):
         """Creates a JSON logger which logs requests in a JSON lines. It
         includes two lists: `cell_dimensions` and `drilldown_dimensions`."""

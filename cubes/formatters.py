@@ -149,9 +149,11 @@ class SlicerJSONEncoder(json.JSONEncoder):
                 return json.JSONEncoder.default(self, o)
 
 
-class Formatter(object):
+class Formatter(ext.Extensible, abstract=True):
     """Empty class for the time being. Currently used only for finding all
     built-in subclasses"""
+
+    __extension_type__ = "formatter"
 
     def __call__(self, *args, **kwargs):
         return self.format(*args, **kwargs)
@@ -267,7 +269,7 @@ def coalesce_table_labels(attributes, onrows, oncolumns):
     return (onrows, oncolumns)
 
 
-class CrossTableFormatter(Formatter):
+class CrossTableFormatter(Formatter, name="cross_table"):
     __options__ = [
         {
             "name": "indent",
@@ -317,7 +319,7 @@ class CrossTableFormatter(Formatter):
         return output
 
 
-class HTMLCrossTableFormatter(CrossTableFormatter):
+class HTMLCrossTableFormatter(CrossTableFormatter, name="html_cross_table"):
     __options__ = [
         {
             "name": "table_style",
@@ -349,7 +351,7 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
         return output
 
 
-class CSVFormatter(Formatter):
+class CSVFormatter(Formatter, name="csv"):
     def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
                aggregates_on=None):
 
@@ -376,7 +378,7 @@ class CSVFormatter(Formatter):
         return output
 
 
-class XLSXFormatter(Formatter):
+class XLSXFormatter(Formatter, name="xlsx"):
     # TODO(serbernar): write formatter
     def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
                aggregates_on=None):
