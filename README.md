@@ -3,8 +3,11 @@ Cubes - Online Analytical Processing Framework for Python
 
 [![Join the chat at https://gitter.im/DataBrewery/cubes](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/DataBrewery/cubes?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+
 IMPORTANT: 2.0 Development
 ==========================
+
+[![Build Status](https://travis-ci.org/DataBrewery/cubes.svg?branch=2.0)](https://travis-ci.org/DataBrewery/cubes)
 
 This branch is under development and might be unstable or broken, especially
 during work on type annotations. To work on the 2.0 branch a special
@@ -17,22 +20,11 @@ publicly released.
 Development Environment
 -----------------------
 
-### Typeshed
+### Types for SQLAlchemy
 
-We need to get typeshed with changes that might not yet been merged with MyPy.
+We need to get type stubs for SQLAlchemy from: https://github.com/JelleZijlstra/sqlalchemy-stubs
 
-Download modified `typeshed`:
-
-    git clone https://github.com/stiivi/typeshed
-
-Use custom typeshed while running mypy, for example:
-
-    mypy --custom-typeshed-dir ../typeshed
-
-Or add the option to the `mypy.ini` file:
-
-    [mypy]
-    custom_typeshed_dir = ../typeshed
+Then set your `MYPYPATH` to the path with the `sqlalchemy-stubs`
 
 -----------------------------------------------------------------------------
 
