@@ -1,28 +1,41 @@
 import os
 import unittest
 from cubes import Workspace
-from cubes import compat
 from sqlalchemy import create_engine, MetaData
 import json
 from cubes.metadata import read_model_metadata
 from cubes.metadata import StaticModelProvider
 
 TESTS_PATH = os.path.dirname(os.path.abspath(__file__))
+RESOURCES_PATH = os.path.join(TESTS_PATH, 'resources')
+
+def resource_path(resource: str) -> str:
+    """Return full path to `resource`"""
+    return os.path.join(RESOURCES_PATH, resource)
+
+def model_path(model: str) -> str:
+    """Return full path to `resource`"""
+    return os.path.join(RESOURCES_PATH, "models", model)
+
+
+
+# FIXME: Legacy code below this line. Remove
+# ====================================================================
+
 DATA_PATH = os.path.join(TESTS_PATH, 'data')
 
 def create_provider(name):
     # TODO: this should be rather:
     # provider = FileModelProvider(path)
-    path = os.path.join(TESTS_PATH, 'models', name)
-    metadata = read_model_metadata(path)
+    metadata = read_model_metadata(model_path(name))
     return StaticModelProvider(metadata)
 
 class CubesTestCaseBase(unittest.TestCase):
     sql_engine = None
 
     def setUp(self):
-        self._models_path = os.path.join(TESTS_PATH, 'models')
-        self._data_path = os.path.join(TESTS_PATH, 'data')
+        self._models_path = os.path.join(RESOURCES_PATH, 'models')
+        self._data_path = os.path.join(RESOURCES_PATH, 'data')
 
         if self.sql_engine:
             self.engine = create_engine(self.sql_engine)
@@ -62,7 +75,7 @@ class CubesTestCaseBase(unittest.TestCase):
             workspace.register_default_store("sql", engine=self.engine)
 
         if model:
-            if isinstance(model, compat.string_type):
+            if isinstance(model, str):
                 model = self.model_path(model)
             workspace.import_model(model)
 
@@ -73,7 +86,4 @@ class CubesTestCaseBase(unittest.TestCase):
         for row in data:
             insert = table.insert().values(row)
             self.engine.execute(insert)
-
-    if not compat.py3k:
-        assertCountEqual = unittest.TestCase.assertItemsEqual
 

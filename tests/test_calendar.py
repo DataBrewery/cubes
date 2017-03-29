@@ -1,11 +1,12 @@
 # -*- coding=utf -*-
-from .common import CubesTestCaseBase, create_provider
-from cubes.errors import *
-from cubes.calendar import *
+import unittest
+from .common import create_provider
+from cubes.errors import ArgumentError
+from cubes.calendar import calendar_hierarchy_units, Calendar
 from datetime import datetime
 
 
-class DateTimeTestCase(CubesTestCaseBase):
+class DateTimeTestCase(unittest.TestCase):
     def setUp(self):
         super(DateTimeTestCase,self).setUp()
 

@@ -677,14 +677,14 @@ def cut_from_string(string: str,
     # special case: completely empty string means single path element of ''
     # FIXME: why?
     if string == '':
-        return PointCut(dimension.name, [''], hierarchy.name, invert)
+        return PointCut(dim_name, [''], hier_name, invert)
 
     elif RE_POINT.match(string):
         path = path_from_string(string)
 
         if converter:
             path = converter(dimension, hierarchy, path)
-        cut = PointCut(dimension.name, path, hierarchy.name, invert)
+        cut = PointCut(dim_name, path, hier_name, invert)
 
     elif RE_SET.match(string):
         paths = list(map(path_from_string, SET_CUT_SEPARATOR.split(string)))
@@ -695,7 +695,7 @@ def cut_from_string(string: str,
                 converted.append(converter(dimension, hierarchy, path))
             paths = converted
 
-        cut = SetCut(dimension.name, paths, hierarchy.name, invert)
+        cut = SetCut(dim_name, paths, hier_name, invert)
 
     elif RE_RANGE.match(string):
         (from_path, to_path) = list(map(path_from_string,
@@ -705,7 +705,7 @@ def cut_from_string(string: str,
             from_path = converter(dimension, hierarchy, from_path)
             to_path = converter(dimension, hierarchy, to_path)
 
-        cut = RangeCut(dimension.name, from_path, to_path, hierarchy.name, invert)
+        cut = RangeCut(dim_name, from_path, to_path, hier_name, invert)
 
     else:
         raise ArgumentError("Unknown cut format (check that keys "

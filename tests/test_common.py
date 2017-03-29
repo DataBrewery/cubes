@@ -1,9 +1,8 @@
+# Empty
 import unittest
-import cubes
-import os
+import cubes.common
 
-from .common import DATA_PATH
-
+# TODO: Moved from `test_combinations`. Requires review.
 @unittest.skip
 class CombinationsTestCase(unittest.TestCase):
 
@@ -83,12 +82,4 @@ class CuboidsTestCase(unittest.TestCase):
 
         self.assertRaises(AttributeError, cubes.common.all_cuboids,
                                           self.cube.dimensions, [foo_dim])
-
-def test_suite():
-    suite = unittest.TestSuite()
-
-    suite.addTest(unittest.makeSuite(CombinationsTestCase))
-    suite.addTest(unittest.makeSuite(CuboidsTestCase))
-
-    return suite
 
