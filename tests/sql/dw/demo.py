@@ -347,7 +347,7 @@ class TinyDemoDataWarehouse(object):
         return TinyDimension(self.table(table), rows)
 
 
-class TinyDemoModelProvider(ModelProvider):
+class TinyDemoModelProvider(ModelProvider, name="tiny_demo"):
     def __init__(self, *args, **kwargs):
         path = os.path.join(os.path.dirname(__file__), "model.json")
 
