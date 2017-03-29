@@ -50,14 +50,14 @@ class JoinKey(Hashable):
 
         # TODO: Legacy - deprecated
         if isinstance(obj, (list, tuple)):
-            raise Exception(f"Join key specified as a list/tuple. "
-                            f"should be a dictionary: '{obj}'")
+            raise ValueError(f"Join key specified as a list/tuple. "
+                             f"should be a dictionary: '{obj}'")
 
         if isinstance(obj, str):
             split: List[Optional[str]]
             split = obj.split(".")
             if len(split) > 3:
-                raise Exception("Join key `{obj}` has too many components.")
+                raise ValueError("Join key `{obj}` has too many components.")
             split = [None] * (3 - len(split)) + split
 
             schema = split[0]
@@ -88,6 +88,14 @@ class JoinKey(Hashable):
             return self.columns == other.columns \
                     and self.table == other.table \
                     and self.schema == other.schema
+
+    def __str__(self) -> str:
+        schema = f"{self.schema}." if self.schema is not None else ""
+        table = f"{self.table}." if self.table is not None else ""
+        return f"{schema}{table}{self.columns}"
+
+    def __repr__(self) -> str:
+        return f"JoinKey({self})"
 
 # FIXME: Put this string into the named tuple below (requires python/mypy#3043)
 

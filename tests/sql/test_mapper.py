@@ -50,7 +50,7 @@ class MapperTestCase(CubesTestCaseBase):
         attr = self.cube.attribute(logical_ref)
         mapper = mapper or self.mapper
         ref = mapper[attr]
-        sref = ref[1] + "." + ref[2]
+        sref = ref.table + "." + ref.column
 
         self.assertEqual(expected, sref)
 
