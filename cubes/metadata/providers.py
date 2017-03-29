@@ -438,6 +438,8 @@ def find_dimension(
                                           namespace, provider)
         except TemplateRequired as e:
             required_template = e.template
+        else:
+            templates[name] = dimension
 
         if required_template in templates:
             raise BackendError("Some model provider didn't make use of "
@@ -450,8 +452,6 @@ def find_dimension(
                 raise ModelError("Dimension templates cycle in '%s'" %
                                  required_template)
             missing.append(required_template)
-
-        templates[name] = dimension
 
     if namespace is not None and locale is not None:
         lookup = namespace.translation_lookup(locale)

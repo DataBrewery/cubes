@@ -1,14 +1,14 @@
 # -*- coding=utf -*-
 import unittest
-from cubes import *
-from .common import CubesTestCaseBase
+from cubes.auth import SimpleAuthorizer
+from cubes.metadata.cube import Cube
 
 from json import dumps
 
 def printable(obj):
     return dumps(obj, indent=4)
 
-class AuthTestCase(CubesTestCaseBase):
+class AuthTestCase(unittest.TestCase):
     def setUp(self):
         self.sales_cube = Cube("sales")
         self.churn_cube = Cube("churn")

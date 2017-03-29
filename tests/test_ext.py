@@ -56,4 +56,3 @@ class ExtensibleTestCase(unittest.TestCase):
 
         with self.assertRaises(ConfigurationError):
             obj = StoreBase.concrete_extension("my").create_with_params(params)
-

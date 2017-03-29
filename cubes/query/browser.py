@@ -84,14 +84,15 @@ class BrowserFeatureAction(Enum):
 
 
 class BrowserFeatures(object):
-    actions: List[BrowserFeatureAction]
-    aggregate_functions: List[str]
-    post_aggregate_functions: List[str]
+    actions: Collection[BrowserFeatureAction]
+    aggregate_functions: Collection[str]
+    post_aggregate_functions: Collection[str]
 
     def __init__(self,
-                 actions: Optional[List[BrowserFeatureAction]]=None,
-                 aggregate_functions: Optional[List[str]]=None,
-                 post_aggregate_functions: Optional[List[str]]=None) -> None:
+                 actions: Optional[Collection[BrowserFeatureAction]]=None,
+                 aggregate_functions: Optional[Collection[str]]=None,
+                 post_aggregate_functions: Optional[Collection[str]]=None) \
+                         -> None:
         self.actions = actions or []
         self.aggregate_functions = aggregate_functions or []
         self.post_aggregate_functions = post_aggregate_functions or []

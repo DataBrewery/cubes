@@ -10,6 +10,7 @@ parts
 sdist
 develop-eggs
 tmp
+.mypy_cache
 
 # Installer logs
 pip-log.txt
