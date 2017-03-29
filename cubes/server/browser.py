@@ -9,7 +9,7 @@ from ..query import *
 from ..query.result import AggregationResult, Facts
 
 
-class SlicerBrowser(AggregationBrowser):
+class SlicerBrowser(AggregationBrowser, name="slicer"):
     """Aggregation browser for Cubes Slicer OLAP server."""
 
     def __init__(self, cube, store, locale=None, **options):

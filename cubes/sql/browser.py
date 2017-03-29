@@ -73,7 +73,7 @@ __all__ = [
 ]
 
 
-class SQLBrowser(AggregationBrowser):
+class SQLBrowser(AggregationBrowser, name="sql"):
     """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
     can aggregate star and snowflake schemas without need of having
     explicit view or physical denormalized table.

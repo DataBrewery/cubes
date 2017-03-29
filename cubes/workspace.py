@@ -378,7 +378,7 @@ class Workspace:
             model = None
 
         # Get related model provider or override it with configuration
-        store_factory = ext.store.factory(type_)
+        store_factory = Store.concrete_extension(type_)
 
         if hasattr(store_factory, "related_model_provider"):
             provider = store_factory.related_model_provider
@@ -477,14 +477,14 @@ class Workspace:
 
         if isinstance(provider, str):
             provider_name = provider
-            provider_obj = ext.model_provider(provider, model)
+            provider_obj = ModelProvider.concrete_extension(provider)(model)
         else:
             provider_obj = provider
 
         # TODO: remove this, if provider is external, it should be specified
         if not provider_obj:
-            provider_name = model.get("provider", "default")
-            provider_obj = ext.model_provider(provider_name, model)
+            provider_name = model.get("provider", "static")
+            provider_obj = ModelProvider.concrete_extension(provider_name)(model)
 
         # 3. Store
         # --------
@@ -669,9 +669,9 @@ class Workspace:
         if not browser_name:
             raise ConfigurationError("No store specified for cube '%s'" % cube)
 
-        browser = ext.browser(browser_name, cube, store=store,
-                              locale=locale, calendar=self.calendar,
-                              **options)
+        cls = AggregationBrowser.concrete_extension(browser_name)
+        browser = cls(cube, store=store, locale=locale,
+                      calendar=self.calendar, **options)
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
@@ -700,6 +700,6 @@ class Workspace:
             raise ConfigurationError("Unknown store '{}'".format(name))
 
         # TODO: temporary hack to pass store name and store type
-        store = ext.store(type_, store_type=type_, **options)
+        store = Store.concrete_extension(type_)(store_type=type_, **options)
         self.stores[name] = store
         return store

@@ -79,7 +79,7 @@ setup(
     ],
 
     entry_points={
-        'console_scripts': ['slicer = cubes.slicer.commands:main'],
+        'console_scripts': [ 'slicer = cubes.slicer.commands:main' ],
     },
 
     test_suite="tests",

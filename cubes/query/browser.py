@@ -61,6 +61,8 @@ from .constants import SPLIT_DIMENSION_NAME, NULL_PATH_VALUE
 from .result import AggregationResult, Facts
 from .drilldown import Drilldown, DrilldownItem, _DrilldownType
 
+from ..ext import Extensible
+
 
 __all__ = [
     "AggregationBrowser",
@@ -125,7 +127,7 @@ class BrowserFeatures(object):
         return result
 
 
-class AggregationBrowser:
+class AggregationBrowser(Extensible, abstract=True):
     """Class for browsing data cube aggregations
 
     :Attributes:

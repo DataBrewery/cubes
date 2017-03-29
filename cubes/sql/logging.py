@@ -9,7 +9,7 @@ from .store import create_sqlalchemy_engine
 
 import logging
 
-class SQLRequestLogHandler(RequestLogHandler):
+class SQLRequestLogHandler(RequestLogHandler, name="sql"):
     def __init__(self, url=None, table=None, dimensions_table=None, **options):
 
         self.url = url

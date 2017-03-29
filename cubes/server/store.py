@@ -20,7 +20,7 @@ class _default_opener:
     def open(self, url, *args, **kwargs):
         return urlopen(url, *args, **kwargs)
 
-class SlicerStore(Store):
+class SlicerStore(Store, name="slicer"):
     related_model_provider = "slicer"
 
     __description__ = """
@@ -142,9 +142,8 @@ class _JSONLinesIterator(object):
             yield json.loads(line)
 
 
-class SlicerModelProvider(ModelProvider):
-
-    __description__ = """
+class SlicerModelProvider(ModelProvider, name="slicer"):
+    """
     Uses external Slicer server as a model provider.
     """
 

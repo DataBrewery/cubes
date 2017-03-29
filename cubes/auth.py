@@ -6,6 +6,7 @@ from .query import Cell, cut_from_string, cut_from_dict, PointCut
 from .metadata import string_to_dimension_level
 from .errors import UserError, ConfigurationError, NoSuchDimensionError
 from .common import read_json_file, sorted_dependencies
+from .ext import Extensible
 
 __all__ = (
     "Authorizer",
@@ -27,7 +28,9 @@ class NotAuthorized(AuthorizationError):
     # Note: This is not called NotAuthorizedError as it is not in fact an
     # error, it is just type of signal.
 
-class Authorizer(object):
+class Authorizer(Extensible, abstract=True):
+    __extension_type__ = "authorizer"
+
     def authorize(self, token, cubes):
         """Returns list of authorized cubes from `cubes`. If none of the cubes
         are authorized an empty list is returned.
@@ -50,7 +53,7 @@ class Authorizer(object):
         return []
 
 
-class NoopAuthorizer(Authorizer):
+class NoopAuthorizer(Authorizer, name="noop"):
     def __init__(self):
         super(NoopAuthorizer, self).__init__()
 
@@ -188,7 +191,7 @@ def right_from_dict(info):
         hierarchy_limits=info.get('hierarchy_limits')
     )
 
-class SimpleAuthorizer(Authorizer):
+class SimpleAuthorizer(Authorizer, name="simple"):
     __options__ = [
         {
             "name": "rights_file",

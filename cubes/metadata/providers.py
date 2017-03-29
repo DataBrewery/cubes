@@ -8,6 +8,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Collection,
     Set,
 )
 
@@ -28,6 +29,7 @@ from .dimension import Dimension
 from ..stores import Store
 
 from ..namespace import Namespace
+from ..ext import Extensible
 
 __all__ = [
     "ModelProvider",
@@ -35,7 +37,6 @@ __all__ = [
     "link_cube",
     "find_dimension",
 ]
-
 
 # Proposed Provider API:
 #     Provider.cube() – in abstract class
@@ -47,9 +48,10 @@ __all__ = [
 #
 # Provider is bound to namespace
 
-class ModelProvider:
+class ModelProvider(Extensible, abstract=True):
     """Abstract class – factory for model object. Currently empty and used
     only to find other model providers."""
+    __extension_type__ = "model_provider"
 
     store: Optional[Store]
     metadata: JSONType
@@ -335,9 +337,7 @@ def _merge_metadata(metadata: JSONType, other: JSONType) -> JSONType:
     return metadata
 
 # TODO: make this FileModelProvider
-class StaticModelProvider(ModelProvider):
-
-    __extension_aliases__ = ["default"]
+class StaticModelProvider(ModelProvider, name="static"):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super(StaticModelProvider, self).__init__(*args, **kwargs)
