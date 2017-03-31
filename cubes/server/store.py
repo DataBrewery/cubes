@@ -4,6 +4,7 @@ from ..query import *
 from ..stores import Store
 from ..errors import *
 from ..logging import get_logger
+from ..settings import Setting
 import json
 
 from urllib.request import urlopen, build_opener
@@ -23,42 +24,42 @@ class _default_opener:
 class SlicerStore(Store, name="slicer"):
     related_model_provider = "slicer"
 
-    __description__ = """
+    extension_desc = """
     Uses external Slicer as a store. Aggregation is performed on the remote
     server and results are relayed.
     """
-    __options__ = [
-        {
-            "name": "url",
-            "description": "URL of another/external Slicer",
-            "type": "string"
-        },
-        {
-            "name": "authentication",
-            "description": "Authentication method (pass_parameter or none)",
-            "type": "string"
-        },
-        {
-            "name": "auth_identity",
-            "description": "Authenticated identity (user name, key, ...)",
-            "type": "string"
-        },
-        {
-            "name": "auth_parameter",
-            "description": "Name of authentication URL parameter " \
+    extension_settings = [
+        Setting(
+            name= "url",
+            desc= "URL of another/external Slicer",
+            type= "string"
+        ),
+        Setting(
+            name= "authentication",
+            desc= "Authentication method (pass_parameter or none)",
+            type= "string"
+        ),
+        Setting(
+            name= "auth_identity",
+            desc= "Authenticated identity (user name, key, ...)",
+            type= "string"
+        ),
+        Setting(
+            name= "auth_parameter",
+            desc= "Name of authentication URL parameter " \
                            "(default: api_key",
-            "type": "string"
-        },
-        {
-            "name": "username",
-            "description": "HTTP authentication username",
-            "type": "string"
-        },
-        {
-            "name": "password",
-            "description": "HTTP authentication password",
-            "type": "string"
-        },
+            type= "string"
+        ),
+        Setting(
+            name= "username",
+            desc= "HTTP authentication username",
+            type= "string"
+        ),
+        Setting(
+            name= "password",
+            desc= "HTTP authentication password",
+            type= "string"
+        ),
     ]
 
     def __init__(self, url=None, authentication=None,

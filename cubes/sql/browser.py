@@ -50,6 +50,7 @@ from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 
 from ..stores import Store
+from ..settings import Setting
 
 from .functions import available_aggregate_functions
 from .mapper import (
@@ -109,33 +110,42 @@ class SQLBrowser(AggregationBrowser, name="sql"):
 
     """
 
-    __description__ = """
+    extension_desc = """
     SQL - relational database browser (for ROLAP). Generates statements on top
     of star or snowflake schemas.
     """
 
-    __options__ = [
-        {
-            "name": "include_summary",
-            "description": "Include aggregation summary "\
+    extension_settings = [
+        Setting(
+            name= "include_summary",
+            desc= "Include aggregation summary "\
                            "(requires extra statement)",
-            "type": "bool"
-        },
-        {
-            "name": "include_cell_count",
-            "type": "bool"
-        },
-        {
-            "name": "use_denormalization",
-            "type": "bool"
-        },
-        {
-            "name": "safe_labels",
-            "description": "Use internally SQL statement column labels " \
+            type= "bool"
+        ),
+        Setting(
+            name= "include_cell_count",
+            type= "bool"
+        ),
+        Setting(
+            name= "use_denormalization",
+            type= "bool"
+        ),
+        Setting(
+            name= "safe_labels",
+            desc= "Use internally SQL statement column labels " \
                            "without special characters",
-            "type": "bool"
-        }
-
+            type= "bool"
+        ),
+        Setting(
+            name= "is_denormalized",
+            desc= "The data is in a denormalzied table",
+            type= "bool"
+        ),
+        Setting(
+            name= "exclude_null_aggregates",
+            desc= "Exclude aggregates which value is NULL",
+            type= "bool"
+        ),
     ]
 
     locale: Optional[str]

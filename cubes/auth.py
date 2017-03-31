@@ -6,7 +6,7 @@ from .query import Cell, cut_from_string, cut_from_dict, PointCut
 from .metadata import string_to_dimension_level
 from .errors import UserError, ConfigurationError, NoSuchDimensionError
 from .common import read_json_file, sorted_dependencies
-from .ext import Extensible
+from .ext import Extensible, Setting
 
 __all__ = (
     "Authorizer",
@@ -192,28 +192,34 @@ def right_from_dict(info):
     )
 
 class SimpleAuthorizer(Authorizer, name="simple"):
-    __options__ = [
-        {
-            "name": "rights_file",
-            "description": "JSON file with access rights",
-            "type": "string"
-        },
-        {
-            "name": "roles_file",
-            "description": "JSON file with access right roles",
-            "type": "string"
-        },
-        {
-            "name": "order",
-            "description": "Order of allow/deny",
-            "type": "string",
-            "values": ["allow_deny", "deny_allow"]
-        },
-        {
-            "name": "guest",
-            "description": "Name of the 'guest' role",
-            "type": "string",
-        },
+    extension_settings = [
+        Setting(
+            name= "rights_file",
+            desc= "JSON file with access rights",
+            type= "string"
+        ),
+        Setting(
+            name= "roles_file",
+            desc= "JSON file with access right roles",
+            type= "string"
+        ),
+        Setting(
+            name= "order",
+            desc= "Order of allow/deny",
+            type= "string",
+            values= ["allow_deny", "deny_allow"]
+        ),
+        Setting(
+            name= "guest",
+            desc= "Name of the 'guest' role",
+            type= "string",
+        ),
+        Setting(
+            name= "identity_dimension",
+            desc= "Name of dimension which key is equivalent to the identity "
+                  "token",
+            type= "string",
+        ),
 
     ]
 

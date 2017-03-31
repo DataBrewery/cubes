@@ -18,6 +18,7 @@ from ..query.drilldown import Drilldown
 from ..query.cells import Cell
 from .utils import CreateTableAsSelect, CreateOrReplaceView
 from ..metadata import string_to_dimension_level
+from ..settings import Setting
 
 
 __all__ = [
@@ -69,24 +70,14 @@ def sqlalchemy_options(options, prefix="sqlalchemy_"):
 
 
 class SQLStore(Store, name="sql"):
-    def model_provider_name(self):
-        return 'default'
-
     default_browser_name = "sql"
 
-    __label__ = "SQL Store",
-    __description__ ="""
+    extension_label = "SQL Store"
+    extension_desc ="""
     Relational database store.
 
-    Supported database engines: firebird, mssql, mysql, oracle, postgresql, sqlite,
-    sybase.
-
-    Naming Convention
-    -----------------
-
-    """ \
-    + Naming.__doc__ + \
-    """
+    Supported database engines: firebird, mssql, mysql, oracle, postgresql,
+    sqlite, sybase.
 
     Engine Options
     --------------
@@ -96,12 +87,12 @@ class SQLStore(Store, name="sql"):
     options below). Please refer to the SQLAlchemy documentation for more
     information.
     """
-    __options__ = [
-        {
-            "name": "url",
-            "description": "Database URL, such as: postgresql://localhost/dw",
-            "type": "string"
-        }
+    extension_settings = [
+        Setting(
+            name="url",
+            desc="Database URL, such as: postgresql://localhost/dw",
+            type="string",
+        )
     ]
 
     connectable: sa.Connectable

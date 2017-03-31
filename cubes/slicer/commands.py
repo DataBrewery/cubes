@@ -90,16 +90,16 @@ def extension_info(ctx, extension_type, extension_name, try_import):
         click.echo(f"{desc.name} - {desc.label}\n\n"
                    f"{desc.doc}\n")
 
-        if desc.params:
-            click.echo("Configuration parameters:\n")
+        if desc.settings:
+            click.echo("Settings:\n")
 
-            for param in desc.params:
-                desc = param.desc or param.label
-                desc = " - {desc}"
+            for setting in desc.settings:
+                desc = setting.desc or setting.label
+                desc = f" - {desc}"
 
-                click.echo(f"    {param.name} ({param.type}){desc}")
+                click.echo(f"    {setting.name} ({setting.type}){desc}")
         else:
-            click.echo("No known parameters.")
+            click.echo("No known settings.")
     else:
         # List extensions
         click.echo("Available Cubes extensions:\n")

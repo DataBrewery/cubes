@@ -6,6 +6,7 @@ from typing import (
         Collection,
         Dict,
         List,
+        Mapping,
         NamedTuple,
         Optional,
         Type,
@@ -19,12 +20,16 @@ from pkg_resources import iter_entry_points
 
 from .common import decamelize, coalesce_options
 from .errors import ArgumentError, InternalError, ConfigurationError
+from .settings import Setting, SettingsDict
 
 from importlib import import_module
 
+T = TypeVar('T', bound=Type["Extensible"])
+
 __all__ = [
-    "EXTENSION_TYPES",
-    "ExtensionFinder",
+    "Extensible",
+    "ExtensionRegistry",
+    "get_registry",
 ]
 
 # Known extension types.
@@ -81,83 +86,13 @@ EXTENSION_TYPES: Dict[str, str] = {
     "request_log_handler": "Request log handler",
 }
 
-from enum import Enum
-
-from .errors import ArgumentError
-
-TRUE_VALUES = ["1", "true", "yes"]
-FALSE_VALUES = ["0", "false", "no"]
-
-
-class Parameter:
-    name: str
-    default: Any
-    type: str
-    desc: Optional[str]
-    label: str
-    values: Collection[str]
-
-    def __init__(self,
-            name: str,
-            type_: Optional[str]=None,
-            default: Optional[Any]=None,
-            desc: Optional[str]=None,
-            label: Optional[str]=None,
-            values: Optional[Collection[str]]=None) -> None:
-        self.name = name
-        self.default = default
-        self.type = type_ or "string"
-        self.desc = desc
-        self.label = label or name
-        self.values = values or []
-
-    def coalesce_value(self, value: Any) -> Any:
-        """ Convert string into an object value of `value_type`. The type might
-        be: `string` (no conversion), `integer`, `float`
-        """
-
-        return_value: Any
-
-        try:
-            if self.type == "string":
-                return_value = str(value)
-            elif self.type == "float":
-                return_value = float(value)
-            elif self.type == "integer":
-                return_value = int(value)
-            elif self.type == "bool":
-                if not value:
-                    return_value = False
-                elif isinstance(value, str):
-                    return_value = value.lower() in TRUE_VALUES
-                else:
-                    return_value = bool(value)
-            else:
-                raise ConfigurationError(f"Unknown option value type {self.type}")
-
-        except ValueError:
-            label: str
-
-            if self.label:
-                label = f"parameter {self.label} "
-            else:
-                label = f"parameter {self.name} "
-
-            raise ConfigurationError(f"Unable to convert {label} value '{value}' "
-                                     f"into type {self.type}")
-
-        return return_value
-
-
-T = TypeVar('T', bound=Type["Extensible"])
-
 
 class ExtensionDescription(NamedTuple):
     type: str
     name: str
     label: str
     doc: str
-    params: List[Parameter]
+    settings: List[Setting]
 
 
 class ExtensionRegistry:
@@ -205,12 +140,15 @@ class ExtensionRegistry:
 
     def describe(self, name: str) -> ExtensionDescription:
         ext = self.extension(name)
+        doc: str
+        doc = ext.extension_desc or ext.__doc__ or "(No documentation)"
+
         desc = ExtensionDescription(
                 type= self.name,
                 name= name,
-                label= name,
-                doc= ext.__doc__ or "(no documentation)",
-                params = ext.__parameters__ or [])
+                label= ext.extension_label or name,
+                doc=doc,
+                settings = ext.extension_settings or [])
 
         return desc
 
@@ -246,7 +184,9 @@ def get_registry(name: str) -> ExtensionRegistry:
 
 class Extensible:
     __extension_type__ = "undefined"
-    __parameters__: List[Parameter] = []
+    extension_settings: List[Setting] = []
+    extension_desc: Optional[str] = None
+    extension_label: Optional[str] = None
 
     def __init_subclass__(cls, name: Optional[str]=None, abstract: bool=False) -> None:
         assert cls.__extension_type__ in EXTENSION_TYPES, \
@@ -279,21 +219,13 @@ class Extensible:
         return cast(Type[T], registry.extension(name))
 
     @classmethod
-    def create_with_params(cls: T, params: Dict[str, Any]) -> T:
-        kwargs: Dict[str, Any]
-        kwargs = {}
+    def create_with_dict(cls: T, mapping: Mapping[str, Any]) -> T:
+        settings: SettingsDict
+        settings = SettingsDict(mapping=mapping, settings=cls.extension_settings)
 
-        for param in cls.__parameters__:
-            if param.name in params: 
-                value = params[param.name]
-                kwargs[param.name] = param.coalesce_value(value)
-            elif param.default:
-                value = param.default
-                kwargs[param.name] = param.coalesce_value(value)
-            else:
-                typename = cls.__extension_type__
-                raise ConfigurationError(f"Invalid parameter '{param.name}' "
-                                         f"for extension: {typename}")
+        return cls.create_with_settings(settings)
 
-        return cast(T, cls(**kwargs))  # type: ignore
+    @classmethod
+    def create_with_settings(cls: T, settings: SettingsDict) -> T:
+        return cast(T, cls(**SettingsDict))  # type: ignore
 

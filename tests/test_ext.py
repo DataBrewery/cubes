@@ -2,7 +2,8 @@ import unittest
 
 from typing import Dict
 
-from cubes.ext import Extensible, Parameter
+from cubes.ext import Extensible
+from cubes.settings import Setting
 from cubes.errors import ConfigurationError
 
 
@@ -15,7 +16,7 @@ class StoreBase(Extensible, abstract=True):
 class MyStore(StoreBase, name="my"):
 
     __parameters__ = [
-        Parameter("number", "integer")
+        Setting("number", "integer")
     ]
 
     number: int
