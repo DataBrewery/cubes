@@ -227,5 +227,5 @@ class Extensible:
 
     @classmethod
     def create_with_settings(cls: T, settings: SettingsDict) -> T:
-        return cast(T, cls(**SettingsDict))  # type: ignore
+        return cast(T, cls(**settings))  # type: ignore
 
