@@ -158,6 +158,12 @@ class SettingsDict(Mapping[str, Optional[SettingValue]]):
 
             self._settings[name] = setting
 
+        keys: Set[str]
+        keys = set(mapping.keys()) - set(s.name for s in settings)
+        if keys:
+            alist: str = ", ".join(sorted(keys))
+            raise ConfigurationError(f"Unknown settings: {alist}")
+
     def _invalid_value(self, key: str, value: SettingValue) -> Exception:
         raise ValueError(f"Invalid value type '{type(value)}' for "
                          f"setting {self._settings[key].name}")
