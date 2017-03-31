@@ -8,14 +8,14 @@ from flask import Blueprint, Response, request, g, current_app, safe_join, make_
 from flask import render_template, redirect
 
 from ..workspace import Workspace, SLICER_INFO_KEYS
+from ..query.constants import SPLIT_DIMENSION_NAME
 from ..query import Cell, cut_from_dict
-from ..query import SPLIT_DIMENSION_NAME
 from ..errors import *
 from ..formatters import JSONLinesGenerator, csv_generator
 from .. import ext
 from ..logging import get_logger
-from .logging import configured_request_log_handlers, RequestLogger
-from .logging import AsyncRequestLogger
+from .logging import configured_request_log_handlers, RequestLogger, \
+        AsyncRequestLogger
 from .errors import *
 from .decorators import *
 from .local import *
@@ -301,7 +301,7 @@ def cube_model(cube_name):
                               create_label=True,
                               hierarchy_limits=hier_limits)
 
-    response["features"] = workspace.cube_features(g.cube)
+    response["features"] = workspace.cube_features(g.cube).to_dict()
 
     return jsonify(response)
 
@@ -375,9 +375,9 @@ def aggregate(cube_name):
 
     fields = result.labels
     generator = csv_generator(result,
-                             fields,
-                             include_header=bool(header),
-                             header=header)
+                              fields,
+                              include_header=bool(header),
+                              header=header)
 
     headers = {"Content-Disposition": 'attachment; filename="aggregate.csv"'}
     return Response(generator,
@@ -496,7 +496,7 @@ def cube_cell(cube_name):
     details = g.browser.cell_details(g.cell)
 
     if not g.cell:
-        g.cell = Cell(g.cube)
+        g.cell = Cell()
 
     cell_dict = g.cell.to_dict()
     for cut, detail in zip(cell_dict["cuts"], details):
@@ -520,7 +520,7 @@ def cube_report(cube_name):
     if cell_cuts:
         # Override URL cut with the one in report
         cuts = [cut_from_dict(cut) for cut in cell_cuts]
-        cell = Cell(g.cube, cuts)
+        cell = Cell(cuts)
         logger.info("using cell from report specification (URL parameters "
                     "are ignored)")
 
@@ -530,7 +530,7 @@ def cube_report(cube_name):
                                                         cell=cell)
     else:
         if not g.cell:
-            cell = Cell(g.cube)
+            cell = Cell()
         else:
             cell = g.cell
 

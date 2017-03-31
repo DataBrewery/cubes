@@ -43,9 +43,9 @@ print("\n"
       "==================================================")
 
 cut = PointCut("item", ["e"])
-cell = Cell(browser.cube, cuts = [cut])
+cell = Cell(cuts = [cut])
 
-result = browser.aggregate(cell, drilldown=["item"])
+result = browser.aggregate(cell, drilldown=["item:subcategory"])
 
 print(("%-20s%10s%10s%10s\n"+"-"*50) % ("Sub-category", "Count", "Total", "Double"))
 

@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
-
+import json
+import csv
 import codecs
 import csv
 import datetime
 import decimal
-import json
 import os
 import tempfile
+from io import StringIO
+
 from collections import namedtuple
 
 try:
@@ -26,10 +27,10 @@ except ImportError:
     openpyxl = MissingPackage('openpyxl', 'pyexcel or other xlsx/xlsm reader/writer')
 
 from .errors import ArgumentError
-from . import compat
 from . import ext
+from .settings import Setting
 
-from .query import SPLIT_DIMENSION_NAME
+from .query.constants import SPLIT_DIMENSION_NAME
 
 __all__ = [
     "create_formatter",
@@ -55,42 +56,7 @@ def _jinja_env():
     return env
 
 
-def csv_generator_p2(records, fields, include_header=True, header=None,
-                     dialect=csv.excel):
-    def _row_string(row):
-        writer.writerow(row)
-        # Fetch UTF-8 output from the queue ...
-        data = queue.getvalue()
-        data = compat.to_unicode(data)
-        # ... and reencode it into the target encoding
-        data = encoder.encode(data)
-        # empty queue
-        queue.truncate(0)
-
-        return data
-
-    queue = compat.StringIO()
-    writer = csv.writer(queue, dialect=dialect)
-    encoder = codecs.getincrementalencoder("utf-8")()
-
-    if include_header:
-        yield _row_string(header or fields)
-
-    for record in records:
-        row = []
-        for field in fields:
-            value = record.get(field)
-            if isinstance(value, compat.string_type):
-                row.append(value.encode("utf-8"))
-            elif value is not None:
-                row.append(compat.text_type(value))
-            else:
-                row.append(None)
-
-        yield _row_string(row)
-
-
-def csv_generator_p3(records, fields, include_header=True, header=None,
+def csv_generator(records, fields, include_header=True, header=None,
                      dialect=csv.excel):
     def _row_string(row):
         writer.writerow(row)
@@ -99,7 +65,7 @@ def csv_generator_p3(records, fields, include_header=True, header=None,
 
         return data
 
-    queue = compat.StringIO()
+    queue = StringIO()
     writer = csv.writer(queue, dialect=dialect)
 
     if include_header:
@@ -125,12 +91,6 @@ def xlsx_generator(records, fields, include_header=True, header=None):
     os.close(fd)
     workbook.save(filename=fn)
     return fn
-
-
-if compat.py3k:
-    csv_generator = csv_generator_p3
-else:
-    csv_generator = csv_generator_p2
 
 
 class JSONLinesGenerator(object):
@@ -190,9 +150,11 @@ class SlicerJSONEncoder(json.JSONEncoder):
                 return json.JSONEncoder.default(self, o)
 
 
-class Formatter(object):
+class Formatter(ext.Extensible, abstract=True):
     """Empty class for the time being. Currently used only for finding all
     built-in subclasses"""
+
+    __extension_type__ = "formatter"
 
     def __call__(self, *args, **kwargs):
         return self.format(*args, **kwargs)
@@ -308,13 +270,13 @@ def coalesce_table_labels(attributes, onrows, oncolumns):
     return (onrows, oncolumns)
 
 
-class CrossTableFormatter(Formatter):
-    __options__ = [
-        {
-            "name": "indent",
-            "type": "integer",
-            "label": "Output indent"
-        },
+class CrossTableFormatter(Formatter, name="cross_table"):
+    extension_settings = [
+        Setting(
+            name= "indent",
+            type= "integer",
+            label= "Output indent"
+        ),
     ]
 
     mime_type = "application/json"
@@ -358,12 +320,12 @@ class CrossTableFormatter(Formatter):
         return output
 
 
-class HTMLCrossTableFormatter(CrossTableFormatter):
-    __options__ = [
-        {
-            "name": "table_style",
-            "description": "CSS style for the table"
-        }
+class HTMLCrossTableFormatter(CrossTableFormatter, name="html_cross_table"):
+    extension_settings = [
+        Setting(
+            name= "table_style",
+            desc= "CSS style for the table"
+        )
     ]
     mime_type = "text/html"
 
@@ -390,7 +352,7 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
         return output
 
 
-class CSVFormatter(Formatter):
+class CSVFormatter(Formatter, name="csv"):
     def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
                aggregates_on=None):
 
@@ -411,13 +373,13 @@ class CSVFormatter(Formatter):
                                   fields,
                                   include_header=bool(header),
                                   header=header)
-        # TODO: this is Py3 hack over Py2 hack
-        rows = [compat.to_str(row) for row in generator]
+
+        rows = [row.decode("utf-8") for row in generator]
         output = "".join(rows)
         return output
 
 
-class XLSXFormatter(Formatter):
+class XLSXFormatter(Formatter, name="xlsx"):
     # TODO(serbernar): write formatter
     def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
                aggregates_on=None):
@@ -437,6 +399,6 @@ class XLSXFormatter(Formatter):
                                   fields,
                                   include_header=bool(header),
                                   header=header)
-        rows = [compat.to_str(row) for row in generator]
+        rows = [str(row) for row in generator]
         output = "".join(rows)
         return output

@@ -2,6 +2,7 @@
 from ..errors import *
 from flask import Response, redirect
 import re
+from ..ext import Extensible
 
 __all__ = (
     "Authenticator",
@@ -15,7 +16,9 @@ class NotAuthenticated(Exception):
     pass
 
 
-class Authenticator(object):
+class Authenticator(Extensible, abstract=True):
+    __extension_type__ = "authenticator"
+
     def authenticate(self, request):
         raise NotImplementedError
 
@@ -26,7 +29,7 @@ class Authenticator(object):
         return "logged out"
 
 
-class AbstractBasicAuthenticator(Authenticator):
+class AbstractBasicAuthenticator(Authenticator, abstract=True):
     def __init__(self, realm=None):
         self.realm = realm or "Default"
         self.pattern = re.compile(r"^(http(?:s?)://)([^/]+.*)$", re.IGNORECASE)
@@ -41,7 +44,7 @@ class AbstractBasicAuthenticator(Authenticator):
         else:
             return Response("logged out", status=401, headers=headers)
 
-class AdminAdminAuthenticator(AbstractBasicAuthenticator):
+class AdminAdminAuthenticator(AbstractBasicAuthenticator, name="admin_admin"):
     """Simple HTTP Basic authenticator for testing purposes. User name and
     password have to be the same. User name is passed as the authenticated
     identity."""
@@ -58,7 +61,7 @@ class AdminAdminAuthenticator(AbstractBasicAuthenticator):
         raise NotAuthenticated
 
 
-class PassParameterAuthenticator(Authenticator):
+class PassParameterAuthenticator(Authenticator, name="pass_parameter"):
     """Permissive authenticator that passes an URL parameter (default
     ``api_key``) as idenity."""
     def __init__(self, parameter=None, **options):
@@ -69,7 +72,7 @@ class PassParameterAuthenticator(Authenticator):
         return request.args.get(self.parameter_name)
 
 
-class HTTPBasicProxyAuthenticator(AbstractBasicAuthenticator):
+class HTTPBasicProxyAuthenticator(AbstractBasicAuthenticator, name="http_basic_proxy"):
     def __init__(self, realm=None, **options):
         super(HTTPBasicProxyAuthenticator, self).__init__(realm=realm)
         self.realm = realm or "Default"

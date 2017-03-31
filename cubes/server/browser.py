@@ -2,10 +2,14 @@
 
 import json
 import logging
+
+from ..query.browser import BrowserFeatures, BrowserFeatureAction
 from ..logging import get_logger
 from ..query import *
+from ..query.result import AggregationResult, Facts
 
-class SlicerBrowser(AggregationBrowser):
+
+class SlicerBrowser(AggregationBrowser, name="slicer"):
     """Aggregation browser for Cubes Slicer OLAP server."""
 
     def __init__(self, cube, store, locale=None, **options):
@@ -18,15 +22,25 @@ class SlicerBrowser(AggregationBrowser):
         self.locale = locale
         self.store = store
 
-    def features(self):
+    def features(self) -> BrowserFeatures:
 
         # Get the original features as provided by the Slicer server.
         # They are stored in browser_options in the Slicer model provider's
         # cube().
-        features = dict(self.cube.browser_options.get("features", {}))
+        cube_features = dict(self.cube.browser_options.get("features", {}))
 
         # Replace only the actions, as we are not just a simple proxy.
-        features["actions"] = ["aggregate", "facts", "fact", "cell", "members"]
+        features = BrowserFeatures(
+            actions=[
+                BrowserFeatureAction.aggregate,
+                BrowserFeatureAction.facts,
+                BrowserFeatureAction.fact,
+                BrowserFeatureAction.cell,
+                BrowserFeatureAction.members,
+            ],
+            aggregate_functions=cube_features.get('aggregate_functions'),
+            post_aggregate_functions=cube_features.get('post_aggregate_functions')
+        )
 
         return features
 
@@ -78,7 +92,7 @@ class SlicerBrowser(AggregationBrowser):
     def facts(self, cell=None, fields=None, order=None, page=None,
               page_size=None):
 
-        cell = cell or Cell(self.cube)
+        cell = cell or Cell()
         if fields:
             attributes = self.cube.get_attributes(fields)
         else:
@@ -145,7 +159,7 @@ class SlicerBrowser(AggregationBrowser):
         return response
 
     def cell_details(self, cell, dimension=None):
-        cell = cell or Cell(self.cube)
+        cell = cell or Cell()
 
         params = {}
         if cell:

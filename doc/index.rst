@@ -17,6 +17,7 @@ Getting Started
 
     introduction
     install
+    related
     tutorial
     credits
 

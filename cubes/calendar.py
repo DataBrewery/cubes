@@ -1,19 +1,25 @@
 # -*- encoding: utf-8 -*-
 """Date and time utilities."""
 
-from __future__ import absolute_import
-
 import re
 
-from dateutil.relativedelta import relativedelta
-from dateutil.relativedelta import MO, TU, WE, TH, FR, SA, SU
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Union,
+)
+
+from dateutil.relativedelta import (
+        relativedelta,
+        MO, TU, WE, TH, FR, SA, SU,
+    )
 from dateutil.tz import gettz, tzlocal, tzstr
-from datetime import datetime
+from datetime import datetime, tzinfo
 from time import gmtime
 
-from .metadata import Hierarchy
+from .metadata import Hierarchy, HierarchyPath, Dimension
 from .errors import ArgumentError, ConfigurationError
-from . import compat
 
 __all__ = (
     "Calendar",
@@ -25,6 +31,7 @@ _CALENDAR_UNITS = ["year", "quarter", "month", "day", "hour", "minute",
                     "weekday"]
 
 
+# FIXME: [typing] Change to enum
 UNIT_YEAR = 8
 UNIT_QUARTER = 7
 UNIT_MONTH = 6
@@ -70,7 +77,7 @@ RELATIVE_TRUNCATED_TIME_RX = re.compile(r"(?P<direction>(last|next))"
 month_to_quarter = lambda month: ((month - 1) // 3) + 1
 
 
-def calendar_hierarchy_units(hierarchy):
+def calendar_hierarchy_units(hierarchy: Hierarchy) -> List[str]:
     """Return time units for levels in the hierarchy. The hierarchy is
     expected to be a date/time hierarchy and every level should have a `role`
     property specified. If the role is not specified, then the role is
@@ -81,6 +88,7 @@ def calendar_hierarchy_units(hierarchy):
 
     If unknown role is encountered an exception is raised."""
 
+    units: List[str]
     units = []
 
     for level in hierarchy.levels:
@@ -95,61 +103,71 @@ def calendar_hierarchy_units(hierarchy):
     return units
 
 
-def add_time_units(time, unit, amount):
+def add_time_units(time: datetime, unit: str, amount: int) -> datetime:
     """Subtract `amount` number of `unit`s from datetime object `time`."""
 
-    args = {}
-    if unit == 'hour':
-        args['hours'] = amount
-    elif unit == 'day':
-        args['days'] = amount
-    elif unit == 'week':
-        args['days'] = amount * 7
-    elif unit == 'month':
-        args['months'] = amount
-    elif unit == 'quarter':
-        args['months'] = amount * 3
-    elif unit == 'year':
-        args['years'] = amount
-    else:
-        raise ArgumentError("Unknown unit %s for subtraction.")
+    hours: int = 0
+    days: int = 0
+    months: int = 0
+    years: int = 0
 
-    return time + relativedelta(**args)
+    if unit == 'hour':
+        hours = amount
+    elif unit == 'day':
+        days = amount
+    elif unit == 'week':
+        days = amount * 7
+    elif unit == 'month':
+        months = amount
+    elif unit == 'quarter':
+        months = amount * 3
+    elif unit == 'year':
+        years = amount
+    else:
+        raise ArgumentError(f"Unknown unit {unit} for subtraction.")
+
+    return time + relativedelta(hours=hours,
+                                days=days,
+                                months=months,
+                                years=years)
 
 
 class Calendar(object):
-    def __init__(self, first_weekday=0, timezone=None):
+    timezone_name: Optional[str]
+    timezone: tzinfo
+
+    def __init__(self,
+            first_weekday: Union[str,int]=0,
+            timezone: str=None) -> None:
         """Creates a Calendar object for providing date/time paths and for
         relative date/time manipulation.
 
         Values for `first_weekday` are 0 for Monday, 6 for Sunday. Default is
         0."""
 
-        if isinstance(first_weekday, compat.string_type):
+        if isinstance(first_weekday, str):
             try:
                 self.first_weekday = _WEEKDAY_NUMBERS[first_weekday.lower()]
             except KeyError:
-                raise ConfigurationError("Unknown weekday name %s" %
-                                         first_weekday)
+                raise ConfigurationError(f"Unknown weekday name {first_weekday}")
         else:
             value = int(first_weekday)
             if value < 0 or value >= 7:
-                raise ConfigurationError("Invalid weekday number %s" %
-                                         value)
+                raise ConfigurationError(f"Invalid weekday number {value}")
             self.first_weekday = int(first_weekday)
 
-        if timezone:
+        if timezone is not None:
             self.timezone_name = timezone
             self.timezone = gettz(timezone) or tzstr(timezone)
         else:
             self.timezone_name = datetime.now(tzlocal()).tzname()
             self.timezone = tzlocal()
 
-    def now(self):
+    def now(self) -> datetime:
         """Returns current date in the calendar's timezone."""
         return datetime.now(self.timezone)
 
-    def path(self, time, units):
+    def path(self, time: datetime, units: List[str]) -> HierarchyPath:
         """Returns a path from `time` containing date/time `units`. `units`
         can be a list of strings or a `Hierarchy` object."""
 
@@ -174,13 +192,13 @@ class Calendar(object):
 
         return path
 
-    def now_path(self, units):
+    def now_path(self, units: List[str]) -> HierarchyPath:
         """Returns a path representing current date and time with `units` as
         path items."""
 
         return self.path(self.now(), units)
 
-    def truncate_time(self, time, unit):
+    def truncate_time(self, time: datetime, unit: str) -> datetime:
         """Truncates the `time` to calendar unit `unit`. Consider week start
         day from the calendar."""
 
@@ -221,12 +239,15 @@ class Calendar(object):
 
         return time
 
-    def since_period_start(self, period, unit, time=None):
+    def since_period_start(self,
+            period: str,
+            unit: str,
+            time: datetime=None) -> int:
         """Returns distance between `time` and the nearest `period` start
         relative to `time` in `unit` units. For example: distance between
         today and start of this year."""
 
-        if not time:
+        if time is None:
             time = self.now()
 
         start = self.truncate_time(time, period)
@@ -243,12 +264,18 @@ class Calendar(object):
         else:
             raise ValueError("Unrecognized period unit: %s" % unit)
 
-    def named_relative_path(self, reference, units, date=None):
+    def named_relative_path(self,
+            reference: str,
+            units: List[str],
+            date: datetime=None) -> HierarchyPath:
         """"""
 
+        offset: int
         date = date or self.now()
 
+        truncate: bool
         truncate = False
+
         relative_match = RELATIVE_FINE_TIME_RX.match(reference)
         if not relative_match:
             truncate = True
@@ -264,10 +291,10 @@ class Calendar(object):
             date = date + relativedelta(days=1)
 
         elif relative_match:
-            offset = relative_match.group("offset")
-            if offset:
+            offset_str = relative_match.group("offset")
+            if offset_str is not None:
                 try:
-                    offset = int(offset)
+                    offset = int(offset_str)
                 except ValueError:
                     raise ArgumentError("Relative time offset should be a "
                                         "number")
@@ -296,10 +323,16 @@ class Calendar(object):
 
 
 class CalendarMemberConverter(object):
-    def __init__(self, calendar):
+    calendar: Calendar
+
+    def __init__(self, calendar: Calendar) -> None:
         self.calendar = calendar
 
-    def __call__(self, dimension, hierarchy, path):
+    def __call__(self,
+            dimension: Dimension,
+            hierarchy: Hierarchy,
+            path: HierarchyPath) -> HierarchyPath:
+
         if len(path) != 1:
             return path
 

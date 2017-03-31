@@ -1,15 +1,23 @@
 # -*- coding: utf-8 -*-
 """Logical to Physical Mappers"""
 
+# TODO: This should be moved under query sub-module
+
+from typing import Optional, Any, Collection, Tuple, Dict
+from logging import Logger
 import collections
 
 from .logging import get_logger
+from .types import JSONType
+from .metadata.cube import Cube
+from .metadata.attributes import AttributeBase
+
 
 __all__ = (
     "Mapper",
 )
 
-class Mapper(object):
+class Mapper:
     """Mapper is core class for translating logical model to physical database
     schema.
     """
@@ -17,7 +25,16 @@ class Mapper(object):
     # class yet. It might be moved to the cubes as one of top-level modules
     # and subclassed here.
 
-    def __init__(self, cube, locale=None, **naming):
+    logger: Logger
+    cube: Cube
+    mappings: JSONType
+    locale: Optional[str]
+    attributes: Dict[str, AttributeBase]
+
+    def __init__(self,
+            cube: Cube,
+            locale: str=None,
+            **naming: Any) -> None:
         """Abstract class for mappers which maps logical references to
         physical references (tables and columns).
 
@@ -29,23 +46,18 @@ class Mapper(object):
 
         """
 
-        super(Mapper, self).__init__()
-
-        if cube is None:
-            raise Exception("Cube for mapper should not be None.")
-
         self.logger = get_logger()
 
         self.cube = cube
-
-        self.mappings = self.cube.mappings
+        self.mappings = self.cube.mappings or {}
         self.locale = locale
+        self.attributes = collections.OrderedDict()
 
         # TODO: remove this (should be in SQL only)
 
         self._collect_attributes()
 
-    def _collect_attributes(self):
+    def _collect_attributes(self) -> None:
         """Collect all cube attributes and create a dictionary where keys are
         logical references and values are `cubes.model.Attribute` objects.
         This method should be used after each cube or mappings change.
@@ -54,30 +66,15 @@ class Mapper(object):
         self.attributes = collections.OrderedDict()
 
         for attr in self.cube.all_fact_attributes:
-            self.attributes[self.logical(attr)] = attr
+            self.attributes[attr.localized_ref(self.locale)] = attr
 
-    def set_locale(self, locale):
+    # FIXME: This is mutating (see #416)
+    def set_locale(self, locale: str) -> None:
         """Change the mapper's locale"""
         self.locale = locale
         self._collect_attributes()
 
-    # TODO: depreciate in favor of Cube.all_attributes
-    def all_attributes(self, expand_locales=False):
-        """Return a list of all attributes of a cube. If `expand_locales` is
-        ``True``, then localized logical reference is returned for each
-        attribute's locale."""
-        return self.attributes.values()
-
-    # TODO: depreciate in favor of Cube.attribute
-    def attribute(self, name):
-        """Returns an attribute with logical reference `name`. """
-        # TODO: If attribute is not found, returns `None` (yes or no?)
-
-        return self.attributes[name]
-
-    # TODO: is this necessary after removing of 'simplify'? Reconsider
-    # requirement for existence of this one.
-    def logical(self, attribute, locale=None):
+    def logical(self, attribute: AttributeBase, locale:str=None) -> str:
         """Returns logical reference as string for `attribute` in `dimension`.
         If `dimension` is ``Null`` then fact table is assumed. The logical
         reference might have following forms:
@@ -94,7 +91,7 @@ class Mapper(object):
 
         return reference
 
-    def split_logical(self, reference):
+    def split_logical(self, reference: str) -> Tuple[Optional[str],str]:
         """Returns tuple (`dimension`, `attribute`) from `logical_reference` string. Syntax
         of the string is: ``dimensions.attribute``."""
 
@@ -107,7 +104,7 @@ class Mapper(object):
         else:
             return (None, reference)
 
-    def physical(self, attribute, locale=None):
+    def physical(self, attribute: AttributeBase, locale:str=None) -> str:
         """Returns physical reference for attribute. Returned value is backend
         specific. Default implementation returns a value from the mapping
         dictionary.
@@ -115,5 +112,5 @@ class Mapper(object):
         This method should be implemented by `Mapper` subclasses.
         """
 
-        return self.mappings.get(self.logical(attribute, locale))
+        return self.mappings.get(attribute.localized_ref(locale))
 

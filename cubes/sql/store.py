@@ -1,17 +1,12 @@
 # -*- encoding=utf -*-
 
-from __future__ import absolute_import
+from . import sqlalchemy as sa
 
-try:
-    import sqlalchemy as sa
-    import sqlalchemy.sql as sql
-    from sqlalchemy.engine import reflection
-    from sqlalchemy.orm.query import QueryContext
-    from sqlalchemy.schema import Index
-except ImportError:
-    from ..common import MissingPackage
+from typing import Any, Optional
+from ..types import OptionsType, OptionValue, JSONType
 
-    reflection = sa = sql = MissingPackage("sqlalchemy", "SQL")
+from typing import Any
+from ..types import OptionsType, OptionValue, JSONType
 
 from .browser import SQLBrowser
 from .mapper import distill_naming, Naming
@@ -19,9 +14,11 @@ from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
 from ..errors import ArgumentError, StoreError, ConfigurationError
-from ..query import Drilldown, Cell
+from ..query.drilldown import Drilldown
+from ..query.cells import Cell
 from .utils import CreateTableAsSelect, CreateOrReplaceView
 from ..metadata import string_to_dimension_level
+from ..settings import Setting
 
 
 __all__ = [
@@ -72,25 +69,15 @@ def sqlalchemy_options(options, prefix="sqlalchemy_"):
     return sa_options
 
 
-class SQLStore(Store):
-    def model_provider_name(self):
-        return 'default'
-
+class SQLStore(Store, name="sql"):
     default_browser_name = "sql"
 
-    __label__ = "SQL Store",
-    __description__ ="""
+    extension_label = "SQL Store"
+    extension_desc ="""
     Relational database store.
 
-    Supported database engines: firebird, mssql, mysql, oracle, postgresql, sqlite,
-    sybase.
-
-    Naming Convention
-    -----------------
-
-    """ \
-    + Naming.__doc__ + \
-    """
+    Supported database engines: firebird, mssql, mysql, oracle, postgresql,
+    sqlite, sybase.
 
     Engine Options
     --------------
@@ -100,15 +87,24 @@ class SQLStore(Store):
     options below). Please refer to the SQLAlchemy documentation for more
     information.
     """
-    __options__ = [
-        {
-            "name": "url",
-            "description": "Database URL, such as: postgresql://localhost/dw",
-            "type": "string"
-        }
+    extension_settings = [
+        Setting(
+            name="url",
+            desc="Database URL, such as: postgresql://localhost/dw",
+            type="string",
+        )
     ]
 
-    def __init__(self, url=None, engine=None, metadata=None, **options):
+    connectable: sa.Connectable
+    metadata: sa.MetaData
+    options: OptionsType
+    schema: Optional[str]
+
+    def __init__(self,
+            url: str=None,
+            engine: sa.Engine=None,
+            metadata: sa.MetaData=None,
+            **options: OptionValue) -> None:
         """
         The options are:
 
@@ -157,14 +153,15 @@ class SQLStore(Store):
         self.options = coalesce_options(options, OPTION_TYPES)
         self.naming = distill_naming(self.options)
 
-        if not engine:
+        if engine is None:
             # Process SQLAlchemy options
             sa_options = sqlalchemy_options(options)
-            engine = sa.create_engine(url, **sa_options)
+            self.connectable = sa.create_engine(url, **sa_options)
+        else:
+            self.connectable = engine
 
         self.logger = get_logger(name=__name__)
 
-        self.connectable = engine
         self.schema = self.naming.schema
 
         # Load metadata here. This might be too expensive operation to be
@@ -264,11 +261,11 @@ class SQLStore(Store):
         physical_tables[(self.fact_table.schema, self.fact_table.name)] = self.fact_table
         for table in tables:
             try:
-                physical_table = sqlalchemy.Table(table[1], self.metadata,
+                physical_table = sa.Table(table[1], self.metadata,
                                         autoload=True,
                                         schema=table[0] or self.mapper.schema)
                 physical_tables[(table[0] or self.mapper.schema, table[1])] = physical_table
-            except sqlalchemy.exc.NoSuchTableError:
+            except sa.exc.NoSuchTableError:
                 issues.append(("join", "table %s.%s does not exist" % table, join))
 
         # check attributes
@@ -282,12 +279,24 @@ class SQLStore(Store):
             table = physical_tables.get(table_ref)
 
             if table is None:
-                issues.append(("attribute", "table %s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], self.mapper.logical(attr)), attr))
+                logical = attr.localized_ref()
+                issues.append((
+                    "attribute",
+                    "table {}.{} does not exist for attribute {}"
+                    .format(table_ref[0], table_ref[1], logical, attr)))
             else:
                 try:
                     c = table.c[ref.column]
                 except KeyError:
-                    issues.append(("attribute", "column %s.%s.%s does not exist for attribute %s" % (table_ref[0], table_ref[1], ref.column, self.mapper.logical(attr)), attr))
+                    logical = attr.localized_ref()
+                    issues.append((
+                        "attribute",
+                        "column {}.{}.{} does not exist for attribute {}"
+                        .format(table_ref[0],
+                                table_ref[1],
+                                ref.column,
+                                logical,
+                                attr)))
 
         return issues
 
@@ -369,7 +378,7 @@ class SQLStore(Store):
                 index = sa.schema.Index(name, column)
                 index.create(self.connectable)
 
-    def execute(self, *args, **kwargs):
+    def execute(self, *args, **kwargs) -> sa.ResultProxy:
         return self.connectable.execute(*args, **kwargs)
 
     # FIXME: requires review
@@ -492,7 +501,7 @@ class SQLStore(Store):
                 level_index = len(hierarchy)
 
             for depth in range(0, level_index):
-                level = hierarchy[depth]
+                level = hierarchy.levels[depth]
                 self.create_conformed_rollup(cube, dim, level=level,
                                              schema=schema,
                                              dimension_prefix=dimension_prefix or "",
@@ -586,8 +595,8 @@ class SQLStore(Store):
             drilldown.append((dimension, hierarchy, levels[-1]))
             keys += [l.key for l in levels]
 
-        cell = Cell(cube)
-        drilldown = Drilldown(drilldown, cell)
+        cell = Cell()
+        drilldown = Drilldown(drilldown, cube=cube)
 
         # Create statement of all dimension level keys for
         # getting structure for table creation
@@ -640,7 +649,7 @@ class SQLSchemaInspector(object):
         to specified configuration and naming conventions."""
         self.engine = engine
         self.naming = naming
-        self.metadata = metadata or MetaData(engine)
+        self.metadata = metadata or sa.MetaData(engine)
 
         self.inspector = reflection.Inspector.from_engine(engine)
 

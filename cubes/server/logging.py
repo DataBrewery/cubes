@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-from contextlib import contextmanager
-from collections import namedtuple
-from threading import Thread
-
 import datetime
 import time
 import csv
 import io
 import json
 
+from contextlib import contextmanager
+from collections import namedtuple
+from threading import Thread
+from queue import Queue
+
 from .. import ext
-from .. import compat
 from ..logging import get_logger
 from ..errors import *
-from ..query import Drilldown
+from ..query.drilldown import Drilldown
 
 __all__ = [
     "create_request_log_handler",
@@ -109,13 +109,13 @@ class RequestLogger(object):
         """Return a log rectord with object attributes converted to unicode strings"""
         record = dict(record)
 
-        record["cube"] = compat.text_type(record["cube"])
+        record["cube"] = str(record["cube"])
 
         cell = record.get("cell")
-        record["cell"] = compat.text_type(cell) if cell is not None else None
+        record["cell"] = str(cell) if cell is not None else None
 
         split = record.get("split")
-        record["split"] = compat.text_type(split) if split is not None else None
+        record["split"] = str(split) if split is not None else None
 
         return record
 
@@ -123,7 +123,7 @@ class RequestLogger(object):
 class AsyncRequestLogger(RequestLogger):
     def __init__(self, handlers=None):
         super(AsyncRequestLogger, self).__init__(handlers)
-        self.queue = compat.Queue()
+        self.queue = Queue()
         self.thread = Thread(target=self.log_consumer,
                               name="slicer_logging")
         self.thread.daemon = True
@@ -137,12 +137,14 @@ class AsyncRequestLogger(RequestLogger):
             (args, kwargs) = self.queue.get()
             super(AsyncRequestLogger, self).log(*args, **kwargs)
 
-class RequestLogHandler(object):
+class RequestLogHandler(ext.Extensible, abstract=True):
+    __extension_type__ = "request_log_handler"
+
     def write_record(self, record):
         pass
 
 
-class DefaultRequestLogHandler(RequestLogHandler):
+class DefaultRequestLogHandler(RequestLogHandler, name="default"):
     def __init__(self, logger=None, **options):
         self.logger = logger
 
@@ -162,7 +164,7 @@ class DefaultRequestLogHandler(RequestLogHandler):
                             identity_str, record["elapsed_time"]))
 
 
-class CSVFileRequestLogHandler(RequestLogHandler):
+class CSVFileRequestLogHandler(RequestLogHandler, name="csv"):
     def __init__(self, path=None, **options):
         self.path = path
 
@@ -172,7 +174,7 @@ class CSVFileRequestLogHandler(RequestLogHandler):
         for key in REQUEST_LOG_ITEMS:
             item = record.get(key)
             if item is not None:
-                item = compat.text_type(item)
+                item = str(item)
             out.append(item)
 
         with io.open(self.path, 'ab') as f:
@@ -180,7 +182,7 @@ class CSVFileRequestLogHandler(RequestLogHandler):
             writer.writerow(out)
 
 
-class XLSXFileRequestLogHandler(RequestLogHandler):
+class XLSXFileRequestLogHandler(RequestLogHandler, name="xlsx"):
     def __init__(self, path=None, **options):
         self.path = path
 
@@ -190,7 +192,7 @@ class XLSXFileRequestLogHandler(RequestLogHandler):
         for key in REQUEST_LOG_ITEMS:
             item = record.get(key)
             if item is not None:
-                item = compat.text_type(item)
+                item = str(item)
             out.append(item)
 
         with io.open(self.path, 'ab') as f:
@@ -198,7 +200,7 @@ class XLSXFileRequestLogHandler(RequestLogHandler):
             writer.writerow(out)
 
 
-class JSONRequestLogHandler(RequestLogHandler):
+class JSONRequestLogHandler(RequestLogHandler, name="json"):
     def __init__(self, path=None, **options):
         """Creates a JSON logger which logs requests in a JSON lines. It
         includes two lists: `cell_dimensions` and `drilldown_dimensions`."""
@@ -211,7 +213,7 @@ class JSONRequestLogHandler(RequestLogHandler):
 
         if drilldown is not None:
             if cell:
-                drilldown = Drilldown(drilldown, cell)
+                drilldown = Drilldown(drilldown, cube=cube)
                 record["drilldown"] = str(drilldown)
             else:
                 drilldown = []

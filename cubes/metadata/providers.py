@@ -2,11 +2,34 @@
 """Logical model model providers."""
 import copy
 
-from ..errors import ModelError, TemplateRequired, CubesError, BackendError
-from ..errors import NoSuchDimensionError, NoSuchCubeError
+from typing import (
+    cast,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Collection,
+    Set,
+)
+
+from ..types import JSONType
+
+from ..errors import (
+    BackendError,
+    CubesError,
+    ModelError,
+    NoSuchCubeError,
+    NoSuchDimensionError,
+    TemplateRequired,
+)
+
 from .localization import LocalizationContext
 from .cube import Cube
 from .dimension import Dimension
+from ..stores import Store
+
+from ..namespace import Namespace
+from ..ext import Extensible
 
 __all__ = [
     "ModelProvider",
@@ -14,7 +37,6 @@ __all__ = [
     "link_cube",
     "find_dimension",
 ]
-
 
 # Proposed Provider API:
 #     Provider.cube() – in abstract class
@@ -26,139 +48,18 @@ __all__ = [
 #
 # Provider is bound to namespace
 
-# TODO: add tests
-# TODO: needs to be reviewed
-def link_cube(cube, locale, provider=None, namespace=None,
-              ignore_missing=False):
-    """Links dimensions to the `cube` in the `context` object. The `context`
-    object should implement a function `dimension(name, locale, namespace,
-    provider)`. Modifies cube in place, returns the cube.
-    """
-    # TODO: change this to: link_cube(cube, locale, namespace, provider)
-
-    # Assumption: empty cube
-
-    linked = set()
-
-    for dim_name in cube.dimension_links.keys():
-        if dim_name in linked:
-            raise ModelError("Dimension '{}' linked twice"
-                             .format(dim_name))
-
-        try:
-            dim = find_dimension(dim_name, locale,
-                                 provider=provider,
-                                 namespace=namespace)
-
-        except TemplateRequired as e:
-            raise ModelError("Dimension template '%s' missing" % dim_name)
-
-        if not dim and not ignore_missing:
-            raise CubesError("Dimension '{}' not found.".format(dim_name))
-
-        cube.link_dimension(dim)
-
-    return cube
-
-
-# TODO: add tests
-def find_dimension(name, locale=None, provider=None, namespace=None):
-    """Returns a localized dimension with `name`. Raises
-    `NoSuchDimensionError` when no model published the dimension. Raises
-    `RequiresTemplate` error when model provider requires a template to be
-    able to provide the dimension, but such template is not a public
-    dimension.
-
-    The standard lookup when linking a cube is:
-
-    1. look in the provider
-    2. look in the namespace – all providers within that namespace
-    """
-
-    # Collected dimensions – to be used as templates
-    templates = {}
-
-    # Assumption: all dimensions that are to be used as templates should
-    # be public dimensions. If it is a private dimension, then the
-    # provider should handle the case by itself.
-    missing = [name]
-
-    while missing:
-        dimension = None
-
-        name = missing.pop()
-
-        # First give a chance to provider, then to namespace
-        dimension = None
-        required_template = None
-
-        try:
-            dimension = _lookup_dimension(name, templates,
-                                          namespace, provider)
-        except TemplateRequired as e:
-            required_template = e.template
-
-        if required_template in templates:
-            raise BackendError("Some model provider didn't make use of "
-                               "dimension template '%s' for '%s'"
-                               % (required_template, name))
-
-        if required_template:
-            missing.append(name)
-            if required_template in missing:
-                raise ModelError("Dimension templates cycle in '%s'" %
-                                 required_template)
-            missing.append(required_template)
-
-        # Store the created dimension to be used as template
-        if dimension:
-            templates[name] = dimension
-
-    if namespace:
-        lookup = namespace.translation_lookup(locale)
-
-        if lookup:
-            # TODO: pass lookup instead of jsut first found translation
-            context = LocalizationContext(lookup[0])
-            trans = context.object_localization("dimensions", "inner")
-            dimension = dimension.localized(trans)
-
-    return dimension
-
-
-# TODO: add tests
-def _lookup_dimension(name, templates, namespace, provider):
-    """Look-up a dimension `name` in `provider` and then in `namespace`.
-
-    `templates` is a dictionary with already instantiated dimensions that
-    can be used as templates.
-    """
-
-    dimension = None
-
-    # 1. look in the povider
-    if provider:
-        try:
-            dimension = provider.dimension(name, templates=templates)
-        except NoSuchDimensionError:
-            pass
-        else:
-            return dimension
-
-    # 2. Look in the namespace
-    if namespace:
-        return namespace.dimension(name, templates=templates)
-
-    raise NoSuchDimensionError("Dimension '%s' not found" % name,
-                               name=name)
-
-
-class ModelProvider(object):
+class ModelProvider(Extensible, abstract=True):
     """Abstract class – factory for model object. Currently empty and used
     only to find other model providers."""
+    __extension_type__ = "model_provider"
+
+    store: Optional[Store]
+    metadata: JSONType
+    dimensions_metadata: Dict[str, JSONType]
+    cubes_metadata: Dict[str, JSONType]
 
     # TODO: Don't get metadata, but arbitrary arguments.
-    def __init__(self, metadata=None):
+    def __init__(self, metadata: JSONType=None) -> None:
         """Base class for model providers. Initializes a model provider and
         sets `metadata` – a model metadata dictionary.
 
@@ -178,8 +79,9 @@ class ModelProvider(object):
 
         # Get provider's defaults and pre-pend it to the user provided
         # metadtata.
+        defaults: JSONType
         defaults = self.default_metadata()
-        self.metadata = self._merge_metadata(defaults, metadata)
+        self.metadata = _merge_metadata(defaults, metadata or {})
 
         # TODO: check for duplicates
         self.dimensions_metadata = {}
@@ -194,34 +96,7 @@ class ModelProvider(object):
         self.options = self.metadata.get("options", {})
         self.options.update(self.metadata.get("browser_options", {}))
 
-    def _merge_metadata(self, metadata, other):
-        """See `default_metadata()` for more information."""
-
-        metadata = dict(metadata)
-        other = dict(other)
-
-        cubes = metadata.pop("cubes", []) + other.pop("cubes", [])
-        if cubes:
-            metadata["cubes"] = cubes
-
-        dims = metadata.pop("dimensions", []) + other.pop("dimensions", [])
-        if dims:
-            metadata["dimensions"] = dims
-
-        joins = metadata.pop("joins", []) + other.pop("joins",[])
-        if joins:
-            metadata["joins"] = joins
-
-        mappings = metadata.pop("mappings", {})
-        mappings.update(other.pop("mappings", {}))
-        if mappings:
-            metadata["mappings"] = mappings
-
-        metadata.update(other)
-
-        return metadata
-
-    def default_metadata(self, metadata=None):
+    def default_metadata(self, metadata: JSONType=None) -> JSONType:
         """Returns metadata that are prepended to the provided model metadata.
         `metadata` is user-provided metadata and might be used to decide what
         kind of default metadata are returned.
@@ -239,26 +114,26 @@ class ModelProvider(object):
         return {}
 
     # TODO: remove this in favor of provider configuration: store=
-    def requires_store(self):
+    def requires_store(self) -> bool:
         """Return `True` if the provider requires a store. Subclasses might
         override this method. Default implementation returns `False`"""
         return False
 
     # TODO: bind this automatically on provider configuration: store (see
     # requires_store() function)
-    def bind(self, store):
+    def bind(self, store: Store) -> None:
         """Set's the provider's `store`. """
 
         self.store = store
         self.initialize_from_store()
 
-    def initialize_from_store(self):
+    def initialize_from_store(self) -> None:
         """This method is called after the provider's `store` was set.
         Override this method if you would like to perform post-initialization
         from the store."""
         pass
 
-    def cube_options(self, cube_name):
+    def cube_options(self, cube_name:str) -> JSONType:
         """Returns an options dictionary for cube `name`. The options
         dictoinary is merged model `options` metadata with cube's `options`
         metadata if exists. Cube overrides model's global (default)
@@ -273,7 +148,7 @@ class ModelProvider(object):
 
         return options
 
-    def dimension_metadata(self, name, locale=None):
+    def dimension_metadata(self, name: str, locale: str=None) -> JSONType:
         """Returns a metadata dictionary for dimension `name` and optional
         `locale`.
 
@@ -285,7 +160,7 @@ class ModelProvider(object):
         except KeyError:
             raise NoSuchDimensionError("No such dimension '%s'" % name, name)
 
-    def cube_metadata(self, name, locale=None):
+    def cube_metadata(self, name:str , locale: str=None) -> JSONType:
         """Returns a cube metadata by combining model's global metadata and
         cube's metadata. Merged metadata dictionaries: `browser_options`,
         `mappings`, `joins`.
@@ -331,6 +206,8 @@ class ModelProvider(object):
         # model joins, if present, should be merged with cube's overrides.
         # joins are matched by the "name" key.
         if cube_joins and model_joins:
+            # FIXME: [typing] Use Join named tuple
+            model_join_map: Dict[str, JSONType]
             model_join_map = {}
             for join in model_joins:
                 try:
@@ -373,7 +250,7 @@ class ModelProvider(object):
 
         return metadata
 
-    def list_cubes(self):
+    def list_cubes(self) -> List[JSONType]:
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
 
@@ -384,13 +261,14 @@ class ModelProvider(object):
         """
         raise NotImplementedError("Subclasses should implement list_cubes()")
 
-    def has_cube(self, name):
+    def has_cube(self, name: str) -> bool:
         """Returns `True` if the provider has cube `name`. Otherwise returns
         `False`."""
 
         return name in self.cubes_metadata
 
-    def cube(self, name, locale=None, namespace=None):
+    def cube(self, name: str, locale: str=None, namespace: Namespace=None) \
+            -> Cube:
         """Returns a cube with `name` provided by the receiver. If receiver
         does not have the cube `NoSuchCube` exception is raised.
 
@@ -413,7 +291,10 @@ class ModelProvider(object):
 
         return cube
 
-    def dimension(self, name, templates=[], locale=None):
+    def dimension(self,
+            name: str,
+            templates: Dict[str, Dimension]=None,
+            locale: str=None) -> Dimension:
         """Returns a dimension with `name` provided by the receiver.
         `dimensions` is a dictionary of dimension objects where the receiver
         can look for templates. If the dimension requires a template and the
@@ -425,19 +306,44 @@ class ModelProvider(object):
         exception is raised.
         """
         metadata = self.dimension_metadata(name, locale)
-        return Dimension.from_metadata(metadata, templates=templates)
+        return Dimension.from_metadata(metadata, templates=templates or {})
 
+
+def _merge_metadata(metadata: JSONType, other: JSONType) -> JSONType:
+    """See `default_metadata()` for more information."""
+
+    metadata = dict(metadata)
+    other = dict(other)
+
+    cubes = metadata.pop("cubes", []) + other.pop("cubes", [])
+    if cubes:
+        metadata["cubes"] = cubes
+
+    dims = metadata.pop("dimensions", []) + other.pop("dimensions", [])
+    if dims:
+        metadata["dimensions"] = dims
+
+    joins = metadata.pop("joins", []) + other.pop("joins",[])
+    if joins:
+        metadata["joins"] = joins
+
+    mappings = metadata.pop("mappings", {})
+    mappings.update(other.pop("mappings", {}))
+    if mappings:
+        metadata["mappings"] = mappings
+
+    metadata.update(other)
+
+    return metadata
 
 # TODO: make this FileModelProvider
-class StaticModelProvider(ModelProvider):
+class StaticModelProvider(ModelProvider, name="static"):
 
-    __extension_aliases__ = ["default"]
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super(StaticModelProvider, self).__init__(*args, **kwargs)
         # Initialization code goes here...
 
-    def list_cubes(self):
+    def list_cubes(self) -> List[JSONType]:
         """Returns a list of cubes from the metadata."""
         cubes = []
 
@@ -451,4 +357,142 @@ class StaticModelProvider(ModelProvider):
             cubes.append(info)
 
         return cubes
+
+# TODO: add tests
+# TODO: needs to be reviewed
+def link_cube(
+        cube: Cube,
+        locale: Optional[str],
+        provider: ModelProvider=None,
+        namespace: Namespace=None,
+        ignore_missing: bool=False) -> Cube:
+    """Links dimensions to the `cube` in the `context` object. The `context`
+    object should implement a function `dimension(name, locale, namespace,
+    provider)`. Modifies cube in place, returns the cube.
+    """
+    # TODO: change this to: link_cube(cube, locale, namespace, provider)
+
+    # Assumption: empty cube
+
+    linked: Set[str] = set()
+
+    for dim_name in cube.dimension_links.keys():
+        if dim_name in linked:
+            raise ModelError("Dimension '{}' linked twice"
+                             .format(dim_name))
+
+        try:
+            dim = find_dimension(dim_name, locale,
+                                 provider=provider,
+                                 namespace=namespace)
+        except TemplateRequired as e:
+            raise ModelError("Dimension template '%s' missing" % dim_name)
+
+        if not dim and not ignore_missing:
+            raise CubesError("Dimension '{}' not found.".format(dim_name))
+
+        cube.link_dimension(dim)
+        linked.add(dim_name)
+
+    return cube
+
+
+# TODO: add tests
+def find_dimension(
+        name: str,
+        locale: str=None,
+        provider: ModelProvider=None,
+        namespace: Namespace=None) -> Dimension:
+    """Returns a localized dimension with `name`. Raises
+    `NoSuchDimensionError` when no model published the dimension. Raises
+    `RequiresTemplate` error when model provider requires a template to be
+    able to provide the dimension, but such template is not a public
+    dimension.
+
+    The standard lookup when linking a cube is:
+
+    1. look in the provider
+    2. look in the namespace – all providers within that namespace
+    """
+
+    # Collected dimensions – to be used as templates
+    templates: Dict[str, Dimension] = {}
+
+    # Assumption: all dimensions that are to be used as templates should
+    # be public dimensions. If it is a private dimension, then the
+    # provider should handle the case by itself.
+    missing: List[str]
+    missing = [name]
+
+    while missing:
+        dimension: Dimension
+
+        name = missing.pop()
+
+        # First give a chance to provider, then to namespace
+        requierd_template: Optional[str]
+        required_template = None
+
+        try:
+            dimension = _lookup_dimension(name, templates,
+                                          namespace, provider)
+        except TemplateRequired as e:
+            required_template = e.template
+        else:
+            templates[name] = dimension
+
+        if required_template in templates:
+            raise BackendError("Some model provider didn't make use of "
+                               "dimension template '%s' for '%s'"
+                               % (required_template, name))
+
+        if required_template:
+            missing.append(name)
+            if required_template in missing:
+                raise ModelError("Dimension templates cycle in '%s'" %
+                                 required_template)
+            missing.append(required_template)
+
+    if namespace is not None and locale is not None:
+        lookup = namespace.translation_lookup(locale)
+
+        if lookup is not None and dimension is not None:
+            # TODO: pass lookup instead of jsut first found translation
+            context = LocalizationContext(lookup[0])
+            trans = context.object_localization("dimensions", "inner")
+            dimension = cast(Dimension, dimension.localized(trans))
+
+    return dimension
+
+
+# TODO: add tests
+def _lookup_dimension(
+        name: str,
+        templates: Dict[str, Dimension],
+        namespace: Optional[Namespace],
+        provider: Optional[ModelProvider]) -> Dimension:
+    """Look-up a dimension `name` in `provider` and then in `namespace`.
+
+    `templates` is a dictionary with already instantiated dimensions that
+    can be used as templates.
+    """
+
+    dimension = None
+
+    # 1. look in the povider
+    if provider:
+        try:
+            dimension = provider.dimension(name, templates=templates)
+        except NoSuchDimensionError:
+            pass
+        else:
+            return dimension
+
+    # 2. Look in the namespace
+    if namespace:
+        return namespace.dimension(name, templates=templates)
+
+    raise NoSuchDimensionError("Dimension '%s' not found" % name,
+                               name=name)
+
 

@@ -1,8 +1,6 @@
 # -*- encoding: utf-8 -*-
 """Logical model."""
 
-from __future__ import absolute_import
-
 import re
 import copy
 
@@ -18,7 +16,6 @@ from .errors import NoSuchAttributeError, NoSuchDimensionError
 from .errors import ModelInconsistencyError, TemplateRequired
 from .metadata import expand_cube_metadata, expand_dimension_links
 from .metadata import expand_dimension_metadata, expand_level_metadata
-from . import compat
 
 
 __all__ = [

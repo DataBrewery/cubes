@@ -7,15 +7,12 @@ To enable full user exception debugging set the ``CUBES_ERROR_DEBUG``
 environment variable.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from typing import TYPE_CHECKING, Optional
 
 import json
 import os
 import sys
 import click
-
-from .. import compat
 
 from ..datastructures import AttributeDict
 from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
@@ -30,6 +27,9 @@ from .. import ext
 
 from ..query import cuts_from_string, Cell
 from ..metadata import string_to_dimension_level
+
+
+from ..ext import ExtensionRegistry
 
 
 DEFAULT_CONFIG = "slicer.ini"
@@ -67,55 +67,67 @@ def serve(ctx, config, visualizer):
 ################################################################################
 # Command: extension
 
-@cli.command("ext-info")
+@cli.command("extension")
 @click.argument('extension_type', metavar='TYPE', required=False, default='all')
 @click.argument('extension_name', metavar='NAME', required=False)
+@click.option("--try-import", is_flag=True, default=False,
+              help="Try whether the module can be imported")
 @click.pass_context
-def extension_info(ctx, extension_type, extension_name):
+def extension_info(ctx, extension_type, extension_name, try_import):
     """Show info about Cubes extensions"""
+    types: List[str]
 
     if extension_type == 'all':
-        types = ext.EXTENSION_TYPES.items()
+        types = ext.EXTENSION_TYPES.keys()
     else:
-        label = ext.EXTENSION_TYPES[extension_type]
-        types = [(extension_type, label)]
+        types = [extension_type]
 
     if extension_name:
         # Print detailed extension information
-        manager = getattr(ext, extension_type)
-        extension = manager.get(extension_name)
-        extension.load()
+        registry = ext.get_registry(extension_type)
+        desc = registry.describe(extension_name)
 
-        desc = extension.description or "No description."
-        click.echo("{e.name} - {e.label}\n\n"
-                   "{desc}\n"
-                   .format(e=extension, desc=desc))
+        click.echo(f"{desc.name} - {desc.label}\n\n"
+                   f"{desc.doc}\n")
 
-        if extension.options:
-            click.echo("Configuration options:\n")
+        if desc.settings:
+            click.echo("Settings:\n")
 
-            for option in extension.options.values():
-                name = option.get("name")
-                desc = option.get("description", option.get("label"))
-                desc = " - {}".format(desc) if desc else ""
-                type_ = option.get("type_", "string")
+            for setting in desc.settings:
+                desc = setting.desc or setting.label
+                desc = f" - {desc}"
 
-                click.echo("    {name} ({type_}){desc}"
-                           .format(name=name, desc=desc,
-                                   type_=type_))
+                click.echo(f"    {setting.name} ({setting.type}){desc}")
         else:
-            click.echo("No known options.")
+            click.echo("No known settings.")
     else:
         # List extensions
         click.echo("Available Cubes extensions:\n")
-        for ext_type, _ in types:
-            manager = getattr(ext, ext_type)
-            manager.discover()
-            names = manager.names()
+        for ext_type in types:
+            registry = ext.get_registry(ext_type)
+    
+            click.echo(ext_type)
+            for name in registry.names():
+                if try_import:
+                    import_status = _try_import(registry, name)
+                    import_status = f" ({import_status})"
+                else:
+                    import_status = ""
 
-            click.echo("{}:\n    {}\n".format(ext_type, ", ".join(names)))
+                click.echo(f"    {name}{import_status}")
 
     click.echo()
+
+def _try_import(registry: ExtensionRegistry, name: str) -> Optional[str]:
+    result: str = "OK"
+    try:
+        _ = registry.extension(name)
+    except Exception as e:
+        result = f"Error: {e}"
+
+    return result
+
+
 
 ################################################################################
 # Command: list
@@ -476,11 +488,11 @@ def aggregate(ctx, config, cube_name, aggregates, cuts, drilldown, formatter_nam
     for cut_str in cuts:
         cell_cuts += cuts_from_string(browser.cube, cut_str)
 
-    cell = Cell(browser.cube, cell_cuts)
+    cell = Cell(cell_cuts)
 
     split_cuts = cuts_from_string(browser.cube, split_str)
     if split_cuts:
-        split = Cell(browser.cube, split_cuts)
+        split = Cell(split_cuts)
     else:
         split = None
 
@@ -538,7 +550,7 @@ def members(ctx, config, cube_name, cuts, dim_name, output_format):
     for cut_str in cuts:
         cell_cuts += cuts_from_string(browser.cube, cut_str)
 
-    cell = Cell(browser.cube, cell_cuts)
+    cell = Cell(cell_cuts)
 
     (dim_name, hier_name, level_name) = string_to_dimension_level(dim_name)
     dimension = cube.dimension(dim_name)

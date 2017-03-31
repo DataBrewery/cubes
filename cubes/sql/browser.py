@@ -1,32 +1,72 @@
 # -*- encoding=utf -*-
 """SQL Browser"""
 
-from __future__ import absolute_import
+
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    TYPE_CHECKING,
+    Type,
+    Tuple,
+    Union,
+)
 
 import collections
 
-try:
-    import sqlalchemy
-    import sqlalchemy.sql as sql
+from . import sqlalchemy as sa
+from ..types import _RecordType, ValueType
 
-except ImportError:
-    from ...common import MissingPackage
-    sqlalchemy = sql = MissingPackage("sqlalchemy", "SQL aggregation browser")
+from ..metadata.attributes import (
+        Attribute,
+        AttributeBase,
+        Measure,
+        MeasureAggregate,
+    )
+from ..metadata.dimension import Hierarchy, HierarchyPath, Dimension, Level
+from ..metadata.cube import Cube
+from ..metadata.physical import Join
+
+from ..types import _RecordType, ValueType
 
 from ..query import available_calculators
-from ..query import AggregationBrowser, AggregationResult, Drilldown
-from ..query import Cell, PointCut
+from ..query.browser import (
+       AggregationBrowser,
+       BrowserFeatures,
+       BrowserFeatureAction,
+       _OrderType,
+       # FIXME: We should not be getting this here
+       _OrderArgType,
+    )
+from ..query.result import AggregationResult, Facts
+from ..query.drilldown import Drilldown
+from ..query.cells import Cell, PointCut
 from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
+
 from ..stores import Store
-from ..metadata import collect_attributes
-from .. import compat
+from ..settings import Setting
 
 from .functions import available_aggregate_functions
-from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
-from .mapper import distill_naming
-from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
+from .mapper import (
+        Mapper,
+        DenormalizedMapper,
+        StarSchemaMapper,
+        map_base_attributes,
+        distill_naming,
+    )
+from .query import StarSchema, QueryContext, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
+
+if TYPE_CHECKING:
+    from .store import SQLStore
+
+from ..types import _RecordType
 
 
 __all__ = [
@@ -34,7 +74,7 @@ __all__ = [
 ]
 
 
-class SQLBrowser(AggregationBrowser):
+class SQLBrowser(AggregationBrowser, name="sql"):
     """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
     can aggregate star and snowflake schemas without need of having
     explicit view or physical denormalized table.
@@ -70,47 +110,68 @@ class SQLBrowser(AggregationBrowser):
 
     """
 
-    __description__ = """
+    extension_desc = """
     SQL - relational database browser (for ROLAP). Generates statements on top
     of star or snowflake schemas.
     """
 
-    __options__ = [
-        {
-            "name": "include_summary",
-            "description": "Include aggregation summary "\
+    extension_settings = [
+        Setting(
+            name= "include_summary",
+            desc= "Include aggregation summary "\
                            "(requires extra statement)",
-            "type": "bool"
-        },
-        {
-            "name": "include_cell_count",
-            "type": "bool"
-        },
-        {
-            "name": "use_denormalization",
-            "type": "bool"
-        },
-        {
-            "name": "safe_labels",
-            "description": "Use internally SQL statement column labels " \
+            type= "bool"
+        ),
+        Setting(
+            name= "include_cell_count",
+            type= "bool"
+        ),
+        Setting(
+            name= "use_denormalization",
+            type= "bool"
+        ),
+        Setting(
+            name= "safe_labels",
+            desc= "Use internally SQL statement column labels " \
                            "without special characters",
-            "type": "bool"
-        }
-
+            type= "bool"
+        ),
+        Setting(
+            name= "is_denormalized",
+            desc= "The data is in a denormalzied table",
+            type= "bool"
+        ),
+        Setting(
+            name= "exclude_null_aggregates",
+            desc= "Exclude aggregates which value is NULL",
+            type= "bool"
+        ),
     ]
 
-    def __init__(self, cube, store, locale=None, debug=False, **kwargs):
+    locale: Optional[str]
+    connectable: sa.Connectable
+    star: StarSchema
+    # FIXME: [Typing] see Cube.distilled_hierarchies
+    hierarchies: Dict[Tuple[str,Optional[str]],List[str]]
+
+    include_summary: bool
+    include_cell_count: bool
+    safe_labels: bool
+    exclude_null_aggregates: bool
+
+    def __init__(self,
+            cube: Cube,
+            store: "SQLStore", 
+            locale: str=None,
+            debug: bool=False,
+            tables: Optional[Mapping[str, sa.FromClause]] = None,
+            **kwargs: Any) -> None:
         """Create a SQL Browser."""
 
-        super(SQLBrowser, self).__init__(cube, store)
-
-        if not cube:
-            raise ArgumentError("Cube for browser should not be None.")
+        super().__init__(cube, store=store, locale=locale or cube.locale)
 
         self.logger = get_logger()
 
-        self.cube = cube
-        self.locale = locale or cube.locale
         self.debug = debug
 
         # Database connection and metadata
@@ -123,7 +184,7 @@ class SQLBrowser(AggregationBrowser):
             self.connectable = store
 
             metadata = kwargs.get("metadata",
-                                  sqlalchemy.MetaData(bind=self.connectable))
+                                  sa.MetaData(bind=self.connectable))
 
         # Options
         # -------
@@ -133,10 +194,12 @@ class SQLBrowser(AggregationBrowser):
         options.update(store.options)
         options.update(kwargs)
 
-        self.include_summary = options.get("include_summary", True)
-        self.include_cell_count = options.get("include_cell_count", True)
+        # FIXME: [typing] Remove the `type: ignore` once Options are
+        # implemented
+        self.include_summary = options.get("include_summary", True) # type: ignore
+        self.include_cell_count = options.get("include_cell_count", True) # type: ignore
 
-        self.safe_labels = options.get("safe_labels", False)
+        self.safe_labels = options.get("safe_labels", False)  # type: ignore
         if self.safe_labels:
             self.logger.debug("using safe labels for cube {}"
                               .format(cube.name))
@@ -153,6 +216,7 @@ class SQLBrowser(AggregationBrowser):
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
 
+        mapper: Type[Mapper]
         if options.get("is_denormalized", options.get("use_denormalization")):
             mapper = DenormalizedMapper
         else:
@@ -168,18 +232,17 @@ class SQLBrowser(AggregationBrowser):
                                                     naming=naming,
                                                     locale=locale)
 
-        tables = options.get("tables")
-
         # Prepare Join objects
-        if cube.joins:
-            joins = [to_join(join) for join in cube.joins]
+        # FIXME: [typing] Joins should be prepared here.
+        if cube.joins is not None:
+            joins = [Join.from_dict(join) for join in cube.joins]
         else:
             joins = []
 
         self.star = StarSchema(self.cube.name,
                                metadata,
                                mappings=mappings,
-                               fact=fact_name,
+                               fact_name=fact_name,
                                joins=joins,
                                schema=naming.schema,
                                tables=tables)
@@ -189,38 +252,55 @@ class SQLBrowser(AggregationBrowser):
         #
         self.hierarchies = self.cube.distilled_hierarchies
 
-    def features(self):
+    def features(self) -> BrowserFeatures:
         """Return SQL features. Currently they are all the same for every
         cube, however in the future they might depend on the SQL engine or
         other factors."""
 
-        features = {
-            "actions": ["aggregate", "fact", "members", "facts", "cell"],
-            "aggregate_functions": available_aggregate_functions(),
-            "post_aggregate_functions": available_calculators()
-        }
+        features = BrowserFeatures(
+            actions=[
+                BrowserFeatureAction.aggregate,
+                BrowserFeatureAction.facts,
+                BrowserFeatureAction.fact,
+                BrowserFeatureAction.cell,
+                BrowserFeatureAction.members,
+            ],
+            aggregate_functions=available_aggregate_functions(),
+            post_aggregate_functions=available_calculators()
+        )
 
         return features
 
-    def is_builtin_function(self, funcname):
+    def is_builtin_function(self, funcname: str) -> bool:
         """Returns `True` if the function `funcname` is backend's built-in
         function."""
 
         return funcname in available_aggregate_functions()
 
-    def fact(self, key_value, fields=None):
+    def fact(self,
+            key_value: ValueType,
+            fields: Collection[AttributeBase]=None) \
+            -> Optional[_RecordType]:
         """Get a single fact with key `key_value` from cube.
 
         Number of SQL queries: 1."""
 
-        (statement, labels) = self.denormalized_statement(attributes=fields,
+        attributes: Collection[AttributeBase]
+        attributes = fields or self.cube.all_fact_attributes
+
+        statement: sa.Select
+        labels: List[str]
+        (statement, labels) = self.denormalized_statement(attributes=attributes,
+                                                          cell=Cell(),
                                                           include_fact_key=True)
         condition = self.star.fact_key_column == key_value
         statement = statement.where(condition)
 
+        cursor: sa.ResultProxy
         cursor = self.execute(statement, "fact")
         row = cursor.fetchone()
 
+        record: Optional[_RecordType]
         if row:
             # Convert SQLAlchemy object into a dictionary
             record = dict(zip(labels, row))
@@ -231,8 +311,13 @@ class SQLBrowser(AggregationBrowser):
 
         return record
 
-    def facts(self, cell=None, fields=None, order=None, page=None,
-              page_size=None, fact_list=None):
+    def facts(self,
+            cell: Cell=None,
+            fields: Collection[AttributeBase]=None,
+            order: List[_OrderArgType]=None,
+            page: int=None,
+            page_size: int=None,
+            fact_list: List[ValueType]=None) -> Facts:
         """Return all facts from `cell`, might be ordered and paginated.
 
         `fact_list` is a list of fact keys to be selected. Might be used to
@@ -242,8 +327,10 @@ class SQLBrowser(AggregationBrowser):
         Number of SQL queries: 1.
         """
         attrs = self.cube.get_attributes(fields)
-        cell = cell or Cell(self.cube)
+        cell = cell or Cell()
 
+        statement: sa.Select
+        labels: List[str]
         (statement, labels) = self.denormalized_statement(cell=cell,
                                                           attributes=attrs,
                                                           include_fact_key=True)
@@ -262,41 +349,62 @@ class SQLBrowser(AggregationBrowser):
 
         cursor = self.execute(statement, "facts")
 
-        return ResultIterator(cursor, labels)
+        return Facts(ResultIterator(cursor, labels), attributes=labels)
 
-    def test(self, aggregate=False):
+    def test(self, aggregate: bool=False) -> None:
         """Tests whether the statement can be constructed and executed. Does
         not return anything, but raises an exception if there are issues with
         the generated statements. By default it tests only denormalized
         statement by fetching one row. If `aggregate` is `True` then test also
         aggregation."""
-        (statement, _) = self.denormalized_statement()
+
+        statement: sa.Select
+        (statement, _) = self.denormalized_statement(
+                                attributes=self.cube.all_fact_attributes,
+                                cell=Cell())
+
         statement = statement.limit(1)
         result = self.connectable.execute(statement)
         result.close()
 
+        aggs: Collection[AttributeBase]
         aggs = self.cube.all_aggregate_attributes
-        dd = Drilldown()
+        dd = Drilldown(cube=self.cube)
 
         (statement, labels) = self.aggregation_statement(aggregates=aggs,
-                                                         cell=Cell(self.cube),
+                                                         cell=Cell(),
                                                          drilldown=dd,
                                                          for_summary=True)
         result = self.connectable.execute(statement)
         result.close()
 
-    def provide_members(self, cell, dimension, depth=None, hierarchy=None,
-                        levels=None, attributes=None, page=None,
-                        page_size=None, order=None):
+    def provide_members(self,
+            cell: Cell,
+            dimension: Dimension,
+            depth: int=None,
+            hierarchy: Hierarchy=None,
+            levels: Collection[Level]=None,
+            attributes: Collection[AttributeBase]=None,
+            page: int=None,
+            page_size: int=None,
+            order: Optional[Collection[_OrderType]]=None) \
+                    -> Iterable[_RecordType]:
         """Return values for `dimension` with level depth `depth`. If `depth`
         is ``None``, all levels are returned.
 
         Number of database queries: 1.
         """
-        if not attributes:
-            attributes = []
-            for level in levels:
-                attributes += level.attributes
+        # TODO: Check whether attributes are part of the dimension
+        if attributes is None:
+            if levels is not None:
+                attributes = []
+                for level in levels:
+                    attributes += level.attributes
+            else:
+                attributes = dimension.attributes
+
+        statement: sa.Select
+        labels: List[str]
 
         (statement, labels) = self.denormalized_statement(attributes, cell)
         # Order and paginate
@@ -311,7 +419,10 @@ class SQLBrowser(AggregationBrowser):
 
         return ResultIterator(result, labels)
 
-    def path_details(self, dimension, path, hierarchy=None):
+    def path_details(self,
+            dimension: Dimension,
+            path: HierarchyPath,
+            hierarchy: Hierarchy=None) -> Optional[_RecordType]:
         """Returns details for `path` in `dimension`. Can be used for
         multi-dimensional "breadcrumbs" in a used interface.
 
@@ -320,36 +431,51 @@ class SQLBrowser(AggregationBrowser):
         dimension = self.cube.dimension(dimension)
         hierarchy = dimension.hierarchy(hierarchy)
 
-        cut = PointCut(dimension, path, hierarchy=hierarchy)
-        cell = Cell(self.cube, [cut])
+        cut: PointCut
+        cut = PointCut(dimension.name, path, hierarchy=hierarchy.name)
+        cell: Cell
+        cell = Cell([cut])
 
+        attributes: List[AttributeBase]
         attributes = []
         for level in hierarchy.levels[0:len(path)]:
             attributes += level.attributes
+
+        statement: sa.Select
+        labels: List[str]
 
         (statement, labels) = self.denormalized_statement(attributes,
                                                           cell,
                                                           include_fact_key=True)
         statement = statement.limit(1)
+        cursor: sa.ResultProxy
         cursor = self.execute(statement, "path details")
 
         row = cursor.fetchone()
 
+        member: Optional[_RecordType]
         if row:
-            member = dict(zip(labels, row))
+            member = dict(zip(labels, row.values()))
         else:
             member = None
 
         return member
 
-    def execute(self, statement, label=None):
+    def execute(self, statement: sa.Select, label: str=None) \
+            -> sa.ResultProxy:
         """Execute the `statement`, optionally log it. Returns the result
         cursor."""
         self._log_statement(statement, label)
         return self.connectable.execute(statement)
 
-    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
-                          page, page_size, **options):
+    def provide_aggregate(self,
+            cell: Cell,
+            aggregates: Collection[MeasureAggregate],
+            drilldown: Drilldown,
+            split: Cell=None,
+            order: Collection[_OrderType]=None,
+            page: int=None,
+            page_size: int=None) -> AggregationResult:
         """Return aggregated result.
 
         Arguments:
@@ -387,31 +513,30 @@ class SQLBrowser(AggregationBrowser):
 
         """
 
-        # TODO: implement reminder
-
-        result = AggregationResult(cell=cell, aggregates=aggregates,
-                                   drilldown=drilldown,
-                                   has_split=split is not None)
+        cells: Optional[ResultIterator] = None
+        labels: Optional[List[str]] = None
+        summary: Optional[_RecordType] = None
+        levels: Optional[Mapping[str, List[str]]] = None
+        total_cell_count: Optional[int] = None
 
         # Summary
         # -------
 
         if self.include_summary or not (drilldown or split):
-            (statement, labels) = self.aggregation_statement(cell,
-                                                             aggregates=aggregates,
-                                                             drilldown=drilldown,
-                                                             for_summary=True)
+            (statement, labels) = \
+                    self.aggregation_statement(cell,
+                                               aggregates=aggregates,
+                                               drilldown=drilldown,
+                                               for_summary=True)
 
             cursor = self.execute(statement, "aggregation summary")
             row = cursor.first()
 
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                record = dict(zip(labels, row))
+                summary = dict(zip(labels, row))
             else:
-                record = None
-
-            result.summary = record
+                summary = None
 
         # Drill-down
         # ----------
@@ -422,7 +547,7 @@ class SQLBrowser(AggregationBrowser):
             if not (page_size and page is not None):
                 self.assert_low_cardinality(cell, drilldown)
 
-            result.levels = drilldown.result_levels(include_split=bool(split))
+            levels = drilldown.result_levels(include_split=bool(split))
             natural_order = drilldown.natural_order
 
             self.logger.debug("preparing drilldown statement")
@@ -436,7 +561,7 @@ class SQLBrowser(AggregationBrowser):
             if self.include_cell_count:
                 count_statement = statement.alias().count()
                 counts = self.execute(count_statement)
-                result.total_cell_count = counts.scalar()
+                total_cell_count = counts.scalar()
 
             # Order and paginate
             #
@@ -448,19 +573,33 @@ class SQLBrowser(AggregationBrowser):
 
             cursor = self.execute(statement, "aggregation drilldown")
 
-            result.cells = ResultIterator(cursor, labels)
-            result.labels = labels
+            cells = ResultIterator(cursor, labels)
+            labels = labels
+
 
         # If exclude_null_aggregates is True then don't include cells where
         # at least one of the bult-in aggregates is NULL
-        if result.cells is not None and self.exclude_null_agregates:
+        if cells is not None and self.exclude_null_agregates:
             native_aggs = [agg.ref for agg in aggregates
                            if agg.function and self.is_builtin_function(agg.function)]
-            result.exclude_if_null = native_aggs
+            cells.exclude_if_null = native_aggs
+
+        result = AggregationResult(
+                cube=self.cube,
+                cell=cell,
+                cells=cells or [],
+                labels=labels,
+                levels=levels,
+                aggregates=aggregates,
+                drilldown=drilldown,
+                summary=summary,
+                total_cell_count=total_cell_count,
+                has_split=split is not None)
 
         return result
 
-    def _create_context(self, attributes):
+    def _create_context(self, attributes: Collection[AttributeBase]) \
+            -> QueryContext:
         """Create a query context for `attributes`. The `attributes` should
         contain all attributes that will be somehow involved in the query."""
 
@@ -468,20 +607,27 @@ class SQLBrowser(AggregationBrowser):
         return QueryContext(self.star,
                             attributes=collected,
                             hierarchies=self.hierarchies,
-                            parameters=None,
                             safe_labels=self.safe_labels)
 
-    def denormalized_statement(self, attributes=None, cell=None,
-                               include_fact_key=False):
+    def denormalized_statement(self,
+            attributes: Collection[AttributeBase],
+            cell: Cell,
+            include_fact_key: bool=False) -> Tuple[sa.Select, List[str]]:
         """Returns a tuple (`statement`, `labels`) representing denormalized
         star statement restricted by `cell`. If `attributes` is not specified,
         then all cube's attributes are selected. The returned `labels` are
         correct labels to be applied to the iterated result in case of
         `safe_labels`."""
 
-        attributes = attributes or self.cube.all_fact_attributes
+        selection: List[sa.ColumnElement]
 
-        refs = [attr.ref for attr in collect_attributes(attributes, cell)]
+        cell_keys: Collection[AttributeBase]
+        cell_keys = cell.collect_key_attributes(self.cube) 
+
+        refs: List[str]
+        refs = [attr.ref for attr in attributes]
+        refs += [attr.ref for attr in cell_keys]
+
         context_attributes = self.cube.get_attributes(refs)
         context = self._create_context(context_attributes)
 
@@ -495,9 +641,9 @@ class SQLBrowser(AggregationBrowser):
 
         cell_condition = context.condition_for_cell(cell)
 
-        statement = sql.expression.select(selection,
-                                          from_obj=context.star,
-                                          whereclause=cell_condition)
+        statement = sa.select(selection,
+                              from_obj=context.star,
+                              whereclause=cell_condition)
 
         return (statement, context.get_labels(statement.columns))
 
@@ -506,8 +652,12 @@ class SQLBrowser(AggregationBrowser):
     #
     # This is the reason of our whole existence.
     #
-    def aggregation_statement(self, cell, aggregates, drilldown=None,
-                              split=None, for_summary=False):
+    def aggregation_statement(self,
+            cell: Cell,
+            aggregates: Collection[AttributeBase],
+            drilldown:Drilldown=None,
+            split:Cell=None,
+            for_summary:bool=False) -> Tuple[sa.Select, List[str]]:
         """Builds a statement to aggregate the `cell` and reutrns a tuple
         (`statement`, `labels`). `statement` is a SQLAlchemy statement object,
         `labels` is a list of attribute names selected in the statement. The
@@ -540,12 +690,21 @@ class SQLBrowser(AggregationBrowser):
 
         self.logger.debug("prepare aggregation statement. cell: '%s' "
                           "drilldown: '%s' for summary: %s" %
-                          (",".join([compat.to_unicode(cut) for cut in cell.cuts]),
+                          (",".join([str(cut) for cut in cell.cuts]),
                            drilldown, for_summary))
 
         # TODO: it is verylikely that the _create_context is not getting all
         # attributes, for example those that aggregate depends on
-        refs = collect_attributes(aggregates, cell, drilldown, split)
+
+        all_attributes: List[AttributeBase]
+        all_attributes = list(aggregates)
+        all_attributes += cell.collect_key_attributes(self.cube)
+        all_attributes += drilldown.all_attributes
+        if split is not None:
+            all_attributes += split.collect_key_attributes(self.cube)
+
+        refs: List[str]
+        refs = [attr.ref for attr in all_attributes]
         attributes = self.cube.get_attributes(refs, aggregated=True)
         context = self._create_context(attributes)
 
@@ -580,41 +739,54 @@ class SQLBrowser(AggregationBrowser):
         else:
             selection += aggregate_cols
 
-        statement = sql.expression.select(selection,
-                                          from_obj=context.star,
-                                          use_labels=True,
-                                          whereclause=condition,
-                                          group_by=group_by)
+        statement = sa.select(selection,
+                              from_obj=context.star,
+                              use_labels=True,
+                              whereclause=condition,
+                              group_by=group_by)
 
         return (statement, context.get_labels(statement.columns))
 
-    def _log_statement(self, statement, label=None):
+    def _log_statement(self,
+            statement: sa.Select,
+            label: str=None) -> None:
         label = "SQL(%s):" % label if label else "SQL:"
         self.logger.debug("%s\n%s\n" % (label, str(statement)))
 
 
-class ResultIterator(object):
+# TODO: Rename to batch result iterator
+class ResultIterator(Iterable[_RecordType]):
     """
     Iterator that returns SQLAlchemy ResultProxy rows as dictionaries
     """
-    def __init__(self, result, labels):
-        self.result = result
-        self.batch = None
-        self.labels = labels
-        self.exclude_if_null = None
+    # FIXME: [typing] this is SA row proxy
+    result: sa.ResultProxy
+    # FIXME: [typing] this should be typing.Deque, but that does not seem to
+    # exist
+    batch: collections.deque
+    labels: List[str]
+    exclude_if_null: List[str]
 
-    def __iter__(self):
+    def __init__(self,
+            result: sa.ResultProxy,
+            labels: List[str],
+            exclude_if_null: List[str]=None) -> None:
+        self.result = result
+        self.batch = collections.deque()
+        self.labels = labels
+        self.exclude_if_null = exclude_if_null or []
+
+    def __iter__(self) -> Iterator[_RecordType]:
         while True:
             if not self.batch:
                 many = self.result.fetchmany()
                 if not many:
                     break
-                self.batch = collections.deque(many)
+                self.batch.extend(many)
 
             row = self.batch.popleft()
 
-            if self.exclude_if_null \
-                    and any(row[agg] is None for agg in self.exclude_if_null):
+            if any(row[agg] is None for agg in self.exclude_if_null):
                 continue
 
             yield dict(zip(self.labels, row))

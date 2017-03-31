@@ -4,8 +4,13 @@ from ..query import *
 from ..stores import Store
 from ..errors import *
 from ..logging import get_logger
+from ..settings import Setting
 import json
-from .. import compat
+
+from urllib.request import urlopen, build_opener
+from urllib.request import HTTPPasswordMgrWithDefaultRealm
+from urllib.request import HTTPBasicAuthHandler
+from urllib.parse import urlencode
 
 DEFAULT_SLICER_URL = "http://localhost:5000"
 
@@ -14,47 +19,47 @@ class _default_opener:
         pass
 
     def open(self, url, *args, **kwargs):
-        return compat.urlopen(url, *args, **kwargs)
+        return urlopen(url, *args, **kwargs)
 
-class SlicerStore(Store):
+class SlicerStore(Store, name="slicer"):
     related_model_provider = "slicer"
 
-    __description__ = """
+    extension_desc = """
     Uses external Slicer as a store. Aggregation is performed on the remote
     server and results are relayed.
     """
-    __options__ = [
-        {
-            "name": "url",
-            "description": "URL of another/external Slicer",
-            "type": "string"
-        },
-        {
-            "name": "authentication",
-            "description": "Authentication method (pass_parameter or none)",
-            "type": "string"
-        },
-        {
-            "name": "auth_identity",
-            "description": "Authenticated identity (user name, key, ...)",
-            "type": "string"
-        },
-        {
-            "name": "auth_parameter",
-            "description": "Name of authentication URL parameter " \
+    extension_settings = [
+        Setting(
+            name= "url",
+            desc= "URL of another/external Slicer",
+            type= "string"
+        ),
+        Setting(
+            name= "authentication",
+            desc= "Authentication method (pass_parameter or none)",
+            type= "string"
+        ),
+        Setting(
+            name= "auth_identity",
+            desc= "Authenticated identity (user name, key, ...)",
+            type= "string"
+        ),
+        Setting(
+            name= "auth_parameter",
+            desc= "Name of authentication URL parameter " \
                            "(default: api_key",
-            "type": "string"
-        },
-        {
-            "name": "username",
-            "description": "HTTP authentication username",
-            "type": "string"
-        },
-        {
-            "name": "password",
-            "description": "HTTP authentication password",
-            "type": "string"
-        },
+            type= "string"
+        ),
+        Setting(
+            name= "username",
+            desc= "HTTP authentication username",
+            type= "string"
+        ),
+        Setting(
+            name= "password",
+            desc= "HTTP authentication password",
+            type= "string"
+        ),
     ]
 
     def __init__(self, url=None, authentication=None,
@@ -78,9 +83,9 @@ class SlicerStore(Store):
 
         if "username" in options and "password" in options:
             # make a basic auth-enabled opener
-            _pmgr = compat.HTTPPasswordMgrWithDefaultRealm()
+            _pmgr = HTTPPasswordMgrWithDefaultRealm()
             _pmgr.add_password(None, self.url, options['username'], options['password'])
-            self.opener = compat.build_opener(compat.HTTPBasicAuthHandler(_pmgr))
+            self.opener = build_opener(HTTPBasicAuthHandler(_pmgr))
             self.logger.info("Created slicer opener using basic auth credentials with username %s", options['username'])
         else:
             self.opener = _default_opener()
@@ -99,7 +104,7 @@ class SlicerStore(Store):
         if self.authentication == "pass_parameter":
             params[self.auth_parameter] = self.auth_identity
 
-        params_str = compat.urlencode(params)
+        params_str = urlencode(params)
         request_url = '%s/%s' % (self.url, action)
 
         if params_str:
@@ -138,9 +143,8 @@ class _JSONLinesIterator(object):
             yield json.loads(line)
 
 
-class SlicerModelProvider(ModelProvider):
-
-    __description__ = """
+class SlicerModelProvider(ModelProvider, name="slicer"):
+    """
     Uses external Slicer server as a model provider.
     """
 

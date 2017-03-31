@@ -3,7 +3,9 @@
 
 The base exception calss is :class:`.CubesError`."""
 
+from typing import Optional
 from collections import OrderedDict
+from .types import JSONType
 
 class CubesError(Exception):
     """Generic error class."""
@@ -72,17 +74,21 @@ class ModelInconsistencyError(ModelError):
     """Raised when there is incosistency in model structure."""
 
 class MissingObjectError(UserError):
-    error_type = "missing_object"
-    object_type = None
+    error_type: str = "missing_object"
+    object_type: Optional[str] = None
 
-    def __init__(self, message=None, name=None):
+    message: Optional[str]
+    name: Optional[str]
+
+    def __init__(self, message:str=None, name:str=None) -> None:
         self.message = message
         self.name = name
 
-    def __str__(self):
-        return self.message or self.name
+    def __str__(self) -> str:
+        return self.message or self.name or "<MissingObjectError>"
 
-    def to_dict(self):
+    def to_dict(self) -> JSONType:
+        d: JSONType
         d = OrderedDict()
         d["object"] = self.name
         d["message"] = self.message
@@ -123,8 +129,11 @@ class TemplateRequired(ModelError):
     a template. Signals to the caller that the creation of a dimension should
     be retried when the template is available."""
 
-    def __init__(self, template):
+    template: str
+
+    def __init__(self, template: str) -> None:
         self.template = template
-    def __str__(self):
+
+    def __str__(self) -> str:
         return self.template
 

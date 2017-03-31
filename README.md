@@ -3,6 +3,32 @@ Cubes - Online Analytical Processing Framework for Python
 
 [![Join the chat at https://gitter.im/DataBrewery/cubes](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/DataBrewery/cubes?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+
+IMPORTANT: 2.0 Development
+==========================
+
+[![Build Status](https://travis-ci.org/DataBrewery/cubes.svg?branch=2.0)](https://travis-ci.org/DataBrewery/cubes)
+
+This branch is under development and might be unstable or broken, especially
+during work on type annotations. To work on the 2.0 branch a special
+environment must be set up.
+
+Please come back to this README regularily for changes in the environment
+setup as some of the changes in external dependencies might be implemented and
+publicly released.
+
+Development Environment
+-----------------------
+
+### Types for SQLAlchemy
+
+We need to get type stubs for SQLAlchemy from: https://github.com/JelleZijlstra/sqlalchemy-stubs
+
+Then set your `MYPYPATH` to the path with the `sqlalchemy-stubs`
+
+-----------------------------------------------------------------------------
+
+
 [![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=Stiivi&url=https://github.com/databrewery/cubes&title=Cubes&language=&tags=github&category=software)
 
 Cubes is a light-weight Python framework and set of tools for Online
@@ -34,16 +60,6 @@ Features:
 * OLAP server – HTTP server based on Flask Blueprint, can be [easily
   integrated](http://pythonhosted.org/cubes/deployment.html) into your
   application.
-
-Download
-========
-
-Current recommended version is 1.1.x. It hasn't been yet tagged so please use the *master* branch.
-This version includes SQL backend support out of the box, and other backends have been moved to separate
-projects (ie. MongoDB). This branch (currently *master*) will be soon tagged as 1.1 release.
-
-Previous stable version was 1.0.1. This version included all backend types, but no further
-development will be done on this branch.
 
 
 Documentation
@@ -90,7 +106,7 @@ Outputs will go in ``doc/_*``.
 Requirements
 ------------
 
-Python >= 2.7 and Python >= 3.4.1
+Python >= 3.6.1
 
 Most of the requirements are soft (optional) and need to be satisfied only if
 certain parts of cubes are being used.
