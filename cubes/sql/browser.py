@@ -50,15 +50,15 @@ from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 
 from ..stores import Store
-from ..settings import Setting
+from ..settings import Setting, SettingType
 
 from .functions import available_aggregate_functions
 from .mapper import (
         Mapper,
+        NamingDict,
         DenormalizedMapper,
         StarSchemaMapper,
         map_base_attributes,
-        distill_naming,
     )
 from .query import StarSchema, QueryContext, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
@@ -120,31 +120,36 @@ class SQLBrowser(AggregationBrowser, name="sql"):
             name= "include_summary",
             desc= "Include aggregation summary "\
                            "(requires extra statement)",
-            type= "bool"
+            type= SettingType.bool
         ),
         Setting(
             name= "include_cell_count",
-            type= "bool"
+            type= SettingType.bool
         ),
         Setting(
             name= "use_denormalization",
-            type= "bool"
+            type= SettingType.bool
         ),
         Setting(
             name= "safe_labels",
             desc= "Use internally SQL statement column labels " \
                            "without special characters",
-            type= "bool"
+            type= SettingType.bool
         ),
         Setting(
             name= "is_denormalized",
             desc= "The data is in a denormalzied table",
-            type= "bool"
+            type= SettingType.bool
         ),
         Setting(
             name= "exclude_null_aggregates",
             desc= "Exclude aggregates which value is NULL",
-            type= "bool"
+            type= SettingType.bool
+        ),
+        Setting(
+            name="naming",
+            desc="Name of naming convention settings",
+            type=SettingType.str,
         ),
     ]
 
@@ -165,6 +170,7 @@ class SQLBrowser(AggregationBrowser, name="sql"):
             locale: str=None,
             debug: bool=False,
             tables: Optional[Mapping[str, sa.FromClause]] = None,
+            naming: Optional[NamingDict]=None,
             **kwargs: Any) -> None:
         """Create a SQL Browser."""
 
@@ -227,7 +233,6 @@ class SQLBrowser(AggregationBrowser, name="sql"):
 
         # Prepare the mappings of base attributes
         #
-        naming = distill_naming(options)
         (fact_name, mappings) = map_base_attributes(cube, mapper,
                                                     naming=naming,
                                                     locale=locale)
@@ -239,12 +244,13 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         else:
             joins = []
 
+        # FIXME: [2.0] Pass mapper instead of prepared mappings
         self.star = StarSchema(self.cube.name,
                                metadata,
                                mappings=mappings,
                                fact_name=fact_name,
                                joins=joins,
-                               schema=naming.schema,
+                               schema=mapper.schema,
                                tables=tables)
 
         # Extract hierarchies

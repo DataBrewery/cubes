@@ -2,7 +2,7 @@
 
 import os.path
 
-from typing import List, Dict, Any, Optional, Tuple, Union
+from typing import List, Dict, Any, Optional, Tuple, Union, Type
 from logging import Logger
 
 from collections import OrderedDict, defaultdict
@@ -21,6 +21,9 @@ from .stores import Store
 from .query.browser import AggregationBrowser, BrowserFeatures
 from .types import _CubeKey, JSONType
 from . import ext
+
+# FIXME: [typing] Remove direct reference to SQL, move to shared place
+from .sql.mapper import NamingDict, distill_naming
 
 __all__ = [
     "Workspace",
@@ -57,6 +60,8 @@ class Workspace:
     # TODO: Review use of this. Is this still needed? Can it be moved?
     options: JSONType
     authorizer: Optional[Authorizer]
+    # FIXME: [typing] Fix the value type to NamingType or SettingValue
+    namings: Dict[str, Dict[str, Any]]
 
     ns_languages: JSONType
 
@@ -221,6 +226,16 @@ class Workspace:
 
         self.calendar = Calendar(timezone=timezone,
                                  first_weekday=first_weekday)
+
+        # Register Naming
+        #
+
+        # TODO: This is temporary - just one naming convention. We need to be a
+        # ble to specify more.
+
+        if "naming" in config:
+            default_naming: NamingDict
+            default_naming = distill_naming(config["naming"])
 
         # Register Stores
         # ===============
@@ -634,23 +649,22 @@ class Workspace:
         if isinstance(cube, str):
             cube = self.cube(cube, identity=identity)
 
+        # We don't allow cube store to be an actual store. Cube is a logical
+        # object.
+        assert isinstance(cube.store, str) or cube.store is None, \
+                f"Store of a cube ({cube}) must be a string or None"
+
         locale = locale or cube.locale
 
-        if isinstance(cube.store, str):
-            store_name = cube.store or "default"
-            store = self.get_store(store_name)
-            store_type = self.store_infos[store_name][0]
-            store_info = self.store_infos[store_name][1]
-        elif cube.store:
-            store = cube.store
-            store_info = store.options or {}
-        else:
-            store = self.get_store("default")
-            store_info = store.options or {}
+        store_name = cube.store or "default"
+        store = self.get_store(store_name)
+        store_type = self.store_infos[store_name][0]
+        store_info = self.store_infos[store_name][1]
 
-        store_type = store.store_type
-        if not store_type:
-            raise CubesError("Store %s has no store_type set" % store)
+        # TODO: Review necessity of this
+        store_type = store.extension_name
+        assert store_type is not None, \
+                f"Store type should not be None ({store})"
 
         cube_options = self._browser_options(cube)
 
@@ -669,9 +683,13 @@ class Workspace:
         if not browser_name:
             raise ConfigurationError("No store specified for cube '%s'" % cube)
 
+        cls: Type[AggregationBrowser]
         cls = AggregationBrowser.concrete_extension(browser_name)
-        browser = cls(cube, store=store, locale=locale,
-                      calendar=self.calendar, **options)
+        settings = cls.distill_settings(options)
+
+        # FIXME: [typing] Not correct type-wise
+        browser = cls(cube=cube, store=store, locale=locale,
+                       calendar=self.calendar, **settings)
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
@@ -700,6 +718,10 @@ class Workspace:
             raise ConfigurationError("Unknown store '{}'".format(name))
 
         # TODO: temporary hack to pass store name and store type
-        store = Store.concrete_extension(type_)(store_type=type_, **options)
+        ext: Store
+        ext = Store.concrete_extension(type_)
+        store = ext.create_with_dict(options)
+        # FIXME: Clean-up
+        # store = Store.concrete_extension(type_)(store_type=type_, **options)
         self.stores[name] = store
         return store

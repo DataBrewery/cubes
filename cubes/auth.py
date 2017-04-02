@@ -6,7 +6,8 @@ from .query import Cell, cut_from_string, cut_from_dict, PointCut
 from .metadata import string_to_dimension_level
 from .errors import UserError, ConfigurationError, NoSuchDimensionError
 from .common import read_json_file, sorted_dependencies
-from .ext import Extensible, Setting
+from .ext import Extensible
+from .settings import Setting, SettingType
 
 __all__ = (
     "Authorizer",
@@ -196,29 +197,29 @@ class SimpleAuthorizer(Authorizer, name="simple"):
         Setting(
             name= "rights_file",
             desc= "JSON file with access rights",
-            type= "string"
+            type= SettingType.str,
         ),
         Setting(
             name= "roles_file",
             desc= "JSON file with access right roles",
-            type= "string"
+            type= SettingType.str,
         ),
         Setting(
             name= "order",
             desc= "Order of allow/deny",
-            type= "string",
+            type= SettingType.str,
             values= ["allow_deny", "deny_allow"]
         ),
         Setting(
             name= "guest",
             desc= "Name of the 'guest' role",
-            type= "string",
+            type= SettingType.str,
         ),
         Setting(
             name= "identity_dimension",
             desc= "Name of dimension which key is equivalent to the identity "
                   "token",
-            type= "string",
+            type= SettingType.str,
         ),
 
     ]

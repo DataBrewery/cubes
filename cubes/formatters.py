@@ -28,7 +28,7 @@ except ImportError:
 
 from .errors import ArgumentError
 from . import ext
-from .settings import Setting
+from .settings import Setting, SettingType
 
 from .query.constants import SPLIT_DIMENSION_NAME
 
@@ -274,8 +274,8 @@ class CrossTableFormatter(Formatter, name="cross_table"):
     extension_settings = [
         Setting(
             name= "indent",
-            type= "integer",
-            label= "Output indent"
+            type= SettingType.int,
+            label= "Output indent",
         ),
     ]
 

@@ -365,12 +365,9 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
     store = ctx.obj.store
 
     if cube:
-        target = target or store.naming.denormalized_table_name(cube)
         cubes = [(cube, target)]
     else:
         names = workspace.cube_names()
-        targets = [store.naming.denormalized_table_name(name)
-                   for name in names]
         cubes = zip(names, targets)
 
     for cube_name, target in cubes:
@@ -417,38 +414,22 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
               help='target view schema (overrides default fact schema')
 @click.option('--dimension', '-d', "dimensions", multiple=True,
               help='dimension to be used for aggregation')
-@click.argument('cube', required=False)
+@click.argument('cube')
 @click.argument('target', required=False)
 @click.pass_context
 def sql_aggregate(ctx, force, index, schema, cube, target, dimensions):
-    """Create pre-aggregated table from cube(s). If no cube is specified, then
-    all cubes are aggregated. Target table can be specified only for one cube,
-    for multiple cubes naming convention is used.
-    """
+    """Create pre-aggregated table from cube(s)."""
     workspace = ctx.obj.workspace
     store = ctx.obj.store
 
-    if cube:
-        target = target or store.naming.aggregated_table_name(cube)
-        cubes = [(cube, target)]
-    else:
-        names = workspace.cube_names()
-        targets = [store.naming.aggregated_table_name(name)
-                   for name in names]
-        cubes = zip(names, targets)
+    print("denormalizing cube '%s' into '%s'" % (cube_name,
+                                                 target))
 
-    for cube_name, target in cubes:
-        cube = workspace.cube(cube_name)
-        store = workspace.get_store(cube.store_name or "default")
-
-        print("denormalizing cube '%s' into '%s'" % (cube_name,
-                                                     target))
-
-        store.create_cube_aggregate(cube, target,
-                                    replace=force,
-                                    create_index=index,
-                                    schema=schema,
-                                    dimensions=dimensions)
+    store.create_cube_aggregate(cube, target,
+                                replace=force,
+                                create_index=index,
+                                schema=schema,
+                                dimensions=dimensions)
 
 
 ################################################################################

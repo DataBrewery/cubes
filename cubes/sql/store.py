@@ -9,7 +9,7 @@ from typing import Any
 from ..types import OptionsType, OptionValue, JSONType
 
 from .browser import SQLBrowser
-from .mapper import distill_naming, Naming
+from .mapper import distill_naming, NamingDict
 from ..logging import get_logger
 from ..common import coalesce_options
 from ..stores import Store
@@ -18,7 +18,7 @@ from ..query.drilldown import Drilldown
 from ..query.cells import Cell
 from .utils import CreateTableAsSelect, CreateOrReplaceView
 from ..metadata import string_to_dimension_level
-from ..settings import Setting
+from ..settings import Setting, SettingType
 
 
 __all__ = [
@@ -91,8 +91,18 @@ class SQLStore(Store, name="sql"):
         Setting(
             name="url",
             desc="Database URL, such as: postgresql://localhost/dw",
-            type="string",
-        )
+            type=SettingType.str,
+        ),
+        Setting(
+            name="use_denormalizeation",
+            desc="Flag whether the cube is denormalized",
+            type=SettingType.bool,
+        ),
+        Setting(
+            name="naming",
+            desc="Name of naming convention settings",
+            type=SettingType.str,
+        ),
     ]
 
     connectable: sa.Connectable
@@ -162,7 +172,7 @@ class SQLStore(Store, name="sql"):
 
         self.logger = get_logger(name=__name__)
 
-        self.schema = self.naming.schema
+        self.schema = self.naming.get("schema")
 
         # Load metadata here. This might be too expensive operation to be
         # performed on every request, therefore it is recommended to have one
@@ -300,6 +310,7 @@ class SQLStore(Store, name="sql"):
 
         return issues
 
+    # FIXME: This should be broken between 
     def create_denormalized_view(self, cube, view_name=None, materialize=False,
                                  replace=False, create_index=False,
                                  keys_only=False, schema=None):
@@ -338,13 +349,14 @@ class SQLStore(Store, name="sql"):
 
         (statement, _) = browser.denormalized_statement(attributes,
                                                         include_fact_key=True)
+        mapper = browser.mapper
 
-        schema = schema or self.naming.schema
-        view_name = view_name or self.naming.denormalized_table_name(cube.name)
+        schema = schema or self.naming.get("schema")
+        view_name = view_name or mapper.denormalized_table_name(cube.name)
 
-        fact_name = cube.fact or self.naming.fact_table_name(cube.name)
+        fact_name = cube.fact or mapper.fact_table_name(cube.name)
 
-        if fact_name == view_name and schema == self.naming.schema:
+        if fact_name == view_name and schema == mapper.schema:
             raise StoreError("target denormalized view is the same as source fact table")
 
         table = sa.Table(view_name, self.metadata,
@@ -378,11 +390,11 @@ class SQLStore(Store, name="sql"):
                 index = sa.schema.Index(name, column)
                 index.create(self.connectable)
 
-    def execute(self, *args, **kwargs) -> sa.ResultProxy:
+    def execute(self, *args: Any, **kwargs: Any) -> sa.ResultProxy:
         return self.connectable.execute(*args, **kwargs)
 
     # FIXME: requires review
-    def validate_model(self):
+    def validate_model(self) -> None:
         """Validate physical representation of model. Returns a list of
         dictionaries with keys: ``type``, ``issue``, ``object``.
 
@@ -568,21 +580,22 @@ class SQLStore(Store, name="sql"):
         """
 
         browser = SQLBrowser(cube, self, schema=schema)
+        mapper = browser.mapper
 
         if browser.safe_labels:
             raise ConfigurationError("Aggregation does not work with "
                                      "safe_labels turned on")
 
-        schema = schema or self.naming.aggregate_schema \
-                    or self.naming.schema
+        schema = schema or mapper.aggregate_schema \
+                    or mapper.schema
 
         # TODO: this is very similar to the denormalization prep.
-        table_name = table_name or self.naming.aggregate_table_name(cube.name)
-        fact_name = cube.fact or self.naming.fact_table_name(cube.name)
+        table_name = table_name or mapper.aggregate_table_name(cube.name)
+        fact_name = cube.fact or mapper.fact_table_name(cube.name)
 
         dimensions = dimensions or [dim.name for dim in cube.dimensions]
 
-        if fact_name == table_name and schema == self.naming.schema:
+        if fact_name == table_name and schema == mapper.schema:
             raise StoreError("Aggregation target is the same as fact")
 
         drilldown = []
@@ -635,36 +648,3 @@ class SQLStore(Store, name="sql"):
                 index.create(self.connectable)
 
         self.logger.info("Done")
-
-
-class SQLSchemaInspector(object):
-    """Object that discovers fact and dimension tables in a database according
-    to specified configuration and naming conventions.
-
-    Note: expreimental."""
-
-
-    def __init__(self, engine, naming, metadata=None):
-        """Creates an inspector that discovers tables in a database according
-        to specified configuration and naming conventions."""
-        self.engine = engine
-        self.naming = naming
-        self.metadata = metadata or sa.MetaData(engine)
-
-        self.inspector = reflection.Inspector.from_engine(engine)
-
-    def discover_fact_tables(self):
-        """discovers tables that might be fact tables by name."""
-
-        schema = self.naming.fact_schema or self.naming.schema
-        names = self.inspector.get_table_names(schema)
-
-        return self.naming.facts(names)
-
-    def discover_dimension_tables(self):
-        """discovers tables that might be dimension tables by name."""
-
-        schema = self.naming.dimension_schema or self.naming.schema
-        names = self.inspector.get_table_names(schema)
-
-        return self.naming.dimensions(names)

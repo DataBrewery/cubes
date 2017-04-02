@@ -7,7 +7,7 @@ import sqlalchemy.sql as sql
 
 from collections import OrderedDict
 
-from cubes import ArgumentError
+from ..errors import ArgumentError
 from ..query.constants import SPLIT_DIMENSION_NAME
 
 __all__ = [

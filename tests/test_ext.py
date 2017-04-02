@@ -3,7 +3,7 @@ import unittest
 from typing import Dict
 
 from cubes.ext import Extensible
-from cubes.settings import Setting
+from cubes.settings import Setting, SettingType
 from cubes.errors import ConfigurationError
 
 
@@ -16,7 +16,7 @@ class StoreBase(Extensible, abstract=True):
 class MyStore(StoreBase, name="my"):
 
     extension_settings = [
-        Setting("number", "integer")
+        Setting("number", SettingType.int)
     ]
 
     number: int

@@ -20,11 +20,10 @@ from pkg_resources import iter_entry_points
 
 from .common import decamelize, coalesce_options
 from .errors import ArgumentError, InternalError, ConfigurationError
-from .settings import Setting, SettingsDict
+# TODO: Reconsider need of SettingsDict
+from .settings import Setting, SettingsDict, distill_settings, SettingValue
 
 from importlib import import_module
-
-T = TypeVar('T', bound=Type["Extensible"])
 
 __all__ = [
     "Extensible",
@@ -86,6 +85,14 @@ EXTENSION_TYPES: Dict[str, str] = {
     "request_log_handler": "Request log handler",
 }
 
+# Fixed:
+# browser - (store)
+# store - ()
+# model_provider - (store)
+# formatter: (result)
+# authorizer: (store?)
+# authenticator: ()
+# request_log_handler: (store?)
 
 class ExtensionDescription(NamedTuple):
     type: str
@@ -182,8 +189,11 @@ def get_registry(name: str) -> ExtensionRegistry:
     return _registries[name]
 
 
+T = TypeVar('T', bound="Extensible")
+
 class Extensible:
     __extension_type__ = "undefined"
+    extension_name: str = "undefined"
     extension_settings: List[Setting] = []
     extension_desc: Optional[str] = None
     extension_label: Optional[str] = None
@@ -200,6 +210,7 @@ class Extensible:
                f"or abstract flag specified."
 
         if name is not None:
+            cls.extension_name = name
             registry: ExtensionRegistry
             registry = get_registry(cls.__extension_type__)
             registry.register_extension(name, cls)
@@ -212,20 +223,36 @@ class Extensible:
                 # We do nothing for abstract subclasses
                 pass
 
+    # TODO: Once the design of extensions is done, review the following methods
+    # and remove those that are not being used.
     @classmethod
-    def concrete_extension(cls: T, name: str) -> Type[T]:
+    def concrete_extension(cls: Type[T], name: str) -> Type[T]:
         registry: ExtensionRegistry
         registry = get_registry(cls.__extension_type__)
         return cast(Type[T], registry.extension(name))
 
     @classmethod
-    def create_with_dict(cls: T, mapping: Mapping[str, Any]) -> T:
+    def create_with_dict(cls: Type[T], mapping: Mapping[str, Any]) -> T:
         settings: SettingsDict
         settings = SettingsDict(mapping=mapping, settings=cls.extension_settings)
 
         return cls.create_with_settings(settings)
 
     @classmethod
-    def create_with_settings(cls: T, settings: SettingsDict) -> T:
+    def create_with_settings(cls: Type[T], settings: SettingsDict) -> T:
         return cast(T, cls(**settings))  # type: ignore
 
+    @classmethod
+    def distill_settings(cls: Type[T], mapping: Mapping[str, Any]) \
+            -> Dict[str, Optional[SettingValue]]:
+        return distill_settings(mapping, cls.extension_settings)
+
+
+"""
+- Extension has settings
+- Extension has initialization arguments
+- Initialization arguments might be provided by converting a setting value to
+an object within owner's context
+
+    
+    """

@@ -56,6 +56,8 @@ from .statutils import (
         calculators_for_aggregates,
     )
 
+from ..settings import SettingsDict
+
 from .constants import SPLIT_DIMENSION_NAME, NULL_PATH_VALUE
 
 from .result import AggregationResult, Facts
@@ -149,15 +151,16 @@ class AggregationBrowser(Extensible, abstract=True):
 
     def __init__(self,
             cube: Cube,
-            store: Store=None,
-            locale: str=None,
-            **options: Any) -> None:
+            store: Optional[Store]=None,
+            locale: Optional[str]=None,
+            calendar: Optional[Calendar]=None,
+            ) -> None:
         """Creates and initializes the aggregation browser. Subclasses should
         override this method. """
         super(AggregationBrowser, self).__init__()
 
-        if not cube:
-            raise ArgumentError("No cube given for aggregation browser")
+        assert cube is not None, \
+                "No cube given for aggregation browser"
 
         self.cube = cube
         self.store = store

@@ -4,7 +4,7 @@ from ..query import *
 from ..stores import Store
 from ..errors import *
 from ..logging import get_logger
-from ..settings import Setting
+from ..settings import Setting, SettingType
 import json
 
 from urllib.request import urlopen, build_opener
@@ -31,34 +31,34 @@ class SlicerStore(Store, name="slicer"):
     extension_settings = [
         Setting(
             name= "url",
-            desc= "URL of another/external Slicer",
-            type= "string"
+            desc= "URL of slicer server to connect to",
+            type= SettingType.str,
         ),
         Setting(
             name= "authentication",
             desc= "Authentication method (pass_parameter or none)",
-            type= "string"
+            type= SettingType.str,
         ),
         Setting(
             name= "auth_identity",
             desc= "Authenticated identity (user name, key, ...)",
-            type= "string"
+            type= SettingType.str,
         ),
         Setting(
             name= "auth_parameter",
             desc= "Name of authentication URL parameter " \
                            "(default: api_key",
-            type= "string"
+            type= SettingType.str,
         ),
         Setting(
             name= "username",
             desc= "HTTP authentication username",
-            type= "string"
+            type= SettingType.str,
         ),
         Setting(
             name= "password",
             desc= "HTTP authentication password",
-            type= "string"
+            type= SettingType.str,
         ),
     ]
 

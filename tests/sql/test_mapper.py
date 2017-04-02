@@ -59,14 +59,14 @@ class MapperTestCase(CubesTestCaseBase):
         explicit default prefix) in physical references."""
 
         # No dimension prefix
-        self.mapper.naming.dimension_prefix = ""
-        self.mapper.naming.dimension_suffix = ""
+        self.mapper.dimension_prefix = ""
+        self.mapper.dimension_suffix = ""
         self.assertMapping("date.year", "date.year")
         self.assertMapping("sales.flag", "flag")
         self.assertMapping("sales.amount", "amount")
 
         # With prefix
-        self.mapper.naming.dimension_prefix = "dm_"
+        self.mapper.dimension_prefix = "dm_"
         self.assertMapping("dm_date.year", "date.year")
         self.assertMapping("dm_date.month_name", "date.month_name")
         self.assertMapping("sales.flag", "flag")
