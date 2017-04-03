@@ -150,6 +150,10 @@ def compile_attributes(bases, dependants, parameters, coalesce=None,
     return context.columns
 
 
+def compile_if_else(test, true_expression, false_expression):
+    return sql.case([(test, true_expression)], else_=false_expression)
+
+
 class SQLExpressionCompiler(Compiler):
     def __init__(self, context=None):
         super(SQLExpressionCompiler, self).__init__(context)
@@ -214,11 +218,8 @@ class SQLExpressionCompiler(Compiler):
 
         return result
 
-    def compile_if_else(self, context, test, true_expression, false_expression):
-        return sql.case([(test, true_expression)], else_=false_expression)
-
     def compile_function(self, context, func, args):
         if func.name == 'if':
-            return self.compile_if_else(context, *args)
+            return compile_if_else(*args)
         func = context.function(func.name)
         return func(*args)
