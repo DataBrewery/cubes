@@ -43,8 +43,7 @@ SQL_FUNCTIONS = [
     "extract",
 
     # Conditionals
-    "coalesce", "nullif", "case",
-
+    "coalesce", "nullif", "case", "if",
 ]
 
 # TODO: Add: lstrip, rstrip, strip -> trim
@@ -215,7 +214,11 @@ class SQLExpressionCompiler(Compiler):
 
         return result
 
+    def compile_if_else(self, context, test, true_expression, false_expression):
+        return sql.case([(test, true_expression)], else_=false_expression)
+
     def compile_function(self, context, func, args):
+        if func.name == 'if':
+            return self.compile_if_else(context, *args)
         func = context.function(func.name)
         return func(*args)
-
