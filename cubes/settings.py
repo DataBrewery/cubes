@@ -178,7 +178,7 @@ def distill_settings(mapping: Mapping[str, Any],
         elif setting.is_required:
             raise ConfigurationError(f"Setting '{name}'{ownerstr}"
                                      f" is required")
-        else:
+        elif setting.default is not None:
             # We assume that extension developers provide values in correct
             # type
             result[name] = setting.default

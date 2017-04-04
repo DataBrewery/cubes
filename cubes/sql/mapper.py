@@ -123,6 +123,8 @@ class Mapper:
     .. versionchanged:: 1.1
     """
 
+    cube: Cube
+
     locale: Optional[str]
     mappings: JSONType
     fact_name: str
@@ -152,6 +154,8 @@ class Mapper:
             locale: str=None) -> None:
         """Creates a mapping for `cube` using `naming` conventions within
         optional `locale`. `naming` is a dictionary of naming conventions.  """
+
+        self.cube = cube
 
         self.locale = locale
         self.mappings = cube.mappings or {}
@@ -255,6 +259,16 @@ class Mapper:
 
         return (schema, table)
 
+    def map_base_attributes(self) -> Mapping[str, ColumnReference]:
+        """Map all base attributes of `cube` using mapping function `mapper`.
+        `naming` is a naming convention object. Returns  a dictionary of
+        attribute references and their physical column references."""
+
+        mapped = {attr.ref:self[attr] for attr in self.cube.all_attributes
+                  if attr.is_base}
+
+        return mapped
+
 
 class DenormalizedMapper(Mapper):
     def __getitem__(self, attribute: AttributeBase) -> ColumnReference:
@@ -312,23 +326,4 @@ class StarSchemaMapper(Mapper):
             # create default physical reference
             return super(StarSchemaMapper, self).__getitem__(attribute)
 
-
-def map_base_attributes(
-        cube: Cube,
-        mapper_class: Type[Mapper],
-        naming: NamingDict,
-        locale: Optional[str]=None) -> Tuple[str, Mapping[str, ColumnReference]]:
-    """Map all base attributes of `cube` using mapping function `mapper`.
-    `naming` is a naming convention object. Returns a tuple (`fact_name`,
-    `mapping`) where `fact_name` is a fact table name and `mapping` is a
-    dictionary of attribute references and their physical column
-    references."""
-
-    base = [attr for attr in cube.all_attributes if attr.is_base]
-
-    mapper: Mapper
-    mapper = mapper_class(cube=cube, naming=naming, locale=locale)
-    mapped = {attr.ref:mapper[attr] for attr in base}
-
-    return (mapper.fact_name, mapped)
 

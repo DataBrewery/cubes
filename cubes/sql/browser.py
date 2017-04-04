@@ -58,7 +58,6 @@ from .mapper import (
         NamingDict,
         DenormalizedMapper,
         StarSchemaMapper,
-        map_base_attributes,
     )
 from .query import StarSchema, QueryContext, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
@@ -222,20 +221,20 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
 
-        mapper: Type[Mapper]
+        mapper: Mapper
         if options.get("is_denormalized", options.get("use_denormalization")):
-            mapper = DenormalizedMapper
+            mapper = DenormalizedMapper(cube=self.cube, naming=naming or {},
+                    locale=locale)
         else:
-            mapper = StarSchemaMapper
+            mapper = StarSchemaMapper(cube=self.cube, naming=naming or {},
+                    locale=locale)
 
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
-                          (str(mapper.__name__), cube.name, locale))
+                          (str(mapper.__class__.__name__), cube.name, locale))
 
         # Prepare the mappings of base attributes
         #
-        (fact_name, mappings) = map_base_attributes(cube, mapper,
-                                                    naming=naming,
-                                                    locale=locale)
+        mappings = mapper.map_base_attributes()
 
         # Prepare Join objects
         # FIXME: [typing] Joins should be prepared here.
@@ -248,7 +247,7 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         self.star = StarSchema(self.cube.name,
                                metadata,
                                mappings=mappings,
-                               fact_name=fact_name,
+                               fact_name=mapper.fact_name,
                                joins=joins,
                                schema=mapper.schema,
                                tables=tables)

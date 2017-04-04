@@ -21,6 +21,7 @@ from .stores import Store
 from .query.browser import AggregationBrowser, BrowserFeatures
 from .types import _CubeKey, JSONType
 from . import ext
+from .settings import Setting, SettingType, distill_settings
 
 # FIXME: [typing] Remove direct reference to SQL, move to shared place
 from .sql.mapper import NamingDict, distill_naming
@@ -43,6 +44,42 @@ SLICER_INFO_KEYS = (
     "related"       # List of dicts with related servers
 )
 
+WORKSPACE_SETTINGS = [
+        Setting(
+                "log", SettingType.str,
+                desc="File name where the logs are written"
+        ),
+        Setting(
+                "log_level", SettingType.str,
+                desc="Log level details",
+                values=["info", "error", "warn", "debug"],
+        ),
+        Setting(
+                "root_directory", SettingType.str,
+                desc="Directory for all relative paths"
+        ),
+        Setting(
+                "models_directory", SettingType.str,
+                desc="Place where file-based models are searched for",
+        ),
+        Setting(
+                "info_file", SettingType.str,
+                desc="A JSON file where server info is stored",
+        ),
+        Setting(
+                "stores_file", SettingType.str,
+                desc="Configuration file with configuration of stores",
+        ),
+        Setting(
+                "timezone", SettingType.str,
+                desc="Default timezone for time and date functions",
+        ),
+        Setting(
+                "first_weekday", SettingType.str,
+                desc="Name or a number of a first day of the week",
+        ),
+    ]
+
 
 class Workspace:
 
@@ -61,7 +98,7 @@ class Workspace:
     options: JSONType
     authorizer: Optional[Authorizer]
     # FIXME: [typing] Fix the value type to NamingType or SettingValue
-    namings: Dict[str, Dict[str, Any]]
+    namings: Dict[str, NamingDict]
 
     ns_languages: JSONType
 
@@ -110,7 +147,9 @@ class Workspace:
         # =======
         # Log to file or console
         if "workspace" in config:
-            workspace_config = config["workspace"]
+            workspace_config = distill_settings(config["workspace"],
+                                                WORKSPACE_SETTINGS,
+                                                owner="workspace")
         else:
             workspace_config = {}
 
@@ -131,16 +170,13 @@ class Workspace:
             # this method
             self.root_dir = _options["cubes_root"]
         else:
-            self.root_dir = ""
+            self.root_dir = "."
 
         # FIXME: Pick only one
         if "models_directory" in workspace_config:
             self.models_dir = workspace_config["models_directory"]
-        elif "models_path" in workspace_config:
-            raise ConfigurationError("models_path is deprecated, "
-                                     "use models_directory")
         else:
-            self.models_dir = ""
+            self.models_dir = "."
 
         if self.root_dir and not os.path.isabs(self.models_dir):
             self.models_dir = os.path.join(self.root_dir, self.models_dir)
@@ -164,6 +200,7 @@ class Workspace:
 
         self.info = OrderedDict()
 
+        # TODO: [2.0] Move to server
         if "info_file" in workspace_config:
             path = workspace_config["info_file"]
 
@@ -233,9 +270,10 @@ class Workspace:
         # TODO: This is temporary - just one naming convention. We need to be a
         # ble to specify more.
 
+        namigs = Dict[str, NamingDict]
+        self.namings = {}
         if "naming" in config:
-            default_naming: NamingDict
-            default_naming = distill_naming(config["naming"])
+            self.namings["default"] = distill_naming(config["naming"])
 
         # Register Stores
         # ===============
@@ -643,6 +681,8 @@ class Workspace:
             identity: Any=None) -> AggregationBrowser:
         """Returns a browser for `cube`."""
 
+        naming: NamingDict
+
         # TODO: bring back the localization
         # model = self.localized_model(locale)
 
@@ -685,11 +725,21 @@ class Workspace:
 
         cls: Type[AggregationBrowser]
         cls = AggregationBrowser.concrete_extension(browser_name)
+        # FIXME: [2.0] This should go away with query redesign
+        options.pop("url", None)
+
+        naming_name: str
+        naming_name = options.pop("naming", "default")
+        if naming_name in self.namings:
+            naming = distill_naming(self.namings[naming_name])
+        else:
+            naming = None
+
         settings = cls.distill_settings(options)
 
         # FIXME: [typing] Not correct type-wise
         browser = cls(cube=cube, store=store, locale=locale,
-                       calendar=self.calendar, **settings)
+                       calendar=self.calendar, naming=naming, **settings)
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar

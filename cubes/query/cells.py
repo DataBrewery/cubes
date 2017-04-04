@@ -668,7 +668,7 @@ def cut_from_string(string: str,
 
     converter = member_converters.get(dim_name)
     if cube:
-        role = cube.dimension(dimension).role
+        role = cube.dimension(dim_name).role
         if role is not None:
             converter = converter or role_member_converters.get(role)
             dimension = cube.dimension(dim_name)
