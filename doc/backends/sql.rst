@@ -41,24 +41,6 @@ Data store:
   can be ommited, as in ``postgresql://localhost/datawarehouse``.
 * ``schema`` *(optional)* – schema containing denormalized views for
   relational DB cubes
-* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
-  dimension tables when no explicit mapping is specified
-* ``dimension_suffix`` *(optional)* – used by snowflake mapper to find
-  dimension tables when no explicit mapping is specified
-* ``dimension_schema`` – use this option when dimension tables are stored in
-  different schema than the fact tables
-* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact
-  table for a cube, when no explicit fact table name is specified
-* ``fact_suffix`` *(optional)* – used by the snowflake mapper to find fact
-  table for a cube, when no explicit fact table name is specified
-* ``use_denormalization`` *(optional)* – browser will use dernormalized view
-  instead of snowflake
-* ``denormalized_view_prefix`` *(optional, advanced)* – if denormalization is
-  used, then this prefix is added for cube name to find corresponding cube
-  view
-* ``denormalized_view_schema`` *(optional, advanced)* – schema wehere
-  denormalized views are located (use this if the views are in different
-  schema than fact tables, otherwise default schema is going to be used)
 
 
 Database Connection
@@ -79,6 +61,32 @@ parameters can be specified as ``sqlalchemy_PARAMETER``:
 Please refer to the create_engine_ documentation for more information.
 
 .. _create_engine: http://docs.sqlalchemy.org/en/rel_0_8/core/engines.html?highlight=engine#sqlalchemy.create_engine
+
+Naming
+======
+
+The following configuration settings might be used in the naming conventions
+configuration:
+
+* ``dimension_prefix`` *(optional)* – used by snowflake mapper to find
+  dimension tables when no explicit mapping is specified
+* ``dimension_suffix`` *(optional)* – used by snowflake mapper to find
+  dimension tables when no explicit mapping is specified
+* ``dimension_schema`` – use this option when dimension tables are stored in
+  different schema than the fact tables
+* ``fact_prefix`` *(optional)* – used by the snowflake mapper to find fact
+  table for a cube, when no explicit fact table name is specified
+* ``fact_suffix`` *(optional)* – used by the snowflake mapper to find fact
+  table for a cube, when no explicit fact table name is specified
+* ``use_denormalization`` *(optional)* – browser will use dernormalized view
+  instead of snowflake
+* ``denormalized_view_prefix`` *(optional, advanced)* – if denormalization is
+  used, then this prefix is added for cube name to find corresponding cube
+  view
+* ``denormalized_view_schema`` *(optional, advanced)* – schema wehere
+  denormalized views are located (use this if the views are in different
+  schema than fact tables, otherwise default schema is going to be used)
+
 
 Model Requirements
 ==================

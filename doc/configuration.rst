@@ -9,6 +9,7 @@ Cubes workspace configuration is stored in a ``.ini`` file with sections:
 * ``[workspace]`` – Cubes workspace configuration
 * ``[model]`` - model and cube configuration
 * ``[models]`` - list of models to be loaded (deprecated) 
+* ``[naming]`` - naming conventions
 * ``[store]`` – default datastore configuration
 * ``[store NAME]`` – configuration for store with name `NAME`
 * ``[locale NAME]`` - model translations. See :doc:`localization` for more
@@ -319,6 +320,24 @@ To specify default namespace:
     url = http://some.host:5000
 
 Cubes will be named without namespace prefix.
+
+Naming
+======
+
+.. todo::
+
+    Write the naming section.
+
+.. code-block:: ini
+
+    [naming]
+    dimension_prefix = dim_
+    fact_prefix = ft_
+
+
+See respective backend documentation for more information about naming
+conventions in the ``[naming]`` section.
+
 
 Authentication and Authorization
 ================================
