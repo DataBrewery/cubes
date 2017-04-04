@@ -1,0 +1,41 @@
+***********************
+Cubes 2.0 release notes
+***********************
+
+Moved to Python 3.6.
+
+* SQL Alchemy is now required dependency, as the focus is now SQL query
+  generator.
+
+Overview
+========
+
+Major change is full move to Python 3.6 and dropping compatibility with lesser
+versions of Python.
+
+
+Naming Conventions
+==================
+
+The naming conventions were moved from the ``[server]`` section of the config
+file and moved to a separate ``[naming]`` section.
+
+
+Migration from 1.x to 2.0
+=========================
+
+
+Model Changes:
+
+* All joins in the model must be specified as dictionaries, not as tuples
+
+
+Configuration Changes:
+
+* Naming conventions (dimension prefix, fact prefix, etc.) should be moved from
+  the ``[server]`` to the ``[naming]`` section
+* There must be no unknown configuration settings in the `.ini` file that are
+  not recognized by the library. (Note: If you think the option should be
+  accepted, please file an issue in the Cubes issue tracker)
+
+
