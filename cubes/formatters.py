@@ -28,6 +28,7 @@ except ImportError:
 
 from .errors import ArgumentError
 from . import ext
+from .settings import Setting, SettingType
 
 from .query.constants import SPLIT_DIMENSION_NAME
 
@@ -270,12 +271,12 @@ def coalesce_table_labels(attributes, onrows, oncolumns):
 
 
 class CrossTableFormatter(Formatter, name="cross_table"):
-    __options__ = [
-        {
-            "name": "indent",
-            "type": "integer",
-            "label": "Output indent"
-        },
+    extension_settings = [
+        Setting(
+            name= "indent",
+            type= SettingType.int,
+            label= "Output indent",
+        ),
     ]
 
     mime_type = "application/json"
@@ -320,11 +321,11 @@ class CrossTableFormatter(Formatter, name="cross_table"):
 
 
 class HTMLCrossTableFormatter(CrossTableFormatter, name="html_cross_table"):
-    __options__ = [
-        {
-            "name": "table_style",
-            "description": "CSS style for the table"
-        }
+    extension_settings = [
+        Setting(
+            name= "table_style",
+            desc= "CSS style for the table"
+        )
     ]
     mime_type = "text/html"
 

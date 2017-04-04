@@ -31,7 +31,7 @@ from collections import namedtuple
 
 from ..metadata import object_dict
 from ..metadata.dimension import HierarchyPath
-from ..metadata.physical import ColumnReference, JoinKey, Join
+from ..metadata.physical import ColumnReference, JoinKey, Join, JoinMethod
 from ..metadata.attributes import AttributeBase
 from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
 from ..query.constants import SPLIT_DIMENSION_NAME
@@ -661,11 +661,11 @@ class StarSchema:
             # left-outer join.
             left, right = (star, detail_table)
 
-            if join.method is None or join.method == "match":
+            if join.method is None or join.method == JoinMethod.match:
                 is_outer = False
-            elif join.method == "master":
+            elif join.method == JoinMethod.master:
                 is_outer = True
-            elif join.method == "detail":
+            elif join.method == JoinMethod.detail:
                 # Swap the master and detail tables to perform RIGHT OUTER JOIN
                 left, right = (right, left)
                 is_outer = True

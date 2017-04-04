@@ -2,7 +2,8 @@ import unittest
 
 from typing import Dict
 
-from cubes.ext import Extensible, Parameter
+from cubes.ext import Extensible
+from cubes.settings import Setting, SettingType
 from cubes.errors import ConfigurationError
 
 
@@ -14,8 +15,8 @@ class StoreBase(Extensible, abstract=True):
 
 class MyStore(StoreBase, name="my"):
 
-    __parameters__ = [
-        Parameter("number", "integer")
+    extension_settings = [
+        Setting("number", SettingType.int)
     ]
 
     number: int
@@ -36,23 +37,23 @@ class ExtensibleTestCase(unittest.TestCase):
     def test_params(self) -> None:
         obj: StoreBase
         params: Dict[str, str]
-        params = {"number": "2"}
+        settings = {"number": 2}
 
-        obj = StoreBase.concrete_extension("my").create_with_params(params)
+        obj = StoreBase.concrete_extension("my").create_with_dict(settings)
         self.assertEqual(obj.value(), 2)
 
     def test_invalid_param_type(self) -> None:
         obj: StoreBase
-        params: Dict[str, str]
-        params = {"number": "something"}
+        settings: Dict[str, str]
+        settings = {"number": "something"}
 
-        with self.assertRaises(ConfigurationError):
-            obj = StoreBase.concrete_extension("my").create_with_params(params)
+        with self.assertRaises(ValueError):
+            obj = StoreBase.concrete_extension("my").create_with_dict(settings)
 
     def test_invalid_param(self) -> None:
         obj: StoreBase
-        params: Dict[str, str]
-        params = {"somethingelse": "something"}
+        settings: Dict[str, str]
+        settings = {"somethingelse": "something"}
 
         with self.assertRaises(ConfigurationError):
-            obj = StoreBase.concrete_extension("my").create_with_params(params)
+            obj = StoreBase.concrete_extension("my").create_with_dict(settings)

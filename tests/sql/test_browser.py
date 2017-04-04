@@ -7,7 +7,7 @@ import sqlalchemy as sa
 from cubes.sql import SQLStore
 from cubes.sql.query import StarSchema, FACT_KEY_LABEL
 from cubes.sql.query import QueryContext
-from cubes.sql.mapper import map_base_attributes, StarSchemaMapper
+from cubes.sql.mapper import StarSchemaMapper
 from cubes.sql.mapper import distill_naming
 
 from .dw.demo import create_demo_dw, TinyDemoModelProvider
@@ -37,15 +37,15 @@ class SQLQueryContextTestCase(SQLTestCase):
 
         self.cube = self.provider.cube("sales")
 
-        (fact_name, mappings) = map_base_attributes(self.cube,
-                                                    StarSchemaMapper,
-                                                    naming=naming)
+        mapper = StarSchemaMapper(self.cube, naming=naming)
+
+        mappings = mapper.map_base_attributes()
 
         joins = [to_join(join) for join in self.cube.joins]
         self.star = StarSchema(self.cube.name,
                                self.dw.md,
                                mappings=mappings,
-                               fact=fact_name,
+                               fact=mapper.fact_name,
                                joins=joins)
 
     # Helper methods

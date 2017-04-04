@@ -50,14 +50,14 @@ from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
 
 from ..stores import Store
+from ..settings import Setting, SettingType
 
 from .functions import available_aggregate_functions
 from .mapper import (
         Mapper,
+        NamingDict,
         DenormalizedMapper,
         StarSchemaMapper,
-        map_base_attributes,
-        distill_naming,
     )
 from .query import StarSchema, QueryContext, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
@@ -109,33 +109,47 @@ class SQLBrowser(AggregationBrowser, name="sql"):
 
     """
 
-    __description__ = """
+    extension_desc = """
     SQL - relational database browser (for ROLAP). Generates statements on top
     of star or snowflake schemas.
     """
 
-    __options__ = [
-        {
-            "name": "include_summary",
-            "description": "Include aggregation summary "\
+    extension_settings = [
+        Setting(
+            name= "include_summary",
+            desc= "Include aggregation summary "\
                            "(requires extra statement)",
-            "type": "bool"
-        },
-        {
-            "name": "include_cell_count",
-            "type": "bool"
-        },
-        {
-            "name": "use_denormalization",
-            "type": "bool"
-        },
-        {
-            "name": "safe_labels",
-            "description": "Use internally SQL statement column labels " \
+            type= SettingType.bool
+        ),
+        Setting(
+            name= "include_cell_count",
+            type= SettingType.bool
+        ),
+        Setting(
+            name= "use_denormalization",
+            type= SettingType.bool
+        ),
+        Setting(
+            name= "safe_labels",
+            desc= "Use internally SQL statement column labels " \
                            "without special characters",
-            "type": "bool"
-        }
-
+            type= SettingType.bool
+        ),
+        Setting(
+            name= "is_denormalized",
+            desc= "The data is in a denormalzied table",
+            type= SettingType.bool
+        ),
+        Setting(
+            name= "exclude_null_aggregates",
+            desc= "Exclude aggregates which value is NULL",
+            type= SettingType.bool
+        ),
+        Setting(
+            name="naming",
+            desc="Name of naming convention settings",
+            type=SettingType.str,
+        ),
     ]
 
     locale: Optional[str]
@@ -155,6 +169,7 @@ class SQLBrowser(AggregationBrowser, name="sql"):
             locale: str=None,
             debug: bool=False,
             tables: Optional[Mapping[str, sa.FromClause]] = None,
+            naming: Optional[NamingDict]=None,
             **kwargs: Any) -> None:
         """Create a SQL Browser."""
 
@@ -206,21 +221,20 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         # dimension attributes and fact measures. It also provides information
         # about relevant joins to be able to retrieve certain attributes.
 
-        mapper: Type[Mapper]
+        mapper: Mapper
         if options.get("is_denormalized", options.get("use_denormalization")):
-            mapper = DenormalizedMapper
+            mapper = DenormalizedMapper(cube=self.cube, naming=naming or {},
+                    locale=locale)
         else:
-            mapper = StarSchemaMapper
+            mapper = StarSchemaMapper(cube=self.cube, naming=naming or {},
+                    locale=locale)
 
         self.logger.debug("using mapper %s for cube '%s' (locale: %s)" %
-                          (str(mapper.__name__), cube.name, locale))
+                          (str(mapper.__class__.__name__), cube.name, locale))
 
         # Prepare the mappings of base attributes
         #
-        naming = distill_naming(options)
-        (fact_name, mappings) = map_base_attributes(cube, mapper,
-                                                    naming=naming,
-                                                    locale=locale)
+        mappings = mapper.map_base_attributes()
 
         # Prepare Join objects
         # FIXME: [typing] Joins should be prepared here.
@@ -229,12 +243,13 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         else:
             joins = []
 
+        # FIXME: [2.0] Pass mapper instead of prepared mappings
         self.star = StarSchema(self.cube.name,
                                metadata,
                                mappings=mappings,
-                               fact_name=fact_name,
+                               fact_name=mapper.fact_name,
                                joins=joins,
-                               schema=naming.schema,
+                               schema=mapper.schema,
                                tables=tables)
 
         # Extract hierarchies

@@ -2,7 +2,7 @@
 
 import os.path
 
-from typing import List, Dict, Any, Optional, Tuple, Union
+from typing import List, Dict, Any, Optional, Tuple, Union, Type
 from logging import Logger
 
 from collections import OrderedDict, defaultdict
@@ -21,6 +21,10 @@ from .stores import Store
 from .query.browser import AggregationBrowser, BrowserFeatures
 from .types import _CubeKey, JSONType
 from . import ext
+from .settings import Setting, SettingType, distill_settings
+
+# FIXME: [typing] Remove direct reference to SQL, move to shared place
+from .sql.mapper import NamingDict, distill_naming
 
 __all__ = [
     "Workspace",
@@ -40,6 +44,42 @@ SLICER_INFO_KEYS = (
     "related"       # List of dicts with related servers
 )
 
+WORKSPACE_SETTINGS = [
+        Setting(
+                "log", SettingType.str,
+                desc="File name where the logs are written"
+        ),
+        Setting(
+                "log_level", SettingType.str,
+                desc="Log level details",
+                values=["info", "error", "warn", "debug"],
+        ),
+        Setting(
+                "root_directory", SettingType.str,
+                desc="Directory for all relative paths"
+        ),
+        Setting(
+                "models_directory", SettingType.str,
+                desc="Place where file-based models are searched for",
+        ),
+        Setting(
+                "info_file", SettingType.str,
+                desc="A JSON file where server info is stored",
+        ),
+        Setting(
+                "stores_file", SettingType.str,
+                desc="Configuration file with configuration of stores",
+        ),
+        Setting(
+                "timezone", SettingType.str,
+                desc="Default timezone for time and date functions",
+        ),
+        Setting(
+                "first_weekday", SettingType.str,
+                desc="Name or a number of a first day of the week",
+        ),
+    ]
+
 
 class Workspace:
 
@@ -57,6 +97,8 @@ class Workspace:
     # TODO: Review use of this. Is this still needed? Can it be moved?
     options: JSONType
     authorizer: Optional[Authorizer]
+    # FIXME: [typing] Fix the value type to NamingType or SettingValue
+    namings: Dict[str, NamingDict]
 
     ns_languages: JSONType
 
@@ -105,7 +147,9 @@ class Workspace:
         # =======
         # Log to file or console
         if "workspace" in config:
-            workspace_config = config["workspace"]
+            workspace_config = distill_settings(config["workspace"],
+                                                WORKSPACE_SETTINGS,
+                                                owner="workspace")
         else:
             workspace_config = {}
 
@@ -126,16 +170,13 @@ class Workspace:
             # this method
             self.root_dir = _options["cubes_root"]
         else:
-            self.root_dir = ""
+            self.root_dir = "."
 
         # FIXME: Pick only one
         if "models_directory" in workspace_config:
             self.models_dir = workspace_config["models_directory"]
-        elif "models_path" in workspace_config:
-            raise ConfigurationError("models_path is deprecated, "
-                                     "use models_directory")
         else:
-            self.models_dir = ""
+            self.models_dir = "."
 
         if self.root_dir and not os.path.isabs(self.models_dir):
             self.models_dir = os.path.join(self.root_dir, self.models_dir)
@@ -159,6 +200,7 @@ class Workspace:
 
         self.info = OrderedDict()
 
+        # TODO: [2.0] Move to server
         if "info_file" in workspace_config:
             path = workspace_config["info_file"]
 
@@ -221,6 +263,17 @@ class Workspace:
 
         self.calendar = Calendar(timezone=timezone,
                                  first_weekday=first_weekday)
+
+        # Register Naming
+        #
+
+        # TODO: This is temporary - just one naming convention. We need to be a
+        # ble to specify more.
+
+        namigs = Dict[str, NamingDict]
+        self.namings = {}
+        if "naming" in config:
+            self.namings["default"] = distill_naming(config["naming"])
 
         # Register Stores
         # ===============
@@ -628,29 +681,30 @@ class Workspace:
             identity: Any=None) -> AggregationBrowser:
         """Returns a browser for `cube`."""
 
+        naming: NamingDict
+
         # TODO: bring back the localization
         # model = self.localized_model(locale)
 
         if isinstance(cube, str):
             cube = self.cube(cube, identity=identity)
 
+        # We don't allow cube store to be an actual store. Cube is a logical
+        # object.
+        assert isinstance(cube.store, str) or cube.store is None, \
+                f"Store of a cube ({cube}) must be a string or None"
+
         locale = locale or cube.locale
 
-        if isinstance(cube.store, str):
-            store_name = cube.store or "default"
-            store = self.get_store(store_name)
-            store_type = self.store_infos[store_name][0]
-            store_info = self.store_infos[store_name][1]
-        elif cube.store:
-            store = cube.store
-            store_info = store.options or {}
-        else:
-            store = self.get_store("default")
-            store_info = store.options or {}
+        store_name = cube.store or "default"
+        store = self.get_store(store_name)
+        store_type = self.store_infos[store_name][0]
+        store_info = self.store_infos[store_name][1]
 
-        store_type = store.store_type
-        if not store_type:
-            raise CubesError("Store %s has no store_type set" % store)
+        # TODO: Review necessity of this
+        store_type = store.extension_name
+        assert store_type is not None, \
+                f"Store type should not be None ({store})"
 
         cube_options = self._browser_options(cube)
 
@@ -669,9 +723,23 @@ class Workspace:
         if not browser_name:
             raise ConfigurationError("No store specified for cube '%s'" % cube)
 
+        cls: Type[AggregationBrowser]
         cls = AggregationBrowser.concrete_extension(browser_name)
-        browser = cls(cube, store=store, locale=locale,
-                      calendar=self.calendar, **options)
+        # FIXME: [2.0] This should go away with query redesign
+        options.pop("url", None)
+
+        naming_name: str
+        naming_name = options.pop("naming", "default")
+        if naming_name in self.namings:
+            naming = distill_naming(self.namings[naming_name])
+        else:
+            naming = None
+
+        settings = cls.distill_settings(options)
+
+        # FIXME: [typing] Not correct type-wise
+        browser = cls(cube=cube, store=store, locale=locale,
+                       calendar=self.calendar, naming=naming, **settings)
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
@@ -700,6 +768,10 @@ class Workspace:
             raise ConfigurationError("Unknown store '{}'".format(name))
 
         # TODO: temporary hack to pass store name and store type
-        store = Store.concrete_extension(type_)(store_type=type_, **options)
+        ext: Store
+        ext = Store.concrete_extension(type_)
+        store = ext.create_with_dict(options)
+        # FIXME: Clean-up
+        # store = Store.concrete_extension(type_)(store_type=type_, **options)
         self.stores[name] = store
         return store
