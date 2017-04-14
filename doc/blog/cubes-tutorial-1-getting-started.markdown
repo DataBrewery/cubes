@@ -1,5 +1,10 @@
 Cubes Tutorial 1 - Getting started
 ==================================
+ 
+
+**While the conceptual steps illustrated here are valid more
+   up-to-date syntax can be seen at [pythonhosted.org/cubes](http://pythonhosted.org/cubes/index.html)**
+   
 
 In this tutorial you are going to learn how to start with cubes. The example shows:
 
@@ -8,12 +13,14 @@ In this tutorial you are going to learn how to start with cubes. The example sho
 * how to aggregate whole cube
 * how to drill-down and aggregate through a dimension
 
-The example data used are [IBRD Balance Sheet](https://raw.github.com/Stiivi/cubes/master/tutorial/data/IBRD_Balance_Sheet__FY2010.csv) taken from [The World Bank](https://finances.worldbank.org/Accounting-and-Control/IBRD-Balance-Sheet-FY2010/e8yz-96c6)
+The example data used are [IBRD Balance Sheet](https://github.com/Stiivi/cubes/blob/master/doc/files/IBRD_Balance_Sheet__FY2010-t03.csv) taken from [The World Bank](https://finances.worldbank.org/Accounting-and-Control/IBRD-Balance-Sheet-FY2010/e8yz-96c6)
 
 Create a tutorial directory and download the file:
 
 <pre>
-curl -O https://raw.github.com/Stiivi/cubes/master/tutorial/data/IBRD_Balance_Sheet__FY2010.csv
+curl -O 
+https://github.com/Stiivi/cubes/blob/master/doc/files/IBRD_Balance_Sheet__FY2010-t03.csv
+
 </pre>
 
 Create a ``tutorial_01.py``:
@@ -52,11 +59,13 @@ model = cubes.Model()
 
 Add dimensions to the model. Reason for having dimensions in a model is, that they might be shared by multiple cubes.
 
+
 <pre class="prettyprint">
 model.add_dimension(cubes.Dimension("category"))
 model.add_dimension(cubes.Dimension("line_item"))
 model.add_dimension(cubes.Dimension("year"))
 </pre>
+
 
 Define a cube and specify already defined dimensions:
 <pre class="prettyprint">
