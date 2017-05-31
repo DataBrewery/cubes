@@ -249,10 +249,7 @@ class Attribute(AttributeBase):
     @dimension.setter
     def dimension(self, dimension):
         if dimension:
-            if dimension.is_flat and not dimension.has_details:
-                self.ref = dimension.name
-            else:
-                self.ref = dimension.name + '.' + str(self.name)
+            self.ref = dimension.name + '.' + str(self.name)
         else:
             self.ref = str(self.name)
         self._dimension = dimension
