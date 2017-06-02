@@ -32,9 +32,9 @@ The logical model enables users to:
   reports
 * transparent localization of metadata and data
 
-Analysts or report writers do not have to know where name of an organisation
-or category is stored, nor he does not have to care whether customer data is
-stored in single table or spread across multiple tables (customer, customer
+Analysts or report writers do not have to know where the name of an organisation
+or category is stored, as well he does not have to care whether customer data is
+stored in a single table or spread across multiple tables (customer, customer
 types, ...). They just ask for `customer.name` or `category.code`.
 
 In addition to abstraction over physical model, localization abstraction is

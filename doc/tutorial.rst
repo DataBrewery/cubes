@@ -7,7 +7,7 @@ This chapter describes step-by-step how to use the Cubes. You will learn:
 * model preparation
 * measure aggregation
 * drill-down through dimensions
-* how to slice&dice the dube
+* how to slice&dice the cube
 
 The tutorial contains examples for both: standard tool use and Python use. You
 don't need to know Python to follow this tutorial.
