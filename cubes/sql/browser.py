@@ -27,6 +27,7 @@ from .mapper import DenormalizedMapper, StarSchemaMapper, map_base_attributes
 from .mapper import distill_naming
 from .query import StarSchema, QueryContext, to_join, FACT_KEY_LABEL
 from .utils import paginate_query, order_query
+from flask import g
 
 
 __all__ = [
@@ -182,7 +183,8 @@ class SQLBrowser(AggregationBrowser):
                                fact=fact_name,
                                joins=joins,
                                schema=naming.schema,
-                               tables=tables)
+                               tables=tables,
+                               fact_key=cube.key or 'id')
 
         # Extract hierarchies
         # -------------------
@@ -345,6 +347,9 @@ class SQLBrowser(AggregationBrowser):
     def execute(self, statement, label=None):
         """Execute the `statement`, optionally log it. Returns the result
         cursor."""
+        if g.use_ujson:
+            statement = sql.expression.alias(statement).select().limit(g.json_record_limit)
+
         self._log_statement(statement, label)
         return self.connectable.execute(statement)
 

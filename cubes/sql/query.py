@@ -393,8 +393,6 @@ class StarSchema(object):
             else:
                 self.fact_key = self.fact_key_column.name
 
-        self.fact_key_column = self.fact_key_column.label(FACT_KEY_LABEL)
-
         # Rest of the initialization
         # --------------------------
         self._collect_tables()

@@ -65,15 +65,19 @@ class CustomDict(dict):
 def jsonify(obj):
     """Returns a ``application/json`` `Response` object with `obj` converted
     to JSON."""
-
-    if g.prettyprint:
-        indent = 4
+    data = ''
+    if g.use_ujson:
+        import ujson
+        data = ujson.dumps(obj)
     else:
-        indent = None
+        if g.prettyprint:
+            indent = 4
+        else:
+            indent = None
 
-    encoder = SlicerJSONEncoder(indent=indent)
-    encoder.iterator_limit = g.json_record_limit
-    data = encoder.iterencode(obj)
+        encoder = SlicerJSONEncoder(indent=indent)
+        encoder.iterator_limit = g.json_record_limit
+        data = encoder.iterencode(obj)
 
     return Response(data, mimetype='application/json')
 
