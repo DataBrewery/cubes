@@ -246,7 +246,7 @@ class Workspace(object):
         self.ns_languages = defaultdict(dict)
         for section in config.sections():
             if section.startswith("locale"):
-                lang = section[9:]
+                lang = section[7:]
                 # namespace -> path
                 for nsname, path in config.items(section):
                     if nsname == "defalt":
