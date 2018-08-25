@@ -2,19 +2,28 @@
 
 from __future__ import print_function
 
-import json
-import csv
 import codecs
-import decimal
+import csv
 import datetime
-
+import decimal
+import json
+import os
+import tempfile
 from collections import namedtuple
 
 try:
     import jinja2
 except ImportError:
     from .common import MissingPackage
+
     jinja2 = MissingPackage("jinja2", "Templating engine")
+
+try:
+    import openpyxl
+except ImportError:
+    from .common import MissingPackage
+
+    openpyxl = MissingPackage('openpyxl', 'pyexcel or other xlsx/xlsm reader/writer')
 
 from .errors import ArgumentError
 from . import compat
@@ -22,15 +31,16 @@ from . import ext
 
 from .query import SPLIT_DIMENSION_NAME
 
-
 __all__ = [
     "create_formatter",
     "CrossTableFormatter",
     "HTMLCrossTableFormatter",
     "SlicerJSONEncoder",
     "csv_generator",
+    'xlsx_generator',
     "JSONLinesGenerator",
 ]
+
 
 def create_formatter(type_, *args, **kwargs):
     """Creates a formatter of type `type`. Passes rest of the arguments to the
@@ -47,7 +57,6 @@ def _jinja_env():
 
 def csv_generator_p2(records, fields, include_header=True, header=None,
                      dialect=csv.excel):
-
     def _row_string(row):
         writer.writerow(row)
         # Fetch UTF-8 output from the queue ...
@@ -83,7 +92,6 @@ def csv_generator_p2(records, fields, include_header=True, header=None,
 
 def csv_generator_p3(records, fields, include_header=True, header=None,
                      dialect=csv.excel):
-
     def _row_string(row):
         writer.writerow(row)
         data = queue.getvalue()
@@ -101,6 +109,22 @@ def csv_generator_p3(records, fields, include_header=True, header=None,
         row = [record.get(field) for field in fields]
 
         yield _row_string(row)
+
+
+def xlsx_generator(records, fields, include_header=True, header=None):
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    if include_header:
+        header = header or fields
+        worksheet.append(header)
+    for record in records:
+        row = [record.get(key) for key in fields]
+        worksheet.append(row)
+
+    fd, fn = tempfile.mkstemp()
+    os.close(fd)
+    workbook.save(filename=fn)
+    return fn
 
 
 if compat.py3k:
@@ -169,6 +193,7 @@ class SlicerJSONEncoder(json.JSONEncoder):
 class Formatter(object):
     """Empty class for the time being. Currently used only for finding all
     built-in subclasses"""
+
     def __call__(self, *args, **kwargs):
         return self.format(*args, **kwargs)
 
@@ -181,6 +206,7 @@ class Formatter(object):
 #
 
 CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
+
 
 def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
     """
@@ -279,17 +305,17 @@ def coalesce_table_labels(attributes, onrows, oncolumns):
         if not oncolumns:
             oncolumns = [attr for attr in attributes if attr not in onrows]
 
-    return(onrows, oncolumns)
+    return (onrows, oncolumns)
 
 
 class CrossTableFormatter(Formatter):
     __options__ = [
-                {
-                    "name": "indent",
-                    "type": "integer",
-                    "label": "Output indent"
-                },
-            ]
+        {
+            "name": "indent",
+            "type": "integer",
+            "label": "Output indent"
+        },
+    ]
 
     mime_type = "application/json"
 
@@ -314,7 +340,6 @@ class CrossTableFormatter(Formatter):
 
     def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
                aggregates_on=None):
-
         onrows, oncolumns = coalesce_table_labels(result.attributes,
                                                   onrows,
                                                   oncolumns)
@@ -335,11 +360,11 @@ class CrossTableFormatter(Formatter):
 
 class HTMLCrossTableFormatter(CrossTableFormatter):
     __options__ = [
-                {
-                    "name": "table_style",
-                    "description": "CSS style for the table"
-                }
-            ]
+        {
+            "name": "table_style",
+            "description": "CSS style for the table"
+        }
+    ]
     mime_type = "text/html"
 
     def __init__(self, table_style=None):
@@ -351,8 +376,7 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
         self.table_style = table_style
 
     def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
-                aggregates_on=None):
-
+               aggregates_on=None):
         onrows, oncolumns = coalesce_table_labels(result.attributes,
                                                   onrows,
                                                   oncolumns)
@@ -364,6 +388,7 @@ class HTMLCrossTableFormatter(CrossTableFormatter):
         output = self.template.render(table=table,
                                       table_style=self.table_style)
         return output
+
 
 class CSVFormatter(Formatter):
     def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
@@ -391,3 +416,27 @@ class CSVFormatter(Formatter):
         output = "".join(rows)
         return output
 
+
+class XLSXFormatter(Formatter):
+    # TODO(serbernar): write formatter
+    def format(self, cube, result, onrows=None, oncolumns=None, aggregates=None,
+               aggregates_on=None):
+        if any([onrows, oncolumns]):
+            raise ArgumentError("Column/row layout options are not supported")
+
+        header = []
+        for l in result.labels:
+            if l == SPLIT_DIMENSION_NAME:
+                header.append('Matches Filters')
+            else:
+                header += [attr.label or attr.name
+                           for attr in cube.get_attributes([l], aggregated=True)]
+
+        fields = result.labels
+        generator = csv_generator(result,
+                                  fields,
+                                  include_header=bool(header),
+                                  header=header)
+        rows = [compat.to_str(row) for row in generator]
+        output = "".join(rows)
+        return output

@@ -9,7 +9,7 @@ import json
 import csv
 
 from .errors import *
-from ..formatters import csv_generator, JSONLinesGenerator, SlicerJSONEncoder
+from ..formatters import csv_generator, JSONLinesGenerator, SlicerJSONEncoder, xlsx_generator
 from .. import compat
 
 
@@ -37,14 +37,13 @@ def validated_parameter(args, name, values=None, default=None,
         param = param.lower()
     else:
         param = default
-
     if not values:
         return param
     else:
         if values and param not in values:
             list_str = ", ".join(values)
             raise RequestError("Parameter '%s' should be one of: %s"
-                            % (name, list_str) )
+                            % (name, list_str))
         return param
 
 
@@ -56,7 +55,7 @@ class CustomDict(dict):
             return super(CustomDict, self).__getattribute__(attr)
 
     def __setattr__(self, attr, value):
-        self.__setitem__(attr,value)
+        self.__setitem__(attr, value)
 
 
 # Utils
@@ -84,7 +83,7 @@ def formatted_response(response, fields, labels, iterable=None):
     contains formateable data."""
 
     output_format = validated_parameter(request.args, "format",
-                                        values=["json", "json_lines", "csv"],
+                                        values=["xlsx", "json", "json_lines", "csv"],
                                         default="json")
 
     header_type = validated_parameter(request.args, "header",
@@ -118,6 +117,20 @@ def formatted_response(response, fields, labels, iterable=None):
 
         return Response(generator,
                         mimetype='text/csv',
+                        headers=headers)
+    elif output_format == 'xlsx':
+        generator = xlsx_generator(
+            iterable,
+            fields,
+            include_header=bool(header),
+            header=header
+        )
+        fh = open(generator, 'rb')
+        resp = fh.read()
+        fh.close()
+        headers = {"Content-Disposition": 'attachment; filename="facts.xlsx"'}
+        return Response(resp,
+                        content_type='application/ms-excel',
                         headers=headers)
 
 

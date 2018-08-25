@@ -12,6 +12,7 @@ from ..metadata import string_to_dimension_level
 
 from .statutils import calculators_for_aggregates, available_calculators
 from .cells import Cell, PointCut, RangeCut, SetCut, cuts_from_string
+from ..metadata import Dimension
 
 from .. import compat
 
@@ -1077,6 +1078,8 @@ def levels_from_drilldown(cell, drilldown):
             obj = string_to_dimension_level(obj)
         elif isinstance(obj, DrilldownItem):
             obj = (obj.dimension, obj.hierarchy, obj.levels[-1])
+        elif isinstance(obj, Dimension):
+            obj = (obj, obj.hierarchy(), obj.hierarchy().levels[-1])
         elif len(obj) != 3:
             raise ArgumentError("Drilldown item should be either a string "
                                 "or a tuple of three elements. Is: %s" %
