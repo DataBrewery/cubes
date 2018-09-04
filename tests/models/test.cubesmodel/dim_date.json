@@ -1,42 +1,20 @@
 {
     "name": "date",
-    "label": "Dátum",
     "levels": [
         {
             "name": "year",
-            "label": "Rok",
             "key": "year",
             "attributes": ["year"]
         },
         {
             "name": "month",
-            "label": "Mesiac",
             "key": "month",
-            "label_attribute": "month_name",
             "attributes": ["month", "month_name", "month_sname"]
         },
         {
             "name": "day",
-            "label": "Deň",
             "key": "day",
             "attributes": ["day", "weekday_name", "weekday_number"]
         }
-    ],
-    "attributes": {
-        "year": { "label" : "Rok" },
-        "month": { "label" : "Mesiac" },
-        "month_name": { "label" : "Mesiac" },
-        "month_sname": { "label" : "Mesiac" },
-        "day": { "label" : "Deň" },
-        "weekday_name": { "label" : "Deň v týždni" },
-        "weekday_number": { "label" : "Deň v týždni" }
-    },
-    "hierarchies": {
-        "default": {
-            "levels": ["year", "month", "day"]
-        },
-        "ym": {
-            "levels": ["year", "month"]
-        }
-    }
+    ]
 }

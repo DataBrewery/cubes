@@ -1,136 +1,90 @@
 {
     "cubes": [
         {
-            "name": "empty"
-        },
-        {
-            "name": "amount_default",
-            "implicit_aggregates": true,
-            "measures": ["amount"]
-        },
-        {
-            "name": "default_aggregates",
-            "implicit_aggregates": true,
-            "measures": [
-                    {"name": "amount", "aggregates": ["sum", "min", "max"]}
-                ]
-        },
-        {
             "name": "explicit_aggregates",
             "measures": [
-                    {"name": "amount"}
-                ],
+                {"name": "amount"}
+            ],
             "aggregates": [
-                    {"name": "amount_sum", "function": "sum"},
-                    {"name": "amount_wma", "function": "wma"},
-                    {"name": "count", "function": "count"}
-                ]
+                {"name": "amount_sum", "function": "sum", "depends_on": ["amount"]},
+                {"name": "amount_wma", "function": "wma", "depends_on": ["amount"]},
+                {"name": "count", "function": "count"}
+            ]
         },
         {
             "name": "explicit_aggregates_conflict",
-            "implicit_aggregates": true,
-            "measures": [
-                    {"name": "amount", "aggregates": ["sum", "min", "max"]}
-                ],
+            "measures": ["amount"],
             "aggregates": [
-                    {"name": "count", "function": "count"},
-                    {"name": "amount_min", "function": "sum"}
-                ]
+                {"name": "count", "function": "count"},
+                {"name": "amount_min", "function": "sum", "depends_on": ["what"]}
+            ]
         },
         {
             "name": "measure_expression",
             "measures": [
-                    {"name": "price"},
-                    {"name": "costs"},
-                    {"name": "revenue", "expression": "price - costs"}
-                ]
+                {"name": "price"},
+                {"name": "costs"},
+                {"name": "revenue", "depends_on": ["price", "costs"]}
+            ],
+            "aggregates": []
         },
         {
             "name": "invalid_expression",
             "measures": [
-                    {"name": "price"},
-                    {"name": "revenue", "expression": "price - costs"}
-                ]
+                {"name": "price"},
+                {"name": "revenue", "depends_on": ["price", "costs"]}
+            ]
         },
-
-
         {
             "name": "fact_count",
             "aggregates": [
-                    {"name": "total_events", "function": "count"}
-                ]
+                {"name": "total_events", "function": "count"}
+            ]
         },
         {
             "name": "amount_sum",
             "measures": ["amount"],
             "aggregates": [
-                    {
-                        "name": "amount_sum",
-                        "measure":"amount",
-                        "function":"sum"
-                    }
-                ]
+                {
+                    "name": "amount_sum",
+                    "depends_on": "amount",
+                    "function": "sum"
+                }
+            ]
         },
         {
             "name": "amount_sum_combined",
-            "implicit_aggregates": true,
             "measures": [
                 {
-                    "name":"amount",
-                    "aggregates": ["sum", "min", "max"]
+                    "name": "amount"
                 }
             ],
             "aggregates": [
-                    {
-                        "name": "total",
-                        "measure":"amount",
-                        "function":"sum"
-                    }
-                ]
-        },
-        {
-            "name": "amount_sum_explicit",
-            "implicit_aggregates": false,
-            "measures": [
                 {
-                    "name":"amount",
-                    "aggregates": ["sum", "min", "max"]
+                    "name": "total",
+                    "depends_on": "amount",
+                    "function": "sum"
                 }
-            ],
-            "aggregates": [
-                    {
-                        "name": "total",
-                        "measure":"amount",
-                        "function":"sum"
-                    }
-                ]
-        },
-        {
-            "name": "backend_provided_aggregate",
-            "aggregates": [
-                    {
-                        "name": "total"
-                    }
-                ]
+            ]
         },
         {
             "name": "aggregate_expression",
             "measures": ["amount"],
             "aggregates": [
-                    {
-                        "name": "converted_avg",
-                        "expression":"SUM(amount) / COUNT(1) * 1.2"
-                    }
-                ]
+                {
+                    "name": "converted_avg",
+                    "depends_on": "amount"
+                }
+            ]
         },
         {
             "name": "aggregate_expression_error",
             "aggregates": [
-                    {
-                        "name": "converted_avg",
-                        "expression":"SUM(amount) / COUNT(1) * 1.2"
-                    }
-                ]
+                {
+                    "name": "converted_avg",
+                    "depends_on": "amount"
+                }
+            ]
         }
     ] 
 }

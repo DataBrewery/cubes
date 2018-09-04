@@ -11,12 +11,14 @@ import sqlalchemy as sa
 import sqlalchemy.sql as sql
 
 from datetime import datetime
-from cubes.sql.query import StarSchema, Column, SchemaError
-from cubes.sql.query import NoSuchAttributeError
-from cubes.sql.query import JoinKey, to_join_key, Join, to_join
-from cubes.sql.query import QueryContext
-from cubes.errors import ArgumentError, ModelError
-from cubes.metadata import create_list_of, Attribute
+from cubes_lite.sql.query import StarSchema, Column, SchemaError
+from cubes_lite.sql.query import NoSuchAttributeError
+from cubes_lite.sql.query import Column, to_column, to_join
+from sql.mapping import JoinObject, to_join, ColumnObject
+from cubes_lite.sql.query import QueryContext
+from cubes_lite.errors import ArgumentError
+from cubes_lite import ModelError
+from cubes_lite.model import create_list_of, Attribute
 from .common import create_table, SQLTestCase
 
 CONNECTION = "sqlite://"
@@ -120,8 +122,8 @@ class SchemaBasicsTestCase(SQLTestCase):
     def test_fact_columns(self):
         """Test fetching fact columns."""
         mappings = {
-            "category": Column(None, "test", "category", None, None),
-            "total":   Column(None, "test", "amount", None, None),
+            "category": ColumnObject(None, "test", "category", None, None),
+            "total":   ColumnObject(None, "test", "amount", None, None),
         }
 
         star = StarSchema("star", self.md, mappings, self.test_fact)
@@ -145,7 +147,7 @@ class SchemaBasicsTestCase(SQLTestCase):
     def test_unknown_column(self):
         """Test fetching fact columns."""
         mappings = {
-            "category": Column(None, "test", "__unknown__", None, None),
+            "category": ColumnObject(None, "test", "__unknown__", None, None),
         }
 
         star = StarSchema("star", self.md, mappings, self.test_fact)
@@ -156,7 +158,7 @@ class SchemaBasicsTestCase(SQLTestCase):
     def test_mapping_extract(self):
         """Test that mapping.extract works"""
         mappings = {
-            "year": Column(None, "test", "date", "year", None),
+            "year": ColumnObject(None, "test", "date", "year", None),
         }
 
         star = StarSchema("star", self.md, mappings, self.test_fact)
@@ -170,9 +172,9 @@ class SchemaBasicsTestCase(SQLTestCase):
 
     def test_required_tables_with_no_joins(self):
         mappings = {
-            "category": Column(None, "test", "category", None, None),
-            "amount":   Column(None, "test", "amount", None, None),
-            "year":     Column(None, "test", "date", "year", None),
+            "category": ColumnObject(None, "test", "category", None, None),
+            "amount":   ColumnObject(None, "test", "amount", None, None),
+            "year":     ColumnObject(None, "test", "date", "year", None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.test_fact)
@@ -190,9 +192,9 @@ class SchemaBasicsTestCase(SQLTestCase):
         """Test selection from the very basic star – no joins, just one
         table"""
         mappings = {
-            "category": Column(None, "test", "category", None, None),
-            "total":   Column(None, "test", "amount", None, None),
-            "year":     Column(None, "test", "date", "year", None),
+            "category": ColumnObject(None, "test", "category", None, None),
+            "total":   ColumnObject(None, "test", "amount", None, None),
+            "year":     ColumnObject(None, "test", "date", "year", None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.test_fact)
@@ -221,92 +223,92 @@ class SchemaUtilitiesTestCase(unittest.TestCase):
     def test_to_join_key(self):
         """Test basic structure conversions."""
 
-        self.assertEqual(JoinKey(None, None, None), to_join_key(None))
+        self.assertEqual(ColumnObject(None, None, None), to_column(None))
 
-        key = to_join_key("col")
-        self.assertEqual(JoinKey(None, None, "col"), key)
+        key = to_column("col")
+        self.assertEqual(ColumnObject(None, None, "col"), key)
 
-        key = to_join_key("table.col")
-        self.assertEqual(JoinKey(None, "table", "col"), key)
+        key = to_column("table.col")
+        self.assertEqual(ColumnObject(None, "table", "col"), key)
 
-        key = to_join_key("schema.table.col")
-        self.assertEqual(JoinKey("schema", "table", "col"), key)
+        key = to_column("schema.table.col")
+        self.assertEqual(ColumnObject("schema", "table", "col"), key)
 
-        key = to_join_key(["col"])
-        self.assertEqual(JoinKey(None, None, "col"), key)
+        key = to_column(["col"])
+        self.assertEqual(ColumnObject(None, None, "col"), key)
 
-        key = to_join_key(["table", "col"])
-        self.assertEqual(JoinKey(None, "table", "col"), key)
+        key = to_column(["table", "col"])
+        self.assertEqual(ColumnObject(None, "table", "col"), key)
 
-        key = to_join_key(["schema", "table", "col"])
-        self.assertEqual(JoinKey("schema", "table", "col"), key)
+        key = to_column(["schema", "table", "col"])
+        self.assertEqual(ColumnObject("schema", "table", "col"), key)
 
-        key = to_join_key({"column": "col"})
-        self.assertEqual(JoinKey(None, None, "col"), key)
+        key = to_column({"column": "col"})
+        self.assertEqual(ColumnObject(None, None, "col"), key)
 
-        key = to_join_key({"table":"table", "column": "col"})
-        self.assertEqual(JoinKey(None, "table", "col"), key)
+        key = to_column({"table": "table", "column": "col"})
+        self.assertEqual(ColumnObject(None, "table", "col"), key)
 
-        key = to_join_key({"schema":"schema",
+        key = to_column({"schema": "schema",
                            "table":"table",
                            "column": "col"})
 
-        self.assertEqual(JoinKey("schema", "table", "col"), key)
+        self.assertEqual(ColumnObject("schema", "table", "col"), key)
 
         # Test exceptions
         #
 
         with self.assertRaises(ArgumentError):
-            to_join_key([])
+            to_column([])
 
         with self.assertRaises(ArgumentError):
-            to_join_key(["one", "two", "three", "four"])
+            to_column(["one", "two", "three", "four"])
 
         with self.assertRaises(ArgumentError):
-            to_join_key("one.two.three.four")
+            to_column("one.two.three.four")
 
     def test_to_join(self):
         join = ("left", "right")
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             None,
-                                             None))
+        self.assertEqual(to_join(join), JoinObject(to_column("left"),
+                                                   to_column("right"),
+                                                   None,
+                                                   None))
 
         join = ("left", "right", "alias")
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
+        self.assertEqual(to_join(join), JoinObject(to_column("left"),
+                                                   to_column("right"),
                                              "alias",
-                                             None))
+                                                   None))
 
         join = ("left", "right", "alias", "match")
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
+        self.assertEqual(to_join(join), JoinObject(to_column("left"),
+                                                   to_column("right"),
                                              "alias",
                                              "match"))
 
         # Dict
         join = {"master": "left", "detail": "right"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             None,
-                                             None))
+        self.assertEqual(to_join(join), JoinObject(to_column("left"),
+                                                   to_column("right"),
+                                                   None,
+                                                   None))
 
         join = {"master": "left", "detail": "right", "alias": "alias"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
+        self.assertEqual(to_join(join), JoinObject(to_column("left"),
+                                                   to_column("right"),
                                              "alias",
-                                             None))
+                                                   None))
 
         join = {"master": "left", "detail": "right", "method": "match"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             None,
+        self.assertEqual(to_join(join), JoinObject(to_column("left"),
+                                                   to_column("right"),
+                                                   None,
                                              "match"))
 
         join = {"master": "left", "detail": "right", "alias": "alias",
                 "method": "match"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
+        self.assertEqual(to_join(join), JoinObject(to_column("left"),
+                                                   to_column("right"),
                                              "alias",
                                              "match"))
 
@@ -335,11 +337,11 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "amount":         Column(None, "test", "amount", None, None),
-            "category":       Column(None, "test", "category", None, None),
-            "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
-            "size_label":     Column(None, "dim_size", "label", None, None),
+            "amount":         ColumnObject(None, "test", "amount", None, None),
+            "category":       ColumnObject(None, "test", "category", None, None),
+            "category_label": ColumnObject(None, "dim_category", "label", None, None),
+            "size":           ColumnObject(None, "dim_category", "size", None, None),
+            "size_label":     ColumnObject(None, "dim_size", "label", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -385,10 +387,10 @@ class SchemaJoinsTestCase(SQLTestCase):
             to_join(("test.category", "dim_category.category"))
         ]
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "amount":         Column(None, "test", "amount", None, None),
-            "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
+            "category":       ColumnObject(None, "test", "category", None, None),
+            "amount":         ColumnObject(None, "test", "amount", None, None),
+            "category_label": ColumnObject(None, "dim_category", "label", None, None),
+            "size":           ColumnObject(None, "dim_category", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -426,10 +428,10 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "amount":         Column(None, "test", "amount", None, None),
-            "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
+            "category":       ColumnObject(None, "test", "category", None, None),
+            "amount":         ColumnObject(None, "test", "amount", None, None),
+            "category_label": ColumnObject(None, "dim_category", "label", None, None),
+            "size":           ColumnObject(None, "dim_category", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -469,10 +471,10 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "amount":         Column(None, "test", "amount", None, None),
-            "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
+            "category":       ColumnObject(None, "test", "category", None, None),
+            "amount":         ColumnObject(None, "test", "amount", None, None),
+            "category_label": ColumnObject(None, "dim_category", "label", None, None),
+            "size":           ColumnObject(None, "dim_category", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -489,9 +491,9 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "code":  Column(None, "test", "category", None, None),
-            "fruit": Column(None, "dim_fruit", "label", None, None),
-            "size":  Column(None, "dim_fruit", "size", None, None),
+            "code":  ColumnObject(None, "test", "category", None, None),
+            "fruit": ColumnObject(None, "dim_fruit", "label", None, None),
+            "size":  ColumnObject(None, "dim_fruit", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -528,9 +530,9 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "code":  Column(None, "test", "category", None, None),
-            "fruit": Column(None, "dim_fruit", "label", None, None),
-            "size":  Column(None, "dim_fruit", "size", None, None),
+            "code":  ColumnObject(None, "test", "category", None, None),
+            "fruit": ColumnObject(None, "dim_fruit", "label", None, None),
+            "size":  ColumnObject(None, "dim_fruit", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -551,10 +553,10 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
-            "size_label":     Column(None, "dim_size", "label", None, None),
+            "category":       ColumnObject(None, "test", "category", None, None),
+            "category_label": ColumnObject(None, "dim_category", "label", None, None),
+            "size":           ColumnObject(None, "dim_category", "size", None, None),
+            "size_label":     ColumnObject(None, "dim_size", "label", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -577,10 +579,10 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "category_label": Column(None, "dim_fruit", "label", None, None),
-            "size":           Column(None, "dim_fruit", "size", None, None),
-            "size_label":     Column(None, "dim_size", "label", None, None),
+            "category":       ColumnObject(None, "test", "category", None, None),
+            "category_label": ColumnObject(None, "dim_fruit", "label", None, None),
+            "size":           ColumnObject(None, "dim_fruit", "size", None, None),
+            "size_label":     ColumnObject(None, "dim_size", "label", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -620,9 +622,9 @@ class SchemaJoinsTestCase(SQLTestCase):
         ]
 
         mappings = {
-            "code":  Column(None, "test", "category", None, None),
-            "fruit": Column(None, "dim_category", "label", None, None),
-            "size":  Column(None, "dim_category", "size", None, None),
+            "code":  ColumnObject(None, "test", "category", None, None),
+            "fruit": ColumnObject(None, "dim_category", "label", None, None),
+            "size":  ColumnObject(None, "dim_category", "size", None, None),
         }
 
         fact_statement = sa.select(self.fact.columns, from_obj=self.fact,
@@ -666,9 +668,9 @@ class QueryTestCase(SQLTestCase):
         self.fact = create_table(self.engine, self.md, BASE_FACT)
 
         mappings = {
-            "date":           Column(None, "test", "date", None, None),
-            "amount":         Column(None, "test", "category", None, None),
-            "category":       Column(None, "test", "amount", None, None),
+            "date":           ColumnObject(None, "test", "date", None, None),
+            "amount":         ColumnObject(None, "test", "category", None, None),
+            "category":       ColumnObject(None, "test", "amount", None, None),
         }
         self.deps = {
             "date": None,

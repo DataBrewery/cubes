@@ -9,7 +9,7 @@ Use:
 import argparse
 import ConfigParser
 
-from cubes import Workspace
+from cubes_lite import Workspace
 from flask import Flask, render_template
 
 app = Flask(__name__)
@@ -33,7 +33,7 @@ def report(dim_name=None):
     cube = browser.cube
     mapper = browser.mapper
     if dim_name:
-        dimension = cube.dimension(dim_name)
+        dimension = cube.get_dimension(dim_name)
         physical = {}
         for attribute in dimension.attributes:
             logical = attribute.ref()

@@ -518,7 +518,7 @@ aggregate should be added:
    :class:`cubes.Measure`
         Measure class reference.
 
-   :class:`cubes.MeasureAggregate`
+   :class:`cubes.Aggregate`
         Measure Aggregate class reference.
 
 

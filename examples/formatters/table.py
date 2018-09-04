@@ -15,7 +15,7 @@
 #   * cross_table.html
 #
 
-from cubes import Workspace, create_formatter
+from cubes_lite import Workspace, create_formatter
 
 workspace = Workspace("slicer.ini")
 
@@ -28,7 +28,7 @@ html_cross_formatter = create_formatter("html_cross_table")
 
 browser = workspace.browser("irbd_balance")
 
-result = browser.aggregate(drilldown=["item"])
+result = browser.request_data(drilldown=["item"])
 result = result.cached()
 
 #
@@ -50,7 +50,7 @@ with open("table.html", "w") as f:
 #
 # 3. Create cross-table to cross_table.html
 #
-result = browser.aggregate(drilldown=["item", "year"])
+result = browser.request_data(drilldown=["item", "year"])
 with open("cross_table.html", "w") as f:
     data = html_cross_formatter(result,
                                 onrows=["year"],

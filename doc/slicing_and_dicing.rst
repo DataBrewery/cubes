@@ -10,7 +10,7 @@ Browser
 =======
 
 The aggregation, slicing, dicing, browsing of the multi-dimensional data is
-being done by an AggregationBrowser. 
+being done by an Browser.
 
 .. code-block:: python
 
@@ -231,7 +231,7 @@ Provisional:
 Facts
 =====
 
-To get list of facts within a cell use :meth:`cubes.AggregationBrowser.facts`:
+To get list of facts within a cell use :meth:`cubes.Browser.facts`:
 
 .. code-block:: python
 
@@ -248,7 +248,7 @@ backend's documentation for more information.
 Fact
 ====
 
-A single fact can be fetched using :meth:`cubes.AggregationBrowser.fact` as
+A single fact can be fetched using :meth:`cubes.Browser.fact` as
 in `fact(123)` or with the server as ``/cube/sales/fact/123``.
 
 Note that not all backends might support fact listing. Please refer to the
@@ -259,7 +259,7 @@ Members
 
 Getting dimension members might be useful for example for populating
 drill-downs or for providing an information to the user what he can use for
-slicing and dicing. In python there is :meth:`cubes.AggregationBrowser.members`.
+slicing and dicing. In python there is :meth:`cubes.Browser.members`.
 
 For example to get all countries present in a cell:
 
@@ -291,7 +291,7 @@ whole browsing context with all details. This is exact the situation where
 fetching cell details explicitly might come handy.
 
 The cell details are provided by method
-:func:`cubes.AggregationBrowser.cell_details()` which has Slicer HTTP
+:func:`cubes.Browser.cell_details()` which has Slicer HTTP
 equivalent ``/cell`` or ``{"query":"detail", ...}`` in ``/report`` request
 (see the :doc:`server documentation<server>` for more information).
 
@@ -348,7 +348,7 @@ as Google Analytics, might provide aggregations, but might not provide fact
 details.
 
 To learn what features are provided by the browser for particular cube use the
-:meth:`cubes.AggregationBrowser.features` method which returns a dictionary with
+:meth:`cubes.Browser.features` method which returns a dictionary with
 more detailed description of what can be done with the cube.
 
 

@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/schema",
+    "title": "Cubes Model",
+    "type": "object",
+
+    "properties": {
+        "name": {"type": "string"},
+        "info": {"type": "object"},
+
+        "browser_options": {"type": "object"},
+
+        "cubes": {
+            "type": "array",
+            "items": {"type": "string"}
+        },
+
+        "mappings": {"type": "object"},
+        "joins": {"type": "array"}
+    },
+    "required": ["name", "cubes"],
+    "additionalProperties": false
+}

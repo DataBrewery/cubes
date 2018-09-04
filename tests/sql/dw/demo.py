@@ -26,7 +26,7 @@ import json
 
 from collections import OrderedDict
 from datetime import datetime, date, timedelta
-from cubes import ModelProvider
+from cubes_lite import ModelProvider
 
 
 SRC_SALES = {

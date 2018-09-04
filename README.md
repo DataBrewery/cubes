@@ -1,3 +1,17 @@
+TODO
+
+removed slicer server as of many additional cuts
+removed visualizer
+removed localization
+removed authorization
+removed providers
+
+redesigned model loading
+redesigned browser
+
+speedup:
+removed runtime inspection of 'expression' field, instead it using manual dependencies specification
+
 Cubes - Online Analytical Processing Framework for Python
 =========================================================
 

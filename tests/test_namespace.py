@@ -1,5 +1,5 @@
 import unittest
-from cubes.namespace import Namespace
+from cubes_lite.namespace import Namespace
 # from .common import CubesTestCaseBase
 
 class NamespaceTestCase(unittest.TestCase):

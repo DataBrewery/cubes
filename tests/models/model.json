@@ -1,19 +1,112 @@
 {
    "name" : "public_procurements",
-   "label" : "Public Procurements of Slovakia",
-   "locale" : "sk",
    "cubes" : [
       {
           "name" : "contracts",
-          "label" : "Uzatvorené zmluvy verejného obstarávania",
           "measures": ["amount"],
           "dimensions" : [
-             "date",
-             "cpv",
-             "procurer",
-             "supplier",
-             "process_type",
-             "geography"
+             {
+                "name":"cpv",
+                "levels" : [
+                   {
+                      "name" : "detail",
+                      "attributes" : [ "cpv_code", "cpv_code_desc" ],
+                      "key" : "cpv_code"
+                   },
+                   {
+                      "name" : "group",
+                      "attributes" : ["cpv_group" ],
+                      "key" : "cpv_group"
+                   },
+                   {
+                      "name" : "division",
+                      "attributes" : [ "cpv_division" ],
+                      "key" : "cpv_division"
+                   },
+                   {
+                      "name" : "class",
+                      "attributes" : [ "cpv_class", "cpv_class_desc"],
+                      "key" : "cpv_class"
+                   },
+                   {
+                      "name" : "category",
+                      "attributes" : [ "cpv_category", "cpv_category_desc" ],
+                      "key" : "cpv_category"
+                   }
+                ]
+             },
+             {
+                "levels": [
+                   {
+                      "name" : "organisation",
+                      "attributes" : ["ico", "name", "address"],
+                      "key" : "ico"
+                   },
+                   {
+                      "name" : "sector",
+                      "attributes" : ["account_sector_code", "account_sector"],
+                      "key" : "account_sector_code"
+                   }
+                ],
+                "name" : "procurer"
+             },
+             {
+                "levels" : [
+                   {
+                      "name" : "region",
+                       "attributes" : ["region_code", "region"],
+                      "key" : "region_code"
+                   },
+                   {
+                      "name" : "county",
+                      "attributes" : ["county_code", "county"],
+                      "key" : "county_code"
+                   }
+                ],
+                "name":"geography"
+             },
+             {
+                "levels" : [
+                   {
+                      "name" : "month",
+                      "attributes" : ["month", "month_name", "month_sname"],
+                      "key" : "month"
+                   },
+                   {
+                      "name" : "day",
+                      "attributes" : ["day", "weekday_name", "weekday_number"],
+                      "key" : "day"
+                   },
+                   {
+                      "name" : "year",
+                      "attributes" : ["year"],
+                      "key" : "year"
+                   }
+                ],
+                "name" : "date"
+             },
+             {
+                "levels" : [
+                   {
+                      "name" : "supplier",
+                      "attributes" : [ "ico", "name", "address", "date_start",
+                                       "date_end", "legal_form", "ownership"],
+                      "key" : "ico"
+                   }
+                ],
+                "name" : "supplier"
+             },
+             {
+                "levels" : [
+                   {
+                      "name" : "process_type",
+                      "attributes" : [ "process_type_code", "process_type_desc",
+                                       "process_type_sdesc"],
+                      "key" : "process_type_code"
+                   }
+                ],
+                "name" : "process_type"
+             }
           ],
          "mappings" : {
             "cpv.group" : "dim_cpv.cpv_group",
@@ -32,159 +125,5 @@
             { "detail" : "geography.id", "master" : "zmluvy.geography_id" }
          ]
       }
-   ],
-   "dimensions" : [
-     {
-         "name":"cpv",
-          "levels" : [
-             {"name":"detail",
-                "name" : "detail",
-                "label" : "predmet",
-                "attributes" : [ "cpv_code", "cpv_code_desc" ],
-                "key" : "cpv_code"
-             },
-             {"name":"group",
-                "name" : "group",
-                "label" : "skupina",
-                "attributes" : ["cpv_group" ],
-                "key" : "cpv_group"
-             },
-             {"name":"division",
-                "name" : "division",
-                "label" : "oddiel",
-                "attributes" : [ "cpv_division" ],
-                "key" : "cpv_division"
-             },
-             {"name":"class",
-                "label_attribute" : "cpv_class_desc",
-                "name" : "class",
-                "label" : "trieda",
-                "attributes" : [ "cpv_class", "cpv_class_desc"],
-                "key" : "cpv_class"
-             },
-             {"name":"category",
-                "name" : "category",
-                "label" : "kategória",
-                "attributes" : [ "cpv_category", "cpv_category_desc" ],
-                "key" : "cpv_category"
-             }
-          ],
-          "name" : "cpv",
-          "label" : "Predmet obstarávania",
-          "hierarchy": [
-                   "division",
-                   "group",
-                   "class",
-                   "category",
-                   "detail"
-                ]
-      },
-      {"name": "procurer",
-         "levels" : [
-            {"name":"organisation",
-               "label_attribute" : "name",
-               "name" : "organisation",
-               "label" : "Organizácia",
-               "attributes" : ["ico", "name", "address"],
-               "key" : "ico"
-            },
-            {"name":"sector",
-               "label_attribute" : "account_sector",
-               "name" : "sector",
-               "label" : "Sektor",
-               "attributes" : ["account_sector_code", "account_sector"],
-               "key" : "account_sector_code"
-            }
-         ],
-         "name" : "procurer",
-         "label" : "Obstarávateľ",
-         "hierarchies" : [
-            {
-               "levels" : [ "sector", "organisation" ],
-               "name" : "default"
-            }
-         ]
-      },
-      { "name":"geography",
-         "levels" : [
-            {"name":"region",
-               "name" : "region",
-               "label" : "Kraj",
-               "attributes" : ["region_code", "region"],
-               "key" : "region_code"
-            },
-            {"name":"county",
-               "name" : "county",
-               "label" : "Okres",
-               "attributes" : ["county_code", "county"],
-               "key" : "county_code"
-            }
-         ],
-         "name":"geography",
-         "label" : "Región",
-         "hierarchies" : [
-            {
-                "name" : "default",
-                "levels" : [ "region", "county" ]
-            }
-         ]
-      },
-      {"name":"date",
-         "levels" : [
-            {"name":"month",
-               "label_attribute" : "month_name",
-               "name" : "month",
-               "label" : "Mesiac",
-               "attributes" : ["month", "month_name", "month_sname"],
-               "key" : "month"
-            },
-            {"name":"day",
-               "name" : "day",
-               "label" : "Deň",
-               "attributes" : ["day", "weekday_name", "weekday_number"],
-               "key" : "day"
-            },
-            {"name":"year",
-               "name" : "year",
-               "label" : "Rok",
-               "attributes" : ["year"],
-               "key" : "year"
-            }
-         ],
-         "name" : "date",
-         "label" : "Dátum",
-         "hierarchies" : [
-            {"name" : "default", "levels" : ["year", "month", "day"] },
-            {"name" : "ym", "levels" : ["year", "month"] }
-         ]
-      },
-      {"name": "supplier",
-         "levels" : [
-            {"name":"supplier",
-               "label_attribute" : "name",
-               "name" : "supplier",
-               "label" : "Dodávateľ",
-               "attributes" : [ "ico", "name", "address", "date_start", 
-                                "date_end", "legal_form", "ownership"],
-               "key" : "ico"
-            }
-         ],
-         "name" : "supplier",
-         "label" : "Dodávateľ"
-      },
-      { "name": "process_type",
-         "levels" : [
-            {"name":"process_type",
-               "name" : "process_type",
-               "label" : "Druh postupu",
-               "attributes" : [ "process_type_code", "process_type_desc", 
-                                "process_type_sdesc"],
-               "key" : "process_type_code"
-            }
-         ],
-         "name" : "process_type",
-         "label" : "Druh postupu"
-      }
-   ],
-   "description" : "Contracts of public procurement winners in Slovakia"
+   ]
 }

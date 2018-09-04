@@ -14,7 +14,7 @@ one of the backends in package :mod:`backend` or a custom backend).
 Aggregate browsing
 ==================
 
-.. autoclass:: cubes.AggregationBrowser
+.. autoclass:: cubes.Browser
     :members:
 
 Result

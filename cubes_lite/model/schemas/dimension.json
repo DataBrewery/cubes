@@ -1,0 +1,74 @@
+{
+    "$schema": "http://json-schema.org/schema",
+    "title": "Dimension",
+    "type": "object",
+
+    "definitions": {
+        "attribute": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "info": {"type": "object"}
+            },
+            "required": ["name"],
+            "additionalProperties": false
+        }
+
+    },
+
+    "properties": {
+        "name": {"type": "string"},
+        "ref": {"type": "string"},
+        "info": {"type": "object"},
+
+        "role": {"type": "string"},
+
+        "levels": {
+            "oneOf": [
+                {
+                    "type": "array",
+
+                    "items": {
+                        "title": "Level",
+                        "type": ["object", "string"],
+
+                        "properties": {
+                            "name": {"type": "string"},
+                            "info": {"type": "object"},
+
+                            "key": {"type": "string"},
+                            "order_attribute": {"type": "string"},
+                            "order": {"type": "string", "enum": ["asc", "desc"]},
+
+                            "attributes": {
+                                "type": "array",
+                                "items": {
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {"$ref": "#/definitions/attribute"}
+                                    ]
+
+                                }
+                            }
+                        },
+
+                        "required": ["name"],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            ]
+        },
+
+        "default_level_name": {
+            "title": "Default Level Name",
+            "type": "string"
+        }
+    },
+
+    "required": ["name"],
+    "additionalProperties": false
+}

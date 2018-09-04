@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import unittest
 import sqlalchemy as sa
 from datetime import datetime
-from cubes import compat
+from cubes_lite import compat
 
 # TODO: use the data.py version
 def create_table(engine, md, desc):

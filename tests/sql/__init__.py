@@ -1,5 +1,3 @@
-from __future__ import absolute_import
+# -*- coding: utf-8 -*-
 
-from .test_query import *
-from .test_browser import *
-from .test_mapper import *
+from __future__ import unicode_literals

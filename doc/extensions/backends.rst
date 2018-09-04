@@ -119,14 +119,14 @@ Methods to be implemented:
   in a `store` and use model and data `locale`.
 * `features()` – return a dictionary with browser's features
 * `aggregate()`, `facts()`, `fact()`, `members()` – all basic browser actions
-  that take a cell as first argument. See :class:`AggregationBrowser` for more
+  that take a cell as first argument. See :class:`Browser` for more
   information.
 
 For example:
 
 .. code-block:: python
 
-    class SnowflakeBrowser(AggregationBrowser):
+    class SnowflakeBrowser(Browser):
 
         def __init__(self, cube, store, locale=None, **options):
             super(SnowflakeBrowser, self).__init__(cube, store, locale)
@@ -137,14 +137,14 @@ name set the `__extension_name__` class property:
 
 .. code-block:: python
 
-    class SnowflakeBrowser(AggregationBrowser):
+    class SnowflakeBrowser(Browser):
         __extension_name__ = "sql"
 
 In this case, the browser will be known by the name ``sql``.
 
 .. note::
 
-    The current `AggregationBrowser` API towards the extension development is
+    The current `Browser` API towards the extension development is
     provisional and will verylikely change. The change will mostly involve
     removal of requirements for preparation of arguments and return value.
 
@@ -220,7 +220,7 @@ Browser and Cube Features
 -------------------------
 
 The browser features for all or a particuliar cube (if there are differences)
-are returned by the :meth:`cubes.AggregationBrowser.features` method. The
+are returned by the :meth:`cubes.Browser.features` method. The
 method is expected to return at least one key in the dictionary: ``actions``
 with list of browser actions that the browser supports.
 

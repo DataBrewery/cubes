@@ -2,12 +2,12 @@ import unittest
 import os
 import json
 import re
-from cubes.errors import NoSuchCubeError, NoSuchDimensionError
-from cubes.errors import NoSuchAttributeError
-from cubes.workspace import Workspace
-from cubes.stores import Store
-from cubes.metadata import *
-from cubes.server.base import read_slicer_config
+from cubes_lite.errors import NoSuchCubeError, NoSuchDimensionError
+from cubes_lite.errors import NoSuchAttributeError
+from cubes_lite.workspace import Workspace
+from cubes_lite.stores import Store
+from cubes_lite.model import *
+from cubes_lite.server.base import read_slicer_config
 
 from .common import CubesTestCaseBase
 # FIXME: remove this once satisfied
@@ -106,10 +106,10 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         self.assertEqual(["year", "month", "day"], dim.level_names)
 
         cube = ws.cube("events")
-        dim = cube.dimension("date")
+        dim = cube.get_dimension("date")
         self.assertEqual(["year", "month", "day"], dim.level_names)
 
         cube = ws.cube("lonely_yearly_events")
-        dim = cube.dimension("date")
+        dim = cube.get_dimension("date")
         self.assertEqual(["lonely_year"], dim.level_names)
 

@@ -1,45 +1,30 @@
 {
-    "name":"cpv",
+     "name":"cpv",
      "levels" : [
-        {"name":"detail",
+        {
            "name" : "detail",
-           "label" : "predmet",
            "attributes" : [ "cpv_code", "cpv_code_desc" ],
            "key" : "cpv_code"
         },
-        {"name":"group",
+        {
            "name" : "group",
-           "label" : "skupina",
            "attributes" : ["cpv_group" ],
            "key" : "cpv_group"
         },
-        {"name":"division",
+        {
            "name" : "division",
-           "label" : "oddiel",
            "attributes" : [ "cpv_division" ],
            "key" : "cpv_division"
         },
-        {"name":"class",
-           "label_attribute" : "cpv_class_desc",
+        {
            "name" : "class",
-           "label" : "trieda",
            "attributes" : [ "cpv_class", "cpv_class_desc"],
            "key" : "cpv_class"
         },
-        {"name":"category",
+        {
            "name" : "category",
-           "label" : "kategória",
            "attributes" : [ "cpv_category", "cpv_category_desc" ],
            "key" : "cpv_category"
         }
-     ],
-     "name" : "cpv",
-     "label" : "Predmet obstarávania",
-     "hierarchy": [
-              "division",
-              "group",
-              "class",
-              "category",
-              "detail"
-           ]
+     ]
 }

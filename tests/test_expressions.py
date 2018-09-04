@@ -3,9 +3,9 @@ from __future__ import absolute_import
 
 import unittest
 
-from cubes import Attribute
-from cubes.errors import ExpressionError
-from cubes.metadata import depsort_attributes
+from cubes_lite import Attribute
+from cubes_lite.errors import ExpressionError
+from cubes_lite.model.logic import depsort_attributes
 
 
 class ExpressionUnitTestCase(unittest.TestCase):

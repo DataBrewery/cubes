@@ -326,10 +326,10 @@ New Features
   ``sql.browser`` for default SQL denormalized browser.
 * `get_backend()` - get backend by name
 
-* AggregationBrowser.cell_details(): New method returning values of attributes
+* Browser.cell_details(): New method returning values of attributes
   representing the cell. Preliminary implementation, return value might
   change.
-* AggregationBrowser.cut_details(): New method returning values of attributes
+* Browser.cut_details(): New method returning values of attributes
   representing a single cut. Preliminary implementation, return value might
   change.
   
@@ -367,7 +367,7 @@ Slicer:
   [backend] are used
  
 * server responds to /details which is a result of
-  AggregationBrowser.cell_details()
+  Browser.cell_details()
 
 Examples:
 

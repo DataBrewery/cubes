@@ -686,7 +686,7 @@ Keys:
 Query specification should contain at least one key: `query` - which is query
 type: ``aggregate``, ``cell_details``, ``values`` (for dimension
 values), ``facts`` or ``fact`` (for multiple or single fact respectively). The
-rest of keys are query dependent. For more information see AggregationBrowser
+rest of keys are query dependent. For more information see Browser
 documentation.
 
 .. note::

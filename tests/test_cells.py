@@ -1,10 +1,10 @@
 import unittest
 
-from cubes.query import Cell, PointCut, SetCut, RangeCut
-from cubes.query import string_from_path, cut_from_string, path_from_string
-from cubes.query import cut_from_dict
-from cubes.errors import CubesError, ArgumentError
-from cubes.errors import HierarchyError, NoSuchDimensionError
+from cubes_lite.query import Request, PointCut, SetCut, RangeCut
+from cubes_lite.query import string_from_path, cut_from_string, path_from_string
+from cubes_lite.query import cut_from_dict
+from cubes_lite.errors import CubesError, ArgumentError
+from cubes_lite.errors import HierarchyError, NoSuchDimensionError
 
 from .common import CubesTestCaseBase, create_provider
 
@@ -15,10 +15,10 @@ class CutsTestCase(CubesTestCaseBase):
 
         self.provider = create_provider("browser_test.json")
         self.cube = self.provider.cube("transactions")
-        self.dim_date = self.cube.dimension("date")
+        self.dim_date = self.cube.get_dimension("date")
 
     def test_cut_depth(self):
-        dim = self.cube.dimension("date")
+        dim = self.cube.get_dimension("date")
         self.assertEqual(1, PointCut(dim, [1]).level_depth())
         self.assertEqual(3, PointCut(dim, [1, 1, 1]).level_depth())
         self.assertEqual(1, RangeCut(dim, [1], [1]).level_depth())
@@ -28,7 +28,7 @@ class CutsTestCase(CubesTestCaseBase):
 
     def test_cut_from_dict(self):
         # d = {"type":"point", "path":[2010]}
-        # self.assertRaises(Exception, cubes.cut_from_dict, d)
+        # self.assertRaises(Exception, cubes_lite.cut_from_dict, d)
 
         d = {"type": "point", "path": [2010], "dimension": "date",
              "level_depth": 1, "hierarchy": None, "invert": False,
@@ -164,9 +164,9 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         self.cube = self.provider.cube("contracts")
 
     def test_cutting(self):
-        full_cube = Cell(self.cube)
-        self.assertEqual(self.cube, full_cube.cube)
-        self.assertEqual(0, len(full_cube.cuts))
+        full_cube = Request(self.cube)
+        self.assertEqual(self.cube, full_cube.model)
+        self.assertEqual(0, len(full_cube.conditions))
 
         cell = full_cube.slice(PointCut("date", [2010]))
         self.assertEqual(1, len(cell.cuts))
@@ -181,7 +181,7 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         self.assertEqual(3, len(cell.cuts))
 
     def test_multi_slice(self):
-        full_cube = Cell(self.cube)
+        full_cube = Request(self.cube)
 
         cuts_list = (
             PointCut("date", [2010]),
@@ -194,12 +194,12 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         self.assertRaises(CubesError, full_cube.multi_slice, {})
 
     def test_get_cell_dimension_cut(self):
-        full_cube = Cell(self.cube)
+        full_cube = Request(self.cube)
         cell = full_cube.slice(PointCut("date", [2010]))
         cell = cell.slice(PointCut("supplier", [1234]))
 
         cut = cell.cut_for_dimension("date")
-        self.assertEqual(str(cut.dimension), "date")
+        self.assertEqual(str(cut.get_dimension), "date")
 
         self.assertRaises(NoSuchDimensionError, cell.cut_for_dimension, "someunknown")
 
@@ -207,7 +207,7 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         self.assertEqual(cut, None)
 
     def test_hierarchy_path(self):
-        dim = self.cube.dimension("cpv")
+        dim = self.cube.get_dimension("cpv")
         hier = dim.hierarchy()
 
         levels = hier.levels_for_path([])
@@ -224,7 +224,7 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
                           [1, 2, 3, 4, 5, 6, 7, 8])
 
     def test_hierarchy_drilldown_levels(self):
-        dim = self.cube.dimension("cpv")
+        dim = self.cube.get_dimension("cpv")
         hier = dim.hierarchy()
 
         levels = hier.levels_for_path([], drilldown=True)
@@ -236,9 +236,9 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
 
     def test_slice_drilldown(self):
         cut = PointCut("date", [])
-        original_cell = Cell(self.cube, [cut])
+        original_cell = Request(self.cube, [cut])
 
-        cell = original_cell.drilldown("date", 2010)
+        cell = original_cell.drilldown_levels("date", 2010)
         self.assertEqual([2010], cell.cut_for_dimension("date").path)
 
         cell = cell.drilldown("date", 1)
@@ -248,20 +248,20 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         self.assertEqual([2010, 1, 2], cell.cut_for_dimension("date").path)
 
     def test_cell_contains_level(self):
-        cell = Cell(
+        cell = Request(
             self.cube,
             [
                 PointCut('supplier', ['org']),
             ]
         )
 
-        dimension = self.cube.dimension('supplier')
-        level = dimension.level('supplier')
+        dimension = self.cube.get_dimension('supplier')
+        level = dimension.get_level('supplier')
 
         contains = cell.contains_level(dimension, level)
 
         msg = (
-            'Default hierarchy of Cut should match '
+            'Default hierarchy of ConditionBase should match '
             'default hierarchy of Dimension'
         )
         self.assertEqual(contains, True, msg)

@@ -25,13 +25,13 @@ Model Utility Functions
 .. autofunction:: cubes.create_list_of
 .. autofunction:: cubes.collect_attributes
 .. autofunction:: cubes.collect_dependencies
-.. autofunction:: cubes.depsort_attributes
+.. autofunction:: cubes._depsort_attributes
 
 
 Model components
 ================
 
-.. autoclass:: cubes.ModelObject
+.. autoclass:: cubes.ModelObjectBase
 
 Cube
 ----
@@ -53,7 +53,7 @@ Attributes, Measures and Aggregates
 .. autoclass:: cubes.AttributeBase
 .. autoclass:: cubes.Attribute
 .. autoclass:: cubes.Measure
-.. autoclass:: cubes.MeasureAggregate
+.. autoclass:: cubes.Aggregate
 
 .. exception:: ModelError
 

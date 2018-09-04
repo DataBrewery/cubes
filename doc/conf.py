@@ -51,7 +51,7 @@ copyright = u'2010-2015, Stefan Urbanek'
 # built documents.
 #
 # The short X.Y version.
-# import cubes
+# import cubes_lite
 version = '1.1'
 # The full version, including alpha/beta/rc tags.
 release = '1.1'
@@ -217,6 +217,6 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'cubes', u'Cubes Documentation',
+    ('index', 'cubes_lite', u'Cubes Documentation',
      [u'Stefan Urbanek'], 1)
 ]

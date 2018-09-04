@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 import unittest
 from sqlalchemy.sql.elements import True_
 
-from cubes import SetCut, InternalError
-from cubes.sql.query import QueryContext
+from cubes_lite import SetCut, InternalError
+from cubes_lite.sql.query import QueryContext
 
 
 class FakeStarSchema(object):

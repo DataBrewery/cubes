@@ -1,5 +1,5 @@
 from __future__ import print_function
-from cubes import Workspace, Cell, PointCut
+from cubes_lite import Workspace, Cell, PointCut
 
 # 1. Create a workspace
 workspace = Workspace()
@@ -10,7 +10,7 @@ workspace.import_model("model.json")
 browser = workspace.browser("irbd_balance")
 
 # 3. Play with aggregates
-result = browser.aggregate()
+result = browser.request_data()
 
 print("Total\n"
       "----------------------")
@@ -27,7 +27,7 @@ print("\n"
       "Drill Down by Category (top-level Item hierarchy)\n"
       "==================================================")
 #
-result = browser.aggregate(drilldown=["item"])
+result = browser.request_data(drilldown=["item"])
 #
 print(("%-20s%10s%10s%10s\n"+"-"*50) % ("Category", "Count", "Total", "Double"))
 #
@@ -45,7 +45,7 @@ print("\n"
 cut = PointCut("item", ["e"])
 cell = Cell(browser.cube, cuts = [cut])
 
-result = browser.aggregate(cell, drilldown=["item"])
+result = browser.request_data(cell, drilldown=["item"])
 
 print(("%-20s%10s%10s%10s\n"+"-"*50) % ("Sub-category", "Count", "Total", "Double"))
 

@@ -6,8 +6,8 @@ from sqlalchemy.sql.expression import ColumnElement
 
 from unittest import TestCase, skip
 
-from cubes.errors import ExpressionError
-from cubes.sql.expressions import SQLExpressionCompiler, SQLExpressionContext
+from cubes_lite.errors import ExpressionError
+from cubes_lite.sql.expressions import SQLExpressionCompiler, SQLExpressionContext
 from .common import SQLTestCase
 
 #

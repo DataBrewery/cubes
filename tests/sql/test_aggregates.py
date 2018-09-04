@@ -1,8 +1,8 @@
 # -*- coding=utf -*-
 import unittest
 from sqlalchemy import create_engine, MetaData, Table, Integer, String, Column
-from cubes import *
-from cubes.errors import *
+from cubes_lite import *
+from cubes_lite.errors import *
 from ..common import CubesTestCaseBase
 
 from json import dumps
@@ -51,11 +51,11 @@ class AggregatesTestCase(CubesTestCaseBase):
         browser = self.workspace.browser("unknown_function")
 
         with self.assertRaisesRegex(ArgumentError, "Unknown.*function"):
-            browser.aggregate()
+            browser.get_aggregate()
 
     def test_explicit(self):
         browser = self.workspace.browser("default")
-        result = browser.aggregate()
+        result = browser.get_aggregate()
         summary = result.summary
         self.assertEqual(60, summary["amount_sum"])
         self.assertEqual(16, summary["count"])
@@ -63,7 +63,7 @@ class AggregatesTestCase(CubesTestCaseBase):
     def test_post_calculation(self):
         browser = self.workspace.browser("postcalc_in_measure")
 
-        result = browser.aggregate(drilldown=["year"])
+        result = browser.get_aggregate(drilldown=["year"])
         cells = list(result.cells)
         aggregates = sorted(cells[0].keys())
         self.assertSequenceEqual(['amount_sma', 'amount_sum', 'count', 'year'],

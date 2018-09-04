@@ -1,7 +1,7 @@
 import unittest
 
-from cubes.sql.mapper import StarSchemaMapper, distill_naming
-from cubes.metadata import Attribute
+from cubes_lite.sql.mapping import StarSchemaMapper, distill_naming
+from cubes_lite.model import Attribute
 
 from ..common import CubesTestCaseBase, create_provider
 
@@ -28,15 +28,15 @@ class MapperTestCase(CubesTestCaseBase):
 
     def test_logical_reference(self):
 
-        dim = self.provider.dimension("date")
+        dim = self.provider.get_dimension("date")
         attr = Attribute("month", dimension=dim)
         self.assertEqual("date.month", attr.ref)
 
-        dim = self.provider.dimension("product")
+        dim = self.provider.get_dimension("product")
         attr = Attribute("category", dimension=dim)
         self.assertEqual("product.category", attr.ref)
 
-        dim = self.provider.dimension("flag")
+        dim = self.provider.get_dimension("flag")
         attr = Attribute("flag", dimension=dim)
         self.assertEqual("flag", attr.ref)
 
@@ -47,7 +47,7 @@ class MapperTestCase(CubesTestCaseBase):
         """Create string reference by concatentanig table and column name.
         No schema is expected (is ignored)."""
 
-        attr = self.cube.attribute(logical_ref)
+        attr = self.cube.get_fact_attribute(logical_ref)
         mapper = mapper or self.mapper
         ref = mapper[attr]
         sref = ref[1] + "." + ref[2]

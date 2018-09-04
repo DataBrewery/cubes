@@ -4,11 +4,12 @@ from __future__ import absolute_import
 from unittest import TestCase, skip
 import sqlalchemy as sa
 
-from cubes.sql import SQLStore
-from cubes.sql.query import StarSchema, FACT_KEY_LABEL, to_join
-from cubes.sql.query import QueryContext
-from cubes.sql.mapper import map_base_attributes, StarSchemaMapper
-from cubes.sql.mapper import distill_naming
+from cubes_lite.sql import SQLStore
+from cubes_lite.sql.query import StarSchema, FACT_KEY_LABEL
+from sql.mapping import to_join
+from cubes_lite.sql.query import QueryContext
+from cubes_lite.sql.mapping import map_base_attributes, StarSchemaMapper
+from cubes_lite.sql.mapping import distill_naming
 
 from .dw.demo import create_demo_dw, TinyDemoModelProvider
 from .common import SQLTestCase

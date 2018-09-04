@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 from .common import CubesTestCaseBase, create_provider
-from cubes.errors import *
-from cubes.calendar import *
+from cubes_lite.errors import *
+from cubes_lite.calendar import *
 from datetime import datetime
 
 
@@ -13,25 +13,25 @@ class DateTimeTestCase(CubesTestCaseBase):
         self.cal = Calendar()
 
     def test_empty(self):
-        dim = self.provider.dimension("default_date")
+        dim = self.provider.get_dimension("default_date")
 
         self.assertEqual("date", dim.role)
-        self.assertIsNone(dim.level("year").role)
+        self.assertIsNone(dim.get_level("year").role)
 
     def test_implicit_roles(self):
-        dim = self.provider.dimension("default_date")
+        dim = self.provider.get_dimension("default_date")
 
         elements = calendar_hierarchy_units(dim.hierarchy("ymd"))
         self.assertSequenceEqual(["year", "month", "day"], elements)
 
     def test_explicit_roles(self):
-        dim = self.provider.dimension("explicit_date")
+        dim = self.provider.get_dimension("explicit_date")
 
         elements = calendar_hierarchy_units(dim.hierarchy("ymd"))
         self.assertSequenceEqual(["year", "month", "day"], elements)
 
     def test_no_roles(self):
-        dim = self.provider.dimension("invalid_date")
+        dim = self.provider.get_dimension("invalid_date")
 
         with self.assertRaises(ArgumentError):
             calendar_hierarchy_units(dim.hierarchy("ymd"))

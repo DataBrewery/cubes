@@ -318,7 +318,7 @@ fetch already computed value).
 Functionality additions and changes:
 
 * New model objects: :class:`cubes.Attribute` (for dimension or detail),
-  :class:`cubes.Measure` and :class:`cubes.MeasureAggregate`.
+  :class:`cubes.Measure` and :class:`cubes.Aggregate`.
 * New model creation/helper functions: :func:`cubes.create_measure_aggregate`,
   :func:`cubes.create_measure`
 
@@ -429,8 +429,8 @@ Other Minor Changes
 
 * Cell.contains_level(dim, level, hierarhy) – returns ``True`` when the cell
   contains level ``level`` of dimension ``dim``
-* renamed `AggregationBrowser.values()` to
-  :meth:`cubes.AggregationBrowser.members`
+* renamed `Browser.values()` to
+  :meth:`cubes.Browser.members`
 * `AggregationResult.measures` changed to `AggregationResult.aggregates` (see
   :class:`AggregationResult`)
 * browser's `__init__` signature has changed to include the store
@@ -440,7 +440,7 @@ Other Minor Changes
 * ``to_dict()`` of model objects returns an ordered dictionary for nicer JSON
   output
 * New class :class:`cubes.Facts` that should be returned by
-  :meth:`cubes.AggregationBrowser.facts`
+  :meth:`cubes.Browser.facts`
 * :func:`cubes.cuts_from_string` has two new arguments `member_converters` and
   `role_member_converters`
 * New class :class:`cubes.Drilldown` to get more information about the

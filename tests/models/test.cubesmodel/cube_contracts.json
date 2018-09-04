@@ -1,14 +1,13 @@
 {
 	"name": "contracts",
-	"label": "Uzatvorené zmluvy verejného obstarávania",
-	"description": "Uzatvorené zmluvy verejného obstarávania Slovenskej Republiky",
-
 	"dimensions": [ "date",
 					"cpv",
 					"procurer",
 					"supplier",
 					"process_type",
 					"geography"],
+	"measures": [],
+	"aggregates": [],
 	"joins": [
 		{
 			"master": "zmluvy.vestnik_datum_id",

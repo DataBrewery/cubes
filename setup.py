@@ -1,41 +1,40 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import unicode_literals
+
 from setuptools import setup, find_packages
 
+
 requirements = [
-    "python-dateutil",
-    "jsonschema",
-    "expressions>=0.2.3"
+    'python-dateutil',
+    'jsonschema',
+    'sqlalchemy',
 ]
 
 extras = {
-    'sql': 'sqlalchemy>= 0.9.0',
-    'slicer': 'werkzeug',
-    'html': 'jinja',
-    'all': ['cubes[%s]' % extra for extra in ['sql', 'slicer', 'html']],
-    'dev': ['cubes[all]', 'sphinx'],
+    'dev': ['cubes_lite', 'sphinx'],
 }
 
 setup(
-    name="cubes",
-    version='1.1',
+    name='cubes_lite',
+    version='0.1',
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
     install_requires=requirements,
     extras_require=extras,
 
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages=find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']),
 
     package_data={
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        'cubes': ['templates/*.html', 'templates/*.js', 'schemas/*.json'],
-        'cubes.server': ['templates/*.html'],
+        'cubes_lite': ['schemas/*.json'],
     },
 
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python',
@@ -44,19 +43,6 @@ setup(
         'Topic :: Utilities'
     ],
 
-    entry_points={
-        'console_scripts': ['slicer = cubes.slicer.commands:main'],
-    },
-
-    test_suite="tests",
-
-    # metadata for upload to PyPI
-    author="Stefan Urbanek",
-    author_email="stefan.urbanek@gmail.com",
-    description="Lightweight framework for Online Analytical Processing (OLAP) and multidimensional analysis",
-    license="MIT license with following addition: If your version of the Software supports interaction with it remotely through a computer network, the above copyright notice and this permission notice shall be accessible to all users.",
-    keywords="olap multidimensional data analysis",
-    url="http://cubes.databrewery.org"
-
-    # could also include long_description, download_url, classifiers, etc.
+    entry_points={},
+    test_suite='tests',
 )

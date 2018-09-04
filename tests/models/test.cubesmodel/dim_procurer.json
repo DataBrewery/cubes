@@ -1,39 +1,15 @@
 {
     "name": "procurer",
-    "label": "Obstarávateľ",
     "levels": [
         {
             "name": "sector",
-            "label": "Sektor",
             "key": "account_sector_code",
-            "label_attribute": "account_sector",
             "attributes": ["account_sector_code", "account_sector"]
         },
         {
             "name": "organisation",
-            "label": "Organizácia",
             "key": "ico",
-            "label_attribute": "name",
             "attributes": ["ico", "name", "address"]
         }
-    ],
-    "attributes":{
-        "account_sector" : {
-            "label": "Account Sector"
-        },
-        "ico": {
-            "label": "ICO"
-        },
-        "name" : {
-            "label": "Nazov"
-        },
-        "address" : {
-            "label": "Adresa"
-        }
-    },
-    "hierarchies": {
-        "default": {
-            "levels": ["sector", "organisation"]
-        }
-    }
+    ]
 }

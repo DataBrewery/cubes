@@ -1,0 +1,87 @@
+{
+    "$schema": "http://json-schema.org/schema",
+    "title": "Cube",
+    "type": "object",
+
+    "definitions": {
+        "attribute_base": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "ref": {"type": "string"},
+                "info": {"type": "object"},
+
+                "missing_value": {
+                    "title": "Missing value",
+                    "type": ["string", "number", "null", "boolean"]
+                },
+
+                "depends_on": {
+                    "anyof": [
+                        {"type": "string"},
+                        {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        }
+                    ]
+                }
+            },
+            "required": ["name"],
+            "additionalProperties": false
+        }
+    },
+
+    "properties": {
+        "name": {"type": "string"},
+        "ref": {"type": "string"},
+        "info": {"type": "object"},
+
+        "browser_options": {"type": "object"},
+
+        "measures": {
+            "type": "array",
+            "items": {
+                "anyof": [
+                    {"type": "string"},
+                    {"$ref": "#/definitions/attribute_base"}
+                ]
+            }
+        },
+
+        "aggregates": {
+            "type": "array",
+            "items": {
+                "anyof": [
+                    {"type": "string"},
+                    {
+                        "allof": [
+                            {"$ref": "#/definitions/attribute_base"},
+                            {
+                                "properties": {
+                                    "function": {"type": "string"}
+                                }
+                            }
+                        ],
+                        "additionalproperties": false
+                    }
+                ]
+
+            }
+        },
+
+        "dimensions": {
+            "title": "Dimensions",
+            "type": "array",
+            "items": {
+                "title": "Dimension name",
+                "type": ["string", "object"]
+            }
+        },
+
+        "mappings": {"type": "object"},
+        "joins": {"type": "array"}
+    },
+
+    "required": ["name", "measures", "aggregates", "dimensions"],
+    "additionalProperties": false
+}

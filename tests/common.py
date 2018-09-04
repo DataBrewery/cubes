@@ -1,21 +1,27 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import unicode_literals
+
+import json
 import os
 import unittest
-from cubes import Workspace
-from cubes import compat
+
 from sqlalchemy import create_engine, MetaData
-import json
-from cubes.metadata import read_model_metadata
-from cubes.metadata import StaticModelProvider
+
+# from cubes_lite import Workspace
+from cubes_lite import compat
+from cubes_lite.model import read_model
+
 
 TESTS_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(TESTS_PATH, 'data')
 
+
 def create_provider(name):
-    # TODO: this should be rather:
-    # provider = FileModelProvider(path)
     path = os.path.join(TESTS_PATH, 'models', name)
-    metadata = read_model_metadata(path)
-    return StaticModelProvider(metadata)
+    model = read_model(path)
+    return model
+
 
 class CubesTestCaseBase(unittest.TestCase):
     sql_engine = None
@@ -30,7 +36,6 @@ class CubesTestCaseBase(unittest.TestCase):
         else:
             self.engine = None
             self.metadata = None
-
 
     def model_path(self, model):
         return os.path.join(self._models_path, model)
