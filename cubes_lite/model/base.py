@@ -2,8 +2,9 @@
 
 from __future__ import absolute_import
 
+from collections import OrderedDict
+
 from .. import compat
-from ..common import IgnoringDictionary
 from ..errors import ModelError
 
 from .utils import ensure_list
@@ -79,7 +80,7 @@ class ModelObjectBase(object):
         return hash(self.name)
 
     def to_dict(self, **options):
-        out = IgnoringDictionary()
+        out = OrderedDict()
 
         out['name'] = self.name
 

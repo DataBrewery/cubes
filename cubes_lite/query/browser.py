@@ -2,11 +2,11 @@
 
 from __future__ import absolute_import
 
-from common import FactoryMixin
 from ..errors import ArgumentError
 from ..loggers import get_logger
 
-from .result import Request
+from .request import Request
+from query.query import QueryBuilder
 
 __all__ = (
     'Browser',
@@ -23,8 +23,8 @@ class Browser(object):
       * `model` - a set of cubes for browsing data
     """
 
-    request_cls = Request
-    query_builder_cls = QueryBuilder
+    default_request_cls = Request
+    default_query_builder_cls = QueryBuilder
 
     def __init__(self, model, **options):
         super(Browser, self).__init__()
@@ -33,6 +33,20 @@ class Browser(object):
             raise ArgumentError('No model was given for aggregation browser')
 
         self.model = model
+        self.query_types_registry = {}
+
+    def register_query_types(self, info):
+        self.query_types_registry = {}
+
+        for type_, (request_cls, response_cls, query_builders) in info.items():
+            request_cls = request_cls or self.default_request_cls
+            response_cls = response_cls or request_cls.response_cls
+
+            self.query_types_registry[type_] = (
+                request_cls,
+                response_cls,
+                query_builders,
+            )
 
     def browse(
         self, request_type, conditions=None, aggregates=None,
@@ -52,7 +66,9 @@ class Browser(object):
         Returns a :class:`Response` object.
         """
 
-        request = self.request_cls.build(
+        request_cls = self.get_request_cls(request_type)
+
+        request = request_cls.build(
             self.model,
             type_=request_type,
             conditions=conditions,
@@ -67,9 +83,14 @@ class Browser(object):
         return self._browse(request)
 
     def _browse(self, request):
-        query = self.build_query(request)
+        query_builder = self.get_query_builder(request)
+        query = query_builder.construct()
+        meta_data = query_builder.get_meta_data()
+
         data = self.execute_query(query, label=str(request.type_))
-        return request.response_cls(request, data)
+
+        response_cls = self.get_response_cls(request.type_)
+        return response_cls(request, data, **meta_data)
 
     def execute_query(self, query, label=None):
         label = 'SQL({}):'.format(label if label else 'info')
@@ -80,30 +101,31 @@ class Browser(object):
     def _execute_query(self, statement):
         raise NotImplementedError()
 
-    def build_query(self, request):
-        cubes = self.model.get_related_cubes(request._aggregates)
-        cube_names = [cube.name for cube in cubes]
-        query_builder = self.query_builder_cls.build(request, cube_names)
-        return query_builder.construct()
+    def get_query_builder(self, request):
+        info = self.query_types_registry.get(request.type_)
+        if not info:
+            return self.default_query_builder_cls
 
+        desc = info[2]
+        if not isinstance(desc, dict):
+            query_builder_cls = desc
+        else:
+            cubes = request.get_related_cubes()
+            cube_names = [cube.name for cube in cubes]
+            key = tuple(sorted(cube_names))
 
-class QueryBuilder(FactoryMixin):
-    def __init__(self, request):
-        self.request = request
-        self.model = request.model
+            query_builder_cls = desc.get(key) or self.default_query_builder_cls
 
-    @classmethod
-    def factory_key(cls, params):
-        return params.request.type_, tuple(sorted(params.cubes_names))
+        return query_builder_cls(request, self)
 
-    @classmethod
-    def on_building(cls, cls_to_create, params):
-        params.pop('cubes_names')
-        return cls_to_create(**params)
+    def get_request_cls(self, request_type):
+        info = self.query_types_registry.get(request_type)
+        if not info:
+            return self.default_request_cls
+        return info[0]
 
-    @classmethod
-    def registry(cls):
-        return cls
-
-    def construct(self):
-        raise NotImplementedError()
+    def get_response_cls(self, request_type):
+        info = self.query_types_registry.get(request_type)
+        if not info:
+            return self.default_request_cls.response_cls
+        return info[1]

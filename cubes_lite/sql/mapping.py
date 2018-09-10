@@ -2,25 +2,192 @@
 
 from __future__ import absolute_import
 
-from collections import namedtuple
+import sqlalchemy as sa
+import sqlalchemy.sql as sql
 
 from .. import compat
-from ..errors import ArgumentError, ModelError
+from .functions import Function
+from ..errors import (
+    ArgumentError, ModelError, NoSuchAttributeError, MissingObjectError,
+)
 
 __all__ = (
     'Mapper',
 )
 
 
+class NoSuchTableError(MissingObjectError):
+    """Error related to the physical star schema."""
+    pass
+
+
+def _make_compound_key(table, key):
+    """Returns a list of columns from `column_key` for `table` representing
+    potentially a compound key. The `column_key` can be a name of a single
+    column or list of column names."""
+
+    if not isinstance(key, (list, tuple)):
+        key = [key]
+
+    return [table.columns[name] for name in key]
+
+
 class Mapper(object):
-    """A dictionary-like object that provides physical column references for
-    cube attributes. Does implicit mapping of an attribute.
-    """
+    """Represents a star/snowflake table schema"""
 
-    def __init__(self, cube):
+    def __init__(self, cube, metadata):
         self.cube = cube
+        self.metadata = metadata
 
-    def __getitem__(self, attribute):
+        self.joins = [JoinObject.parse(join) for join in self.cube.joins]
+
+        self._columns = {}  # keys: logical column names
+        self._physical_tables = {}  # keys: tuples (schema, table physical name)
+
+        self.root_table_object = TableObject.parse(self.cube.ref)
+        self.root_table_object.table = self.construct_physical_table(
+            name=self.root_table_object.name,
+            schema=self.root_table_object.schema,
+        )
+
+        # keys: tuples (schema, table aliased name)
+        self._table_objects = self._collect_tables()
+
+    def _collect_tables(self):
+        """"
+        Collect all the detail tables
+        We don't need to collect the master tables as they are expected to
+        be referenced as 'details'. The exception is the fact table that is
+        provided explicitly for the snowflake schema.
+        """
+
+        table_objects = [self.root_table_object]
+
+        for join in self.joins:
+            table_name = join.detail.table
+
+            if not table_name:
+                raise ModelError(
+                    'No detail table specified for a join "{}"'.format(join)
+                )
+
+            detail_table = self.construct_physical_table(
+                name=table_name,
+                schema=join.detail.schema,
+            )
+
+            if join.alias:
+                detail_table = detail_table.alias(join.alias)
+
+            obj = TableObject(
+                table=detail_table,
+                schema=join.detail.schema,
+                name=table_name,
+                alias=join.alias,
+                join=join,
+            )
+
+            table_objects.append(obj)
+
+        return object_dict(
+            table_objects,
+            key_func=lambda obj: (obj.schema, obj.alias or obj.name),
+            error_message=(
+                'Detail table "{key[1]}" joined twice in cube "{cube}".'
+                'Unique join alias is required.'
+            ),
+            error_dict={'cube': self.cube.name},
+        )
+
+    def get_table_object(self, key):
+        """Return a table reference for `key` which has form of a
+        tuple (`schema`, `table`).
+        """
+
+        if not key:
+            raise ArgumentError('Table key should not be empty')
+
+        try:
+            return self._table_objects[key]
+        except KeyError:
+            schema = '"{}".'.format(key[0]) if key[0] else ''
+            raise ModelError(
+                'Unknown star table {}"{}". Missing join?'
+                .format(schema, key[1])
+            )
+
+    def construct_physical_table(self, name, schema=None):
+        """Return a physical table or table expression, regardless whether it
+        exists or not in the star."""
+
+        if '.' in name:
+            if schema:
+                raise ArgumentError('Ambiguous schema in "{}"'.format(name))
+
+            schema, name = name.split('.', 1)
+
+        key = (schema, name)
+        table = self._physical_tables.get(key)
+        if table:
+            return table
+
+        try:
+            table = sa.Table(
+                name,
+                self.metadata,
+                autoload=True,
+                schema=schema,
+            )
+        except sa.exc.NoSuchTableError:
+            in_schema = ' in schema "{}"'.format(schema) if schema else ''
+            msg = 'No such fact table "{}"{}'.format(name, in_schema)
+            raise NoSuchTableError(msg)
+
+        self._physical_tables[key] = table
+
+        return table
+
+    def get_column_by_attribute(self, attribute):
+        """Return a column for `logical` reference. The returned column will
+        have a label same as the column part of `logical`.
+        """
+
+        logical = attribute.name
+
+        if logical in self._columns:
+            return self._columns[logical]
+
+        try:
+            column_object = self.get_column_object_by_attribute(attribute)
+        except KeyError:
+            raise NoSuchAttributeError(logical)
+
+        key = (column_object.schema, column_object.table)
+
+        table_object = self.get_table_object(key)
+        table = table_object.table
+
+        try:
+            column = table.columns[column_object.column]
+        except KeyError:
+            available = '", "'.join(str(c) for c in table.columns)
+            raise ModelError(
+                'Unknown column "{}" in table "{}" available columns: "{}"'
+                .format(column_object.column, column_object.table, available)
+            )
+
+        if column_object.extract:
+            column = sql.expression.extract(column_object.extract, column)
+
+        if column_object.function:
+            column = getattr(sql.expression.func, column_object.function)(column)
+
+        column = column.label(column_object.column)
+
+        self._columns[logical] = column
+        return column
+
+    def get_column_object_by_attribute(self, attribute):
         """Returns implicit physical column reference for `attribute`, which
         should be an instance of :class:`cubes_lite.model.Attribute`. The
         returned reference has attributes `schema`, `table`, `column`,
@@ -37,10 +204,10 @@ class Mapper(object):
         if physical:
             return ColumnObject.parse(physical)
 
-        schema, table = self.table_for_attribute(attribute)
+        schema, table = self._table_for_attribute(attribute)
         return ColumnObject.parse((schema, table, attribute.base_name))
 
-    def table_for_attribute(self, attribute):
+    def _table_for_attribute(self, attribute):
         """Return a tuple (schema, table) for attribute."""
 
         dimension = attribute.dimension
@@ -50,16 +217,208 @@ class Mapper(object):
         else:
             table = dimension.ref
 
-        if '.' not in table:
-            schema = None
+        table = TableObject.parse(table)
+        return (table.schema, table.name)
+
+    def _required_tables(self, attributes):
+        """Get all tables that are required to be joined to get `attributes`.
+        `attributes` is a list of `Mapper` attributes (or objects with
+        same kind of attributes).
+        """
+
+        attributes = [attr for attr in attributes if attr.is_base]
+        column_objects = [self.get_column_object_by_attribute(a) for a in attributes]
+        relevant_tables = set(self.get_table_object((c.schema, c.table)) for c in column_objects)
+
+        # now we have to resolve all dependencies
+        required = {}
+        while relevant_tables:
+            table = relevant_tables.pop()
+            required[table.key] = table
+
+            if not table.join:
+                continue
+
+            master = table.join.master.table_key
+            if master not in required:
+                relevant_tables.add(self.get_table_object(master))
+
+            detail = table.join.detail.table_key
+            if detail not in required:
+                relevant_tables.add(self.get_table_object(detail))
+
+        if self.root_table_object.key in required:
+            masters = {self.root_table_object.key: self.root_table_object}
+            sorted_tables = [self.root_table_object]
         else:
-            schema = table.split('.', 1)[0]
+            details = [
+                table for table in required.values()
+                if table.join.method == 'detail'
+            ]
+            if details:
+                first = details[0]
+            else:
+                first = required.values()[0]
 
-        return (schema, table)
+            sorted_tables = [first]
+            masters = {first.key: first}
 
-    def get_mapping(self):
-        base_attrs = [attr for attr in self.cube.all_attributes if attr.is_base]
-        return {attr.name: self[attr] for attr in base_attrs}
+        while required:
+            details = [
+                table for table in required.values()
+                if table.join and table.join.master.table_key in masters
+            ]
+
+            if not details:
+                break
+
+            for detail in details:
+                masters[detail.key] = detail
+                sorted_tables.append(detail)
+
+                del required[detail.key]
+
+        if len(required) > 1:
+            keys = [
+                str(table)
+                for table in required.values()
+                if table.key != self.root_table_object.key
+            ]
+
+            raise ModelError(
+                'Some tables are not joined: {}'
+                .format(', '.join(keys))
+            )
+
+        return sorted_tables
+
+    def get_joined_tables_for(self, attributes):
+        """The main method for generating underlying star schema joins.
+        Returns a denormalized JOIN expression that includes all relevant
+        tables containing base `attributes` (attributes representing actual
+        columns).
+        """
+
+        table_objects = self._required_tables(attributes)
+
+        # Dictionary of raw tables and their joined products
+        # At the end this should contain only one item representing the whole
+        # star.
+        star_tables = {o.key: o.table for o in table_objects}
+
+        # Here the `star` contains mapping table key -> table, which will be
+        # gradually replaced by JOINs
+
+        # Perform the joins
+        # =================
+        #
+        # 1. find the column
+        # 2. construct the condition
+        # 3. use the appropriate SQL JOIN
+        # 4. wrap the star with detail
+
+        # first table does not need to be joined
+        star = table_objects[0].table
+
+        for table in table_objects[1:]:
+            if not table.join:
+                raise ModelError(
+                    'Missing join for table "{}"'.format(table)
+                )
+
+            join = table.join
+
+            # Get the physical table object (aliased) and already constructed
+            # key (properly aliased)
+            detail_table = table.table
+            detail_key = table.key
+
+            # The `table` here is a detail table to be joined. We need to get
+            # the master table this table joins to:
+
+            master = join.master
+            master_key = master.table_key
+
+            # We need plain tables to get columns for prepare the join
+            # condition. We can't get it form `star`.
+
+            # Master table.column
+            master_table = self.get_table_object(master_key).table
+
+            try:
+                master_columns = _make_compound_key(master_table, master.column)
+            except KeyError as e:
+                raise ModelError(
+                    'Unable to find master key column "{key}" '
+                    'in table "{table}"'
+                    .format(key=e, table=master_table)
+                )
+
+            # Detail table.column
+            try:
+                detail_columns = _make_compound_key(detail_table, join.detail.column)
+            except KeyError as e:
+                raise ModelError(
+                    'Unable to find master key column "{key}" '
+                    'in table "{table}"'
+                        .format(key=e, table=detail_table)
+                )
+
+            if len(master_columns) != len(detail_columns):
+                raise ModelError(
+                    'Compound keys for master "{}" and detail '
+                    '"{}" table have different number of columns'
+                    .format(master_table, detail_table)
+                )
+
+            # the JOIN ON condition
+            key_conditions = [
+                left == right
+                for left, right
+                in zip(master_columns, detail_columns)
+            ]
+            onclause = and_(*key_conditions)
+
+            # Determine the join type based on the join method. If the method
+            # is "detail" then we need to swap the order of the tables
+            # (products), because SQLAlchemy provides inteface only for
+            # left-outer join.
+            left, right = (star, detail_table)
+
+            if join.method is None or join.method == 'match':
+                is_outer = False
+            elif join.method == 'master':
+                is_outer = True
+            elif join.method == 'detail':
+                # Swap the master and detail tables to perform RIGHT OUTER JOIN
+                left, right = (right, left)
+                is_outer = True
+            else:
+                raise ModelError('Unknown join method "{}"'.format(join.method))
+
+            star = sql.expression.join(
+                left, right,
+                onclause=onclause,
+                isouter=is_outer,
+            )
+
+            # Consume the detail
+            if detail_key not in star_tables:
+                raise ModelError(
+                    'Detail table "{}" not in star. Missing join?'
+                    .format(detail_table)
+                )
+
+            # The table is consumed by the join product, becomes the join
+            # product itself.
+            star_tables[detail_key] = star
+            star_tables[master_key] = star
+
+        return star
+
+    def assemble_aggregates(self, aggregates):
+        funcs = [Function.get(a.function) for a in aggregates]
+        return [func(a, self) for func, a in zip(funcs, aggregates)]
 
 
 class ColumnObject(object):
@@ -137,18 +496,34 @@ class ColumnObject(object):
         msg = 'Either `extract` or `function` can be used, not both'
         assert not all([extract, function]), msg
 
-        self.table = table
-        self.column = column
-        self.schema = schema
-        self.extract = extract
-        self.function = function
+        self.table = table  # type: str
+        self.column = column  # type: str
+        self.schema = schema  # type: str
+        self.extract = extract  # type: str
+        self.function = function  # type: str
+
+    def __str__(self):
+        output = self.column
+
+        if self.table:
+            output = '{}.{}'.format(self.table, output)
+        if self.schema:
+            return '{}.{}'.format(self.schema, output)
+
+        return output
+
+    @property
+    def table_key(self):
+        return self.schema, self.table
 
 
 class JoinObject(object):
-    """Table join specification. `master` and `detail` are ColumnObjects.
-    `method` denotes which table members should be considered in the join:
-    *master* - all master members (left outer join), *detail* - all detail
-    members (right outer join) and *match* - members must match (inner join).
+    """Table join specification.
+    `master` and `detail` are ColumnObjects.
+    `method` - denotes which table members should be considered in the join:
+        *master* - all master members (left outer join)
+        *detail* - all detail members (right outer join)
+        *match* - members must match (inner join).
     """
 
     @classmethod
@@ -198,10 +573,13 @@ class JoinObject(object):
         return cls(master, detail, alias, method)
 
     def __init__(self, master, detail, alias=None, method=None):
-        self.master = master
-        self.detail = detail
-        self.alias = alias
-        self.method = method
+        self.master = master  # type: ColumnObject
+        self.detail = detail  # type: ColumnObject
+        self.alias = alias  # type: str
+        self.method = method  # type: str
+
+    def __str__(self):
+        return '{} -> {}'.format(self.master, self.detail)
 
 
 class TableObject(object):
@@ -214,10 +592,58 @@ class TableObject(object):
         "join"  # join which joins this table as a detail
     """
 
-    def __init__(self, name, key, alias=None, schema=None, table=None, join=None):
-        self.name = name
-        self.key = key
-        self.alias = alias
-        self.schema = schema
-        self.table = table
-        self.join = join
+    @classmethod
+    def parse(cls, obj):
+        if not obj:
+            raise ArgumentError('Mapping object can not be empty')
+
+        if isinstance(obj, compat.string_type):
+            obj = obj.split('.')
+
+        schema = None
+        name = None
+
+        if isinstance(obj, (tuple, list)):
+            if len(obj) == 1:
+                name = obj[0]
+                schema = None
+            elif len(obj) == 2:
+                schema, name = obj
+            else:
+                raise ArgumentError(
+                    'Table name can have 1 to 2 items (has "{}"): "{}"'
+                        .format(len(obj), obj)
+                )
+
+        if hasattr(obj, 'get'):
+            schema = obj.get('schema')
+            name = obj.get('name')
+
+        if name is None:
+            schema = obj.schema
+            name = obj.name
+
+        if name is None:
+            raise ArgumentError(
+                'Cannot parse table name representation: "{}"'
+                .format(obj)
+            )
+
+        return cls(name=name, key=None, schema=schema)
+
+    def __init__(self, name, alias=None, schema=None, table=None, join=None):
+        self.name = name  # type: str
+        self.alias = alias  # type: str
+        self.schema = schema  # type: str
+        self.table = table  # type: sa.Table or sa.Selectable
+        self.join = join  # type: JoinObject
+
+    def __str__(self):
+        if self.schema:
+            return '{}.{}'.format(self.schema, self.name)
+
+        return self.name
+
+    @property
+    def key(self):
+        return self.schema, self.name or self.alias

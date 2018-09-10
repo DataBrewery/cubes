@@ -140,12 +140,12 @@ class Measure(AttributeBase):
 
 class Aggregate(AttributeBase):
     def __init__(
-        self, name, function=None, info=None,
+        self, name, function='count', info=None,
         missing_value=None, depends_on=None,
     ):
         """
-        * `function` – aggregation function for the measure
-        * `depends_on` – measures for this aggregate
+        * `function` - aggregation function for the measure
+        * `depends_on` - measures for this aggregate
 
         Example1:
             {

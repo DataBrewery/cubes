@@ -84,7 +84,7 @@ class Reader(object):
 
         if errors:
             raise ModelError(
-                'Schema validation error:\n{}'
+                'Mapper validation error:\n{}'
                 .format('\n'.join([
                     '\t"{}": {}'.format(ref if ref else 'attr', msg)
                     for ref, msg in errors

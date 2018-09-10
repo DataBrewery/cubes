@@ -2,26 +2,7 @@
 
 from __future__ import unicode_literals
 
-from ..errors import ExpressionError
-
-
-def collect_attributes(attributes, *containers):
-    """Collect attributes from arguments. `containers` are objects with
-    method `all_attributes` or might be `Nulls`. Returns a list of attributes.
-    Note that the function does not check whether the attribute is an actual
-    attribute object or a string."""
-    # Method for decreasing noise/boilerplate
-
-    collected = []
-
-    if attributes:
-        collected += attributes
-
-    for container in containers:
-        if container:
-            collected += container.all_attributes
-
-    return collected
+from ..errors import ModelError
 
 
 def depsort_attributes(attributes, all_dependencies):
@@ -47,7 +28,7 @@ def depsort_attributes(attributes, all_dependencies):
         try:
             attr_deps = all_dependencies[attr]
         except KeyError as e:
-            raise ExpressionError('Unknown attribute "{}"'.format(e))
+            raise ModelError('Unknown attribute "{}"'.format(e))
 
         if not attr_deps:
             bases.add(attr)
@@ -83,7 +64,7 @@ def depsort_attributes(attributes, all_dependencies):
 
     if remaining:
         remaining_str = ', '.join(sorted(remaining))
-        raise ExpressionError(
+        raise ModelError(
             'Circular attribute reference (remaining: {})'
             .format(remaining_str)
         )

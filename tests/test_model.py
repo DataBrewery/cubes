@@ -308,7 +308,7 @@ class DimensionTestCase(unittest.TestCase):
         dim = Dimension.load('year')
         self.assertIsInstance(dim, Dimension)
         self.assertEqual('year', dim.name)
-        self.assertEqual(['year'], [str(a) for a in dim.attributes])
+        self.assertEqual(['year'], [str(a) for a in dim.all_attributes])
 
         # Test default: explicit level attributes
         desc = {'name': 'date', 'levels': ['year']}
@@ -317,13 +317,13 @@ class DimensionTestCase(unittest.TestCase):
         self.assertIsInstance(dim, Dimension)
         self.assertEqual('date', dim.name)
 
-        self.assertEqual(['date.year'], [str(a) for a in dim.attributes])
+        self.assertEqual(['date.year'], [str(a) for a in dim.all_attributes])
 
         desc = {'name': 'date', 'levels': ['year', 'month', 'day']}
         dim = Dimension.load(desc)
         self.assertIsInstance(dim, Dimension)
         self.assertEqual('date', dim.name)
-        refs = [str(a) for a in dim.attributes]
+        refs = [str(a) for a in dim.all_attributes]
         self.assertEqual(['date.year', 'date.month', 'date.day'], refs)
         self.assertFalse(dim.is_flat)
         self.assertEqual(3, len(dim.levels))
@@ -333,7 +333,7 @@ class DimensionTestCase(unittest.TestCase):
         # Test default: implicit single level attributes
         desc = {'name': 'product', 'attributes': ['code', 'name']}
         dim = Dimension.load(desc)
-        refs = [str(a) for a in dim.attributes]
+        refs = [str(a) for a in dim.all_attributes]
         self.assertEqual(['product.code', 'product.name'], refs)
         self.assertEqual(1, len(dim.levels))
 
@@ -462,15 +462,7 @@ class CubeTestCase(unittest.TestCase):
         self.assertEqual(self.cube, cube)
 
 
-class ReadModelDescriptionTestCase(unittest.TestCase):
-    def setUp(self):
-        super(ReadModelDescriptionTestCase, self).setUp()
-
-        self.models_path = os.path.join(TESTS_PATH, 'models')
-
-    def model_path(self, model):
-        return os.path.join(self.models_path, model)
-
+class ReadModelDescriptionTestCase(CubesTestCaseBase):
     def test_from_file(self):
         path = self.model_path('model.json')
         desc = read_model(path)

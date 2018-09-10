@@ -5,11 +5,14 @@ from __future__ import absolute_import
 from itertools import chain
 
 import compat
-from ..errors import NoSuchAttributeError, NoSuchDimensionError, ModelError
+from ..errors import (
+    NoSuchAttributeError, NoSuchDimensionError, ModelError, ArgumentError
+)
 
 from .base import ModelObjectBase
-from .utils import object_dict, assert_all_instances, ensure_list, \
-    cached_property
+from .utils import (
+    object_dict, assert_all_instances, ensure_list, cached_property
+)
 from .logic import depsort_attributes
 from .attributes import Measure, Aggregate
 from .dimension import Dimension
@@ -100,8 +103,8 @@ class Cube(ModelObjectBase):
     ):
         super(Cube, self).__init__(name, ref, info)
 
-        self.mappings = mappings
-        self.joins = joins
+        self.mappings = mappings or []
+        self.joins = joins or []
         self.browser_options = browser_options or {}
         self.browser = options.get('browser')
 
@@ -128,7 +131,7 @@ class Cube(ModelObjectBase):
 
         all_attributes = []
         for dimension in self.dimensions:
-            all_attributes += dimension.attributes
+            all_attributes += dimension.all_attributes
         all_attributes += self.measures
         all_attributes += self.aggregates
 
@@ -207,7 +210,7 @@ class Cube(ModelObjectBase):
 
         attributes = []
         for dimension in self.dimensions:
-            attributes += dimension.attributes
+            attributes += dimension.all_attributes
 
         attributes += self.measures
 
@@ -327,6 +330,13 @@ class Model(ModelObjectBase):
 
         cubes = cls.cube_cls.load_list(model_data.pop('cubes'))
 
+        mappgins = model_data.pop('mappings', {})
+        joins = model_data.pop('joins', [])
+
+        for cube in cubes:
+            cube.mappings.update(mappgins)
+            cube.joins.extend(joins)
+
         model = cls(
             cubes=cubes,
             **model_data
@@ -337,12 +347,9 @@ class Model(ModelObjectBase):
     def __init__(
         self, name, cubes, info=None,
         browser_options=None,
-        mappings=None, joins=None,
     ):
         super(Model, self).__init__(name, ref=None, info=info)
 
-        self.mappings = mappings
-        self.joins = joins
         self.browser_options = browser_options or {}
 
         assert_all_instances(cubes, Cube, 'cube')
@@ -402,7 +409,6 @@ class Model(ModelObjectBase):
         return result
 
     def collect_dependencies(self, attributes):
-        # TODO: other way of collecting dependencies in multi-cubes env
         attributes = self.get_attributes(attributes)
         if not attributes:
             return []
@@ -414,13 +420,26 @@ class Model(ModelObjectBase):
 
         return depsort_attributes(attributes, all_dependencies)
 
-    def get_related_cubes(self, aggregate_names):
-        cubes = []
-        requested = set(aggregate_names)
-        for cube in self.cubes:
-            possible = [a.name for a in cube.aggreagtes]
-            if (not possible) or (requested & set(possible)):
-                cubes.append(cube)
+    def get_related_cubes(self, attributes):
+        attributes = self.collect_dependencies(attributes)
+
+        cubes = set()
+        for attribute in attributes:
+            if isinstance(attribute, compat.string_type):
+                name = attribute
+            else:
+                name = attribute.name
+
+            for cube in self.cubes:
+                attribute = cube.get_attributes([name], raise_on_error=False)
+                if attribute:
+                    cubes.add(cube)
+
+                    # getting only first cube, so cube order is matters
+                    break
+            else:
+                raise ArgumentError('Unknown attribute: "{}"'.format(name))
+
         return cubes
 
     def to_dict(self, **options):
@@ -428,8 +447,6 @@ class Model(ModelObjectBase):
 
         d['cubes'] = [c.to_dict(**options) for c in self.cubes]
 
-        d['mappings'] = self.mappings
-        d['joins'] = self.joins
         d['browser_options'] = self.browser_options
 
         return d

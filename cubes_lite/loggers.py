@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-from loggers import getLogger, Formatter, StreamHandler
+from logging import getLogger, Formatter, StreamHandler
 
 __all__ = (
     'get_logger',
@@ -17,7 +17,6 @@ logger = None
 
 
 def get_logger(name=DEFAULT_LOGGER_NAME, format_=None):
-    """Get brewery default logger"""
     global logger
 
     if not logger:

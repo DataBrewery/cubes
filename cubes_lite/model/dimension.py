@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from collections import OrderedDict
 
 from .. import compat
-from ..errors import NoSuchAttributeError, ModelInconsistencyError, ModelError
+from ..errors import NoSuchAttributeError, ModelError
 
 from .attributes import Attribute
 from .base import ModelObjectBase
@@ -98,7 +98,7 @@ class Level(ModelObjectBase):
         elif len(self.attributes) >= 1:
             self.key = self.attributes[0]
         else:
-            raise ModelInconsistencyError('Attribute list should not be empty')
+            raise ModelError('Attribute list should not be empty')
 
         if order_attribute:
             try:
@@ -262,6 +262,7 @@ class Dimension(ModelObjectBase):
         self.is_plain = is_plain
 
         self._attributes = None
+        self._default_level = None
         self._levels = None
         self.levels = levels
 
@@ -271,7 +272,6 @@ class Dimension(ModelObjectBase):
 
         self._default_level = level
         self.default_level_name = level.name
-
 
     def __eq__(self, other):
         if not super(Dimension, self).__eq__(other):

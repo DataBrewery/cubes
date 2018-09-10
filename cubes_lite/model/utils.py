@@ -3,11 +3,12 @@
 from __future__ import unicode_literals
 
 from collections import OrderedDict
+from operator import attrgetter
 
-from ..errors import ModelInconsistencyError, ModelError
+from ..errors import ModelError, ArgumentError
 
 
-def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
+def object_dict(objects, by_ref=False, error_message=None, error_dict=None, key_func=None):
     """Make an ordered dictionary from model objects `objects` where keys are
     object names. If `by_ref` is `True` then object's `ref` (reference) is
     used instead of object name. Keys are supposed to be unique in the list,
@@ -16,15 +17,20 @@ def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
     objects = objects or []
 
     if by_ref:
-        items = ((obj.ref, obj) for obj in objects)
+        if key_func:
+            raise ArgumentError(
+                'Both `key_func` and `by_ref` arguments are disallowed'
+            )
+        key_func = attrgetter('ref')
     else:
-        items = ((obj.name, obj) for obj in objects)
+        key_func = key_func or attrgetter('name')
 
     ordered = OrderedDict()
 
+    items = ((key_func(obj), obj) for obj in objects)
     for key, value in items:
         if key in ordered:
-            error_message = error_message or "Duplicate key {key}"
+            error_message = error_message or 'Duplicate key {key}'
             error_dict = error_dict or {}
             raise ModelError(error_message.format(key=key, **error_dict))
         ordered[key] = value
@@ -36,7 +42,7 @@ def assert_instance(obj, class_, label):
     """Raises ArgumentError when `obj` is not instance of `cls`"""
 
     if not isinstance(obj, class_):
-        raise ModelInconsistencyError(
+        raise ModelError(
             '"{}" should be sublcass of "{}", provided: "{}"'
             .format(label, class_.__name__, type(obj).__name__)
         )
