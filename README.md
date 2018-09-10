@@ -1,46 +1,45 @@
-TODO
-
-removed slicer server as of many additional cuts
-removed visualizer
-removed localization
-removed authorization
-removed providers
-
-redesigned model loading
-redesigned browser
-
-speedup:
-removed runtime inspection of 'expression' field, instead it using manual dependencies specification
-
-cubes_lite - Online Analytical Processing Framework for Python
+Cubes-Lite - Online Analytical Processing Framework for Python
 ==============================================================
 
+Cubes-Lite is a Python framework based on Cubes with breaking changes.
+It stands for easily constructing non-standard
+queries to several cubes at the same time with custom joining rules.
+
 Cubes is a light-weight Python framework for Online
-Analytical Processing (OLAP) and browsing of aggregated data.
+Analytical Processing (OLAP) and browsing of aggregated data
+(https://github.com/DataBrewery/cubes)
 
 
 Overview
 ========
 
-Purpose is to provide a framework for giving analyst or any application
-end-user understandable and natural way of presenting the multidimensional
-data. One of the main features is the logical model, which serves as
-abstraction over physical data to provide end-user layer.
+Purpose is to provide a framework for constructing complex queries
+on several cubes and be a little bit smarter than raw queries, but as much simple.
 
 Features:
 
-* OLAP and aggregated browsing (default backend is for relational databse -
-  ROLAP)
-* multidimensional analysis
-* logical view of analysed data - how analysts look at data, how they think of
-  data, not not how the data are physically implemented in the data stores
-* hierarchical dimensions (attributes that have hierarchical dependencies,
-  such as category-subcategory or country-region)
-* localizable metadata and data
-* SQL query generator for multidimensional aggregation queries
-* OLAP server – HTTP server based on Flask Blueprint, can be [easily
-  integrated](http://pythonhosted.org/cubes/deployment.html) into your
-  application.
+* OLAP and aggregated browsing
+* Custom joining rules between each cube in model 
+* Use sqlalchemy to construct queries and to get the most optimized query
+
+
+Breaking changes
+----------------
+
+* removed slicer server
+* removed visualizer
+* removed localization
+* removed authorization
+* removed stores, providers, workspaces
+* removed hierarchies
+
+* added optional cuts (for different dimensions)
+
+* redesigned model loading
+* redesigned a way of aggregation
+
+* speedup: runtime inspection of 'expression' field replaced with
+manual dependencies specification
 
 
 Requirements
