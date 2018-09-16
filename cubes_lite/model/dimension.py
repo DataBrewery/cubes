@@ -4,8 +4,8 @@ from __future__ import absolute_import
 
 from collections import OrderedDict
 
-from .. import compat
-from ..errors import NoSuchAttributeError, ModelError
+from cubes_lite import compat
+from cubes_lite.errors import NoSuchAttributeError, ModelError
 
 from .attributes import Attribute
 from .base import ModelObjectBase
@@ -138,6 +138,8 @@ class Level(ModelObjectBase):
     def to_dict(self, full_attribute_names=False, **options):
         d = super(Level, self).to_dict(**options)
 
+        d.pop('ref', None)
+
         if full_attribute_names:
             d['key'] = self.key.name
             d['order_attribute'] = self.order_attribute.name
@@ -171,7 +173,6 @@ class Dimension(ModelObjectBase):
             model_data = {
                 'name': model_data,
                 'levels': [model_data],
-                'is_plain': True,
             }
         else:
             model_data = dict(model_data)
@@ -213,9 +214,8 @@ class Dimension(ModelObjectBase):
         name = model_data.get('name')
         ref = model_data.get('ref')
         info = model_data.get('info', {})
-        role = model_data.get('role')
-        is_plain = model_data.get('is_plain', False)
-        default_level_name = model_data.get('default_level_name', 'default')
+        is_plain = model_data.get('is_plain')
+        default_level_name = model_data.get('default_level', 'default')
 
         levels = cls.level_cls.load_list(model_data['levels'])
 
@@ -224,9 +224,8 @@ class Dimension(ModelObjectBase):
             ref=ref,
             info=info,
             levels=levels,
-            default_level_name=default_level_name,
-            role=role,
             is_plain=is_plain,
+            default_level_name=default_level_name,
         )
 
         for level in levels:
@@ -239,8 +238,7 @@ class Dimension(ModelObjectBase):
 
     def __init__(
         self, name, ref=None, info=None,
-        levels=None, default_level_name=None, role=None,
-        is_plain=None,
+        levels=None, default_level_name=None, is_plain=None,
     ):
         """
         * `name`: dimension name
@@ -249,8 +247,6 @@ class Dimension(ModelObjectBase):
           no level is explicitly specified
         * `info` - custom information dictionary, might be used to store
           application/front-end specific information (icon, color, ...)
-        * `role` - one of recognized special dimension types. Currently
-          supported is only ``time``.
         """
 
         if not ref:
@@ -258,8 +254,7 @@ class Dimension(ModelObjectBase):
 
         super(Dimension, self).__init__(name, ref, info)
 
-        self.role = role
-        self.is_plain = is_plain
+        self._is_plain = is_plain
 
         self._attributes = None
         self._default_level = None
@@ -278,7 +273,6 @@ class Dimension(ModelObjectBase):
             return False
 
         return (
-            self.role == other.role and
             self.default_level_name == other.default_level_name and
             self._levels == other._levels
         )
@@ -350,16 +344,24 @@ class Dimension(ModelObjectBase):
             )
 
     @property
-    def is_flat(self):
-        return len(self.levels) == 1
+    def is_plain(self):
+        if self._is_plain:
+            return True
+
+        if len(self.levels) == 1:
+            level = self.levels[0]
+            if len(level.attributes) == 1:
+                attribute = level.attributes[0]
+                if self.name == self.ref == attribute.name:
+                    return True
+        return False
 
     def to_dict(self, **options):
         d = super(Dimension, self).to_dict(**options)
 
-        d['default_level_name'] = self.default_level_name
-
-        d['role'] = self.role
-        d['is_plain'] = self.is_plain
+        d['default_level'] = self.default_level_name
+        if self.is_plain:
+            d['is_plain'] = self.is_plain
 
         d['levels'] = [level.to_dict(**options) for level in self.levels]
 

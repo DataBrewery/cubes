@@ -14,27 +14,28 @@ class ConditionBase(object):
         self.level = level
         self.invert = invert
 
-        self.cube = None
+        self.model = None
 
-    def bind(self, cube):
-        self.cube = cube
+    def bind(self, model):
+        self.model = model
 
         if not self.dimension:
             return
 
-        dimension = self.cube.get_dimension(self.dimension)
+        dimension = self.model.get_dimension(self.dimension)
 
         self.dimension = dimension
         self.level = dimension.get_level(self.level)
 
     def is_bound(self):
-        return self.cube is not None
+        return self.model is not None
 
     def __repr__(self):
-        return '<{}({}:{} {}= {})>'.format(
+        return '<{}({} {}= {})>'.format(
             self.__class__.__name__,
-            self.dimension, self.level,
-            '!' if self.invert else '', self.value,
+            self.level.key,
+            '!' if self.invert else '',
+            self.value,
         )
 
     def __eq__(self, other):

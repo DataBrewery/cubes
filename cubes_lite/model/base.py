@@ -4,8 +4,8 @@ from __future__ import absolute_import
 
 from collections import OrderedDict
 
-from .. import compat
-from ..errors import ModelError
+from cubes_lite import compat
+from cubes_lite.errors import ModelError
 
 from .utils import ensure_list
 

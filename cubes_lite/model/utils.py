@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 from operator import attrgetter
 
-from ..errors import ModelError, ArgumentError
+from cubes_lite.errors import ModelError, ArgumentError
 
 
 def object_dict(objects, by_ref=False, error_message=None, error_dict=None, key_func=None):

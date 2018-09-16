@@ -63,7 +63,11 @@
             ]
         },
 
-        "default_level_name": {
+        "is_plain": {
+            "type": "boolean"
+        },
+
+        "default_level": {
             "title": "Default Level Name",
             "type": "string"
         }

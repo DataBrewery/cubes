@@ -5,11 +5,13 @@ from __future__ import absolute_import
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
 
-from .. import compat
-from .functions import Function
-from ..errors import (
+from cubes_lite import compat, Aggregate
+from cubes_lite.errors import (
     ArgumentError, ModelError, NoSuchAttributeError, MissingObjectError,
 )
+from cubes_lite.model.utils import object_dict
+
+from .functions import Function
 
 __all__ = (
     'Mapper',
@@ -89,7 +91,7 @@ class Mapper(object):
 
             table_objects.append(obj)
 
-        return object_dict(
+        table_objects = object_dict(
             table_objects,
             key_func=lambda obj: (obj.schema, obj.alias or obj.name),
             error_message=(
@@ -98,6 +100,11 @@ class Mapper(object):
             ),
             error_dict={'cube': self.cube.name},
         )
+
+        # alias for fact table
+        table_objects[(None, None)] = self.root_table_object
+
+        return table_objects
 
     def get_table_object(self, key):
         """Return a table reference for `key` which has form of a
@@ -128,7 +135,7 @@ class Mapper(object):
 
         key = (schema, name)
         table = self._physical_tables.get(key)
-        if table:
+        if table is not None:
             return table
 
         try:
@@ -152,6 +159,9 @@ class Mapper(object):
         have a label same as the column part of `logical`.
         """
 
+        if isinstance(attribute, compat.string_type):
+            attribute = self.cube.get_attributes([attribute])[0]
+
         logical = attribute.name
 
         if logical in self._columns:
@@ -162,9 +172,7 @@ class Mapper(object):
         except KeyError:
             raise NoSuchAttributeError(logical)
 
-        key = (column_object.schema, column_object.table)
-
-        table_object = self.get_table_object(key)
+        table_object = self.get_table_object(column_object.table_key)
         table = table_object.table
 
         try:
@@ -204,15 +212,15 @@ class Mapper(object):
         if physical:
             return ColumnObject.parse(physical)
 
-        schema, table = self._table_for_attribute(attribute)
+        schema, table = self._ref_key_for_attribute(attribute)
         return ColumnObject.parse((schema, table, attribute.base_name))
 
-    def _table_for_attribute(self, attribute):
+    def _ref_key_for_attribute(self, attribute):
         """Return a tuple (schema, table) for attribute."""
 
         dimension = attribute.dimension
 
-        if dimension.is_flat:
+        if dimension.is_plain:
             table = self.cube.ref
         else:
             table = dimension.ref
@@ -220,15 +228,19 @@ class Mapper(object):
         table = TableObject.parse(table)
         return (table.schema, table.name)
 
-    def _required_tables(self, attributes):
+    def _required_tables(self, attributes, root_table_object=None):
         """Get all tables that are required to be joined to get `attributes`.
         `attributes` is a list of `Mapper` attributes (or objects with
         same kind of attributes).
         """
 
+        root_table_object = root_table_object or self.root_table_object
+
         attributes = [attr for attr in attributes if attr.is_base]
-        column_objects = [self.get_column_object_by_attribute(a) for a in attributes]
-        relevant_tables = set(self.get_table_object((c.schema, c.table)) for c in column_objects)
+        relevant_tables = set(
+            self.get_table_object(self.get_column_object_by_attribute(a).table_key)
+            for a in attributes
+        )
 
         # now we have to resolve all dependencies
         required = {}
@@ -244,12 +256,18 @@ class Mapper(object):
                 relevant_tables.add(self.get_table_object(master))
 
             detail = table.join.detail.table_key
+            if table.join.alias:
+                detail = (detail[0], table.join.alias)
             if detail not in required:
                 relevant_tables.add(self.get_table_object(detail))
 
-        if self.root_table_object.key in required:
-            masters = {self.root_table_object.key: self.root_table_object}
-            sorted_tables = [self.root_table_object]
+        plain_dimensions = {a.dimension for a in attributes if a.dimension.is_plain}
+        if not plain_dimensions:
+            required.pop(self.root_table_object.key, None)
+
+        if root_table_object.key in required:
+            masters = {root_table_object.key: root_table_object}
+            sorted_tables = [root_table_object]
         else:
             details = [
                 table for table in required.values()
@@ -292,15 +310,19 @@ class Mapper(object):
 
         return sorted_tables
 
-    def get_joined_tables_for(self, attributes):
+    def get_joined_tables_for(self, attributes, root_table_object=None):
         """The main method for generating underlying star schema joins.
         Returns a denormalized JOIN expression that includes all relevant
         tables containing base `attributes` (attributes representing actual
         columns).
         """
 
-        table_objects = self._required_tables(attributes)
+        attributes = self.cube.get_attributes(attributes)
+        table_objects = self._required_tables(attributes, root_table_object)
 
+        return self.join_tables(table_objects)
+
+    def join_tables(self, table_objects):
         # Dictionary of raw tables and their joined products
         # At the end this should contain only one item representing the whole
         # star.
@@ -323,7 +345,7 @@ class Mapper(object):
         for table in table_objects[1:]:
             if not table.join:
                 raise ModelError(
-                    'Missing join for table "{}"'.format(table)
+                    'Attempt to join the table "{}" without join spec'.format(table)
                 )
 
             join = table.join
@@ -377,7 +399,7 @@ class Mapper(object):
                 for left, right
                 in zip(master_columns, detail_columns)
             ]
-            onclause = and_(*key_conditions)
+            onclause = sa.and_(*key_conditions)
 
             # Determine the join type based on the join method. If the method
             # is "detail" then we need to swap the order of the tables
@@ -416,9 +438,169 @@ class Mapper(object):
 
         return star
 
-    def assemble_aggregates(self, aggregates):
-        funcs = [Function.get(a.function) for a in aggregates]
-        return [func(a, self) for func, a in zip(funcs, aggregates)]
+    def compile_aggregates(self, aggregates, base_columns=None, coalesce=True):
+        aggregates = [self.cube.get_aggregate(a) for a in aggregates]
+
+        if not base_columns:
+            base_columns = self.cube.all_fact_attributes
+
+        if not isinstance(base_columns, dict):
+            base_columns = {c.name: c for c in base_columns}
+
+        context = ColumnsContext(base_columns)
+
+        # dependency resolution
+        # maximum number of iterations: the worst case
+        times = len(aggregates) ** 2
+
+        sorted_dependants = []
+        dependants = aggregates[:]
+        for _ in range(times):
+            if not dependants:
+                break
+
+            attr = dependants.pop(0)
+
+            already_prepared = [dep.name for dep in sorted_dependants]
+            if all(
+                (related in context) or (related in already_prepared)
+                for related in attr.depends_on
+            ):
+                # all dependencies already in context
+                sorted_dependants.append(attr)
+                continue
+
+            dependants.append(attr)
+
+        # construct all aggregates with its dependencies
+        # in reverse-dependency order
+        for attr in sorted_dependants:
+            function_name = attr.function.lower()
+            function = Function.get(function_name)
+            column = function(attr, context, coalesce)
+
+            context.add_column(attr.name, column)
+
+        return [
+            context.columns[a.name]
+            for a in aggregates
+        ]
+
+    def __column(self, logical, mask_aliased_columns=True):
+        """
+        masking: from pseudo column to real column from another join
+        `goals__revenue` -> `events_goals.revenue`
+
+        without masking column stay untouched:
+        `goals__revenue` -> `events_event.goals__revenue`
+        """
+
+        aliased_fact_table_name = 'events_goals'
+        aliased_columns = {
+            'goals__revenue': 'revenue',
+            'goals__count': 'count',
+        }
+
+        aliased_logical = logical
+        is_aliased_column = logical in aliased_columns
+        if is_aliased_column:
+            aliased_logical = aliased_columns[logical]
+
+        if not mask_aliased_columns:
+            if aliased_logical != logical:
+                column = self._original_columns[aliased_logical]
+                return self.copy_column(column, new_column_name=logical)
+
+        column = self.get_column_by_attribute(aliased_logical)
+
+        if mask_aliased_columns and is_aliased_column:
+            # save the original column
+            self._original_columns[aliased_logical] = column
+
+            # unbind column from fact table and use fake table instead
+            # as we need reference to joined subquery with goals data
+            # instead of all conversions data
+            column = self.copy_column(
+                column,
+                new_table_name=aliased_fact_table_name,
+            )
+
+        self._columns[logical] = column
+
+        return column
+
+    @staticmethod
+    def __copy_column(column, new_table_name=None, new_column_name=None, use_label=False):
+        if isinstance(column, sqlalchemy.sql.elements.Label):
+            column = column.element
+
+        parent_table = column.table
+
+        class FakeTable(object):
+            name = description = new_table_name
+            named_with_column = True
+            schema = parent_table.schema
+            _cloned_set = {parent_table}
+            _hide_froms = []
+            _from_objects = []
+            _compiler_dispatch = parent_table._compiler_dispatch
+
+        column = column.copy()
+
+        if new_column_name:
+            column.key = column.name = column.description = new_column_name
+
+        # copy produces unbinded column
+        if new_table_name:
+            column.table = FakeTable()
+        else:
+            column.table = parent_table
+
+        if use_label:
+            label = str(column) if use_label is True else use_label
+            column = column.label(label)
+
+        return column
+
+    @staticmethod
+    def __fixed_parent_element(element, parent_table=None):
+        class FixedFromObjects(element.__class__):
+            @property
+            def _from_objects(self):
+                # Hack: star table should be a parent for measure columns,
+                # but not the fact table
+                return [parent_table]
+
+        if parent_table is not None:
+            element_cls = FixedFromObjects
+        else:
+            element_cls = element.__class__
+
+        # Copied from sqlalchemy.sql.elements.ClauseElement._clone
+        c = element.__class__.__new__(element_cls)
+        c.__dict__ = element.__dict__.copy()
+        ClauseElement._cloned_set._reset(c)
+        ColumnElement.comparator._reset(c)
+
+        c._is_clone_of = element
+
+        return c
+
+    @staticmethod
+    def __get_inner_columns(selectable, column_names):
+        if isinstance(selectable, sqlalchemy.sql.selectable.Alias):
+            selectable = selectable.element
+
+        if hasattr(selectable, 'inner_columns'):
+            columns = selectable.inner_columns
+        else:
+            columns = selectable.columns
+
+        return {
+            column.name: column
+            for column in list(columns)
+            if column.name in column_names
+        }
 
 
 class ColumnObject(object):
@@ -490,7 +672,10 @@ class ColumnObject(object):
                 .format(obj)
             )
 
-        return cls(schema, table, column, extract, function)
+        return cls(
+            schema=schema, table=table, column=column,
+            extract=extract, function=function,
+        )
 
     def __init__(self, table, column, schema=None, extract=None, function=None):
         msg = 'Either `extract` or `function` can be used, not both'
@@ -540,8 +725,8 @@ class JoinObject(object):
                     .format(len(obj), obj)
                 )
 
-            master = ColumnObject.parse(obj[0])
-            detail = ColumnObject.parse(obj[1])
+            master = obj[0]
+            detail = obj[1]
 
             if len(obj) == 3:
                 alias = obj[2]
@@ -629,7 +814,7 @@ class TableObject(object):
                 .format(obj)
             )
 
-        return cls(name=name, key=None, schema=schema)
+        return cls(name=name, schema=schema)
 
     def __init__(self, name, alias=None, schema=None, table=None, join=None):
         self.name = name  # type: str
@@ -646,4 +831,45 @@ class TableObject(object):
 
     @property
     def key(self):
-        return self.schema, self.name or self.alias
+        return self.schema, self.alias or self.name
+
+
+class ColumnsContext(object):
+    """Context used for building a list of all columns to be used within a
+    single SQL query."""
+
+    def __init__(self, columns):
+        """Creates a SQL expression context.
+        * `bases` is a dictionary of base columns or column expressions
+        * `parameters` is a flag where `True` means that the expression is
+          expected to be an aggregate expression
+        """
+
+        if columns:
+            self._columns = dict(columns)
+        else:
+            self._columns = {}
+
+    @property
+    def columns(self):
+        return self._columns
+
+    def resolve(self, variable):
+        """Resolve `variable` – return either a column, variable from a
+        dictionary or a SQL constant (in that order)."""
+
+        if variable in self._columns:
+            return self._columns[variable]
+
+        raise ValueError(
+            'Unknown variable "{}"'.format(variable)
+        )
+
+    def __getitem__(self, item):
+        return self.resolve(item)
+
+    def __contains__(self, item):
+        return item in self._columns
+
+    def add_column(self, name, column):
+        self._columns[name] = column

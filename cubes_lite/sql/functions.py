@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 import sqlalchemy.sql as sql
 import sqlalchemy.sql.functions as funcs
 
-from ..errors import ModelError
+from cubes_lite.errors import ModelError
 
 __all__ = (
     'Function',
@@ -24,7 +24,7 @@ class Function(object):
 
     @classmethod
     def register(cls, function):
-        key = function.name
+        key = function.name.lower()
         if key in cls.registry:
             raise ValueError('Function "{}" already registered'.format(key))
 
@@ -32,12 +32,16 @@ class Function(object):
 
     @classmethod
     def get(cls, name):
+        name = name.lower()
         function = cls.registry.get(name)
         if function is None:
             raise ValueError('Function "{}" does not exist'.format(name))
         return function
 
-    def __init__(self, name, action, min_args_count=1, coalesce_args=False, coalesce_result=False):
+    def __init__(
+        self, name, action, min_args_count=1,
+        coalesce_args=False, coalesce_result=False,
+    ):
         self.name = name
         self.action = action
         self.min_args_count = min_args_count
@@ -46,14 +50,14 @@ class Function(object):
 
         self.register(self)
 
-    def __call__(self, aggregate, mapper, coalesce=False):
+    def __call__(self, aggregate, context, coalesce=False):
         """Applied the function on the aggregate and returns labelled
         expression. SQL expression label is the aggregate's name. This method
         calls `apply()` method which can be overriden by subclasses.
         """
 
-        expression = self.apply(aggregate, mapper, coalesce)
-        expression = expression.label(aggregate.name)
+        expression = self.apply(aggregate, context, coalesce)
+        expression = expression.label(aggregate.name.rstrip('_'))
         return expression
 
     def coalesce_args(self, aggregate, args):
@@ -67,7 +71,8 @@ class Function(object):
             for arg, coalesce_to in zip(
                 args,
                 [
-                    a.missing_value or default_missing_value
+                    # TODO: use missing_value of aggregate
+                    default_missing_value
                     for a in aggregate.depends_on
                 ]
             )
@@ -82,7 +87,7 @@ class Function(object):
             coalesce_to = aggregate.missing_value
         return funcs.coalesce(value, coalesce_to)
 
-    def apply(self, aggregate, mapper, coalesce=False):
+    def apply(self, aggregate, context, coalesce=False):
         """Apply the function on the aggregate. Subclasses might override this
         method and use other `aggregates` and browser context.
 
@@ -106,7 +111,7 @@ class Function(object):
             )
 
         columns = [
-            mapper.get_column_by_attribute(a)
+            context[a]
             for a in aggregate.depends_on[:self.min_args_count]
         ]
 
@@ -155,6 +160,6 @@ Function(
     'fraction',
     action=lambda a, b: (1.0 * a) / sql.func.nullif(b, 0),
     min_args_count=2,
-    coalesce_args=True,
+    coalesce_args=False,
     coalesce_result=True,
 )

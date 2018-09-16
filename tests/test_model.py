@@ -311,11 +311,19 @@ class DimensionTestCase(unittest.TestCase):
         self.assertEqual(['year'], [str(a) for a in dim.all_attributes])
 
         # Test default: explicit level attributes
+        desc = {'name': 'year', 'levels': ['year']}
+        dim = Dimension.load(desc)
+        self.assertIsInstance(dim, Dimension)
+        self.assertEqual('year', dim.name)
+        self.assertTrue(dim.is_plain)
+
+        self.assertEqual(['year'], [str(a) for a in dim.all_attributes])
+
         desc = {'name': 'date', 'levels': ['year']}
         dim = Dimension.load(desc)
-        self.assertTrue(dim.is_flat)
         self.assertIsInstance(dim, Dimension)
         self.assertEqual('date', dim.name)
+        self.assertFalse(dim.is_plain)
 
         self.assertEqual(['date.year'], [str(a) for a in dim.all_attributes])
 
@@ -325,7 +333,7 @@ class DimensionTestCase(unittest.TestCase):
         self.assertEqual('date', dim.name)
         refs = [str(a) for a in dim.all_attributes]
         self.assertEqual(['date.year', 'date.month', 'date.day'], refs)
-        self.assertFalse(dim.is_flat)
+        self.assertFalse(dim.is_plain)
         self.assertEqual(3, len(dim.levels))
         for level in dim.levels:
             self.assertIsInstance(level, Level)
@@ -339,7 +347,7 @@ class DimensionTestCase(unittest.TestCase):
 
     def test_flat_dimension(self):
         dim = Dimension.load('foo')
-        self.assertTrue(dim.is_flat)
+        self.assertTrue(dim.is_plain)
         self.assertEqual(1, len(dim.levels))
 
         level = dim.get_level('foo')

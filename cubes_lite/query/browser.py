@@ -2,11 +2,13 @@
 
 from __future__ import absolute_import
 
-from ..errors import ArgumentError
-from ..loggers import get_logger
+from sqlalchemy.dialects import postgresql
+
+from cubes_lite.errors import ArgumentError
+from cubes_lite.loggers import get_logger
 
 from .request import Request
-from query.query import QueryBuilder
+from .query import QueryBuilder
 
 __all__ = (
     'Browser',
@@ -26,6 +28,10 @@ class Browser(object):
     default_request_cls = Request
     default_query_builder_cls = QueryBuilder
 
+    query_types_registry = {}
+
+    log_queries = False
+
     def __init__(self, model, **options):
         super(Browser, self).__init__()
 
@@ -33,14 +39,26 @@ class Browser(object):
             raise ArgumentError('No model was given for aggregation browser')
 
         self.model = model
-        self.query_types_registry = {}
+        self.log_queries = options.get('log_queries') or self.log_queries
 
-    def register_query_types(self, info):
-        self.query_types_registry = {}
+        self._expand_query_types_registry()
 
-        for type_, (request_cls, response_cls, query_builders) in info.items():
+    def _expand_query_types_registry(self):
+        for type_, info in self.query_types_registry.items():
+            if len(info) == 2:
+                (request_cls, query_builders) = info
+                response_cls = None
+            elif len(info) == 3:
+                (request_cls, query_builders, response_cls) = info
+            else:
+                raise ArgumentError(
+                    'Wrong query_types description in "{}"'
+                    .format(self.model)
+                )
+
             request_cls = request_cls or self.default_request_cls
             response_cls = response_cls or request_cls.response_cls
+            query_builders = query_builders or self.default_query_builder_cls
 
             self.query_types_registry[type_] = (
                 request_cls,
@@ -50,7 +68,7 @@ class Browser(object):
 
     def browse(
         self, request_type, conditions=None, aggregates=None,
-        drilldown_levels=None, order=None, limit=None, offset=None,
+        drilldown_levels=None,
         **options
     ):
         """
@@ -59,24 +77,18 @@ class Browser(object):
         * `aggregates` - list of aggregate measures. By default all
           cube's aggregates are included in the result.
         * `drilldown_levels` - dimensions' levels through which to drill-down
-        * `order` - attribute order specification (see below)
-        * `page` - page index when requesting paginated results
-        * `page_size` - number of result items per page
 
         Returns a :class:`Response` object.
         """
 
         request_cls = self.get_request_cls(request_type)
 
-        request = request_cls.build(
+        request = request_cls(
             self.model,
             type_=request_type,
             conditions=conditions,
             aggregates=aggregates,
-            drilldown_levels=drilldown_levels,
-            order=order,
-            limit=limit,
-            offset=offset,
+            drilldown=drilldown_levels,
             **options
         )
 
@@ -93,8 +105,13 @@ class Browser(object):
         return response_cls(request, data, **meta_data)
 
     def execute_query(self, query, label=None):
-        label = 'SQL({}):'.format(label if label else 'info')
-        logger.debug('%s\n%s\n', label, str(query))
+        if self.log_queries:
+            label = 'SQL({}):'.format(label if label else 'info')
+            query = query.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={'literal_binds': True},
+            )
+            logger.debug('%s\n%s\n', label, query)
 
         return self._execute_query(query)
 

@@ -2,8 +2,9 @@
 
 from __future__ import absolute_import
 
+from cubes_lite.errors import ModelError
+
 from .base import ModelObjectBase
-from ..errors import ModelError
 
 __all__ = (
     'Attribute',
@@ -103,7 +104,7 @@ class Attribute(AttributeBase):
 
         self._dimension = dimension
 
-        if dimension.is_plain:
+        if dimension.name == self.base_name:
             self.ref = self.name = self.base_name
         else:
             self.ref = '{}.{}'.format(dimension.ref, self.base_name)

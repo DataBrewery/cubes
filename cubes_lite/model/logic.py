@@ -2,7 +2,7 @@
 
 from __future__ import unicode_literals
 
-from ..errors import ModelError
+from cubes_lite.errors import ModelError
 
 
 def depsort_attributes(attributes, all_dependencies):

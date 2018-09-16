@@ -4,8 +4,8 @@ from __future__ import absolute_import
 
 from itertools import chain
 
-import compat
-from ..errors import (
+from cubes_lite import compat
+from cubes_lite.errors import (
     NoSuchAttributeError, NoSuchDimensionError, ModelError, ArgumentError
 )
 
@@ -14,7 +14,7 @@ from .utils import (
     object_dict, assert_all_instances, ensure_list, cached_property
 )
 from .logic import depsort_attributes
-from .attributes import Measure, Aggregate
+from .attributes import Measure, Aggregate, AttributeBase
 from .dimension import Dimension
 
 __all__ = (
@@ -151,6 +151,9 @@ class Cube(ModelObjectBase):
         Raises `NoSuchAttributeError` when there is no such measure.
         """
 
+        if isinstance(name, Measure):
+            return name
+
         try:
             return self._measures[name]
         except KeyError:
@@ -170,6 +173,9 @@ class Cube(ModelObjectBase):
         Raises `NoSuchDimensionError` when there is no such dimension.
         """
 
+        if isinstance(name, Dimension):
+            return name
+
         try:
             return self._dimensions[name]
         except KeyError:
@@ -188,6 +194,9 @@ class Cube(ModelObjectBase):
 
         Raises `NoSuchAttributeError` when there is no such aggregate.
         """
+
+        if isinstance(name, Aggregate):
+            return name
 
         try:
             return self._aggregates[name]
@@ -234,6 +243,10 @@ class Cube(ModelObjectBase):
 
         result = set()
         for name in attributes:
+            if isinstance(name, AttributeBase):
+                result.add(name)
+                continue
+
             if not isinstance(name, compat.string_type):
                 name = str(name)
 
@@ -263,7 +276,7 @@ class Cube(ModelObjectBase):
             return []
 
         all_dependencies = {
-            attr: attr.dependencies
+            attr: self.get_attributes(attr.dependencies)
             for attr in self.all_attributes
         }
 
@@ -303,7 +316,7 @@ class Cube(ModelObjectBase):
     def validate(self):
         valid_names = {
             attr.name
-            for attr in self.all_fact_attributes
+            for attr in self.all_attributes
         }
         for aggregate in self.aggregates:
             if aggregate.depends_on:
@@ -414,7 +427,7 @@ class Model(ModelObjectBase):
             return []
 
         all_dependencies = {
-            attr: attr.dependencies
+            attr: self.get_attributes(attr.dependencies)
             for attr in self.all_attributes
         }
 
@@ -435,7 +448,7 @@ class Model(ModelObjectBase):
                 if attribute:
                     cubes.add(cube)
 
-                    # getting only first cube, so cube order is matters
+                    # getting only first cube, so cube order matters
                     break
             else:
                 raise ArgumentError('Unknown attribute: "{}"'.format(name))

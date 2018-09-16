@@ -6,10 +6,9 @@ from collections import OrderedDict
 
 from sqlalchemy import sql as sql
 
-import loggers
-
-from ..query.query import QueryBuilder
-from ..errors import ArgumentError
+from cubes_lite import loggers
+from cubes_lite.query.query import QueryBuilder
+from cubes_lite.errors import ArgumentError
 
 
 logger = loggers.get_logger(__name__)
@@ -43,30 +42,30 @@ class SQLQueryBuilder(QueryBuilder):
         )
 
     @staticmethod
-    def order_query(statement, order):
+    def order_query(statement, order, columns):
         """Returns a SQL statement which is ordered according to the `order`.
 
         * `statement` - statement to be ordered
-        * `order` explicit order, list of tuples (`aggregate`, `direction`)
+        * `order` explicit order, list of tuples (`attribute`, `direction`)
         """
 
-        order = order or []
-
-        # Each attribute mentioned in the order should be present in the
-        # selection
-        # or as some column from joined table. Here we get the list of already
-        # selected columns and derived aggregates
-        columns = OrderedDict([(c.label, c) for c in statement.columns])
+        if not order:
+            return statement
 
         final_order = OrderedDict()
         for attribute, direction in order:
-            attribute = str(attribute)
-            if attribute not in final_order:
-                column = SQLQueryBuilder.order_column(columns[attribute], direction)
-                final_order[attribute] = column
+            name = attribute.name
+            if name not in final_order:
+                column = SQLQueryBuilder.order_column(columns[name], direction)
+                final_order[name] = column
 
         statement = statement.order_by(*final_order.values())
         return statement
+
+    def evaluate_conditions(self, mapper, conditions):
+        conditions = [c.evaluate(mapper) for c in conditions]
+        conditions = sql.expression.and_(*conditions)
+        return conditions
 
     def construct_statement(
         self, all_attributes, aggregates, conditions=None, drilldown_levels=None,
@@ -89,10 +88,9 @@ class SQLQueryBuilder(QueryBuilder):
             for a in attrs_to_group_by
         ]
 
-        conditions = [c.evaluate(mapper) for c in conditions]
-        conditions = sql.expression.and_(*conditions)
+        conditions = self.evaluate_conditions(mapper, conditions)
 
-        aggregates_columns = mapper.assemble_aggregates(aggregates)
+        aggregates_columns = mapper.compile_aggregates(aggregates)
         selection = group_by_columns + aggregates_columns
 
         statement = sql.expression.select(
@@ -106,7 +104,7 @@ class SQLQueryBuilder(QueryBuilder):
         return statement
 
 
-class TotalSQLQueryBuilder(SQLQueryBuilder):
+class SummarySQLQueryBuilder(SQLQueryBuilder):
     def construct(self):
         statement = self.construct_statement(
             all_attributes=self.request.all_attributes,

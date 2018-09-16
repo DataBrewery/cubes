@@ -4,12 +4,12 @@ from __future__ import unicode_literals
 
 import sqlalchemy
 
-from ..loggers import get_logger
-from ..query import Browser
+from cubes_lite.loggers import get_logger
+from cubes_lite.query import Browser
 
 from .mapping import Mapper
-from .request import SQLRequest, RequestType, TotalSQLRequest
-from .query import SQLQueryBuilder, TotalSQLQueryBuilder, DataSQLQueryBuilder
+from .request import ListSQLRequest, RequestType, OneRowSQLRequest
+from .query import SQLQueryBuilder, SummarySQLQueryBuilder, DataSQLQueryBuilder
 
 __all__ = (
     'SQLBrowser',
@@ -56,19 +56,19 @@ class SQLBrowser(Browser):
     """SQL-based Browser implementation that can aggregate star and
     snowflake schemas."""
 
-    default_request_cls = SQLRequest
+    default_request_cls = ListSQLRequest
     default_query_builder_cls = SQLQueryBuilder
 
     connection_cls = Connection
     mapper_cls = Mapper
 
-    def __init__(self, model, url, connection_options, **kwargs):
-        super(SQLBrowser, self).__init__(model)
+    query_types_registry = {
+        RequestType.total: (OneRowSQLRequest, SummarySQLQueryBuilder),
+        RequestType.data: (ListSQLRequest, DataSQLQueryBuilder),
+    }
 
-        self.register_query_types({
-            RequestType.total: (TotalSQLRequest, None, TotalSQLQueryBuilder),
-            RequestType.data: (SQLRequest, None, DataSQLQueryBuilder),
-        })
+    def __init__(self, model, url, connection_options, **options):
+        super(SQLBrowser, self).__init__(model, **options)
 
         self.connection = self.connection_cls(url, **connection_options)
         self.mappers = {

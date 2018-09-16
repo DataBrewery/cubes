@@ -4,16 +4,16 @@ from __future__ import unicode_literals
 
 import collections
 
-from ..query import Request, Response
+from cubes_lite.query import Request, Response
 
 __all__ = (
     'RequestType',
 
-    'SQLRequest',
-    'SQLResponse',
+    'ListSQLRequest',
+    'ListSQLResponse',
 
-    'TotalSQLRequest',
-    'TotalSQLResponse',
+    'OneRowSQLRequest',
+    'OneRowSQLResponse',
 )
 
 
@@ -22,20 +22,16 @@ class RequestType(object):
     data = 'data'
 
 
-class SQLRequest(Request):
-    response_cls = SQLResponse
-
-
-class SQLResponse(Response):
+class ListSQLResponse(Response):
     def __init__(self, *args, **kwargs):
-        super(SQLResponse, self).__init__(*args, **kwargs)
+        super(ListSQLResponse, self).__init__(*args, **kwargs)
         self.labels = None
         self._batch = None
 
     def __iter__(self):
         while True:
             if not self._batch:
-                many = self.data.fetchmany()
+                many = self._data.fetchmany()
                 if not many:
                     break
                 self._batch = collections.deque(many)
@@ -48,20 +44,24 @@ class SQLResponse(Response):
                 yield row
 
 
-class TotalSQLRequest(SQLRequest):
-    response_cls = TotalSQLResponse
+class ListSQLRequest(Request):
+    response_cls = ListSQLResponse
+
+
+class OneRowSQLResponse(ListSQLResponse):
+    @property
+    def data(self):
+        return super(OneRowSQLResponse, self).data()[0]
+
+
+class OneRowSQLRequest(ListSQLRequest):
+    response_cls = OneRowSQLResponse
 
     def __init__(
         self, model, type_, conditions=None, aggregates=None,
         **options
     ):
-        super(TotalSQLRequest, self).__init__(
+        super(OneRowSQLRequest, self).__init__(
             model, type_, conditions, aggregates,
             **options
         )
-
-
-class TotalSQLResponse(SQLResponse):
-    @property
-    def data(self):
-        return super(TotalSQLResponse, self).data()[0]

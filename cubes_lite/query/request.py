@@ -4,15 +4,36 @@ from __future__ import absolute_import
 
 from collections import Iterable
 
-from .. import compat
-from ..errors import ArgumentError
-from ..model import Model
-from ..model.utils import cached_property
+from cubes_lite import compat
+from cubes_lite.errors import ArgumentError
+from cubes_lite.model import Model
+from cubes_lite.model.utils import cached_property
 
 __all__ = (
     'Request',
     'Response',
 )
+
+
+class Response(object):
+    def __init__(self, request, data=None, **meta_data):
+        super(Response, self).__init__()
+
+        self.request = request
+        self._data = data
+
+        for key, value in meta_data.items():
+            setattr(self, key, value)
+
+    def __iter__(self):
+         data = self._data or []
+         if not isinstance(data, Iterable):
+             data = [data]
+         return iter(data)
+
+    @property
+    def data(self):
+        return list(self)
 
 
 class Request(object):
@@ -37,9 +58,15 @@ class Request(object):
         self.drilldown = drilldown or []
         self._order = order or []
         self.limit = limit
-        self.offset = offset
+        self.offset = offset or 0
 
         self.options = options
+
+        self._init()
+
+    def _init(self):
+        for condition in self.conditions:
+            condition.bind(self.model)
 
     def __repr__(self):
         return '<Request({}: {})>'.format(self.model, self.conditions)
@@ -49,6 +76,8 @@ class Request(object):
         result = []
         for dimension, levels in self.drilldown:
             dimension = self.model.get_dimension(dimension)
+            if not isinstance(levels, (list, tuple)):
+                levels = [levels]
             levels = [dimension.get_level(level) for level in levels]
             result.extend(levels)
         return result
@@ -62,9 +91,9 @@ class Request(object):
         for c in self.conditions:
             attributes.update(c.all_attributes())
 
-        attributes.update(self.all_aggregates())
+        attributes.update(self.all_aggregates)
         attributes.update(level.key for level in self.drilldown_levels)
-        attributes.update(attr for attr, _ in self.order())
+        attributes.update(attr for attr, _ in self.order)
 
         return list(attributes)
 
@@ -74,7 +103,12 @@ class Request(object):
         are specified then all model's aggregates are returned.
         """
 
-        aggregates = [self.model.get_aggregate(a) for a in self._aggregates]
+        allowed_aggregates = {a.name: a  for a in self.model.all_aggregates}
+        aggregates = [
+            allowed_aggregates[a.name]
+            for a in self._aggregates
+            if a in allowed_aggregates
+        ]
         return aggregates or self.model.all_aggregates
 
     @cached_property
@@ -99,24 +133,3 @@ class Request(object):
     def get_related_cubes(self):
         attributes = self.all_attributes
         return self.model.get_related_cubes(attributes)
-
-
-class Response(object):
-    def __init__(self, request, data=None, **meta_data):
-        super(Response, self).__init__()
-
-        self.request = request
-        self._data = data
-
-        for key, value in meta_data.items():
-            setattr(self, key, value)
-
-    def __iter__(self):
-         data = self._data or []
-         if not isinstance(data, Iterable):
-             data = [data]
-         return iter(data)
-
-    @property
-    def data(self):
-        return list(self)

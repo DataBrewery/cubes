@@ -8,8 +8,8 @@ import pkgutil
 
 import jsonschema
 
-from .. import compat, PACKAGE_NAME
-from ..errors import ModelError
+from cubes_lite import compat, PACKAGE_NAME
+from cubes_lite.errors import ModelError
 
 from .cube import Model
 
@@ -167,12 +167,12 @@ class Reader(object):
                     self.dimension_entry_file.format(name=dimension),
                 )
                 if not (os.path.exists(info_path) and os.path.isfile(info_path)):
-                    raise ModelError(
-                        'Bad dimension entry file: "{}"'.format(info_path)
-                    )
+                    # plain dimension doesn't require a file description
+                    dimension_model = dimension
+                else:
+                    dimension_model = self.load_json(info_path)
+                    self.validate_schema(self.dimension_schema, dimension_model)
 
-                dimension_model = self.load_json(info_path)
-                self.validate_schema(self.dimension_schema, dimension_model)
                 cube_model['dimensions'].append(dimension_model)
             continue
 
