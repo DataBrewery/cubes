@@ -57,7 +57,7 @@ class Function(object):
         """
 
         expression = self.apply(aggregate, context, coalesce)
-        expression = expression.label(aggregate.name.rstrip('_'))
+        expression = expression.label(aggregate.public_name)
         return expression
 
     def coalesce_args(self, aggregate, args):

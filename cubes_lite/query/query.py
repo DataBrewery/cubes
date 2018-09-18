@@ -12,5 +12,5 @@ class QueryBuilder(object):
     def construct(self):
         raise NotImplementedError()
 
-    def get_meta_data(self):
+    def get_meta_data(self, query):
         return {}

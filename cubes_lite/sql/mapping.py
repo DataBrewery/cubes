@@ -162,7 +162,7 @@ class Mapper(object):
         if isinstance(attribute, compat.string_type):
             attribute = self.cube.get_attributes([attribute])[0]
 
-        logical = attribute.name
+        logical = attribute.ref
 
         if logical in self._columns:
             return self._columns[logical]
@@ -193,6 +193,34 @@ class Mapper(object):
         column = column.label(column_object.column)
 
         self._columns[logical] = column
+        return column
+
+    def construct_column_for_attribute(self, attribute, columns):
+        if isinstance(attribute, compat.string_type):
+            attribute = self.cube.get_attributes([attribute])[0]
+
+        try:
+            column_object = self.get_column_object_by_attribute(attribute)
+        except KeyError:
+            raise NoSuchAttributeError(attribute)
+
+        name = column_object.qualified_column
+        try:
+            column = columns[name]
+        except KeyError:
+            raise ModelError(
+                'Unknown column "{}"'.format(name)
+            )
+
+        if column_object.extract:
+            column = sql.expression.extract(column_object.extract, column)
+
+        if column_object.function:
+            column = getattr(sql.expression.func, column_object.function)(column)
+
+        label = attribute.ref if attribute.dimension.is_plain else attribute.base_name
+        column = column.label(label)
+
         return column
 
     def get_column_object_by_attribute(self, attribute):
@@ -700,6 +728,12 @@ class ColumnObject(object):
     @property
     def table_key(self):
         return self.schema, self.table
+
+    @property
+    def qualified_column(self):
+        if not self.table:
+            return self.column
+        return '{}.{}'.format(self.table, self.column)
 
 
 class JoinObject(object):

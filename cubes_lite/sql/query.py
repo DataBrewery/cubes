@@ -15,13 +15,8 @@ logger = loggers.get_logger(__name__)
 
 
 class SQLQueryBuilder(QueryBuilder):
-    def get_meta_data(self):
-        return {'labels': self.get_labels()}
-
-    def get_labels(self):
-        attrs_to_group_by = [level.key.name for level in self.request.drilldown_levels]
-        aggregates = [a.name for a in self.request.all_aggregates]
-        return attrs_to_group_by + aggregates
+    def get_meta_data(self, query):
+        return {'labels': [c.name for c in query.columns]}
 
     @staticmethod
     def order_column(column, order):
@@ -42,7 +37,7 @@ class SQLQueryBuilder(QueryBuilder):
         )
 
     @staticmethod
-    def order_query(statement, order, columns):
+    def order_query(statement, order, columns=None, mapper=None):
         """Returns a SQL statement which is ordered according to the `order`.
 
         * `statement` - statement to be ordered
@@ -54,9 +49,17 @@ class SQLQueryBuilder(QueryBuilder):
 
         final_order = OrderedDict()
         for attribute, direction in order:
-            name = attribute.name
+            name = attribute.ref
             if name not in final_order:
-                column = SQLQueryBuilder.order_column(columns[name], direction)
+                source_column = None
+                if mapper:
+                    source_column = mapper.get_column_by_attribute(attribute)
+                if columns:
+                    source_column = columns[name]
+                if source_column is None:
+                    raise  ValueError('No such column: "{}"'.format(name))
+
+                column = SQLQueryBuilder.order_column(source_column, direction)
                 final_order[name] = column
 
         statement = statement.order_by(*final_order.values())
@@ -109,7 +112,7 @@ class SummarySQLQueryBuilder(SQLQueryBuilder):
         statement = self.construct_statement(
             all_attributes=self.request.all_attributes,
             conditions=self.request.conditions,
-            aggregates=self.request.all_aggregates,
+            aggregates=self.request.aggregates,
         )
         return statement
 
@@ -119,7 +122,7 @@ class DataSQLQueryBuilder(SQLQueryBuilder):
         statement = self.construct_statement(
             all_attributes=self.request.all_attributes,
             conditions=self.request.conditions,
-            aggregates=self.request.all_aggregates,
+            aggregates=self.request.aggregates,
             drilldown_levels=self.request.drilldown_levels,
         )
 

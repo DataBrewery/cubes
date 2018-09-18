@@ -24,9 +24,10 @@ class RequestType(object):
 
 class ListSQLResponse(Response):
     def __init__(self, *args, **kwargs):
-        super(ListSQLResponse, self).__init__(*args, **kwargs)
         self.labels = None
         self._batch = None
+
+        super(ListSQLResponse, self).__init__(*args, **kwargs)
 
     def __iter__(self):
         while True:

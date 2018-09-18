@@ -97,7 +97,7 @@ class Browser(object):
     def _browse(self, request):
         query_builder = self.get_query_builder(request)
         query = query_builder.construct()
-        meta_data = query_builder.get_meta_data()
+        meta_data = query_builder.get_meta_data(query)
 
         data = self.execute_query(query, label=str(request.type_))
 

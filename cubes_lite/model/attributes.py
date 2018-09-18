@@ -104,6 +104,7 @@ class Attribute(AttributeBase):
 
         self._dimension = dimension
 
+        # plain dimension, without extract-transforms on column
         if dimension.name == self.base_name:
             self.ref = self.name = self.base_name
         else:
@@ -175,6 +176,10 @@ class Aggregate(AttributeBase):
         )
 
         self.function = function
+
+    @property
+    def public_name(self):
+        return self.name.rstrip('_')
 
     def __eq__(self, other):
         if not super(Aggregate, self).__eq__(other):

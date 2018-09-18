@@ -91,25 +91,28 @@ class Request(object):
         for c in self.conditions:
             attributes.update(c.all_attributes())
 
-        attributes.update(self.all_aggregates)
+        attributes.update(self.aggregates)
         attributes.update(level.key for level in self.drilldown_levels)
         attributes.update(attr for attr, _ in self.order)
 
         return list(attributes)
 
     @cached_property
-    def all_aggregates(self):
+    def aggregates(self):
         """Prepares the attribute list for aggregations. If no aggregates
         are specified then all model's aggregates are returned.
         """
 
-        allowed_aggregates = {a.name: a  for a in self.model.all_aggregates}
+        if self._aggregates is None:
+            return self.model.all_aggregates
+
+        allowed_aggregates = {a.public_name: a for a in self.model.all_aggregates}
         aggregates = [
-            allowed_aggregates[a.name]
+            allowed_aggregates[a]
             for a in self._aggregates
             if a in allowed_aggregates
         ]
-        return aggregates or self.model.all_aggregates
+        return aggregates
 
     @cached_property
     def order(self):
@@ -124,8 +127,9 @@ class Request(object):
             else:
                 name, direction = item[0:2]
 
-            attribute = self.model.get_attributes([name])
-            if attribute:
+            attributes = self.model.get_attributes([name])
+            if attributes:
+                attribute = attributes[0]
                 result.append((attribute, direction))
 
         return result

@@ -415,10 +415,12 @@ class Model(ModelObjectBase):
         return result
 
     def get_attributes(self, attributes):
-        result = set()
+        result = []
         for cube in self.cubes:
             attributes = cube.get_attributes(attributes, raise_on_error=False)
-            result.update(attributes)
+            for attribute in attributes:
+                if attribute not in result:
+                    result.append(attribute)
         return result
 
     def collect_dependencies(self, attributes):
