@@ -24,7 +24,7 @@ from ..metadata import read_model_metadata, write_model_metadata_bundle
 from ..workspace import Workspace
 from ..errors import CubesError
 from ..server import run_server
-from ..server.base import read_slicer_config
+from ..config_parser import read_slicer_config
 
 from .. import ext
 
