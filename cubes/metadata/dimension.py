@@ -784,7 +784,7 @@ class Hierarchy(Conceptual):
                          label=self.label,
                          description=self.description,
                          info=copy.deepcopy(self.info, memo),
-                         levels=copy.deepcopy(self._levels.values(), memo))
+                         levels=copy.deepcopy(self._levels, memo).values())
 
     @property
     def levels(self):
