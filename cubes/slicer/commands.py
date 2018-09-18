@@ -20,7 +20,7 @@ from .. import compat
 from ..datastructures import AttributeDict
 from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
 from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator, xlsx_generator
-from ..metadata import read_model_metadata, write_model_metadata_bundle
+from ..metadata import read_model_metadata, write_model_metadata_bundle, validate_model
 from ..workspace import Workspace
 from ..errors import CubesError
 from ..server import run_server
@@ -159,10 +159,10 @@ def validate(show_defaults, show_warnings, model_path):
     """Validate model metadata"""
 
     click.echo("Reading model %s" % model_path)
-    model = cubes.read_model_metadata(model_path)
+    model = read_model_metadata(model_path)
 
     click.echo("Validating model...")
-    result = cubes.providers.validate_model(model)
+    result = validate_model(model)
 
     error_count = 0
     warning_count = 0
