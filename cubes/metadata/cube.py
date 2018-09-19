@@ -43,6 +43,10 @@ IMPLICIT_AGGREGATE_LABELS = {
 IMPLICIT_AGGREGATE_LABELS.update(aggregate_calculator_labels())
 
 
+def _replace_all_dict_by_instance(sequence, cls):
+    return [cls(**o) if isinstance(o, dict) else o for o in sequence]
+
+
 class Cube(ModelObject):
     """Logical representation of a cube.
 
@@ -249,6 +253,7 @@ class Cube(ModelObject):
         # Measures
 
         measures = measures or []
+        measures = _replace_all_dict_by_instance(measures, Measure)
         assert_all_instances(measures, Measure, "measure")
         self._measures = object_dict(measures,
                                      error_message="Duplicate measure {key} "
@@ -258,6 +263,7 @@ class Cube(ModelObject):
         # Aggregates
         #
         aggregates = aggregates or []
+        measures = _replace_all_dict_by_instance(measures, MeasureAggregate)
         assert_all_instances(aggregates, MeasureAggregate, "aggregate")
 
         self._aggregates = object_dict(aggregates,
@@ -267,6 +273,7 @@ class Cube(ModelObject):
 
         # We don't need to access details by name
         details = details or []
+        measures = _replace_all_dict_by_instance(measures, Attribute)
         assert_all_instances(details, Attribute, "detail")
         self.details = details
 
