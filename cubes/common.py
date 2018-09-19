@@ -47,20 +47,31 @@ class IgnoringDictionary(OrderedDict):
 
         return "{%s}" % ", ".join(items)
 
-def assert_instance(obj, class_, label):
-    """Raises ArgumentError when `obj` is not instance of `cls`"""
-    if not isinstance(obj, class_):
+def assert_instance(obj, cls, label):
+    """Raises ArgumentError when `obj` is not instance of `cls`.
+
+    * `cls` - can either be a type or a tuple of type (see also `isinstance`).
+    * `label` - the variable name on which the test is performed.
+    """
+    if not isinstance(obj, cls):
+        if isinstance(cls, type):
+            class_name = cls.__name__
+        else:
+            class_name = ' or '.join(c.__name__ for c in cls)
         raise ModelInconsistencyError("%s should be sublcass of %s, "
                                       "provided: %s" % (label,
-                                                        class_.__name__,
+                                                        class_name,
                                                         type(obj).__name__))
 
 
-def assert_all_instances(list_, class_, label="object"):
-    """Raises ArgumentError when objects in `list_` are not instances of
-    `cls`"""
+def assert_all_instances(list_, cls, label="object"):
+    """Raises ArgumentError when objects in `list_` are not instances of `cls`.
+
+    * `cls` - can either be a type or a tuple of type (see also `isinstance`).
+    * `label` - the variable name on which the test is performed.
+    """
     for obj in list_ or []:
-        assert_instance(obj, class_, label="object")
+        assert_instance(obj, cls, label=label)
 
 
 class MissingPackageError(Exception):
