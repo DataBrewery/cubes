@@ -60,6 +60,15 @@ class ModelObject(object):
 
         return out
 
+    def clone(self, **attrs):
+        """Clone the model with modifications of his attributes.
+
+        * `attrs` - new values for each of his attributes.
+        """
+        d = self.to_dict()
+        d.update(**attrs)
+        return type(self)(**d)
+
     def localized(self, context):
         """Returns a copy of the cube translated with `translation`"""
 
