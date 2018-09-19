@@ -72,24 +72,18 @@ class ModelObject(object):
     def localized(self, context):
         """Returns a copy of the cube translated with `translation`"""
 
-        acopy = self.__class__.__new__(self.__class__)
-        acopy.__dict__ = self.__dict__.copy()
-
-        d = acopy.__dict__
-
-        for attr in self.localizable_attributes:
-            d[attr] = context.get(attr, getattr(self, attr))
-
-        for attr in self.localizable_lists:
-            list_copy = []
-
-            if hasattr(acopy, attr):
-                for obj in getattr(acopy, attr):
-                    obj_context = context.object_localization(attr, obj.name)
-                    list_copy.append(obj.localized(obj_context))
-                    setattr(acopy, attr, list_copy)
-
-        return acopy
+        changed_attr = {
+            attr: context.get(attr, getattr(self, attr))
+            for attr in self.localizable_attributes
+        }
+        changed_attr.update({
+            attr: [
+                obj.localized(context.object_localization(attr, obj.name))
+                for obj in getattr(self, attr)
+            ]
+            for attr in self.localizable_lists
+        })
+        return self.clone(**changed_attr)
 
 
 def object_dict(objects, by_ref=False, error_message=None, error_dict=None):
