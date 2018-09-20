@@ -238,13 +238,44 @@ class Cube(ModelObjectBase):
 
         return attributes
 
+    def get_aggregate_attributes(self, attributes):
+        result = []
+        for attribute in attributes:
+            aggregate = self.get_aggregate(attribute, raise_on_error=False)
+            if aggregate:
+                result.append(aggregate)
+                continue
+
+            aggregates_for_measure = []
+            for aggregate in self.aggregates:
+                if len(aggregate.depends_on) == 1:
+                    # aggregate for particular measure
+                    measure = aggregate.depends_on[0]
+
+                    if measure == attribute:
+                        aggregates_for_measure.append(aggregate)
+
+            if not aggregates_for_measure:
+                continue
+
+            if len(aggregates_for_measure) > 1:
+                raise ArgumentError(
+                    'Ambiguous: several aggregates for measure: "{}"'
+                    .format(attribute)
+                )
+
+            result.append(aggregates_for_measure[0])
+
+        return result
+
     def get_attributes(self, attributes, raise_on_error=True):
         """Returns a list of cube's attributes."""
 
-        result = set()
+        result = []
         for name in attributes:
             if isinstance(name, AttributeBase):
-                result.add(name)
+                if name not in result:
+                    result.append(name)
                 continue
 
             if not isinstance(name, compat.string_type):
@@ -259,9 +290,11 @@ class Cube(ModelObjectBase):
                     'Unknown attribute "{}" in cube "{}"'
                     .format(name, self.name)
                 )
-            result.add(attr)
 
-        return list(result)
+            if attr not in result:
+                result.append(attr)
+
+        return result
 
     def collect_dependencies(self, attributes):
         """Collect all original and dependant cube attributes for
@@ -418,6 +451,15 @@ class Model(ModelObjectBase):
         result = []
         for cube in self.cubes:
             attributes = cube.get_attributes(attributes, raise_on_error=False)
+            for attribute in attributes:
+                if attribute not in result:
+                    result.append(attribute)
+        return result
+
+    def get_aggregate_attributes(self, attributes):
+        result = []
+        for cube in self.cubes:
+            attributes = cube.get_aggregate_attributes(attributes)
             for attribute in attributes:
                 if attribute not in result:
                     result.append(attribute)

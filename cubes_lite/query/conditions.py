@@ -2,30 +2,45 @@
 
 from __future__ import absolute_import
 
+from cubes_lite.model import Aggregate
+from cubes_lite.errors import ArgumentError, ModelError
+
 __all__ = (
     'ConditionBase',
 )
 
 
 class ConditionBase(object):
-    def __init__(self, dimension, value, level=None, invert=False):
-        self.dimension = dimension
+    def __init__(self, attribute, value, invert=False, **options):
+        self.attribute = attribute
         self.value = value
-        self.level = level
         self.invert = invert
 
+        self.options = options
+
         self.model = None
+
+    def _get_attribute(self):
+        assert self.is_bound(), 'Should be bound to cube'
+
+        dimension = self.model.get_dimension(self.attribute)
+        if dimension:
+            level = dimension.get_level(self.options.get('level'))
+            return level.key
+
+        aggregates = self.model.get_aggregate_attributes([self.attribute])
+        if not aggregates:
+            raise ArgumentError('Unknown attribute "{}"'.format(self.attribute))
+
+        return aggregates[0]
 
     def bind(self, model):
         self.model = model
 
-        if not self.dimension:
+        if not self.attribute:
             return
 
-        dimension = self.model.get_dimension(self.dimension)
-
-        self.dimension = dimension
-        self.level = dimension.get_level(self.level)
+        self.attribute = self._get_attribute()
 
     def is_bound(self):
         return self.model is not None
@@ -33,7 +48,7 @@ class ConditionBase(object):
     def __repr__(self):
         return '<{}({} {}= {})>'.format(
             self.__class__.__name__,
-            self.level.key,
+            self.attribute,
             '!' if self.invert else '',
             self.value,
         )
@@ -43,10 +58,10 @@ class ConditionBase(object):
             return False
 
         return (
-            self.dimension == other.dimension and
+            self.attribute == other.attribute and
             self.value == other.value and
-            self.level == other.level and
-            self.invert == other.invert
+            self.invert == other.invert and
+            self.options == other.options
         )
 
     def __ne__(self, other):
@@ -59,7 +74,7 @@ class ConditionBase(object):
         return self._all_attributes()
 
     def _all_attributes(self):
-        return [self.level.key]
+        return [self.attribute]
 
     def evaluate(self, **options):
         assert self.is_bound(), 'Should be bound to cube'

@@ -127,10 +127,19 @@ class Request(object):
             else:
                 name, direction = item[0:2]
 
+            attributes = self.model.get_aggregate_attributes([name])
+            if attributes:
+                attribute = attributes[0]
+                result.append((attribute, direction))
+                continue
+
             attributes = self.model.get_attributes([name])
             if attributes:
                 attribute = attributes[0]
                 result.append((attribute, direction))
+                continue
+
+            raise ArgumentError('Unknown attribute: "{}"'.format(name))
 
         return result
 

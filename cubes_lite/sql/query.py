@@ -6,7 +6,7 @@ from collections import OrderedDict
 
 from sqlalchemy import sql as sql
 
-from cubes_lite import loggers
+from cubes_lite import loggers, Aggregate
 from cubes_lite.query.query import QueryBuilder
 from cubes_lite.errors import ArgumentError
 
@@ -49,7 +49,11 @@ class SQLQueryBuilder(QueryBuilder):
 
         final_order = OrderedDict()
         for attribute, direction in order:
-            name = attribute.ref
+            if isinstance(attribute, Aggregate):
+                name = attribute.public_name
+            else:
+                name = attribute.ref
+
             if name not in final_order:
                 source_column = None
                 if mapper:
@@ -57,7 +61,7 @@ class SQLQueryBuilder(QueryBuilder):
                 if columns:
                     source_column = columns[name]
                 if source_column is None:
-                    raise  ValueError('No such column: "{}"'.format(name))
+                    raise ValueError('No such column: "{}"'.format(name))
 
                 column = SQLQueryBuilder.order_column(source_column, direction)
                 final_order[name] = column

@@ -181,6 +181,9 @@ class Aggregate(AttributeBase):
     def public_name(self):
         return self.name.rstrip('_')
 
+    def __str__(self):
+        return self.public_name
+
     def __eq__(self, other):
         if not super(Aggregate, self).__eq__(other):
             return False

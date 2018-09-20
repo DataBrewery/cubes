@@ -55,6 +55,9 @@ class Mapper(object):
         # keys: tuples (schema, table aliased name)
         self._table_objects = self._collect_tables()
 
+    def __getitem__(self, key):
+        return self._columns[key]
+
     def _collect_tables(self):
         """"
         Collect all the detail tables
