@@ -52,7 +52,7 @@ class ListSQLRequest(Request):
 class OneRowSQLResponse(ListSQLResponse):
     @property
     def data(self):
-        return super(OneRowSQLResponse, self).data()[0]
+        return list(self)[0]
 
 
 class OneRowSQLRequest(ListSQLRequest):

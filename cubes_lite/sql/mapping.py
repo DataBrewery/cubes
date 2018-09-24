@@ -202,18 +202,22 @@ class Mapper(object):
         if isinstance(attribute, compat.string_type):
             attribute = self.cube.get_attributes([attribute])[0]
 
+        names = [attribute.ref]
+
         try:
             column_object = self.get_column_object_by_attribute(attribute)
         except KeyError:
             raise NoSuchAttributeError(attribute)
 
-        name = column_object.qualified_column
-        try:
-            column = columns[name]
-        except KeyError:
-            raise ModelError(
-                'Unknown column "{}"'.format(name)
-            )
+        names.append(column_object.qualified_column)
+        for name in names:
+            try:
+                column = columns[name]
+                break
+            except KeyError:
+                continue
+        else:
+            raise ModelError('Unknown column "{}"'.format(name))
 
         if column_object.extract:
             column = sql.expression.extract(column_object.extract, column)
@@ -292,9 +296,18 @@ class Mapper(object):
             if detail not in required:
                 relevant_tables.add(self.get_table_object(detail))
 
-        plain_dimensions = {a.dimension for a in attributes if a.dimension.is_plain}
-        if not plain_dimensions:
-            required.pop(self.root_table_object.key, None)
+        # plain_dimensions = {a.dimension for a in attributes if a.dimension.is_plain}
+        # if not plain_dimensions:
+        #     required.pop(self.root_table_object.key, None)
+        required.pop(self.root_table_object.key, None)
+        required = {
+            key: table
+            for key, table in required.items()
+            if (
+                table.join.master.table is not None or
+                table == root_table_object
+            )
+        }
 
         if root_table_object.key in required:
             masters = {root_table_object.key: root_table_object}
