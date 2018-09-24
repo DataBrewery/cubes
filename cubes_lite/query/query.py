@@ -9,7 +9,7 @@ class QueryBuilder(object):
         self.model = request.model
         self.browser = browser
 
-    def construct(self):
+    def build(self):
         raise NotImplementedError()
 
     def get_meta_data(self, query):

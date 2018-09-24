@@ -5,10 +5,10 @@ from __future__ import unicode_literals
 import sqlalchemy
 
 from cubes_lite.loggers import get_logger
-from cubes_lite.query import Browser
+from cubes_lite.query import Browser, RequestType
 
 from .mapping import Mapper
-from .request import ListSQLRequest, RequestType, OneRowSQLRequest
+from .request import ListSQLRequest, OneRowSQLRequest
 from .query import SQLQueryBuilder, SummarySQLQueryBuilder, DataSQLQueryBuilder
 
 __all__ = (
@@ -62,10 +62,18 @@ class SQLBrowser(Browser):
     connection_cls = Connection
     mapper_cls = Mapper
 
-    query_types_registry = {
-        RequestType.total: (OneRowSQLRequest, SummarySQLQueryBuilder),
-        RequestType.data: (ListSQLRequest, DataSQLQueryBuilder),
-    }
+    query_types_registry = [
+        RequestType(
+            RequestType.count,
+            request_cls=OneRowSQLRequest,
+            query_builder_cls_desc=SummarySQLQueryBuilder,
+        ),
+        RequestType(
+            RequestType.data,
+            request_cls=ListSQLRequest,
+            query_builder_cls_desc=DataSQLQueryBuilder,
+        ),
+    ]
 
     def __init__(self, model, url, connection_options, **options):
         super(SQLBrowser, self).__init__(model, **options)

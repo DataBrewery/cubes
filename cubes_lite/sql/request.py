@@ -7,19 +7,12 @@ import collections
 from cubes_lite.query import Request, Response
 
 __all__ = (
-    'RequestType',
-
     'ListSQLRequest',
     'ListSQLResponse',
 
     'OneRowSQLRequest',
     'OneRowSQLResponse',
 )
-
-
-class RequestType(object):
-    total = 'total'
-    data = 'data'
 
 
 class ListSQLResponse(Response):

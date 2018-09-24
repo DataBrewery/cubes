@@ -10,9 +10,46 @@ from cubes_lite.model import Model
 from cubes_lite.model.utils import cached_property
 
 __all__ = (
+    'RequestType',
     'Request',
     'Response',
 )
+
+
+class RequestType(object):
+    count = 'count'
+    data = 'data'
+
+    def __init__(
+        self,
+        type_,
+        request_cls=None,
+        response_cls=None,
+        query_builder_cls_desc=None,
+    ):
+        """
+        :param type_: str
+        :param request_cls: Request
+        :param response_cls: Response
+        :param query_builder_cls_desc: QueryBuilder or dict with cubes names
+
+        Examples of query_builder_cls_desc:
+
+        # all queries with the same builder
+        query_builder_cls_desc=SomeQueryBuilder
+
+        # choose builder, base on request data
+        query_builder_cls_desc={
+            ('events',): EventsQueryBuilder,
+            ('events', 'cohorts'): CohortsQueryBuilder,
+            ('cohorts'): SimpleCohortsQueryBuilder,
+        }
+        """
+
+        self.type_ = type_
+        self.request_cls = request_cls
+        self.response_cls = response_cls
+        self.query_builder_cls_desc = query_builder_cls_desc
 
 
 class Response(object):

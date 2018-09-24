@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
 
-from cubes_lite import compat, Aggregate
+from cubes_lite import compat
 from cubes_lite.errors import (
     ArgumentError, ModelError, NoSuchAttributeError, MissingObjectError,
 )
@@ -529,122 +529,6 @@ class Mapper(object):
             context.columns[a.name]
             for a in aggregates
         ]
-
-    def __column(self, logical, mask_aliased_columns=True):
-        """
-        masking: from pseudo column to real column from another join
-        `goals__revenue` -> `events_goals.revenue`
-
-        without masking column stay untouched:
-        `goals__revenue` -> `events_event.goals__revenue`
-        """
-
-        aliased_fact_table_name = 'events_goals'
-        aliased_columns = {
-            'goals__revenue': 'revenue',
-            'goals__count': 'count',
-        }
-
-        aliased_logical = logical
-        is_aliased_column = logical in aliased_columns
-        if is_aliased_column:
-            aliased_logical = aliased_columns[logical]
-
-        if not mask_aliased_columns:
-            if aliased_logical != logical:
-                column = self._original_columns[aliased_logical]
-                return self.copy_column(column, new_column_name=logical)
-
-        column = self.get_column_by_attribute(aliased_logical)
-
-        if mask_aliased_columns and is_aliased_column:
-            # save the original column
-            self._original_columns[aliased_logical] = column
-
-            # unbind column from fact table and use fake table instead
-            # as we need reference to joined subquery with goals data
-            # instead of all conversions data
-            column = self.copy_column(
-                column,
-                new_table_name=aliased_fact_table_name,
-            )
-
-        self._columns[logical] = column
-
-        return column
-
-    @staticmethod
-    def __copy_column(column, new_table_name=None, new_column_name=None, use_label=False):
-        if isinstance(column, sqlalchemy.sql.elements.Label):
-            column = column.element
-
-        parent_table = column.table
-
-        class FakeTable(object):
-            name = description = new_table_name
-            named_with_column = True
-            schema = parent_table.schema
-            _cloned_set = {parent_table}
-            _hide_froms = []
-            _from_objects = []
-            _compiler_dispatch = parent_table._compiler_dispatch
-
-        column = column.copy()
-
-        if new_column_name:
-            column.key = column.name = column.description = new_column_name
-
-        # copy produces unbinded column
-        if new_table_name:
-            column.table = FakeTable()
-        else:
-            column.table = parent_table
-
-        if use_label:
-            label = str(column) if use_label is True else use_label
-            column = column.label(label)
-
-        return column
-
-    @staticmethod
-    def __fixed_parent_element(element, parent_table=None):
-        class FixedFromObjects(element.__class__):
-            @property
-            def _from_objects(self):
-                # Hack: star table should be a parent for measure columns,
-                # but not the fact table
-                return [parent_table]
-
-        if parent_table is not None:
-            element_cls = FixedFromObjects
-        else:
-            element_cls = element.__class__
-
-        # Copied from sqlalchemy.sql.elements.ClauseElement._clone
-        c = element.__class__.__new__(element_cls)
-        c.__dict__ = element.__dict__.copy()
-        ClauseElement._cloned_set._reset(c)
-        ColumnElement.comparator._reset(c)
-
-        c._is_clone_of = element
-
-        return c
-
-    @staticmethod
-    def __get_inner_columns(selectable, column_names):
-        if isinstance(selectable, sqlalchemy.sql.selectable.Alias):
-            selectable = selectable.element
-
-        if hasattr(selectable, 'inner_columns'):
-            columns = selectable.inner_columns
-        else:
-            columns = selectable.columns
-
-        return {
-            column.name: column
-            for column in list(columns)
-            if column.name in column_names
-        }
 
 
 class ColumnObject(object):

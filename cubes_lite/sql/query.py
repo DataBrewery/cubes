@@ -112,7 +112,7 @@ class SQLQueryBuilder(QueryBuilder):
 
 
 class SummarySQLQueryBuilder(SQLQueryBuilder):
-    def construct(self):
+    def build(self):
         statement = self.construct_statement(
             all_attributes=self.request.all_attributes,
             conditions=self.request.conditions,
@@ -122,7 +122,7 @@ class SummarySQLQueryBuilder(SQLQueryBuilder):
 
 
 class DataSQLQueryBuilder(SQLQueryBuilder):
-    def construct(self):
+    def build(self):
         statement = self.construct_statement(
             all_attributes=self.request.all_attributes,
             conditions=self.request.conditions,

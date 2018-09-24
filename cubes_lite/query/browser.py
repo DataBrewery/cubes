@@ -28,7 +28,7 @@ class Browser(object):
     default_request_cls = Request
     default_query_builder_cls = QueryBuilder
 
-    query_types_registry = {}
+    query_types_registry = []
 
     log_queries = False
 
@@ -41,30 +41,29 @@ class Browser(object):
         self.model = model
         self.log_queries = options.get('log_queries') or self.log_queries
 
-        self._expand_query_types_registry()
+        self._init_query_types_registry()
 
-    def _expand_query_types_registry(self):
-        for type_, info in self.query_types_registry.items():
-            if len(info) == 2:
-                (request_cls, query_builders) = info
-                response_cls = None
-            elif len(info) == 3:
-                (request_cls, query_builders, response_cls) = info
-            else:
+    def _init_query_types_registry(self):
+        registry = {}
+
+        for request_type in self.query_types_registry:
+            if request_type.type_ in registry:
                 raise ArgumentError(
-                    'Wrong query_types description in "{}"'
-                    .format(self.model)
+                    'Duplicate key in query registration: "{}"'
+                    .format(request_type.type_)
                 )
 
-            request_cls = request_cls or self.default_request_cls
-            response_cls = response_cls or request_cls.response_cls
-            query_builders = query_builders or self.default_query_builder_cls
+            request_cls = request_type.request_cls or self.default_request_cls
+            response_cls = request_type.response_cls or request_cls.response_cls
+            query_builders = request_type.query_builder_cls_desc or self.default_query_builder_cls
 
-            self.query_types_registry[type_] = (
+            registry[request_type.type_] = (
                 request_cls,
                 response_cls,
                 query_builders,
             )
+
+        self.query_types_registry = registry
 
     def browse(
         self, request_type, conditions=None, aggregates=None,
@@ -96,7 +95,7 @@ class Browser(object):
 
     def _browse(self, request):
         query_builder = self.get_query_builder(request)
-        query = query_builder.construct()
+        query = query_builder.build()
         meta_data = query_builder.get_meta_data(query)
 
         data = self.execute_query(query, label=str(request.type_))
