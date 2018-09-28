@@ -4,6 +4,7 @@ from __future__ import absolute_import
 
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
+from copy import copy
 
 from cubes_lite import compat
 from cubes_lite.errors import (
@@ -766,6 +767,11 @@ class TableObject(object):
     @property
     def key(self):
         return self.schema, self.alias or self.name
+
+    def copy_with(self, table):
+        result = copy(self)
+        result.table = table
+        return result
 
 
 class ColumnsContext(object):
