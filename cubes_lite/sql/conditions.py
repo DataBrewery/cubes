@@ -2,6 +2,8 @@
 
 from __future__ import absolute_import
 
+import collections
+
 import sqlalchemy.sql as sql
 
 from cubes_lite.model.utils import cached_property
@@ -28,7 +30,6 @@ class ConditionBase(ConditionBase_):
 
     def _get_column(self, mapper):
         if not isinstance(mapper, (Mapper, dict)):
-            1 / 0
             return mapper
 
         if not self.attribute:
@@ -49,6 +50,12 @@ class PointCondition(ConditionBase):
     """Object describing way of slicing a cube through point in a dimension"""
 
     def __init__(self, dimension, value, invert=False, **options):
+        if isinstance(value, basestring):
+            value = [value]
+
+        if isinstance(value, collections.Iterable):
+            value = list(value)
+
         if not isinstance(value, (list, tuple)):
             value = [value]
 
