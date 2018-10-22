@@ -2,8 +2,7 @@
 
 from __future__ import absolute_import
 
-from cubes_lite.model import Aggregate
-from cubes_lite.errors import ArgumentError, ModelError
+from cubes_lite.errors import ArgumentError
 
 __all__ = (
     'ConditionBase',
@@ -11,10 +10,11 @@ __all__ = (
 
 
 class ConditionBase(object):
-    def __init__(self, attribute, value, invert=False, **options):
+    def __init__(self, attribute, value, invert=False, value_func=None, **options):
         self.attribute = attribute
         self.value = value
         self.invert = invert
+        self.value_func = value_func
 
         self.options = options
 
@@ -80,3 +80,12 @@ class ConditionBase(object):
         assert self.is_bound(), 'Should be bound to cube'
 
         raise NotImplementedError()
+
+    def get_value(self):
+        if self.value_func is None:
+            return self.value
+
+        if isinstance(self.value, tuple):
+            return tuple(self.value_func(v) for v in self.value)
+
+        return self.value_func(self.value)

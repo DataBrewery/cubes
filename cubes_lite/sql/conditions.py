@@ -51,24 +51,26 @@ class PointCondition(ConditionBase):
 
     def __init__(self, dimension, value, invert=False, **options):
         if isinstance(value, basestring):
-            value = [value]
+            value = (value,)
 
         if isinstance(value, collections.Iterable):
-            value = list(value)
+            value = tuple(value)
 
         if not isinstance(value, (list, tuple)):
-            value = [value]
+            value = (value,)
 
         super(PointCondition, self).__init__(dimension, value, invert, **options)
 
     def _evaluate(self, column):
-        conditions = [(column == v) for v in self.value]
+        value = self.get_value()
+        conditions = [(column == v) for v in value]
         return sql.expression.or_(*conditions)
 
 
 class MatchCondition(ConditionBase):
     def _evaluate(self, column):
-        return column.like(self.value)
+        value = self.get_value()
+        return column.like(value)
 
 
 class RangeCondition(ConditionBase):
@@ -92,11 +94,13 @@ class RangeCondition(ConditionBase):
         upper_operator = sql.operators.gt if self.strong else sql.operators.ge
         lower_operator = sql.operators.lt if self.strong else sql.operators.le
 
+        from_, to_ = self.get_value()
+
         conditions = []
         if self.from_ is not None:
-            conditions.append(upper_operator(column, self.from_))
+            conditions.append(upper_operator(column, from_))
         if self.to_ is not None:
-            conditions.append(lower_operator(column, self.to_))
+            conditions.append(lower_operator(column, to_))
 
         return sql.expression.and_(*conditions)
 
