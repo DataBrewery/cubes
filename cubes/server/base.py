@@ -8,6 +8,7 @@ import os
 
 from .utils import *
 from .. import compat
+from ..config_parser import read_slicer_config
 from ..logging import get_logger
 
 __all__ = (
@@ -17,18 +18,6 @@ __all__ = (
 
 # Server Instantiation and Running
 # ================================
-
-def read_slicer_config(config):
-    if not config:
-        return compat.ConfigParser()
-    elif isinstance(config, compat.string_type):
-        try:
-            path = config
-            config = compat.ConfigParser()
-            config.read(path)
-        except Exception as e:
-            raise Exception("Unable to load configuration: %s" % e)
-    return config
 
 def create_server(config=None, **_options):
     """Returns a Flask server application. `config` is a path to a
