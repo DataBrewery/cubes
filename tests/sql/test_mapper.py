@@ -62,19 +62,19 @@ class MapperTestCase(CubesTestCaseBase):
         self.mapper.naming.dimension_prefix = ""
         self.mapper.naming.dimension_suffix = ""
         self.assertMapping("date.year", "date.year")
-        self.assertMapping("sales.flag", "flag")
+        self.assertMapping("sales.flag", "flag.flag")
         self.assertMapping("sales.amount", "amount")
 
         # With prefix
         self.mapper.naming.dimension_prefix = "dm_"
         self.assertMapping("dm_date.year", "date.year")
         self.assertMapping("dm_date.month_name", "date.month_name")
-        self.assertMapping("sales.flag", "flag")
+        self.assertMapping("sales.flag", "flag.flag")
         self.assertMapping("sales.amount", "amount")
 
     def test_physical_refs_flat_dims(self):
         self.cube.fact = None
-        self.assertMapping("sales.flag", "flag")
+        self.assertMapping("sales.flag", "flag.flag")
 
     def test_physical_refs_facts(self):
         """Testing correct mappings of fact attributes in physical references"""
