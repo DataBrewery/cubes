@@ -38,7 +38,7 @@ class MapperTestCase(CubesTestCaseBase):
 
         dim = self.provider.dimension("flag")
         attr = Attribute("flag", dimension=dim)
-        self.assertEqual("flag", attr.ref)
+        self.assertEqual("flag.flag", attr.ref)
 
         attr = Attribute("measure", dimension=None)
         self.assertEqual("measure", attr.ref)
