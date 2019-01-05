@@ -749,7 +749,7 @@ Example of month level of date dimension:
 .. code-block:: javascript
 
     {
-        "month",
+        "name": "month",
         "label": "Mesiac",
         "key": "month",
         "label_attribute": "month_name",
