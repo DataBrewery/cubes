@@ -82,8 +82,13 @@ In Python, a workspace can be configured using the `ini` configuration:
 .. code-block:: python
 
     from cubes import Workspace
-
-    workspace = Workspace(config="slicer.ini")
+    
+    # initialize configparser and read "slicer.ini" configuration
+    from configparser import ConfigParser
+    config = ConfigParser()
+    config.read("./slicer.ini")
+    
+    workspace = Workspace(config)
 
 or programatically:
 
