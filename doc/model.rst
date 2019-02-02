@@ -540,7 +540,7 @@ specification might contain:
 * ``default_hierarchy_name`` – name of default hierarchy for a dimension in
   the context of the cube
 * ``cardinality`` – cardinality of the dimension with regards to the cube. For
-  example one cube might contain housands product types, another might have
+  example one cube might contain thousands of product types, another might have
   only a few, but they both share the same `products` dimension
 * ``alias`` – how the dimension is going to be called in the cube. For
   example, you might have two date dimensions and name them `start_date` and
