@@ -324,7 +324,7 @@ def read_config(cfg):
               help="Name of slicer.ini configuration file")
 def sql(ctx, store, config):
     """SQL store commands"""
-    ctx.obj.workspace = cubes.Workspace(config)
+    ctx.obj.workspace = Workspace(read_config(config))
     ctx.obj.store = ctx.obj.workspace.get_store(store)
 
 ################################################################################

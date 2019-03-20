@@ -301,7 +301,9 @@ class SQLBrowser(AggregationBrowser):
         (statement, labels) = self.denormalized_statement(attributes, cell)
         # Order and paginate
         #
-        statement = statement.group_by(*statement.columns)
+        
+        statement = statement.group_by(*[col._proxies[0] for col in statement.columns])
+        #statement = statement.group_by(*statement.columns)
         statement = order_query(statement,
                                 order,
                                 labels=labels)
@@ -482,7 +484,9 @@ class SQLBrowser(AggregationBrowser):
         attributes = attributes or self.cube.all_fact_attributes
 
         refs = [attr.ref for attr in collect_attributes(attributes, cell)]
+        
         context_attributes = self.cube.get_attributes(refs)
+        
         context = self._create_context(context_attributes)
 
         if include_fact_key:
@@ -491,11 +495,14 @@ class SQLBrowser(AggregationBrowser):
             selection = []
 
         names = [attr.ref for attr in attributes]
+        
         selection += context.get_columns(names)
+
 
         cell_condition = context.condition_for_cell(cell)
 
         statement = sql.expression.select(selection,
+                                          use_labels=True,
                                           from_obj=context.star,
                                           whereclause=cell_condition)
 

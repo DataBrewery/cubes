@@ -78,7 +78,7 @@ class ModelObject(object):
                 for obj in getattr(acopy, attr):
                     obj_context = context.object_localization(attr, obj.name)
                     list_copy.append(obj.localized(obj_context))
-                    setattr(acopy, attr, list_copy)
+                setattr(acopy, "_"+attr, object_dict(list_copy))
 
         return acopy
 

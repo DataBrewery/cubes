@@ -315,7 +315,7 @@ class Cube(ModelObject):
         there are multiple aggregates with the same name (which also means
         that the model is not valid).
         """
-        name = str(name)
+        name = str(name)        
         try:
             return self._aggregates[name]
         except KeyError:
