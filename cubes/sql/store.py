@@ -327,7 +327,7 @@ class SQLStore(Store):
         # Note: this does not work with safe labels – since they are "safe"
         # they can not conform to the cubes implicit naming schema dim.attr
 
-        (statement, _) = browser.denormalized_statement(attributes,
+        (statement, _) = browser.denormalized_statement([],#cube.get_attributes(),
                                                         include_fact_key=True)
 
         schema = schema or self.naming.schema

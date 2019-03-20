@@ -240,6 +240,7 @@ class AggregationBrowser(object):
                     not self.is_builtin_function(agg.function) \
                     and agg.measure not in seen:
                 seen.add(agg.measure)
+                
 
                 try:
                     aggregate = self.cube.aggregate(agg.measure)
