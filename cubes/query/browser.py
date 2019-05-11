@@ -1010,16 +1010,16 @@ class Drilldown(object):
     @property
     def natural_order(self):
         """Return a natural order for the drill-down. This order can be merged
-        with user-specified order. Returns a list of tuples:
-        (`attribute_name`, `order`)."""
+        with user-specified order. Returns a dictionary where keys are
+        attribute ref and vales are directions."""
 
-        order = []
+        order = {}
 
         for item in self.drilldown:
             for level in item.levels:
                 lvl_attr = level.order_attribute or level.key
                 lvl_order = level.order or 'asc'
-                order.append((lvl_attr, lvl_order))
+                order[lvl_attr.ref] = lvl_order
 
         return order
 
