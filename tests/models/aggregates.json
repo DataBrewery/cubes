@@ -19,6 +19,11 @@
             ],
             "aggregates": [
                 {
+                    "name": "amount_sum",
+                    "measure": "amount",
+                    "function": "sum"
+                },
+                {
                     "name": "count",
                     "function": "count"
                 }    
