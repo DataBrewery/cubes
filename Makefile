@@ -5,4 +5,5 @@ test:
 
 .PHONY:
 lint:
-	flake8
+	# for now, extend to other directories later
+	flake8 cubes

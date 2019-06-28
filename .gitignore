@@ -26,11 +26,12 @@ htmlcov
 # Installer logs
 pip-log.txt
 
-# Tools (editors, IDEs)
+# Tools (editors, IDEs, local config)
 *.iml
 .idea
 *.swp
 .vim
+.venv
 
 # Other
 doc/_build/
