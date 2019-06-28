@@ -1,13 +1,12 @@
 language: python
 python:
-    - 3.6
-    - 3.7
+    - "3.6"
+    - "3.7"
 
-install: 
+install:
     - pip install -U pip setuptools wheel
-    - pip install -e .[dev]
-    - pip install -r requirements-optional.txt
+    - pip install -U -e .[dev]
+    - pip install -U -r requirements-optional.txt
 
-script: 
+script:
     - pytest
-
