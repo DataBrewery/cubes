@@ -1,4 +1,8 @@
-*.py[cod]
+# Python cruft
+__pycache__
+
+# MacOS Cruft
+.DS_Store
 
 # Packages
 *.egg
@@ -10,23 +14,26 @@ parts
 sdist
 develop-eggs
 tmp
+
+# Caches
 .mypy_cache
+
+# Testing
+.tox
+.coverage
+htmlcov
 
 # Installer logs
 pip-log.txt
 
-# Other
+# Tools (editors, IDEs)
 *.iml
 .idea
 *.swp
-doc/_build/
 .vim
+
+# Other
+doc/_build/
 
 # Local sandbox/playground
 /sandbox
-
-.DS_Store
-
-# Coverage output
-.coverage
-htmlcov

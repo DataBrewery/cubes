@@ -926,16 +926,16 @@ class ReadModelDescriptionTestCase(ModelTestCaseBase):
             path = self.model_path("model.json")
             desc = read_model_metadata_bundle(path)
 
-def test_suite():
-    suite = unittest.TestSuite()
-
-    suite.addTest(unittest.makeSuite(AttributeTestCase))
-    suite.addTest(unittest.makeSuite(LevelTestCase))
-    suite.addTest(unittest.makeSuite(HierarchyTestCase))
-    suite.addTest(unittest.makeSuite(DimensionTestCase))
-    suite.addTest(unittest.makeSuite(CubeTestCase))
-    suite.addTest(unittest.makeSuite(ModelTestCase))
-
-    suite.addTest(unittest.makeSuite(OldModelValidatorTestCase))
-
-    return suite
+# def test_suite():
+#     suite = unittest.TestSuite()
+#
+#     suite.addTest(unittest.makeSuite(AttributeTestCase))
+#     suite.addTest(unittest.makeSuite(LevelTestCase))
+#     suite.addTest(unittest.makeSuite(HierarchyTestCase))
+#     suite.addTest(unittest.makeSuite(DimensionTestCase))
+#     suite.addTest(unittest.makeSuite(CubeTestCase))
+#     suite.addTest(unittest.makeSuite(ModelTestCase))
+#
+#     suite.addTest(unittest.makeSuite(OldModelValidatorTestCase))
+#
+#     return suite
