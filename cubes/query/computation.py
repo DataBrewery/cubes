@@ -4,11 +4,8 @@ import itertools
 
 from ..errors import ArgumentError
 
-__all__ = [
-    "combined_cuboids",
-    "combined_levels",
-    "hierarchical_cuboids"
-]
+__all__ = ["combined_cuboids", "combined_levels", "hierarchical_cuboids"]
+
 
 def combined_cuboids(dimensions, required=None):
     """Returns a list of all combinations of `dimensions` as tuples. For
@@ -21,15 +18,17 @@ def combined_cuboids(dimensions, required=None):
 
     for dim in required:
         if dim not in dimensions:
-            raise ArgumentError("Required dimension '%s' is not in list of "
-                                "dimensions to be combined." % str(dim))
+            raise ArgumentError(
+                "Required dimension '%s' is not in list of "
+                "dimensions to be combined." % str(dim)
+            )
 
     cuboids = []
     to_combine = [dim for dim in dimensions if not dim in required]
 
     for i in range(len(to_combine), 0, -1):
         combos = itertools.combinations(to_combine, i)
-        combos = [required+combo for combo in combos]
+        combos = [required + combo for combo in combos]
 
         cuboids += tuple(combos)
 
@@ -37,6 +36,7 @@ def combined_cuboids(dimensions, required=None):
         cuboids = [required] + cuboids
 
     return cuboids
+
 
 def combined_levels(dimensions, default_only=False):
     """Create a cartesian product of levels from all `dimensions`. For
@@ -66,4 +66,3 @@ def hierarchical_cuboids(dimensions, required=None, default_only=False):
         result += list(combined_levels(cuboid, default_only))
 
     return result
-

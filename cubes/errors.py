@@ -7,8 +7,10 @@ from typing import Optional
 from collections import OrderedDict
 from .types import JSONType
 
+
 class CubesError(Exception):
     """Generic error class."""
+
 
 class InconsistencyError(CubesError):
     """Raised when something bad happened in cubes – very likely an edge
@@ -18,13 +20,16 @@ class InconsistencyError(CubesError):
     input.
     """
 
+
 class UserError(CubesError):
     """Superclass for all errors caused by the cubes and slicer users. Error
     messages from this error might be safely passed to the front-end. Do not
     include any information that you would not like to be public.
 
     Users can fix the error."""
+
     error_type = "unknown_user_error"
+
 
 class InternalError(CubesError):
     """Superclass for all errors that happened on the server side:
@@ -34,10 +39,13 @@ class InternalError(CubesError):
     clients (such as over the web), as it might contain information about the
     server configuration, database or other internals.
     """
+
     error_type = "internal_error"
+
 
 class ConfigurationError(InternalError):
     """Raised when there is a problem with workspace configuration assumed."""
+
 
 class BackendError(InternalError):
     """Raised by a backend. Should be handled separately, for example: should
@@ -45,23 +53,31 @@ class BackendError(InternalError):
     schema exposure.
     """
 
+
 class WorkspaceError(InternalError):
     """Backend Workspace related exception."""
 
+
 class BrowserError(InternalError):
     """AggregationBrowser related exception."""
+
     pass
+
 
 class StoreError(InternalError):
     """AggregationBrowser related exception."""
+
     pass
+
 
 class ModelError(InternalError):
     """Model related exception."""
 
+
 class ExpressionError(ModelError):
     """Expression related exception such as unknown attribute or cirular
     attribute reference"""
+
 
 # TODO: necessary? or rename to PhysicalModelError
 class MappingError(ModelError):
@@ -73,6 +89,7 @@ class MappingError(ModelError):
 class ModelInconsistencyError(ModelError):
     """Raised when there is incosistency in model structure."""
 
+
 class MissingObjectError(UserError):
     error_type: str = "missing_object"
     object_type: Optional[str] = None
@@ -80,7 +97,7 @@ class MissingObjectError(UserError):
     message: Optional[str]
     name: Optional[str]
 
-    def __init__(self, message:str=None, name:str=None) -> None:
+    def __init__(self, message: str = None, name: str = None) -> None:
         self.message = message
         self.name = name
 
@@ -97,25 +114,34 @@ class MissingObjectError(UserError):
 
         return d
 
+
 class NoSuchDimensionError(MissingObjectError):
     """Raised when an unknown dimension is requested."""
+
     object_type = "dimension"
+
 
 class NoSuchCubeError(MissingObjectError):
     """Raised when an unknown cube is requested."""
+
     object_type = "cube"
+
 
 class NoSuchAttributeError(UserError):
     """Raised when an unknown attribute, measure or detail requested."""
+
     object_type = "attribute"
+
 
 class ArgumentError(UserError):
     """Raised when an invalid or conflicting function argument is supplied.
     """
 
+
 class HierarchyError(UserError):
     """Raised when attemt to get level deeper than deepest level in a
     hierarchy"""
+
     error_type = "hierarchy"
 
 
@@ -136,4 +162,3 @@ class TemplateRequired(ModelError):
 
     def __str__(self) -> str:
         return self.template
-

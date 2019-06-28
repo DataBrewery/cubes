@@ -1,28 +1,28 @@
 # -*- coding: utf-8 -*-
 
 from typing import (
-        Any,
-        Collection,
-        Iterable,
-        Iterator,
-        List,
-        Mapping,
-        NamedTuple,
-        Optional,
-        cast,
-    )
+    Any,
+    Collection,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    cast,
+)
 
 
 from ..types import JSONType, _RecordType
 
 from ..metadata import (
-        Cube,
-        Dimension,
-        Hierarchy,
-        HierarchyPath,
-        Level,
-        MeasureAggregate,
-    )
+    Cube,
+    Dimension,
+    Hierarchy,
+    HierarchyPath,
+    Level,
+    MeasureAggregate,
+)
 
 from ..query.cells import Cell, PointCut
 from ..query.drilldown import Drilldown
@@ -30,11 +30,7 @@ from ..query.drilldown import Drilldown
 from .statutils import _CalculatorFunction
 from ..common import IgnoringDictionary
 
-__all__ = [
-    "AggregationResult",
-    "Facts",
-    "TableRow",
-]
+__all__ = ["AggregationResult", "Facts", "TableRow"]
 
 
 class TableRow(NamedTuple):
@@ -49,9 +45,7 @@ class Facts(Iterable):
     facts: Iterable[_RecordType]
     attributes: List[str]
 
-    def __init__(self,
-            facts: Iterable[_RecordType],
-            attributes: List[str]) -> None:
+    def __init__(self, facts: Iterable[_RecordType], attributes: List[str]) -> None:
         """A facts iterator object returned by the browser's `facts()`
         method."""
 
@@ -66,12 +60,15 @@ class CalculatedResultIterator(Iterable):
     """
     Iterator that decorates data items
     """
+
     calculators: Collection[_CalculatorFunction]
     iterator: Iterator[_RecordType]
 
-    def __init__(self,
-            calculators: Collection[_CalculatorFunction],
-            iterator: Iterator[_RecordType]) -> None:
+    def __init__(
+        self,
+        calculators: Collection[_CalculatorFunction],
+        iterator: Iterator[_RecordType],
+    ) -> None:
         self.calculators = calculators
         self.iterator = iterator
 
@@ -126,18 +123,20 @@ class AggregationResult(Iterable):
     # FIXME: [typing] Fix the type
     _cells: Iterable[_RecordType]
 
-    def __init__(self,
-            cube: Cube,
-            cell: Cell,
-            cells: Iterable[_RecordType],
-            labels: Optional[Collection[str]]=None,
-            summary: Optional[_RecordType]=None,
-            aggregates: Collection[MeasureAggregate]=None,
-            drilldown: Drilldown=None,
-            levels: Optional[Mapping[str, List[str]]]=None,
-            total_cell_count: Optional[int]=None,
-            remainder: Optional[JSONType]=None,
-            has_split: bool=False) -> None:
+    def __init__(
+        self,
+        cube: Cube,
+        cell: Cell,
+        cells: Iterable[_RecordType],
+        labels: Optional[Collection[str]] = None,
+        summary: Optional[_RecordType] = None,
+        aggregates: Collection[MeasureAggregate] = None,
+        drilldown: Drilldown = None,
+        levels: Optional[Mapping[str, List[str]]] = None,
+        total_cell_count: Optional[int] = None,
+        remainder: Optional[JSONType] = None,
+        has_split: bool = False,
+    ) -> None:
         """Create an aggergation result object. `cell` – a :class:`cubes.Cell`
         object used for this aggregation, `aggregates` – list of aggregate
         objects selected for this a aggregation, `drilldown` – a
@@ -179,7 +178,6 @@ class AggregationResult(Iterable):
         self._cells = []
         self.cells = cells
 
-
     @property
     def cells(self) -> Iterable[_RecordType]:
         return self._cells
@@ -213,13 +211,11 @@ class AggregationResult(Iterable):
         d.set("attributes", self.attributes)
         d["has_split"] = self.has_split
 
-
         return d
 
-    def table_rows(self,
-            dimension_name: str,
-            depth: int=None,
-            hierarchy: Hierarchy=None) -> Iterator[TableRow]:
+    def table_rows(
+        self, dimension_name: str, depth: int = None, hierarchy: Hierarchy = None
+    ) -> Iterator[TableRow]:
         """Returns iterator of drilled-down rows which yields a named tuple
         with named attributes: (key, label, path, record). `depth` is last
         level of interest. If not specified (set to ``None``) then deepest
@@ -276,11 +272,9 @@ class AggregationResult(Iterable):
         for record in self.cells:
             drill_path = path[:] + [record[level_key]]
 
-            row = TableRow(record[level_key],
-                           record[level_label],
-                           drill_path,
-                           is_base,
-                           record)
+            row = TableRow(
+                record[level_key], record[level_label], drill_path, is_base, record
+            )
             yield row
 
     def __iter__(self) -> Iterator[_RecordType]:
@@ -307,7 +301,7 @@ class AggregationResult(Iterable):
             has_split=self.has_split,
             levels=self.levels,
             # Cache cells from an iterator
-            cells=list(self.cells)
+            cells=list(self.cells),
         )
 
         return result

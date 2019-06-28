@@ -19,20 +19,17 @@ from .common import SQLTestCase
 
 CONNECTION = "sqlite://"
 
+
 @unittest.skip("fix this")
 class SQLQueryContextTestCase(SQLTestCase):
     @classmethod
     def setUpClass(self):
         self.dw = create_demo_dw(CONNECTION, None, False)
-        self.store = SQLStore(engine=self.dw.engine,
-                              metadata=self.dw.md)
+        self.store = SQLStore(engine=self.dw.engine, metadata=self.dw.md)
 
         self.provider = TinyDemoModelProvider()
 
-        naming = {
-            "fact_prefix": "fact_",
-            "dimension_prefix": "dim_"
-        }
+        naming = {"fact_prefix": "fact_", "dimension_prefix": "dim_"}
         naming = distill_naming(naming)
 
         self.cube = self.provider.cube("sales")
@@ -42,18 +39,20 @@ class SQLQueryContextTestCase(SQLTestCase):
         mappings = mapper.map_base_attributes()
 
         joins = [to_join(join) for join in self.cube.joins]
-        self.star = StarSchema(self.cube.name,
-                               self.dw.md,
-                               mappings=mappings,
-                               fact=mapper.fact_name,
-                               joins=joins)
+        self.star = StarSchema(
+            self.cube.name,
+            self.dw.md,
+            mappings=mappings,
+            fact=mapper.fact_name,
+            joins=joins,
+        )
 
     # Helper methods
     def create_context(self, attributes):
         collected = self.cube.collect_dependencies(attributes)
-        context = QueryContext(self.star,
-                               attributes=collected,
-                               hierarchies=self.cube.distilled_hierarchies)
+        context = QueryContext(
+            self.star, attributes=collected, hierarchies=self.cube.distilled_hierarchies
+        )
         return context
 
     def dimension(self, name):
@@ -65,8 +64,10 @@ class SQLQueryContextTestCase(SQLTestCase):
     def execute(self, *args, **kwargs):
         return self.dw.engine.execute(*args, **kwargs)
 
+
 class SQLStatementsTestCase(SQLQueryContextTestCase):
     """"Test basic SQL statement generation in the browser."""
+
     def setUp(self):
         super().setUp()
 
@@ -80,9 +81,7 @@ class SQLStatementsTestCase(SQLQueryContextTestCase):
         """Returns a select statement from the star view"""
         columns = [self.star.column(attr) for attr in attrs]
 
-        return sa.select(columns,
-                         from_obj=self.context.star,
-                         whereclause=whereclause)
+        return sa.select(columns, from_obj=self.context.star, whereclause=whereclause)
 
     def test_attribute_column(self):
         """Test proper selection of attribute column."""
@@ -90,16 +89,18 @@ class SQLStatementsTestCase(SQLQueryContextTestCase):
         dim_item = self.table("dim_item")
         dim_category = self.table("dim_category")
 
-        self.assertColumnEqual(self.context.column("item.name"),
-                               dim_item.columns["name"])
+        self.assertColumnEqual(
+            self.context.column("item.name"), dim_item.columns["name"]
+        )
 
-        self.assertColumnEqual(self.context.column("category.name"),
-                               dim_category.columns["name"])
+        self.assertColumnEqual(
+            self.context.column("category.name"), dim_category.columns["name"]
+        )
 
         # TODO: Test derived column
+
     def test_condition_for_point(self):
-        condition = self.context.condition_for_point(self.dimension("item"),
-                                                     ["1"])
+        condition = self.context.condition_for_point(self.dimension("item"), ["1"])
 
         select = self.select([FACT_KEY_LABEL], condition)
         keys = [row[FACT_KEY_LABEL] for row in self.execute(select)]
@@ -117,8 +118,9 @@ class SQLStatementsTestCase(SQLQueryContextTestCase):
         # Note:
         # This test requires that there is only one item for 2015-01-01
         # See data in DW demo
-        condition = self.context.condition_for_point(self.dimension("date"),
-                                                     [2015,1,1])
+        condition = self.context.condition_for_point(
+            self.dimension("date"), [2015, 1, 1]
+        )
 
         select = self.select([FACT_KEY_LABEL], condition)
         keys = [row[FACT_KEY_LABEL] for row in self.execute(select)]
@@ -139,6 +141,7 @@ class SQLStatementsTestCase(SQLQueryContextTestCase):
         # Test uneven paths
         # Test lower bound only
         # Test upper bound only
+
 
 @unittest.skip("Tests missing")
 class SQLAggregateTestCase(SQLQueryContextTestCase):
@@ -173,5 +176,3 @@ class SQLAggregateTestCase(SQLQueryContextTestCase):
 
     def test_drilldown_explicit(self):
         """Test drilldown with explicit hierarchy level"""
-
-

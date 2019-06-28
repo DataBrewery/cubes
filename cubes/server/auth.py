@@ -4,13 +4,11 @@ from flask import Response, redirect
 import re
 from ..ext import Extensible
 
-__all__ = (
-    "Authenticator",
-    "NotAuthenticated"
-)
+__all__ = ("Authenticator", "NotAuthenticated")
 
 # IMPORTANT: This is provisional code. Might be changed or removed.
 #
+
 
 class NotAuthenticated(Exception):
     pass
@@ -23,7 +21,7 @@ class Authenticator(Extensible, abstract=True):
         raise NotImplementedError
 
     def info_dict(self, request):
-        return { 'username' : self.authenticate(request) }
+        return {"username": self.authenticate(request)}
 
     def logout(self, request, identity):
         return "logged out"
@@ -36,7 +34,7 @@ class AbstractBasicAuthenticator(Authenticator, abstract=True):
 
     def logout(self, request, identity):
         headers = {"WWW-Authenticate": 'Basic realm="%s"' % self.realm}
-        url_root = request.args.get('url', request.url_root)
+        url_root = request.args.get("url", request.url_root)
         m = self.pattern.search(url_root)
         if m:
             url_root = m.group(1) + "__logout__@" + m.group(2)
@@ -44,10 +42,12 @@ class AbstractBasicAuthenticator(Authenticator, abstract=True):
         else:
             return Response("logged out", status=401, headers=headers)
 
+
 class AdminAdminAuthenticator(AbstractBasicAuthenticator, name="admin_admin"):
     """Simple HTTP Basic authenticator for testing purposes. User name and
     password have to be the same. User name is passed as the authenticated
     identity."""
+
     def __init__(self, realm=None, **options):
         super().__init__(realm=realm)
 
@@ -64,6 +64,7 @@ class AdminAdminAuthenticator(AbstractBasicAuthenticator, name="admin_admin"):
 class PassParameterAuthenticator(Authenticator, name="pass_parameter"):
     """Permissive authenticator that passes an URL parameter (default
     ``api_key``) as idenity."""
+
     def __init__(self, parameter=None, **options):
         super().__init__(**options)
         self.parameter_name = parameter or "api_key"
@@ -88,4 +89,3 @@ class HTTPBasicProxyAuthenticator(AbstractBasicAuthenticator, name="http_basic_p
             return auth.username
 
         raise NotAuthenticated(realm=self.realm)
-

@@ -14,8 +14,7 @@ from ..errors import *
 from ..formatters import JSONLinesGenerator, csv_generator
 from .. import ext
 from ..logging import get_logger
-from .logging import configured_request_log_handlers, RequestLogger, \
-        AsyncRequestLogger
+from .logging import configured_request_log_handlers, RequestLogger, AsyncRequestLogger
 from .errors import *
 from .decorators import *
 from .local import *
@@ -36,10 +35,7 @@ try:
 except ImportError:
     cubes_search = None
 
-__all__ = (
-    "slicer",
-    "API_VERSION"
-)
+__all__ = ("slicer", "API_VERSION")
 
 API_VERSION = 2
 
@@ -51,8 +47,8 @@ slicer = Blueprint("slicer", __name__, template_folder="templates")
 # Before
 # ------
 
-def _store_option(config, option, default, type_=None, allowed=None,
-                      section="server"):
+
+def _store_option(config, option, default, type_=None, allowed=None, section="server"):
     """Copies the `option` into the application config dictionary. `default`
     is a default value, if there is no such option in `config`. `type_` can be
     `bool`, `int` or `string` (default). If `allowed` is specified, then the
@@ -71,8 +67,9 @@ def _store_option(config, option, default, type_=None, allowed=None,
         value = default
 
     if allowed and value not in allowed:
-        raise ConfigurationError("Invalued value '%s' for option '%s'"
-                                 % (value, option))
+        raise ConfigurationError(
+            "Invalued value '%s' for option '%s'" % (value, option)
+        )
 
     setattr(current_app.slicer, option, value)
 
@@ -98,7 +95,7 @@ def initialize_slicer(state):
         else:
             _options = {}
 
-        if not hasattr(current_app, 'cubes_workspace'):
+        if not hasattr(current_app, "cubes_workspace"):
             current_app.cubes_workspace = Workspace(config, **_options)
 
         # Configure the application
@@ -120,18 +117,19 @@ def initialize_slicer(state):
             else:
                 options = {}
 
-            current_app.slicer.authenticator = ext.authenticator(method,
-                                                                        **options)
+            current_app.slicer.authenticator = ext.authenticator(method, **options)
         logger.debug("Server authentication method: %s" % (method or "none"))
 
         if not current_app.slicer.authenticator and workspace.authorizer:
-            logger.warn("No authenticator specified, but workspace seems to "
-                        "be using an authorizer")
+            logger.warn(
+                "No authenticator specified, but workspace seems to "
+                "be using an authorizer"
+            )
 
         # Collect query loggers
         handlers = configured_request_log_handlers(config)
 
-        if config.has_option('server', 'asynchronous_logging'):
+        if config.has_option("server", "asynchronous_logging"):
             async_logging = config.getboolean("server", "asynchronous_logging")
         else:
             async_logging = False
@@ -141,8 +139,10 @@ def initialize_slicer(state):
         else:
             current_app.slicer.request_logger = RequestLogger(handlers)
 
+
 # Before and After
 # ================
+
 
 @slicer.before_request
 def process_common_parameters():
@@ -175,6 +175,7 @@ def prepare_authorization():
 # Error Handler
 # =============
 
+
 @slicer.errorhandler(UserError)
 def user_error_handler(e):
     error_type = e.__class__.error_type
@@ -192,15 +193,17 @@ def user_error_handler(e):
 
     return jsonify(error), code
 
+
 @slicer.errorhandler(404)
 def page_not_found(e):
     error = {
         "error": "not_found",
         "message": "The requested URL was not found on the server.",
         "hint": "If you entered the URL manually please check your "
-                "spelling and try again."
+        "spelling and try again.",
     }
     return jsonify(error), 404
+
 
 @slicer.errorhandler(InternalError)
 def server_error(e):
@@ -209,30 +212,29 @@ def server_error(e):
     exc_name = exc_type.__name__
     logger.error(f"Internal Cubes error ({exc_name}): {exc_value}")
 
-    tb = traceback.format_exception(exc_type, exc_value,
-                                    exc_traceback)
+    tb = traceback.format_exception(exc_type, exc_value, exc_traceback)
     logger.debug("Exception stack trace:\n{}".format("".join(tb)))
 
     error = {
         "error": "internal_server_error",
         "message": "Internal server error",
         "hint": "Server administrators can learn more about the error from "
-                "the error logs (even more if they have 'debug' level)"
+        "the error logs (even more if they have 'debug' level)",
     }
 
     return jsonify(error), 500
 
+
 # Endpoints
 # =========
+
 
 @slicer.route("/")
 def show_index():
     info = get_info()
     has_about = any(key in info for key in SLICER_INFO_KEYS)
 
-    return render_template("index.html",
-                           has_about=has_about,
-                           **info)
+    return render_template("index.html", has_about=has_about, **info)
 
 
 @slicer.route("/version")
@@ -241,7 +243,7 @@ def show_version():
         "version": __version__,
         # Backward compatibility key
         "server_version": __version__,
-        "api_version": API_VERSION
+        "api_version": API_VERSION,
     }
     return jsonify(info)
 
@@ -261,18 +263,19 @@ def get_info():
     # authentication
     authinfo = {}
 
-    authinfo["type"] = (current_app.slicer.authentication or "none")
+    authinfo["type"] = current_app.slicer.authentication or "none"
 
     if g.auth_identity:
-        authinfo['identity'] = g.auth_identity
+        authinfo["identity"] = g.auth_identity
 
     if current_app.slicer.authenticator:
         ainfo = current_app.slicer.authenticator.info_dict(request)
         authinfo.update(ainfo)
 
-    info['authentication'] = authinfo
+    info["authentication"] = authinfo
 
     return info
+
 
 @slicer.route("/info")
 def show_info():
@@ -290,16 +293,17 @@ def list_cubes():
 @requires_cube
 def cube_model(cube_name):
     if workspace.authorizer:
-        hier_limits = workspace.authorizer.hierarchy_limits(g.auth_identity,
-                                                            cube_name)
+        hier_limits = workspace.authorizer.hierarchy_limits(g.auth_identity, cube_name)
     else:
         hier_limits = None
 
-    response = g.cube.to_dict(expand_dimensions=True,
-                              with_mappings=False,
-                              full_attribute_names=True,
-                              create_label=True,
-                              hierarchy_limits=hier_limits)
+    response = g.cube.to_dict(
+        expand_dimensions=True,
+        with_mappings=False,
+        full_attribute_names=True,
+        create_label=True,
+        hierarchy_limits=hier_limits,
+    )
 
     response["features"] = workspace.cube_features(g.cube).to_dict()
 
@@ -312,17 +316,17 @@ def cube_model(cube_name):
 def aggregate(cube_name):
     cube = g.cube
 
-    output_format = validated_parameter(request.args, "format",
-                                        values=["json", "csv", 'xlsx'],
-                                        default="json")
+    output_format = validated_parameter(
+        request.args, "format", values=["json", "csv", "xlsx"], default="json"
+    )
 
-    header_type = validated_parameter(request.args, "header",
-                                      values=["names", "labels", "none"],
-                                      default="labels")
+    header_type = validated_parameter(
+        request.args, "header", values=["names", "labels", "none"], default="labels"
+    )
 
     fields_str = request.args.get("fields")
     if fields_str:
-        fields = fields_str.lower().split(',')
+        fields = fields_str.lower().split(",")
     else:
         fields = None
 
@@ -342,13 +346,15 @@ def aggregate(cube_name):
 
     prepare_cell("split", "split")
 
-    result = g.browser.aggregate(g.cell,
-                                 aggregates=aggregates,
-                                 drilldown=drilldown,
-                                 split=g.split,
-                                 page=g.page,
-                                 page_size=g.page_size,
-                                 order=g.order)
+    result = g.browser.aggregate(
+        g.cell,
+        aggregates=aggregates,
+        drilldown=drilldown,
+        split=g.split,
+        page=g.page,
+        page_size=g.page_size,
+        order=g.order,
+    )
 
     # Hide cuts that were generated internally (default: don't)
     if current_app.slicer.hide_private_cuts:
@@ -367,22 +373,22 @@ def aggregate(cube_name):
         for l in result.labels:
             # TODO: add a little bit of polish to this
             if l == SPLIT_DIMENSION_NAME:
-                header.append('Matches Filters')
+                header.append("Matches Filters")
             else:
-                header += [ attr.label or attr.name for attr in cube.get_attributes([l], aggregated=True) ]
+                header += [
+                    attr.label or attr.name
+                    for attr in cube.get_attributes([l], aggregated=True)
+                ]
     else:
         header = None
 
     fields = result.labels
-    generator = csv_generator(result,
-                              fields,
-                              include_header=bool(header),
-                              header=header)
+    generator = csv_generator(
+        result, fields, include_header=bool(header), header=header
+    )
 
     headers = {"Content-Disposition": 'attachment; filename="aggregate.csv"'}
-    return Response(generator,
-                    mimetype='text/csv',
-                    headers=headers)
+    return Response(generator, mimetype="text/csv", headers=headers)
 
 
 @slicer.route("/cube/<cube_name>/facts")
@@ -392,7 +398,7 @@ def cube_facts(cube_name):
     # Request parameters
     fields_str = request.args.get("fields")
     if fields_str:
-        fields = fields_str.split(',')
+        fields = fields_str.split(",")
     else:
         fields = None
 
@@ -406,11 +412,9 @@ def cube_facts(cube_name):
     fields = [attr.ref for attr in attributes]
 
     # Get the result
-    facts = g.browser.facts(g.cell,
-                             fields=fields,
-                             order=g.order,
-                             page=g.page,
-                             page_size=g.page_size)
+    facts = g.browser.facts(
+        g.cell, fields=fields, order=g.order, page=g.page, page_size=g.page_size
+    )
 
     # Add cube key to the fields (it is returned in the result)
     fields.insert(0, g.cube.key or "__fact_key__")
@@ -421,6 +425,7 @@ def cube_facts(cube_name):
 
     return formatted_response(facts, fields, labels)
 
+
 @slicer.route("/cube/<cube_name>/fact/<fact_id>")
 @requires_browser
 def cube_fact(cube_name, fact_id):
@@ -429,8 +434,7 @@ def cube_fact(cube_name, fact_id):
     if fact:
         return jsonify(fact)
     else:
-        raise NotFoundError(fact_id, "fact",
-                            message="No fact with id '%s'" % fact_id)
+        raise NotFoundError(fact_id, "fact", message="No fact with id '%s'" % fact_id)
 
 
 @slicer.route("/cube/<cube_name>/members/<dimension_name>")
@@ -442,8 +446,9 @@ def cube_members(cube_name, dimension_name):
     level = request.args.get("level")
 
     if depth and level:
-        raise RequestError("Both depth and level provided, use only one "
-                           "(preferably level)")
+        raise RequestError(
+            "Both depth and level provided, use only one (preferably level)"
+        )
 
     if depth:
         try:
@@ -454,8 +459,11 @@ def cube_members(cube_name, dimension_name):
     try:
         dimension = g.cube.dimension(dimension_name)
     except KeyError:
-        raise NotFoundError(dimension_name, "dimension",
-                            message="Dimension '%s' was not found" % dimension_name)
+        raise NotFoundError(
+            dimension_name,
+            "dimension",
+            message="Dimension '%s' was not found" % dimension_name,
+        )
 
     hier_name = request.args.get("hierarchy")
     hierarchy = dimension.hierarchy(hier_name)
@@ -465,18 +473,20 @@ def cube_members(cube_name, dimension_name):
     elif level:
         depth = hierarchy.level_index(level) + 1
 
-    values = g.browser.members(g.cell,
-                               dimension,
-                               depth=depth,
-                               hierarchy=hierarchy,
-                               page=g.page,
-                               page_size=g.page_size)
+    values = g.browser.members(
+        g.cell,
+        dimension,
+        depth=depth,
+        hierarchy=hierarchy,
+        page=g.page,
+        page_size=g.page_size,
+    )
 
     result = {
         "dimension": dimension.name,
         "hierarchy": hierarchy.name,
         "depth": len(hierarchy) if depth is None else depth,
-        "data": values
+        "data": values,
     }
 
     # Collect fields and labels
@@ -521,13 +531,14 @@ def cube_report(cube_name):
         # Override URL cut with the one in report
         cuts = [cut_from_dict(cut) for cut in cell_cuts]
         cell = Cell(cuts)
-        logger.info("using cell from report specification (URL parameters "
-                    "are ignored)")
+        logger.info(
+            "using cell from report specification (URL parameters are ignored)"
+        )
 
         if workspace.authorizer:
-            cell = workspace.authorizer.restricted_cell(g.auth_identity,
-                                                        cube=g.cube,
-                                                        cell=cell)
+            cell = workspace.authorizer.restricted_cell(
+                g.auth_identity, cube=g.cube, cell=cell
+            )
     else:
         if not g.cell:
             cell = Cell()
@@ -552,10 +563,9 @@ def cube_search(cube_name):
 
     logger.debug("using search engine: %s" % engine_name)
 
-    search_engine = cubes_search.create_searcher(engine_name,
-                                                 browser=g.browser,
-                                                 locales=g.locales,
-                                                 **options)
+    search_engine = cubes_search.create_searcher(
+        engine_name, browser=g.browser, locales=g.locales, **options
+    )
     dimension = request.args.get("dimension")
     if not dimension:
         raise RequestError("No search dimension provided")
@@ -567,8 +577,7 @@ def cube_search(cube_name):
 
     locale = g.locale or g.locales[0]
 
-    logger.debug("searching for '%s' in %s, locale %s"
-                 % (query, dimension, locale))
+    logger.debug("searching for '%s' in %s, locale %s" % (query, dimension, locale))
 
     search_result = search_engine.search(query, dimension, locale=locale)
 
@@ -576,7 +585,7 @@ def cube_search(cube_name):
         "matches": search_result.dimension_matches(dimension),
         "dimension": dimension,
         "total_found": search_result.total_found,
-        "locale": locale
+        "locale": locale,
     }
 
     if search_result.error:
@@ -606,19 +615,22 @@ def get_visualizer():
     else:
         raise PageNotFoundError("Visualizer not configured")
 
+
 @slicer.after_request
 def add_cors_headers(response):
     """Add Cross-origin resource sharing headers."""
     origin = current_app.slicer.allow_cors_origin
     if origin and len(origin):
-        if request.method == 'OPTIONS':
-            response.headers['Access-Control-Allow-Headers'] = 'X-Requested-With'
+        if request.method == "OPTIONS":
+            response.headers["Access-Control-Allow-Headers"] = "X-Requested-With"
             # OPTIONS preflight requests need to receive origin back instead of wildcard
-        if origin == '*':
-            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', origin)
+        if origin == "*":
+            response.headers["Access-Control-Allow-Origin"] = request.headers.get(
+                "Origin", origin
+            )
         else:
-            response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Max-Age'] = CORS_MAX_AGE
+            response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Max-Age"] = CORS_MAX_AGE
     return response

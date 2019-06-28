@@ -13,50 +13,56 @@ from .functions import get_aggregate_function
 from ..errors import ExpressionError
 
 
-__all__ = [
-    "SQLExpressionContext",
-    "compile_attributes",
-    "SQLExpressionCompiler",
-]
+__all__ = ["SQLExpressionContext", "compile_attributes", "SQLExpressionCompiler"]
 
 
 SQL_FUNCTIONS = [
     # String
-    "lower", "upper", "left", "right", "substr",
-    "lpad", "rpad", "replace",
-    "concat", "repeat", "position",
-
+    "lower",
+    "upper",
+    "left",
+    "right",
+    "substr",
+    "lpad",
+    "rpad",
+    "replace",
+    "concat",
+    "repeat",
+    "position",
     # Math
-    "round", "trunc", "floor", "ceil",
-    "mod", "remainder",
+    "round",
+    "trunc",
+    "floor",
+    "ceil",
+    "mod",
+    "remainder",
     "sign",
-
-    "min", "max",
-
-    "pow", "exp", "log", "log10",
+    "min",
+    "max",
+    "pow",
+    "exp",
+    "log",
+    "log10",
     "sqrt",
-    "cos", "sin", "tan",
-
+    "cos",
+    "sin",
+    "tan",
     # Date/time
     "extract",
-
     # Conditionals
-    "coalesce", "nullif", "case",
-
+    "coalesce",
+    "nullif",
+    "case",
 ]
 
 # TODO: Add: lstrip, rstrip, strip -> trim
 # TODO: Add: like
 
-SQL_AGGREGATE_FUNCTIONS = [
-    "sum", "min", "max", "avg", "stddev", "variance", "count"
-]
+SQL_AGGREGATE_FUNCTIONS = ["sum", "min", "max", "avg", "stddev", "variance", "count"]
 
-SQL_ALL_FUNCTIONS = SQL_FUNCTIONS + SQL_AGGREGATE_FUNCTIONS;
+SQL_ALL_FUNCTIONS = SQL_FUNCTIONS + SQL_AGGREGATE_FUNCTIONS
 
-SQL_VARIABLES = [
-    "current_date", "current_time", "local_date", "local_time"
-]
+SQL_VARIABLES = ["current_date", "current_time", "local_date", "local_time"]
 
 
 class SQLExpressionContext:
@@ -100,8 +106,10 @@ class SQLExpressionContext:
 
         else:
             label = f" in {self.label}" if self.label else ""
-            raise ExpressionError("Unknown attribute, variable or parameter "
-                                  "'{}'{}" .format(variable, label))
+            raise ExpressionError(
+                "Unknown attribute, variable or parameter "
+                "'{}'{}".format(variable, label)
+            )
 
         return result
 
@@ -111,16 +119,14 @@ class SQLExpressionContext:
     def function(self, name):
         """Return a SQL function"""
         if name not in SQL_ALL_FUNCTIONS:
-            raise ExpressionError("Unknown function '{}'"
-                                  .format(name))
+            raise ExpressionError("Unknown function '{}'".format(name))
         return getattr(sql.func, name)
 
     def add_column(self, name, column):
         self._columns[name] = column
 
 
-def compile_attributes(bases, dependants, parameters, coalesce=None,
-                       label=None):
+def compile_attributes(bases, dependants, parameters, coalesce=None, label=None):
     """Compile dependant attributes in `dependants`. `bases` is a dictionary
     of base attributes and their column expressions."""
 
@@ -154,9 +160,7 @@ class SQLExpressionCompiler(Compiler):
         super().__init__(context)
 
     def compile_literal(self, context, literal):
-        return sql.expression.bindparam("literal",
-                                        literal,
-                                        unique=True)
+        return sql.expression.bindparam("literal", literal, unique=True)
 
     def compile_binary(self, context, operator, op1, op2):
         if operator == "*":
@@ -201,11 +205,11 @@ class SQLExpressionCompiler(Compiler):
 
     def compile_unary(self, context, operator, operand):
         if operator == "-":
-            result = (- operand)
+            result = -operand
         elif operator == "+":
-            result = (+ operand)
+            result = +operand
         elif operator == "~":
-            result = (~ operand)
+            result = ~operand
         elif operator == "not":
             result = sql.expression.not_(operand)
         else:
@@ -216,4 +220,3 @@ class SQLExpressionCompiler(Compiler):
     def compile_function(self, context, func, args):
         func = context.function(func.name)
         return func(*args)
-

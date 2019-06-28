@@ -1,37 +1,31 @@
 # -*- coding: utf-8 -*-
 
 from typing import (
-        # Collection,
-        Dict,
-        Iterable,
-        Iterator,
-        List,
-        Mapping,
-        NamedTuple,
-        Optional,
-        Set,
-        Sized,
-        Tuple,
-        Union,
-        cast,
-    )
+    # Collection,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Set,
+    Sized,
+    Tuple,
+    Union,
+    cast,
+)
 
 from ..metadata import (
-        Attribute,
-        Cube,
-        Dimension,
-        Hierarchy,
-        Level,
-        string_to_dimension_level,
-    )
+    Attribute,
+    Cube,
+    Dimension,
+    Hierarchy,
+    Level,
+    string_to_dimension_level,
+)
 
-from .cells import (
-        Cell,
-        Cut,
-        PointCut,
-        SetCut,
-        cuts_from_string,
-    )
+from .cells import Cell, Cut, PointCut, SetCut, cuts_from_string
 
 from .constants import SPLIT_DIMENSION_NAME
 from ..errors import ArgumentError, HierarchyError
@@ -40,11 +34,7 @@ from ..errors import ArgumentError, HierarchyError
 # FIXME: Update afetr Python 3.6.1
 Collection = List
 
-__all__ = [
-    "Drilldown",
-    "DrilldownItem",
-    "levels_from_drilldown",
-]
+__all__ = ["Drilldown", "DrilldownItem", "levels_from_drilldown"]
 
 
 class DrilldownItem(NamedTuple):
@@ -62,15 +52,10 @@ _DrilldownType = Union[
             str,
             Dimension,
             DrilldownItem,
-            Tuple[
-                Union[Dimension, str],
-                Union[Hierarchy, str],
-                Union[Level,str]
-            ]
+            Tuple[Union[Dimension, str], Union[Hierarchy, str], Union[Level, str]],
         ]
-    ]
+    ],
 ]
-
 
 
 class Drilldown(Iterable, Sized):
@@ -80,9 +65,7 @@ class Drilldown(Iterable, Sized):
     dimensions: List[Dimension]
     _contained_dimensions: Set[str]
 
-    def __init__(self,
-            cube: Cube,
-            items: _DrilldownType=None) -> None:
+    def __init__(self, cube: Cube, items: _DrilldownType = None) -> None:
         """Creates a drilldown object for `drilldown` specifictation of `cell`.
         The drilldown object can be used by browsers for convenient access to
         various drilldown properties.
@@ -123,15 +106,14 @@ class Drilldown(Iterable, Sized):
             else:
                 hierstr = ""
 
-            ddstr = "{}{}:{}".format(item.dimension.name,
-                                 hierstr,
-                                 item.levels[-1].name)
+            ddstr = "{}{}:{}".format(item.dimension.name, hierstr, item.levels[-1].name)
             strings.append(ddstr)
 
         return strings
 
-    def drilldown_for_dimension(self, dim: Union[str, Dimension]) \
-            -> List[DrilldownItem]:
+    def drilldown_for_dimension(
+        self, dim: Union[str, Dimension]
+    ) -> List[DrilldownItem]:
         """Returns drilldown items for dimension `dim`."""
         items = []
         dimname = str(dim)
@@ -161,11 +143,13 @@ class Drilldown(Iterable, Sized):
         return levels
 
     # This is resurrected from Cell in which cube was removed
-    def _cell_contains_level(self,
-            cell: Cell,
-            dimension: Union[Dimension, str],
-            level: str,
-            hierarchy: str=None) -> bool:
+    def _cell_contains_level(
+        self,
+        cell: Cell,
+        dimension: Union[Dimension, str],
+        level: str,
+        hierarchy: str = None,
+    ) -> bool:
         """Returns `True` if one of the cuts contains `level` of dimension
         `dim`. If `hierarchy` is not specified, then dimension's default
         hierarchy is used."""
@@ -196,19 +180,18 @@ class Drilldown(Iterable, Sized):
 
             # TODO: Replace with enums
             for level in item.levels:
-                contains_level = self._cell_contains_level(cell,
-                                                           dim.name,
-                                                           level.name,
-                                                           hier.name)
+                contains_level = self._cell_contains_level(
+                    cell, dim.name, level.name, hier.name
+                )
 
-                if (level.cardinality == "high" or dim.cardinality == "high") \
-                        and contains_level:
+                if (
+                    level.cardinality == "high" or dim.cardinality == "high"
+                ) and contains_level:
                     not_contained.append(level)
 
         return not_contained
 
-    def result_levels(self, include_split: bool=False) \
-            -> Mapping[str, List[str]]:
+    def result_levels(self, include_split: bool = False) -> Mapping[str, List[str]]:
         """Returns a dictionary where keys are dimension names and values are
         list of level names for the drilldown. Use this method to populate the
         result levels attribute.
@@ -269,7 +252,7 @@ class Drilldown(Iterable, Sized):
         for item in self.drilldown:
             for level in item.levels:
                 lvl_attr = level.order_attribute or level.key
-                lvl_order = level.order or 'asc'
+                lvl_order = level.order or "asc"
                 order.append((lvl_attr, lvl_order))
 
         return order
@@ -284,11 +267,10 @@ class Drilldown(Iterable, Sized):
         return len(self.drilldown) > 0
 
 
-
 # TODO: move this to Drilldown
 def levels_from_drilldown(
-        cube: Cube,
-        drilldown: Optional[_DrilldownType]) -> List[DrilldownItem]:
+    cube: Cube, drilldown: Optional[_DrilldownType]
+) -> List[DrilldownItem]:
     """Converts `drilldown` into a list of levels to be used to drill down.
     `drilldown` can be:
 
@@ -322,11 +304,13 @@ def levels_from_drilldown(
         elif isinstance(obj, Dimension):
             obj = (obj, obj.hierarchy(), obj.hierarchy().levels[-1])
         elif len(obj) != 3:
-            raise ArgumentError(f"Drilldown item should be either a string "
-                                f"or a tuple of three elements. Is: {obj}")
+            raise ArgumentError(
+                f"Drilldown item should be either a string "
+                f"or a tuple of three elements. Is: {obj}"
+            )
 
         dim_any, hier_any, level_any = obj
-        
+
         dim: Dimension = cube.dimension(dim_any)
         hier: Hierarchy = dim.hierarchy(hier_any)
 
@@ -334,7 +318,7 @@ def levels_from_drilldown(
 
         if level_any:
             index = hier.level_index(str(level_any))
-            levels = hier.levels[:index + 1]
+            levels = hier.levels[: index + 1]
         else:
             levels = hier.levels[:1]
 

@@ -14,6 +14,7 @@ from ..metadata import MeasureAggregate, HierarchyPath, Level
 from ..metadata.cube import Cube
 from ..metadata.attributes import Measure
 from ..query.cells import Cell
+
 # FIXME: Circular dependency. We need to fix the type
 # from ..query.browser import Drilldown
 Drilldown = Any
@@ -28,7 +29,7 @@ __all__ = [
     "CALCULATED_AGGREGATIONS",
     "calculators_for_aggregates",
     "available_calculators",
-    "aggregate_calculator_labels"
+    "aggregate_calculator_labels",
 ]
 
 
@@ -41,10 +42,11 @@ WindowFunctionType = Callable[[List[_ValueType]], _ValueType]
 
 
 def calculators_for_aggregates(
-        cube: Cube,
-        aggregates: List[MeasureAggregate],
-        drilldown: Optional[Drilldown]=None,
-        split: Cell=None) -> _UnknownType:
+    cube: Cube,
+    aggregates: List[MeasureAggregate],
+    drilldown: Optional[Drilldown] = None,
+    split: Cell = None,
+) -> _UnknownType:
     """Returns a list of calculator function objects that implements
     aggregations by calculating on retrieved results, given a particular
     drilldown. Only post-aggregation calculators are returned.
@@ -63,31 +65,35 @@ def calculators_for_aggregates(
         # Pre-requisites
         #
         if not aggregate.measure:
-            raise InternalError("No measure specified for aggregate '%s' in "
-                                "cube '%s'" % (aggregate.name, cube.name))
+            raise InternalError(
+                "No measure specified for aggregate '%s' in "
+                "cube '%s'" % (aggregate.name, cube.name)
+            )
 
         if aggregate.function:
             function: str = aggregate.function
         else:
             # This should not happen.
-            raise ArgumentError(f"No post-calculation function for aggregate "
-                                f" {aggregate.name}")
+            raise ArgumentError(
+                f"No post-calculation function for aggregate " f" {aggregate.name}"
+            )
         try:
             factory = CALCULATED_AGGREGATIONS[function]
         except KeyError:
-            raise ArgumentError("Unknown post-calculation function '%s' for "
-                                "aggregate '%s'" % (aggregate.function,
-                                                    aggregate.name))
+            raise ArgumentError(
+                "Unknown post-calculation function '%s' for "
+                "aggregate '%s'" % (aggregate.function, aggregate.name)
+            )
 
         source = cube.measure(aggregate.measure)
 
-        func = factory(aggregate,
-                source=source.ref,
-                drilldown=drilldown,
-                split_cell=split)
+        func = factory(
+            aggregate, source=source.ref, drilldown=drilldown, split_cell=split
+        )
         functions.append(func)
 
     return functions
+
 
 def weighted_moving_average(values: Sequence[_ValueType]) -> _ValueType:
     n = len(values)
@@ -104,27 +110,33 @@ def simple_moving_average(values: Sequence[_ValueType]) -> _ValueType:
     # use all the values
     return round(reduce(lambda i, c: float(c) + i, values, 0.0) / len(values), 2)
 
+
 def simple_moving_sum(values: Sequence[_ValueType]) -> _ValueType:
     return reduce(lambda i, c: i + c, values, 0)
 
+
 def simple_relative_stdev(values: Sequence[_ValueType]) -> _ValueType:
     m: float = mean(values)
-    var:float = variance(values)
-    return round(((sqrt(var)/m) if m > 0 else 0), 4)
+    var: float = variance(values)
+    return round(((sqrt(var) / m) if m > 0 else 0), 4)
+
 
 def simple_variance(values: Sequence[_ValueType]) -> _ValueType:
     return round(variance(values), 2)
 
+
 def simple_stdev(values: Sequence[_ValueType]) -> _ValueType:
     return round(stdev(values), 2)
 
+
 def _window_function_factory(
-        window_function: WindowFunctionType,
-        label: str,
-        aggregate: MeasureAggregate,
-        source: Measure,
-        drilldown: Optional[Drilldown],
-        split_cell: Cell) -> _UnknownType:
+    window_function: WindowFunctionType,
+    label: str,
+    aggregate: MeasureAggregate,
+    source: Measure,
+    drilldown: Optional[Drilldown],
+    split_cell: Cell,
+) -> _UnknownType:
     """Returns a moving average window function. `aggregate` is the target
     aggergate. `window_function` is concrete window function."""
 
@@ -143,7 +155,7 @@ def _window_function_factory(
             these_num_units = None
 
             if relevant_level.info:
-                these_num_units = relevant_level.info.get('aggregation_units', None)
+                these_num_units = relevant_level.info.get("aggregation_units", None)
             if these_num_units is None:
                 key_drilldown_paths.append(item)
             else:
@@ -153,8 +165,10 @@ def _window_function_factory(
         window_size = 1
 
     elif not isinstance(window_size, int) or window_size < 1:
-        raise ModelError("window size for aggregate '%s' sohuld be an integer "
-                         "greater than or equeal 1" % aggregate.name)
+        raise ModelError(
+            "window size for aggregate '%s' sohuld be an integer "
+            "greater than or equeal 1" % aggregate.name
+        )
 
     # Create a composite key for grouping:
     #   * split dimension, if used
@@ -173,16 +187,21 @@ def _window_function_factory(
     # consider the measure reference to be aggregated measure reference.
     # TODO: this does not work for implicit post-aggregate calculations
 
-    function = WindowFunction(window_function, window_key,
-                              target_attribute=aggregate.name,
-                              source_attribute=source,
-                              window_size=window_size,
-                              label=label)
+    function = WindowFunction(
+        window_function,
+        window_key,
+        target_attribute=aggregate.name,
+        source_attribute=source,
+        window_size=window_size,
+        label=label,
+    )
     return function
+
 
 def get_key(record, composite_key):
     """Extracts a tuple of values from the `record` by `composite_key`"""
     return tuple(record.get(key) for key in composite_key)
+
 
 # FIXME : [typing] Fix the data types
 class WindowFunction:
@@ -194,13 +213,15 @@ class WindowFunction:
     window_size: Any
     label: str
 
-    def __init__(self,
-            function: Any,
-            window_key: Any,
-            target_attribute: Any,
-            source_attribute: Any,
-            window_size: Any,
-            label: Any) -> Any:
+    def __init__(
+        self,
+        function: Any,
+        window_key: Any,
+        target_attribute: Any,
+        source_attribute: Any,
+        window_size: Any,
+        label: Any,
+    ) -> Any:
         """Creates a window function."""
 
         if not function:
@@ -249,29 +270,43 @@ class WindowFunction:
 
 # TODO: make CALCULATED_AGGREGATIONS a namespace (see extensions.py)
 CALCULATED_AGGREGATIONS = {
-    "wma": partial(_window_function_factory,
-                   window_function=weighted_moving_average,
-                   label='Weighted Moving Avg. of {measure}'),
-    "sma": partial(_window_function_factory,
-                   window_function=simple_moving_average,
-                   label='Simple Moving Avg. of {measure}'),
-    "sms": partial(_window_function_factory,
-                   window_function=simple_moving_sum,
-                   label='Simple Moving Sum of {measure}'),
-    "smstd": partial(_window_function_factory,
-                     window_function=simple_stdev,
-                     label='Moving Std. Deviation of {measure}'),
-    "smrsd": partial(_window_function_factory,
-                     window_function=simple_relative_stdev,
-                     label='Moving Relative St. Dev. of {measure}'),
-    "smvar": partial(_window_function_factory,
-                     window_function=simple_variance,
-                     label='Moving Variance of {measure}')
+    "wma": partial(
+        _window_function_factory,
+        window_function=weighted_moving_average,
+        label="Weighted Moving Avg. of {measure}",
+    ),
+    "sma": partial(
+        _window_function_factory,
+        window_function=simple_moving_average,
+        label="Simple Moving Avg. of {measure}",
+    ),
+    "sms": partial(
+        _window_function_factory,
+        window_function=simple_moving_sum,
+        label="Simple Moving Sum of {measure}",
+    ),
+    "smstd": partial(
+        _window_function_factory,
+        window_function=simple_stdev,
+        label="Moving Std. Deviation of {measure}",
+    ),
+    "smrsd": partial(
+        _window_function_factory,
+        window_function=simple_relative_stdev,
+        label="Moving Relative St. Dev. of {measure}",
+    ),
+    "smvar": partial(
+        _window_function_factory,
+        window_function=simple_variance,
+        label="Moving Variance of {measure}",
+    ),
 }
+
 
 def available_calculators():
     """Returns a list of available calculators."""
     return CALCULATED_AGGREGATIONS.keys()
 
+
 def aggregate_calculator_labels():
-    return {k: v.keywords['label'] for k, v in CALCULATED_AGGREGATIONS.items()}
+    return {k: v.keywords["label"] for k, v in CALCULATED_AGGREGATIONS.items()}

@@ -5,6 +5,7 @@ from cubes.metadata import Attribute
 
 from ..common import CubesTestCaseBase, create_provider
 
+
 class MapperTestCase(CubesTestCaseBase):
     def setUp(self):
         super().setUp()
@@ -12,10 +13,7 @@ class MapperTestCase(CubesTestCaseBase):
         self.provider = create_provider("mapper_test.json")
 
         self.cube = self.provider.cube("sales")
-        naming = {
-                "dimension_prefix": "dim_",
-                "dimension_suffix": "_dim"
-        }
+        naming = {"dimension_prefix": "dim_", "dimension_suffix": "_dim"}
         self.naming = distill_naming(naming)
         self.mapper = StarSchemaMapper(self.cube, self.naming)
 
@@ -23,7 +21,7 @@ class MapperTestCase(CubesTestCaseBase):
             "product.name": "product.product_name",
             "product.category": "product.category_id",
             "subcategory.name.en": "subcategory.subcategory_name_en",
-            "subcategory.name.sk": "subcategory.subcategory_name_sk"
+            "subcategory.name.sk": "subcategory.subcategory_name_sk",
         }
 
     def test_logical_reference(self):
@@ -102,16 +100,17 @@ class MapperTestCase(CubesTestCaseBase):
 
         self.assertMapping("dim_date_dim.month_name", "date.month_name")
 
-        self.assertMapping("dim_category_dim.category_name_en",
-                           "product.category_name")
+        self.assertMapping("dim_category_dim.category_name_en", "product.category_name")
 
-        self.assertMapping("dim_category_dim.category_name_sk",
-                           "product.category_name", sk_mapper)
+        self.assertMapping(
+            "dim_category_dim.category_name_sk", "product.category_name", sk_mapper
+        )
 
         # This should default to 'en' since we don't have 'de' locale and the
         # 'en' locale is the default one
-        self.assertMapping("dim_category_dim.category_name_en",
-                           "product.category_name", de_mapper)
+        self.assertMapping(
+            "dim_category_dim.category_name_en", "product.category_name", de_mapper
+        )
 
         # Test with mapping
         self.assertMapping("dim_product_dim.product_name", "product.name")
@@ -119,17 +118,19 @@ class MapperTestCase(CubesTestCaseBase):
 
         # The product name is not localized, we should get the same for any
         # mapper
-        self.assertMapping("dim_product_dim.product_name", "product.name",
-                           sk_mapper)
-        self.assertMapping("dim_product_dim.product_name", "product.name",
-                           de_mapper)
+        self.assertMapping("dim_product_dim.product_name", "product.name", sk_mapper)
+        self.assertMapping("dim_product_dim.product_name", "product.name", de_mapper)
 
-        self.assertMapping("dim_category_dim.subcategory_name_en",
-                           "product.subcategory_name")
-        self.assertMapping("dim_category_dim.subcategory_name_sk",
-                           "product.subcategory_name",
-                           sk_mapper)
-        self.assertMapping("dim_category_dim.subcategory_name_en",
-                           "product.subcategory_name",
-                           de_mapper)
-
+        self.assertMapping(
+            "dim_category_dim.subcategory_name_en", "product.subcategory_name"
+        )
+        self.assertMapping(
+            "dim_category_dim.subcategory_name_sk",
+            "product.subcategory_name",
+            sk_mapper,
+        )
+        self.assertMapping(
+            "dim_category_dim.subcategory_name_en",
+            "product.subcategory_name",
+            de_mapper,
+        )

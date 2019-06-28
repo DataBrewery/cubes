@@ -5,6 +5,7 @@
 
 # TODO: Should go away with new approach to model object description in #398
 
+
 class ModelObjectLocalizationContext:
     def __init__(self, translation, context, object_type, object_name):
         self.translation = translation
@@ -16,8 +17,7 @@ class ModelObjectLocalizationContext:
         try:
             return self.translation[key]
         except KeyError:
-            return self.context.get(self.object_type, self.object_name, key,
-                                    default)
+            return self.context.get(self.object_type, self.object_name, key, default)
 
     def object_localization(self, object_type, name):
         try:
@@ -28,15 +28,14 @@ class ModelObjectLocalizationContext:
         try:
             trans = objects[name]
         except KeyError:
-            return ModelObjectLocalizationContext({}, self.context,
-                                              object_type, name)
+            return ModelObjectLocalizationContext({}, self.context, object_type, name)
 
         # Make string-only translations as translations of labels
         if isinstance(trans, str):
             trans = {"label": trans}
 
-        return ModelObjectLocalizationContext(trans, self.context,
-                                              object_type, name)
+        return ModelObjectLocalizationContext(trans, self.context, object_type, name)
+
 
 class LocalizationContext:
     def __init__(self, translation, parent=None):
@@ -100,7 +99,7 @@ class LocalizationContext:
         lookup_map = {
             "cube": "cubes",
             "dimension": "dimensions",
-            "defaults": "defaults"
+            "defaults": "defaults",
         }
 
         objkey = lookup_map[type_]
@@ -110,4 +109,3 @@ class LocalizationContext:
                 return trans[objkey][obj]
 
         return None
-

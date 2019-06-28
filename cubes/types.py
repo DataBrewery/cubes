@@ -1,10 +1,4 @@
-from typing import (
-        Any,
-        Dict,
-        Mapping,
-        Optional,
-        Tuple,
-    )
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 # Type used as a placeholder during type annotation process. There should be no
 # values of this type in the future. Used to mark:

@@ -13,14 +13,14 @@ from .metadata.cube import Cube
 from .metadata.attributes import AttributeBase
 
 
-__all__ = (
-    "Mapper",
-)
+__all__ = ("Mapper",)
+
 
 class Mapper:
     """Mapper is core class for translating logical model to physical database
     schema.
     """
+
     # WARNING: do not put any SQL/engine/connection related stuff into this
     # class yet. It might be moved to the cubes as one of top-level modules
     # and subclassed here.
@@ -31,10 +31,7 @@ class Mapper:
     locale: Optional[str]
     attributes: Dict[str, AttributeBase]
 
-    def __init__(self,
-            cube: Cube,
-            locale: str=None,
-            **naming: Any) -> None:
+    def __init__(self, cube: Cube, locale: str = None, **naming: Any) -> None:
         """Abstract class for mappers which maps logical references to
         physical references (tables and columns).
 
@@ -74,7 +71,7 @@ class Mapper:
         self.locale = locale
         self._collect_attributes()
 
-    def logical(self, attribute: AttributeBase, locale:str=None) -> str:
+    def logical(self, attribute: AttributeBase, locale: str = None) -> str:
         """Returns logical reference as string for `attribute` in `dimension`.
         If `dimension` is ``Null`` then fact table is assumed. The logical
         reference might have following forms:
@@ -91,7 +88,7 @@ class Mapper:
 
         return reference
 
-    def split_logical(self, reference: str) -> Tuple[Optional[str],str]:
+    def split_logical(self, reference: str) -> Tuple[Optional[str], str]:
         """Returns tuple (`dimension`, `attribute`) from `logical_reference` string. Syntax
         of the string is: ``dimensions.attribute``."""
 
@@ -104,7 +101,7 @@ class Mapper:
         else:
             return (None, reference)
 
-    def physical(self, attribute: AttributeBase, locale:str=None) -> str:
+    def physical(self, attribute: AttributeBase, locale: str = None) -> str:
         """Returns physical reference for attribute. Returned value is backend
         specific. Default implementation returns a value from the mapping
         dictionary.
@@ -113,4 +110,3 @@ class Mapper:
         """
 
         return self.mappings.get(attribute.localized_ref(locale))
-

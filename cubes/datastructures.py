@@ -7,15 +7,9 @@
 """
 
 
-from typing import (
-    Generic,
-    Mapping,
-    TypeVar
-)
+from typing import Generic, Mapping, TypeVar
 
-__all__ = [
-    "AttributeDict",
-]
+__all__ = ["AttributeDict"]
 
 
 T = TypeVar("T")
@@ -37,10 +31,9 @@ class AttributeDict(dict, Generic[T]):
             return self[key]
         except KeyError:
             raise AttributeError(
-                '{!r} object has no attribute {!r}'.format(
-                    type(self).__name__, key))
+                "{!r} object has no attribute {!r}".format(type(self).__name__, key)
+            )
 
     def __setattr__(self, key: str, value: T) -> None:
         """`d[key] = value -> d.key = value`"""
         self[key] = value
-

@@ -4,17 +4,17 @@
 import re
 
 from typing import (
-        Collection,
-        Dict,
-        List,
-        Mapping,
-        Optional,
-        Pattern,
-        Tuple,
-        Type,
-        TypeVar,
-        Union,
-    )
+    Collection,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Pattern,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from collections import defaultdict
 
@@ -41,7 +41,6 @@ from ..settings import Setting, SettingType
 __all__ = (
     "distill_naming",
     "DEFAULT_KEY_FIELD",
-
     "Mapper",
     "StarSchemaMapper",
     "DenormalizedMapper",
@@ -51,8 +50,8 @@ __all__ = (
 
 DEFAULT_KEY_FIELD = "id"
 
-DEFAULT_FACT_KEY = 'id'
-DEFAULT_DIMENSION_KEY = 'id'
+DEFAULT_FACT_KEY = "id"
+DEFAULT_DIMENSION_KEY = "id"
 
 # Note: Only keys in this dictionary are allowed in the `naming` dictionary.
 # All other keys are ignored.
@@ -64,17 +63,13 @@ NAMING_DEFAULTS = {
     "dimension_suffix": None,
     "dimension_key_prefix": None,
     "dimension_key_suffix": None,
-
     "denormalized_prefix": None,
     "denormalized_suffix": None,
-
     "aggregated_prefix": None,
     "aggregated_suffix": None,
-
     "fact_key": DEFAULT_FACT_KEY,
     "dimension_key": DEFAULT_DIMENSION_KEY,
     "explicit_dimension_primary": False,
-
     "schema": None,
     "fact_schema": None,
     "dimension_schema": None,
@@ -88,20 +83,20 @@ NamingDict = Dict[str, Union[str, bool, None]]
 
 # TODO: [typing][2.0] analyse whether this is still needed, looks lie Store is
 # using it
-def distill_naming(dictionary: Dict[str,str]) -> NamingDict:
+def distill_naming(dictionary: Dict[str, str]) -> NamingDict:
     """Distill only keys and values related to the naming conventions."""
-    d = {key: value for key, value in dictionary.items()
-         if key in NAMING_DEFAULTS}
+    d = {key: value for key, value in dictionary.items() if key in NAMING_DEFAULTS}
 
     return d
 
 
-def _match_names(pattern: Pattern, names: Collection[str]) \
-        -> Collection[Tuple[str,str]]:
+def _match_names(
+    pattern: Pattern, names: Collection[str]
+) -> Collection[Tuple[str, str]]:
     """Match names to patterns and return a tuple of matching name with
     extracted value (stripped of suffix/prefix)."""
 
-    result: List[Tuple[str,str]] = []
+    result: List[Tuple[str, str]] = []
 
     for name in names:
         match = pattern.match(name)
@@ -110,7 +105,9 @@ def _match_names(pattern: Pattern, names: Collection[str]) \
 
     return result
 
+
 T = TypeVar("T", Optional[str], Optional[bool])
+
 
 def _naming_default(naming: NamingDict, key: str) -> T:
     return naming.get(key, NAMING_DEFAULTS.get(key))
@@ -149,9 +146,7 @@ class Mapper:
     fact_name_pattern: Pattern
     dim_key_pattern: Pattern
 
-
-    def __init__(self, cube: Cube, naming: NamingDict,
-            locale: str=None) -> None:
+    def __init__(self, cube: Cube, naming: NamingDict, locale: str = None) -> None:
         """Creates a mapping for `cube` using `naming` conventions within
         optional `locale`. `naming` is a dictionary of naming conventions.  """
 
@@ -178,46 +173,48 @@ class Mapper:
         self.dimension_schema = _naming_default(naming, "dimension_schema")
         self.aggregate_schema = _naming_default(naming, "aggregate_schema")
 
-        self.dim_name_pattern = re.compile("^{}(?P<name>.*){}$"
-                                      .format(self.dimension_prefix or "",
-                                              self.dimension_suffix or ""))
+        self.dim_name_pattern = re.compile(
+            "^{}(?P<name>.*){}$".format(
+                self.dimension_prefix or "", self.dimension_suffix or ""
+            )
+        )
 
-        self.fact_name_pattern = re.compile("^{}(?P<name>.*){}$"
-                                       .format(self.fact_prefix or "",
-                                       self.fact_suffix or ""))
+        self.fact_name_pattern = re.compile(
+            "^{}(?P<name>.*){}$".format(self.fact_prefix or "", self.fact_suffix or "")
+        )
 
-        self.dim_key_pattern = re.compile("^{}(?P<name>.*){}$"
-                                     .format(self.dimension_key_prefix or "",
-                                             self.dimension_key_suffix or ""))
+        self.dim_key_pattern = re.compile(
+            "^{}(?P<name>.*){}$".format(
+                self.dimension_key_prefix or "", self.dimension_key_suffix or ""
+            )
+        )
 
         self.fact_name = cube.fact or self.fact_table_name(cube.name)
 
     def dimension_table_name(self, name: str) -> str:
         """Constructs a physical dimension table name for dimension `name`"""
 
-        table_name = "{}{}{}".format(self.dimension_prefix or "",
-                                     name,
-                                     self.dimension_suffix or "")
+        table_name = "{}{}{}".format(
+            self.dimension_prefix or "", name, self.dimension_suffix or ""
+        )
         return table_name
 
     def fact_table_name(self, name: str) -> str:
         """Constructs a physical fact table name for fact/cube `name`"""
 
-        table_name = "{}{}{}".format(self.fact_prefix or "",
-                                     name,
-                                     self.fact_suffix or "")
+        table_name = "{}{}{}".format(
+            self.fact_prefix or "", name, self.fact_suffix or ""
+        )
         return table_name
 
     # TODO: require list of dimensions here
     def aggregated_table_name(self, name: str) -> str:
         """Constructs a physical fact table name for fact/cube `name`"""
 
-        table_name = "{}{}{}".format(self.aggregated_prefix or "",
-                                     name,
-                                     self.aggregated_suffix or "")
+        table_name = "{}{}{}".format(
+            self.aggregated_prefix or "", name, self.aggregated_suffix or ""
+        )
         return table_name
-
-
 
     def __getitem__(self, attribute: AttributeBase) -> ColumnReference:
         """Returns implicit physical column reference for `attribute`, which
@@ -229,8 +226,11 @@ class Mapper:
         column_name = attribute.name
 
         if attribute.is_localizable():
-            locale = self.locale if self.locale in attribute.locales \
-                                else attribute.locales[0]
+            locale = (
+                self.locale
+                if self.locale in attribute.locales
+                else attribute.locales[0]
+            )
 
             column_name = f"{column_name}_{locale}"
 
@@ -264,8 +264,9 @@ class Mapper:
         `naming` is a naming convention object. Returns  a dictionary of
         attribute references and their physical column references."""
 
-        mapped = {attr.ref:self[attr] for attr in self.cube.all_attributes
-                  if attr.is_base}
+        mapped = {
+            attr.ref: self[attr] for attr in self.cube.all_attributes if attr.is_base
+        }
 
         return mapped
 
@@ -273,9 +274,10 @@ class Mapper:
 class DenormalizedMapper(Mapper):
     def __getitem__(self, attribute: AttributeBase) -> ColumnReference:
         if attribute.expression is not None:
-            raise ModelError("Attribute '{}' has an expression, it can not "
-                             "have a direct physical representation"
-                             .format(attribute.name))
+            raise ModelError(
+                "Attribute '{}' has an expression, it can not "
+                "have a direct physical representation".format(attribute.name)
+            )
 
         return super().__getitem__(attribute)
 
@@ -299,9 +301,10 @@ class StarSchemaMapper(Mapper):
         """
 
         if attribute.expression is not None:
-            raise ModelError("Attribute '{}' has an expression, it can not "
-                             "have a direct physical representation"
-                             .format(attribute.name))
+            raise ModelError(
+                "Attribute '{}' has an expression, it can not "
+                "have a direct physical representation".format(attribute.name)
+            )
 
         # Fix locale: if attribute is not localized, use none, if it is
         # localized, then use specified if exists otherwise use default
@@ -309,8 +312,11 @@ class StarSchemaMapper(Mapper):
 
         locale: Optional[str]
         if attribute.is_localizable():
-            locale = self.locale if self.locale in attribute.locales \
-                                else attribute.locales[0]
+            locale = (
+                self.locale
+                if self.locale in attribute.locales
+                else attribute.locales[0]
+            )
         else:
             locale = None
 
@@ -325,5 +331,3 @@ class StarSchemaMapper(Mapper):
             # No mappings exist or no mapping was found - we are going to
             # create default physical reference
             return super().__getitem__(attribute)
-
-

@@ -5,12 +5,11 @@ import cubes.common
 # TODO: Moved from `test_combinations`. Requires review.
 @unittest.skip
 class CombinationsTestCase(unittest.TestCase):
-
     def setUp(self):
-        self.nodea = ('a', (1,2,3))
-        self.nodeb = ('b', (99,88))
-        self.nodec = ('c',('x','y'))
-        self.noded = ('d', ('m'))
+        self.nodea = ("a", (1, 2, 3))
+        self.nodeb = ("b", (99, 88))
+        self.nodec = ("c", ("x", "y"))
+        self.noded = ("d", ("m"))
 
     def test_levels(self):
         combos = cubes.common.combine_nodes([self.nodea])
@@ -55,10 +54,11 @@ class CombinationsTestCase(unittest.TestCase):
                     break
             self.assertTrue(flag, "All combinations should contain both required nodes")
 
+
 @unittest.skip
 class CuboidsTestCase(unittest.TestCase):
     def setUp(self):
-        self.model_path = os.path.join(DATA_PATH, 'model.json')
+        self.model_path = os.path.join(DATA_PATH, "model.json")
         self.model = cubes.model_from_path(self.model_path)
         self.cube = self.model.cubes.get("contracts")
 
@@ -77,9 +77,9 @@ class CuboidsTestCase(unittest.TestCase):
         self.assertEqual(len(results), 648)
 
     def test_should_not_accept_unknown_dimension(self):
-        foo_desc = { "name": "foo", "levels": {"level": {"key": "boo"}}}
+        foo_desc = {"name": "foo", "levels": {"level": {"key": "boo"}}}
         foo_dim = cubes.create_dimension(foo_desc)
 
-        self.assertRaises(AttributeError, cubes.common.all_cuboids,
-                                          self.cube.dimensions, [foo_dim])
-
+        self.assertRaises(
+            AttributeError, cubes.common.all_cuboids, self.cube.dimensions, [foo_dim]
+        )

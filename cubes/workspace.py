@@ -8,8 +8,13 @@ from logging import Logger
 from collections import OrderedDict, defaultdict
 from configparser import ConfigParser
 
-from .metadata import read_model_metadata, find_dimension, LocalizationContext,\
-                        Cube, Dimension
+from .metadata import (
+    read_model_metadata,
+    find_dimension,
+    LocalizationContext,
+    Cube,
+    Dimension,
+)
 from .metadata.providers import ModelProvider
 from .auth import NotAuthorized, Authorizer
 from .common import read_json_file
@@ -26,66 +31,60 @@ from .settings import Setting, SettingType, distill_settings
 # FIXME: [typing] Remove direct reference to SQL, move to shared place
 from .sql.mapper import NamingDict, distill_naming
 
-__all__ = [
-    "Workspace",
-]
+__all__ = ["Workspace"]
 
 
 SLICER_INFO_KEYS = (
     "name",
     "label",
     "description",  # Workspace model description
-    "copyright",    # Copyright for the data
-    "license",      # Data license
-    "maintainer",   # Name (and maybe contact) of data maintainer
-    "contributors", # List of contributors
+    "copyright",  # Copyright for the data
+    "license",  # Data license
+    "maintainer",  # Name (and maybe contact) of data maintainer
+    "contributors",  # List of contributors
     "visualizers",  # List of dicts with url and label of server's visualizers
-    "keywords",     # List of keywords describing server's cubes
-    "related"       # List of dicts with related servers
+    "keywords",  # List of keywords describing server's cubes
+    "related",  # List of dicts with related servers
 )
 
 WORKSPACE_SETTINGS = [
-        Setting(
-                "log", SettingType.str,
-                desc="File name where the logs are written"
-        ),
-        Setting(
-                "log_level", SettingType.str,
-                desc="Log level details",
-                values=["info", "error", "warn", "debug"],
-        ),
-        Setting(
-                "root_directory", SettingType.str,
-                desc="Directory for all relative paths"
-        ),
-        Setting(
-                "models_directory", SettingType.str,
-                desc="Place where file-based models are searched for",
-        ),
-        Setting(
-                "info_file", SettingType.str,
-                desc="A JSON file where server info is stored",
-        ),
-        Setting(
-                "stores_file", SettingType.str,
-                desc="Configuration file with configuration of stores",
-        ),
-        Setting(
-                "timezone", SettingType.str,
-                desc="Default timezone for time and date functions",
-        ),
-        Setting(
-                "first_weekday", SettingType.str,
-                desc="Name or a number of a first day of the week",
-        ),
-    ]
+    Setting("log", SettingType.str, desc="File name where the logs are written"),
+    Setting(
+        "log_level",
+        SettingType.str,
+        desc="Log level details",
+        values=["info", "error", "warn", "debug"],
+    ),
+    Setting("root_directory", SettingType.str, desc="Directory for all relative paths"),
+    Setting(
+        "models_directory",
+        SettingType.str,
+        desc="Place where file-based models are searched for",
+    ),
+    Setting(
+        "info_file", SettingType.str, desc="A JSON file where server info is stored"
+    ),
+    Setting(
+        "stores_file",
+        SettingType.str,
+        desc="Configuration file with configuration of stores",
+    ),
+    Setting(
+        "timezone", SettingType.str, desc="Default timezone for time and date functions"
+    ),
+    Setting(
+        "first_weekday",
+        SettingType.str,
+        desc="Name or a number of a first day of the week",
+    ),
+]
 
 
 class Workspace:
 
     # TODO: Make this first-class object
-    store_infos: Dict[str,Tuple[str, JSONType]]
-    stores: Dict[str,Store]
+    store_infos: Dict[str, Tuple[str, JSONType]]
+    stores: Dict[str, Store]
     logger: Logger
     root_dir: str
     models_dir: str
@@ -104,11 +103,13 @@ class Workspace:
 
     _cubes: Dict[_CubeKey, Cube]
 
-    def __init__(self,
-                 config: ConfigParser=None,
-                 stores: str=None,
-                 load_base_model: bool=True,
-                 **_options: Any) -> None:
+    def __init__(
+        self,
+        config: ConfigParser = None,
+        stores: str = None,
+        load_base_model: bool = True,
+        **_options: Any,
+    ) -> None:
         """Creates a workspace. `config` should be a `ConfigParser` or a
         path to a config file. `stores` should be a dictionary of store
         configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
@@ -147,9 +148,9 @@ class Workspace:
         # =======
         # Log to file or console
         if "workspace" in config:
-            workspace_config = distill_settings(config["workspace"],
-                                                WORKSPACE_SETTINGS,
-                                                owner="workspace")
+            workspace_config = distill_settings(
+                config["workspace"], WORKSPACE_SETTINGS, owner="workspace"
+            )
         else:
             workspace_config = {}
 
@@ -215,10 +216,12 @@ class Workspace:
             info = dict(config["info"])
 
             if "visualizer" in info:
-                info["visualizers"] = [{
-                    "label": info.get("label", info.get("name", "Default")),
-                    "url": info["visualizer"]
-                }]
+                info["visualizers"] = [
+                    {
+                        "label": info.get("label", info.get("name", "Default")),
+                        "url": info["visualizer"],
+                    }
+                ]
 
             for key in SLICER_INFO_KEYS:
                 self.info[key] = info.get(key)
@@ -237,20 +240,21 @@ class Workspace:
             try:
                 store_config.read(stores)
             except Exception as e:
-                raise ConfigurationError(f"Unable to read stores from {stores}."
-                                          " Reason: {e}")
+                raise ConfigurationError(
+                    f"Unable to read stores from {stores}. Reason: {e}"
+                )
 
             for store in store_config.sections():
-                self._register_store_dict(store,
-                                          dict(store_config.items(store)))
+                self._register_store_dict(store, dict(store_config.items(store)))
 
         elif isinstance(stores, dict):
             for name, store in stores.items():
                 self._register_store_dict(name, store)
 
         elif stores is not None:
-            raise ConfigurationError("Unknown stores description object: %s" %
-                                                    (type(stores)))
+            raise ConfigurationError(
+                "Unknown stores description object: %s" % (type(stores))
+            )
 
         # Calendar
         # ========
@@ -258,11 +262,12 @@ class Workspace:
         timezone = workspace_config.get("timezone")
         first_weekday = workspace_config.get("first_weekday", 0)
 
-        self.logger.debug(f"Workspace calendar timezone: {timezone} "
-                           "first week day: {first_weekday}")
+        self.logger.debug(
+            f"Workspace calendar timezone: {timezone} "
+            "first week day: {first_weekday}"
+        )
 
-        self.calendar = Calendar(timezone=timezone,
-                                 first_weekday=first_weekday)
+        self.calendar = Calendar(timezone=timezone, first_weekday=first_weekday)
 
         # Register Naming
         #
@@ -345,7 +350,7 @@ class Workspace:
         # root/model.json
         # root/main.cubesmodel
         # models/*.cubesmodel
-        models: List[Tuple[str,str]]
+        models: List[Tuple[str, str]]
         models = []
         # Undepreciated
         if "model" in config:
@@ -374,10 +379,9 @@ class Workspace:
             return self.namespace
         return self.namespace.namespace(ref)[0]
 
-    def add_translation(self,
-            locale: str,
-            trans: JSONType,
-            ns: str="default") -> None:
+    def add_translation(
+        self, locale: str, trans: JSONType, ns: str = "default"
+    ) -> None:
         """Add translation `trans` for `locale`. `ns` is a namespace. If no
         namespace is specified, then default (global) is used."""
 
@@ -395,8 +399,10 @@ class Workspace:
             except KeyError:
                 raise ConfigurationError("Store '%s' has no type specified" % name)
             else:
-                self.logger.warn("'backend' is depreciated, use 'type' for "
-                                 "store (in %s)." % str(name))
+                self.logger.warn(
+                    "'backend' is depreciated, use 'type' for "
+                    "store (in %s)." % str(name)
+                )
 
         self.register_store(name, type_, **info)
 
@@ -407,11 +413,9 @@ class Workspace:
         self.register_store("default", type_, **config)
 
     # TODO: Make `config` use Options
-    def register_store(self,
-            name: str,
-            type_: str,
-            include_model: bool=True,
-            **_config: Any) -> None:
+    def register_store(
+        self, name: str, type_: str, include_model: bool = True, **_config: Any
+    ) -> None:
         """Adds a store configuration."""
 
         config = dict(_config)
@@ -443,12 +447,10 @@ class Workspace:
         nsname = config.pop("namespace", None)
 
         if model:
-            self.import_model(model, store=name, namespace=nsname,
-                              provider=provider)
+            self.import_model(model, store=name, namespace=nsname, provider=provider)
         elif provider:
             # Import empty model and register the provider
-            self.import_model({}, store=name, namespace=nsname,
-                              provider=provider)
+            self.import_model({}, store=name, namespace=nsname, provider=provider)
 
         self.logger.debug("Registered store '%s'" % name)
 
@@ -465,12 +467,14 @@ class Workspace:
 
     # TODO: this is very confusing process, needs simplification
     # TODO: change this to: add_model_provider(provider, info, store, languages, ns)
-    def import_model(self,
-            model: Union[JSONType, str]=None,
-            provider: Union[str, ModelProvider] = None,
-            store: str=None,
-            translations: JSONType=None,
-            namespace: str=None) -> None:
+    def import_model(
+        self,
+        model: Union[JSONType, str] = None,
+        provider: Union[str, ModelProvider] = None,
+        store: str = None,
+        translations: JSONType = None,
+        namespace: str = None,
+    ) -> None:
         """Registers the `model` in the workspace. `model` can be a
         metadata dictionary, filename, path to a model bundle directory or a
         URL.
@@ -493,7 +497,7 @@ class Workspace:
         # 1. Metadata
         # -----------
         # Make sure that the metadata is a dictionary
-        # 
+        #
         # TODO: Use "InlineModelProvider" and "FileBasedModelProvider"
 
         # 1. Model Metadata
@@ -503,23 +507,28 @@ class Workspace:
         # TODO: Use "InlineModelProvider" and "FileBasedModelProvider"
 
         if isinstance(model, str):
-            self.logger.debug(f"Importing model from {model}. "
-                              f"Provider: {provider} Store: {store} "
-                              f"NS: {namespace}")
+            self.logger.debug(
+                f"Importing model from {model}. "
+                f"Provider: {provider} Store: {store} "
+                f"NS: {namespace}"
+            )
             path = model
             if self.models_dir and not os.path.isabs(path):
                 path = os.path.join(self.models_dir, path)
             model = read_model_metadata(path)
 
         elif isinstance(model, dict):
-            self.logger.debug(f"Importing model from dictionary. "
-                              f"Provider: {provider} Store: {store} "
-                              f"NS: {namespace}")
+            self.logger.debug(
+                f"Importing model from dictionary. "
+                f"Provider: {provider} Store: {store} "
+                f"NS: {namespace}"
+            )
         elif model is None:
             model = {}
         else:
-            raise ConfigurationError(f"Unknown model '{model}' "
-                                     f"(should be a filename or a dictionary)")
+            raise ConfigurationError(
+                f"Unknown model '{model}' " f"(should be a filename or a dictionary)"
+            )
 
         # 2. Model provider
         # -----------------
@@ -544,8 +553,9 @@ class Workspace:
         # Link the model with store
         store = store or model.get("store")
 
-        if store or (hasattr(provider_obj, "requires_store") \
-                        and provider_obj.requires_store()):
+        if store or (
+            hasattr(provider_obj, "requires_store") and provider_obj.requires_store()
+        ):
             provider_obj.bind(self.get_store(store))
 
         # 4. Namespace
@@ -572,13 +582,13 @@ class Workspace:
         self.register_store(name, "slicer", url=url, **options)
         self.import_model({}, provider="slicer", store=name)
 
-    def cube_names(self, identity: Any=None) -> List[str]:
+    def cube_names(self, identity: Any = None) -> List[str]:
         """Return names all available cubes."""
         return [cube["name"] for cube in self.list_cubes()]
 
     # TODO: this is not loclized!!!
     # TODO: Convert this to CubeDescriptions
-    def list_cubes(self, identity: Any=None) -> List[Dict[str,str]]:
+    def list_cubes(self, identity: Any = None) -> List[Dict[str, str]]:
         """Get a list of metadata for cubes in the workspace. Result is a list
         of dictionaries with keys: `name`, `label`, `category`, `info`.
 
@@ -600,7 +610,7 @@ class Workspace:
 
         return all_cubes
 
-    def cube(self, ref: str, identity: Any=None, locale: str=None) -> Cube:
+    def cube(self, ref: str, identity: Any = None, locale: str = None) -> Cube:
         """Returns a cube with full cube namespace reference `ref` for user
         `identity` and translated to `locale`."""
 
@@ -643,11 +653,9 @@ class Workspace:
 
         return cube
 
-    def dimension(self,
-            name: str,
-            locale: str=None,
-            namespace: str=None,
-            provider: str=None) -> Dimension:
+    def dimension(
+        self, name: str, locale: str = None, namespace: str = None, provider: str = None
+    ) -> Dimension:
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
         no model published the dimension. Raises `RequiresTemplate` error when
         model provider requires a template to be able to provide the
@@ -660,9 +668,7 @@ class Workspace:
         3. look in the default (global) namespace
         """
 
-        return find_dimension(name, locale,
-                              namespace or self.namespace,
-                              provider)
+        return find_dimension(name, locale, namespace or self.namespace, provider)
 
     def _browser_options(self, cube: Cube) -> JSONType:
         """Returns browser configuration options for `cube`. The options are
@@ -675,10 +681,9 @@ class Workspace:
 
         return options
 
-    def browser(self,
-            cube: Cube,
-            locale: str=None,
-            identity: Any=None) -> AggregationBrowser:
+    def browser(
+        self, cube: Cube, locale: str = None, identity: Any = None
+    ) -> AggregationBrowser:
         """Returns a browser for `cube`."""
 
         naming: NamingDict
@@ -691,8 +696,9 @@ class Workspace:
 
         # We don't allow cube store to be an actual store. Cube is a logical
         # object.
-        assert isinstance(cube.store, str) or cube.store is None, \
-                f"Store of a cube ({cube}) must be a string or None"
+        assert (
+            isinstance(cube.store, str) or cube.store is None
+        ), f"Store of a cube ({cube}) must be a string or None"
 
         locale = locale or cube.locale
 
@@ -703,8 +709,7 @@ class Workspace:
 
         # TODO: Review necessity of this
         store_type = store.extension_name
-        assert store_type is not None, \
-                f"Store type should not be None ({store})"
+        assert store_type is not None, f"Store type should not be None ({store})"
 
         cube_options = self._browser_options(cube)
 
@@ -738,22 +743,28 @@ class Workspace:
         settings = cls.distill_settings(options)
 
         # FIXME: [typing] Not correct type-wise
-        browser = cls(cube=cube, store=store, locale=locale,
-                       calendar=self.calendar, naming=naming, **settings)
+        browser = cls(
+            cube=cube,
+            store=store,
+            locale=locale,
+            calendar=self.calendar,
+            naming=naming,
+            **settings,
+        )
 
         # TODO: remove this once calendar is used in all backends
         browser.calendar = self.calendar
 
         return browser
 
-    def cube_features(self, cube: Cube, identity: Any=None) -> BrowserFeatures:
+    def cube_features(self, cube: Cube, identity: Any = None) -> BrowserFeatures:
         """Returns browser features for `cube`"""
         # TODO: this might be expensive, make it a bit cheaper
         # recycle the feature-providing browser or something. Maybe use class
         # method for that
         return self.browser(cube, identity).features()
 
-    def get_store(self, name: str=None) -> Store:
+    def get_store(self, name: str = None) -> Store:
         """Opens a store `name`. If the store is already open, returns the
         existing store."""
 

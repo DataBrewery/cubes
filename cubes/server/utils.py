@@ -7,8 +7,12 @@ import json
 import csv
 
 from .errors import *
-from ..formatters import csv_generator, JSONLinesGenerator, SlicerJSONEncoder,\
-                            xlsx_generator
+from ..formatters import (
+    csv_generator,
+    JSONLinesGenerator,
+    SlicerJSONEncoder,
+    xlsx_generator,
+)
 
 
 def str_to_bool(string):
@@ -19,14 +23,13 @@ def str_to_bool(string):
     if string is not None:
         if string.lower() in ["true", "yes", "1", "on"]:
             return True
-        elif string.lower() in["false", "no", "0", "off"]:
+        elif string.lower() in ["false", "no", "0", "off"]:
             return False
 
     return None
 
 
-def validated_parameter(args, name, values=None, default=None,
-                        case_sensitive=False):
+def validated_parameter(args, name, values=None, default=None, case_sensitive=False):
     """Return validated parameter `param` that has to be from the list of
     `values` if provided."""
 
@@ -40,8 +43,7 @@ def validated_parameter(args, name, values=None, default=None,
     else:
         if values and param not in values:
             list_str = ", ".join(values)
-            raise RequestError("Parameter '%s' should be one of: %s"
-                            % (name, list_str))
+            raise RequestError("Parameter '%s' should be one of: %s" % (name, list_str))
         return param
 
 
@@ -59,6 +61,7 @@ class CustomDict(dict):
 # Utils
 # =====
 
+
 def jsonify(obj):
     """Returns a ``application/json`` `Response` object with `obj` converted
     to JSON."""
@@ -72,7 +75,7 @@ def jsonify(obj):
     encoder.iterator_limit = g.json_record_limit
     data = encoder.iterencode(obj)
 
-    return Response(data, mimetype='application/json')
+    return Response(data, mimetype="application/json")
 
 
 def formatted_response(response, fields, labels, iterable=None):
@@ -80,13 +83,16 @@ def formatted_response(response, fields, labels, iterable=None):
     `data_attribute` is name of data attribute or key in the response that
     contains formateable data."""
 
-    output_format = validated_parameter(request.args, "format",
-                                        values=["xlsx", "json", "json_lines", "csv"],
-                                        default="json")
+    output_format = validated_parameter(
+        request.args,
+        "format",
+        values=["xlsx", "json", "json_lines", "csv"],
+        default="json",
+    )
 
-    header_type = validated_parameter(request.args, "header",
-                                      values=["names", "labels", "none"],
-                                      default="labels")
+    header_type = validated_parameter(
+        request.args, "header", values=["names", "labels", "none"], default="labels"
+    )
 
     # Construct the header
     if header_type == "names":
@@ -96,39 +102,29 @@ def formatted_response(response, fields, labels, iterable=None):
     else:
         header = None
 
-
     # If no iterable is provided, we assume the response to be iterable
     iterable = iterable or response
 
     if output_format == "json":
         return jsonify(response)
     elif output_format == "json_lines":
-        return Response(JSONLinesGenerator(iterable),
-                        mimetype='application/x-json-lines')
+        return Response(
+            JSONLinesGenerator(iterable), mimetype="application/x-json-lines"
+        )
     elif output_format == "csv":
-        generator = csv_generator(iterable,
-                                 fields,
-                                 include_header=bool(header),
-                                 header=header)
+        generator = csv_generator(
+            iterable, fields, include_header=bool(header), header=header
+        )
 
         headers = {"Content-Disposition": 'attachment; filename="facts.csv"'}
 
-        return Response(generator,
-                        mimetype='text/csv',
-                        headers=headers)
-    elif output_format == 'xlsx':
+        return Response(generator, mimetype="text/csv", headers=headers)
+    elif output_format == "xlsx":
         generator = xlsx_generator(
-            iterable,
-            fields,
-            include_header=bool(header),
-            header=header
+            iterable, fields, include_header=bool(header), header=header
         )
-        fh = open(generator, 'rb')
+        fh = open(generator, "rb")
         resp = fh.read()
         fh.close()
         headers = {"Content-Disposition": 'attachment; filename="facts.xlsx"'}
-        return Response(resp,
-                        content_type='application/ms-excel',
-                        headers=headers)
-
-
+        return Response(resp, content_type="application/ms-excel", headers=headers)

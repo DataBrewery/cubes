@@ -17,20 +17,17 @@ from contextlib import contextmanager
 # Utils
 # -----
 
+
 def prepare_cell(argname="cut", target="cell", restrict=False):
     """Sets `g.cell` with a `Cell` object from argument with name `argname`"""
     # Used by prepare_browser_request and in /aggregate for the split cell
 
-
     # TODO: experimental code, for now only for dims with time role
-    converters = {
-        "time": CalendarMemberConverter(workspace.calendar)
-    }
+    converters = {"time": CalendarMemberConverter(workspace.calendar)}
 
     cuts = []
     for cut_string in request.args.getlist(argname):
-        cuts += cuts_from_string(g.cube, cut_string,
-                                 role_member_converters=converters)
+        cuts += cuts_from_string(g.cube, cut_string, role_member_converters=converters)
 
     if cuts:
         cell = Cell(cuts)
@@ -39,9 +36,9 @@ def prepare_cell(argname="cut", target="cell", restrict=False):
 
     if restrict:
         if workspace.authorizer:
-            cell = workspace.authorizer.restricted_cell(g.auth_identity,
-                                                        cube=g.cube,
-                                                        cell=cell)
+            cell = workspace.authorizer.restricted_cell(
+                g.auth_identity, cube=g.cube, cell=cell
+            )
     setattr(g, target, cell)
 
 
@@ -57,12 +54,12 @@ def requires_cube(f):
         try:
             g.cube = authorized_cube(cube_name, locale=g.locale)
         except NoSuchCubeError:
-            raise NotFoundError(cube_name, "cube",
-                                "Unknown cube '%s'" % cube_name)
+            raise NotFoundError(cube_name, "cube", "Unknown cube '%s'" % cube_name)
 
         return f(*args, **kwargs)
 
     return wrapper
+
 
 def requires_browser(f):
     """Prepares three global variables: `g.cube`, `g.browser` and `g.cell`.
@@ -110,9 +107,9 @@ def requires_browser(f):
             for order in orders.split(","):
                 split = order.split(":")
                 if len(split) == 1:
-                    g.order.append( (order, None) )
+                    g.order.append((order, None))
                 else:
-                    g.order.append( (split[0], split[1]) )
+                    g.order.append((split[0], split[1]))
 
         return f(*args, **kwargs)
 
@@ -122,21 +119,23 @@ def requires_browser(f):
 # Get authorized cube
 # ===================
 
+
 def authorized_cube(cube_name, locale):
     """Returns a cube `cube_name`. Handle cube authorization if required."""
 
     try:
         cube = workspace.cube(cube_name, g.auth_identity, locale=locale)
     except NotAuthorized:
-        ident = "'%s'" % g.auth_identity if g.auth_identity \
-                        else "unspecified identity"
-        raise NotAuthorizedError("Authorization of cube '%s' failed for "
-                                 "%s" % (cube_name, ident))
+        ident = "'%s'" % g.auth_identity if g.auth_identity else "unspecified identity"
+        raise NotAuthorizedError(
+            "Authorization of cube '%s' failed for %s" % (cube_name, ident)
+        )
     return cube
 
 
 # Query Logging
 # =============
+
 
 def log_request(action, attrib_field="attributes"):
     def decorator(f):
@@ -158,11 +157,10 @@ def log_request(action, attrib_field="attributes"):
                 "page_size": g.page_size,
                 "format": request.args.get("format"),
                 "header": request.args.get("header"),
-                "attributes": request.args.get(attrib_field)
+                "attributes": request.args.get(attrib_field),
             }
 
-            with rlogger.log_time(action, g.browser, g.cell, g.auth_identity,
-                                  **other):
+            with rlogger.log_time(action, g.browser, g.cell, g.auth_identity, **other):
                 retval = f(*args, **kwargs)
 
             return retval
@@ -170,4 +168,3 @@ def log_request(action, attrib_field="attributes"):
         return wrapper
 
     return decorator
-

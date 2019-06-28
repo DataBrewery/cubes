@@ -17,13 +17,15 @@ __all__ = [
     "condition_conjunction",
     "order_column",
     "order_query",
-    "paginate_query"
+    "paginate_query",
 ]
+
 
 class CreateTableAsSelect(Executable, ClauseElement):
     def __init__(self, table, select):
         self.table = table
         self.select = select
+
 
 @compiles(CreateTableAsSelect)
 def visit_create_table_as_select(element, compiler, **kw):
@@ -31,23 +33,25 @@ def visit_create_table_as_select(element, compiler, **kw):
     full_name = preparer.format_table(element.table)
 
     return "CREATE TABLE {} AS ({})".format(
-        element.table,
-        compiler.process(element.select)
+        element.table, compiler.process(element.select)
     )
+
+
 @compiles(CreateTableAsSelect, "sqlite")
 def visit_create_table_as_select(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
     full_name = preparer.format_table(element.table)
 
     return "CREATE TABLE {} AS {}".format(
-        element.table,
-        compiler.process(element.select)
+        element.table, compiler.process(element.select)
     )
+
 
 class CreateOrReplaceView(Executable, ClauseElement):
     def __init__(self, view, select):
         self.view = view
         self.select = select
+
 
 @compiles(CreateOrReplaceView)
 def visit_create_or_replace_view(element, compiler, **kw):
@@ -55,19 +59,17 @@ def visit_create_or_replace_view(element, compiler, **kw):
     full_name = preparer.format_table(element.view)
 
     return "CREATE OR REPLACE VIEW {} AS ({})".format(
-        full_name,
-        compiler.process(element.select)
+        full_name, compiler.process(element.select)
     )
+
 
 @compiles(CreateOrReplaceView, "sqlite")
 def visit_create_or_replace_view(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
     full_name = preparer.format_table(element.view)
 
-    return "CREATE VIEW {} AS {}".format(
-        full_name,
-        compiler.process(element.select)
-    )
+    return "CREATE VIEW {} AS {}".format(full_name, compiler.process(element.select))
+
 
 @compiles(CreateOrReplaceView, "mysql")
 def visit_create_or_replace_view(element, compiler, **kw):
@@ -75,8 +77,7 @@ def visit_create_or_replace_view(element, compiler, **kw):
     full_name = preparer.format_table(element.view)
 
     return "CREATE OR REPLACE VIEW {} AS {}".format(
-        full_name,
-        compiler.process(element.select)
+        full_name, compiler.process(element.select)
     )
 
 
@@ -161,4 +162,3 @@ def order_query(statement, order, natural_order=None, labels=None):
     statement = statement.order_by(*final_order.values())
 
     return statement
-

@@ -5,6 +5,7 @@
 from typing import List, Dict, Optional, Set, Tuple, Union, Any
 from .types import JSONType
 from .metadata.dimension import Dimension
+
 # from .metadata.providers import ModelProvider
 # FIXME: [Tech-debt] This needs to go away with redesign of namespaces/providers
 # FIXME: [typing] Workaround for circular dependency
@@ -13,9 +14,8 @@ ModelProvider = Any
 from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 from .common import read_json_file
 
-__all__ = [
-    "Namespace",
-]
+__all__ = ["Namespace"]
+
 
 class Namespace:
 
@@ -25,9 +25,7 @@ class Namespace:
     providers: List[ModelProvider]
     translations: Dict[str, JSONType]
 
-    def __init__(self,
-            name: Optional[str]=None,
-            parent:"Namespace"=None) -> None:
+    def __init__(self, name: Optional[str] = None, parent: "Namespace" = None) -> None:
         """Creates a cubes namespace – an object that provides model objects
         from the providers."""
         # TODO: Assign this on __init__, namespaces should not be freely
@@ -38,8 +36,9 @@ class Namespace:
         self.providers = []
         self.translations = {}
 
-    def namespace(self, path: Union[str, List[str]], create: bool=False) \
-            -> Tuple["Namespace", Optional[str]]:
+    def namespace(
+        self, path: Union[str, List[str]], create: bool = False
+    ) -> Tuple["Namespace", Optional[str]]:
         """Returns a tuple (`namespace`, `remainder`) where `namespace` is
         the deepest namespace in the namespace hierarchy and `remainder` is
         the remaining part of the path that has no namespace (is an object
@@ -61,7 +60,7 @@ class Namespace:
 
         namespace = self
         for i, element in enumerate(path_elements):
-            remainder = path_elements[i+1:]
+            remainder = path_elements[i + 1 :]
             if element in namespace.namespaces:
                 namespace = namespace.namespaces[element]
                 found = True
@@ -89,8 +88,7 @@ class Namespace:
 
         return namespace
 
-    def find_cube(self, cube_ref: str) \
-            -> Tuple["Namespace", ModelProvider, str]:
+    def find_cube(self, cube_ref: str) -> Tuple["Namespace", ModelProvider, str]:
         """Returns a tuple (`namespace`, `provider`, `basename`) where
         `namespace` is a namespace conaining `cube`, `provider` providers the
         model for the cube and `basename` is a name of the `cube` within the
@@ -132,13 +130,11 @@ class Namespace:
             provider = None
 
         if not provider:
-            raise NoSuchCubeError(f"Unknown cube '{cube_ref}'",
-                                  cube_ref)
+            raise NoSuchCubeError(f"Unknown cube '{cube_ref}'", cube_ref)
 
         return (namespace, provider, basename)
 
-
-    def list_cubes(self, recursive: bool=False) -> List[JSONType]:
+    def list_cubes(self, recursive: bool = False) -> List[JSONType]:
         """Retursn a list of cube info dictionaries with keys: `name`,
         `label`, `description`, `category` and `info`."""
 
@@ -169,19 +165,20 @@ class Namespace:
 
     # TODO: change to find_dimension() analogous to the find_cube(). Let the
     # caller to perform actual dimension creation using the provider
-    def dimension(self,
-            name: str,
-            locale: str=None,
-            templates: Dict[str, Dimension]=None,
-            local_only: bool=False) -> Dimension:
+    def dimension(
+        self,
+        name: str,
+        locale: str = None,
+        templates: Dict[str, Dimension] = None,
+        local_only: bool = False,
+    ) -> Dimension:
 
         dim: Dimension
 
         for provider in self.providers:
             # TODO: use locale
             try:
-                dim = provider.dimension(name, locale=locale,
-                                         templates=templates)
+                dim = provider.dimension(name, locale=locale, templates=templates)
             except NoSuchDimensionError:
                 pass
             else:
@@ -235,4 +232,3 @@ class Namespace:
                 ns = ns.parent
 
         return lookup
-

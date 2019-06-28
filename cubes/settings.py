@@ -1,16 +1,16 @@
 from typing import (
-        Any,
-        Collection,
-        Dict,
-        Mapping,
-        NamedTuple,
-        Iterator,
-        Optional,
-        Union,
-        Tuple,
-        Set,
-        cast,
-    )
+    Any,
+    Collection,
+    Dict,
+    Mapping,
+    NamedTuple,
+    Iterator,
+    Optional,
+    Union,
+    Tuple,
+    Set,
+    cast,
+)
 
 import collections.abc as abc
 from collections import OrderedDict
@@ -20,6 +20,7 @@ from enum import Enum
 
 SettingValue = Union[str, float, bool, int]
 
+
 class SettingType(Enum):
     str = 0
     int = 1
@@ -27,7 +28,9 @@ class SettingType(Enum):
     float = 3
     store = 4
 
+
 STRING_SETTING_TYPES = [SettingType.str, SettingType.store]
+
 
 class Setting:
     name: str
@@ -38,14 +41,16 @@ class Setting:
     is_required: bool
     values: Collection[str]
 
-    def __init__(self,
-            name: str,
-            type: Optional[SettingType]=None,
-            default: Optional[Any]=None,
-            desc: Optional[str]=None,
-            label: Optional[str]=None,
-            is_required: bool=False,
-            values: Optional[Collection[str]]=None) -> None:
+    def __init__(
+        self,
+        name: str,
+        type: Optional[SettingType] = None,
+        default: Optional[Any] = None,
+        desc: Optional[str] = None,
+        label: Optional[str] = None,
+        is_required: bool = False,
+        values: Optional[Collection[str]] = None,
+    ) -> None:
         self.name = name
         self.default = default
         self.type = type or SettingType.str
@@ -57,6 +62,7 @@ class Setting:
 
 TRUE_VALUES = ["1", "true", "yes", "on"]
 FALSE_VALUES = ["0", "false", "no", "off"]
+
 
 def _to_bool(value: Optional[SettingValue]) -> Optional[bool]:
     retval: Optional[bool]
@@ -98,6 +104,7 @@ def _to_int(value: Optional[SettingValue]) -> Optional[int]:
 
     return retval
 
+
 def _to_float(value: Optional[SettingValue]) -> Optional[float]:
     retval: Optional[float]
 
@@ -117,6 +124,7 @@ def _to_float(value: Optional[SettingValue]) -> Optional[float]:
 
     return retval
 
+
 def _to_string(value: Optional[SettingValue]) -> Optional[str]:
     retval: Optional[str]
 
@@ -131,6 +139,7 @@ def _to_string(value: Optional[SettingValue]) -> Optional[str]:
             raise ValueError
 
     return retval
+
 
 def _cast_value(value: Any, setting: Setting) -> Optional[SettingValue]:
     retval: Optional[SettingValue]
@@ -148,9 +157,12 @@ def _cast_value(value: Any, setting: Setting) -> Optional[SettingValue]:
 
     return retval
 
-def distill_settings(mapping: Mapping[str, Any],
-        settings: Collection[Setting],
-        owner: Optional[str]=None) -> Dict[str, Optional[SettingValue]]:
+
+def distill_settings(
+    mapping: Mapping[str, Any],
+    settings: Collection[Setting],
+    owner: Optional[str] = None,
+) -> Dict[str, Optional[SettingValue]]:
     """Coalesce values of `mapping` to match type in `settings`. If the mapping
     contains key that don't have corresponding settings or when the mapping
     does not contain key for a required setting an `ConfigurationError`
@@ -176,13 +188,11 @@ def distill_settings(mapping: Mapping[str, Any],
         if name in lower_map:
             result[setting.name] = _cast_value(lower_map[name], setting)
         elif setting.is_required:
-            raise ConfigurationError(f"Setting '{name}'{ownerstr}"
-                                     f" is required")
+            raise ConfigurationError(f"Setting '{name}'{ownerstr}" f" is required")
         elif setting.default is not None:
             # We assume that extension developers provide values in correct
             # type
             result[name] = setting.default
-
 
     keys: Set[str]
     keys = set(mapping.keys()) - {s.name for s in settings}
@@ -191,6 +201,7 @@ def distill_settings(mapping: Mapping[str, Any],
         raise ConfigurationError(f"Unknown settings{ownerstr}: {alist}")
 
     return result
+
 
 # Note: This is a little similar to the ConfigParser section mapping, but
 # richer information
@@ -201,15 +212,14 @@ class SettingsDict(Mapping[str, Optional[SettingValue]]):
     _dict: Dict[str, Optional[SettingValue]]
     _settings: Dict[str, Setting]
 
-    def __init__(self,
-                mapping: Mapping[str, SettingValue],
-                settings: Collection[Setting],
-            ) -> None:
+    def __init__(
+        self, mapping: Mapping[str, SettingValue], settings: Collection[Setting]
+    ) -> None:
         """Create a dictionary of settings from `mapping`. Only items specified
         in the `settings` are going to be included in the new settings
         dictionary."""
 
-        self._dict = distill_settings(mapping ,settings)
+        self._dict = distill_settings(mapping, settings)
         self._settings = OrderedDict((s.name, s) for s in settings)
 
     def __getitem__(self, key: str) -> Any:

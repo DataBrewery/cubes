@@ -2,10 +2,7 @@
 
 import json
 
-server_error_codes = {
-    "unknown": 400,
-    "missing_object": 404
-}
+server_error_codes = {"unknown": 400, "missing_object": 404}
 
 try:
     from werkzeug.exceptions import HTTPException
@@ -19,6 +16,7 @@ except:
 class ServerError(HTTPException):
     code = 500
     error_type = "default"
+
     def __init__(self, message=None, exception=None, **details):
         super().__init__()
         self.message = message
@@ -27,10 +25,7 @@ class ServerError(HTTPException):
         self.help = None
 
     def get_body(self, environ):
-        error = {
-            "message": self.message,
-            "type": self.__class__.error_type
-        }
+        error = {"message": self.message, "type": self.__class__.error_type}
 
         if self.exception:
             error["reason"] = str(self.exception)
@@ -43,7 +38,7 @@ class ServerError(HTTPException):
 
     def get_headers(self, environ):
         """Get a list of headers."""
-        return [('Content-Type', 'application/json')]
+        return [("Content-Type", "application/json")]
 
 
 class RequestError(ServerError):
@@ -61,9 +56,7 @@ class NotAuthenticatedError(ServerError):
     error_type = "not_authenticated"
 
     def __init__(self, message=None, exception=None, realm=None, **details):
-        super().__init__(message,
-                                                    exception,
-                                                    **details)
+        super().__init__(message, exception, **details)
         self.message = message
         self.exception = exception
         self.details = details
@@ -73,7 +66,7 @@ class NotAuthenticatedError(ServerError):
     def get_headers(self, environ):
         """Get a list of headers."""
         headers = super().get_headers(environ)
-        headers.append(('WWW-Authenticate', 'Basic realm="%s"' % self.realm))
+        headers.append(("WWW-Authenticate", 'Basic realm="%s"' % self.realm))
         return headers
 
 
@@ -81,6 +74,7 @@ class NotAuthenticatedError(ServerError):
 class PageNotFoundError(ServerError):
     code = 404
     error_type = "not_found"
+
     def __init__(self, message=None):
         super().__init__(message)
 
@@ -89,9 +83,10 @@ class PageNotFoundError(ServerError):
 class NotFoundError(ServerError):
     code = 404
     error_type = "object_not_found"
+
     def __init__(self, obj, objtype=None, message=None):
         super().__init__(message)
-        self.details = { "object": obj }
+        self.details = {"object": obj}
 
         if objtype:
             self.details["object_type"] = objtype
@@ -100,5 +95,3 @@ class NotFoundError(ServerError):
             self.message = f"Object '{obj}' of type '{objtype}' was not found"
         else:
             self.message = message
-
-

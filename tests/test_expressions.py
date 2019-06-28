@@ -23,9 +23,8 @@ class ExpressionUnitTestCase(unittest.TestCase):
             {"name": "indirect_loop2", "expression": "indirect_loop1"},
         ]
 
-        self.attrs = {attr["name"]:Attribute.from_metadata(attr) for attr in attrs}
-        self.deps = {name:attr.dependencies
-                     for name, attr in self.attrs.items()}
+        self.attrs = {attr["name"]: Attribute.from_metadata(attr) for attr in attrs}
+        self.deps = {name: attr.dependencies for name, attr in self.attrs.items()}
 
     def attributes(self, *attrs):
         return [self.attrs[attr] for attr in attrs]
@@ -51,5 +50,6 @@ class ExpressionUnitTestCase(unittest.TestCase):
             depsort_attributes(["loop1", "loop2"], self.deps)
 
         with self.assertRaisesRegex(ExpressionError, "Circular"):
-            depsort_attributes(["indirect_loop1", "intermediate",
-                                "indirect_loop2"], self.deps)
+            depsort_attributes(
+                ["indirect_loop1", "intermediate", "indirect_loop2"], self.deps
+            )

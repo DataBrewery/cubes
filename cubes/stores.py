@@ -4,9 +4,7 @@ from typing import Optional, Any
 from .types import JSONType
 from .ext import Extensible
 
-__all__ = (
-    "Store"
-)
+__all__ = "Store"
 
 # Note: this class does not have much use right now besides being discoverable
 # by custom plugin system in cubes.

@@ -3,17 +3,14 @@
 from typing import Optional, Union
 from logging import getLogger, Formatter, StreamHandler, FileHandler, Logger
 
-__all__ = [
-    "get_logger",
-    "create_logger",
-]
+__all__ = ["get_logger", "create_logger"]
 
 DEFAULT_LOGGER_NAME = "cubes"
 DEFAULT_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 logger: Optional[Logger] = None
 
 # TODO: make name first
-def get_logger(path:str=None, format_:str=None, name:str=None) -> Logger:
+def get_logger(path: str = None, format_: str = None, name: str = None) -> Logger:
     """Get brewery default logger"""
     global logger
 
@@ -22,7 +19,8 @@ def get_logger(path:str=None, format_:str=None, name:str=None) -> Logger:
     else:
         return create_logger(path, format_, name)
 
-def create_logger(path:str=None, format_:str=None, name:str=None) -> Logger:
+
+def create_logger(path: str = None, format_: str = None, name: str = None) -> Logger:
     """Create a default logger"""
     global logger
     logger = getLogger(name or DEFAULT_LOGGER_NAME)
@@ -44,4 +42,3 @@ def create_logger(path:str=None, format_:str=None, name:str=None) -> Logger:
         logger.addHandler(handler)
 
     return logger
-

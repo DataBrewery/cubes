@@ -3,6 +3,7 @@ import unittest
 from cubes.metadata.physical import Join, JoinKey
 from cubes.errors import ArgumentError
 
+
 class SchemaUtilitiesTestCase(unittest.TestCase):
     """Test independent utility functions and structures."""
 
@@ -21,12 +22,10 @@ class SchemaUtilitiesTestCase(unittest.TestCase):
         key = JoinKey.from_dict({"column": "col"})
         self.assertEqual(JoinKey(columns=["col"], table=None, schema=None), key)
 
-        key = JoinKey.from_dict({"table":"table", "column": "col"})
+        key = JoinKey.from_dict({"table": "table", "column": "col"})
         self.assertEqual(JoinKey(columns=["col"], table="table", schema=None), key)
 
-        key = JoinKey.from_dict({"schema":"schema",
-                                 "table":"table",
-                                 "column": "col"})
+        key = JoinKey.from_dict({"schema": "schema", "table": "table", "column": "col"})
 
         self.assertEqual(JoinKey(columns=["col"], table="table", schema="schema"), key)
 
@@ -48,48 +47,50 @@ class SchemaUtilitiesTestCase(unittest.TestCase):
     @unittest.skip("Should be Join.from_dict()")
     def test_to_join(self):
         join = ("left", "right")
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             None,
-                                             None))
+        self.assertEqual(
+            to_join(join), Join(to_join_key("left"), to_join_key("right"), None, None)
+        )
 
         join = ("left", "right", "alias")
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             "alias",
-                                             None))
+        self.assertEqual(
+            to_join(join),
+            Join(to_join_key("left"), to_join_key("right"), "alias", None),
+        )
 
         join = ("left", "right", "alias", "match")
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             "alias",
-                                             "match"))
+        self.assertEqual(
+            to_join(join),
+            Join(to_join_key("left"), to_join_key("right"), "alias", "match"),
+        )
 
         # Dict
         join = {"master": "left", "detail": "right"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             None,
-                                             None))
+        self.assertEqual(
+            to_join(join), Join(to_join_key("left"), to_join_key("right"), None, None)
+        )
 
         join = {"master": "left", "detail": "right", "alias": "alias"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             "alias",
-                                             None))
+        self.assertEqual(
+            to_join(join),
+            Join(to_join_key("left"), to_join_key("right"), "alias", None),
+        )
 
         join = {"master": "left", "detail": "right", "method": "match"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             None,
-                                             "match"))
+        self.assertEqual(
+            to_join(join),
+            Join(to_join_key("left"), to_join_key("right"), None, "match"),
+        )
 
-        join = {"master": "left", "detail": "right", "alias": "alias",
-                "method": "match"}
-        self.assertEqual(to_join(join), Join(to_join_key("left"),
-                                             to_join_key("right"),
-                                             "alias",
-                                             "match"))
+        join = {
+            "master": "left",
+            "detail": "right",
+            "alias": "alias",
+            "method": "match",
+        }
+        self.assertEqual(
+            to_join(join),
+            Join(to_join_key("left"), to_join_key("right"), "alias", "match"),
+        )
 
         # Error
         with self.assertRaises(ArgumentError):
@@ -98,5 +99,3 @@ class SchemaUtilitiesTestCase(unittest.TestCase):
         # Error
         with self.assertRaises(ArgumentError):
             to_join(["onlyone"])
-
-
