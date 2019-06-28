@@ -190,7 +190,7 @@ class SQLBrowser(AggregationBrowser, name="sql"):
 
         self.safe_labels = options.get("safe_labels", False)  # type: ignore
         if self.safe_labels:
-            self.logger.debug("using safe labels for cube {}".format(cube.name))
+            self.logger.debug(f"using safe labels for cube {cube.name}")
 
         # Whether to ignore cells where at least one aggregate is NULL
         # TODO: this is undocumented

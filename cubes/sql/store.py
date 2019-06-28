@@ -195,7 +195,7 @@ class SQLStore(Store, name="sql"):
 
         if table.exists() and not force:
             raise StoreError(
-                "View or table %s (schema: %s) already exists." % (view_name, schema)
+                f"View or table {view_name} (schema: {schema}) already exists."
             )
 
         inspector = sa.engine.reflection.Inspector.from_engine(self.connectable)

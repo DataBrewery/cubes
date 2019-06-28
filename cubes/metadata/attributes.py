@@ -144,7 +144,7 @@ class AttributeBase(ModelObject):
                 self.order = Attribute.DESC
             else:
                 raise ArgumentError(
-                    "Unknown ordering '%s' for attributes '%s'" % (order, self.ref)
+                    f"Unknown ordering '{order}' for attributes '{self.ref}'"
                 )
         else:
             self.order = None
@@ -739,7 +739,7 @@ def depsort_attributes(
     if remaining:
         remaining_str = ", ".join(sorted(remaining))
         raise ExpressionError(
-            "Circular attribute reference (remaining: {})".format(remaining_str)
+            f"Circular attribute reference (remaining: {remaining_str})"
         )
 
     return sorted_deps

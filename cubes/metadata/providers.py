@@ -373,7 +373,7 @@ def link_cube(
 
     for dim_name in cube.dimension_links.keys():
         if dim_name in linked:
-            raise ModelError("Dimension '{}' linked twice".format(dim_name))
+            raise ModelError(f"Dimension '{dim_name}' linked twice")
 
         try:
             dim = find_dimension(

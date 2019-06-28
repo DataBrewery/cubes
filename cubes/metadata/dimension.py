@@ -1120,7 +1120,7 @@ class Dimension(ModelObject):
         coalescing value"""
         if isinstance(obj, str):
             if obj not in self._levels:
-                raise KeyError("No level %s in dimension %s" % (obj, self.name))
+                raise KeyError(f"No level {obj} in dimension {self.name}")
             return self._levels[obj]
         elif isinstance(obj, Level):
             return obj
@@ -1137,7 +1137,7 @@ class Dimension(ModelObject):
             return self._default_hierarchy
         elif isinstance(obj, str):
             if obj not in self._hierarchies:
-                raise ModelError("No hierarchy %s in dimension %s" % (obj, self.name))
+                raise ModelError(f"No hierarchy {obj} in dimension {self.name}")
             return self._hierarchies[obj]
         elif isinstance(obj, Hierarchy):
             return obj
@@ -1451,7 +1451,7 @@ class Dimension(ModelObject):
         return self.name
 
     def __repr__(self) -> str:
-        return "<dimension: {{name: '{}', levels: {}}}>".format(self.name, self._levels)
+        return f"<dimension: {{name: '{self.name}', levels: {self._levels}}}>"
 
     def localizable_dictionary(self) -> Dict[str, Any]:
         locale: Dict[str, Any] = {}

@@ -677,7 +677,7 @@ class AggregationBrowser(Extensible, abstract=True):
                 result = cell_dict
             else:
                 raise ArgumentError(
-                    "Unknown report query '%s' for '%s'" % (query_type, result_name)
+                    f"Unknown report query '{query_type}' for '{result_name}'"
                 )
 
             report_result[result_name] = result

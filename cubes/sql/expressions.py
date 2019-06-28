@@ -119,7 +119,7 @@ class SQLExpressionContext:
     def function(self, name):
         """Return a SQL function"""
         if name not in SQL_ALL_FUNCTIONS:
-            raise ExpressionError("Unknown function '{}'".format(name))
+            raise ExpressionError(f"Unknown function '{name}'")
         return getattr(sql.func, name)
 
     def add_column(self, name, column):

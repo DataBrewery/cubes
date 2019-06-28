@@ -86,7 +86,7 @@ def calendar_hierarchy_units(hierarchy: Hierarchy) -> List[str]:
             units.append(role)
         else:
             raise ArgumentError(
-                "Unknown time role '%s' for level '%s'" % (role, str(level))
+                "Unknown time role '{}' for level '{}'".format(role, str(level))
             )
 
     return units

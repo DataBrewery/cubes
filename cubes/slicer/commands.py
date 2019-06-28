@@ -223,7 +223,7 @@ def validate(show_defaults, show_warnings, model_path):
             default_count += 1
 
         if show:
-            print("%s in %s: %s" % (error.severity.upper(), scope, error.message))
+            print("{} in {}: {}".format(error.severity.upper(), scope, error.message))
 
     if error_count == 0:
         if warning_count == 0:
@@ -415,7 +415,7 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
         cube = workspace.cube(cube_name)
         store = workspace.get_store(cube.store_name or "default")
 
-        print("denormalizing cube '{}' into '{}'".format(cube_name, target))
+        print(f"denormalizing cube '{cube_name}' into '{target}'")
 
         store.create_denormalized_view(
             cube,
@@ -472,7 +472,7 @@ def sql_aggregate(ctx, force, index, schema, cube, target, dimensions):
     workspace = ctx.obj.workspace
     store = ctx.obj.store
 
-    print("denormalizing cube '{}' into '{}'".format(cube_name, target))
+    print(f"denormalizing cube '{cube_name}' into '{target}'")
 
     store.create_cube_aggregate(
         cube,

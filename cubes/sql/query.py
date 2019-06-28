@@ -1053,7 +1053,7 @@ class QueryContext:
         if depth > len(levels):
             levels_str = ", ".join(levels)
             raise HierarchyError(
-                "Path '{}' is longer than hierarchy. Levels: {}".format(path, levels)
+                f"Path '{path}' is longer than hierarchy. Levels: {levels}"
             )
 
         return levels[0:depth]

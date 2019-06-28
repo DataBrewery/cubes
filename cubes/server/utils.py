@@ -43,7 +43,7 @@ def validated_parameter(args, name, values=None, default=None, case_sensitive=Fa
     else:
         if values and param not in values:
             list_str = ", ".join(values)
-            raise RequestError("Parameter '%s' should be one of: %s" % (name, list_str))
+            raise RequestError(f"Parameter '{name}' should be one of: {list_str}")
         return param
 
 

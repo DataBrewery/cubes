@@ -128,7 +128,7 @@ def authorized_cube(cube_name, locale):
     except NotAuthorized:
         ident = "'%s'" % g.auth_identity if g.auth_identity else "unspecified identity"
         raise NotAuthorizedError(
-            "Authorization of cube '%s' failed for %s" % (cube_name, ident)
+            f"Authorization of cube '{cube_name}' failed for {ident}"
         )
     return cube
 

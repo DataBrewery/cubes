@@ -353,7 +353,7 @@ class Cube(ModelObject):
             return self._measures[name]
         except KeyError:
             raise NoSuchAttributeError(
-                "Cube '%s' has no measure '%s'" % (self.name, name)
+                f"Cube '{self.name}' has no measure '{name}'"
             )
 
     def get_measures(self, measures: List[str]) -> List[Measure]:
@@ -388,7 +388,7 @@ class Cube(ModelObject):
             return self._aggregates[name]
         except KeyError:
             raise NoSuchAttributeError(
-                "Cube '%s' has no measure aggregate '%s'" % (self.name, name)
+                f"Cube '{self.name}' has no measure aggregate '{name}'"
             )
 
     # TODO: We should probably don't return all on None
@@ -532,7 +532,7 @@ class Cube(ModelObject):
                 return measure
 
         raise NoSuchAttributeError(
-            "Cube '%s' has no attribute '%s'" % (self.name, attribute)
+            f"Cube '{self.name}' has no attribute '{attribute}'"
         )
 
     # TODO: Rename to collect_attributes
@@ -575,7 +575,7 @@ class Cube(ModelObject):
                 attr = lookup[name]
             except KeyError:
                 raise NoSuchAttributeError(
-                    "Unknown attribute '{}' in cube '{}'".format(name, self.name)
+                    f"Unknown attribute '{name}' in cube '{self.name}'"
                 )
             result.append(attr)
 
@@ -662,7 +662,7 @@ class Cube(ModelObject):
             return self._dimensions[str(name)]
         except KeyError:
             raise NoSuchDimensionError(
-                "cube '{}' has no dimension '{}'".format(self.name, name)
+                f"cube '{self.name}' has no dimension '{name}'"
             )
 
     # TODO Rename. The name does not match description.
@@ -801,7 +801,7 @@ class Cube(ModelObject):
                 results.append(
                     (
                         "error",
-                        "Duplicate detail '%s' in cube '%s'" % (detail, self.name),
+                        f"Duplicate detail '{detail}' in cube '{self.name}'",
                     )
                 )
             elif str(detail) in measures:

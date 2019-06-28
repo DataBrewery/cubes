@@ -68,7 +68,7 @@ def _store_option(config, option, default, type_=None, allowed=None, section="se
 
     if allowed and value not in allowed:
         raise ConfigurationError(
-            "Invalued value '%s' for option '%s'" % (value, option)
+            f"Invalued value '{value}' for option '{option}'"
         )
 
     setattr(current_app.slicer, option, value)
@@ -577,7 +577,7 @@ def cube_search(cube_name):
 
     locale = g.locale or g.locales[0]
 
-    logger.debug("searching for '%s' in %s, locale %s" % (query, dimension, locale))
+    logger.debug(f"searching for '{query}' in {dimension}, locale {locale}")
 
     search_result = search_engine.search(query, dimension, locale=locale)
 

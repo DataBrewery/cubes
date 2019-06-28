@@ -299,17 +299,17 @@ def read_json_file(path: str, kind: str = None) -> JSONType:
     kind = "%s " % str(kind) if kind else ""
 
     if not os.path.exists(path):
-        raise ConfigurationError("Can not find %sfile '%s'" % (kind, path))
+        raise ConfigurationError(f"Can not find {kind}file '{path}'")
 
     try:
         f = open(path, encoding="utf-8")
     except IOError:
-        raise ConfigurationError("Can not open %sfile '%s'" % (kind, path))
+        raise ConfigurationError(f"Can not open {kind}file '{path}'")
 
     try:
         content = json.load(f)
     except ValueError as e:
-        raise SyntaxError("Syntax error in %sfile %s: %s" % (kind, path, str(e)))
+        raise SyntaxError("Syntax error in {}file {}: {}".format(kind, path, str(e)))
     finally:
         f.close()
 
