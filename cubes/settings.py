@@ -185,7 +185,7 @@ def distill_settings(mapping: Mapping[str, Any],
 
 
     keys: Set[str]
-    keys = set(mapping.keys()) - set(s.name for s in settings)
+    keys = set(mapping.keys()) - {s.name for s in settings}
     if keys:
         alist: str = ", ".join(sorted(keys))
         raise ConfigurationError(f"Unknown settings{ownerstr}: {alist}")

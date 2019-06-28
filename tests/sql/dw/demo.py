@@ -162,7 +162,7 @@ DEFAULT_DB_URL = "sqlite://"
 month_to_quarter = lambda month: ((month - 1) // 3) + 1
 
 
-class TinyDemoDataWarehouse(object):
+class TinyDemoDataWarehouse:
     def __init__(self, url=None, schema=None, recreate=False):
         if "CUBES_TEST_DB" in os.environ:
             url = os.environ["CUBES_TEST_DB"]
@@ -172,8 +172,8 @@ class TinyDemoDataWarehouse(object):
         self.engine = sa.create_engine(url)
 
         if recreate:
-            self.engine.execute("DROP SCHEMA IF EXISTS {} CASCADE".format(schema))
-            self.engine.execute("CREATE SCHEMA {}".format(schema))
+            self.engine.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+            self.engine.execute(f"CREATE SCHEMA {schema}")
 
         self.md = sa.MetaData(self.engine, schema=schema)
         self.schema = schema
@@ -354,7 +354,7 @@ class TinyDemoModelProvider(ModelProvider, name="tiny_demo"):
         with open(path) as f:
             metadata = json.load(f)
 
-        super(TinyDemoModelProvider, self).__init__(metadata)
+        super().__init__(metadata)
 
     # TODO: improve this in the Provider class itself
     # def cube(self, name):
@@ -362,7 +362,7 @@ class TinyDemoModelProvider(ModelProvider, name="tiny_demo"):
     #     return cube
     #     self.link
 
-class TinyDimension(object):
+class TinyDimension:
     def __init__(self, table, rows):
         """Create a tiny dimension. First column of the table is assumed to be
         surrogate key and second column natural key.

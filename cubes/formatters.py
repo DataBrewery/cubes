@@ -93,7 +93,7 @@ def xlsx_generator(records, fields, include_header=True, header=None):
     return fn
 
 
-class JSONLinesGenerator(object):
+class JSONLinesGenerator:
     def __init__(self, iterable, separator='\n'):
         """Creates a generator that yields one JSON record per record from
         `iterable` separated by a newline character.."""
@@ -105,7 +105,7 @@ class JSONLinesGenerator(object):
     def __iter__(self):
         for obj in self.iterable:
             string = self.encoder.encode(obj)
-            yield u"{}{}".format(string, self.separator)
+            yield f"{string}{self.separator}"
 
 
 class SlicerJSONEncoder(json.JSONEncoder):
@@ -118,7 +118,7 @@ class SlicerJSONEncoder(json.JSONEncoder):
           iterator. Default: 1000.
         """
 
-        super(SlicerJSONEncoder, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.iterator_limit = 1000
 

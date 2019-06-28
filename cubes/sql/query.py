@@ -333,7 +333,7 @@ class StarSchema:
             return self._tables[key]
         except KeyError:
             if role is not None:
-                role_str = " (as {})".format(role)
+                role_str = f" (as {role})"
             else:
                 role_str = ""
 
@@ -472,8 +472,8 @@ class StarSchema:
         # FIXME: [typing] We need to resolve this non-optional
         # ColumnReference.table. See also: column() method of this class.
         relevant: Set[_TableRef]
-        relevant = set(self.table(_TableKey(ref.schema, ref.table))
-                       for ref in column_refs)
+        relevant = {self.table(_TableKey(ref.schema, ref.table))
+                       for ref in column_refs}
 
         # Dependencies
         # ------------

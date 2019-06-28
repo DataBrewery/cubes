@@ -5,7 +5,7 @@
 
 # TODO: Should go away with new approach to model object description in #398
 
-class ModelObjectLocalizationContext(object):
+class ModelObjectLocalizationContext:
     def __init__(self, translation, context, object_type, object_name):
         self.translation = translation
         self.object_type = object_type
@@ -38,7 +38,7 @@ class ModelObjectLocalizationContext(object):
         return ModelObjectLocalizationContext(trans, self.context,
                                               object_type, name)
 
-class LocalizationContext(object):
+class LocalizationContext:
     def __init__(self, translation, parent=None):
         self.translation = translation
         self.parent = parent

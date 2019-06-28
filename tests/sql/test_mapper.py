@@ -7,7 +7,7 @@ from ..common import CubesTestCaseBase, create_provider
 
 class MapperTestCase(CubesTestCaseBase):
     def setUp(self):
-        super(MapperTestCase, self).setUp()
+        super().setUp()
 
         self.provider = create_provider("mapper_test.json")
 

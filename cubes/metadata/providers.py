@@ -340,7 +340,7 @@ def _merge_metadata(metadata: JSONType, other: JSONType) -> JSONType:
 class StaticModelProvider(ModelProvider, name="static"):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(StaticModelProvider, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # Initialization code goes here...
 
     def list_cubes(self) -> List[JSONType]:
@@ -389,7 +389,7 @@ def link_cube(
             raise ModelError("Dimension template '%s' missing" % dim_name)
 
         if not dim and not ignore_missing:
-            raise CubesError("Dimension '{}' not found.".format(dim_name))
+            raise CubesError(f"Dimension '{dim_name}' not found.")
 
         cube.link_dimension(dim)
         linked.add(dim_name)

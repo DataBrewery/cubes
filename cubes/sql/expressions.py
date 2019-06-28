@@ -59,7 +59,7 @@ SQL_VARIABLES = [
 ]
 
 
-class SQLExpressionContext(object):
+class SQLExpressionContext:
     """Context used for building a list of all columns to be used within a
     single SQL query."""
 
@@ -99,7 +99,7 @@ class SQLExpressionContext(object):
             result = getattr(sql.func, variable)()
 
         else:
-            label = " in {}".format(self.label) if self.label else ""
+            label = f" in {self.label}" if self.label else ""
             raise ExpressionError("Unknown attribute, variable or parameter "
                                   "'{}'{}" .format(variable, label))
 
@@ -151,7 +151,7 @@ def compile_attributes(bases, dependants, parameters, coalesce=None,
 
 class SQLExpressionCompiler(Compiler):
     def __init__(self, context=None):
-        super(SQLExpressionCompiler, self).__init__(context)
+        super().__init__(context)
 
     def compile_literal(self, context, literal):
         return sql.expression.bindparam("literal",

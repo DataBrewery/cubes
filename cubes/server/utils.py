@@ -48,9 +48,9 @@ def validated_parameter(args, name, values=None, default=None,
 class CustomDict(dict):
     def __getattr__(self, attr):
         try:
-            return super(CustomDict, self).__getitem__(attr)
+            return super().__getitem__(attr)
         except KeyError:
-            return super(CustomDict, self).__getattribute__(attr)
+            return super().__getattribute__(attr)
 
     def __setattr__(self, attr, value):
         self.__setitem__(attr, value)

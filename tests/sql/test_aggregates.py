@@ -15,7 +15,7 @@ class AggregatesTestCase(CubesTestCaseBase):
     sql_engine = "sqlite:///"
 
     def setUp(self):
-        super(AggregatesTestCase, self).setUp()
+        super().setUp()
 
         self.facts = Table("facts", self.metadata,
                         Column("id", Integer),

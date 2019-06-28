@@ -66,7 +66,7 @@ class SlicerStore(Store, name="slicer"):
                  auth_identity=None, auth_parameter=None,
                  **options):
 
-        super(SlicerStore, self).__init__(**options)
+        super().__init__(**options)
 
         url = url or DEFAULT_SLICER_URL
 
@@ -105,12 +105,12 @@ class SlicerStore(Store, name="slicer"):
             params[self.auth_parameter] = self.auth_identity
 
         params_str = urlencode(params)
-        request_url = '%s/%s' % (self.url, action)
+        request_url = f'{self.url}/{action}'
 
         if params_str:
             request_url += '?' + params_str
 
-        self.logger.debug("slicer request: %s" % (request_url, ))
+        self.logger.debug(f"slicer request: {request_url}")
         response = self.opener.open(request_url)
 
         if response.getcode() == 404:
@@ -130,11 +130,11 @@ class SlicerStore(Store, name="slicer"):
             return result
 
     def cube_request(self, action, cube, params=None, is_lines=False):
-        action = "cube/%s/%s" % (cube, action)
+        action = f"cube/{cube}/{action}"
         return self.request(action, params, is_lines)
 
 
-class _JSONLinesIterator(object):
+class _JSONLinesIterator:
     def __init__(self, stream):
         self.stream = stream
 

@@ -123,7 +123,7 @@ class Drilldown(Iterable, Sized):
             else:
                 hierstr = ""
 
-            ddstr = "%s%s:%s" % (item.dimension.name,
+            ddstr = "{}{}:{}".format(item.dimension.name,
                                  hierstr,
                                  item.levels[-1].name)
             strings.append(ddstr)

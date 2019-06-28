@@ -8,7 +8,7 @@ from datetime import datetime
 
 class DateTimeTestCase(unittest.TestCase):
     def setUp(self):
-        super(DateTimeTestCase,self).setUp()
+        super().setUp()
 
         self.provider = create_provider("datetime.json")
         self.cal = Calendar()

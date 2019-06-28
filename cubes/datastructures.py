@@ -37,7 +37,7 @@ class AttributeDict(dict, Generic[T]):
             return self[key]
         except KeyError:
             raise AttributeError(
-                '{0!r} object has no attribute {1!r}'.format(
+                '{!r} object has no attribute {!r}'.format(
                     type(self).__name__, key))
 
     def __setattr__(self, key: str, value: T) -> None:

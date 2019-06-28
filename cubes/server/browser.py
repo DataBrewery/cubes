@@ -15,7 +15,7 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
     def __init__(self, cube, store, locale=None, **options):
         """Browser for another Slicer server.
         """
-        super(SlicerBrowser, self).__init__(cube, store, locale)
+        super().__init__(cube, store, locale)
 
         self.logger = get_logger()
         self.cube = cube
@@ -153,7 +153,7 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
 
         params["format"] = "json_lines"
 
-        action = "/cube/%s/members/%s" % (self.cube.basename, str(dimension))
+        action = "/cube/{}/members/{}".format(self.cube.basename, str(dimension))
         response = self.store.request(action, params, is_lines=True)
 
         return response
@@ -173,7 +173,7 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
         return response
 
     def fact(self, fact_id):
-        action = "/cube/%s/fact/%s" % (self.cube.basename, str(fact_id))
+        action = "/cube/{}/fact/{}".format(self.cube.basename, str(fact_id))
         response = self.store.request(action)
         return response
 
@@ -182,6 +182,6 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
 
     def _order_param(self, order):
         """Prepare an order string in form: ``attribute:direction``"""
-        string = ",".join("%s:%s" % (o[0], o[1]) for o in order)
+        string = ",".join("{}:{}".format(o[0], o[1]) for o in order)
         return string
 

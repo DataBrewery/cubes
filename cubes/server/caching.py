@@ -17,7 +17,7 @@ def _make_key_str(name, *args, **kwargs):
     if args:
         key_str += '::' + '::'.join([str(a) for a in args])
     if kwargs:
-        key_str += '::' + '::'.join(['%s=%s' % (str(k), str(v)) for k, v in sorted(kwargs.items(), key=lambda x: x[0])])
+        key_str += '::' + '::'.join(['{}={}'.format(str(k), str(v)) for k, v in sorted(kwargs.items(), key=lambda x: x[0])])
 
     return key_str
 
@@ -68,7 +68,7 @@ def cacheable(fn):
 
         cache_impl = self.cache
 
-        name = '%s.%s' % (self.__class__.__name__, fn.__name__)
+        name = f'{self.__class__.__name__}.{fn.__name__}'
         key = _make_key_str(name, *args, **dict(additional_args.items() + kwargs.items()))
 
         try:
@@ -94,7 +94,7 @@ def cacheable(fn):
 
 
 
-class Cache(object):
+class Cache:
     def __setitem__(self, key, value):
         return self.set(key, value)
 

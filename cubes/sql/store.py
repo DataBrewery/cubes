@@ -151,7 +151,7 @@ class SQLStore(Store, name="sql"):
           located (use this if the views are in different schema than fact
           tables, otherwise default schema is going to be used)
         """
-        super(SQLStore, self).__init__(**options)
+        super().__init__(**options)
 
         if not engine and not url:
             raise ConfigurationError("No URL or engine specified in options, "
@@ -236,7 +236,7 @@ class SQLStore(Store, name="sql"):
         alias_map = {}
         #
         for join in cube.joins:
-            self.logger.debug("join: %s" % (join, ))
+            self.logger.debug(f"join: {join}")
 
             if not join.master.column:
                 issues.append(("join", "master column not specified", join))
@@ -386,7 +386,7 @@ class SQLStore(Store, name="sql"):
                 label = attribute.ref
                 self.logger.info("creating index for %s" % label)
                 column = table.c[label]
-                name = "idx_%s_%s" % (view_name, label)
+                name = f"idx_{view_name}_{label}"
                 index = sa.schema.Index(name, column)
                 index.create(self.connectable)
 
@@ -488,7 +488,7 @@ class SQLStore(Store, name="sql"):
         group_by = [context.column(attr) for attr in attributes]
         statement = statement.group_by(*group_by)
 
-        table_name = "%s%s%s_%s" % (dimension_prefix or "", dimension_suffix or "",
+        table_name = "{}{}{}_{}".format(dimension_prefix or "", dimension_suffix or "",
                                     str(dimension), str(level))
         self.create_table_from_statement(table_name, statement, schema,
                                          replace, insert=True)
@@ -642,7 +642,7 @@ class SQLStore(Store, name="sql"):
                 if column.name in aggregated_columns:
                     continue
 
-                name = "%s_%s_idx" % (table_name, column)
+                name = f"{table_name}_{column}_idx"
                 self.logger.info("creating index: %s" % name)
                 index = Index(name, column)
                 index.create(self.connectable)

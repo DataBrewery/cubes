@@ -49,7 +49,7 @@ class AdminAdminAuthenticator(AbstractBasicAuthenticator, name="admin_admin"):
     password have to be the same. User name is passed as the authenticated
     identity."""
     def __init__(self, realm=None, **options):
-        super(AdminAdminAuthenticator, self).__init__(realm=realm)
+        super().__init__(realm=realm)
 
     def authenticate(self, request):
         auth = request.authorization
@@ -65,7 +65,7 @@ class PassParameterAuthenticator(Authenticator, name="pass_parameter"):
     """Permissive authenticator that passes an URL parameter (default
     ``api_key``) as idenity."""
     def __init__(self, parameter=None, **options):
-        super(PassParameterAuthenticator, self).__init__(**options)
+        super().__init__(**options)
         self.parameter_name = parameter or "api_key"
 
     def authenticate(self, request):
@@ -74,7 +74,7 @@ class PassParameterAuthenticator(Authenticator, name="pass_parameter"):
 
 class HTTPBasicProxyAuthenticator(AbstractBasicAuthenticator, name="http_basic_proxy"):
     def __init__(self, realm=None, **options):
-        super(HTTPBasicProxyAuthenticator, self).__init__(realm=realm)
+        super().__init__(realm=realm)
         self.realm = realm or "Default"
         self.pattern = re.compile(r"^(http(?:s?)://)([^/]+.*)$", re.IGNORECASE)
 

@@ -110,7 +110,7 @@ class Level(ModelObject):
                  nonadditive:Optional[str]=None,
                  description:Optional[str]=None) -> None:
 
-        super(Level, self).__init__(name, label, description, info)
+        super().__init__(name, label, description, info)
 
         self.cardinality = cardinality
         self.role = role
@@ -257,7 +257,7 @@ class Level(ModelObject):
 
         full_attribute_names = cast(bool, options.get("full_attribute_names"))
 
-        out = super(Level, self).to_dict(**options)
+        out = super().to_dict(**options)
 
         out["role"] = self.role
 
@@ -320,7 +320,7 @@ def string_to_dimension_level(astring: str) -> Tuple[str,str,str]:
         raise ArgumentError("Drilldown string should not be empty")
 
     ident = r"[\w\d_]"
-    pattern = r"(?P<dim>%s+)(@(?P<hier>%s+))?(:(?P<level>%s+))?" % (ident,
+    pattern = r"(?P<dim>{}+)(@(?P<hier>{}+))?(:(?P<level>{}+))?".format(ident,
                                                                     ident,
                                                                     ident)
     match = re.match(pattern, astring)
@@ -362,7 +362,7 @@ class Hierarchy(ModelObject, Sized):
         dimension.
         """
 
-        super(Hierarchy, self).__init__(name, label, description, info)
+        super().__init__(name, label, description, info)
 
         if not levels:
             raise ModelInconsistencyError("Hierarchy level list should "
@@ -555,7 +555,7 @@ class Hierarchy(ModelObject, Sized):
         """
         depth = cast(int, options.get("depth"))
 
-        out = super(Hierarchy, self).to_dict(**options)
+        out = super().to_dict(**options)
 
         levels = [str(l) for l in self.levels]
 
@@ -763,7 +763,7 @@ class Dimension(ModelObject):
         Note: The hierarchy will be owned by the dimension.
         """
 
-        super(Dimension, self).__init__(name, label, description, info)
+        super().__init__(name, label, description, info)
 
         self.role = role
         self.cardinality = cardinality
@@ -891,7 +891,7 @@ class Dimension(ModelObject):
             # Create copy of template's hierarchies, but reference newly
             # created copies of level objects
             hierarchies = []
-            level_dict = dict((level.name, level) for level in levels)
+            level_dict = {level.name: level for level in levels}
 
             for hier in template._hierarchies.values():
                 hier_levels = [level_dict[level.name] for level in hier.levels]
@@ -985,7 +985,7 @@ class Dimension(ModelObject):
                                               template)
         else:
             # Keep only hierarchies which include existing levels
-            level_names = set([level.name for level in levels])
+            level_names = {level.name for level in levels}
             keep = []
             for hier in hierarchies:
                 if any(level.name not in level_names for level in hier.levels):
@@ -1006,7 +1006,7 @@ class Dimension(ModelObject):
         # hierarchies. Retain the original level order
         used_level_names: Set[str] = set()
         for hier in hierarchies:
-            used_level_names |= set(level.name for level in hier.levels)
+            used_level_names |= {level.name for level in hier.levels}
 
         levels = [level for level in levels if level.name in used_level_names]
 
@@ -1248,7 +1248,7 @@ class Dimension(ModelObject):
     def to_dict(self, **options:Any) -> JSONType:
         """Return dictionary representation of the dimension"""
 
-        out = super(Dimension, self).to_dict(**options)
+        out = super().to_dict(**options)
 
         hierarchy_limits = options.get("hierarchy_limits")
 
@@ -1382,7 +1382,7 @@ class Dimension(ModelObject):
         return self.name
 
     def __repr__(self) -> str:
-        return "<dimension: {name: '%s', levels: %s}>" % (self.name,
+        return "<dimension: {{name: '{}', levels: {}}}>".format(self.name,
                                                           self._levels)
 
     def localizable_dictionary(self) -> Dict[str, Any]:

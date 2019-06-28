@@ -185,7 +185,7 @@ def get_key(record, composite_key):
     return tuple(record.get(key) for key in composite_key)
 
 # FIXME : [typing] Fix the data types
-class WindowFunction(object):
+class WindowFunction:
 
     function: Any
     window_key: Any
@@ -274,4 +274,4 @@ def available_calculators():
     return CALCULATED_AGGREGATIONS.keys()
 
 def aggregate_calculator_labels():
-    return dict([(k, v.keywords['label']) for k, v in CALCULATED_AGGREGATIONS.items()])
+    return {k: v.keywords['label'] for k, v in CALCULATED_AGGREGATIONS.items()}

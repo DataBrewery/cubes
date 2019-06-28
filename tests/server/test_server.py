@@ -21,7 +21,7 @@ TEST_DB_URL = "sqlite:///"
 @unittest.skip("Fix this")
 class SlicerTestCaseBase(CubesTestCaseBase):
     def setUp(self):
-        super(SlicerTestCaseBase, self).setUp()
+        super().setUp()
 
         self.config = ConfigParser()
         self.slicer = create_server(self.config)
@@ -64,7 +64,7 @@ class SlicerTestCase(SlicerTestCaseBase):
 class SlicerModelTestCase(SlicerTestCaseBase):
 
     def setUp(self):
-        super(SlicerModelTestCase, self).setUp()
+        super().setUp()
 
         ws = Workspace()
         ws.register_default_store("sql", url=TEST_DB_URL)
@@ -157,7 +157,7 @@ class SlicerModelTestCase(SlicerTestCaseBase):
 class SlicerAggregateTestCase(SlicerTestCaseBase):
     sql_engine = "sqlite:///"
     def setUp(self):
-        super(SlicerAggregateTestCase, self).setUp()
+        super().setUp()
 
         self.workspace = self.create_workspace(model="server.json")
         self.cube = self.workspace.cube("aggregate_test")

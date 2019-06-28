@@ -756,7 +756,7 @@ class SQLBrowser(AggregationBrowser, name="sql"):
             statement: sa.Select,
             label: str=None) -> None:
         label = "SQL(%s):" % label if label else "SQL:"
-        self.logger.debug("%s\n%s\n" % (label, str(statement)))
+        self.logger.debug("{}\n{}\n".format(label, str(statement)))
 
 
 # TODO: Rename to batch result iterator

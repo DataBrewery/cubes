@@ -20,7 +20,7 @@ class ServerError(HTTPException):
     code = 500
     error_type = "default"
     def __init__(self, message=None, exception=None, **details):
-        super(ServerError, self).__init__()
+        super().__init__()
         self.message = message
         self.exception = exception
         self.details = details
@@ -61,7 +61,7 @@ class NotAuthenticatedError(ServerError):
     error_type = "not_authenticated"
 
     def __init__(self, message=None, exception=None, realm=None, **details):
-        super(NotAuthenticatedError, self).__init__(message,
+        super().__init__(message,
                                                     exception,
                                                     **details)
         self.message = message
@@ -72,7 +72,7 @@ class NotAuthenticatedError(ServerError):
 
     def get_headers(self, environ):
         """Get a list of headers."""
-        headers = super(NotAuthenticatedError, self).get_headers(environ)
+        headers = super().get_headers(environ)
         headers.append(('WWW-Authenticate', 'Basic realm="%s"' % self.realm))
         return headers
 
@@ -82,7 +82,7 @@ class PageNotFoundError(ServerError):
     code = 404
     error_type = "not_found"
     def __init__(self, message=None):
-        super(PageNotFoundError, self).__init__(message)
+        super().__init__(message)
 
 
 # TODO: Rename this to ObjectNotFoundError
@@ -90,14 +90,14 @@ class NotFoundError(ServerError):
     code = 404
     error_type = "object_not_found"
     def __init__(self, obj, objtype=None, message=None):
-        super(NotFoundError, self).__init__(message)
+        super().__init__(message)
         self.details = { "object": obj }
 
         if objtype:
             self.details["object_type"] = objtype
 
         if not message:
-            self.message = "Object '%s' of type '%s' was not found" % (obj, objtype)
+            self.message = f"Object '{obj}' of type '{objtype}' was not found"
         else:
             self.message = message
 

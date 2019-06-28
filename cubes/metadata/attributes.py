@@ -124,7 +124,7 @@ class AttributeBase(ModelObject):
                  missing_value: Optional[str]=None,
                  expression: Optional[str]=None,
                  **kwargs: Any) -> None:
-        super(AttributeBase, self).__init__(name, label, description, info)
+        super().__init__(name, label, description, info)
 
         self.format = format
         self.missing_value = missing_value
@@ -173,7 +173,7 @@ class AttributeBase(ModelObject):
         return hash(self.ref)
 
     def to_dict(self, **options: Any) -> JSONType:
-        d = super(AttributeBase, self).to_dict(**options)
+        d = super().to_dict(**options)
 
         d["format"] = self.format
         d["order"] = self.order
@@ -195,7 +195,7 @@ class AttributeBase(ModelObject):
 
     def localize(self, trans: JSONType) -> None:
         """Localize the attribute, allow localization of the format."""
-        super(AttributeBase, self).localized(trans)
+        super().localized(trans)
         self.format = trans.get("format", self.format)
 
     @property
@@ -280,7 +280,7 @@ class Attribute(AttributeBase):
         dimension has to be assigned after copying.
         """
 
-        super(Attribute, self).__init__(name=name,
+        super().__init__(name=name,
                                         label=label,
                                         description=description,
                                         order=order,
@@ -323,7 +323,7 @@ class Attribute(AttributeBase):
                          expression=self.expression)
 
     def __eq__(self, other: Any) -> bool:
-        if not super(Attribute, self).__eq__(other):
+        if not super().__eq__(other):
             return False
 
         # TODO: we are not comparing dimension (owner) here
@@ -334,7 +334,7 @@ class Attribute(AttributeBase):
 
     def to_dict(self, **options: Any) -> JSONType:
         # FIXME: Depreciated key "full_name" in favour of "ref"
-        d = super(Attribute, self).to_dict(**options)
+        d = super().to_dict(**options)
 
         d["locales"] = self.locales
 
@@ -388,7 +388,7 @@ class Measure(AttributeBase):
 
         String representation of a `Measure` returns its full reference.
         """
-        super(Measure, self).__init__(name=name, label=label,
+        super().__init__(name=name, label=label,
                                       description=description, order=order,
                                       info=info, format=format,
                                       missing_value=None,
@@ -423,7 +423,7 @@ class Measure(AttributeBase):
                        window_size=self.window_size)
 
     def __eq__(self, other: Any) -> bool:
-        if not super(Measure, self).__eq__(other):
+        if not super().__eq__(other):
             return False
 
         return self.aggregates == other.aggregates \
@@ -434,7 +434,7 @@ class Measure(AttributeBase):
         return hash(self.ref)
 
     def to_dict(self, **options: Any) -> JSONType:
-        d = super(Measure, self).to_dict(**options)
+        d = super().to_dict(**options)
         d["formula"] = self.formula
         d["aggregates"] = self.aggregates
         d["window_size"] = self.window_size
@@ -452,11 +452,11 @@ class Measure(AttributeBase):
 
         for agg in self.aggregates or ["sum"]:
             if agg == "identity":
-                name = u"%s" % self.name
+                name = "%s" % self.name
                 measure = None
                 function = None
             else:
-                name = u"%s_%s" % (self.name, agg)
+                name = f"{self.name}_{agg}"
                 measure = self.name
                 function = agg
 
@@ -511,7 +511,7 @@ class MeasureAggregate(AttributeBase):
           the measure in most of the times)
         """
 
-        super(MeasureAggregate, self).__init__(name=name, label=label,
+        super().__init__(name=name, label=label,
                                                description=description,
                                                order=order, info=info,
                                                format=format,
@@ -540,7 +540,7 @@ class MeasureAggregate(AttributeBase):
                                 window_size=self.window_size)
 
     def __eq__(self, other: Any) -> bool:
-        if not super(MeasureAggregate, self).__eq__(other):
+        if not super().__eq__(other):
             return False
 
         return str(self.function) == str(other.function) \
@@ -557,7 +557,7 @@ class MeasureAggregate(AttributeBase):
         return not self.expression and not self.function
 
     def to_dict(self, **options: Any) -> JSONType:
-        d = super(MeasureAggregate, self).to_dict(**options)
+        d = super().to_dict(**options)
         d["function"] = self.function
         d["formula"] = self.formula
         d["measure"] = self.measure
@@ -580,7 +580,7 @@ class MeasureAggregate(AttributeBase):
             if self.expression:
                 raise ModelError("Aggregate '{}' has both measure and "
                                  "expression set".format(self.ref))
-            return set([self.measure])
+            return {self.measure}
 
         if not self.expression:
             return set()
@@ -666,7 +666,7 @@ def depsort_attributes(attributes: List[str],
         try:
             attr_deps = all_dependencies[attr]
         except KeyError as e:
-            raise ExpressionError("Unknown attribute '{}'".format(e))
+            raise ExpressionError(f"Unknown attribute '{e}'")
 
         if not attr_deps:
             bases.add(attr)

@@ -28,7 +28,7 @@ __all__ = (
 )
 
 
-class AggregateFunction(object):
+class AggregateFunction:
     requires_measure = True
 
     # if `True` then on `coalesce` the values are coalesced to 0 before the
@@ -136,7 +136,7 @@ class GenerativeFunction(AggregateFunction):
             function: Callable[[], sa.ColumnElement]=None) -> None:
         """Creates a function that generates a value without using any of the
         measures."""
-        super(GenerativeFunction, self).__init__(name, function)
+        super().__init__(name, function)
 
     def apply(self, aggregate: MeasureAggregate, context: Optional[Any]=None,
             coalesce: bool=False) -> sa.ColumnElement:
@@ -163,7 +163,7 @@ class FactCountDistinctFunction(AggregateFunction):
     def __init__(self, name: str) -> None:
         """Creates a function that provides distinct fact (record) counts."""
         function = lambda x: sa.count(sa.distinct(x))
-        super(FactCountDistinctFunction, self).__init__(name, function)
+        super().__init__(name, function)
 
 
 class avg(sa.ReturnTypeFromArgs):

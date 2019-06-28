@@ -17,7 +17,7 @@ __all__ = [
     "Namespace",
 ]
 
-class Namespace(object):
+class Namespace:
 
     parent: Optional["Namespace"]
     name: Optional[str]
@@ -118,7 +118,7 @@ class Namespace(object):
         (namespace, remainder) = self.namespace(path)
 
         if remainder:
-            basename = "{}.{}".format(remainder, cube_ref)
+            basename = f"{remainder}.{cube_ref}"
         else:
             basename = cube_ref
 
@@ -132,7 +132,7 @@ class Namespace(object):
             provider = None
 
         if not provider:
-            raise NoSuchCubeError("Unknown cube '{}'".format(cube_ref),
+            raise NoSuchCubeError(f"Unknown cube '{cube_ref}'",
                                   cube_ref)
 
         return (namespace, provider, basename)
@@ -162,7 +162,7 @@ class Namespace(object):
             for name, ns in self.namespaces.items():
                 cubes = ns.list_cubes(recursive=True)
                 for cube in cubes:
-                    cube["name"] = "%s.%s" % (name, cube["name"])
+                    cube["name"] = "{}.{}".format(name, cube["name"])
                 all_cubes += cubes
 
         return all_cubes

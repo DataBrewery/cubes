@@ -56,13 +56,13 @@ class Authorizer(Extensible, abstract=True):
 
 class NoopAuthorizer(Authorizer, name="noop"):
     def __init__(self):
-        super(NoopAuthorizer, self).__init__()
+        super().__init__()
 
 
-class _SimpleAccessRight(object):
+class _SimpleAccessRight:
     def __init__(self, roles, allowed_cubes, denied_cubes, cell_restrictions,
                  hierarchy_limits):
-        self.roles = set(roles) if roles else set([])
+        self.roles = set(roles) if roles else set()
         self.cell_restrictions = cell_restrictions or {}
 
         self.hierarchy_limits = defaultdict(list)
@@ -76,8 +76,8 @@ class _SimpleAccessRight(object):
 
         self.hierarchy_limits = dict(self.hierarchy_limits)
 
-        self.allowed_cubes = set(allowed_cubes) if allowed_cubes else set([])
-        self.denied_cubes = set(denied_cubes) if denied_cubes else set([])
+        self.allowed_cubes = set(allowed_cubes) if allowed_cubes else set()
+        self.denied_cubes = set(denied_cubes) if denied_cubes else set()
         self._get_patterns()
 
     def _get_patterns(self):
@@ -231,7 +231,7 @@ class SimpleAuthorizer(Authorizer, name="simple"):
         `rights_file` and `roles_file` and merge them with `roles` and
         `rights` dictionaries respectively."""
 
-        super(SimpleAuthorizer, self).__init__()
+        super().__init__()
 
         roles = roles or {}
         rights = rights or {}
@@ -268,7 +268,7 @@ class SimpleAuthorizer(Authorizer, name="simple"):
             role = right_from_dict(info)
             self.roles[key] = role
 
-        deps = dict((name, role.roles) for name, role in self.roles.items())
+        deps = {name: role.roles for name, role in self.roles.items()}
         order = sorted_dependencies(deps)
 
         for name in order:

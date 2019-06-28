@@ -30,7 +30,7 @@ extras = {
     'slicer': 'werkzeug',
     'html': 'jinja',
     'all': ['cubes[%s]' % extra for extra in ['slicer', 'html']],
-    'dev': ['cubes[all]', 'sphinx'],
+    'dev': ['cubes[all]', 'sphinx', 'pytest', 'pytest-cov', 'flake8'],
 }
 
 setup(

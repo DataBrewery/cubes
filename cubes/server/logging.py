@@ -67,7 +67,7 @@ def configured_request_log_handlers(config, prefix="query_log",
     return handlers
 
 
-class RequestLogger(object):
+class RequestLogger:
     def __init__(self, handlers=None):
         if handlers:
             self.handlers = list(handlers)
@@ -122,7 +122,7 @@ class RequestLogger(object):
 
 class AsyncRequestLogger(RequestLogger):
     def __init__(self, handlers=None):
-        super(AsyncRequestLogger, self).__init__(handlers)
+        super().__init__(handlers)
         self.queue = Queue()
         self.thread = Thread(target=self.log_consumer,
                               name="slicer_logging")
@@ -135,7 +135,7 @@ class AsyncRequestLogger(RequestLogger):
     def log_consumer(self):
         while True:
             (args, kwargs) = self.queue.get()
-            super(AsyncRequestLogger, self).log(*args, **kwargs)
+            super().log(*args, **kwargs)
 
 class RequestLogHandler(ext.Extensible, abstract=True):
     __extension_type__ = "request_log_handler"

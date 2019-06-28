@@ -85,7 +85,7 @@ class BrowserFeatureAction(Enum):
     cell = 5
 
 
-class BrowserFeatures(object):
+class BrowserFeatures:
     actions: Collection[BrowserFeatureAction]
     aggregate_functions: Collection[str]
     post_aggregate_functions: Collection[str]
@@ -157,7 +157,7 @@ class AggregationBrowser(Extensible, abstract=True):
             ) -> None:
         """Creates and initializes the aggregation browser. Subclasses should
         override this method. """
-        super(AggregationBrowser, self).__init__()
+        super().__init__()
 
         assert cube is not None, \
                 "No cube given for aggregation browser"
@@ -337,7 +337,7 @@ class AggregationBrowser(Extensible, abstract=True):
             prepared = self.cube.aggregates
 
         seen: Set[str]
-        seen = set(a.name for a in prepared)
+        seen = {a.name for a in prepared}
 
         dependencies: List[MeasureAggregate] = []
 

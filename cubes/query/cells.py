@@ -65,8 +65,8 @@ PATH_ELEMENT = r"(?:\\.|[^:;|-])*"
 
 RE_ELEMENT = re.compile(r"^%s$" % PATH_ELEMENT)
 RE_POINT = re.compile(r"^%s$" % PATH_ELEMENT)
-RE_SET = re.compile(r"^(%s)(;(%s))*$" % (PATH_ELEMENT, PATH_ELEMENT))
-RE_RANGE = re.compile(r"^(%s)?-(%s)?$" % (PATH_ELEMENT, PATH_ELEMENT))
+RE_SET = re.compile(fr"^({PATH_ELEMENT})(;({PATH_ELEMENT}))*$")
+RE_RANGE = re.compile(fr"^({PATH_ELEMENT})?-({PATH_ELEMENT})?$")
 
 """
 point: date:2004
@@ -75,7 +75,7 @@ set: date:2004;2010;2011,04
 
 """
 
-class Cut(object):
+class Cut:
 
     dimension: str
     hierarchy: Optional[str]
@@ -130,13 +130,13 @@ class PointCut(Cut):
             hierarchy: str=None,
             invert: bool=False,
             hidden: bool=False) -> None:
-        super(PointCut, self).__init__(dimension, hierarchy, invert, hidden)
+        super().__init__(dimension, hierarchy, invert, hidden)
         self.path = path
 
     def to_dict(self) -> JSONType:
         """Returns dictionary representation of the receiver. The keys are:
         `dimension`, `type`=``point`` and `path`."""
-        d = super(PointCut, self).to_dict()
+        d = super().to_dict()
         d["type"] = "point"
         d["path"] = self.path
         return d
@@ -184,14 +184,14 @@ class RangeCut(Cut):
             hierarchy: str=None,
             invert: bool=False,
             hidden: bool=False) -> None:
-        super(RangeCut, self).__init__(dimension, hierarchy, invert, hidden)
+        super().__init__(dimension, hierarchy, invert, hidden)
         self.from_path = from_path
         self.to_path = to_path
 
     def to_dict(self) -> JSONType:
         """Returns dictionary representation of the receiver. The keys are:
         `dimension`, `type`=``range``, `from` and `to` paths."""
-        d = super(RangeCut, self).to_dict()
+        d = super().to_dict()
         d["type"] = "range"
         d["from"] = self.from_path
         d["to"] = self.to_path
@@ -262,13 +262,13 @@ class SetCut(Cut):
             invert:bool=False,
             hidden:bool=False) -> None:
 
-        super(SetCut, self).__init__(dimension, hierarchy, invert, hidden)
+        super().__init__(dimension, hierarchy, invert, hidden)
         self.paths = paths
 
     def to_dict(self) -> JSONType:
         """Returns dictionary representation of the receiver. The keys are:
         `dimension`, `type`=``range`` and `set` as a list of paths."""
-        d = super(SetCut, self).to_dict()
+        d = super().to_dict()
         d["type"] = "set"
         d["paths"] = self.paths
         return d
@@ -306,7 +306,7 @@ class SetCut(Cut):
         return not self.__eq__(other)
 
 
-class Cell(object):
+class Cell:
     """Part of a cube determined by slicing dimensions. Immutable object."""
 
     cuts: List[Cut]
@@ -648,7 +648,7 @@ def cut_from_string(string: str,
     role_member_converters = role_member_converters or {}
 
     dim_hier_pattern = re.compile(r"(?P<invert>!)?"
-                                  "(?P<dim>\w+)(@(?P<hier>\w+))?")
+                                  r"(?P<dim>\w+)(@(?P<hier>\w+))?")
 
     try:
         (dimspec, string) = DIMENSION_STRING_SEPARATOR.split(string)
@@ -790,7 +790,7 @@ def string_from_hierarchy(dimension: str,
     """Returns a string in form ``dimension@hierarchy`` or ``dimension`` if
     `hierarchy` is ``None``"""
     if hierarchy:
-        return "%s@%s" % (_path_part_escape(dimension), _path_part_escape(hierarchy))
+        return "{}@{}".format(_path_part_escape(dimension), _path_part_escape(hierarchy))
     else:
         return _path_part_escape(dimension)
 

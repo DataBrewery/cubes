@@ -207,7 +207,7 @@ def server_error(e):
 
     (exc_type, exc_value, exc_traceback) = sys.exc_info()
     exc_name = exc_type.__name__
-    logger.error("Internal Cubes error ({}): {}".format(exc_name, exc_value))
+    logger.error(f"Internal Cubes error ({exc_name}): {exc_value}")
 
     tb = traceback.format_exception(exc_type, exc_value,
                                     exc_traceback)

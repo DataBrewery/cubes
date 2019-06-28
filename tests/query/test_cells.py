@@ -11,7 +11,7 @@ from ..common import CubesTestCaseBase, create_provider
 
 class CutsTestCase(CubesTestCaseBase):
     def setUp(self):
-        super(CutsTestCase, self).setUp()
+        super().setUp()
 
         self.provider = create_provider("browser_test.json")
         self.cube = self.provider.cube("transactions")
@@ -83,8 +83,8 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(cut, cut_from_string("foo:123_ abc_"))
 
         cut = PointCut("foo", ["a-b"])
-        self.assertEqual("foo:a\-b", str(cut))
-        self.assertEqual(cut, cut_from_string("foo:a\-b"))
+        self.assertEqual(r"foo:a\-b", str(cut))
+        self.assertEqual(cut, cut_from_string(r"foo:a\-b"))
 
         cut = PointCut("foo", ["a+b"])
         self.assertEqual("foo:a+b", str(cut))
@@ -118,8 +118,8 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(PointCut("foo", ["a+b"]), cut_from_string("foo:a+b"))
 
         cut = SetCut("foo", [["a-b"]])
-        self.assertEqual("foo:a\-b", str(cut))
-        self.assertEqual(PointCut("foo", ["a-b"]), cut_from_string("foo:a\-b"))
+        self.assertEqual(r"foo:a\-b", str(cut))
+        self.assertEqual(PointCut("foo", ["a-b"]), cut_from_string(r"foo:a\-b"))
 
     def test_range_cut_string(self):
         cut = RangeCut("date", ["2010"], ["2011"])
@@ -130,13 +130,13 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual("date:2010-", str(cut))
         cut = cut_from_string("date:2010-")
         if cut.to_path:
-            self.fail('there should be no to path, is: %s' % (cut.to_path, ))
+            self.fail(f'there should be no to path, is: {cut.to_path}')
 
         cut = RangeCut("date", None, ["2010"])
         self.assertEqual("date:-2010", str(cut))
         cut = cut_from_string("date:-2010")
         if cut.from_path:
-            self.fail('there should be no from path is: %s' % (cut.from_path, ))
+            self.fail(f'there should be no from path is: {cut.from_path}')
 
         cut = RangeCut("date", ["2010", "11", "12"], ["2011", "2", "3"])
         self.assertEqual("date:2010,11,12-2011,2,3", str(cut))
@@ -158,7 +158,7 @@ class StringConversionsTestCase(unittest.TestCase):
 
 class CellInteractiveSlicingTestCase(CubesTestCaseBase):
     def setUp(self):
-        super(CellInteractiveSlicingTestCase, self).setUp()
+        super().setUp()
 
         self.provider = create_provider("model.json")
         self.cube = self.provider.cube("contracts")

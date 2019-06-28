@@ -30,7 +30,7 @@ def validate_model(metadata):
     return validator.validate()
 
 
-class ModelMetadataValidator(object):
+class ModelMetadataValidator:
     def __init__(self, metadata):
         self.metadata = metadata
 

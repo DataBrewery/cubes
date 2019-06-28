@@ -34,7 +34,7 @@ __all__ = (
 )
 
 
-class ModelObject(object):
+class ModelObject:
     """Base classs for all model objects."""
 
     localizable_attributes: List[str] = []
@@ -165,7 +165,7 @@ def _json_from_url(url: str) -> JSONType:
     try:
         desc = json.load(handle)
     except ValueError as e:
-        raise SyntaxError("Syntax error in %s: %s" % (url, str(e)))
+        raise SyntaxError("Syntax error in {}: {}".format(url, str(e)))
     finally:
         handle.close()
 

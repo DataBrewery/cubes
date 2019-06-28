@@ -147,9 +147,9 @@ def list(ctx, config, verbose):
         label = cube.get("label", name)
         desc = cube.get("description", "(no description)")
         if verbose:
-            print("{} - {}\n    {}\n".format(name, label, desc))
+            print(f"{name} - {label}\n    {desc}\n")
         else:
-            print("{} - {}".format(name, label))
+            print(f"{name} - {label}")
 
 
 ################################################################################
@@ -185,7 +185,7 @@ def validate(show_defaults, show_warnings, model_path):
             scope = "model"
         else:
             if error.object:
-                scope = "%s '%s'" % (error.scope, error.object)
+                scope = f"{error.scope} '{error.object}'"
             else:
                 scope = "unknown %s" % error.scope
 
@@ -257,7 +257,7 @@ def test(aggregate, exclude_stores, include_stores, config, cube):
     for name in cube_list:
         cube = workspace.cube(name)
 
-        click.echo("testing {}: ".format(name), nl=False)
+        click.echo(f"testing {name}: ", nl=False)
 
         if cube.store_name in exclude \
                 or (include and cube.store_name not in include):
@@ -293,7 +293,7 @@ def test(aggregate, exclude_stores, include_stores, config, cube):
             else:
                 etype = str(type(e))
 
-            click.echo("%s: %s - %s" % (cube, etype, str(e)))
+            click.echo("{}: {} - {}".format(cube, etype, str(e)))
     else:
         click.echo("test passed")
 
@@ -374,7 +374,7 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
         cube = workspace.cube(cube_name)
         store = workspace.get_store(cube.store_name or "default")
 
-        print("denormalizing cube '%s' into '%s'" % (cube_name,
+        print("denormalizing cube '{}' into '{}'".format(cube_name,
                                                      target))
 
         store.create_denormalized_view(cube, target,
@@ -422,7 +422,7 @@ def sql_aggregate(ctx, force, index, schema, cube, target, dimensions):
     workspace = ctx.obj.workspace
     store = ctx.obj.store
 
-    print("denormalizing cube '%s' into '%s'" % (cube_name,
+    print("denormalizing cube '{}' into '{}'".format(cube_name,
                                                  target))
 
     store.create_cube_aggregate(cube, target,
@@ -611,6 +611,6 @@ def main(*args, **kwargs):
         if os.environ.get("CUBES_ERROR_DEBUG"):
             raise
         else:
-            click.echo("\nError: {}".format(e), err=True)
+            click.echo(f"\nError: {e}", err=True)
             sys.exit(1)
 

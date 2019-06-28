@@ -592,7 +592,7 @@ class Workspace:
         all_cubes = self.namespace.list_cubes(recursive=True)
 
         if self.authorizer:
-            by_name = dict((cube["name"], cube) for cube in all_cubes)
+            by_name = {cube["name"]: cube for cube in all_cubes}
             names = [cube["name"] for cube in all_cubes]
 
             authorized = self.authorizer.authorize(identity, names)
@@ -765,7 +765,7 @@ class Workspace:
         try:
             type_, options = self.store_infos[name]
         except KeyError:
-            raise ConfigurationError("Unknown store '{}'".format(name))
+            raise ConfigurationError(f"Unknown store '{name}'")
 
         # TODO: temporary hack to pass store name and store type
         ext: Store

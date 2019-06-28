@@ -50,16 +50,16 @@ class IgnoringDictionary(OrderedDict):
     are empty (None/False)"""
     def __setitem__(self, key: str, value: Any) -> None:
         if value is not None:
-            super(IgnoringDictionary, self).__setitem__(key, value)
+            super().__setitem__(key, value)
 
     def set(self, key: str, value: Any) -> None:
         """Sets `value` for `key` even if value is null."""
-        super(IgnoringDictionary, self).__setitem__(key, value)
+        super().__setitem__(key, value)
 
     def __repr__(self) -> str:
         items = []
         for key, value in self.items():
-            item = '%s: %s' % (repr(key), repr(value))
+            item = '{}: {}'.format(repr(key), repr(value))
             items.append(item)
 
         return "{%s}" % ", ".join(items)
@@ -333,13 +333,13 @@ def sorted_dependencies(graph: Any) -> Any:
     Will be: ``{"A": ["B"], "B": ["C", "D"], "D": ["E"],"E": []}``
     """
 
-    graph = dict((key, set(value)) for key, value in graph.items())
+    graph = {key: set(value) for key, value in graph.items()}
 
     # L ← Empty list that will contain the sorted elements
     L = []
 
     # S ← Set of all nodes with no dependencies (incoming edges)
-    S = set(parent for parent, req in graph.items() if not req)
+    S = {parent for parent, req in graph.items() if not req}
 
     while S:
         # remove a node n from S

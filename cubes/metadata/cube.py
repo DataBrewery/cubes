@@ -33,12 +33,12 @@ DEFAULT_FACT_COUNT_AGGREGATE = {
 
 # TODO: make this configurable
 IMPLICIT_AGGREGATE_LABELS = {
-    "sum": u"Sum of {measure}",
-    "count": u"Record Count",
-    "count_nonempty": u"Non-empty count of {measure}",
-    "min": u"{measure} Minimum",
-    "max": u"{measure} Maximum",
-    "avg": u"Average of {measure}",
+    "sum": "Sum of {measure}",
+    "count": "Record Count",
+    "count_nonempty": "Non-empty count of {measure}",
+    "min": "{measure} Minimum",
+    "max": "{measure} Maximum",
+    "avg": "Average of {measure}",
 }
 
 
@@ -150,7 +150,7 @@ class Cube(ModelObject):
                  store: Optional[str]=None,
                  **options: Any) -> None:
 
-        super(Cube, self).__init__(name, label, description, info)
+        super().__init__(name, label, description, info)
 
         # FIXME: Only one should be passed to the cube - links
         if dimensions is not None and dimension_links is not None:
@@ -259,8 +259,8 @@ class Cube(ModelObject):
         aggregates = metadata.pop("aggregates", [])
         aggregates = create_list_of(MeasureAggregate, aggregates)
 
-        aggregate_dict = dict((a.name, a) for a in aggregates)
-        measure_dict = dict((m.name, m) for m in measures)
+        aggregate_dict = {a.name: a for a in aggregates}
+        measure_dict = {m.name: m for m in measures}
 
         # TODO: Depreciate?
         if metadata.get("implicit_aggregates", False):
@@ -663,7 +663,7 @@ class Cube(ModelObject):
         provided in an user interface or through server API.
         """
 
-        out = super(Cube, self).to_dict(**options)
+        out = super().to_dict(**options)
 
         out["locale"] = self.locale
         out["category"] = self.category
@@ -766,7 +766,7 @@ class Cube(ModelObject):
         return results
 
     def localize(self, trans: JSONType) -> None:
-        super(Cube, self).localized(trans)
+        super().localized(trans)
 
         self.category = trans.get("category", self.category)
 

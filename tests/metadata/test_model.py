@@ -113,7 +113,7 @@ class AttributeTestCase(unittest.TestCase):
 
 class MeasuresTestsCase(CubesTestCaseBase):
     def setUp(self):
-        super(MeasuresTestsCase, self).setUp()
+        super().setUp()
         self.metadata = self.model_metadata("measures.json")
 
         self.cubes_md = {}
@@ -553,7 +553,7 @@ class HierarchyTestCase(unittest.TestCase):
                          attrs)
 
     def test_copy(self):
-        class DummyDimension(object):
+        class DummyDimension:
             def __init__(self):
                 self.name = "dummy"
                 self.is_flat = False
@@ -820,7 +820,7 @@ class CubeTestCase(unittest.TestCase):
     @unittest.skip("deferred (needs workspace)")
     def test_to_dict(self):
         desc = self.cube.to_dict()
-        dims = dict((dim.name, dim) for dim in self.dimensions)
+        dims = {dim.name: dim for dim in self.dimensions}
         cube = Cube.from_metadata(desc, dims)
         self.assertEqual(self.cube.dimensions, cube.dimensions)
         self.assertEqual(self.cube.measures, cube.measures)
@@ -829,7 +829,7 @@ class CubeTestCase(unittest.TestCase):
     @unittest.skip("requires revision")
     def test_links(self):
         # TODO: test link alias!
-        dims = dict((d.name, d) for d in self.dimensions)
+        dims = {d.name: d for d in self.dimensions}
 
         links = [{"name": "date"}]
         cube = Cube("contracts",
@@ -850,7 +850,7 @@ class CubeTestCase(unittest.TestCase):
 
     @unittest.skip("requires revision")
     def test_link_hierarchies(self):
-        dims = dict((d.name, d) for d in self.dimensions)
+        dims = {d.name: d for d in self.dimensions}
 
         links = [{"name": "date"}]
         cube = Cube("contracts",
@@ -890,7 +890,7 @@ class CubeTestCase(unittest.TestCase):
         }
 
         dims = [Dimension.from_metadata(md) for md in dims]
-        dims = dict((dim.name, dim) for dim in dims)
+        dims = {dim.name: dim for dim in dims}
 
         cube = Cube.from_metadata(cube)
 
@@ -900,7 +900,7 @@ class CubeTestCase(unittest.TestCase):
 
 class ReadModelDescriptionTestCase(ModelTestCaseBase):
     def setUp(self):
-        super(ReadModelDescriptionTestCase, self).setUp()
+        super().setUp()
 
     def test_from_file(self):
         path = self.model_path("model.json")

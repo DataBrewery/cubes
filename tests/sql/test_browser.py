@@ -68,7 +68,7 @@ class SQLQueryContextTestCase(SQLTestCase):
 class SQLStatementsTestCase(SQLQueryContextTestCase):
     """"Test basic SQL statement generation in the browser."""
     def setUp(self):
-        super(SQLStatementsTestCase, self).setUp()
+        super().setUp()
 
         attrs = self.dimension("item").attributes
         attrs += self.dimension("category").attributes

@@ -232,7 +232,7 @@ class Mapper:
             locale = self.locale if self.locale in attribute.locales \
                                 else attribute.locales[0]
 
-            column_name = "{}_{}".format(column_name, locale)
+            column_name = f"{column_name}_{locale}"
 
         schema, table = self.attribute_table(attribute)
 
@@ -324,6 +324,6 @@ class StarSchemaMapper(Mapper):
         else:
             # No mappings exist or no mapping was found - we are going to
             # create default physical reference
-            return super(StarSchemaMapper, self).__getitem__(attribute)
+            return super().__getitem__(attribute)
 
 
