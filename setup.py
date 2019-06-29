@@ -31,7 +31,8 @@ extras = {
     "slicer": "werkzeug",
     "html": "jinja",
     "all": ["cubes[%s]" % extra for extra in ["slicer", "html"]],
-    "dev": ["cubes[all]", "sphinx", "pytest", "pytest-cov", "flake8", "mccabe"],
+    # TODO: add pytest-cov without breaking travis
+    "dev": ["cubes[all]", "sphinx", "pytest", "flake8", "mccabe"],
 }
 
 setup(
