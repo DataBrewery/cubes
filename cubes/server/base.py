@@ -92,7 +92,7 @@ def run_server(config, debug=False, app=None):
         try:
             with open(path, "w") as f:
                 f.write(str(os.getpid()))
-        except IOError as e:
+        except OSError as e:
             logger.error(
                 "Unable to write PID file '%s'. Check the "
                 "directory existence or permissions." % path

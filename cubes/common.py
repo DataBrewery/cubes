@@ -303,7 +303,7 @@ def read_json_file(path: str, kind: str = None) -> JSONType:
 
     try:
         f = open(path, encoding="utf-8")
-    except IOError:
+    except OSError:
         raise ConfigurationError(f"Can not open {kind}file '{path}'")
 
     try:
