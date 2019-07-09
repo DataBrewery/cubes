@@ -67,9 +67,7 @@ def _store_option(config, option, default, type_=None, allowed=None, section="se
         value = default
 
     if allowed and value not in allowed:
-        raise ConfigurationError(
-            f"Invalued value '{value}' for option '{option}'"
-        )
+        raise ConfigurationError(f"Invalued value '{value}' for option '{option}'")
 
     setattr(current_app.slicer, option, value)
 
@@ -531,9 +529,7 @@ def cube_report(cube_name):
         # Override URL cut with the one in report
         cuts = [cut_from_dict(cut) for cut in cell_cuts]
         cell = Cell(cuts)
-        logger.info(
-            "using cell from report specification (URL parameters are ignored)"
-        )
+        logger.info("using cell from report specification (URL parameters are ignored)")
 
         if workspace.authorizer:
             cell = workspace.authorizer.restricted_cell(

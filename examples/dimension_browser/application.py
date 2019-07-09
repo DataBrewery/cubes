@@ -24,11 +24,13 @@ app = Flask(__name__)
 # Cube we are going to browse (only one for this example)
 #
 
-CUBE_NAME="irbd_balance"
+CUBE_NAME = "irbd_balance"
+
 
 @app.route("/favicon.ico")
 def favicon():
     return make_response("")
+
 
 @app.route("/")
 @app.route("/<dim_name>")
@@ -37,7 +39,7 @@ def report(dim_name=None):
     cube = browser.cube
 
     if not dim_name:
-        return render_template('report.html', dimensions=cube.dimensions)
+        return render_template("report.html", dimensions=cube.dimensions)
 
     # First we need to get the hierarchy to know the order of levels. Cubes
     # supports multiple hierarchies internally.
@@ -45,8 +47,8 @@ def report(dim_name=None):
     dimension = cube.dimension(dim_name)
     hierarchy = dimension.hierarchy()
 
-    # Parse the`cut` request parameter and convert it to a list of 
-    # actual cube cuts. Think of this as of multi-dimensional path, even that 
+    # Parse the`cut` request parameter and convert it to a list of
+    # actual cube cuts. Think of this as of multi-dimensional path, even that
     # for this simple example, we are goint to use only one dimension for
     # browsing.
 
@@ -88,15 +90,17 @@ def report(dim_name=None):
     is_last = hierarchy.is_last(next_level)
     # Finally, we render it
 
-    return render_template('report.html',
-                            dimensions=cube.dimensions,
-                            dimension=dimension,
-                            levels=levels,
-                            next_level=next_level,
-                            result=result,
-                            cell=cell,
-                            is_last=is_last,
-                            details=details)
+    return render_template(
+        "report.html",
+        dimensions=cube.dimensions,
+        dimension=dimension,
+        levels=levels,
+        next_level=next_level,
+        result=result,
+        cell=cell,
+        is_last=is_last,
+        details=details,
+    )
 
 
 if __name__ == "__main__":
@@ -104,5 +108,3 @@ if __name__ == "__main__":
     # Create a Slicer and register it at http://localhost:5000/slicer
     app.register_blueprint(slicer, url_prefix="/slicer", config="slicer.ini")
     app.run(debug=True)
-
-

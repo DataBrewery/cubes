@@ -157,7 +157,7 @@ class Cube(ModelObject):
         locale: Optional[str] = None,
         category: Optional[str] = None,
         store: Optional[str] = None,
-        **options: Any
+        **options: Any,
     ) -> None:
 
         super().__init__(name, label, description, info)
@@ -330,7 +330,7 @@ class Cube(ModelObject):
             aggregates=aggregates,
             dimension_links=dimension_links,
             details=details,
-            **metadata
+            **metadata,
         )
 
     @property
@@ -352,9 +352,7 @@ class Cube(ModelObject):
         try:
             return self._measures[name]
         except KeyError:
-            raise NoSuchAttributeError(
-                f"Cube '{self.name}' has no measure '{name}'"
-            )
+            raise NoSuchAttributeError(f"Cube '{self.name}' has no measure '{name}'")
 
     def get_measures(self, measures: List[str]) -> List[Measure]:
         """Get a list of measures as `Attribute` objects. If `measures` is
@@ -531,9 +529,7 @@ class Cube(ModelObject):
             if measure.name == name:
                 return measure
 
-        raise NoSuchAttributeError(
-            f"Cube '{self.name}' has no attribute '{attribute}'"
-        )
+        raise NoSuchAttributeError(f"Cube '{self.name}' has no attribute '{attribute}'")
 
     # TODO: Rename to collect_attributes
     def get_attributes(
@@ -661,9 +657,7 @@ class Cube(ModelObject):
         try:
             return self._dimensions[str(name)]
         except KeyError:
-            raise NoSuchDimensionError(
-                f"cube '{self.name}' has no dimension '{name}'"
-            )
+            raise NoSuchDimensionError(f"cube '{self.name}' has no dimension '{name}'")
 
     # TODO Rename. The name does not match description.
     # FIXME: Very complicted return type. Unnecessary.
@@ -799,10 +793,7 @@ class Cube(ModelObject):
                 )
             if str(detail) in details:
                 results.append(
-                    (
-                        "error",
-                        f"Duplicate detail '{detail}' in cube '{self.name}'",
-                    )
+                    ("error", f"Duplicate detail '{detail}' in cube '{self.name}'")
                 )
             elif str(detail) in measures:
                 results.append(

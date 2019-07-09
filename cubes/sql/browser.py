@@ -152,7 +152,7 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         debug: bool = False,
         tables: Optional[Mapping[str, sa.FromClause]] = None,
         naming: Optional[NamingDict] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         """Create a SQL Browser."""
 

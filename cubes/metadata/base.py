@@ -269,9 +269,7 @@ def write_model_metadata_bundle(
         if replace:
             shutil.rmtree(path)
         else:
-            raise CubesError(
-                "Target already exists. Remove it or force replacement."
-            )
+            raise CubesError("Target already exists. Remove it or force replacement.")
 
     os.makedirs(path)
 

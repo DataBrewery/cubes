@@ -42,10 +42,9 @@ def report(dim_name=None):
         dimension = None
         physical = None
 
-    return render_template('index.html',
-                           dimensions=cube.dimensions,
-                           dimension=dimension,
-                           mapping=physical)
+    return render_template(
+        "index.html", dimensions=cube.dimensions, dimension=dimension, mapping=physical
+    )
 
 
 def get_browser():
@@ -57,11 +56,12 @@ def get_browser():
 
     return workspace.browser(cube_name)
 
+
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Cubes model browser.')
-    parser.add_argument('config', help='server configuration .ini file')
-    parser.add_argument('cube', nargs='?', default=None, help='cube name')
+    parser = argparse.ArgumentParser(description="Cubes model browser.")
+    parser.add_argument("config", help="server configuration .ini file")
+    parser.add_argument("cube", nargs="?", default=None, help="cube name")
     args = parser.parse_args()
 
     config = ConfigParser.SafeConfigParser()

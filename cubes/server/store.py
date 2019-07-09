@@ -121,7 +121,9 @@ class SlicerStore(Store, name="slicer"):
             raise MissingObjectError
         elif response.getcode() != 200:
             raise BackendError(
-                "Slicer request error ({}): {}".format(response.getcode(), response.read())
+                "Slicer request error ({}): {}".format(
+                    response.getcode(), response.read()
+                )
             )
 
         if is_lines:
