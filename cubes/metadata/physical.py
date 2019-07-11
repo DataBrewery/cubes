@@ -79,8 +79,7 @@ class JoinKey(Hashable):
         return JoinKey(columns=columns, table=table, schema=schema)
 
     def __hash__(self) -> int:
-        column_hash: int
-        column_hash = list_hash(self.columns)  # type: ignore
+        column_hash: int = list_hash(self.columns)
 
         return hash(self.schema) ^ hash(self.table) ^ column_hash
 

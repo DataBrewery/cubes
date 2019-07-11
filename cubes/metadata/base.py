@@ -78,7 +78,7 @@ class ModelObject:
         """Returns a copy of the cube translated with `translation`"""
 
         acopy: Any
-        acopy = self.__class__.__new__(self.__class__)  # type: ignore
+        acopy = self.__class__.__new__(self.__class__)
         acopy.__dict__ = self.__dict__.copy()
 
         d = acopy.__dict__
@@ -99,6 +99,7 @@ class ModelObject:
 
 
 _T = TypeVar("_T", bound=ModelObject)
+
 
 # TODO: [typing] Make `objects` collection of Protocol of `Named` objects
 # See PEP 544.

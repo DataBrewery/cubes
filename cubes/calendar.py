@@ -8,7 +8,6 @@ from typing import Dict, List, Optional, Union
 from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
 from dateutil.tz import gettz, tzlocal, tzstr
 from datetime import datetime, tzinfo
-from time import gmtime
 
 from .metadata import Hierarchy, HierarchyPath, Dimension
 from .errors import ArgumentError, ConfigurationError

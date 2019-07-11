@@ -7,12 +7,13 @@
 """
 
 
-from typing import Generic, Mapping, TypeVar
+from typing import Generic, TypeVar
 
 __all__ = ["AttributeDict"]
 
 
 T = TypeVar("T")
+
 
 #
 # Credits:

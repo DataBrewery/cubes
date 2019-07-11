@@ -221,7 +221,7 @@ class WindowFunction:
         source_attribute: Any,
         window_size: Any,
         label: Any,
-    ) -> Any:
+    ):
         """Creates a window function."""
 
         if not function:

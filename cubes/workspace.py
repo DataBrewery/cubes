@@ -18,7 +18,7 @@ from .metadata import (
 from .metadata.providers import ModelProvider
 from .auth import NotAuthorized, Authorizer
 from .common import read_json_file
-from .errors import ConfigurationError, ArgumentError, CubesError
+from .errors import ConfigurationError
 from .logging import get_logger
 from .calendar import Calendar
 from .namespace import Namespace

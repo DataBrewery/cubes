@@ -3,16 +3,12 @@ from typing import (
     Collection,
     Dict,
     Mapping,
-    NamedTuple,
     Iterator,
     Optional,
     Union,
-    Tuple,
     Set,
-    cast,
 )
 
-import collections.abc as abc
 from collections import OrderedDict
 from .errors import InternalError, ConfigurationError
 from enum import Enum
@@ -167,7 +163,7 @@ def distill_settings(
     contains key that don't have corresponding settings or when the mapping
     does not contain key for a required setting an `ConfigurationError`
     exeption is raised.
-    
+
     The returned dictionary can be safely used to be passed into an extension's
     `__init__()` method as key-word arguments.
     """
