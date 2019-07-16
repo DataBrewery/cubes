@@ -11,7 +11,7 @@ from ..common import CubesTestCaseBase, create_provider
 
 class CutsTestCase(CubesTestCaseBase):
     def setUp(self):
-        super(CutsTestCase, self).setUp()
+        super().setUp()
 
         self.provider = create_provider("browser_test.json")
         self.cube = self.provider.cube("transactions")
@@ -30,9 +30,15 @@ class CutsTestCase(CubesTestCaseBase):
         # d = {"type":"point", "path":[2010]}
         # self.assertRaises(Exception, cubes.cut_from_dict, d)
 
-        d = {"type": "point", "path": [2010], "dimension": "date",
-             "level_depth": 1, "hierarchy": None, "invert": False,
-             "hidden": False}
+        d = {
+            "type": "point",
+            "path": [2010],
+            "dimension": "date",
+            "level_depth": 1,
+            "hierarchy": None,
+            "invert": False,
+            "hidden": False,
+        }
 
         cut = cut_from_dict(d)
         tcut = PointCut("date", [2010])
@@ -40,18 +46,31 @@ class CutsTestCase(CubesTestCaseBase):
         self.assertEqual(dict(d), tcut.to_dict())
         self._assert_invert(d, cut, tcut)
 
-        d = {"type": "range", "from": [2010], "to": [2012, 10], "dimension":
-             "date", "level_depth": 2, "hierarchy": None, "invert": False,
-             "hidden": False}
+        d = {
+            "type": "range",
+            "from": [2010],
+            "to": [2012, 10],
+            "dimension": "date",
+            "level_depth": 2,
+            "hierarchy": None,
+            "invert": False,
+            "hidden": False,
+        }
         cut = cut_from_dict(d)
         tcut = RangeCut("date", [2010], [2012, 10])
         self.assertEqual(tcut, cut)
         self.assertEqual(dict(d), tcut.to_dict())
         self._assert_invert(d, cut, tcut)
 
-        d = {"type": "set", "paths": [[2010], [2012, 10]], "dimension": "date",
-             "level_depth": 2, "hierarchy": None, "invert": False,
-             "hidden": False}
+        d = {
+            "type": "set",
+            "paths": [[2010], [2012, 10]],
+            "dimension": "date",
+            "level_depth": 2,
+            "hierarchy": None,
+            "invert": False,
+            "hidden": False,
+        }
         cut = cut_from_dict(d)
         tcut = SetCut("date", [[2010], [2012, 10]])
         self.assertEqual(tcut, cut)
@@ -83,27 +102,26 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(cut, cut_from_string("foo:123_ abc_"))
 
         cut = PointCut("foo", ["a-b"])
-        self.assertEqual("foo:a\-b", str(cut))
-        self.assertEqual(cut, cut_from_string("foo:a\-b"))
+        self.assertEqual(r"foo:a\-b", str(cut))
+        self.assertEqual(cut, cut_from_string(r"foo:a\-b"))
 
         cut = PointCut("foo", ["a+b"])
         self.assertEqual("foo:a+b", str(cut))
         self.assertEqual(cut, cut_from_string("foo:a+b"))
 
     def test_special_characters(self):
-        self.assertEqual('\\:q\\-we,a\\\\sd\\;,100',
-                         string_from_path([":q-we", "a\\sd;", 100]))
+        self.assertEqual(
+            "\\:q\\-we,a\\\\sd\\;,100", string_from_path([":q-we", "a\\sd;", 100])
+        )
 
     def test_string_from_path(self):
-        self.assertEqual('qwe,asd,100',
-                         string_from_path(["qwe", "asd", 100]))
-        self.assertEqual('', string_from_path([]))
-        self.assertEqual('', string_from_path(None))
+        self.assertEqual("qwe,asd,100", string_from_path(["qwe", "asd", 100]))
+        self.assertEqual("", string_from_path([]))
+        self.assertEqual("", string_from_path(None))
 
     def test_path_from_string(self):
-        self.assertEqual(["qwe", "asd", "100"],
-                         path_from_string('qwe,asd,100'))
-        self.assertEqual([], path_from_string(''))
+        self.assertEqual(["qwe", "asd", "100"], path_from_string("qwe,asd,100"))
+        self.assertEqual([], path_from_string(""))
         self.assertEqual([], path_from_string(None))
 
     def test_set_cut_string(self):
@@ -118,8 +136,8 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual(PointCut("foo", ["a+b"]), cut_from_string("foo:a+b"))
 
         cut = SetCut("foo", [["a-b"]])
-        self.assertEqual("foo:a\-b", str(cut))
-        self.assertEqual(PointCut("foo", ["a-b"]), cut_from_string("foo:a\-b"))
+        self.assertEqual(r"foo:a\-b", str(cut))
+        self.assertEqual(PointCut("foo", ["a-b"]), cut_from_string(r"foo:a\-b"))
 
     def test_range_cut_string(self):
         cut = RangeCut("date", ["2010"], ["2011"])
@@ -130,13 +148,13 @@ class StringConversionsTestCase(unittest.TestCase):
         self.assertEqual("date:2010-", str(cut))
         cut = cut_from_string("date:2010-")
         if cut.to_path:
-            self.fail('there should be no to path, is: %s' % (cut.to_path, ))
+            self.fail(f"there should be no to path, is: {cut.to_path}")
 
         cut = RangeCut("date", None, ["2010"])
         self.assertEqual("date:-2010", str(cut))
         cut = cut_from_string("date:-2010")
         if cut.from_path:
-            self.fail('there should be no from path is: %s' % (cut.from_path, ))
+            self.fail(f"there should be no from path is: {cut.from_path}")
 
         cut = RangeCut("date", ["2010", "11", "12"], ["2011", "2", "3"])
         self.assertEqual("date:2010,11,12-2011,2,3", str(cut))
@@ -158,7 +176,7 @@ class StringConversionsTestCase(unittest.TestCase):
 
 class CellInteractiveSlicingTestCase(CubesTestCaseBase):
     def setUp(self):
-        super(CellInteractiveSlicingTestCase, self).setUp()
+        super().setUp()
 
         self.provider = create_provider("model.json")
         self.cube = self.provider.cube("contracts")
@@ -184,7 +202,8 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         cuts_list = (
             PointCut("date", [2010]),
             PointCut("cpv", [50, 20]),
-            PointCut("supplier", [1234]))
+            PointCut("supplier", [1234]),
+        )
 
         cell_list = full_cube.multi_slice(cuts_list)
         self.assertEqual(3, len(cell_list.cuts))
@@ -218,10 +237,11 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         levels = hier.levels_for_path([1, 2, 3, 4])
         self.assertEqual(len(levels), 4)
         names = [level.name for level in levels]
-        self.assertEqual(names, ['division', 'group', 'class', 'category'])
+        self.assertEqual(names, ["division", "group", "class", "category"])
 
-        self.assertRaises(HierarchyError, hier.levels_for_path,
-                          [1, 2, 3, 4, 5, 6, 7, 8])
+        self.assertRaises(
+            HierarchyError, hier.levels_for_path, [1, 2, 3, 4, 5, 6, 7, 8]
+        )
 
     @unittest.skip("Fix this")
     def test_hierarchy_drilldown_levels(self):
@@ -230,10 +250,10 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
 
         levels = hier.levels_for_path([], drilldown=True)
         self.assertEqual(len(levels), 1)
-        self.assertEqual(levels[0].name, 'division')
+        self.assertEqual(levels[0].name, "division")
         levels = hier.levels_for_path(None, drilldown=True)
         self.assertEqual(len(levels), 1)
-        self.assertEqual(levels[0].name, 'division')
+        self.assertEqual(levels[0].name, "division")
 
     def test_slice_drilldown(self):
         cut = PointCut("date", [])
@@ -249,10 +269,10 @@ class CellInteractiveSlicingTestCase(CubesTestCaseBase):
         self.assertEqual([2010, 1, 2], cell.cut_for_dimension("date").path)
 
 
-def test_suite():
-    suite = unittest.TestSuite()
-
-    suite.addTest(unittest.makeSuite(AggregationBrowserTestCase))
-    suite.addTest(unittest.makeSuite(CellsAndCutsTestCase))
-
-    return suite
+# def test_suite():
+#     suite = unittest.TestSuite()
+#
+#     suite.addTest(unittest.makeSuite(AggregationBrowserTestCase))
+#     suite.addTest(unittest.makeSuite(CellsAndCutsTestCase))
+#
+#     return suite

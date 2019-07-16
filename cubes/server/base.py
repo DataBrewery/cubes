@@ -1,24 +1,21 @@
 # -*- encoding: utf-8 -*-
 
-import shlex
 import os
+import shlex
 
 from flask import Flask
-from configparser import ConfigParser
 
+from ..logging import get_logger
 from .blueprint import slicer
 from .utils import *
-from ..logging import get_logger
 
-__all__ = (
-    "create_server",
-    "run_server"
-)
+__all__ = ("create_server", "run_server")
 
 # Server Instantiation and Running
 # ================================
 
-def read_slicer_config(config):
+
+def read_slicer_config(config: str) -> ConfigParser:
     if not config:
         return ConfigParser()
     elif isinstance(config, str):
@@ -30,9 +27,13 @@ def read_slicer_config(config):
             raise Exception("Unable to load configuration: %s" % e)
     return config
 
-def create_server(config=None, **_options):
-    """Returns a Flask server application. `config` is a path to a
-    ``slicer.ini`` file with Cubes workspace and server configuration."""
+
+def create_server(config: Optional[ConfigParser] = None, **_options) -> Flask:
+    """Returns a Flask server application.
+
+    `config` is a path to a ``slicer.ini`` file with Cubes workspace and
+    server configuration.
+    """
 
     # Load extensions
     if config.has_option("server", "modules"):
@@ -40,12 +41,13 @@ def create_server(config=None, **_options):
         for module in modules:
             e = __import__(module)
 
-    app = Flask(__name__.rsplit('.', 1)[0])
+    app = Flask(__name__.rsplit(".", 1)[0])
     # FIXME: read note about _options in Workspace. Only for internal use as a
     # temporary quick fix.
     app.register_blueprint(slicer, config=config, **_options)
 
     return app
+
 
 def run_server(config, debug=False, app=None):
     """Run OLAP server with configuration specified in `config`"""
@@ -59,8 +61,9 @@ def run_server(config, debug=False, app=None):
             debug = True
 
     if debug:
-        logger.warning('Server running under DEBUG, so logging level set to DEBUG.')
+        logger.warning("Server running under DEBUG, so logging level set to DEBUG.")
         import logging
+
         logger.setLevel(logging.DEBUG)
 
     if app is None:
@@ -81,8 +84,8 @@ def run_server(config, debug=False, app=None):
     else:
         use_reloader = False
 
-    if config.has_option('server', 'processes'):
-        processes = config.getint('server', 'processes')
+    if config.has_option("server", "processes"):
+        processes = config.getint("server", "processes")
     else:
         processes = 1
 
@@ -91,11 +94,11 @@ def run_server(config, debug=False, app=None):
         try:
             with open(path, "w") as f:
                 f.write(str(os.getpid()))
-        except IOError as e:
-            logger.error("Unable to write PID file '%s'. Check the "
-                         "directory existence or permissions." % path)
+        except OSError as e:
+            logger.error(
+                "Unable to write PID file '%s'. Check the "
+                "directory existence or permissions." % path
+            )
             raise
 
-    app.run(host, port, debug=debug, processes=processes,
-            use_reloader=use_reloader)
-
+    app.run(host, port, debug=debug, processes=processes, use_reloader=use_reloader)

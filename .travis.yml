@@ -1,8 +1,15 @@
-language: python
-python:
-    - 3.6-dev
-install: 
-    - pip install -r requirements.txt
-    - pip install -r requirements-optional.txt
-script: python setup.py develop && python setup.py test
+dist: xenial
 
+language: python
+
+python:
+    - "3.6"
+    - "3.7"
+
+install:
+    - pip install -U pip setuptools wheel
+    - pip install -U -e .[dev]
+    - pip install -U -r requirements-optional.txt
+
+script:
+    - pytest

@@ -24,40 +24,40 @@ CONNECTION = "sqlite://"
 
 BASE_FACT = {
     "name": "test",
-    "columns": ["date",      "category", "amount"],
-    "types":   ["date",      "string",   "integer"],
+    "columns": ["date", "category", "amount"],
+    "types": ["date", "string", "integer"],
     "data": [
-               ["2014-01-01", "A",       1],
-               ["2014-02-01", "B",       2],
-               ["2014-03-01", "C",       4],
-               ["2014-04-01", "D",       8],
-            ]
+        ["2014-01-01", "A", 1],
+        ["2014-02-01", "B", 2],
+        ["2014-03-01", "C", 4],
+        ["2014-04-01", "D", 8],
+    ],
 }
 
 DIM_CATEGORY = {
     "name": "dim_category",
-    "columns": ["category", "label",      "size"],
-    "types":   ["string",   "string",     "integer"],
+    "columns": ["category", "label", "size"],
+    "types": ["string", "string", "integer"],
     "data": [
-               ["A",        "apple",      2],
-               ["B",        "blueberry",  1],
-               ["C",        "cantaloupe", 4],
-               ["D",        "date",       1],
-               ["E",        "e-fruit",    0],
-            ]
+        ["A", "apple", 2],
+        ["B", "blueberry", 1],
+        ["C", "cantaloupe", 4],
+        ["D", "date", 1],
+        ["E", "e-fruit", 0],
+    ],
 }
 
 DIM_SIZE = {
     "name": "dim_size",
-    "columns": ["size",    "label"],
-    "types":   ["integer", "string"],
+    "columns": ["size", "label"],
+    "types": ["integer", "string"],
     "data": [
-               [0,         "invisible"],
-               [1,         "small"],
-               [2,         "medium"],
-               [4,         "large"],
-               [8,         "very large"],
-            ]
+        [0, "invisible"],
+        [1, "small"],
+        [2, "medium"],
+        [4, "large"],
+        [8, "very large"],
+    ],
 }
 
 
@@ -70,7 +70,7 @@ class SchemaBasicsTestCase(SQLTestCase):
 
     # TODO: do the same for a joined table and aliased joined table
     def test_physical_table(self):
-        """Test denormalized table selection of few columns"""
+        """Test denormalized table selection of few columns."""
         # Test passing fact by table object
         star = StarSchema("star", self.md, {}, self.test_fact)
         self.assertIs(star.physical_table("test"), self.test_fact)
@@ -81,8 +81,7 @@ class SchemaBasicsTestCase(SQLTestCase):
 
         # Test passing fact by name and in a list of tables
 
-        star = StarSchema("star", self.md, {}, "test",
-                         tables = {"test": self.test_fact})
+        star = StarSchema("star", self.md, {}, "test", tables={"test": self.test_fact})
 
         self.assertIs(star.physical_table("test"), self.test_fact)
 
@@ -91,7 +90,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             star.physical_table("imaginary")
 
     def test_collected_tables_fact_only(self):
-        """Test single table references"""
+        """Test single table references."""
         key = (None, "test")
 
         star = StarSchema("star", self.md, {}, self.test_fact)
@@ -109,8 +108,7 @@ class SchemaBasicsTestCase(SQLTestCase):
         self.assertIs(ref.table, self.test_fact)
 
         # Test passing fact by name and in a list of tables
-        star = StarSchema("star", self.md, {}, "test",
-                         tables = {"test": self.test_fact})
+        star = StarSchema("star", self.md, {}, "test", tables={"test": self.test_fact})
 
         ref = star.table(key)
         self.assertIs(ref.table, self.test_fact)
@@ -123,7 +121,7 @@ class SchemaBasicsTestCase(SQLTestCase):
         """Test fetching fact columns."""
         mappings = {
             "category": Column(None, "test", "category", None, None),
-            "total":   Column(None, "test", "amount", None, None),
+            "total": Column(None, "test", "amount", None, None),
         }
 
         star = StarSchema("star", self.md, mappings, self.test_fact)
@@ -146,9 +144,7 @@ class SchemaBasicsTestCase(SQLTestCase):
 
     def test_unknown_column(self):
         """Test fetching fact columns."""
-        mappings = {
-            "category": Column(None, "test", "__unknown__", None, None),
-        }
+        mappings = {"category": Column(None, "test", "__unknown__", None, None)}
 
         star = StarSchema("star", self.md, mappings, self.test_fact)
 
@@ -156,10 +152,8 @@ class SchemaBasicsTestCase(SQLTestCase):
             column = star.column("category")
 
     def test_mapping_extract(self):
-        """Test that mapping.extract works"""
-        mappings = {
-            "year": Column(None, "test", "date", "year", None),
-        }
+        """Test that mapping.extract works."""
+        mappings = {"year": Column(None, "test", "date", "year", None)}
 
         star = StarSchema("star", self.md, mappings, self.test_fact)
 
@@ -173,8 +167,8 @@ class SchemaBasicsTestCase(SQLTestCase):
     def test_required_tables_with_no_joins(self):
         mappings = {
             "category": Column(None, "test", "category", None, None),
-            "amount":   Column(None, "test", "amount", None, None),
-            "year":     Column(None, "test", "date", "year", None),
+            "amount": Column(None, "test", "amount", None, None),
+            "year": Column(None, "test", "date", "year", None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.test_fact)
@@ -190,11 +184,11 @@ class SchemaBasicsTestCase(SQLTestCase):
 
     def test_star_basic(self):
         """Test selection from the very basic star – no joins, just one
-        table"""
+        table."""
         mappings = {
             "category": Column(None, "test", "category", None, None),
-            "total":   Column(None, "test", "amount", None, None),
-            "year":     Column(None, "test", "date", "year", None),
+            "total": Column(None, "test", "amount", None, None),
+            "year": Column(None, "test", "date", "year", None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.test_fact)
@@ -202,8 +196,7 @@ class SchemaBasicsTestCase(SQLTestCase):
 
         selection = [schema.column("category"), schema.column("total")]
 
-        statement = sql.expression.select(selection,
-                                          from_obj=star)
+        statement = sql.expression.select(selection, from_obj=star)
         result = self.engine.execute(statement)
         amounts = []
 
@@ -217,6 +210,7 @@ class SchemaBasicsTestCase(SQLTestCase):
     def test_no_table_in_mapping(self):
         pass
 
+
 @unittest.skip("Fix this (important!)")
 class SchemaJoinsTestCase(SQLTestCase):
     def setUp(self):
@@ -227,18 +221,18 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.dim_size = create_table(self.engine, self.md, DIM_SIZE)
 
     def test_required_tables(self):
-        """Test master-detail-detail snowflake chain joins"""
+        """Test master-detail-detail snowflake chain joins."""
         joins = [
             Join.from_dict(("test.category", "dim_category.category")),
             Join.from_dict(("dim_category.size", "dim_size.size")),
         ]
 
         mappings = {
-            "amount":         Column(None, "test", "amount", None, None),
-            "category":       Column(None, "test", "category", None, None),
+            "amount": Column(None, "test", "amount", None, None),
+            "category": Column(None, "test", "category", None, None),
             "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
-            "size_label":     Column(None, "dim_size", "label", None, None),
+            "size": Column(None, "dim_category", "size", None, None),
+            "size_label": Column(None, "dim_size", "label", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -271,23 +265,19 @@ class SchemaJoinsTestCase(SQLTestCase):
             StarSchema("star", self.md, {}, self.fact, joins=joins)
 
     def test_no_join_detail_table(self):
-        joins = [
-            Join.from_dict(("test.category", "category")),
-        ]
+        joins = [Join.from_dict(("test.category", "category"))]
 
         with self.assertRaisesRegex(ModelError, r"^No detail table"):
             StarSchema("star", self.md, {}, self.fact, joins=joins)
 
     def test_join(self):
-        """Test single join, two joins"""
-        joins = [
-            Join.from_dict(("test.category", "dim_category.category"))
-        ]
+        """Test single join, two joins."""
+        joins = [Join.from_dict(("test.category", "dim_category.category"))]
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "amount":         Column(None, "test", "amount", None, None),
+            "category": Column(None, "test", "category", None, None),
+            "amount": Column(None, "test", "amount", None, None),
             "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
+            "size": Column(None, "dim_category", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -303,32 +293,28 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertEqual(len(tables), 1)
 
         # Check columns
-        self.assertColumnEqual(schema.column("category"),
-                               self.fact.columns["category"])
-        self.assertColumnEqual(schema.column("category_label"),
-                               self.dim_category.columns["label"])
-        self.assertColumnEqual(schema.column("size"),
-                               self.dim_category.columns["size"])
+        self.assertColumnEqual(schema.column("category"), self.fact.columns["category"])
+        self.assertColumnEqual(
+            schema.column("category_label"), self.dim_category.columns["label"]
+        )
+        self.assertColumnEqual(schema.column("size"), self.dim_category.columns["size"])
 
     def test_compound_join_key(self):
-        """Test compound (multi-column) join key"""
+        """Test compound (multi-column) join key."""
         joins = [
-            Join.from_dict((
-                {
-                    "table": "test",
-                    "column": ["category", "category"]
-                },
-                {
-                    "table":"dim_category",
-                    "column": ["category", "category"]
-                }))
+            Join.from_dict(
+                (
+                    {"table": "test", "column": ["category", "category"]},
+                    {"table": "dim_category", "column": ["category", "category"]},
+                )
+            )
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "amount":         Column(None, "test", "amount", None, None),
+            "category": Column(None, "test", "category", None, None),
+            "amount": Column(None, "test", "amount", None, None),
             "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
+            "size": Column(None, "dim_category", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -344,34 +330,30 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertEqual(len(tables), 1)
 
         # Check columns
-        self.assertColumnEqual(schema.column("category"),
-                               self.fact.columns["category"])
-        self.assertColumnEqual(schema.column("category_label"),
-                               self.dim_category.columns["label"])
-        self.assertColumnEqual(schema.column("size"),
-                               self.dim_category.columns["size"])
+        self.assertColumnEqual(schema.column("category"), self.fact.columns["category"])
+        self.assertColumnEqual(
+            schema.column("category_label"), self.dim_category.columns["label"]
+        )
+        self.assertColumnEqual(schema.column("size"), self.dim_category.columns["size"])
 
         schema.get_star(["category_label"])
 
     def test_compound_join_different_length(self):
-        """Test compound (multi-column) join key"""
+        """Test compound (multi-column) join key."""
         joins = [
-            Join.from_dict((
-                {
-                    "table": "test",
-                    "column": ["category", "category"]
-                },
-                {
-                    "table":"dim_category",
-                    "column": ["category"]
-                }))
+            Join.from_dict(
+                (
+                    {"table": "test", "column": ["category", "category"]},
+                    {"table": "dim_category", "column": ["category"]},
+                )
+            )
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
-            "amount":         Column(None, "test", "amount", None, None),
+            "category": Column(None, "test", "category", None, None),
+            "amount": Column(None, "test", "amount", None, None),
             "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
+            "size": Column(None, "dim_category", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -381,16 +363,16 @@ class SchemaJoinsTestCase(SQLTestCase):
             schema.get_star(["category_label"])
 
     def test_join_alias(self):
-        """Test single aliased join, test two joins on same table, one aliased
-        """
+        """Test single aliased join, test two joins on same table, one
+        aliased."""
         joins = [
             Join.from_dict(("test.category", "dim_category.category", "dim_fruit"))
         ]
 
         mappings = {
-            "code":  Column(None, "test", "category", None, None),
+            "code": Column(None, "test", "category", None, None),
             "fruit": Column(None, "dim_fruit", "label", None, None),
-            "size":  Column(None, "dim_fruit", "size", None, None),
+            "size": Column(None, "dim_fruit", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -403,58 +385,55 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertEqual(len(tables), 2)
 
         # Check columns
-        self.assertColumnEqual(schema.column("code"),
-                               self.fact.columns["category"])
-        self.assertColumnEqual(schema.column("fruit"),
-                               self.dim_category.columns["label"])
-        self.assertColumnEqual(schema.column("size"),
-                               self.dim_category.columns["size"])
+        self.assertColumnEqual(schema.column("code"), self.fact.columns["category"])
+        self.assertColumnEqual(
+            schema.column("fruit"), self.dim_category.columns["label"]
+        )
+        self.assertColumnEqual(schema.column("size"), self.dim_category.columns["size"])
 
         # Check selectable statement
         star = schema.get_star(["code", "size"])
         selection = [schema.column("code"), schema.column("size")]
-        select = sql.expression.select(selection,
-                                       from_obj=star)
+        select = sql.expression.select(selection, from_obj=star)
         result = self.engine.execute(select)
         sizes = [r["size"] for r in result]
         self.assertCountEqual(sizes, [2, 1, 4, 1])
 
     def test_fact_is_included(self):
-        """Test whether the fact will be included in the star schema
-        """
+        """Test whether the fact will be included in the star schema."""
         joins = [
             Join.from_dict(("test.category", "dim_category.category", "dim_fruit"))
         ]
 
         mappings = {
-            "code":  Column(None, "test", "category", None, None),
+            "code": Column(None, "test", "category", None, None),
             "fruit": Column(None, "dim_fruit", "label", None, None),
-            "size":  Column(None, "dim_fruit", "size", None, None),
+            "size": Column(None, "dim_fruit", "size", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
 
         star = schema.get_star(["size"])
         selection = [schema.column("size")]
-        select = sql.expression.select(selection,
-                                       from_obj=star)
+        select = sql.expression.select(selection, from_obj=star)
         result = self.engine.execute(select)
         sizes = [r["size"] for r in result]
         self.assertCountEqual(sizes, [2, 1, 4, 1])
 
     def test_snowflake_joins(self):
-        """Test master-detail-detail snowflake chain joins"""
+        """Test master-detail-detail snowflake chain joins."""
         joins = [
-                Join.from_dict({"master": "test.category",
-                    "detail":"dim_category.category"}),
-                Join.from_dict({"master": "dim_category.size", "detail": "dim_size.size"}),
+            Join.from_dict(
+                {"master": "test.category", "detail": "dim_category.category"}
+            ),
+            Join.from_dict({"master": "dim_category.size", "detail": "dim_size.size"}),
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
+            "category": Column(None, "test", "category", None, None),
             "category_label": Column(None, "dim_category", "label", None, None),
-            "size":           Column(None, "dim_category", "size", None, None),
-            "size_label":     Column(None, "dim_size", "label", None, None),
+            "size": Column(None, "dim_category", "size", None, None),
+            "size_label": Column(None, "dim_size", "label", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -463,25 +442,29 @@ class SchemaJoinsTestCase(SQLTestCase):
         # arm
         # star = schema.star(["category_label", "size_label"])
         star = schema.get_star(["size_label", "category_label"])
-        select = sql.expression.select([schema.column("size_label")],
-                                       from_obj=star)
+        select = sql.expression.select([schema.column("size_label")], from_obj=star)
         result = self.engine.execute(select)
         sizes = [r["size_label"] for r in result]
         self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
 
     def test_snowflake_aliased_joins(self):
-        """Test master-detail-detail snowflake chain joins"""
+        """Test master-detail-detail snowflake chain joins."""
         joins = [
-                Join.from_dict({"master":"test.category",
-                    "detail":"dim_category.category", "alias":"dim_fruit"}),
-                Join.from_dict({"master":"dim_fruit.size", "detail":"dim_size.size"})
+            Join.from_dict(
+                {
+                    "master": "test.category",
+                    "detail": "dim_category.category",
+                    "alias": "dim_fruit",
+                }
+            ),
+            Join.from_dict({"master": "dim_fruit.size", "detail": "dim_size.size"}),
         ]
 
         mappings = {
-            "category":       Column(None, "test", "category", None, None),
+            "category": Column(None, "test", "category", None, None),
             "category_label": Column(None, "dim_fruit", "label", None, None),
-            "size":           Column(None, "dim_fruit", "size", None, None),
-            "size_label":     Column(None, "dim_size", "label", None, None),
+            "size": Column(None, "dim_fruit", "size", None, None),
+            "size_label": Column(None, "dim_size", "label", None, None),
         }
 
         schema = StarSchema("star", self.md, mappings, self.fact, joins=joins)
@@ -493,72 +476,79 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertTrue(table.table.is_derived_from(self.dim_size))
 
         # Check columns
-        self.assertColumnEqual(schema.column("size_label"),
-                               self.dim_size.columns["label"])
+        self.assertColumnEqual(
+            schema.column("size_label"), self.dim_size.columns["label"]
+        )
 
         # Construct the select for the very last attribute in the snowflake
         # arm
         star = schema.get_star(["size_label"])
-        select = sql.expression.select([schema.column("size_label")],
-                                       from_obj=star)
+        select = sql.expression.select([schema.column("size_label")], from_obj=star)
         result = self.engine.execute(select)
         sizes = [r["size_label"] for r in result]
         self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
 
     def test_join_method_detail(self):
-        """Test 'detail' join method"""
+        """Test 'detail' join method."""
 
     def test_join_method_master(self):
-        """Test 'detail' join master"""
+        """Test 'detail' join master."""
 
     def test_unary(self):
-        """Test that mapping.unary works"""
+        """Test that mapping.unary works."""
 
     def test_statement_table(self):
-        """Test using a statement as a table"""
-        joins = [
-            Join.from_dict(("test.category", "dim_category.category"))
-        ]
+        """Test using a statement as a table."""
+        joins = [Join.from_dict(("test.category", "dim_category.category"))]
 
         mappings = {
-            "code":  Column(None, "test", "category", None, None),
+            "code": Column(None, "test", "category", None, None),
             "fruit": Column(None, "dim_category", "label", None, None),
-            "size":  Column(None, "dim_category", "size", None, None),
+            "size": Column(None, "dim_category", "size", None, None),
         }
 
-        fact_statement = sa.select(self.fact.columns, from_obj=self.fact,
-                                   whereclause=self.fact.c.category == 'A')
-        cat_statement = sa.select(self.dim_category.columns,
-                                  from_obj=self.dim_category,
-                                  whereclause=self.dim_category.c.category == 'A')
+        fact_statement = sa.select(
+            self.fact.columns,
+            from_obj=self.fact,
+            whereclause=self.fact.c.category == "A",
+        )
+        cat_statement = sa.select(
+            self.dim_category.columns,
+            from_obj=self.dim_category,
+            whereclause=self.dim_category.c.category == "A",
+        )
 
-        tables = {
-            "dim_category": cat_statement
-        }
+        tables = {"dim_category": cat_statement}
 
         with self.assertRaisesRegex(ArgumentError, "requires alias"):
-            StarSchema("star", self.md, mappings,
-                       fact=fact_statement,
-                       tables=tables,
-                       joins=joins)
+            StarSchema(
+                "star",
+                self.md,
+                mappings,
+                fact=fact_statement,
+                tables=tables,
+                joins=joins,
+            )
 
-        tables = {
-            "dim_category": cat_statement.alias("dim_category")
-        }
+        tables = {"dim_category": cat_statement.alias("dim_category")}
 
-        schema = StarSchema("star", self.md, mappings,
-                            fact=fact_statement.alias("test"),
-                            tables=tables,
-                            joins=joins)
+        schema = StarSchema(
+            "star",
+            self.md,
+            mappings,
+            fact=fact_statement.alias("test"),
+            tables=tables,
+            joins=joins,
+        )
 
         star = schema.get_star(["size"])
         selection = [schema.column("size")]
-        select = sql.expression.select(selection,
-                                       from_obj=star)
+        select = sql.expression.select(selection, from_obj=star)
         result = self.engine.execute(select)
         sizes = [r["size"] for r in result]
 
         self.assertCountEqual(sizes, [2])
+
 
 @unittest.skip("Fix this (important!)")
 class QueryTestCase(SQLTestCase):
@@ -568,25 +558,20 @@ class QueryTestCase(SQLTestCase):
         self.fact = create_table(self.engine, self.md, BASE_FACT)
 
         mappings = {
-            "date":           Column(None, "test", "date", None, None),
-            "amount":         Column(None, "test", "category", None, None),
-            "category":       Column(None, "test", "amount", None, None),
+            "date": Column(None, "test", "date", None, None),
+            "amount": Column(None, "test", "category", None, None),
+            "category": Column(None, "test", "amount", None, None),
         }
-        self.deps = {
-            "date": None,
-            "amount": None,
-            "category": None,
-        }
+        self.deps = {"date": None, "amount": None, "category": None}
 
         self.schema = StarSchema("star", self.md, mappings, self.fact)
         self.base_attributes = create_list_of(Attribute, mappings.keys())
         # self.base_attributes = list(mappings.keys())
-        self.base_deps = {attr:[] for attr in self.base_attributes}
-
+        self.base_deps = {attr: [] for attr in self.base_attributes}
 
     def test_basic(self):
-        context = QueryContext(self.schema, self.base_attributes,
-                               self.base_deps)
+        context = QueryContext(self.schema, self.base_attributes, self.base_deps)
+
 
 if __name__ == "__main__":
     unittest.main()

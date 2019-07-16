@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Database for testing the SQL browser – schema and data.
 
-
 Contains:
 
 * star schema
@@ -12,7 +11,6 @@ Contains:
 * measure fields that can be used for expressions
 * dimension with more than one attribute
 * folows a naming convention (ft_, dim_, _key, ...)
-
 """
 #
 # See: https://github.com/DataBrewery/cubes/issues/255
@@ -32,12 +30,12 @@ from cubes import ModelProvider
 SRC_SALES = {
     "name": "src_sales",
     "columns": (
-        ("id",       "id"),
-        ("date",     "date"),
+        ("id", "id"),
+        ("date", "date"),
         ("location", "string"),
-        ("item",     "string"),
+        ("item", "string"),
         ("quantity", "integer"),
-        ("price",    "integer"),
+        ("price", "integer"),
         ("discount", "integer"),
     ),
     #
@@ -45,114 +43,109 @@ SRC_SALES = {
     #  * only one entry for date 2015-01-01
     #
     "data": [
-        ( 1, "2015-01-01", "here",   "apricot", 1,  3,  0),
-        ( 2, "2015-01-02", "here",   "plum",    2,  1,  0),
-        ( 3, "2015-01-03", "here",   "goat",    1,  1,  0),
-        ( 4, "2015-01-04", "here",   "apricot", 2,  6,  0),
-        ( 5, "2015-01-05", "there",  "shirt",   2, 20, 10),
-        ( 6, "2015-02-01", "there",  "jacket",  1, 50, 10),
-        ( 7, "2015-02-01", "there",  "apricot", 2,  6,  0),
-        ( 8, "2015-03-01", "there",  "apricot", 2,  6, 50),
-        ( 9, "2015-04-01", "unknown","apricot", 2,  6, 50),
-    ]
+        (1, "2015-01-01", "here", "apricot", 1, 3, 0),
+        (2, "2015-01-02", "here", "plum", 2, 1, 0),
+        (3, "2015-01-03", "here", "goat", 1, 1, 0),
+        (4, "2015-01-04", "here", "apricot", 2, 6, 0),
+        (5, "2015-01-05", "there", "shirt", 2, 20, 10),
+        (6, "2015-02-01", "there", "jacket", 1, 50, 10),
+        (7, "2015-02-01", "there", "apricot", 2, 6, 0),
+        (8, "2015-03-01", "there", "apricot", 2, 6, 50),
+        (9, "2015-04-01", "unknown", "apricot", 2, 6, 50),
+    ],
 }
 
 FACT_SALES = {
     "name": "fact_sales",
     "columns": (
-        ("id",            "id"),
-        ("date_key",      "integer"),
-        ("item_key",      "integer"),
-        ("category_key",  "integer"),
-        ("department_key","integer"),
-        ("quantity",      "integer"),
-        ("price",         "integer"),
-        ("discount",      "integer"),
-    )
+        ("id", "id"),
+        ("date_key", "integer"),
+        ("item_key", "integer"),
+        ("category_key", "integer"),
+        ("department_key", "integer"),
+        ("quantity", "integer"),
+        ("price", "integer"),
+        ("discount", "integer"),
+    ),
 }
 
 FACT_SALES_DENORM = {
     "name": "fact_sales_denorm",
     "columns": (
-        ("id",              "id"),
-        ("date_key",        "integer"),
-        ("date",            "date"),
-        ("item_key",        "integer"),
-        ("item_name",       "string"),
+        ("id", "id"),
+        ("date_key", "integer"),
+        ("date", "date"),
+        ("item_key", "integer"),
+        ("item_name", "string"),
         ("item_unit_price", "integer"),
-        ("category_key",    "integer"),
-        ("category_name",   "string"),
-        ("department_key",  "integer"),
+        ("category_key", "integer"),
+        ("category_name", "string"),
+        ("department_key", "integer"),
         ("department_name", "string"),
-        ("quantity",        "integer"),
-        ("price",           "integer"),
-        ("discount",        "integer"),
-    )
+        ("quantity", "integer"),
+        ("price", "integer"),
+        ("discount", "integer"),
+    ),
 }
 
 DIM_ITEMS = {
     "name": "dim_item",
     "columns": [
-        ("item_key",       "id"),
-        ("name",           "string"),
-        ("category_key",   "integer"),
-        ("category",       "string"),
-        ("unit_price",     "integer")
+        ("item_key", "id"),
+        ("name", "string"),
+        ("category_key", "integer"),
+        ("category", "string"),
+        ("unit_price", "integer"),
     ],
     "data": [
-        ( 1, "apricot",   1, "produce",  3),
-        ( 2, "plum",      1, "produce",  2),
-        ( 3, "carrot",    1, "produce",  1),
-        ( 4, "celery",    1, "produce",  2),
-        ( 5, "milk",      2, "dairy",    2),
-        ( 6, "cheese",    2, "dairy",    5),
-        ( 7, "bread",     3, "bakery",   3),
-        ( 8, "rolls",     3, "bakery",   1),
-        ( 9, "chicken",   4, "meat",     4),
-        (10, "beef",      4, "meat",     8),
-        (11, "goat",      4, "meat",     7),
-
-        (12, "soap",      5, "hygiene",  1),
-        (13, "lotion",    5, "hygiene",  5),
-        (14, "shirt",     6, "formal",  20),
-        (15, "pants",     6, "formal",  30),
-        (16, "jacket",    7, "casual",  50),
-        (17, "shorts",    7, "casual",  25),
-    ]
+        (1, "apricot", 1, "produce", 3),
+        (2, "plum", 1, "produce", 2),
+        (3, "carrot", 1, "produce", 1),
+        (4, "celery", 1, "produce", 2),
+        (5, "milk", 2, "dairy", 2),
+        (6, "cheese", 2, "dairy", 5),
+        (7, "bread", 3, "bakery", 3),
+        (8, "rolls", 3, "bakery", 1),
+        (9, "chicken", 4, "meat", 4),
+        (10, "beef", 4, "meat", 8),
+        (11, "goat", 4, "meat", 7),
+        (12, "soap", 5, "hygiene", 1),
+        (13, "lotion", 5, "hygiene", 5),
+        (14, "shirt", 6, "formal", 20),
+        (15, "pants", 6, "formal", 30),
+        (16, "jacket", 7, "casual", 50),
+        (17, "shorts", 7, "casual", 25),
+    ],
 }
 
 
 DIM_CATEGORIES = {
     "name": "dim_category",
     "columns": [
-        ("category_key",   "id"),
-        ("name",           "string"),
+        ("category_key", "id"),
+        ("name", "string"),
         ("department_key", "integer"),
-        ("department",     "string")
+        ("department", "string"),
     ],
     "data": [
         (1, "produce", 1, "grocery"),
-        (2, "dairy",   1, "grocery"),
-        (3, "bakery",  1, "grocery"),
-        (4, "meat",    1, "grocery"),
+        (2, "dairy", 1, "grocery"),
+        (3, "bakery", 1, "grocery"),
+        (4, "meat", 1, "grocery"),
         (5, "hygiene", 2, "body"),
-        (6, "formal",  3, "fashion"),
-        (7, "casual",  3, "fashion"),
-    ]
+        (6, "formal", 3, "fashion"),
+        (7, "casual", 3, "fashion"),
+    ],
 }
 
 DIM_DEPARTMENTS = {
     "name": "dim_department",
-    "columns": [
-        ("department_key",   "id"),
-        ("name",             "string"),
-        ("manager",          "string"),
-    ],
+    "columns": [("department_key", "id"), ("name", "string"), ("manager", "string")],
     "data": [
         (1, "grocery", "Michael"),
-        (2, "body",    "Marek"),
+        (2, "body", "Marek"),
         (3, "fashion", "Sebastian"),
-    ]
+    ],
 }
 
 
@@ -162,7 +155,7 @@ DEFAULT_DB_URL = "sqlite://"
 month_to_quarter = lambda month: ((month - 1) // 3) + 1
 
 
-class TinyDemoDataWarehouse(object):
+class TinyDemoDataWarehouse:
     def __init__(self, url=None, schema=None, recreate=False):
         if "CUBES_TEST_DB" in os.environ:
             url = os.environ["CUBES_TEST_DB"]
@@ -172,8 +165,8 @@ class TinyDemoDataWarehouse(object):
         self.engine = sa.create_engine(url)
 
         if recreate:
-            self.engine.execute("DROP SCHEMA IF EXISTS {} CASCADE".format(schema))
-            self.engine.execute("CREATE SCHEMA {}".format(schema))
+            self.engine.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+            self.engine.execute(f"CREATE SCHEMA {schema}")
 
         self.md = sa.MetaData(self.engine, schema=schema)
         self.schema = schema
@@ -181,6 +174,7 @@ class TinyDemoDataWarehouse(object):
     def create_table(self, desc, name=None):
         """Create a table according to description `desc`. The description
         contains keys:
+
         * `name` – table name
         * `columns` – list of column names
         * `types` – list of column types. If not specified, then `string` is
@@ -191,10 +185,10 @@ class TinyDemoDataWarehouse(object):
         """
 
         TYPES = {
-                "integer": sa.Integer,
-                "string": sa.String,
-                "date": sa.DateTime,
-                "id": sa.Integer,
+            "integer": sa.Integer,
+            "string": sa.String,
+            "date": sa.DateTime,
+            "id": sa.Integer,
         }
 
         name = name or desc["name"]
@@ -210,7 +204,7 @@ class TinyDemoDataWarehouse(object):
 
             real_type = TYPES[type_]
 
-            if type_ == 'id':
+            if type_ == "id":
                 col = sa.Column(name, real_type, primary_key=True)
             else:
                 col = sa.Column(name, real_type)
@@ -241,23 +235,26 @@ class TinyDemoDataWarehouse(object):
         return table
 
     def create_date_dimension(self):
-        """Creates and populates the date dimension"""
+        """Creates and populates the date dimension."""
 
-        table = sa.Table("dim_date", self.md,
-                      # sa.Column("date_key",   sa.Integer, primary_key=True),
-                      sa.Column("date_key",   sa.Integer),
-                      sa.Column("date",       sa.DateTime),
-                      sa.Column("year",       sa.Integer),
-                      sa.Column("quarter",    sa.Integer),
-                      sa.Column("month",      sa.Integer),
-                      sa.Column("month_name", sa.String),
-                      sa.Column("month_sname", sa.String),
-                      sa.Column("day",        sa.Integer))
+        table = sa.Table(
+            "dim_date",
+            self.md,
+            # sa.Column("date_key",   sa.Integer, primary_key=True),
+            sa.Column("date_key", sa.Integer),
+            sa.Column("date", sa.DateTime),
+            sa.Column("year", sa.Integer),
+            sa.Column("quarter", sa.Integer),
+            sa.Column("month", sa.Integer),
+            sa.Column("month_name", sa.String),
+            sa.Column("month_sname", sa.String),
+            sa.Column("day", sa.Integer),
+        )
 
         self.md.create_all()
 
-        start = date(2014,1,1)
-        end = date(2016,12,31)
+        start = date(2014, 1, 1)
+        end = date(2016, 12, 31)
 
         current = start
         values = []
@@ -273,7 +270,7 @@ class TinyDemoDataWarehouse(object):
                 "month": current.month,
                 "month_name": current.strftime("%B"),
                 "month_sname": current.strftime("%b"),
-                "day": current.day
+                "day": current.day,
             }
             values.append(record)
             if len(values) > 100:
@@ -288,18 +285,19 @@ class TinyDemoDataWarehouse(object):
         return sa.Table(name, self.md, autoload=True)
 
     def mapping_from_table(self, table_name, key_name, values):
-        """Returns a dictionary constructed from table `table_name` where
-        `key` is name of the key column (presumably unique) and `value` is
-        name of a mapping values.
+        """Returns a dictionary constructed from table `table_name` where `key`
+        is name of the key column (presumably unique) and `value` is name of a
+        mapping values.
 
-        Keys are ordered for nicer debugging."""
+        Keys are ordered for nicer debugging.
+        """
 
         mapping = OrderedDict()
 
         table = self.table(table_name)
 
         if not isinstance(values, (tuple, list)):
-            values = (values, )
+            values = (values,)
             multi = False
         else:
             multi = True
@@ -322,8 +320,10 @@ class TinyDemoDataWarehouse(object):
         return mapping
 
     def rows(self, table_name, columns=None):
-        """Return an interable of rows from table `table_name`. If `columns`
-        is specified then yield only those columns."""
+        """Return an interable of rows from table `table_name`.
+
+        If `columns` is specified then yield only those columns.
+        """
 
         table = self.table(table_name)
         if columns:
@@ -354,7 +354,7 @@ class TinyDemoModelProvider(ModelProvider, name="tiny_demo"):
         with open(path) as f:
             metadata = json.load(f)
 
-        super(TinyDemoModelProvider, self).__init__(metadata)
+        super().__init__(metadata)
 
     # TODO: improve this in the Provider class itself
     # def cube(self, name):
@@ -362,7 +362,8 @@ class TinyDemoModelProvider(ModelProvider, name="tiny_demo"):
     #     return cube
     #     self.link
 
-class TinyDimension(object):
+
+class TinyDimension:
     def __init__(self, table, rows):
         """Create a tiny dimension. First column of the table is assumed to be
         surrogate key and second column natural key.
@@ -400,8 +401,7 @@ def date_to_key(date):
 def create_demo_dw(url, schema, recreate):
     dw = TinyDemoDataWarehouse(url, schema, recreate=recreate)
 
-    if "CUBES_TEST_DB" in os.environ \
-            and "CUBES_TEST_DB_REUSE" in os.environ:
+    if "CUBES_TEST_DB" in os.environ and "CUBES_TEST_DB_REUSE" in os.environ:
         return dw
 
     dw.create_table(SRC_SALES)
@@ -439,7 +439,7 @@ def create_demo_dw(url, schema, recreate):
             "department_key": dept_key,
             "quantity": row["quantity"],
             "price": row["price"],
-            "discount": row["discount"]
+            "discount": row["discount"],
         }
         ft_values.append(record)
 
@@ -462,8 +462,4 @@ def create_demo_dw(url, schema, recreate):
 
 if __name__ == "__main__":
 
-    dw = create_demo_dw(
-                    "postgres://localhost/cubes_test",
-                    schema="test",
-                    recreate=True)
-
+    dw = create_demo_dw("postgres://localhost/cubes_test", schema="test", recreate=True)

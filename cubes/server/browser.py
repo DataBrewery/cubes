@@ -3,9 +3,9 @@
 import json
 import logging
 
-from ..query.browser import BrowserFeatures, BrowserFeatureAction
 from ..logging import get_logger
 from ..query import *
+from ..query.browser import BrowserFeatureAction, BrowserFeatures
 from ..query.result import AggregationResult, Facts
 
 
@@ -13,9 +13,8 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
     """Aggregation browser for Cubes Slicer OLAP server."""
 
     def __init__(self, cube, store, locale=None, **options):
-        """Browser for another Slicer server.
-        """
-        super(SlicerBrowser, self).__init__(cube, store, locale)
+        """Browser for another Slicer server."""
+        super().__init__(cube, store, locale)
 
         self.logger = get_logger()
         self.cube = cube
@@ -38,14 +37,15 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
                 BrowserFeatureAction.cell,
                 BrowserFeatureAction.members,
             ],
-            aggregate_functions=cube_features.get('aggregate_functions'),
-            post_aggregate_functions=cube_features.get('post_aggregate_functions')
+            aggregate_functions=cube_features.get("aggregate_functions"),
+            post_aggregate_functions=cube_features.get("post_aggregate_functions"),
         )
 
         return features
 
-    def provide_aggregate(self, cell, aggregates, drilldown, split, order,
-                          page, page_size, **options):
+    def provide_aggregate(
+        self, cell, aggregates, drilldown, split, order, page, page_size, **options
+    ):
 
         params = {}
 
@@ -71,26 +71,23 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
         if page_size is not None:
             params["page_size"] = str(page_size)
 
-
-        response = self.store.cube_request("aggregate",
-                                           self.cube.basename, params)
+        response = self.store.cube_request("aggregate", self.cube.basename, params)
 
         result = AggregationResult()
 
-        result.cells = response.get('cells', [])
+        result.cells = response.get("cells", [])
 
         if "summary" in response:
-            result.summary = response.get('summary')
+            result.summary = response.get("summary")
 
-        result.levels = response.get('levels', {})
-        result.labels = response.get('labels', [])
+        result.levels = response.get("levels", {})
+        result.labels = response.get("labels", [])
         result.cell = cell
-        result.aggregates = response.get('aggregates', [])
+        result.aggregates = response.get("aggregates", [])
 
         return result
 
-    def facts(self, cell=None, fields=None, order=None, page=None,
-              page_size=None):
+    def facts(self, cell=None, fields=None, order=None, page=None, page_size=None):
 
         cell = cell or Cell()
         if fields:
@@ -119,14 +116,24 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
 
         params["format"] = "json_lines"
 
-        response = self.store.cube_request("facts", self.cube.basename, params,
-                                           is_lines=True)
+        response = self.store.cube_request(
+            "facts", self.cube.basename, params, is_lines=True
+        )
 
         return Facts(response, attributes)
 
-    def provide_members(self, cell=None, dimension=None, levels=None,
-                        hierarchy=None, attributes=None, page=None,
-                        page_size=None, order=None, **options):
+    def provide_members(
+        self,
+        cell=None,
+        dimension=None,
+        levels=None,
+        hierarchy=None,
+        attributes=None,
+        page=None,
+        page_size=None,
+        order=None,
+        **options
+    ):
 
         params = {}
 
@@ -153,7 +160,7 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
 
         params["format"] = "json_lines"
 
-        action = "/cube/%s/members/%s" % (self.cube.basename, str(dimension))
+        action = "/cube/{}/members/{}".format(self.cube.basename, str(dimension))
         response = self.store.request(action, params, is_lines=True)
 
         return response
@@ -168,12 +175,12 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
         if dimension:
             params["dimension"] = str(dimension)
 
-        response = self.store.cube_request("cell", self.cube.basename, params) 
+        response = self.store.cube_request("cell", self.cube.basename, params)
 
         return response
 
     def fact(self, fact_id):
-        action = "/cube/%s/fact/%s" % (self.cube.basename, str(fact_id))
+        action = "/cube/{}/fact/{}".format(self.cube.basename, str(fact_id))
         response = self.store.request(action)
         return response
 
@@ -182,6 +189,5 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
 
     def _order_param(self, order):
         """Prepare an order string in form: ``attribute:direction``"""
-        string = ",".join("%s:%s" % (o[0], o[1]) for o in order)
+        string = ",".join("{}:{}".format(o[0], o[1]) for o in order)
         return string
-

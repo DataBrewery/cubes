@@ -9,15 +9,14 @@ from cubes.errors import ConfigurationError
 
 class StoreBase(Extensible, abstract=True):
     __extension_type__ = "store"
+
     def value(self) -> int:
         raise NotImplementedError
 
 
 class MyStore(StoreBase, name="my"):
 
-    extension_settings = [
-        Setting("number", SettingType.int)
-    ]
+    extension_settings = [Setting("number", SettingType.int)]
 
     number: int
 

@@ -8,7 +8,7 @@ from datetime import datetime
 
 class DateTimeTestCase(unittest.TestCase):
     def setUp(self):
-        super(DateTimeTestCase,self).setUp()
+        super().setUp()
 
         self.provider = create_provider("datetime.json")
         self.cal = Calendar()
@@ -60,7 +60,7 @@ class DateTimeTestCase(unittest.TestCase):
 
     # Reference for the named relative test
     #                              2012
-    # 
+    #
     #     Január            Február           Marec             Apríl
     # po     2  9 16 23 30     6 13 20 27        5*12 19 26        2  9 16 23 30
     # ut     3 10 17 24 31     7 14 21 28        6 13 20 27        3 10 17 24
@@ -123,13 +123,13 @@ class DateTimeTestCase(unittest.TestCase):
         self.assertEqual([2012, 4, 1, 0], path)
 
         path = self.cal.named_relative_path("next12months", units, date)
-        self.assertEqual([2013, 3, 1,0 ], path)
+        self.assertEqual([2013, 3, 1, 0], path)
 
         path = self.cal.named_relative_path("lastquarter", units, date)
-        self.assertEqual([2011,10, 1, 0], path)
+        self.assertEqual([2011, 10, 1, 0], path)
 
         path = self.cal.named_relative_path("lastyear", units, date)
-        self.assertEqual([2011, 1, 1,0 ], path)
+        self.assertEqual([2011, 1, 1, 0], path)
 
     def test_distance(self):
         # Meniny (SK): Anna/Hana

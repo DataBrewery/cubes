@@ -1,11 +1,11 @@
-"""Physical Metadata"""
+"""Physical Metadata."""
 
-from typing import Any, List, Optional, Hashable, NamedTuple
 from enum import Enum
+from typing import Any, Hashable, List, Optional
 
-from ..types import JSONType
 from ..common import list_hash
 from ..errors import ArgumentError
+from ..types import JSONType
 
 
 # TODO: [typing] Make JoinMethod enum
@@ -21,11 +21,12 @@ class JoinKey(Hashable):
     table: Optional[str]
     columns: List[str]
 
-    def __init__(self,
-            columns: List[str],
-            table: Optional[str]=None,
-            schema: Optional[str]=None,
-            ) -> None:
+    def __init__(
+        self,
+        columns: List[str],
+        table: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> None:
         self.columns = columns
         self.table = table
         self.schema = schema
@@ -50,8 +51,10 @@ class JoinKey(Hashable):
 
         # TODO: Legacy - deprecated
         if isinstance(obj, (list, tuple)):
-            raise ValueError(f"Join key specified as a list/tuple. "
-                             f"should be a dictionary: '{obj}'")
+            raise ValueError(
+                f"Join key specified as a list/tuple. "
+                f"should be a dictionary: '{obj}'"
+            )
 
         if isinstance(obj, str):
             split: List[Optional[str]]
@@ -73,11 +76,10 @@ class JoinKey(Hashable):
             else:
                 columns = []
 
-        return JoinKey(columns= columns, table= table, schema= schema)
+        return JoinKey(columns=columns, table=table, schema=schema)
 
     def __hash__(self) -> int:
-        column_hash: int
-        column_hash = list_hash(self.columns) # type: ignore
+        column_hash: int = list_hash(self.columns)
 
         return hash(self.schema) ^ hash(self.table) ^ column_hash
 
@@ -85,9 +87,11 @@ class JoinKey(Hashable):
         if not isinstance(other, JoinKey):
             return False
         else:
-            return self.columns == other.columns \
-                    and self.table == other.table \
-                    and self.schema == other.schema
+            return (
+                self.columns == other.columns
+                and self.table == other.table
+                and self.schema == other.schema
+            )
 
     def __str__(self) -> str:
         schema = f"{self.schema}." if self.schema is not None else ""
@@ -97,6 +101,7 @@ class JoinKey(Hashable):
     def __repr__(self) -> str:
         return f"JoinKey({self})"
 
+
 # FIXME: Put this string into the named tuple below (requires python/mypy#3043)
 
 """Table join specification. `master` and `detail` are TableColumnReference
@@ -104,6 +109,7 @@ tuples. `method` denotes which table members should be considered in the
 join: *master* – all master members (left outer join), *detail* – all
 detail members (right outer join) and *match* – members must match (inner
 join)."""
+
 
 class Join(Hashable):
 
@@ -117,29 +123,33 @@ class Join(Hashable):
     # Method how the table is joined
     method: JoinMethod
 
-    def __init__(self,
-            master: JoinKey,
-            detail: JoinKey,
-            alias: Optional[str]=None,
-            method: Optional[JoinMethod]=None) -> None: 
+    def __init__(
+        self,
+        master: JoinKey,
+        detail: JoinKey,
+        alias: Optional[str] = None,
+        method: Optional[JoinMethod] = None,
+    ) -> None:
         self.master = master
         self.detail = detail
         self.alias = alias
         self.method = method or JoinMethod.match
 
-
     def __hash__(self) -> int:
-        return hash(self.master) ^ hash(self.detail) \
-                ^ hash(self.alias) ^ hash(self.method)
+        return (
+            hash(self.master) ^ hash(self.detail) ^ hash(self.alias) ^ hash(self.method)
+        )
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Join):
             return False
         else:
-            return self.master == other.master \
-                    and self.detail == other.detail \
-                    and self.alias == other.alias \
-                    and self.method == other.method
+            return (
+                self.master == other.master
+                and self.detail == other.detail
+                and self.alias == other.alias
+                and self.method == other.method
+            )
 
     @classmethod
     def from_dict(cls, obj: JSONType) -> "Join":
@@ -161,12 +171,13 @@ class Join(Hashable):
 
         # TODO: Deprecated, remove
         if isinstance(obj, list):
-            alias  = None
+            alias = None
             method = None
 
             if len(obj) < 2 or len(obj) > 4:
-                raise ArgumentError(f"Join object can have 1 to 4 items"
-                                    f" has {len(obj)}: {obj}")
+                raise ArgumentError(
+                    f"Join object can have 1 to 4 items" f" has {len(obj)}: {obj}"
+                )
 
             padded: List[str]
             padded = obj + [None] * (4 - len(obj))
@@ -179,7 +190,7 @@ class Join(Hashable):
         elif isinstance(obj, dict):
             if "master" not in obj:
                 raise ArgumentError(f"Join '{obj}' has no master.")
-            else: 
+            else:
                 master = JoinKey.from_dict(obj["master"])
 
             if "detail" not in obj:
@@ -209,6 +220,7 @@ applied on the `column`.
 
 Note that either `extract` or `function` can be used, not both."""
 
+
 class ColumnReference(Hashable):
     column: str
     table: Optional[str]
@@ -216,13 +228,14 @@ class ColumnReference(Hashable):
     extract: Optional[str]
     function: Optional[str]
 
-    def __init__(self,
-            column: str,
-            table: Optional[str]=None,
-            schema: Optional[str]=None,
-            extract: Optional[str]=None,
-            function: Optional[str]=None,
-            ) -> None:
+    def __init__(
+        self,
+        column: str,
+        table: Optional[str] = None,
+        schema: Optional[str] = None,
+        extract: Optional[str] = None,
+        function: Optional[str] = None,
+    ) -> None:
         self.column = column
         self.table = table
         self.schema = schema
@@ -230,18 +243,25 @@ class ColumnReference(Hashable):
         self.function = function
 
     def __hash__(self) -> int:
-        return hash(self.column) ^ hash(self.table) ^ hash(self.schema) \
-                ^ hash(self.extract) ^ hash(self.function)
+        return (
+            hash(self.column)
+            ^ hash(self.table)
+            ^ hash(self.schema)
+            ^ hash(self.extract)
+            ^ hash(self.function)
+        )
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, ColumnReference):
             return False
         else:
-            return self.column == other.column \
-                    and self.table == other.table \
-                    and self.schema == other.schema \
-                    and self.extract == other.extract \
-                    and self.function == other.function
+            return (
+                self.column == other.column
+                and self.table == other.table
+                and self.schema == other.schema
+                and self.extract == other.extract
+                and self.function == other.function
+            )
 
     @classmethod
     def from_dict(cls, obj: JSONType) -> "ColumnReference":
@@ -269,6 +289,7 @@ class ColumnReference(Hashable):
             table = split[1]
             column = split[2]
         # TODO: Deprecated
+        # FIXME: won't work ('split' is not defined)
         elif isinstance(obj, list):
             split = [None] * (3 - len(split)) + split
 
@@ -283,10 +304,9 @@ class ColumnReference(Hashable):
             function = obj.get("function")
 
         return ColumnReference(
-                schema=schema,
-                table=table,
-                column=column,
-                extract=extract,
-                function=function)
-
-
+            schema=schema,
+            table=table,
+            column=column,
+            extract=extract,
+            function=function,
+        )

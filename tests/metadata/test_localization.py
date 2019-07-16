@@ -2,16 +2,21 @@ import unittest
 from cubes import Namespace
 from cubes import StaticModelProvider
 from cubes import read_json_file
-from cubes.metadata.localization import LocalizationContext, ModelObjectLocalizationContext
+from cubes.metadata.localization import (
+    LocalizationContext,
+    ModelObjectLocalizationContext,
+)
 from ..common import CubesTestCaseBase
+
 
 class LocalizationTestCase(CubesTestCaseBase):
     def setUp(self):
-        super(LocalizationTestCase, self).setUp()
+        super().setUp()
         self.translation = read_json_file(self.model_path("translation.json"))
         self.model = read_json_file(self.model_path("localizable.json"))
         self.provider = StaticModelProvider(self.model)
         self.context = LocalizationContext(self.translation)
+
     def test_basic(self):
         trans = self.context.object_localization("cubes", "inner")
         self.assertEqual(trans.get("label"), "inner_LAB")
@@ -57,4 +62,3 @@ class LocalizationTestCase(CubesTestCaseBase):
     # TODO: test non existent top object
     # TODO: test non existend child object
     # TODO: test plain label
-

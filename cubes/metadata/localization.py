@@ -5,21 +5,32 @@
 
 # TODO: Should go away with new approach to model object description in #398
 
-class ModelObjectLocalizationContext(object):
-    def __init__(self, translation, context, object_type, object_name):
+
+from typing import Any, Dict, Optional
+
+
+class ModelObjectLocalizationContext:
+    def __init__(
+        self,
+        translation: Dict[str, Any],
+        context: "LocalizationContext",
+        object_type: str,
+        object_name: str,
+    ) -> None:
         self.translation = translation
         self.object_type = object_type
         self.object_name = object_name
         self.context = context
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
         try:
             return self.translation[key]
         except KeyError:
-            return self.context.get(self.object_type, self.object_name, key,
-                                    default)
+            return self.context.get(self.object_type, self.object_name, key, default)
 
-    def object_localization(self, object_type, name):
+    def object_localization(
+        self, object_type: str, name: str
+    ) -> "ModelObjectLocalizationContext":
         try:
             objects = self.translation[object_type]
         except KeyError:
@@ -28,22 +39,23 @@ class ModelObjectLocalizationContext(object):
         try:
             trans = objects[name]
         except KeyError:
-            return ModelObjectLocalizationContext({}, self.context,
-                                              object_type, name)
+            return ModelObjectLocalizationContext({}, self.context, object_type, name)
 
         # Make string-only translations as translations of labels
         if isinstance(trans, str):
             trans = {"label": trans}
 
-        return ModelObjectLocalizationContext(trans, self.context,
-                                              object_type, name)
+        return ModelObjectLocalizationContext(trans, self.context, object_type, name)
 
-class LocalizationContext(object):
-    def __init__(self, translation, parent=None):
+
+class LocalizationContext:
+    def __init__(self, translation: Dict[str, Dict], parent=None) -> None:
         self.translation = translation
         self.parent = parent
 
-    def object_localization(self, object_type, name):
+    def object_localization(
+        self, object_type: str, name: str
+    ) -> ModelObjectLocalizationContext:
         try:
             objects = self.translation[object_type]
         except KeyError:
@@ -60,7 +72,13 @@ class LocalizationContext(object):
 
         return ModelObjectLocalizationContext(trans, self, object_type, name)
 
-    def get(self, object_type, object_name, key, default=None):
+    def get(
+        self,
+        object_type: str,
+        object_name: str,
+        key: str,
+        default: Optional[str] = None,
+    ) -> Optional[str]:
         try:
             objects = self.translation[object_type]
         except KeyError:
@@ -83,8 +101,11 @@ class LocalizationContext(object):
 
     def _get_translation(self, obj, type_):
         """Returns translation in language `lang` for model object `obj` of
-        type `type_`. The type can be: ``cube`` or ``dimension``. Looks in
-        parent if current namespace does not have the translation."""
+        type `type_`.
+
+        The type can be: ``cube`` or ``dimension``. Looks in parent if
+        current namespace does not have the translation.
+        """
 
         lookup = []
         visited = set()
@@ -100,7 +121,7 @@ class LocalizationContext(object):
         lookup_map = {
             "cube": "cubes",
             "dimension": "dimensions",
-            "defaults": "defaults"
+            "defaults": "defaults",
         }
 
         objkey = lookup_map[type_]
@@ -110,4 +131,3 @@ class LocalizationContext(object):
                 return trans[objkey][obj]
 
         return None
-

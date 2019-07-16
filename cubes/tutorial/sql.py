@@ -1,18 +1,20 @@
 # -*- coding: utf-8 -*-
 
-import sqlalchemy
-import csv
 import codecs
+import csv
+
+import sqlalchemy
 
 
 class UTF8Recoder:
-    """
-    Iterator that reads an encoded stream and reencodes the input to UTF-8
-    """
+    """Iterator that reads an encoded stream and reencodes the input to
+    UTF-8."""
+
     def __init__(self, f, encoding):
-        assert 'b' in f.mode, "in py3k, codec's StreamReader needs a bytestream"
+        assert "b" in f.mode, "in py3k, codec's StreamReader needs a bytestream"
         self.reader = codecs.getreader(encoding)(f)
         self.next = self.__next__
+
     def __iter__(self):
         return self
 
@@ -21,10 +23,8 @@ class UTF8Recoder:
 
 
 class UnicodeReader:
-    """
-    A CSV reader which will iterate over lines in the CSV file "f",
-    which is encoded in the given encoding.
-    """
+    """A CSV reader which will iterate over lines in the CSV file "f", which is
+    encoded in the given encoding."""
 
     def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
         f = UTF8Recoder(f, encoding)
@@ -39,18 +39,21 @@ class UnicodeReader:
         return self
 
 
-def create_table_from_csv(connectable, file_name, table_name, fields,
-                          create_id=False, schema=None):
-    """Create a table with name `table_name` from a CSV file `file_name` with columns corresponding
-    to `fields`. The `fields` is a list of two string tuples: (name, type) where type might be:
-    ``integer``, ``float`` or ``string``.
+def create_table_from_csv(
+    connectable, file_name, table_name, fields, create_id=False, schema=None
+):
+    """Create a table with name `table_name` from a CSV file `file_name` with
+    columns corresponding to `fields`. The `fields` is a list of two string
+    tuples: (name, type) where type might be: ``integer``, ``float`` or
+    ``string``.
 
-    If `create_id` is ``True`` then a column with name ``id`` is created and will contain generated
-    sequential record id.
+    If `create_id` is ``True`` then a column with name ``id`` is created and
+    will contain generated sequential record id.
 
-    This is just small utility function for sandbox, play-around and testing purposes. It is not
-    recommended to be used for serious CSV-to-table loadings. For more advanced CSV loadings use another
-    framework, such as Brewery (http://databrewery.org).
+    This is just small utility function for sandbox, play-around and testing
+    purposes. It is not recommended to be used for serious CSV-to-table loadings.
+    For more advanced CSV loadings use another framework, such as Brewery
+    (http://databrewery.org).
     """
 
     metadata = sqlalchemy.MetaData(bind=connectable)
@@ -59,15 +62,17 @@ def create_table_from_csv(connectable, file_name, table_name, fields,
     if table.exists():
         table.drop(checkfirst=False)
 
-    type_map = {"integer": sqlalchemy.Integer,
-                "float": sqlalchemy.Numeric,
-                "string": sqlalchemy.String(256),
-                "text": sqlalchemy.Text,
-                "date": sqlalchemy.Text,
-                "boolean": sqlalchemy.Integer}
+    type_map = {
+        "integer": sqlalchemy.Integer,
+        "float": sqlalchemy.Numeric,
+        "string": sqlalchemy.String(256),
+        "text": sqlalchemy.Text,
+        "date": sqlalchemy.Text,
+        "boolean": sqlalchemy.Integer,
+    }
 
     if create_id:
-        col = sqlalchemy.schema.Column('id', sqlalchemy.Integer, primary_key=True)
+        col = sqlalchemy.schema.Column("id", sqlalchemy.Integer, primary_key=True)
         table.append_column(col)
 
     field_names = []
@@ -78,7 +83,7 @@ def create_table_from_csv(connectable, file_name, table_name, fields,
 
     table.create()
 
-    reader = UnicodeReader(open(file_name, 'rb'))
+    reader = UnicodeReader(open(file_name, "rb"))
 
     # Skip header
     next(reader)

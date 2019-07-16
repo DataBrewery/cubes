@@ -9,8 +9,9 @@ from datetime import datetime
 
 # TODO: use the data.py version
 def create_table(engine, md, desc):
-    """Create a table according to description `desc`. The description
-    contains keys:
+    """Create a table according to description `desc`. The description contains
+    keys:
+
     * `name` – table name
     * `columns` – list of column names
     * `types` – list of column types. If not specified, then `string` is
@@ -21,13 +22,12 @@ def create_table(engine, md, desc):
     """
 
     TYPES = {
-            "integer": sa.Integer,
-            "string": sa.String,
-            "date": sa.Date,
-            "id": sa.Integer,
+        "integer": sa.Integer,
+        "string": sa.String,
+        "date": sa.Date,
+        "id": sa.Integer,
     }
-    table = sa.Table(desc["name"], md,
-                     sa.Column("id", sa.Integer, primary_key=True))
+    table = sa.Table(desc["name"], md, sa.Column("id", sa.Integer, primary_key=True))
 
     types = desc.get("types")
     if not types:
@@ -36,7 +36,7 @@ def create_table(engine, md, desc):
     col_types = dict(zip(desc["columns"], desc["types"]))
     for name, type_ in col_types.items():
         real_type = TYPES[type_]
-        if type_ == 'id':
+        if type_ == "id":
             col = sa.Column(name, real_type, primary_key=True)
         else:
             col = sa.Column(name, real_type)
@@ -78,4 +78,3 @@ class SQLTestCase(unittest.TestCase):
     def table(self, name):
         """Return fully reflected table `name`"""
         return self.metadata.table(name, autoload=True)
-

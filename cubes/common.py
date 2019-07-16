@@ -1,27 +1,16 @@
 # -*- encoding: utf-8 -*-
 
 """Utility functions for computing combinations of dimensions and hierarchy
-levels"""
+levels."""
 
-from typing import (
-    Any,
-    Collection,
-    Dict,
-    Hashable,
-    List,
-    Optional,
-    TypeVar,
-    Union,
-)
-
-import re
-import os.path
 import json
-
+import os.path
+import re
 from collections import OrderedDict
+from typing import Any, Collection, Dict, Hashable, List, Optional, Union
 
+from .errors import ArgumentError, ConfigurationError, ModelInconsistencyError
 from .types import JSONType
-from .errors import ModelInconsistencyError, ArgumentError, ConfigurationError
 
 __all__ = [
     "IgnoringDictionary",
@@ -48,18 +37,19 @@ def to_str(b: bytes) -> str:
 class IgnoringDictionary(OrderedDict):
     """Simple dictionary extension that will ignore any keys of which values
     are empty (None/False)"""
+
     def __setitem__(self, key: str, value: Any) -> None:
         if value is not None:
-            super(IgnoringDictionary, self).__setitem__(key, value)
+            super().__setitem__(key, value)
 
     def set(self, key: str, value: Any) -> None:
         """Sets `value` for `key` even if value is null."""
-        super(IgnoringDictionary, self).__setitem__(key, value)
+        super().__setitem__(key, value)
 
     def __repr__(self) -> str:
         items = []
         for key, value in self.items():
-            item = '%s: %s' % (repr(key), repr(value))
+            item = "{}: {}".format(repr(key), repr(value))
             items.append(item)
 
         return "{%s}" % ", ".join(items)
@@ -68,14 +58,13 @@ class IgnoringDictionary(OrderedDict):
 def assert_instance(obj: Any, class_: Any, label: str) -> None:
     """Raises ArgumentError when `obj` is not instance of `cls`"""
     if not isinstance(obj, class_):
-        raise ModelInconsistencyError("%s should be sublcass of %s, "
-                                      "provided: %s" % (label,
-                                                        class_.__name__,
-                                                        type(obj).__name__))
+        raise ModelInconsistencyError(
+            "%s should be sublcass of %s, "
+            "provided: %s" % (label, class_.__name__, type(obj).__name__)
+        )
 
 
-def assert_all_instances(list_: List[Any], class_: Any,
-                         label: str="object") -> None:
+def assert_all_instances(list_: List[Any], class_: Any, label: str = "object") -> None:
     """Raises ArgumentError when objects in `list_` are not instances of
     `cls`"""
     for obj in list_ or []:
@@ -84,6 +73,7 @@ def assert_all_instances(list_: List[Any], class_: Any,
 
 class MissingPackageError(Exception):
     """Exception raised when encountered a missing package."""
+
     pass
 
 
@@ -96,11 +86,13 @@ class MissingPackage:
     source: Optional[str]
     comment: Optional[str]
 
-    def __init__(self,
-            package: str,
-            feature:Optional[str]=None,
-            source:Optional[str]=None,
-            comment:Optional[str]=None) -> None:
+    def __init__(
+        self,
+        package: str,
+        feature: Optional[str] = None,
+        source: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> None:
         self.package = package
         self.feature = feature
         self.source = source
@@ -128,20 +120,29 @@ class MissingPackage:
         else:
             comment = ""
 
-        raise MissingPackageError(f"Optional package '{self.package}' "
-                                  f"is not installed. "
-                                  f"Please install the package"
-                                  f"{source}{use}{comment}")
+        raise MissingPackageError(
+            f"Optional package '{self.package}' "
+            f"is not installed. "
+            f"Please install the package"
+            f"{source}{use}{comment}"
+        )
+
 
 # ...
 
-def optional_import(name: str,
-                    feature:Optional[str]=None,
-                    source:Optional[str]=None,
-                    comment:Optional[str]=None) -> MissingPackage:
-    """Optionally import package `name`. If package does not exist, import a
-    placeholder object, that raises an exception with more detailed
-    description about the missing package."""
+
+def optional_import(
+    name: str,
+    feature: Optional[str] = None,
+    source: Optional[str] = None,
+    comment: Optional[str] = None,
+) -> MissingPackage:
+    """Optionally import package `name`.
+
+    If package does not exist, import a placeholder object, that raises
+    an exception with more detailed description about the missing
+    package.
+    """
 
     try:
         return __import__(name)
@@ -149,10 +150,9 @@ def optional_import(name: str,
         return MissingPackage(name, feature, source, comment)
 
 
-def expand_dictionary(record: Dict[str, Any],
-                      separator:str='.') -> Dict[str,Any]:
+def expand_dictionary(record: Dict[str, Any], separator: str = ".") -> Dict[str, Any]:
     """Return expanded dictionary: treat keys are paths separated by
-    `separator`, create sub-dictionaries as necessary"""
+    `separator`, create sub-dictionaries as necessary."""
 
     result: Dict[str, Any] = {}
 
@@ -170,7 +170,7 @@ def expand_dictionary(record: Dict[str, Any],
 # TODO: py3: Typecheck `obj` with some protocol
 # TODO: Make this a pure function
 def localize_common(obj: Any, trans: JSONType) -> None:
-    """Localize common attributes: label and description"""
+    """Localize common attributes: label and description."""
 
     if "label" in trans:
         obj.label = trans["label"]
@@ -179,11 +179,15 @@ def localize_common(obj: Any, trans: JSONType) -> None:
 
 
 # TODO: Make this a pure function
-def localize_attributes(attribs: Dict[str, Any],
-                        translations:Dict[str, JSONType]) -> None:
-    """Localize list of attributes. `translations` should be a dictionary with
-    keys as attribute names, values are dictionaries with localizable
-    attribute metadata, such as ``label`` or ``description``."""
+def localize_attributes(
+    attribs: Dict[str, Any], translations: Dict[str, JSONType]
+) -> None:
+    """Localize list of attributes.
+
+    `translations` should be a dictionary with keys as attribute names,
+    values are dictionaries with localizable attribute metadata, such as
+    ``label`` or ``description``.
+    """
 
     for (name, atrans) in translations.items():
         attrib = attribs[name]
@@ -212,18 +216,20 @@ def get_localizable_attributes(obj: Any) -> Dict[str, str]:
 
 
 def decamelize(name: str) -> str:
-    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1 \2', s1)
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1 \2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1 \2", s1)
 
 
 def to_identifier(name: str) -> str:
-    return re.sub(r' ', r'_', name).lower()
+    return re.sub(r" ", r"_", name).lower()
 
 
-def to_label(name: str, capitalize: bool=True) -> str:
-    """Converts `name` into label by replacing underscores by spaces. If
-    `capitalize` is ``True`` (default) then the first letter of the label is
-    capitalized."""
+def to_label(name: str, capitalize: bool = True) -> str:
+    """Converts `name` into label by replacing underscores by spaces.
+
+    If `capitalize` is ``True`` (default) then the first letter of the
+    label is capitalized.
+    """
 
     label = name.replace("_", " ")
     if capitalize:
@@ -233,18 +239,19 @@ def to_label(name: str, capitalize: bool=True) -> str:
 
 
 # FIXME: type: Fix the type
-def coalesce_option_value(value: Any, value_type: str, label: str=None) -> Any:
-    """Convert string into an object value of `value_type`. The type might be:
-        `string` (no conversion), `integer`, `float`, `list` – comma separated
-        list of strings.
+def coalesce_option_value(value: Any, value_type: str, label: str = None) -> Any:
+    """Convert string into an object value of `value_type`.
+
+    The type might be: `string` (no conversion), `integer`, `float`,
+    `list` – comma separated list of strings.
     """
     return_value: Union[str, List[str], float, int, bool]
     value_type = value_type.lower()
 
     try:
-        if value_type in ('string', 'str'):
+        if value_type in ("string", "str"):
             return_value = str(value)
-        elif value_type == 'list':
+        elif value_type == "list":
             if isinstance(value, str):
                 return_value = value.split(",")
             else:
@@ -269,16 +276,19 @@ def coalesce_option_value(value: Any, value_type: str, label: str=None) -> Any:
         else:
             label = ""
 
-        raise ArgumentError(f"Unable to convert {label}value '{value}' "
-                            f"into type {value_type}")
+        raise ArgumentError(
+            f"Unable to convert {label}value '{value}' " f"into type {value_type}"
+        )
     return return_value
 
 
 # FIXME: type: Fix the types
 def coalesce_options(options: Any, types: Any) -> Any:
-    """Coalesce `options` dictionary according to types dictionary. Keys in
-    `types` refer to keys in `options`, values of `types` are value types:
-    string, list, float, integer or bool."""
+    """Coalesce `options` dictionary according to types dictionary.
+
+    Keys in `types` refer to keys in `options`, values of `types` are
+    value types: string, list, float, integer or bool.
+    """
 
     out = {}
 
@@ -291,27 +301,27 @@ def coalesce_options(options: Any, types: Any) -> Any:
     return out
 
 
-def read_json_file(path:str, kind:str=None) -> JSONType:
-    """Read a JSON from `path`. This is convenience function that provides
-    more descriptive exception handling."""
+def read_json_file(path: str, kind: str = None) -> JSONType:
+    """Read a JSON from `path`.
+
+    This is convenience function that provides more descriptive
+    exception handling.
+    """
 
     kind = "%s " % str(kind) if kind else ""
 
     if not os.path.exists(path):
-         raise ConfigurationError("Can not find %sfile '%s'"
-                                 % (kind, path))
+        raise ConfigurationError(f"Can not find {kind}file '{path}'")
 
     try:
         f = open(path, encoding="utf-8")
-    except IOError:
-        raise ConfigurationError("Can not open %sfile '%s'"
-                                 % (kind, path))
+    except OSError:
+        raise ConfigurationError(f"Can not open {kind}file '{path}'")
 
     try:
         content = json.load(f)
     except ValueError as e:
-        raise SyntaxError("Syntax error in %sfile %s: %s"
-                          % (kind, path, str(e)))
+        raise SyntaxError("Syntax error in {}file {}: {}".format(kind, path, str(e)))
     finally:
         f.close()
 
@@ -320,9 +330,9 @@ def read_json_file(path:str, kind:str=None) -> JSONType:
 
 # FIXME: type: fix the type
 def sorted_dependencies(graph: Any) -> Any:
-    """Return keys from `deps` ordered by dependency (topological sort).
-    `deps` is a dictionary where keys are strings and values are list of
-    strings where keys is assumed to be dependant on values.
+    """Return keys from `deps` ordered by dependency (topological sort). `deps`
+    is a dictionary where keys are strings and values are list of strings where
+    keys is assumed to be dependant on values.
 
     Example::
 
@@ -333,13 +343,13 @@ def sorted_dependencies(graph: Any) -> Any:
     Will be: ``{"A": ["B"], "B": ["C", "D"], "D": ["E"],"E": []}``
     """
 
-    graph = dict((key, set(value)) for key, value in graph.items())
+    graph = {key: set(value) for key, value in graph.items()}
 
     # L ← Empty list that will contain the sorted elements
     L = []
 
     # S ← Set of all nodes with no dependencies (incoming edges)
-    S = set(parent for parent, req in graph.items() if not req)
+    S = {parent for parent, req in graph.items() if not req}
 
     while S:
         # remove a node n from S
@@ -362,14 +372,14 @@ def sorted_dependencies(graph: Any) -> Any:
     nonempty = [k for k, v in graph.items() if v]
 
     if nonempty:
-        raise ArgumentError("Cyclic dependency of: %s"
-                            % ", ".join(nonempty))
+        raise ArgumentError("Cyclic dependency of: %s" % ", ".join(nonempty))
     return L
+
 
 def list_hash(values: Collection[Hashable]) -> int:
     """Return a hash value of a sequence of hashable items."""
     hash_value = 0
-    
+
     for value in values:
         hash_value = hash_value ^ hash(value)
 

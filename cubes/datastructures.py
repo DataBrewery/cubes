@@ -7,18 +7,13 @@
 """
 
 
-from typing import (
-    Generic,
-    Mapping,
-    TypeVar
-)
+from typing import Generic, TypeVar
 
-__all__ = [
-    "AttributeDict",
-]
+__all__ = ["AttributeDict"]
 
 
 T = TypeVar("T")
+
 
 #
 # Credits:
@@ -28,7 +23,6 @@ class AttributeDict(dict, Generic[T]):
     """Augment classes with a Mapping interface by adding attribute access.
 
     I.e. `d.key -> d[key]`.
-
     """
 
     def __getattr__(self, key: str) -> T:
@@ -37,10 +31,9 @@ class AttributeDict(dict, Generic[T]):
             return self[key]
         except KeyError:
             raise AttributeError(
-                '{0!r} object has no attribute {1!r}'.format(
-                    type(self).__name__, key))
+                "{!r} object has no attribute {!r}".format(type(self).__name__, key)
+            )
 
     def __setattr__(self, key: str, value: T) -> None:
         """`d[key] = value -> d.key = value`"""
         self[key] = value
-

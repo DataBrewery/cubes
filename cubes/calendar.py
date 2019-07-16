@@ -2,33 +2,19 @@
 """Date and time utilities."""
 
 import re
-
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Union,
-)
-
-from dateutil.relativedelta import (
-        relativedelta,
-        MO, TU, WE, TH, FR, SA, SU,
-    )
-from dateutil.tz import gettz, tzlocal, tzstr
 from datetime import datetime, tzinfo
-from time import gmtime
+from typing import Dict, List, Optional, Union
 
-from .metadata import Hierarchy, HierarchyPath, Dimension
+from dateutil.relativedelta import FR, MO, SA, SU, TH, TU, WE, relativedelta
+from dateutil.tz import gettz, tzlocal, tzstr
+
 from .errors import ArgumentError, ConfigurationError
+from .metadata import Dimension, Hierarchy, HierarchyPath
 
-__all__ = (
-    "Calendar",
-    "calendar_hierarchy_units"
-)
+__all__ = ("Calendar", "calendar_hierarchy_units")
 
 
-_CALENDAR_UNITS = ["year", "quarter", "month", "day", "hour", "minute",
-                    "weekday"]
+_CALENDAR_UNITS = ["year", "quarter", "month", "day", "hour", "minute", "weekday"]
 
 
 # FIXME: [typing] Change to enum
@@ -50,10 +36,10 @@ _UNIT_ORDER = {
     "day": UNIT_DAY,
     "hour": UNIT_HOUR,
     "minute": UNIT_MINUTE,
-    "second": UNIT_SECOND
+    "second": UNIT_SECOND,
 }
 
-_DATEUTIL_WEEKDAYS = { 0: MO, 1: TU, 2: WE, 3: TH, 4: FR, 5: SA, 6: SU }
+_DATEUTIL_WEEKDAYS = {0: MO, 1: TU, 2: WE, 3: TH, 4: FR, 5: SA, 6: SU}
 
 _WEEKDAY_NUMBERS = {
     "monday": 0,
@@ -62,31 +48,32 @@ _WEEKDAY_NUMBERS = {
     "thursday": 3,
     "friday": 4,
     "saturday": 5,
-    "sunday": 6
+    "sunday": 6,
 }
 
-RELATIVE_FINE_TIME_RX = re.compile(r"(?P<offset>\d+)?"
-                                    "(?P<unit>\w+)"
-                                    "(?P<direction>(ago|forward))")
+RELATIVE_FINE_TIME_RX = re.compile(
+    r"(?P<offset>\d+)?" r"(?P<unit>\w+)(?P<direction>(ago|forward))"
+)
 
 
-RELATIVE_TRUNCATED_TIME_RX = re.compile(r"(?P<direction>(last|next))"
-                                         "(?P<offset>\d+)?"
-                                         "(?P<unit>\w+)")
+RELATIVE_TRUNCATED_TIME_RX = re.compile(
+    r"(?P<direction>(last|next))" r"(?P<offset>\d+)?" r"(?P<unit>\w+)"
+)
 
 month_to_quarter = lambda month: ((month - 1) // 3) + 1
 
 
 def calendar_hierarchy_units(hierarchy: Hierarchy) -> List[str]:
-    """Return time units for levels in the hierarchy. The hierarchy is
-    expected to be a date/time hierarchy and every level should have a `role`
-    property specified. If the role is not specified, then the role is
-    determined from the level name.
+    """Return time units for levels in the hierarchy. The hierarchy is expected
+    to be a date/time hierarchy and every level should have a `role` property
+    specified. If the role is not specified, then the role is determined from
+    the level name.
 
     Roles/units: `year`, `quarter`, `month`, `day`, `hour`, `minute`,
     `weekday`
 
-    If unknown role is encountered an exception is raised."""
+    If unknown role is encountered an exception is raised.
+    """
 
     units: List[str]
     units = []
@@ -97,8 +84,9 @@ def calendar_hierarchy_units(hierarchy: Hierarchy) -> List[str]:
         if role in _CALENDAR_UNITS:
             units.append(role)
         else:
-            raise ArgumentError("Unknown time role '%s' for level '%s'"
-                                % (role, str(level)))
+            raise ArgumentError(
+                "Unknown time role '{}' for level '{}'".format(role, str(level))
+            )
 
     return units
 
@@ -111,39 +99,37 @@ def add_time_units(time: datetime, unit: str, amount: int) -> datetime:
     months: int = 0
     years: int = 0
 
-    if unit == 'hour':
+    if unit == "hour":
         hours = amount
-    elif unit == 'day':
+    elif unit == "day":
         days = amount
-    elif unit == 'week':
+    elif unit == "week":
         days = amount * 7
-    elif unit == 'month':
+    elif unit == "month":
         months = amount
-    elif unit == 'quarter':
+    elif unit == "quarter":
         months = amount * 3
-    elif unit == 'year':
+    elif unit == "year":
         years = amount
     else:
         raise ArgumentError(f"Unknown unit {unit} for subtraction.")
 
-    return time + relativedelta(hours=hours,
-                                days=days,
-                                months=months,
-                                years=years)
+    return time + relativedelta(hours=hours, days=days, months=months, years=years)
 
 
-class Calendar(object):
+class Calendar:
     timezone_name: Optional[str]
     timezone: tzinfo
 
-    def __init__(self,
-            first_weekday: Union[str,int]=0,
-            timezone: str=None) -> None:
+    def __init__(
+        self, first_weekday: Union[str, int] = 0, timezone: str = None
+    ) -> None:
         """Creates a Calendar object for providing date/time paths and for
         relative date/time manipulation.
 
         Values for `first_weekday` are 0 for Monday, 6 for Sunday. Default is
-        0."""
+        0.
+        """
 
         if isinstance(first_weekday, str):
             try:
@@ -168,8 +154,10 @@ class Calendar(object):
         return datetime.now(self.timezone)
 
     def path(self, time: datetime, units: List[str]) -> HierarchyPath:
-        """Returns a path from `time` containing date/time `units`. `units`
-        can be a list of strings or a `Hierarchy` object."""
+        """Returns a path from `time` containing date/time `units`.
+
+        `units` can be a list of strings or a `Hierarchy` object.
+        """
 
         if not units:
             return []
@@ -187,7 +175,7 @@ class Calendar(object):
             elif unit == "weekday":
                 value = (time.weekday() - self.first_weekday) % 7
             else:
-                raise ArgumentError("Unknown calendar unit '%s'" % (unit, ))
+                raise ArgumentError(f"Unknown calendar unit '{unit}'")
             path.append(value)
 
         return path
@@ -199,8 +187,10 @@ class Calendar(object):
         return self.path(self.now(), units)
 
     def truncate_time(self, time: datetime, unit: str) -> datetime:
-        """Truncates the `time` to calendar unit `unit`. Consider week start
-        day from the calendar."""
+        """Truncates the `time` to calendar unit `unit`.
+
+        Consider week start day from the calendar.
+        """
 
         unit_order = _UNIT_ORDER[unit]
 
@@ -212,26 +202,26 @@ class Calendar(object):
         elif unit_order > UNIT_SECOND:
             time = time.replace(second=0)
 
-        if unit == 'hour':
+        if unit == "hour":
             pass
 
-        elif unit == 'day':
+        elif unit == "day":
             time = time.replace(hour=0)
 
-        elif unit == 'week':
+        elif unit == "week":
             time = time.replace(hour=0)
 
             weekday = _DATEUTIL_WEEKDAYS[self.first_weekday]
             time = time + relativedelta(days=-6, weekday=weekday)
 
-        elif unit == 'month':
+        elif unit == "month":
             time = time.replace(day=1, hour=0)
 
-        elif unit == 'quarter':
+        elif unit == "quarter":
             month = (month_to_quarter(time.month) - 1) * 3 + 1
             time = time.replace(month=month, day=1, hour=0)
 
-        elif unit == 'year':
+        elif unit == "year":
             time = time.replace(month=1, day=1, hour=0)
 
         else:
@@ -239,13 +229,12 @@ class Calendar(object):
 
         return time
 
-    def since_period_start(self,
-            period: str,
-            unit: str,
-            time: datetime=None) -> int:
+    def since_period_start(self, period: str, unit: str, time: datetime = None) -> int:
         """Returns distance between `time` and the nearest `period` start
-        relative to `time` in `unit` units. For example: distance between
-        today and start of this year."""
+        relative to `time` in `unit` units.
+
+        For example: distance between today and start of this year.
+        """
 
         if time is None:
             time = self.now()
@@ -264,10 +253,9 @@ class Calendar(object):
         else:
             raise ValueError("Unrecognized period unit: %s" % unit)
 
-    def named_relative_path(self,
-            reference: str,
-            units: List[str],
-            date: datetime=None) -> HierarchyPath:
+    def named_relative_path(
+        self, reference: str, units: List[str], date: datetime = None
+    ) -> HierarchyPath:
         """"""
 
         offset: int
@@ -296,8 +284,7 @@ class Calendar(object):
                 try:
                     offset = int(offset_str)
                 except ValueError:
-                    raise ArgumentError("Relative time offset should be a "
-                                        "number")
+                    raise ArgumentError("Relative time offset should be a number")
             else:
                 offset = 1
 
@@ -322,16 +309,15 @@ class Calendar(object):
         return self.path(date, units)
 
 
-class CalendarMemberConverter(object):
+class CalendarMemberConverter:
     calendar: Calendar
 
     def __init__(self, calendar: Calendar) -> None:
         self.calendar = calendar
 
-    def __call__(self,
-            dimension: Dimension,
-            hierarchy: Hierarchy,
-            path: HierarchyPath) -> HierarchyPath:
+    def __call__(
+        self, dimension: Dimension, hierarchy: Hierarchy, path: HierarchyPath
+    ) -> HierarchyPath:
 
         if len(path) != 1:
             return path
@@ -344,4 +330,3 @@ class CalendarMemberConverter(object):
             return [value]
 
         return path
-

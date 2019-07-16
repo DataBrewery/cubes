@@ -52,9 +52,9 @@ with open("table.html", "w") as f:
 #
 result = browser.aggregate(drilldown=["item", "year"])
 with open("cross_table.html", "w") as f:
-    data = html_cross_formatter(result,
-                                onrows=["year"],
-                                oncolumns=["item.category_label"])
+    data = html_cross_formatter(
+        result, onrows=["year"], oncolumns=["item.category_label"]
+    )
     f.write(data)
 
 print("Check also table.html and cross_table.html files")

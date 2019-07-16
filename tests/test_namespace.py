@@ -1,6 +1,8 @@
 import unittest
 from cubes.namespace import Namespace
+
 # from .common import CubesTestCaseBase
+
 
 class NamespaceTestCase(unittest.TestCase):
     def test_create(self):
@@ -74,7 +76,7 @@ class NamespaceTestCase(unittest.TestCase):
 
         (ns, nsname, basename) = base.find_cube("extern.deeper.cube")
         self.assertEqual(ns, extern)
-        self.assertEqual(nsname, 'extern')
+        self.assertEqual(nsname, "extern")
         self.assertEqual(basename, "deeper.cube")
 
         (deep, remainder) = base.namespace("even.deeper.extern", create=True)
@@ -82,4 +84,3 @@ class NamespaceTestCase(unittest.TestCase):
         self.assertEqual(ns, deep)
         self.assertEqual(nsname, "")
         self.assertEqual(basename, "cube")
-

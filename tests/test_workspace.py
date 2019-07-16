@@ -2,7 +2,7 @@ import unittest
 import os
 import json
 import re
-from cubes.errors import NoSuchCubeError, NoSuchDimensionError
+from cubes.errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 from cubes.errors import NoSuchAttributeError
 from cubes.workspace import Workspace
 from cubes.stores import Store
@@ -10,7 +10,9 @@ from cubes.metadata import *
 from cubes.server.base import read_slicer_config
 
 from .common import CubesTestCaseBase
+
 # FIXME: remove this once satisfied
+
 
 class WorkspaceTestCaseBase(CubesTestCaseBase):
     def default_workspace(self, model_name=None):
@@ -19,6 +21,7 @@ class WorkspaceTestCaseBase(CubesTestCaseBase):
         ws = Workspace(config=config)
         ws.import_model(self.model_path("model.json"))
         return ws
+
 
 class WorkspaceModelTestCase(WorkspaceTestCaseBase):
     def test_get_cube(self):
@@ -84,8 +87,7 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         self.assertEqual("another_date", dim.name)
         self.assertEqual(3, len(dim.levels))
 
-    @unittest.skip("We are lazy now, we don't want to ping the provider for "
-                   "nothing")
+    @unittest.skip("We are lazy now, we don't want to ping the provider for nothing")
     def test_duplicate_dimension(self):
         ws = Workspace()
         ws.import_model(self.model_path("templated_dimension.json"))
@@ -112,4 +114,3 @@ class WorkspaceModelTestCase(WorkspaceTestCaseBase):
         cube = ws.cube("lonely_yearly_events")
         dim = cube.dimension("date")
         self.assertEqual(["lonely_year"], dim.level_names)
-

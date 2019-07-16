@@ -2,22 +2,23 @@
 # TODO: This module requires redesign if not removal. Namespaces are not good
 # idea if one of the objectives is to preserve model quality.
 
-from typing import List, Dict, Optional, Set, Tuple, Union, Any
-from .types import JSONType
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+from .common import read_json_file
+from .errors import ModelError, NoSuchCubeError, NoSuchDimensionError
 from .metadata.dimension import Dimension
+from .types import JSONType
+
 # from .metadata.providers import ModelProvider
 # FIXME: [Tech-debt] This needs to go away with redesign of namespaces/providers
 # FIXME: [typing] Workaround for circular dependency
 ModelProvider = Any
 
-from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
-from .common import read_json_file
 
-__all__ = [
-    "Namespace",
-]
+__all__ = ["Namespace"]
 
-class Namespace(object):
+
+class Namespace:
 
     parent: Optional["Namespace"]
     name: Optional[str]
@@ -25,9 +26,7 @@ class Namespace(object):
     providers: List[ModelProvider]
     translations: Dict[str, JSONType]
 
-    def __init__(self,
-            name: Optional[str]=None,
-            parent:"Namespace"=None) -> None:
+    def __init__(self, name: Optional[str] = None, parent: "Namespace" = None) -> None:
         """Creates a cubes namespace – an object that provides model objects
         from the providers."""
         # TODO: Assign this on __init__, namespaces should not be freely
@@ -38,12 +37,13 @@ class Namespace(object):
         self.providers = []
         self.translations = {}
 
-    def namespace(self, path: Union[str, List[str]], create: bool=False) \
-            -> Tuple["Namespace", Optional[str]]:
-        """Returns a tuple (`namespace`, `remainder`) where `namespace` is
-        the deepest namespace in the namespace hierarchy and `remainder` is
-        the remaining part of the path that has no namespace (is an object
-        name or contains part of external namespace).
+    def namespace(
+        self, path: Union[str, List[str]], create: bool = False
+    ) -> Tuple["Namespace", Optional[str]]:
+        """Returns a tuple (`namespace`, `remainder`) where `namespace` is the
+        deepest namespace in the namespace hierarchy and `remainder` is the
+        remaining part of the path that has no namespace (is an object name or
+        contains part of external namespace).
 
         If path is empty or not provided then returns self.
 
@@ -61,7 +61,7 @@ class Namespace(object):
 
         namespace = self
         for i, element in enumerate(path_elements):
-            remainder = path_elements[i+1:]
+            remainder = path_elements[i + 1 :]
             if element in namespace.namespaces:
                 namespace = namespace.namespaces[element]
                 found = True
@@ -89,8 +89,7 @@ class Namespace(object):
 
         return namespace
 
-    def find_cube(self, cube_ref: str) \
-            -> Tuple["Namespace", ModelProvider, str]:
+    def find_cube(self, cube_ref: str) -> Tuple["Namespace", ModelProvider, str]:
         """Returns a tuple (`namespace`, `provider`, `basename`) where
         `namespace` is a namespace conaining `cube`, `provider` providers the
         model for the cube and `basename` is a name of the `cube` within the
@@ -98,7 +97,8 @@ class Namespace(object):
         is namespace ``slicer`` then that namespace is returned and the
         `basename` will be ``nested.cube``.
 
-        Raises `NoSuchCubeError` when there is no cube with given reference.
+        Raises `NoSuchCubeError` when there is no cube with given
+        reference.
         """
 
         path: List[str]
@@ -118,7 +118,7 @@ class Namespace(object):
         (namespace, remainder) = self.namespace(path)
 
         if remainder:
-            basename = "{}.{}".format(remainder, cube_ref)
+            basename = f"{remainder}.{cube_ref}"
         else:
             basename = cube_ref
 
@@ -132,15 +132,13 @@ class Namespace(object):
             provider = None
 
         if not provider:
-            raise NoSuchCubeError("Unknown cube '{}'".format(cube_ref),
-                                  cube_ref)
+            raise NoSuchCubeError(f"Unknown cube '{cube_ref}'", cube_ref)
 
         return (namespace, provider, basename)
 
-
-    def list_cubes(self, recursive: bool=False) -> List[JSONType]:
-        """Retursn a list of cube info dictionaries with keys: `name`,
-        `label`, `description`, `category` and `info`."""
+    def list_cubes(self, recursive: bool = False) -> List[JSONType]:
+        """Retursn a list of cube info dictionaries with keys: `name`, `label`,
+        `description`, `category` and `info`."""
 
         all_cubes: List[JSONType]
         all_cubes = []
@@ -162,26 +160,27 @@ class Namespace(object):
             for name, ns in self.namespaces.items():
                 cubes = ns.list_cubes(recursive=True)
                 for cube in cubes:
-                    cube["name"] = "%s.%s" % (name, cube["name"])
+                    cube["name"] = "{}.{}".format(name, cube["name"])
                 all_cubes += cubes
 
         return all_cubes
 
     # TODO: change to find_dimension() analogous to the find_cube(). Let the
     # caller to perform actual dimension creation using the provider
-    def dimension(self,
-            name: str,
-            locale: str=None,
-            templates: Dict[str, Dimension]=None,
-            local_only: bool=False) -> Dimension:
+    def dimension(
+        self,
+        name: str,
+        locale: str = None,
+        templates: Dict[str, Dimension] = None,
+        local_only: bool = False,
+    ) -> Dimension:
 
         dim: Dimension
 
         for provider in self.providers:
             # TODO: use locale
             try:
-                dim = provider.dimension(name, locale=locale,
-                                         templates=templates)
+                dim = provider.dimension(name, locale=locale, templates=templates)
             except NoSuchDimensionError:
                 pass
             else:
@@ -212,9 +211,12 @@ class Namespace(object):
         trans.update(translation)
 
     def translation_lookup(self, lang: str) -> List[JSONType]:
-        """Returns translation in language `lang` for model object `obj`
-        within `context` (cubes, dimensions, attributes, ...).  Looks in
-        parent if current namespace does not have the translation."""
+        """Returns translation in language `lang` for model object `obj` within
+        `context` (cubes, dimensions, attributes, ...).
+
+        Looks in parent if current namespace does not have the
+        translation.
+        """
 
         lookup: List[JSONType]
         lookup = []
@@ -235,4 +237,3 @@ class Namespace(object):
                 ns = ns.parent
 
         return lookup
-

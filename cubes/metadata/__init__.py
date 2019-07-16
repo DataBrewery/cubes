@@ -1,9 +1,8 @@
 # -*- encoding: utf-8 -*-
 
-from .base import *
 from .attributes import *
-from .dimension import *
+from .base import *
 from .cube import *
-from .providers import *
+from .dimension import *
 from .localization import *
-
+from .providers import *

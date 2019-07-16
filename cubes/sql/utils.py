@@ -1,11 +1,11 @@
 # -*- encoding: utf-8 -*-
 """Cubes SQL backend utilities, mostly to be used by the slicer command."""
 
-from sqlalchemy.sql.expression import Executable, ClauseElement
-from sqlalchemy.ext.compiler import compiles
-import sqlalchemy.sql as sql
-
 from collections import OrderedDict
+
+import sqlalchemy.sql as sql
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.expression import ClauseElement, Executable
 
 from ..errors import ArgumentError
 from ..query.constants import SPLIT_DIMENSION_NAME
@@ -17,72 +17,73 @@ __all__ = [
     "condition_conjunction",
     "order_column",
     "order_query",
-    "paginate_query"
+    "paginate_query",
 ]
+
 
 class CreateTableAsSelect(Executable, ClauseElement):
     def __init__(self, table, select):
         self.table = table
         self.select = select
 
+
 @compiles(CreateTableAsSelect)
 def visit_create_table_as_select(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
     full_name = preparer.format_table(element.table)
 
-    return "CREATE TABLE %s AS (%s)" % (
-        element.table,
-        compiler.process(element.select)
+    return "CREATE TABLE {} AS ({})".format(
+        element.table, compiler.process(element.select)
     )
+
+
 @compiles(CreateTableAsSelect, "sqlite")
 def visit_create_table_as_select(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
     full_name = preparer.format_table(element.table)
 
-    return "CREATE TABLE %s AS %s" % (
-        element.table,
-        compiler.process(element.select)
+    return "CREATE TABLE {} AS {}".format(
+        element.table, compiler.process(element.select)
     )
+
 
 class CreateOrReplaceView(Executable, ClauseElement):
     def __init__(self, view, select):
         self.view = view
         self.select = select
 
+
 @compiles(CreateOrReplaceView)
 def visit_create_or_replace_view(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
     full_name = preparer.format_table(element.view)
 
-    return "CREATE OR REPLACE VIEW %s AS (%s)" % (
-        full_name,
-        compiler.process(element.select)
+    return "CREATE OR REPLACE VIEW {} AS ({})".format(
+        full_name, compiler.process(element.select)
     )
+
 
 @compiles(CreateOrReplaceView, "sqlite")
 def visit_create_or_replace_view(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
     full_name = preparer.format_table(element.view)
 
-    return "CREATE VIEW %s AS %s" % (
-        full_name,
-        compiler.process(element.select)
-    )
+    return "CREATE VIEW {} AS {}".format(full_name, compiler.process(element.select))
+
 
 @compiles(CreateOrReplaceView, "mysql")
 def visit_create_or_replace_view(element, compiler, **kw):
     preparer = compiler.dialect.preparer(compiler.dialect)
     full_name = preparer.format_table(element.view)
 
-    return "CREATE OR REPLACE VIEW %s AS %s" % (
-        full_name,
-        compiler.process(element.select)
+    return "CREATE OR REPLACE VIEW {} AS {}".format(
+        full_name, compiler.process(element.select)
     )
 
 
 def paginate_query(statement, page, page_size):
-    """Returns paginated statement if page is provided, otherwise returns
-    the same statement."""
+    """Returns paginated statement if page is provided, otherwise returns the
+    same statement."""
 
     if page is not None and page_size is not None:
         statement = statement.offset(page * page_size).limit(page_size)
@@ -91,8 +92,10 @@ def paginate_query(statement, page, page_size):
 
 
 def order_column(column, order):
-    """Orders a `column` according to `order` specified as string. Returns a
-    `Column` expression"""
+    """Orders a `column` according to `order` specified as string.
+
+    Returns a `Column` expression
+    """
 
     if not order:
         return column
@@ -161,4 +164,3 @@ def order_query(statement, order, natural_order=None, labels=None):
     statement = statement.order_by(*final_order.values())
 
     return statement
-

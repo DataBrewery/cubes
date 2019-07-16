@@ -1,9 +1,9 @@
 # -*- coding=utf -*-
 import unittest
-from cubes import __version__
+from cubes import __version__, to_str
 import json
 from ..common import CubesTestCaseBase
-from sqlalchemy import MetaData, Table, Column, Integer, String
+from sqlalchemy import Table, Column, Integer, String
 
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
@@ -18,10 +18,9 @@ import csv
 TEST_DB_URL = "sqlite:///"
 
 
-@unittest.skip("Fix this")
 class SlicerTestCaseBase(CubesTestCaseBase):
     def setUp(self):
-        super(SlicerTestCaseBase, self).setUp()
+        super().setUp()
 
         self.config = ConfigParser()
         self.slicer = create_server(self.config)
@@ -37,7 +36,7 @@ class SlicerTestCaseBase(CubesTestCaseBase):
         response = self.server.get(path, *args, **kwargs)
 
         try:
-            result = json.loads(str(response.data))
+            result = json.loads(response.data)
         except ValueError:
             result = response.data
 
@@ -60,11 +59,11 @@ class SlicerTestCase(SlicerTestCaseBase):
         response, status = self.get("this_is_unknown")
         self.assertEqual(404, status)
 
+
 @unittest.skip("We need to fix the model")
 class SlicerModelTestCase(SlicerTestCaseBase):
-
     def setUp(self):
-        super(SlicerModelTestCase, self).setUp()
+        super().setUp()
 
         ws = Workspace()
         ws.register_default_store("sql", url=TEST_DB_URL)
@@ -103,7 +102,9 @@ class SlicerModelTestCase(SlicerTestCaseBase):
 
     def test_get_cube(self):
         response, status = self.get("cube/sales/model")
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
         self.assertEqual(200, status)
         self.assertIsInstance(response, dict)
         self.assertNotIn("error", response)
@@ -125,8 +126,9 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         self.assertIsInstance(aggregates, list)
         self.assertEqual(4, len(aggregates))
         names = [a["name"] for a in aggregates]
-        self.assertCountEqual(["amount_sum", "amount_min", "discount_sum",
-                               "record_count"], names)
+        self.assertCountEqual(
+            ["amount_sum", "amount_min", "discount_sum", "record_count"], names
+        )
 
     def test_cube_dimensions(self):
         response, status = self.get("cube/sales/model")
@@ -154,72 +156,72 @@ class SlicerModelTestCase(SlicerTestCaseBase):
         self.assertEqual(True, dims[0]["has_details"])
 
 
+@unittest.skip("TODO")
 class SlicerAggregateTestCase(SlicerTestCaseBase):
     sql_engine = "sqlite:///"
-    def setUp(self):
-        super(SlicerAggregateTestCase, self).setUp()
 
+    def setUp(self):
+        super().setUp()
+
+        # This raises: NotImplementedError: Depreciated in this context
         self.workspace = self.create_workspace(model="server.json")
         self.cube = self.workspace.cube("aggregate_test")
         self.slicer.cubes_workspace = self.workspace
 
-        self.facts = Table("facts", self.metadata,
-                        Column("id", Integer),
-                        Column("id_date", Integer),
-                        Column("id_item", Integer),
-                        Column("amount", Integer)
-                        )
+        self.facts = Table(
+            "facts",
+            self.metadata,
+            Column("id", Integer),
+            Column("id_date", Integer),
+            Column("id_item", Integer),
+            Column("amount", Integer),
+        )
 
-        self.dim_date = Table("date", self.metadata,
-                        Column("id", Integer),
-                        Column("year", Integer),
-                        Column("month", Integer),
-                        Column("day", Integer)
-                        )
+        self.dim_date = Table(
+            "date",
+            self.metadata,
+            Column("id", Integer),
+            Column("year", Integer),
+            Column("month", Integer),
+            Column("day", Integer),
+        )
 
-        self.dim_item = Table("item", self.metadata,
-                        Column("id", Integer),
-                        Column("name", String)
-                        )
+        self.dim_item = Table(
+            "item", self.metadata, Column("id", Integer), Column("name", String)
+        )
 
         self.metadata.create_all()
 
         data = [
-                    # Master-detail Match
-                    ( 1, 20130901, 1,   20),
-                    ( 2, 20130902, 1,   20),
-                    ( 3, 20130903, 1,   20),
-                    ( 4, 20130910, 1,   20),
-                    ( 5, 20130915, 1,   20),
-                    #             --------
-                    #             ∑    100
-                    # No city dimension
-                    ( 6, 20131001, 2,  200),
-                    ( 7, 20131002, 2,  200),
-                    ( 8, 20131004, 2,  200),
-                    ( 9, 20131101, 3,  200),
-                    (10, 20131201, 3,  200),
-                    #             --------
-                    #             ∑   1000
-                    #             ========
-                    #             ∑   1100
-
-                ]
+            # Master-detail Match
+            (1, 20130901, 1, 20),
+            (2, 20130902, 1, 20),
+            (3, 20130903, 1, 20),
+            (4, 20130910, 1, 20),
+            (5, 20130915, 1, 20),
+            #             --------
+            #             ∑    100
+            # No city dimension
+            (6, 20131001, 2, 200),
+            (7, 20131002, 2, 200),
+            (8, 20131004, 2, 200),
+            (9, 20131101, 3, 200),
+            (10, 20131201, 3, 200),
+            #             --------
+            #             ∑   1000
+            #             ========
+            #             ∑   1100
+        ]
 
         self.load_data(self.facts, data)
 
-        data = [
-                    (1, "apple"),
-                    (2, "pear"),
-                    (3, "garlic"),
-                    (4, "carrod")
-                ]
+        data = [(1, "apple"), (2, "pear"), (3, "garlic"), (4, "carrod")]
 
         self.load_data(self.dim_item, data)
 
         data = []
         for day in range(1, 31):
-            row = (20130900+day, 2013, 9, day)
+            row = (20130900 + day, 2013, 9, day)
             data.append(row)
 
         self.load_data(self.dim_date, data)
@@ -229,36 +231,32 @@ class SlicerAggregateTestCase(SlicerTestCaseBase):
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv"
         response, status = self.get(url)
 
-        response = compat.to_str(response)
+        response = to_str(response)
         reader = csv.reader(response.splitlines())
         header = next(reader)
-        self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
-                                 header)
+        self.assertSequenceEqual(["Year", "Total Amount", "Item Count"], header)
 
         # Labels - explicit
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=labels"
         response, status = self.get(url)
 
-        response = compat.to_str(response)
+        response = to_str(response)
         reader = csv.reader(response.splitlines())
         header = next(reader)
-        self.assertSequenceEqual(["Year", "Total Amount", "Item Count"],
-                                 header)
+        self.assertSequenceEqual(["Year", "Total Amount", "Item Count"], header)
         # Names
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=names"
         response, status = self.get(url)
 
-        response = compat.to_str(response)
+        response = to_str(response)
         reader = csv.reader(response.splitlines())
         header = next(reader)
-        self.assertSequenceEqual(["date.year", "amount_sum", "count"],
-                                 header)
+        self.assertSequenceEqual(["date.year", "amount_sum", "count"], header)
         # None
         url = "cube/aggregate_test/aggregate?drilldown=date&format=csv&header=none"
         response, status = self.get(url)
 
-        response = compat.to_str(response)
+        response = to_str(response)
         reader = csv.reader(response.splitlines())
         header = next(reader)
-        self.assertSequenceEqual(["2013", "100", "5"],
-                                 header)
+        self.assertSequenceEqual(["2013", "100", "5"], header)

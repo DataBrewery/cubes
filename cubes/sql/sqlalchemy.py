@@ -1,18 +1,9 @@
-"""Aliases for SQL/SQLAlchemy objects that are assured to be correctly
-type-checked."""
+"""Aliases for SQL/SQLAlchemy objects that are assured to be correctly type-
+checked."""
 
-from typing import (
-        Any,
-        Iterable,
-        List,
-        Mapping,
-        TYPE_CHECKING,
-        Tuple,
-        Union,
-    )
+from typing import TYPE_CHECKING, Any, Iterable, List, Mapping, Tuple, Union
 
 import sqlalchemy
-
 
 # Engine
 # ======

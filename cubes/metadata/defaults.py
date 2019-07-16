@@ -1,26 +1,25 @@
 # -*- encoding: utf-8 -*-
-"""Metadata validation
-"""
+"""Metadata validation."""
 
-import pkgutil
 import json
-from ..common import to_str
-
+import pkgutil
 from collections import namedtuple
+
+from ..common import to_str
 
 try:
     import jsonschema
 except ImportError:
     from ..common import MissingPackage
+
     jsonschema = MissingPackage("jsonschema", "Model validation")
 
-__all__ = (
-    "validate_model",
+__all__ = ("validate_model",)
+
+
+ValidationError = namedtuple(
+    "ValidationError", ["severity", "scope", "object", "property", "message"]
 )
-
-
-ValidationError = namedtuple("ValidationError",
-                            ["severity", "scope", "object", "property", "message"])
 
 
 def validate_model(metadata):
@@ -30,7 +29,7 @@ def validate_model(metadata):
     return validator.validate()
 
 
-class ModelMetadataValidator(object):
+class ModelMetadataValidator:
     def __init__(self, metadata):
         self.metadata = metadata
 
@@ -81,11 +80,15 @@ class ModelMetadataValidator(object):
         if dims and isinstance(dims, list):
             for dim in dims:
                 if isinstance(dim, str):
-                    err = ValidationError("default", "model", None,
-                                          "dimensions",
-                                          "Dimension '%s' is not described, "
-                                          "creating flat single-attribute "
-                                          "dimension" % dim)
+                    err = ValidationError(
+                        "default",
+                        "model",
+                        None,
+                        "dimensions",
+                        "Dimension '%s' is not described, "
+                        "creating flat single-attribute "
+                        "dimension" % dim,
+                    )
                     errors.append(err)
 
         return errors
@@ -103,20 +106,30 @@ class ModelMetadataValidator(object):
         errors = self._collect_errors("dimension", name, validator, dim)
 
         if "default_hierarchy_name" not in dim:
-            error = ValidationError("default", "dimension", name, None,
-                                    "No default hierarchy name specified, "
-                                    "using first one")
+            error = ValidationError(
+                "default",
+                "dimension",
+                name,
+                None,
+                "No default hierarchy name specified, using first one",
+            )
             errors.append(error)
 
         if "levels" not in dim and "attributes" not in dim:
-            error = ValidationError("default", "dimension", name, None,
-                                    "Neither levels nor attributes specified, "
-                                    "creating flat dimension without details")
+            error = ValidationError(
+                "default",
+                "dimension",
+                name,
+                None,
+                "Neither levels nor attributes specified, "
+                "creating flat dimension without details",
+            )
             errors.append(error)
 
         elif "levels" in dim and "attributes" in dim:
-            error = ValidationError("error", "dimension", name, None,
-                                    "Both levels and attributes specified")
+            error = ValidationError(
+                "error", "dimension", name, None, "Both levels and attributes specified"
+            )
             errors.append(error)
 
         return errors

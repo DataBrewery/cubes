@@ -2,79 +2,60 @@
 
 from collections import namedtuple
 from enum import Enum
-
 from typing import (
-        Any,
-        Collection,
-        Dict,
-        Iterable,
-        Iterator,
-        List,
-        Mapping,
-        Optional,
-        Set,
-        Sized,
-        Tuple,
-        Union,
-        cast,
-        NamedTuple,
-    )
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Set,
+    Sized,
+    Tuple,
+    Union,
+    cast,
+)
 
-from ..types import JSONType, _RecordType, ValueType
-
-from ..calendar import CalendarMemberConverter, Calendar
-from ..logging import get_logger
+from ..calendar import Calendar, CalendarMemberConverter
 from ..common import IgnoringDictionary
-from ..errors import ArgumentError, NoSuchAttributeError, HierarchyError, InternalError
-from ..stores import Store
-
-from ..metadata import (
-        Attribute,
-        AttributeBase,
-        Cube,
-        Dimension,
-        Hierarchy,
-        HierarchyPath,
-        Level,
-        Measure,
-        MeasureAggregate,
-        string_to_dimension_level,
-    )
-
-from .cells import (
-        Cell,
-        Cut,
-        PointCut,
-        RangeCut,
-        SetCut,
-        cuts_from_string,
-    )
-
-from .statutils import (
-        _CalculatorFunction,
-        available_calculators,
-        calculators_for_aggregates,
-    )
-
-from ..settings import SettingsDict
-
-from .constants import SPLIT_DIMENSION_NAME, NULL_PATH_VALUE
-
-from .result import AggregationResult, Facts
-from .drilldown import Drilldown, DrilldownItem, _DrilldownType
-
+from ..errors import ArgumentError, HierarchyError, InternalError, NoSuchAttributeError
 from ..ext import Extensible
+from ..logging import get_logger
+from ..metadata import (
+    Attribute,
+    AttributeBase,
+    Cube,
+    Dimension,
+    Hierarchy,
+    HierarchyPath,
+    Level,
+    Measure,
+    MeasureAggregate,
+    string_to_dimension_level,
+)
+from ..settings import SettingsDict
+from ..stores import Store
+from ..types import JSONType, ValueType, _RecordType
+from .cells import Cell, Cut, PointCut, RangeCut, SetCut, cuts_from_string
+from .constants import NULL_PATH_VALUE, SPLIT_DIMENSION_NAME
+from .drilldown import Drilldown, DrilldownItem, _DrilldownType
+from .result import AggregationResult, Facts
+from .statutils import (
+    _CalculatorFunction,
+    available_calculators,
+    calculators_for_aggregates,
+)
 
-
-__all__ = [
-    "AggregationBrowser",
-]
+__all__ = ["AggregationBrowser"]
 
 
 # Order can be: `name` or (`name`, `direction`)
-_OrderType = Tuple[AttributeBase,str]
-_OrderArgType = Union[str, Union[_OrderType, Tuple[str,str]]]
-_ReportResult = Union[AggregationResult, Facts, JSONType, List[JSONType]] 
+_OrderType = Tuple[AttributeBase, str]
+_OrderArgType = Union[str, Union[_OrderType, Tuple[str, str]]]
+_ReportResult = Union[AggregationResult, Facts, JSONType, List[JSONType]]
 
 
 class BrowserFeatureAction(Enum):
@@ -85,56 +66,55 @@ class BrowserFeatureAction(Enum):
     cell = 5
 
 
-class BrowserFeatures(object):
+class BrowserFeatures:
     actions: Collection[BrowserFeatureAction]
     aggregate_functions: Collection[str]
     post_aggregate_functions: Collection[str]
 
-    def __init__(self,
-                 actions: Optional[Collection[BrowserFeatureAction]]=None,
-                 aggregate_functions: Optional[Collection[str]]=None,
-                 post_aggregate_functions: Optional[Collection[str]]=None) \
-                         -> None:
+    def __init__(
+        self,
+        actions: Optional[Collection[BrowserFeatureAction]] = None,
+        aggregate_functions: Optional[Collection[str]] = None,
+        post_aggregate_functions: Optional[Collection[str]] = None,
+    ) -> None:
         self.actions = actions or []
         self.aggregate_functions = aggregate_functions or []
         self.post_aggregate_functions = post_aggregate_functions or []
 
     @classmethod
-    def from_dict(cls, data: JSONType) -> 'BrowserFeatures':
-        actions_names: List[str] = data.get('actions')
-        aggregate_functions: List[str] = data.get('aggregate_functions')
-        post_aggregate_functions: List[str] = data.get('post_aggregate_functions')
+    def from_dict(cls, data: JSONType) -> "BrowserFeatures":
+        actions_names: List[str] = data.get("actions")
+        aggregate_functions: List[str] = data.get("aggregate_functions")
+        post_aggregate_functions: List[str] = data.get("post_aggregate_functions")
 
         try:
             actions = [BrowserFeatureAction[action] for action in actions_names]
         except KeyError:
-            raise InternalError('Some actions are not valid.')
+            raise InternalError("Some actions are not valid.")
 
         return BrowserFeatures(
             actions=actions,
             aggregate_functions=aggregate_functions,
-            post_aggregate_functions=post_aggregate_functions
+            post_aggregate_functions=post_aggregate_functions,
         )
-
 
     def to_dict(self) -> JSONType:
         result: JSONType = {}
         if self.actions:
-            result['actions'] = [action.name for action in self.actions]
+            result["actions"] = [action.name for action in self.actions]
         if self.aggregate_functions:
-            result['aggregate_functions'] = self.aggregate_functions
+            result["aggregate_functions"] = self.aggregate_functions
         if self.post_aggregate_functions:
-            result['post_aggregate_functions'] = self.post_aggregate_functions
+            result["post_aggregate_functions"] = self.post_aggregate_functions
 
         return result
 
 
 class AggregationBrowser(Extensible, abstract=True):
-    """Class for browsing data cube aggregations
+    """Class for browsing data cube aggregations.
 
     :Attributes:
       * `cube` - cube for browsing
-
     """
 
     __extension_type__ = "browser"
@@ -149,18 +129,20 @@ class AggregationBrowser(Extensible, abstract=True):
     calendar: Optional[Calendar]
     locale: Optional[str]
 
-    def __init__(self,
-            cube: Cube,
-            store: Optional[Store]=None,
-            locale: Optional[str]=None,
-            calendar: Optional[Calendar]=None,
-            ) -> None:
-        """Creates and initializes the aggregation browser. Subclasses should
-        override this method. """
-        super(AggregationBrowser, self).__init__()
+    def __init__(
+        self,
+        cube: Cube,
+        store: Optional[Store] = None,
+        locale: Optional[str] = None,
+        calendar: Optional[Calendar] = None,
+    ) -> None:
+        """Creates and initializes the aggregation browser.
 
-        assert cube is not None, \
-                "No cube given for aggregation browser"
+        Subclasses should override this method.
+        """
+        super().__init__()
+
+        assert cube is not None, "No cube given for aggregation browser"
 
         self.cube = cube
         self.store = store
@@ -184,15 +166,17 @@ class AggregationBrowser(Extensible, abstract=True):
         return BrowserFeatures()
 
     # TODO: No *options
-    def aggregate(self,
-            cell: Cell=None,
-            aggregates: List[str]=None,
-            drilldown: _DrilldownType=None,
-            split: Cell=None,
-            order: Optional[Collection[_OrderArgType]]=None,
-            page: int=None,
-            page_size: int=None,
-            **options: Any) -> AggregationResult:
+    def aggregate(
+        self,
+        cell: Cell = None,
+        aggregates: List[str] = None,
+        drilldown: _DrilldownType = None,
+        split: Cell = None,
+        order: Optional[Collection[_OrderArgType]] = None,
+        page: int = None,
+        page_size: int = None,
+        **options: Any,
+    ) -> AggregationResult:
 
         """Return aggregate of a cell.
 
@@ -244,43 +228,42 @@ class AggregationBrowser(Extensible, abstract=True):
         prepared_order: Collection[_OrderType]
         prepared_order = self.prepare_order(order, is_aggregate=True)
 
-        converters = {
-            "time": CalendarMemberConverter(self.calendar)
-        }
+        converters = {"time": CalendarMemberConverter(self.calendar)}
 
         if cell is None:
             cell = Cell()
         elif isinstance(cell, str):
-            cuts = cuts_from_string(self.cube, cell,
-                                    role_member_converters=converters)
+            cuts = cuts_from_string(self.cube, cell, role_member_converters=converters)
             cell = Cell(cuts)
 
         if isinstance(split, str):
-            cuts = cuts_from_string(self.cube, split,
-                                    role_member_converters=converters)
+            cuts = cuts_from_string(self.cube, split, role_member_converters=converters)
             split = Cell(cuts)
 
         drilldown = Drilldown(self.cube, items=drilldown)
 
-        result = self.provide_aggregate(cell,
-                                        aggregates=prepared_aggregates,
-                                        drilldown=drilldown,
-                                        split=split,
-                                        order=prepared_order,
-                                        page=page,
-                                        page_size=page_size)
+        result = self.provide_aggregate(
+            cell,
+            aggregates=prepared_aggregates,
+            drilldown=drilldown,
+            split=split,
+            order=prepared_order,
+            page=page,
+            page_size=page_size,
+        )
 
         #
         # Find post-aggregation calculations and decorate the result
         #
-        calculated_aggs = [agg for agg in prepared_aggregates
-                           if agg.function
-                              and not self.is_builtin_function(agg.function)]
+        calculated_aggs = [
+            agg
+            for agg in prepared_aggregates
+            if agg.function and not self.is_builtin_function(agg.function)
+        ]
 
-        result.calculators = calculators_for_aggregates(self.cube,
-                                                        calculated_aggs,
-                                                        drilldown,
-                                                        split)
+        result.calculators = calculators_for_aggregates(
+            self.cube, calculated_aggs, drilldown, split
+        )
 
         # Do calculated measures on summary if no drilldown or split
         if result.summary:
@@ -289,14 +272,16 @@ class AggregationBrowser(Extensible, abstract=True):
 
         return result
 
-    def provide_aggregate(self,
-            cell: Cell,
-            aggregates: Collection[MeasureAggregate],
-            drilldown: Drilldown,
-            split: Optional[Cell]=None,
-            order: Optional[Collection[_OrderType]]=None,
-            page: Optional[int]=None,
-            page_size: Optional[int]=None) -> AggregationResult:
+    def provide_aggregate(
+        self,
+        cell: Cell,
+        aggregates: Collection[MeasureAggregate],
+        drilldown: Drilldown,
+        split: Optional[Cell] = None,
+        order: Optional[Collection[_OrderType]] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> AggregationResult:
         """Method to be implemented by subclasses. The arguments are prepared
         by the superclass. Arguments:
 
@@ -307,13 +292,14 @@ class AggregationBrowser(Extensible, abstract=True):
         * `drilldown` – `Drilldown` instance
         * `split` – `Cell` instance
         * `order` – list of tuples: (`attribute`, `order`)
-
         """
-        raise NotImplementedError("{} does not provide aggregate functionality." \
-                                  .format(str(type(self))))
+        raise NotImplementedError(
+            "{} does not provide aggregate functionality.".format(str(type(self)))
+        )
 
-    def prepare_aggregates(self, aggregates: List[Any]=None) \
-            -> List[MeasureAggregate]:
+    def prepare_aggregates(
+        self, aggregates: List[Any] = None
+    ) -> List[MeasureAggregate]:
         """Prepares the aggregate list for aggregatios. `aggregates` might be a
         list of aggregate names or `MeasureAggregate` objects.
 
@@ -337,7 +323,7 @@ class AggregationBrowser(Extensible, abstract=True):
             prepared = self.cube.aggregates
 
         seen: Set[str]
-        seen = set(a.name for a in prepared)
+        seen = {a.name for a in prepared}
 
         dependencies: List[MeasureAggregate] = []
 
@@ -350,10 +336,12 @@ class AggregationBrowser(Extensible, abstract=True):
             # seen the measure yet, then the measure is considered to be
             # another aggregate measure and therefore we need to include it in
             # the queried aggregates.
-            if agg.measure \
-                    and agg.function is not None \
-                    and not self.is_builtin_function(agg.function) \
-                    and agg.measure not in seen:
+            if (
+                agg.measure
+                and agg.function is not None
+                and not self.is_builtin_function(agg.function)
+                and agg.measure not in seen
+            ):
 
                 seen.add(agg.measure)
                 aggregate = self.cube.aggregate(agg.measure)
@@ -361,12 +349,14 @@ class AggregationBrowser(Extensible, abstract=True):
 
         return prepared + dependencies
 
-    def prepare_order(self,
-            order: Optional[Collection[_OrderArgType]],
-            is_aggregate: bool=False) -> Collection[_OrderType]:
-        """Prepares an order list. Returns list of tuples (`attribute`,
-        `order_direction`). `attribute` is cube's attribute object."""
+    def prepare_order(
+        self, order: Optional[Collection[_OrderArgType]], is_aggregate: bool = False
+    ) -> Collection[_OrderType]:
+        """Prepares an order list.
 
+        Returns list of tuples (`attribute`, `order_direction`).
+        `attribute` is cube's attribute object.
+        """
 
         order = order or []
         new_order: List[_OrderType] = []
@@ -417,62 +407,72 @@ class AggregationBrowser(Extensible, abstract=True):
         if hc_levels:
             names = [str(level) for level in hc_levels]
             names_str = ", ".join(names)
-            raise ArgumentError(f"Can not drilldown on high-cardinality levels"
-                                f"({names_str}) without including both "
-                                f"page_size and page arguments, or else a "
-                                f"point/set cut on the level"
-                                )
-
+            raise ArgumentError(
+                f"Can not drilldown on high-cardinality levels"
+                f"({names_str}) without including both "
+                f"page_size and page arguments, or else a "
+                f"point/set cut on the level"
+            )
 
     def is_builtin_function(self, function_name: str) -> bool:
         """Returns `True` if function `function_name` is bult-in. Returns
-        `False` if the browser can not compute the function and
-        post-aggregation calculation should be used.
+        `False` if the browser can not compute the function and post-
+        aggregation calculation should be used.
 
         Default implementation returns `True` for all unctions except those in
         :func:`available_calculators`. Subclasses are reommended to override
         this method if they have their own built-in version of the aggregate
-        functions."""
+        functions.
+        """
 
         return function_name in available_calculators()
 
-    def facts(self,
-            cell: Cell=None,
-            fields: Collection[AttributeBase]=None,
-            order: List[_OrderArgType]=None,
-            page: int=None,
-            page_size: int=None,
-            fact_list: List[ValueType]=None) -> Facts:
-        """Return an iterable object with of all facts within cell.
-        `fields` is list of fields to be considered in the output.
+    def facts(
+        self,
+        cell: Cell = None,
+        fields: Collection[AttributeBase] = None,
+        order: List[_OrderArgType] = None,
+        page: int = None,
+        page_size: int = None,
+        fact_list: List[ValueType] = None,
+    ) -> Facts:
+        """Return an iterable object with of all facts within cell. `fields` is
+        list of fields to be considered in the output.
 
-        Subclasses overriding this method sould return a :class:`Facts` object
-        and set it's `attributes` to the list of selected attributes."""
-        raise NotImplementedError("{} does not provide facts functionality." \
-                                  .format(str(type(self))))
+        Subclasses overriding this method sould return a :class:`Facts`
+        object and set it's `attributes` to the list of selected
+        attributes.
+        """
+        raise NotImplementedError(
+            "{} does not provide facts functionality.".format(str(type(self)))
+        )
 
-    def fact(self,
-            key: ValueType,
-            fields: Collection[AttributeBase]=None) \
-            -> Optional[_RecordType]:
+    def fact(
+        self, key: ValueType, fields: Collection[AttributeBase] = None
+    ) -> Optional[_RecordType]:
         """Returns a single fact from cube specified by fact key `key`"""
-        raise NotImplementedError("{} does not provide fact functionality." \
-                                  .format(str(type(self))))
+        raise NotImplementedError(
+            "{} does not provide fact functionality.".format(str(type(self)))
+        )
 
-    def members(self,
-            cell: Cell,
-            dimension: Dimension,
-            depth: int=None,
-            level: Level=None,
-            hierarchy: Hierarchy=None,
-            attributes: Collection[str]=None,
-            order: Optional[Collection[_OrderArgType]]=None,
-            page: int=None,
-            page_size: int=None,
-            **options: Any) -> Iterable[_RecordType]:
-        """Return members of `dimension` with level depth `depth`. If `depth`
-        is ``None``, all levels are returned. If no `hierarchy` is specified,
-        then default dimension hierarchy is used.
+    def members(
+        self,
+        cell: Cell,
+        dimension: Dimension,
+        depth: int = None,
+        level: Level = None,
+        hierarchy: Hierarchy = None,
+        attributes: Collection[str] = None,
+        order: Optional[Collection[_OrderArgType]] = None,
+        page: int = None,
+        page_size: int = None,
+        **options: Any,
+    ) -> Iterable[_RecordType]:
+        """Return members of `dimension` with level depth `depth`.
+
+        If `depth` is ``None``, all levels are returned. If no
+        `hierarchy` is specified, then default dimension hierarchy is
+        used.
         """
         prepared_order = self.prepare_order(order, is_aggregate=False)
 
@@ -493,7 +493,7 @@ class AggregationBrowser(Extensible, abstract=True):
             levels = hierarchy.levels_for_depth(depth)
         elif level:
             index = hierarchy.level_index(level.name)
-            levels = hierarchy.levels_for_depth(index+1)
+            levels = hierarchy.levels_for_depth(index + 1)
 
         attribute_objs: Collection[AttributeBase]
         if attributes is not None:
@@ -501,37 +501,45 @@ class AggregationBrowser(Extensible, abstract=True):
         else:
             attribute_objs = self.cube.get_attributes(attributes)
 
-        result = self.provide_members(cell,
-                                      dimension=dimension,
-                                      hierarchy=hierarchy,
-                                      levels=levels,
-                                      attributes=attribute_objs,
-                                      order=prepared_order,
-                                      page=page,
-                                      page_size=page_size,
-                                      **options)
+        result = self.provide_members(
+            cell,
+            dimension=dimension,
+            hierarchy=hierarchy,
+            levels=levels,
+            attributes=attribute_objs,
+            order=prepared_order,
+            page=page,
+            page_size=page_size,
+            **options,
+        )
         return result
 
-    def provide_members(self,
-            cell: Cell,
-            dimension: Dimension,
-            depth: int=None,
-            hierarchy: Hierarchy=None,
-            levels: Collection[Level]=None,
-            attributes: Collection[AttributeBase]=None,
-            page: Optional[int]=None,
-            page_size: Optional[int]=None,
-            order: Optional[Collection[_OrderType]]=None,
-            ) -> Iterable[_RecordType]:
-        raise NotImplementedError("{} does not provide members functionality." \
-                                  .format(str(type(self))))
+    def provide_members(
+        self,
+        cell: Cell,
+        dimension: Dimension,
+        depth: int = None,
+        hierarchy: Hierarchy = None,
+        levels: Collection[Level] = None,
+        attributes: Collection[AttributeBase] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        order: Optional[Collection[_OrderType]] = None,
+    ) -> Iterable[_RecordType]:
+        raise NotImplementedError(
+            "{} does not provide members functionality.".format(str(type(self)))
+        )
 
     # FIXME: [important] Properly annotate this one
-    def test(self, aggregate: bool=False) -> None:
-        """Tests whether the cube can be used. Refer to the backend's
-        documentation for more information about what is being tested."""
-        raise NotImplementedError("{} does not provide test functionality." \
-                                  .format(str(type(self))))
+    def test(self, aggregate: bool = False) -> None:
+        """Tests whether the cube can be used.
+
+        Refer to the backend's documentation for more information about
+        what is being tested.
+        """
+        raise NotImplementedError(
+            "{} does not provide test functionality.".format(str(type(self)))
+        )
 
     # FIXME: Create a special "report query" object
     def report(self, cell: Cell, queries: JSONType) -> Dict[str, _ReportResult]:
@@ -627,8 +635,8 @@ class AggregationBrowser(Extensible, abstract=True):
             args = dict(query)
             del args["query"]
 
-            # Note: we do not just convert name into function from symbol for possible future
-            # more fine-tuning of queries as strings
+            # Note: we do not just convert name into function from symbol for possible
+            # future more fine-tuning of queries as strings
 
             # FIXME: [2.0] dimension was removed from cell, the following code
             # does not work any more.
@@ -669,16 +677,17 @@ class AggregationBrowser(Extensible, abstract=True):
 
                 result = cell_dict
             else:
-                raise ArgumentError("Unknown report query '%s' for '%s'" %
-                                    (query_type, result_name))
+                raise ArgumentError(
+                    f"Unknown report query '{query_type}' for '{result_name}'"
+                )
 
             report_result[result_name] = result
 
         return report_result
 
-    def cell_details(self,
-            cell: Cell=None,
-            dimension: Union[str, Dimension]=None) -> List[JSONType]:
+    def cell_details(
+        self, cell: Cell = None, dimension: Union[str, Dimension] = None
+    ) -> List[JSONType]:
         """Returns details for the `cell`. Returned object is a list with one
         element for each cell cut. If `dimension` is specified, then details
         only for cuts that use the dimension are returned.
@@ -701,8 +710,7 @@ class AggregationBrowser(Extensible, abstract=True):
             return []
 
         if dimension:
-            cuts = [cut for cut in cell.cuts
-                    if cut.dimension == str(dimension)]
+            cuts = [cut for cut in cell.cuts if cut.dimension == str(dimension)]
         else:
             cuts = cell.cuts
 
@@ -718,7 +726,6 @@ class AggregationBrowser(Extensible, abstract=True):
         * `SetCut` - list of `PointCut` results, one per path in the set
         * `RangeCut` - `PointCut`-like results for lower range (from) and
           upper range (to)
-
         """
 
         details: Any
@@ -729,17 +736,20 @@ class AggregationBrowser(Extensible, abstract=True):
             details = self._path_details(dimension, cut.path, cut.hierarchy)
 
         elif isinstance(cut, SetCut):
-            details = [self._path_details(dimension, path, cut.hierarchy)
-                       for path in cut.paths]
+            details = [
+                self._path_details(dimension, path, cut.hierarchy) for path in cut.paths
+            ]
 
         elif isinstance(cut, RangeCut):
             details = {
-                    "from": self._path_details(dimension=dimension,
-                                               path=cut.from_path or [],
-                                               hierarchy=cut.hierarchy),
-                    "to": self._path_details(dimension=dimension,
-                                             path=cut.to_path or [],
-                                             hierarchy=cut.hierarchy)
+                "from": self._path_details(
+                    dimension=dimension,
+                    path=cut.from_path or [],
+                    hierarchy=cut.hierarchy,
+                ),
+                "to": self._path_details(
+                    dimension=dimension, path=cut.to_path or [], hierarchy=cut.hierarchy
+                ),
             }
 
         else:
@@ -748,11 +758,12 @@ class AggregationBrowser(Extensible, abstract=True):
         return details
 
     # FIXME: [typing] fix the return type to RecordType, see #410
-    def _path_details(self,
-            dimension: Dimension,
-            path: List[str],
-            hierarchy:Union[str, Hierarchy]=None) \
-                    -> Optional[List[Dict[str,Optional[str]]]]:
+    def _path_details(
+        self,
+        dimension: Dimension,
+        path: List[str],
+        hierarchy: Union[str, Hierarchy] = None,
+    ) -> Optional[List[Dict[str, Optional[str]]]]:
         """Returns a list of details for a path. Each element of the list
         corresponds to one level of the path and is represented by a
         dictionary. The keys are dimension level attributes. Returns ``None``
@@ -775,8 +786,7 @@ class AggregationBrowser(Extensible, abstract=True):
 
         result = []
         for level in hierarchy.levels_for_depth(len(path)):
-            item = {a.ref: details.get(a.ref) for a in
-                    level.attributes}
+            item = {a.ref: details.get(a.ref) for a in level.attributes}
             item["_key"] = details.get(level.key.ref)
             item["_label"] = details.get(level.label_attribute.ref)
             result.append(item)
@@ -784,15 +794,17 @@ class AggregationBrowser(Extensible, abstract=True):
         return result
 
     # TODO: [typing] Improve the return type
-    def path_details(self,
-            dimension: Dimension,
-            path: HierarchyPath,
-            hierarchy: Hierarchy) -> Optional[_RecordType]:
-        """Returns empty path details. Default fall-back for backends that do
-        not support the path details. The level key and label are the same
-        derived from the key."""
+    def path_details(
+        self, dimension: Dimension, path: HierarchyPath, hierarchy: Hierarchy
+    ) -> Optional[_RecordType]:
+        """Returns empty path details.
 
-        detail: Dict[str,Optional[str]] = {}
+        Default fall-back for backends that do not support the path
+        details. The level key and label are the same derived from the
+        key.
+        """
+
+        detail: Dict[str, Optional[str]] = {}
         for level, key in zip(hierarchy.levels, path):
             for attr in level.attributes:
                 if attr == level.key or attr == level.label_attribute:

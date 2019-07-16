@@ -11,20 +11,22 @@ FACT_TABLE = "irbd_balance"
 
 print("preparing data...")
 
-engine = create_engine('sqlite:///data.sqlite')
+engine = create_engine("sqlite:///data.sqlite")
 
-create_table_from_csv(engine,
-                      "data.csv",
-                      table_name=FACT_TABLE,
-                      fields=[
-                            ("category", "string"),
-                            ("category_label", "string"),
-                            ("subcategory", "string"),
-                            ("subcategory_label", "string"),
-                            ("line_item", "string"),
-                            ("year", "integer"),
-                            ("amount", "integer")],
-                      create_id=True
-                  )
+create_table_from_csv(
+    engine,
+    "data.csv",
+    table_name=FACT_TABLE,
+    fields=[
+        ("category", "string"),
+        ("category_label", "string"),
+        ("subcategory", "string"),
+        ("subcategory_label", "string"),
+        ("line_item", "string"),
+        ("year", "integer"),
+        ("amount", "integer"),
+    ],
+    create_id=True,
+)
 
 print("done. file data.sqlite created")
