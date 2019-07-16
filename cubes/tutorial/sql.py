@@ -47,12 +47,13 @@ def create_table_from_csv(
     tuples: (name, type) where type might be: ``integer``, ``float`` or
     ``string``.
 
-    If `create_id` is ``True`` then a column with name ``id`` is created and will contain generated
-    sequential record id.
+    If `create_id` is ``True`` then a column with name ``id`` is created and
+    will contain generated sequential record id.
 
-    This is just small utility function for sandbox, play-around and testing purposes. It is not
-    recommended to be used for serious CSV-to-table loadings. For more advanced CSV loadings use
-    another framework, such as Brewery (http://databrewery.org).
+    This is just small utility function for sandbox, play-around and testing
+    purposes. It is not recommended to be used for serious CSV-to-table loadings.
+    For more advanced CSV loadings use another framework, such as Brewery
+    (http://databrewery.org).
     """
 
     metadata = sqlalchemy.MetaData(bind=connectable)

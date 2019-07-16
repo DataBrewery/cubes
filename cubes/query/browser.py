@@ -635,8 +635,8 @@ class AggregationBrowser(Extensible, abstract=True):
             args = dict(query)
             del args["query"]
 
-            # Note: we do not just convert name into function from symbol for possible future
-            # more fine-tuning of queries as strings
+            # Note: we do not just convert name into function from symbol for possible
+            # future more fine-tuning of queries as strings
 
             # FIXME: [2.0] dimension was removed from cell, the following code
             # does not work any more.

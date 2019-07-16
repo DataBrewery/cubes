@@ -10,10 +10,10 @@ from ..query.cells import Cell
 from ..query.drilldown import Drilldown
 from ..settings import Setting, SettingType
 from ..stores import Store
-from ..types import JSONType, OptionsType, OptionValue
+from ..types import OptionsType, OptionValue
 from . import sqlalchemy as sa
 from .browser import SQLBrowser
-from .mapper import NamingDict, distill_naming
+from .mapper import distill_naming
 from .utils import CreateOrReplaceView, CreateTableAsSelect
 
 __all__ = ["sqlalchemy_options", "SQLStore"]
