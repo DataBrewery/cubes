@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from collections import OrderedDict
+from importlib import import_module
+from textwrap import dedent
 from typing import (
     Any,
-    cast,
     Collection,
     Dict,
     List,
@@ -12,19 +14,16 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
-from collections import OrderedDict
-from textwrap import dedent
 from pkg_resources import iter_entry_points
 
-from .common import decamelize, coalesce_options
-from .errors import ArgumentError, InternalError, ConfigurationError
+from .common import coalesce_options, decamelize
+from .errors import ArgumentError, ConfigurationError, InternalError
 
 # TODO: Reconsider need of SettingsDict
-from .settings import Setting, SettingsDict, distill_settings, SettingValue
-
-from importlib import import_module
+from .settings import Setting, SettingsDict, SettingValue, distill_settings
 
 __all__ = ["Extensible", "ExtensionRegistry", "get_registry"]
 

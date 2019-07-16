@@ -2,29 +2,26 @@
 """Cube logical model"""
 
 from collections import OrderedDict, defaultdict
+from typing import Any, Collection, Dict, List, Optional, Set, Tuple, Union
 
-from typing import Collection, Optional, List, Dict, Any, Union, Set, Tuple
-
-from ..types import JSONType, OptionsType
 from ..common import assert_all_instances, get_localizable_attributes
 from ..errors import (
-    ModelError,
     ArgumentError,
+    ModelError,
     NoSuchAttributeError,
     NoSuchDimensionError,
 )
-from .base import ModelObject, object_dict
-
+from ..types import JSONType, OptionsType
 from .attributes import (
     Attribute,
+    AttributeBase,
     Measure,
     MeasureAggregate,
-    create_list_of,
     collect_dependencies,
+    create_list_of,
     expand_attribute_metadata,
-    AttributeBase,
 )
-
+from .base import ModelObject, object_dict
 from .dimension import Dimension
 
 # TODO: This should belong here

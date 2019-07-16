@@ -10,3 +10,9 @@ lint:
 .PHONY:
 clean:
 	find . \( -path '*/__pycache__/*' -o -name __pycache__ \) -delete
+
+
+.PHONY:
+format:
+	isort -rc cubes
+	black cubes

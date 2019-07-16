@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import sqlalchemy
-import csv
 import codecs
+import csv
+
+import sqlalchemy
 
 
 class UTF8Recoder:
@@ -52,8 +53,8 @@ def create_table_from_csv(
     sequential record id.
 
     This is just small utility function for sandbox, play-around and testing purposes. It is not
-    recommended to be used for serious CSV-to-table loadings. For more advanced CSV loadings use another
-    framework, such as Brewery (http://databrewery.org).
+    recommended to be used for serious CSV-to-table loadings. For more advanced CSV loadings use
+    another framework, such as Brewery (http://databrewery.org).
     """
 
     metadata = sqlalchemy.MetaData(bind=connectable)

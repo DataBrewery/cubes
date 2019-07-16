@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 """Logical model model providers."""
 import copy
-
-from typing import cast, Any, Dict, List, Optional, Collection, Set
-
-from ..types import JSONType
+from typing import Any, Dict, List, Optional, Set, cast
 
 from ..errors import (
     BackendError,
@@ -14,14 +11,13 @@ from ..errors import (
     NoSuchDimensionError,
     TemplateRequired,
 )
-
-from .localization import LocalizationContext
+from ..ext import Extensible
+from ..namespace import Namespace
+from ..stores import Store
+from ..types import JSONType
 from .cube import Cube
 from .dimension import Dimension
-from ..stores import Store
-
-from ..namespace import Namespace
-from ..ext import Extensible
+from .localization import LocalizationContext
 
 __all__ = ["ModelProvider", "StaticModelProvider", "link_cube", "find_dimension"]
 
@@ -394,9 +390,9 @@ def link_cube(
 # TODO: add tests
 def find_dimension(
     name: str,
-    locale: str = None,
-    provider: ModelProvider = None,
-    namespace: Namespace = None,
+    locale: Optional[str] = None,
+    provider: Optional[ModelProvider] = None,
+    namespace: Optional[Namespace] = None,
 ) -> Dimension:
     """Returns a localized dimension with `name`. Raises
     `NoSuchDimensionError` when no model published the dimension. Raises

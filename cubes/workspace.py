@@ -1,35 +1,33 @@
 # -*- coding: utf-8 -*-
 
 import os.path
-
-from typing import List, Dict, Any, Optional, Tuple, Union, Type
-from logging import Logger
-
 from collections import OrderedDict, defaultdict
 from configparser import ConfigParser
+from logging import Logger
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from .metadata import (
-    read_model_metadata,
-    find_dimension,
-    LocalizationContext,
-    Cube,
-    Dimension,
-)
-from .metadata.providers import ModelProvider
-from .auth import NotAuthorized, Authorizer
+from . import ext
+from .auth import Authorizer, NotAuthorized
+from .calendar import Calendar
 from .common import read_json_file
 from .errors import ConfigurationError
 from .logging import get_logger
-from .calendar import Calendar
+from .metadata import (
+    Cube,
+    Dimension,
+    LocalizationContext,
+    find_dimension,
+    read_model_metadata,
+)
+from .metadata.providers import ModelProvider
 from .namespace import Namespace
-from .stores import Store
 from .query.browser import AggregationBrowser, BrowserFeatures
-from .types import _CubeKey, JSONType
-from . import ext
 from .settings import Setting, SettingType, distill_settings
 
 # FIXME: [typing] Remove direct reference to SQL, move to shared place
 from .sql.mapper import NamingDict, distill_naming
+from .stores import Store
+from .types import JSONType, _CubeKey
 
 __all__ = ["Workspace"]
 

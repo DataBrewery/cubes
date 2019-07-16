@@ -5,15 +5,13 @@ import json
 import os
 import re
 import shutil
-
-from typing import Any, Collection, Dict, IO, List, Optional, TypeVar, cast
-
+from collections import OrderedDict
+from typing import IO, Any, Collection, Dict, List, Optional, TypeVar, cast
 from urllib.parse import urlparse
 from urllib.request import urlopen
-from collections import OrderedDict
 
-from ..common import IgnoringDictionary, to_label, JSONType
-from ..errors import ModelError, ArgumentError, CubesError
+from ..common import IgnoringDictionary, JSONType, to_label
+from ..errors import ArgumentError, CubesError, ModelError
 
 __all__ = (
     "ModelObject",

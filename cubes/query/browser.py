@@ -2,7 +2,6 @@
 
 from collections import namedtuple
 from enum import Enum
-
 from typing import (
     Any,
     Collection,
@@ -11,23 +10,20 @@ from typing import (
     Iterator,
     List,
     Mapping,
+    NamedTuple,
     Optional,
     Set,
     Sized,
     Tuple,
     Union,
     cast,
-    NamedTuple,
 )
 
-from ..types import JSONType, _RecordType, ValueType
-
-from ..calendar import CalendarMemberConverter, Calendar
-from ..logging import get_logger
+from ..calendar import Calendar, CalendarMemberConverter
 from ..common import IgnoringDictionary
-from ..errors import ArgumentError, NoSuchAttributeError, HierarchyError, InternalError
-from ..stores import Store
-
+from ..errors import ArgumentError, HierarchyError, InternalError, NoSuchAttributeError
+from ..ext import Extensible
+from ..logging import get_logger
 from ..metadata import (
     Attribute,
     AttributeBase,
@@ -40,24 +36,18 @@ from ..metadata import (
     MeasureAggregate,
     string_to_dimension_level,
 )
-
+from ..settings import SettingsDict
+from ..stores import Store
+from ..types import JSONType, ValueType, _RecordType
 from .cells import Cell, Cut, PointCut, RangeCut, SetCut, cuts_from_string
-
+from .constants import NULL_PATH_VALUE, SPLIT_DIMENSION_NAME
+from .drilldown import Drilldown, DrilldownItem, _DrilldownType
+from .result import AggregationResult, Facts
 from .statutils import (
     _CalculatorFunction,
     available_calculators,
     calculators_for_aggregates,
 )
-
-from ..settings import SettingsDict
-
-from .constants import SPLIT_DIMENSION_NAME, NULL_PATH_VALUE
-
-from .result import AggregationResult, Facts
-from .drilldown import Drilldown, DrilldownItem, _DrilldownType
-
-from ..ext import Extensible
-
 
 __all__ = ["AggregationBrowser"]
 

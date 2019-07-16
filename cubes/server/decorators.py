@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
-from flask import Blueprint, Flask, Response, request, g, current_app
+from contextlib import contextmanager
 from functools import wraps
+from typing import Callable
 
-from ..workspace import Workspace
+from flask import Blueprint, Flask, Response, current_app, g, request
+
 from ..auth import NotAuthorized
+from ..calendar import CalendarMemberConverter
+from ..errors import *
 from ..query.cells import Cell, cut_from_dict, cuts_from_string
 from ..query.constants import SPLIT_DIMENSION_NAME
-from ..errors import *
-from .utils import *
+from ..workspace import Workspace
 from .errors import *
 from .local import *
-from ..calendar import CalendarMemberConverter
-
-from contextlib import contextmanager
+from .utils import *
 
 # Utils
 # -----
@@ -42,7 +43,7 @@ def prepare_cell(argname="cut", target="cell", restrict=False):
     setattr(g, target, cell)
 
 
-def requires_cube(f):
+def requires_cube(f: Callable) -> Callable:
     @wraps(f)
     def wrapper(*args, **kwargs):
         if "lang" in request.args:
@@ -61,7 +62,7 @@ def requires_cube(f):
     return wrapper
 
 
-def requires_browser(f):
+def requires_browser(f: Callable) -> Callable:
     """Prepares three global variables: `g.cube`, `g.browser` and `g.cell`.
     Also athorizes the cube using `authorize()`."""
 
@@ -137,7 +138,7 @@ def authorized_cube(cube_name, locale):
 # =============
 
 
-def log_request(action, attrib_field="attributes"):
+def log_request(action: str, attrib_field: str = "attributes") -> Callable:
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):

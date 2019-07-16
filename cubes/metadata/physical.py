@@ -1,11 +1,11 @@
 """Physical Metadata"""
 
-from typing import Any, List, Optional, Hashable, NamedTuple
 from enum import Enum
+from typing import Any, Hashable, List, Optional
 
-from ..types import JSONType
 from ..common import list_hash
 from ..errors import ArgumentError
+from ..types import JSONType
 
 
 # TODO: [typing] Make JoinMethod enum
@@ -289,6 +289,7 @@ class ColumnReference(Hashable):
             table = split[1]
             column = split[2]
         # TODO: Deprecated
+        # FIXME: won't work ('split' is not defined)
         elif isinstance(obj, list):
             split = [None] * (3 - len(split)) + split
 

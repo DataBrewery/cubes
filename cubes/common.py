@@ -3,16 +3,14 @@
 """Utility functions for computing combinations of dimensions and hierarchy
 levels"""
 
-from typing import Any, Collection, Dict, Hashable, List, Optional, TypeVar, Union
-
-import re
-import os.path
 import json
-
+import os.path
+import re
 from collections import OrderedDict
+from typing import Any, Collection, Dict, Hashable, List, Optional, Union
 
+from .errors import ArgumentError, ConfigurationError, ModelInconsistencyError
 from .types import JSONType
-from .errors import ModelInconsistencyError, ArgumentError, ConfigurationError
 
 __all__ = [
     "IgnoringDictionary",

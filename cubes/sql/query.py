@@ -7,9 +7,9 @@ Star/snowflake schema query construction structures
 
 """
 
+from logging import Logger, getLogger
 from typing import (
     Any,
-    cast,
     Callable,
     Collection,
     Dict,
@@ -19,26 +19,17 @@ from typing import (
     Optional,
     Set,
     Tuple,
-    Union,
 )
 
-from ..types import JSONType
-
-from . import sqlalchemy as sa
-
-from logging import Logger, getLogger
-from collections import namedtuple
-
+from ..errors import ArgumentError, HierarchyError, InternalError, ModelError
 from ..metadata import object_dict
-from ..metadata.dimension import HierarchyPath
-from ..metadata.physical import ColumnReference, JoinKey, Join, JoinMethod
 from ..metadata.attributes import AttributeBase
-from ..errors import InternalError, ModelError, ArgumentError, HierarchyError
+from ..metadata.dimension import HierarchyPath
+from ..metadata.physical import ColumnReference, Join, JoinKey, JoinMethod
+from ..query.cells import Cell, Cut, PointCut, RangeCut, SetCut
 from ..query.constants import SPLIT_DIMENSION_NAME
-from ..query.cells import Cell, Cut, PointCut, SetCut, RangeCut
-
+from . import sqlalchemy as sa
 from .expressions import compile_attributes
-
 
 # Default label for all fact keys
 FACT_KEY_LABEL = "__fact_key__"
@@ -338,7 +329,7 @@ class StarSchema:
         table, which role of the table was expected, such as master or detail.
         """
 
-        assert (key is not None, "Table key should not be None")
+        assert key is not None, "Table key should not be None"
 
         key = _TableKey(key[0] or self.schema, key[1] or self.fact_name)
 
@@ -952,9 +943,8 @@ class QueryContext:
         `to_path`). Return value is a `Condition` tuple."""
 
         assert (
-            from_path is not None or to_path is not None,
-            "Range cut must have at least one boundary",
-        )
+            from_path is not None or to_path is not None
+        ), "Range cut must have at least one boundary"
 
         conditions: List[sa.ColumnElement]
         conditions = []

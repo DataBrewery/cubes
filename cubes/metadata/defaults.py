@@ -2,11 +2,11 @@
 """Metadata validation
 """
 
-import pkgutil
 import json
-from ..common import to_str
-
+import pkgutil
 from collections import namedtuple
+
+from ..common import to_str
 
 try:
     import jsonschema

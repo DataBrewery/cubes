@@ -1,11 +1,11 @@
 # -*- encoding: utf-8 -*-
 """Cubes SQL backend utilities, mostly to be used by the slicer command."""
 
-from sqlalchemy.sql.expression import Executable, ClauseElement
-from sqlalchemy.ext.compiler import compiles
-import sqlalchemy.sql as sql
-
 from collections import OrderedDict
+
+import sqlalchemy.sql as sql
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.expression import ClauseElement, Executable
 
 from ..errors import ArgumentError
 from ..query.constants import SPLIT_DIMENSION_NAME

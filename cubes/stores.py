@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from typing import Optional, Any
-from .types import JSONType
+from typing import Any, Optional
+
 from .ext import Extensible
+from .types import JSONType
 
 __all__ = "Store"
 

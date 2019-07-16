@@ -1,14 +1,13 @@
 # -*- encoding: utf-8 -*-
 
-import shlex
 import os
+import shlex
 
 from flask import Flask
-from configparser import ConfigParser
 
+from ..logging import get_logger
 from .blueprint import slicer
 from .utils import *
-from ..logging import get_logger
 
 __all__ = ("create_server", "run_server")
 
@@ -16,7 +15,7 @@ __all__ = ("create_server", "run_server")
 # ================================
 
 
-def read_slicer_config(config):
+def read_slicer_config(config: str) -> ConfigParser:
     if not config:
         return ConfigParser()
     elif isinstance(config, str):
@@ -29,7 +28,7 @@ def read_slicer_config(config):
     return config
 
 
-def create_server(config=None, **_options):
+def create_server(config: Optional[ConfigParser] = None, **_options) -> Flask:
     """Returns a Flask server application. `config` is a path to a
     ``slicer.ini`` file with Cubes workspace and server configuration."""
 

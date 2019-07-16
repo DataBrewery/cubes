@@ -2,11 +2,14 @@
 
 import os.path
 from collections import defaultdict
-from .query import Cell, cut_from_string, cut_from_dict, PointCut
-from .metadata import string_to_dimension_level
-from .errors import UserError, ConfigurationError, NoSuchDimensionError
+from typing import Dict, List, Optional
+
 from .common import read_json_file, sorted_dependencies
+from .errors import ConfigurationError, NoSuchDimensionError, UserError
 from .ext import Extensible
+from .metadata import string_to_dimension_level
+from .metadata.cube import Cube
+from .query import Cell, PointCut, cut_from_dict, cut_from_string
 from .settings import Setting, SettingType
 
 __all__ = (
@@ -66,8 +69,13 @@ class NoopAuthorizer(Authorizer, name="noop"):
 
 class _SimpleAccessRight:
     def __init__(
-        self, roles, allowed_cubes, denied_cubes, cell_restrictions, hierarchy_limits
-    ):
+        self,
+        roles: Optional[List[str]],
+        allowed_cubes: Optional[List[str]],
+        denied_cubes: Optional[List[str]],
+        cell_restrictions,
+        hierarchy_limits,
+    ) -> None:
         self.roles = set(roles) if roles else set()
         self.cell_restrictions = cell_restrictions or {}
 
@@ -86,7 +94,7 @@ class _SimpleAccessRight:
         self.denied_cubes = set(denied_cubes) if denied_cubes else set()
         self._get_patterns()
 
-    def _get_patterns(self):
+    def _get_patterns(self) -> None:
         self.allowed_cube_suffix = []
         self.allowed_cube_prefix = []
         self.denied_cube_suffix = []
@@ -104,7 +112,7 @@ class _SimpleAccessRight:
             if cube.endswith("*"):
                 self.denied_cube_prefix.append(cube[:-1])
 
-    def merge(self, other):
+    def merge(self, other: "_SimpleAccessRight") -> None:
         """Merge `right` with the receiver:
 
         * `allowed_cubes` are merged (union)
@@ -130,7 +138,7 @@ class _SimpleAccessRight:
 
         self._get_patterns()
 
-    def is_allowed(self, name, allow_after_denied=True):
+    def is_allowed(self, name: str, allow_after_denied: bool = True) -> bool:
 
         allow = False
         if self.allowed_cubes:
@@ -189,7 +197,7 @@ class _SimpleAccessRight:
         return as_dict
 
 
-def right_from_dict(info):
+def right_from_dict(info: Dict[str, List[str]]) -> _SimpleAccessRight:
     return _SimpleAccessRight(
         roles=info.get("roles"),
         allowed_cubes=info.get("allowed_cubes"),
@@ -229,13 +237,13 @@ class SimpleAuthorizer(Authorizer, name="simple"):
         self,
         rights_file=None,
         roles_file=None,
-        roles=None,
-        rights=None,
+        roles: Optional[Dict[str, Dict[str, List[str]]]] = None,
+        rights: Optional[Dict[str, Dict[str, List[str]]]] = None,
         identity_dimension=None,
-        order=None,
+        order: Optional[str] = None,
         guest=None,
         **options
-    ):
+    ) -> None:
         """Creates a simple JSON-file based authorizer. Reads data from
         `rights_file` and `roles_file` and merge them with `roles` and
         `rights` dictionaries respectively."""
@@ -316,7 +324,7 @@ class SimpleAuthorizer(Authorizer, name="simple"):
 
         return right
 
-    def right(self, token):
+    def right(self, token: str) -> _SimpleAccessRight:
         try:
             right = self.rights[token]
         except KeyError:
@@ -328,7 +336,7 @@ class SimpleAuthorizer(Authorizer, name="simple"):
 
         return right
 
-    def authorize(self, token, cubes):
+    def authorize(self, token: str, cubes: List[Cube]) -> List[Cube]:
         try:
             right = self.right(token)
         except NotAuthorized:

@@ -2,14 +2,14 @@
 
 __version__ = "1.1"
 
+from .auth import *
+from .calendar import *
 from .common import *
-from .query import *
-from .metadata import *
-from .workspace import *
 from .errors import *
 from .formatters import *
-from .mapper import *
-from .calendar import *
-from .auth import *
 from .logging import *
+from .mapper import *
+from .metadata import *
 from .namespace import *
+from .query import *
+from .workspace import *

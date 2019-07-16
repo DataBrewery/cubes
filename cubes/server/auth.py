@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-from ..errors import *
-from flask import Response, redirect
 import re
+
+from flask import Response, redirect
+
+from ..errors import *
 from ..ext import Extensible
 
 __all__ = ("Authenticator", "NotAuthenticated")

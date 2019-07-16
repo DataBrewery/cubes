@@ -3,8 +3,9 @@
 
 The base exception calss is :class:`.CubesError`."""
 
-from typing import Optional
 from collections import OrderedDict
+from typing import Optional
+
 from .types import JSONType
 
 

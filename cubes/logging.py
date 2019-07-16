@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from logging import FileHandler, Formatter, Logger, StreamHandler, getLogger
 from typing import Optional, Union
-from logging import getLogger, Formatter, StreamHandler, FileHandler, Logger
 
 __all__ = ["get_logger", "create_logger"]
 

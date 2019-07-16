@@ -5,13 +5,17 @@
 # generator is – is to remain as much Cubes-independent as possible, just be a
 # low level module somewhere between SQLAlchemy and Cubes.
 
-import sqlalchemy.sql as sql
+from typing import Dict, List, Optional, Union
 
+import sqlalchemy.sql as sql
 from expressions import Compiler
-from .functions import get_aggregate_function
+from expressions.compiler import Variable
+from sqlalchemy.sql.elements import BinaryExpression, BindParameter
+from sqlalchemy.sql.functions import _FunctionGenerator, min
+from sqlalchemy.sql.schema import Column
 
 from ..errors import ExpressionError
-
+from .functions import get_aggregate_function
 
 __all__ = ["SQLExpressionContext", "compile_attributes", "SQLExpressionCompiler"]
 
@@ -69,7 +73,9 @@ class SQLExpressionContext:
     """Context used for building a list of all columns to be used within a
     single SQL query."""
 
-    def __init__(self, columns=None, parameters=None, label=None):
+    def __init__(
+        self, columns: Optional[Dict[str, Column]] = None, parameters=None, label=None
+    ) -> None:
         """Creates a SQL expression compiler context.
 
         * `bases` is a dictionary of base columns or column expressions
@@ -91,7 +97,7 @@ class SQLExpressionContext:
     def columns(self):
         return self._columns
 
-    def resolve(self, variable):
+    def resolve(self, variable: str) -> Union[Column, BinaryExpression]:
         """Resolve `variable` – return either a column, variable from a
         dictionary or a SQL constant (in that order)."""
 
@@ -116,13 +122,13 @@ class SQLExpressionContext:
     def __getitem__(self, item):
         return self.resolve(item)
 
-    def function(self, name):
+    def function(self, name: str) -> _FunctionGenerator:
         """Return a SQL function"""
         if name not in SQL_ALL_FUNCTIONS:
             raise ExpressionError(f"Unknown function '{name}'")
         return getattr(sql.func, name)
 
-    def add_column(self, name, column):
+    def add_column(self, name: str, column: BinaryExpression) -> None:
         self._columns[name] = column
 
 
@@ -156,13 +162,21 @@ def compile_attributes(bases, dependants, parameters, coalesce=None, label=None)
 
 
 class SQLExpressionCompiler(Compiler):
-    def __init__(self, context=None):
+    def __init__(self, context=None) -> None:
         super().__init__(context)
 
-    def compile_literal(self, context, literal):
+    def compile_literal(
+        self, context: SQLExpressionContext, literal: Union[str, int]
+    ) -> BindParameter:
         return sql.expression.bindparam("literal", literal, unique=True)
 
-    def compile_binary(self, context, operator, op1, op2):
+    def compile_binary(
+        self,
+        context: SQLExpressionContext,
+        operator: str,
+        op1: Union[Column, BinaryExpression, BindParameter],
+        op2: Union[BindParameter, Column],
+    ) -> BinaryExpression:
         if operator == "*":
             result = op1 * op2
         elif operator == "/":
@@ -198,7 +212,9 @@ class SQLExpressionCompiler(Compiler):
 
         return result
 
-    def compile_variable(self, context, variable):
+    def compile_variable(
+        self, context: SQLExpressionContext, variable: Variable
+    ) -> Union[Column, BinaryExpression]:
         name = variable.name
         result = context.resolve(name)
         return result
@@ -217,6 +233,11 @@ class SQLExpressionCompiler(Compiler):
 
         return result
 
-    def compile_function(self, context, func, args):
+    def compile_function(
+        self,
+        context: SQLExpressionContext,
+        func: Variable,
+        args: List[Union[Column, BindParameter]],
+    ) -> min:
         func = context.function(func.name)
         return func(*args)

@@ -1,28 +1,22 @@
 # -*- coding: utf-8 -*-
 
 from collections import deque
-from functools import partial
+from functools import partial, reduce
 from math import sqrt
+from statistics import mean, stdev, variance
+from typing import Any, Callable, List, Optional, Sequence, Union
 
-from functools import reduce
-
-from typing import List, Callable, List, Union, Optional, Sequence, Any
-
-from ..types import _UnknownType, _RecordType
 from ..errors import ArgumentError, InternalError, ModelError
-from ..metadata import MeasureAggregate, HierarchyPath, Level
-from ..metadata.cube import Cube
+from ..metadata import HierarchyPath, Level, MeasureAggregate
 from ..metadata.attributes import Measure
+from ..metadata.cube import Cube
 from ..query.cells import Cell
+from ..types import _RecordType, _UnknownType
+from .constants import SPLIT_DIMENSION_NAME
 
 # FIXME: Circular dependency. We need to fix the type
 # from ..query.browser import Drilldown
 Drilldown = Any
-
-from .constants import SPLIT_DIMENSION_NAME
-
-
-from statistics import variance, stdev, mean
 
 
 __all__ = [

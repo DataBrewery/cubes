@@ -6,13 +6,10 @@
 
 from typing import Any, Callable, Collection, Dict, List, Optional, Sequence
 
-from . import sqlalchemy as sa
-from ..types import ValueType
-
 from ..errors import ModelError
-
 from ..metadata.attributes import MeasureAggregate
-
+from ..types import ValueType
+from . import sqlalchemy as sa
 
 __all__ = ("get_aggregate_function", "available_aggregate_functions")
 

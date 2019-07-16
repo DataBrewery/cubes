@@ -2,15 +2,14 @@
 """Date and time utilities."""
 
 import re
-
+from datetime import datetime, tzinfo
 from typing import Dict, List, Optional, Union
 
-from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
+from dateutil.relativedelta import FR, MO, SA, SU, TH, TU, WE, relativedelta
 from dateutil.tz import gettz, tzlocal, tzstr
-from datetime import datetime, tzinfo
 
-from .metadata import Hierarchy, HierarchyPath, Dimension
 from .errors import ArgumentError, ConfigurationError
+from .metadata import Dimension, Hierarchy, HierarchyPath
 
 __all__ = ("Calendar", "calendar_hierarchy_units")
 

@@ -1,25 +1,20 @@
 # -*- encoding=utf -*-
 
-from . import sqlalchemy as sa
-
 from typing import Any, Optional
-from ..types import OptionsType, OptionValue, JSONType
 
-from typing import Any
-from ..types import OptionsType, OptionValue, JSONType
-
-from .browser import SQLBrowser
-from .mapper import distill_naming, NamingDict
-from ..logging import get_logger
 from ..common import coalesce_options
-from ..stores import Store
-from ..errors import ArgumentError, StoreError, ConfigurationError
-from ..query.drilldown import Drilldown
-from ..query.cells import Cell
-from .utils import CreateTableAsSelect, CreateOrReplaceView
+from ..errors import ArgumentError, ConfigurationError, StoreError
+from ..logging import get_logger
 from ..metadata import string_to_dimension_level
+from ..query.cells import Cell
+from ..query.drilldown import Drilldown
 from ..settings import Setting, SettingType
-
+from ..stores import Store
+from ..types import JSONType, OptionsType, OptionValue
+from . import sqlalchemy as sa
+from .browser import SQLBrowser
+from .mapper import NamingDict, distill_naming
+from .utils import CreateOrReplaceView, CreateTableAsSelect
 
 __all__ = ["sqlalchemy_options", "SQLStore"]
 

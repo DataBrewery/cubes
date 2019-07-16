@@ -2,24 +2,21 @@
 
 import copy
 import re
-
 from collections import OrderedDict
 from typing import Any, Collection, Dict, List, Optional, Set, Sized, Tuple, Union, cast
 
 from ..common import get_localizable_attributes
-from ..types import JSONType
 from ..errors import (
-    ModelError,
     ArgumentError,
     HierarchyError,
-    NoSuchAttributeError,
+    ModelError,
     ModelInconsistencyError,
+    NoSuchAttributeError,
     TemplateRequired,
 )
-
-from .base import ModelObject, object_dict
+from ..types import JSONType
 from .attributes import Attribute, expand_attribute_metadata
-
+from .base import ModelObject, object_dict
 
 __all__ = [
     "Dimension",

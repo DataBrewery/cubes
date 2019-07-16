@@ -1,18 +1,8 @@
-from typing import (
-    Any,
-    Collection,
-    Dict,
-    Mapping,
-    Iterator,
-    Optional,
-    Union,
-    Set,
-)
-
 from collections import OrderedDict
-from .errors import InternalError, ConfigurationError
 from enum import Enum
+from typing import Any, Collection, Dict, Iterator, Mapping, Optional, Set, Union
 
+from .errors import ConfigurationError, InternalError
 
 SettingValue = Union[str, float, bool, int]
 

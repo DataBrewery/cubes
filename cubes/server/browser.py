@@ -3,9 +3,9 @@
 import json
 import logging
 
-from ..query.browser import BrowserFeatures, BrowserFeatureAction
 from ..logging import get_logger
 from ..query import *
+from ..query.browser import BrowserFeatureAction, BrowserFeatures
 from ..query.result import AggregationResult, Facts
 
 

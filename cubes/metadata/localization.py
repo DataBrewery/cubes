@@ -6,20 +6,31 @@
 # TODO: Should go away with new approach to model object description in #398
 
 
+from typing import Any, Dict, Optional
+
+
 class ModelObjectLocalizationContext:
-    def __init__(self, translation, context, object_type, object_name):
+    def __init__(
+        self,
+        translation: Dict[str, Any],
+        context: "LocalizationContext",
+        object_type: str,
+        object_name: str,
+    ) -> None:
         self.translation = translation
         self.object_type = object_type
         self.object_name = object_name
         self.context = context
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
         try:
             return self.translation[key]
         except KeyError:
             return self.context.get(self.object_type, self.object_name, key, default)
 
-    def object_localization(self, object_type, name):
+    def object_localization(
+        self, object_type: str, name: str
+    ) -> "ModelObjectLocalizationContext":
         try:
             objects = self.translation[object_type]
         except KeyError:
@@ -38,11 +49,13 @@ class ModelObjectLocalizationContext:
 
 
 class LocalizationContext:
-    def __init__(self, translation, parent=None):
+    def __init__(self, translation: Dict[str, Dict], parent=None) -> None:
         self.translation = translation
         self.parent = parent
 
-    def object_localization(self, object_type, name):
+    def object_localization(
+        self, object_type: str, name: str
+    ) -> ModelObjectLocalizationContext:
         try:
             objects = self.translation[object_type]
         except KeyError:
@@ -59,7 +72,13 @@ class LocalizationContext:
 
         return ModelObjectLocalizationContext(trans, self, object_type, name)
 
-    def get(self, object_type, object_name, key, default=None):
+    def get(
+        self,
+        object_type: str,
+        object_name: str,
+        key: str,
+        default: Optional[str] = None,
+    ) -> Optional[str]:
         try:
             objects = self.translation[object_type]
         except KeyError:

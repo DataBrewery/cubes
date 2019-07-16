@@ -3,15 +3,14 @@
 
 # TODO: This should be moved under query sub-module
 
-from typing import Optional, Any, Collection, Tuple, Dict
-from logging import Logger
 import collections
+from logging import Logger
+from typing import Any, Collection, Dict, Optional, Tuple
 
 from .logging import get_logger
-from .types import JSONType
-from .metadata.cube import Cube
 from .metadata.attributes import AttributeBase
-
+from .metadata.cube import Cube
+from .types import JSONType
 
 __all__ = ("Mapper",)
 

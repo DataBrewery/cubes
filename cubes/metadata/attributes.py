@@ -1,23 +1,13 @@
 # -*- encoding: utf-8 -*-
 
 import copy
+from typing import Any, Collection, Dict, List, Optional, Set, Type, TypeVar, cast
 
-from typing import (
-    Any,
-    Collection,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-    cast,
-)
 from expressions import inspect_variables  # type: ignore
 
+from ..common import JSONType, get_localizable_attributes
+from ..errors import ArgumentError, ExpressionError, ModelError
 from .base import ModelObject
-from ..errors import ModelError, ArgumentError, ExpressionError
-from ..common import get_localizable_attributes, JSONType
 
 __all__ = [
     "AttributeBase",

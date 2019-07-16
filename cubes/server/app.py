@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-from .base import create_server
-from .base import read_slicer_config
+
+from .base import create_server, read_slicer_config
 from .utils import str_to_bool
 
 # Set the configuration file

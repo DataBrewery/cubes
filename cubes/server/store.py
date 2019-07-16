@@ -1,16 +1,19 @@
 # -*- coding=utf -*-
-from ..metadata import *
-from ..query import *
-from ..stores import Store
+import json
+from urllib.parse import urlencode
+from urllib.request import (
+    HTTPBasicAuthHandler,
+    HTTPPasswordMgrWithDefaultRealm,
+    build_opener,
+    urlopen,
+)
+
 from ..errors import *
 from ..logging import get_logger
+from ..metadata import *
+from ..query import *
 from ..settings import Setting, SettingType
-import json
-
-from urllib.request import urlopen, build_opener
-from urllib.request import HTTPPasswordMgrWithDefaultRealm
-from urllib.request import HTTPBasicAuthHandler
-from urllib.parse import urlencode
+from ..stores import Store
 
 DEFAULT_SLICER_URL = "http://localhost:5000"
 

@@ -2,7 +2,6 @@
 
 import copy
 import re
-
 from collections import OrderedDict
 from typing import (
     Any,
@@ -17,13 +16,12 @@ from typing import (
     cast,
 )
 
-from ..types import JSONType
 from ..errors import ArgumentError, CubesError
-from ..metadata.dimension import Dimension, Hierarchy, Level, HierarchyPath
+from ..logging import get_logger
 from ..metadata.attributes import Attribute
 from ..metadata.cube import Cube
-from ..logging import get_logger
-
+from ..metadata.dimension import Dimension, Hierarchy, HierarchyPath, Level
+from ..types import JSONType
 
 __all__ = [
     "Cell",

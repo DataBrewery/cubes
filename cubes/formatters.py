@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 
-import json
-import csv
 import codecs
 import csv
 import datetime
 import decimal
+import json
 import os
 import tempfile
+from collections import namedtuple
 from io import StringIO
 
-from collections import namedtuple
+from . import ext
+from .errors import ArgumentError
+from .query.constants import SPLIT_DIMENSION_NAME
+from .settings import Setting, SettingType
 
 try:
     import jinja2
@@ -26,11 +29,6 @@ except ImportError:
 
     openpyxl = MissingPackage("openpyxl", "pyexcel or other xlsx/xlsm reader/writer")
 
-from .errors import ArgumentError
-from . import ext
-from .settings import Setting, SettingType
-
-from .query.constants import SPLIT_DIMENSION_NAME
 
 __all__ = [
     "create_formatter",
@@ -108,7 +106,7 @@ class JSONLinesGenerator:
 
 
 class SlicerJSONEncoder(json.JSONEncoder):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """Creates a JSON encoder that will convert some data values and also allows
         iterables to be used in the object graph.
 

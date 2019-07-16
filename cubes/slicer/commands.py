@@ -7,35 +7,40 @@ To enable full user exception debugging set the ``CUBES_ERROR_DEBUG``
 environment variable.
 """
 
-from typing import TYPE_CHECKING, Optional
-
 import json
 import os
 import sys
+from typing import List, Optional
+
 import click
 
-from ..datastructures import AttributeDict
-from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
-from ..formatters import (
-    csv_generator,
-    SlicerJSONEncoder,
-    JSONLinesGenerator,
-    xlsx_generator,
-)
-from ..metadata import read_model_metadata, write_model_metadata_bundle
-from ..workspace import Workspace
-from ..errors import CubesError
-from ..server import run_server
-from ..server.base import read_slicer_config
+import cubes
 
 from .. import ext
-
-from ..query import cuts_from_string, Cell
-from ..metadata import string_to_dimension_level
-
-
+from ..datastructures import AttributeDict
+from ..errors import (
+    ArgumentError,
+    CubesError,
+    InconsistencyError,
+    InternalError,
+    UserError,
+)
 from ..ext import ExtensionRegistry
-
+from ..formatters import (
+    JSONLinesGenerator,
+    SlicerJSONEncoder,
+    csv_generator,
+    xlsx_generator,
+)
+from ..metadata import (
+    read_model_metadata,
+    string_to_dimension_level,
+    write_model_metadata_bundle,
+)
+from ..query import Cell, cuts_from_string
+from ..server import run_server
+from ..server.base import read_slicer_config
+from ..workspace import Workspace
 
 DEFAULT_CONFIG = "slicer.ini"
 
@@ -472,7 +477,7 @@ def sql_aggregate(ctx, force, index, schema, cube, target, dimensions):
     workspace = ctx.obj.workspace
     store = ctx.obj.store
 
-    print(f"denormalizing cube '{cube_name}' into '{target}'")
+    print(f"denormalizing cube '{cube}' into '{target}'")
 
     store.create_cube_aggregate(
         cube,
@@ -639,6 +644,8 @@ def members(ctx, config, cube_name, cuts, dim_name, output_format):
         result = csv_generator(values, fields, include_header=True, header=labels)
     elif output_format == "xlsx":
         result = xlsx_generator(values, fields, include_header=True, header=labels)
+    else:
+        raise ValueError(f"Illegal output format: {output_format}")
 
     out = click.get_text_stream("stdout")
     for row in result:

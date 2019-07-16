@@ -3,25 +3,36 @@ import json
 import sys
 import traceback
 from collections import OrderedDict
+from configparser import ConfigParser
+from typing import Optional, Union
 
-from flask import Blueprint, Response, request, g, current_app, safe_join, make_response
-from flask import render_template, redirect
-
-from ..workspace import Workspace, SLICER_INFO_KEYS
-from ..query.constants import SPLIT_DIMENSION_NAME
-from ..query import Cell, cut_from_dict
-from ..errors import *
-from ..formatters import JSONLinesGenerator, csv_generator
-from .. import ext
-from ..logging import get_logger
-from .logging import configured_request_log_handlers, RequestLogger, AsyncRequestLogger
-from .errors import *
-from .decorators import *
-from .local import *
-from .auth import NotAuthenticated
-
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    g,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    safe_join,
+)
+from flask.wrappers import Response
 
 from cubes import __version__
+
+from .. import ext
+from ..errors import *
+from ..formatters import JSONLinesGenerator, csv_generator
+from ..logging import get_logger
+from ..query import Cell, cut_from_dict
+from ..query.constants import SPLIT_DIMENSION_NAME
+from ..workspace import SLICER_INFO_KEYS, Workspace
+from .auth import NotAuthenticated
+from .decorators import *
+from .errors import *
+from .local import *
+from .logging import AsyncRequestLogger, RequestLogger, configured_request_log_handlers
 
 # TODO: missing features from the original Werkzeug Slicer:
 # * /locales and localization
@@ -29,6 +40,7 @@ from cubes import __version__
 # * caching
 # * root / index
 # * response.headers.add("Access-Control-Allow-Origin", "*")
+
 
 try:
     import cubes_search
@@ -48,7 +60,14 @@ slicer = Blueprint("slicer", __name__, template_folder="templates")
 # ------
 
 
-def _store_option(config, option, default, type_=None, allowed=None, section="server"):
+def _store_option(
+    config: ConfigParser,
+    option: str,
+    default: Optional[Union[int, str]],
+    type_: Optional[str] = None,
+    allowed=None,
+    section: str = "server",
+) -> None:
     """Copies the `option` into the application config dictionary. `default`
     is a default value, if there is no such option in `config`. `type_` can be
     `bool`, `int` or `string` (default). If `allowed` is specified, then the
@@ -143,7 +162,7 @@ def initialize_slicer(state):
 
 
 @slicer.before_request
-def process_common_parameters():
+def process_common_parameters() -> None:
     # TODO: setup language
 
     # Copy from the application context
@@ -156,7 +175,7 @@ def process_common_parameters():
 
 
 @slicer.before_request
-def prepare_authorization():
+def prepare_authorization() -> None:
     if current_app.slicer.authenticator:
         try:
             identity = current_app.slicer.authenticator.authenticate(request)
@@ -236,7 +255,7 @@ def show_index():
 
 
 @slicer.route("/version")
-def show_version():
+def show_version() -> Response:
     info = {
         "version": __version__,
         # Backward compatibility key
@@ -613,7 +632,7 @@ def get_visualizer():
 
 
 @slicer.after_request
-def add_cors_headers(response):
+def add_cors_headers(response: Response) -> Response:
     """Add Cross-origin resource sharing headers."""
     origin = current_app.slicer.allow_cors_origin
     if origin and len(origin):

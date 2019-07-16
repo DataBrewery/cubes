@@ -12,9 +12,7 @@ from typing import (
     cast,
 )
 
-
-from ..types import JSONType, _RecordType
-
+from ..common import IgnoringDictionary
 from ..metadata import (
     Cube,
     Dimension,
@@ -23,12 +21,10 @@ from ..metadata import (
     Level,
     MeasureAggregate,
 )
-
 from ..query.cells import Cell, PointCut
 from ..query.drilldown import Drilldown
-
+from ..types import JSONType, _RecordType
 from .statutils import _CalculatorFunction
-from ..common import IgnoringDictionary
 
 __all__ = ["AggregationResult", "Facts", "TableRow"]
 

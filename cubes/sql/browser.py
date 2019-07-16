@@ -2,7 +2,9 @@
 """SQL Browser"""
 
 
+import collections
 from typing import (
+    TYPE_CHECKING,
     Any,
     Collection,
     Dict,
@@ -11,51 +13,39 @@ from typing import (
     List,
     Mapping,
     Optional,
-    TYPE_CHECKING,
-    Type,
     Tuple,
+    Type,
     Union,
 )
 
-import collections
-
-from . import sqlalchemy as sa
-from ..types import _RecordType, ValueType
-
-from ..metadata.attributes import Attribute, AttributeBase, Measure, MeasureAggregate
-from ..metadata.dimension import Hierarchy, HierarchyPath, Dimension, Level
-from ..metadata.cube import Cube
-from ..metadata.physical import Join
-
-from ..types import _RecordType, ValueType
-
-from ..query import available_calculators
-from ..query.browser import (
-    AggregationBrowser,
-    BrowserFeatures,
-    BrowserFeatureAction,
-    _OrderType,
-    # FIXME: We should not be getting this here
-    _OrderArgType,
-)
-from ..query.result import AggregationResult, Facts
-from ..query.drilldown import Drilldown
-from ..query.cells import Cell, PointCut
-from ..logging import get_logger
 from ..errors import ArgumentError, InternalError
-
-from ..stores import Store
+from ..logging import get_logger
+from ..metadata.attributes import Attribute, AttributeBase, Measure, MeasureAggregate
+from ..metadata.cube import Cube
+from ..metadata.dimension import Dimension, Hierarchy, HierarchyPath, Level
+from ..metadata.physical import Join
+from ..query import available_calculators
+from ..query.browser import (  # FIXME: We should not be getting this here
+    AggregationBrowser,
+    BrowserFeatureAction,
+    BrowserFeatures,
+    _OrderArgType,
+    _OrderType,
+)
+from ..query.cells import Cell, PointCut
+from ..query.drilldown import Drilldown
+from ..query.result import AggregationResult, Facts
 from ..settings import Setting, SettingType
-
+from ..stores import Store
+from ..types import ValueType, _RecordType
+from . import sqlalchemy as sa
 from .functions import available_aggregate_functions
-from .mapper import Mapper, NamingDict, DenormalizedMapper, StarSchemaMapper
-from .query import StarSchema, QueryContext, FACT_KEY_LABEL
-from .utils import paginate_query, order_query
+from .mapper import DenormalizedMapper, Mapper, NamingDict, StarSchemaMapper
+from .query import FACT_KEY_LABEL, QueryContext, StarSchema
+from .utils import order_query, paginate_query
 
 if TYPE_CHECKING:
     from .store import SQLStore
-
-from ..types import _RecordType
 
 
 __all__ = ["SQLBrowser"]

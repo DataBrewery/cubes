@@ -1,18 +1,23 @@
 # -*- encoding: utf-8 -*-
 
-from flask import Request, Response, request, g
-
 import codecs
-import json
 import csv
+import json
+from configparser import ConfigParser
+from typing import Dict, Optional, Union
 
-from .errors import *
+from flask import Request, Response, g, request
+from flask.wrappers import Response
+
+from cubes.server.logging import RequestLogger
+
 from ..formatters import (
-    csv_generator,
     JSONLinesGenerator,
     SlicerJSONEncoder,
+    csv_generator,
     xlsx_generator,
 )
+from .errors import *
 
 
 def str_to_bool(string):
@@ -48,13 +53,15 @@ def validated_parameter(args, name, values=None, default=None, case_sensitive=Fa
 
 
 class CustomDict(dict):
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> Optional[Union[int, str]]:
         try:
             return super().__getitem__(attr)
         except KeyError:
             return super().__getattribute__(attr)
 
-    def __setattr__(self, attr, value):
+    def __setattr__(
+        self, attr: str, value: Optional[Union[int, RequestLogger, str, ConfigParser]]
+    ) -> None:
         self.__setitem__(attr, value)
 
 
@@ -62,7 +69,7 @@ class CustomDict(dict):
 # =====
 
 
-def jsonify(obj):
+def jsonify(obj: Dict[str, Union[str, int]]) -> Response:
     """Returns a ``application/json`` `Response` object with `obj` converted
     to JSON."""
 

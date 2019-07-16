@@ -2,7 +2,6 @@
 """Logical to Physical Mappers"""
 
 import re
-
 from typing import (
     Collection,
     Dict,
@@ -16,20 +15,12 @@ from typing import (
     Union,
 )
 
-from collections import defaultdict
-
-from ..types import JSONType
-
 from ..errors import ModelError
-from ..datastructures import AttributeDict
-
-from ..metadata.physical import ColumnReference
-
-from ..metadata.cube import Cube
 from ..metadata.attributes import AttributeBase
+from ..metadata.cube import Cube
 from ..metadata.dimension import Dimension
-
-from ..settings import Setting, SettingType
+from ..metadata.physical import ColumnReference
+from ..types import JSONType
 
 # Note about the future of this module:
 #
@@ -44,7 +35,6 @@ __all__ = (
     "Mapper",
     "StarSchemaMapper",
     "DenormalizedMapper",
-    "map_base_attributes",
 )
 
 
@@ -80,6 +70,7 @@ NAMING_DEFAULTS = {
 # TODO: [typing] Make this aligned with some common value type shared with
 # settings.
 NamingDict = Dict[str, Union[str, bool, None]]
+
 
 # TODO: [typing][2.0] analyse whether this is still needed, looks lie Store is
 # using it

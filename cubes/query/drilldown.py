@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 
+from typing import Mapping  # Collection,
 from typing import (
-    # Collection,
     Dict,
     Iterable,
     Iterator,
     List,
-    Mapping,
     NamedTuple,
     Optional,
     Set,
@@ -16,6 +15,7 @@ from typing import (
     cast,
 )
 
+from ..errors import ArgumentError, HierarchyError
 from ..metadata import (
     Attribute,
     Cube,
@@ -24,12 +24,8 @@ from ..metadata import (
     Level,
     string_to_dimension_level,
 )
-
 from .cells import Cell, Cut, PointCut, SetCut, cuts_from_string
-
 from .constants import SPLIT_DIMENSION_NAME
-from ..errors import ArgumentError, HierarchyError
-
 
 # FIXME: Update afetr Python 3.6.1
 Collection = List

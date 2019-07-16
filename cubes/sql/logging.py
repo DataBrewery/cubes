@@ -1,13 +1,23 @@
 # -*- coding=utf -*-
 
-from ..server.logging import RequestLogHandler, REQUEST_LOG_ITEMS
-from sqlalchemy import create_engine, Table, MetaData, Column
-from sqlalchemy import Integer, Sequence, DateTime, String, Float
-from sqlalchemy.exc import NoSuchTableError
-from ..query.drilldown import Drilldown
-from .store import create_sqlalchemy_engine
-
 import logging
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    MetaData,
+    Sequence,
+    String,
+    Table,
+    create_engine,
+)
+from sqlalchemy.exc import NoSuchTableError
+
+from ..query.drilldown import Drilldown
+from ..server.logging import REQUEST_LOG_ITEMS, RequestLogHandler
+from .store import create_sqlalchemy_engine
 
 
 class SQLRequestLogHandler(RequestLogHandler, name="sql"):

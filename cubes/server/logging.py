@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
-import datetime
-import time
 import csv
+import datetime
 import io
 import json
-
-from contextlib import contextmanager
+import time
 from collections import namedtuple
-from threading import Thread
+from configparser import ConfigParser
+from contextlib import contextmanager
 from queue import Queue
+from threading import Thread
+from typing import Any, List
 
 from .. import ext
-from ..logging import get_logger
 from ..errors import *
+from ..logging import get_logger
 from ..query.drilldown import Drilldown
 
 __all__ = [
@@ -45,7 +46,9 @@ REQUEST_LOG_ITEMS = [
 ]
 
 
-def configured_request_log_handlers(config, prefix="query_log", default_logger=None):
+def configured_request_log_handlers(
+    config: ConfigParser, prefix: str = "query_log", default_logger=None
+) -> List[Any]:
     """Returns configured query loggers as defined in the `config`."""
 
     handlers = []
@@ -66,7 +69,7 @@ def configured_request_log_handlers(config, prefix="query_log", default_logger=N
 
 
 class RequestLogger:
-    def __init__(self, handlers=None):
+    def __init__(self, handlers: Optional[List[Any]] = None) -> None:
         if handlers:
             self.handlers = list(handlers)
         else:
