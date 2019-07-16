@@ -82,8 +82,8 @@ def visit_create_or_replace_view(element, compiler, **kw):
 
 
 def paginate_query(statement, page, page_size):
-    """Returns paginated statement if page is provided, otherwise returns
-    the same statement."""
+    """Returns paginated statement if page is provided, otherwise returns the
+    same statement."""
 
     if page is not None and page_size is not None:
         statement = statement.offset(page * page_size).limit(page_size)
@@ -92,8 +92,10 @@ def paginate_query(statement, page, page_size):
 
 
 def order_column(column, order):
-    """Orders a `column` according to `order` specified as string. Returns a
-    `Column` expression"""
+    """Orders a `column` according to `order` specified as string.
+
+    Returns a `Column` expression
+    """
 
     if not order:
         return column

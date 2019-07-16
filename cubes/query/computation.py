@@ -11,7 +11,7 @@ def combined_cuboids(dimensions, required=None):
     """Returns a list of all combinations of `dimensions` as tuples. For
     example, if `dimensions` is: ``['date', 'product']`` then it returns:
 
-        ``[['date', 'cpv'], ['date'], ['cpv']]``
+    ``[['date', 'cpv'], ['date'], ['cpv']]``
     """
 
     required = tuple(required) if required else ()
@@ -39,10 +39,11 @@ def combined_cuboids(dimensions, required=None):
 
 
 def combined_levels(dimensions, default_only=False):
-    """Create a cartesian product of levels from all `dimensions`. For
-    example, if dimensions are _date_, _product_ then result will be:
-    levels of _date_ X levels of _product_. Each element of the returned list
-    is a list of tuples (`dimension`, `level`)
+    """Create a cartesian product of levels from all `dimensions`.
+
+    For example, if dimensions are _date_, _product_ then result will
+    be: levels of _date_ X levels of _product_. Each element of the
+    returned list is a list of tuples (`dimension`, `level`)
     """
     groups = []
     for dim in dimensions:

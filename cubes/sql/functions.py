@@ -36,8 +36,10 @@ class AggregateFunction:
         coalesce: bool = False,
     ) -> sa.ColumnElement:
         """Applied the function on the aggregate and returns labelled
-        expression. SQL expression label is the aggregate's name. This method
-        calls `apply()` method which can be overriden by subclasses.
+        expression.
+
+        SQL expression label is the aggregate's name. This method calls
+        `apply()` method which can be overriden by subclasses.
         """
 
         expression = self.apply(aggregate, context, coalesce)
@@ -47,17 +49,21 @@ class AggregateFunction:
     def coalesce_value(
         self, aggregate: MeasureAggregate, value: sa.ColumnElement
     ) -> sa.ColumnElement:
-        """Coalesce the value before aggregation of `aggregate`. `value` is a
-        SQLAlchemy expression. Default implementation does nothing, just
-        returns the `value`."""
+        """Coalesce the value before aggregation of `aggregate`.
+
+        `value` is a SQLAlchemy expression. Default implementation does
+        nothing, just returns the `value`.
+        """
         return value
 
     def coalesce_aggregate(
         self, aggregate: MeasureAggregate, value: sa.ColumnElement
     ) -> sa.ColumnElement:
-        """Coalesce the aggregated value of `aggregate`. `value` is a
-        SQLAlchemy expression. Default implementation does nothing, just
-        returns the `value`."""
+        """Coalesce the aggregated value of `aggregate`.
+
+        `value` is a SQLAlchemy expression. Default implementation does
+        nothing, just returns the `value`.
+        """
         return value
 
     # FIXME: [2.0] Investigate necessity of this function and impact of tis
@@ -84,7 +90,8 @@ class AggregateFunction:
         If `missing_value` is not `None`, then the aggregate's source value
         should be wrapped in ``COALESCE(column, missing_value)``.
 
-        Returns a SQLAlchemy expression."""
+        Returns a SQLAlchemy expression.
+        """
 
         if not aggregate.measure:
             raise ModelError(
@@ -113,8 +120,11 @@ class ValueCoalescingFunction(AggregateFunction):
     def coalesce_value(
         self, aggregate: MeasureAggregate, value: sa.ColumnElement
     ) -> sa.ColumnElement:
-        """Coalesce the value before aggregation of `aggregate`. `value` is a
-        SQLAlchemy expression.  Default implementation coalesces to zero 0."""
+        """Coalesce the value before aggregation of `aggregate`.
+
+        `value` is a SQLAlchemy expression.  Default implementation
+        coalesces to zero 0.
+        """
         # TODO: use measure's missing value (we need to get the measure object
         # somehow)
         return sa.coalesce(value, 0)
@@ -124,8 +134,11 @@ class SummaryCoalescingFunction(AggregateFunction):
     def coalesce_aggregate(
         self, aggregate: MeasureAggregate, value: sa.ColumnElement
     ) -> sa.ColumnElement:
-        """Coalesce the aggregated value of `aggregate`. `value` is a
-        SQLAlchemy expression.  Default implementation does nothing."""
+        """Coalesce the aggregated value of `aggregate`.
+
+        `value` is a SQLAlchemy expression.  Default implementation does
+        nothing.
+        """
         # TODO: use aggregates's missing value
         return sa.coalesce(value, 0)
 
@@ -148,7 +161,7 @@ class GenerativeFunction(AggregateFunction):
 
 
 class FactCountFunction(AggregateFunction):
-    """Creates a function that provides fact (record) counts.  """
+    """Creates a function that provides fact (record) counts."""
 
     def apply(
         self,
@@ -156,7 +169,10 @@ class FactCountFunction(AggregateFunction):
         context: Optional[Any] = None,
         coalesce: bool = False,
     ) -> sa.ColumnElement:
-        """Count only existing facts. Assumption: every facts has an ID"""
+        """Count only existing facts.
+
+        Assumption: every facts has an ID
+        """
 
         if coalesce:
             # FIXME: pass the fact column somehow more nicely, maybe in a map:
@@ -211,9 +227,12 @@ def _create_function_dict() -> None:
 
 
 def get_aggregate_function(name: str) -> AggregateFunction:
-    """Returns an aggregate function `name`. The returned function takes two
+    """Returns an aggregate function `name`.
+
+    The returned function takes two
     arguments: `aggregate` and `context`. When called returns a labelled
-    SQL expression."""
+    SQL expression.
+    """
 
     _create_function_dict()
     return _function_dict[name]

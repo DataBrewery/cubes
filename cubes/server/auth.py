@@ -46,9 +46,11 @@ class AbstractBasicAuthenticator(Authenticator, abstract=True):
 
 
 class AdminAdminAuthenticator(AbstractBasicAuthenticator, name="admin_admin"):
-    """Simple HTTP Basic authenticator for testing purposes. User name and
-    password have to be the same. User name is passed as the authenticated
-    identity."""
+    """Simple HTTP Basic authenticator for testing purposes.
+
+    User name and password have to be the same. User name is passed as
+    the authenticated identity.
+    """
 
     def __init__(self, realm=None, **options):
         super().__init__(realm=realm)
@@ -83,8 +85,12 @@ class HTTPBasicProxyAuthenticator(AbstractBasicAuthenticator, name="http_basic_p
 
     def authenticate(self, request):
         """Permissive authenticator using HTTP Basic authentication that
-        assumes the server to be behind a proxy, and that the proxy authenticated the user. 
-        Does not check for a password, just passes the `username` as identity"""
+        assumes the server to be behind a proxy, and that the proxy
+        authenticated the user.
+
+        Does not check for a password, just passes the `username` as
+        identity
+        """
         auth = request.authorization
 
         if auth:

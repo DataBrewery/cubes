@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""Cube logical model"""
+"""Cube logical model."""
 
 import json
 import os
@@ -42,8 +42,10 @@ class ModelObject:
         description: Optional[str] = None,
         info: Optional[JSONType] = None,
     ) -> None:
-        """Initializes model object basics. Assures that the `info` is a
-        dictionary."""
+        """Initializes model object basics.
+
+        Assures that the `info` is a dictionary.
+        """
 
         self.name = name
         self.label = label
@@ -52,10 +54,12 @@ class ModelObject:
 
     # FIXME: Consolidate the options
     def to_dict(self, **options: Any) -> JSONType:
-        """Convert to a dictionary. If `with_mappings` is ``True`` (which is
-        default) then `joins`, `mappings`, `fact` and `options` are included.
-        Should be set to ``False`` when returning a dictionary that will be
-        provided in an user interface or through server API.
+        """Convert to a dictionary.
+
+        If `with_mappings` is ``True`` (which is default) then `joins`,
+        `mappings`, `fact` and `options` are included. Should be set to
+        ``False`` when returning a dictionary that will be provided in
+        an user interface or through server API.
         """
 
         out = IgnoringDictionary()
@@ -109,9 +113,12 @@ def object_dict(
     error_dict: Dict[str, _T] = None,
 ) -> Dict[str, _T]:
     """Make an ordered dictionary from model objects `objects` where keys are
-    object names. If `for_ref` is `True` then object's `ref` (reference) is
-    used instead of object name. Keys are supposed to be unique in the list,
-    otherwise an exception is raised."""
+    object names.
+
+    If `for_ref` is `True` then object's `ref` (reference) is used
+    instead of object name. Keys are supposed to be unique in the list,
+    otherwise an exception is raised.
+    """
 
     if by_ref:
         items = ((obj.ref, obj) for obj in objects)
@@ -141,7 +148,10 @@ def object_dict(
 
 def _json_from_url(url: str) -> JSONType:
     """Opens `resource` either as a file with `open()`or as URL with
-    `urlopen()`. Returns opened handle. """
+    `urlopen()`.
+
+    Returns opened handle.
+    """
 
     parts = urlparse(url)
     handle: IO[Any]
@@ -167,8 +177,10 @@ def _json_from_url(url: str) -> JSONType:
 
 def read_model_metadata(source: str) -> JSONType:
     """Reads a model description from `source` which can be a filename, URL,
-    file-like object or a path to a directory. Returns a model description
-    dictionary."""
+    file-like object or a path to a directory.
+
+    Returns a model description dictionary.
+    """
 
     if isinstance(source, str):
         parts = urlparse(source)
@@ -258,7 +270,10 @@ def write_model_metadata_bundle(
     path: str, metadata: JSONType, replace: bool = False
 ) -> None:
     """Writes a model metadata bundle into new directory `target` from
-    `metadata`. Directory should not exist."""
+    `metadata`.
+
+    Directory should not exist.
+    """
 
     if os.path.exists(path):
         if not os.path.isdir(path):

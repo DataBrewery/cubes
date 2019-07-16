@@ -23,7 +23,6 @@ class AttributeDict(dict, Generic[T]):
     """Augment classes with a Mapping interface by adding attribute access.
 
     I.e. `d.key -> d[key]`.
-
     """
 
     def __getattr__(self, key: str) -> T:

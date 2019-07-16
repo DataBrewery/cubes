@@ -33,8 +33,10 @@ __all__ = ["ModelProvider", "StaticModelProvider", "link_cube", "find_dimension"
 
 
 class ModelProvider(Extensible, abstract=True):
-    """Abstract class – factory for model object. Currently empty and used
-    only to find other model providers."""
+    """Abstract class – factory for model object.
+
+    Currently empty and used only to find other model providers.
+    """
 
     __extension_type__ = "model_provider"
 
@@ -100,29 +102,36 @@ class ModelProvider(Extensible, abstract=True):
 
     # TODO: remove this in favor of provider configuration: store=
     def requires_store(self) -> bool:
-        """Return `True` if the provider requires a store. Subclasses might
-        override this method. Default implementation returns `False`"""
+        """Return `True` if the provider requires a store.
+
+        Subclasses might override this method. Default implementation
+        returns `False`
+        """
         return False
 
     # TODO: bind this automatically on provider configuration: store (see
     # requires_store() function)
     def bind(self, store: Store) -> None:
-        """Set's the provider's `store`. """
+        """Set's the provider's `store`."""
 
         self.store = store
         self.initialize_from_store()
 
     def initialize_from_store(self) -> None:
         """This method is called after the provider's `store` was set.
-        Override this method if you would like to perform post-initialization
-        from the store."""
+
+        Override this method if you would like to perform post-
+        initialization from the store.
+        """
         pass
 
     def cube_options(self, cube_name: str) -> JSONType:
-        """Returns an options dictionary for cube `name`. The options
-        dictoinary is merged model `options` metadata with cube's `options`
-        metadata if exists. Cube overrides model's global (default)
-        options."""
+        """Returns an options dictionary for cube `name`.
+
+        The options dictoinary is merged model `options` metadata with
+        cube's `options` metadata if exists. Cube overrides model's
+        global (default) options.
+        """
 
         options = dict(self.options)
         if cube_name in self.cubes_metadata:
@@ -137,8 +146,9 @@ class ModelProvider(Extensible, abstract=True):
         """Returns a metadata dictionary for dimension `name` and optional
         `locale`.
 
-        Subclasses should override this method and call the super if they
-        would like to merge metadata provided in a model file."""
+        Subclasses should override this method and call the super if
+        they would like to merge metadata provided in a model file.
+        """
 
         try:
             return self.dimensions_metadata[name]
@@ -251,8 +261,10 @@ class ModelProvider(Extensible, abstract=True):
         raise NotImplementedError("Subclasses should implement list_cubes()")
 
     def has_cube(self, name: str) -> bool:
-        """Returns `True` if the provider has cube `name`. Otherwise returns
-        `False`."""
+        """Returns `True` if the provider has cube `name`.
+
+        Otherwise returns `False`.
+        """
 
         return name in self.cubes_metadata
 
@@ -286,8 +298,7 @@ class ModelProvider(Extensible, abstract=True):
         `dimensions` is a dictionary of dimension objects where the receiver
         can look for templates. If the dimension requires a template and the
         template is missing, the subclasses should raise
-        `TemplateRequired(template)` error with a template name as an
-        argument.
+        `TemplateRequired(template)` error with a template name as an argument.
 
         If the receiver does not provide the dimension `NoSuchDimension`
         exception is raised.
@@ -357,9 +368,11 @@ def link_cube(
     namespace: Namespace = None,
     ignore_missing: bool = False,
 ) -> Cube:
-    """Links dimensions to the `cube` in the `context` object. The `context`
-    object should implement a function `dimension(name, locale, namespace,
-    provider)`. Modifies cube in place, returns the cube.
+    """Links dimensions to the `cube` in the `context` object.
+
+    The `context` object should implement a function `dimension(name,
+    locale, namespace, provider)`. Modifies cube in place, returns the
+    cube.
     """
     # TODO: change this to: link_cube(cube, locale, namespace, provider)
 
@@ -394,11 +407,10 @@ def find_dimension(
     provider: Optional[ModelProvider] = None,
     namespace: Optional[Namespace] = None,
 ) -> Dimension:
-    """Returns a localized dimension with `name`. Raises
-    `NoSuchDimensionError` when no model published the dimension. Raises
-    `RequiresTemplate` error when model provider requires a template to be
-    able to provide the dimension, but such template is not a public
-    dimension.
+    """Returns a localized dimension with `name`. Raises `NoSuchDimensionError`
+    when no model published the dimension. Raises `RequiresTemplate` error when
+    model provider requires a template to be able to provide the dimension, but
+    such template is not a public dimension.
 
     The standard lookup when linking a cube is:
 
@@ -466,8 +478,8 @@ def _lookup_dimension(
 ) -> Dimension:
     """Look-up a dimension `name` in `provider` and then in `namespace`.
 
-    `templates` is a dictionary with already instantiated dimensions that
-    can be used as templates.
+    `templates` is a dictionary with already instantiated dimensions
+    that can be used as templates.
     """
 
     dimension = None

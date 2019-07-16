@@ -108,8 +108,8 @@ class Workspace:
         load_base_model: bool = True,
         **_options: Any,
     ) -> None:
-        """Creates a workspace. `config` should be a `ConfigParser` or a
-        path to a config file. `stores` should be a dictionary of store
+        """Creates a workspace. `config` should be a `ConfigParser` or a path
+        to a config file. `stores` should be a dictionary of store
         configurations, a `ConfigParser` or a path to a ``stores.ini`` file.
 
         Properties:
@@ -380,8 +380,11 @@ class Workspace:
     def add_translation(
         self, locale: str, trans: JSONType, ns: str = "default"
     ) -> None:
-        """Add translation `trans` for `locale`. `ns` is a namespace. If no
-        namespace is specified, then default (global) is used."""
+        """Add translation `trans` for `locale`.
+
+        `ns` is a namespace. If no namespace is specified, then default
+        (global) is used.
+        """
 
         namespace = self._get_namespace(ns)
         namespace.add_translation(locale, trans)
@@ -406,8 +409,10 @@ class Workspace:
 
     # TODO: Make `config` use Options
     def register_default_store(self, type_: str, **config: Any) -> None:
-        """Convenience function for registering the default store. For more
-        information see `register_store()`"""
+        """Convenience function for registering the default store.
+
+        For more information see `register_store()`
+        """
         self.register_store("default", type_, **config)
 
     # TODO: Make `config` use Options
@@ -454,7 +459,7 @@ class Workspace:
 
     # TODO: Rename to _model_store_name
     def _store_for_model(self, metadata: JSONType) -> str:
-        """Returns a store for model specified in `metadata`. """
+        """Returns a store for model specified in `metadata`."""
         store_name = metadata.get("store")
         if not store_name and "info" in metadata:
             store_name = metadata["info"].get("store")
@@ -473,9 +478,8 @@ class Workspace:
         translations: JSONType = None,
         namespace: str = None,
     ) -> None:
-        """Registers the `model` in the workspace. `model` can be a
-        metadata dictionary, filename, path to a model bundle directory or a
-        URL.
+        """Registers the `model` in the workspace. `model` can be a metadata
+        dictionary, filename, path to a model bundle directory or a URL.
 
         If `namespace` is specified, then the model's objects are stored in
         the namespace of that name.
@@ -656,8 +660,8 @@ class Workspace:
     ) -> Dimension:
         """Returns a dimension with `name`. Raises `NoSuchDimensionError` when
         no model published the dimension. Raises `RequiresTemplate` error when
-        model provider requires a template to be able to provide the
-        dimension, but such template is not a public dimension.
+        model provider requires a template to be able to provide the dimension,
+        but such template is not a public dimension.
 
         The standard lookup when linking a cube is:
 
@@ -669,9 +673,11 @@ class Workspace:
         return find_dimension(name, locale, namespace or self.namespace, provider)
 
     def _browser_options(self, cube: Cube) -> JSONType:
-        """Returns browser configuration options for `cube`. The options are
-        taken from the configuration file and then overriden by cube's
-        `browser_options` attribute."""
+        """Returns browser configuration options for `cube`.
+
+        The options are taken from the configuration file and then
+        overriden by cube's `browser_options` attribute.
+        """
 
         options = dict(self.browser_options)
         if cube.browser_options:
@@ -763,8 +769,10 @@ class Workspace:
         return self.browser(cube, identity).features()
 
     def get_store(self, name: str = None) -> Store:
-        """Opens a store `name`. If the store is already open, returns the
-        existing store."""
+        """Opens a store `name`.
+
+        If the store is already open, returns the existing store.
+        """
 
         name = name or "default"
 

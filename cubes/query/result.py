@@ -53,9 +53,7 @@ class Facts(Iterable):
 
 
 class CalculatedResultIterator(Iterable):
-    """
-    Iterator that decorates data items
-    """
+    """Iterator that decorates data items."""
 
     calculators: Collection[_CalculatorFunction]
     iterator: Iterator[_RecordType]
@@ -101,7 +99,6 @@ class AggregationResult(Iterable):
 
         Implementors of aggregation browsers should populate `cell`,
         `measures` and `levels` from the aggregate query.
-
     """
 
     # TODO: This should be List[Cube] for drill-across
@@ -135,10 +132,12 @@ class AggregationResult(Iterable):
     ) -> None:
         """Create an aggergation result object. `cell` – a :class:`cubes.Cell`
         object used for this aggregation, `aggregates` – list of aggregate
-        objects selected for this a aggregation, `drilldown` – a
+        objects selected for this a aggregation, `drilldown` – a.
+
         :class:`cubes.Drilldown` object representing list of dimensions and
         hierarchies the result is drilled-down by, `has_split` – flag whether
-        the result has a split dimension."""
+        the result has a split dimension.
+        """
 
         self.cube = cube
         self.cell = cell
@@ -186,8 +185,10 @@ class AggregationResult(Iterable):
         self._cells = val
 
     def to_dict(self) -> JSONType:
-        """Return dictionary representation of the aggregation result. Can be
-        used for JSON serialisation."""
+        """Return dictionary representation of the aggregation result.
+
+        Can be used for JSON serialisation.
+        """
 
         d = IgnoringDictionary()
 
@@ -274,7 +275,7 @@ class AggregationResult(Iterable):
             yield row
 
     def __iter__(self) -> Iterator[_RecordType]:
-        """Return cells as iterator"""
+        """Return cells as iterator."""
         return iter(self.cells)
 
     def cached(self) -> "AggregationResult":

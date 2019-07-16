@@ -1,5 +1,5 @@
 # -*- coding=utf -*-
-"""SQL Expression compiler"""
+"""SQL Expression compiler."""
 
 # The compiler is meant to be maintained in a similar way as the star schema
 # generator is – is to remain as much Cubes-independent as possible, just be a
@@ -123,7 +123,7 @@ class SQLExpressionContext:
         return self.resolve(item)
 
     def function(self, name: str) -> _FunctionGenerator:
-        """Return a SQL function"""
+        """Return a SQL function."""
         if name not in SQL_ALL_FUNCTIONS:
             raise ExpressionError(f"Unknown function '{name}'")
         return getattr(sql.func, name)
@@ -133,8 +133,11 @@ class SQLExpressionContext:
 
 
 def compile_attributes(bases, dependants, parameters, coalesce=None, label=None):
-    """Compile dependant attributes in `dependants`. `bases` is a dictionary
-    of base attributes and their column expressions."""
+    """Compile dependant attributes in `dependants`.
+
+    `bases` is a dictionary of base attributes and their column
+    expressions.
+    """
 
     context = SQLExpressionContext(bases, parameters, label=label)
     compiler = SQLExpressionCompiler()

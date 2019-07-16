@@ -1,4 +1,4 @@
-"""Dimension Browser example
+"""Dimension Browser example.
 
 A Flask application for browsing cube's dimensions.
 

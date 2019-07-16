@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""Cube logical model"""
+"""Cube logical model."""
 
 from collections import OrderedDict, defaultdict
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple, Union
@@ -106,7 +106,6 @@ class Cube(ModelObject):
       context (overrides the dimension's value)
     * `default_hierarchy_name` – which hierarchy will be used as default
       in the linked dimension
-
     """
 
     localizable_attributes = ["label", "description"]
@@ -240,10 +239,12 @@ class Cube(ModelObject):
 
     @classmethod
     def from_metadata(cls, metadata: JSONType) -> "Cube":
-        """Create a cube object from `metadata` dictionary. The cube has no
-        dimensions attached after creation. You should link the dimensions to the
-        cube according to the `Cube.dimension_links` property using
-        `Cube._add_dimension()`"""
+        """Create a cube object from `metadata` dictionary.
+
+        The cube has no dimensions attached after creation. You should
+        link the dimensions to the cube according to the
+        `Cube.dimension_links` property using `Cube._add_dimension()`
+        """
 
         measures: List[Measure]
         details: List[Attribute]
@@ -337,12 +338,12 @@ class Cube(ModelObject):
     # TODO: Either str or Measure, not an union
     def measure(self, name: Union[str, Measure]) -> Measure:
         """Get measure object. If `obj` is a string, then measure with given
-        name is returned, otherwise measure object is returned if it belongs
-        to the cube. Returned object is of `Measure` type.
+        name is returned, otherwise measure object is returned if it belongs to
+        the cube. Returned object is of `Measure` type.
 
-        Raises `NoSuchAttributeError` when there is no such measure or when
-        there are multiple measures with the same name (which also means that
-        the model is not valid).
+        Raises `NoSuchAttributeError` when there is no such measure or
+        when there are multiple measures with the same name (which also
+        means that the model is not valid).
         """
 
         name = str(name)
@@ -352,8 +353,10 @@ class Cube(ModelObject):
             raise NoSuchAttributeError(f"Cube '{self.name}' has no measure '{name}'")
 
     def get_measures(self, measures: List[str]) -> List[Measure]:
-        """Get a list of measures as `Attribute` objects. If `measures` is
-        `None` then all cube's measures are returned."""
+        """Get a list of measures as `Attribute` objects.
+
+        If `measures` is `None` then all cube's measures are returned.
+        """
 
         array: List[Measure] = []
 
@@ -374,9 +377,9 @@ class Cube(ModelObject):
         given name is returned, otherwise aggregate object is returned if it
         belongs to the cube. Returned object is of `MeasureAggregate` type.
 
-        Raises `NoSuchAttributeError` when there is no such aggregate or when
-        there are multiple aggregates with the same name (which also means
-        that the model is not valid).
+        Raises `NoSuchAttributeError` when there is no such aggregate or
+        when there are multiple aggregates with the same name (which
+        also means that the model is not valid).
         """
         name = str(name)
         try:
@@ -400,17 +403,19 @@ class Cube(ModelObject):
 
     # TODO: Reconsider necessity of this one
     def aggregates_for_measure(self, name: str) -> List[MeasureAggregate]:
-        """Returns aggregtates for measure with `name`. Only direct function
-        aggregates are returned. If the measure is specified in an expression,
-        the aggregate is not included in the returned list"""
+        """Returns aggregtates for measure with `name`.
+
+        Only direct function aggregates are returned. If the measure is
+        specified in an expression, the aggregate is not included in the
+        returned list
+        """
 
         return [agg for agg in self.aggregates if agg.measure == name]
 
     @property
     def all_dimension_keys(self) -> List[Attribute]:
         """Returns all attributes that represent keys of dimensions and their
-        levels..
-        """
+        levels.."""
 
         attributes: List[Attribute] = []
         for dim in self.dimensions:
@@ -424,14 +429,14 @@ class Cube(ModelObject):
         """All cube's attributes: attributes of dimensions, details, measures
         and aggregates. Use this method if you need to prepare structures for
         any kind of query. For attributes for more specific types of queries
-        refer to :meth:`Cube.all_fact_attributes` and
+        refer to :meth:`Cube.all_fact_attributes` and.
+
         :meth:`Cube.all_aggregate_attributes`.
 
         .. versionchanged:: 1.1
 
             Returns all attributes, including aggregates. Original
             functionality is available as `all_fact_attributes()`
-
         """
 
         attributes: List[AttributeBase] = []
@@ -477,11 +482,11 @@ class Cube(ModelObject):
 
     @property
     def attribute_dependencies(self) -> Dict[str, Set[str]]:
-        """Dictionary of dependencies between attributes. Values are
-        references of attributes that the key attribute depends on. For
-        example for attribute `a` which has expression `b + c` the dictionary
-        would be: `{"a": ["b", "c"]}`. The result dictionary includes all
-        cubes' attributes and aggregates.
+        """Dictionary of dependencies between attributes. Values are references
+        of attributes that the key attribute depends on. For example for
+        attribute `a` which has expression `b + c` the dictionary would be:
+        `{"a": ["b", "c"]}`. The result dictionary includes all cubes'
+        attributes and aggregates.
 
         .. versionadded:: 1.1
         """
@@ -492,7 +497,7 @@ class Cube(ModelObject):
     @property
     def all_aggregate_attributes(self) -> List[AttributeBase]:
         """All cube's attributes for aggregation: attributes of dimensions and
-        aggregates.  """
+        aggregates."""
 
         attributes: List[AttributeBase] = []
         for dim in self.dimensions:
@@ -546,7 +551,8 @@ class Cube(ModelObject):
 
         If `simplified_references` is `True` then dimension attribute
         references in `attrubutes` are considered simplified, otherwise they
-        are considered as full (dim.attribute)."""
+        are considered as full (dim.attribute).
+        """
 
         # TODO: this should be a dictionary created in __init__ once this
         # class becomes immutable
@@ -577,9 +583,10 @@ class Cube(ModelObject):
     def collect_dependencies(
         self, attributes: Collection[AttributeBase]
     ) -> Collection[AttributeBase]:
-        """Collect all original and dependant cube attributes for
-        `attributes`, sorted by their dependency: starting with attributes
-        that don't depend on anything. For exapmle, if the `attributes` is [a,
+        """Collect all original and dependant cube attributes for `attributes`,
+        sorted by their dependency: starting with attributes that don't depend
+        on anything. For exapmle, if the `attributes` is [a,
+
         b] and a = c * 2, then the result list would be [b, c, a] or [c, b,
         a].
 
@@ -599,9 +606,11 @@ class Cube(ModelObject):
     # TODO: This is mutable method
     def link_dimension(self, dimension: Dimension) -> None:
         """Links `dimension` object or a clone of it to the cube according to
-        the specification of cube's dimension link. See
+        the specification of cube's dimension link. See.
+
         :meth:`Dimension.clone` for more information about cloning a
-        dimension."""
+        dimension.
+        """
 
         link = self.dimension_links.get(dimension.name)
 
@@ -612,9 +621,12 @@ class Cube(ModelObject):
 
     # TODO: this method should be used only during object initialization
     def _add_dimension(self, dimension: Dimension) -> None:
-        """Add dimension to cube. Replace dimension with same name. Raises
-        `ModelInconsistencyError` when dimension with same name already exists
-        in the receiver. """
+        """Add dimension to cube.
+
+        Replace dimension with same name. Raises
+        `ModelInconsistencyError` when dimension with same name already
+        exists in the receiver.
+        """
 
         if not dimension:
             raise ArgumentError(
@@ -665,7 +677,8 @@ class Cube(ModelObject):
 
         .. warning::
 
-            This method might change in the future. Consider experimental."""
+            This method might change in the future. Consider experimental.
+        """
 
         hierarchies: Dict[Tuple[str, Optional[str]], List[str]] = {}
         for dim in self.dimensions:
@@ -681,10 +694,12 @@ class Cube(ModelObject):
         return hierarchies
 
     def to_dict(self, **options: Any) -> JSONType:
-        """Convert to a dictionary. If `with_mappings` is ``True`` (which is
-        default) then `joins`, `mappings`, `fact` and `options` are included.
-        Should be set to ``False`` when returning a dictionary that will be
-        provided in an user interface or through server API.
+        """Convert to a dictionary.
+
+        If `with_mappings` is ``True`` (which is default) then `joins`,
+        `mappings`, `fact` and `options` are included. Should be set to
+        ``False`` when returning a dictionary that will be provided in
+        an user interface or through server API.
         """
 
         out = super().to_dict(**options)
@@ -757,7 +772,10 @@ class Cube(ModelObject):
 
     # TODO: Validation result as its own types
     def validate(self) -> List[Any]:
-        """Validate cube. See Model.validate() for more information. """
+        """Validate cube.
+
+        See Model.validate() for more information.
+        """
         results = []
 
         # Check whether all attributes, measures and keys are Attribute objects
@@ -873,10 +891,13 @@ def _measure_aggregate_label(aggregate: MeasureAggregate, measure: Measure) -> s
 
 # TODO: Link should be it's own type
 def expand_dimension_links(metadata: List[JSONType]) -> List[JSONType]:
-    """Expands links to dimensions. `metadata` should be a list of strings or
-    dictionaries (might be mixed). Returns a list of dictionaries with at
-    least one key `name`. Other keys are: `hierarchies`,
-    `default_hierarchy_name`, `nonadditive`, `cardinality`, `template`"""
+    """Expands links to dimensions.
+
+    `metadata` should be a list of strings or dictionaries (might be
+    mixed). Returns a list of dictionaries with at least one key `name`.
+    Other keys are: `hierarchies`, `default_hierarchy_name`,
+    `nonadditive`, `cardinality`, `template`
+    """
 
     links: List[JSONType] = []
 
@@ -893,7 +914,9 @@ def expand_dimension_links(metadata: List[JSONType]) -> List[JSONType]:
 
 def expand_cube_metadata(metadata: JSONType) -> JSONType:
     """Expands `metadata` to be as complete as possible cube metadata.
-    `metadata` should be a dictionary."""
+
+    `metadata` should be a dictionary.
+    """
 
     metadata = dict(metadata)
 

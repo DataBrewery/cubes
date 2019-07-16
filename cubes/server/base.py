@@ -29,8 +29,11 @@ def read_slicer_config(config: str) -> ConfigParser:
 
 
 def create_server(config: Optional[ConfigParser] = None, **_options) -> Flask:
-    """Returns a Flask server application. `config` is a path to a
-    ``slicer.ini`` file with Cubes workspace and server configuration."""
+    """Returns a Flask server application.
+
+    `config` is a path to a ``slicer.ini`` file with Cubes workspace and
+    server configuration.
+    """
 
     # Load extensions
     if config.has_option("server", "modules"):

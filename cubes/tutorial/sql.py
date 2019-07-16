@@ -7,9 +7,8 @@ import sqlalchemy
 
 
 class UTF8Recoder:
-    """
-    Iterator that reads an encoded stream and reencodes the input to UTF-8
-    """
+    """Iterator that reads an encoded stream and reencodes the input to
+    UTF-8."""
 
     def __init__(self, f, encoding):
         assert "b" in f.mode, "in py3k, codec's StreamReader needs a bytestream"
@@ -24,10 +23,8 @@ class UTF8Recoder:
 
 
 class UnicodeReader:
-    """
-    A CSV reader which will iterate over lines in the CSV file "f",
-    which is encoded in the given encoding.
-    """
+    """A CSV reader which will iterate over lines in the CSV file "f", which is
+    encoded in the given encoding."""
 
     def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
         f = UTF8Recoder(f, encoding)
@@ -45,9 +42,10 @@ class UnicodeReader:
 def create_table_from_csv(
     connectable, file_name, table_name, fields, create_id=False, schema=None
 ):
-    """Create a table with name `table_name` from a CSV file `file_name` with columns corresponding
-    to `fields`. The `fields` is a list of two string tuples: (name, type) where type might be:
-    ``integer``, ``float`` or ``string``.
+    """Create a table with name `table_name` from a CSV file `file_name` with
+    columns corresponding to `fields`. The `fields` is a list of two string
+    tuples: (name, type) where type might be: ``integer``, ``float`` or
+    ``string``.
 
     If `create_id` is ``True`` then a column with name ``id`` is created and will contain generated
     sequential record id.

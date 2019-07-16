@@ -64,15 +64,16 @@ month_to_quarter = lambda month: ((month - 1) // 3) + 1
 
 
 def calendar_hierarchy_units(hierarchy: Hierarchy) -> List[str]:
-    """Return time units for levels in the hierarchy. The hierarchy is
-    expected to be a date/time hierarchy and every level should have a `role`
-    property specified. If the role is not specified, then the role is
-    determined from the level name.
+    """Return time units for levels in the hierarchy. The hierarchy is expected
+    to be a date/time hierarchy and every level should have a `role` property
+    specified. If the role is not specified, then the role is determined from
+    the level name.
 
     Roles/units: `year`, `quarter`, `month`, `day`, `hour`, `minute`,
     `weekday`
 
-    If unknown role is encountered an exception is raised."""
+    If unknown role is encountered an exception is raised.
+    """
 
     units: List[str]
     units = []
@@ -127,7 +128,8 @@ class Calendar:
         relative date/time manipulation.
 
         Values for `first_weekday` are 0 for Monday, 6 for Sunday. Default is
-        0."""
+        0.
+        """
 
         if isinstance(first_weekday, str):
             try:
@@ -152,8 +154,10 @@ class Calendar:
         return datetime.now(self.timezone)
 
     def path(self, time: datetime, units: List[str]) -> HierarchyPath:
-        """Returns a path from `time` containing date/time `units`. `units`
-        can be a list of strings or a `Hierarchy` object."""
+        """Returns a path from `time` containing date/time `units`.
+
+        `units` can be a list of strings or a `Hierarchy` object.
+        """
 
         if not units:
             return []
@@ -183,8 +187,10 @@ class Calendar:
         return self.path(self.now(), units)
 
     def truncate_time(self, time: datetime, unit: str) -> datetime:
-        """Truncates the `time` to calendar unit `unit`. Consider week start
-        day from the calendar."""
+        """Truncates the `time` to calendar unit `unit`.
+
+        Consider week start day from the calendar.
+        """
 
         unit_order = _UNIT_ORDER[unit]
 
@@ -225,8 +231,10 @@ class Calendar:
 
     def since_period_start(self, period: str, unit: str, time: datetime = None) -> int:
         """Returns distance between `time` and the nearest `period` start
-        relative to `time` in `unit` units. For example: distance between
-        today and start of this year."""
+        relative to `time` in `unit` units.
+
+        For example: distance between today and start of this year.
+        """
 
         if time is None:
             time = self.now()

@@ -93,7 +93,6 @@ class Level(ModelObject):
       pagination or cut through this level.
 
     Note: the `attributes` are going to be owned by the `dimension`.
-
     """
 
     localizable_attributes = ["label", "description"]
@@ -175,8 +174,10 @@ class Level(ModelObject):
     def from_metadata(
         cls, metadata: JSONType, name: str = None, dimension: "Dimension" = None
     ) -> "Level":
-        """Create a level object from metadata. `name` can override level name in
-        the metadata."""
+        """Create a level object from metadata.
+
+        `name` can override level name in the metadata.
+        """
 
         level_name: str
 
@@ -260,7 +261,7 @@ class Level(ModelObject):
         )
 
     def to_dict(self, **options: Any) -> JSONType:
-        """Convert to dictionary"""
+        """Convert to dictionary."""
 
         full_attribute_names = cast(bool, options.get("full_attribute_names"))
 
@@ -319,7 +320,8 @@ def string_to_dimension_level(astring: str) -> Tuple[str, str, str]:
     `hierarchy`, `level`). The string should have a format:
     ``dimension@hierarchy:level``. Hierarchy and level are optional.
 
-    Raises `ArgumentError` when `astring` does not match expected pattern.
+    Raises `ArgumentError` when `astring` does not match expected
+    pattern.
     """
 
     if not astring:
@@ -411,8 +413,10 @@ class Hierarchy(ModelObject, Sized):
         return list(self._levels)
 
     def keys(self, depth: Optional[int] = None) -> List[Attribute]:
-        """Return names of keys for all levels in the hierarchy to `depth`. If
-        `depth` is `None` then all levels are returned."""
+        """Return names of keys for all levels in the hierarchy to `depth`.
+
+        If `depth` is `None` then all levels are returned.
+        """
         levels: Collection[Level]
 
         if depth is not None:
@@ -459,8 +463,11 @@ class Hierarchy(ModelObject, Sized):
         return item in [level.name for level in self.levels]
 
     def levels_for_depth(self, depth: int, drilldown: bool = False) -> List[Level]:
-        """Returns levels for given `depth`. If `path` is longer than
-        hierarchy levels, `cubes.ArgumentError` exception is raised"""
+        """Returns levels for given `depth`.
+
+        If `path` is longer than hierarchy levels, `cubes.ArgumentError`
+        exception is raised
+        """
 
         extend = 1 if drilldown else 0
 
@@ -473,9 +480,11 @@ class Hierarchy(ModelObject, Sized):
         return self.levels[0 : depth + extend]
 
     def next_level(self, level: Optional[Level]) -> Optional[Level]:
-        """Returns next level in hierarchy after `level`. If `level` is last
-        level, returns ``None``. If `level` is ``None``, then the first level
-        is returned."""
+        """Returns next level in hierarchy after `level`.
+
+        If `level` is last level, returns ``None``. If `level` is
+        ``None``, then the first level is returned.
+        """
 
         if not level:
             return self.levels[0]
@@ -487,8 +496,10 @@ class Hierarchy(ModelObject, Sized):
             return self.levels[index + 1]
 
     def previous_level(self, level: Optional[Level]) -> Optional[Level]:
-        """Returns previous level in hierarchy after `level`. If `level` is
-        first level or ``None``, returns ``None``"""
+        """Returns previous level in hierarchy after `level`.
+
+        If `level` is first level or ``None``, returns ``None``
+        """
 
         if level is None:
             return None
@@ -500,8 +511,10 @@ class Hierarchy(ModelObject, Sized):
             return self.levels[index - 1]
 
     def level_index(self, name: str) -> int:
-        """Get order index of level `name`. Can be used for ordering and
-        comparing levels within hierarchy."""
+        """Get order index of level `name`.
+
+        Can be used for ordering and comparing levels within hierarchy.
+        """
         try:
             return list(self._levels).index(name)
         except ValueError:
@@ -519,8 +532,9 @@ class Hierarchy(ModelObject, Sized):
         is rolled-up only one level.
 
         If `level` is deeper than last level of `path` the
-        `cubes.HierarchyError` exception is raised. If `level` is the same as
-        `path` level, nothing happens."""
+        `cubes.HierarchyError` exception is raised. If `level` is the
+        same as `path` level, nothing happens.
+        """
 
         last: Optional[int]
 
@@ -543,9 +557,11 @@ class Hierarchy(ModelObject, Sized):
             return path[0:last]
 
     def path_is_base(self, path: HierarchyPath) -> bool:
-        """Returns True if path is base path for the hierarchy. Base path is a
+        """Returns True if path is base path for the hierarchy. Base path is a.
+
         path where there are no more levels to be added - no drill down
-        possible."""
+        possible.
+        """
 
         return path is not None and len(path) == len(self.levels)
 
@@ -570,7 +586,6 @@ class Hierarchy(ModelObject, Sized):
         * `name`: hierarchy name
         * `label`: human readable label (localizable)
         * `levels`: level names
-
         """
         depth = cast(int, options.get("depth"))
 
@@ -596,9 +611,10 @@ class Hierarchy(ModelObject, Sized):
 def expand_dimension_metadata(
     metadata: JSONType, expand_levels: bool = False
 ) -> JSONType:
-    """
-    Expands `metadata` to be as complete as possible dimension metadata. If
-    `expand_levels` is `True` then levels metadata are expanded as well.
+    """Expands `metadata` to be as complete as possible dimension metadata.
+
+    If `expand_levels` is `True` then levels metadata are expanded as
+    well.
     """
 
     if isinstance(metadata, str):
@@ -658,8 +674,11 @@ def expand_dimension_metadata(
 
 
 def expand_hierarchy_metadata(metadata: JSONType) -> JSONType:
-    """Returns a hierarchy metadata as a dictionary. Makes sure that required
-    properties are present. Raises exception on missing values."""
+    """Returns a hierarchy metadata as a dictionary.
+
+    Makes sure that required properties are present. Raises exception on
+    missing values.
+    """
 
     try:
         name = metadata["name"]
@@ -673,10 +692,13 @@ def expand_hierarchy_metadata(metadata: JSONType) -> JSONType:
 
 
 def expand_level_metadata(metadata: JSONType) -> JSONType:
-    """Returns a level description as a dictionary. If provided as string,
-    then it is going to be used as level name and as its only attribute. If a
-    dictionary is provided and has no attributes, then level will contain only
-    attribute with the same name as the level name."""
+    """Returns a level description as a dictionary.
+
+    If provided as string, then it is going to be used as level name and
+    as its only attribute. If a dictionary is provided and has no
+    attributes, then level will contain only attribute with the same
+    name as the level name.
+    """
     if isinstance(metadata, str):
         metadata = {"name": metadata, "attributes": [metadata]}
     else:
@@ -707,10 +729,7 @@ def expand_level_metadata(metadata: JSONType) -> JSONType:
 
 
 class Dimension(ModelObject):
-    """
-    Cube dimension.
-
-    """
+    """Cube dimension."""
 
     localizable_attributes = ["label", "description"]
     localizable_lists = ["levels", "hierarchies"]
@@ -750,7 +769,7 @@ class Dimension(ModelObject):
         **desc: Any,
     ) -> None:
 
-        """Create a new dimension
+        """Create a new dimension.
 
         Attributes:
 
@@ -889,7 +908,6 @@ class Dimension(ModelObject):
           hierarchies to inherit from the template
         * all levels that are not covered by hierarchies are not included in the
           final dimension
-
         """
 
         template: Optional[Dimension]
@@ -1085,8 +1103,10 @@ class Dimension(ModelObject):
 
     @property
     def levels(self) -> List[Level]:
-        """Get list of all dimension levels. Order is not guaranteed, use a
-        hierarchy to have known order."""
+        """Get list of all dimension levels.
+
+        Order is not guaranteed, use a hierarchy to have known order.
+        """
         return list(self._levels.values())
 
     @levels.setter
@@ -1108,13 +1128,17 @@ class Dimension(ModelObject):
 
     @property
     def level_names(self) -> List[str]:
-        """Get list of level names. Order is not guaranteed, use a hierarchy
-        to have known order."""
+        """Get list of level names.
+
+        Order is not guaranteed, use a hierarchy to have known order.
+        """
         return list(self._levels.keys())
 
     def level(self, obj: Union[Level, str]) -> Level:
-        """Get level by name or as Level object. This method is used for
-        coalescing value"""
+        """Get level by name or as Level object.
+
+        This method is used for coalescing value
+        """
         if isinstance(obj, str):
             if obj not in self._levels:
                 raise KeyError(f"No level {obj} in dimension {self.name}")
@@ -1127,8 +1151,10 @@ class Dimension(ModelObject):
             )
 
     def hierarchy(self, obj: Optional[Union[Hierarchy, str]] = None) -> Hierarchy:
-        """Get hierarchy object either by name or as `Hierarchy`. If `obj` is
-        ``None`` then default hierarchy is returned."""
+        """Get hierarchy object either by name or as `Hierarchy`.
+
+        If `obj` is ``None`` then default hierarchy is returned.
+        """
 
         if obj is None:
             return self._default_hierarchy
@@ -1145,8 +1171,11 @@ class Dimension(ModelObject):
             )
 
     def attribute(self, name: str, by_ref: bool = False) -> Attribute:
-        """Get dimension attribute. `name` is an attribute name (default) or
-        attribute reference if `by_ref` is `True`.`."""
+        """Get dimension attribute.
+
+        `name` is an attribute name (default) or attribute reference if
+        `by_ref` is `True`.`.
+        """
 
         if by_ref:
             return self._attributes_by_ref[name]
@@ -1162,7 +1191,7 @@ class Dimension(ModelObject):
 
     @property
     def is_flat(self) -> bool:
-        """Is true if dimension has only one level"""
+        """Is true if dimension has only one level."""
         if self.master:
             return self.master.is_flat
 
@@ -1170,16 +1199,21 @@ class Dimension(ModelObject):
 
     @property
     def key_attributes(self) -> List[Attribute]:
-        """Return all dimension key attributes, regardless of hierarchy. Order
-        is not guaranteed, use a hierarchy to have known order."""
+        """Return all dimension key attributes, regardless of hierarchy.
+
+        Order is not guaranteed, use a hierarchy to have known order.
+        """
 
         return [level.key for level in self._levels.values()]
 
     @property
     def attributes(self) -> List[Attribute]:
-        """Return all dimension attributes regardless of hierarchy. Order is
-        not guaranteed, use :meth:`cubes.Hierarchy.all_attributes` to get
-        known order. Order of attributes within level is preserved."""
+        """Return all dimension attributes regardless of hierarchy.
+
+        Order is not guaranteed, use
+        :meth:`cubes.Hierarchy.all_attributes` to get known order. Order
+        of attributes within level is preserved.
+        """
 
         return list(self._attributes.values())
 
@@ -1193,8 +1227,8 @@ class Dimension(ModelObject):
         alias: Optional[str] = None,
         **extra: Any,
     ) -> "Dimension":
-        """Returns a clone of the receiver with some modifications. `master`
-        of the clone is set to the receiver.
+        """Returns a clone of the receiver with some modifications. `master` of
+        the clone is set to the receiver.
 
         * `hierarchies` – limit hierarchies only to those specified in
           `hierarchies`. If default hierarchy name is not in the new hierarchy
@@ -1283,7 +1317,7 @@ class Dimension(ModelObject):
         )
 
     def to_dict(self, **options: Any) -> JSONType:
-        """Return dictionary representation of the dimension"""
+        """Return dictionary representation of the dimension."""
 
         out = super().to_dict(**options)
 
@@ -1325,7 +1359,10 @@ class Dimension(ModelObject):
 
     # TODO: Change to List[ValidationResult]
     def validate(self) -> List[Any]:
-        """Validate dimension. See Model.validate() for more information. """
+        """Validate dimension.
+
+        See Model.validate() for more information.
+        """
         results = []
 
         if not self.levels:

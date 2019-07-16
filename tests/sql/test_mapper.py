@@ -43,7 +43,9 @@ class MapperTestCase(CubesTestCaseBase):
 
     def assertMapping(self, expected, logical_ref, mapper=None):
         """Create string reference by concatentanig table and column name.
-        No schema is expected (is ignored)."""
+
+        No schema is expected (is ignored).
+        """
 
         attr = self.cube.attribute(logical_ref)
         mapper = mapper or self.mapper
@@ -75,7 +77,8 @@ class MapperTestCase(CubesTestCaseBase):
         self.assertMapping("sales.flag", "flag")
 
     def test_physical_refs_facts(self):
-        """Testing correct mappings of fact attributes in physical references"""
+        """Testing correct mappings of fact attributes in physical
+        references."""
 
         fact = self.cube.fact
         self.cube.fact = None
@@ -85,7 +88,7 @@ class MapperTestCase(CubesTestCaseBase):
 
     def test_physical_refs_with_mappings_and_locales(self):
         """Testing mappings of mapped attributes and localized attributes in
-        physical references"""
+        physical references."""
 
         self.mapper.mappings = self.cube.mappings
         # Test defaults

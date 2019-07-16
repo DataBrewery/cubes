@@ -111,11 +111,10 @@ class BrowserFeatures:
 
 
 class AggregationBrowser(Extensible, abstract=True):
-    """Class for browsing data cube aggregations
+    """Class for browsing data cube aggregations.
 
     :Attributes:
       * `cube` - cube for browsing
-
     """
 
     __extension_type__ = "browser"
@@ -137,8 +136,10 @@ class AggregationBrowser(Extensible, abstract=True):
         locale: Optional[str] = None,
         calendar: Optional[Calendar] = None,
     ) -> None:
-        """Creates and initializes the aggregation browser. Subclasses should
-        override this method. """
+        """Creates and initializes the aggregation browser.
+
+        Subclasses should override this method.
+        """
         super().__init__()
 
         assert cube is not None, "No cube given for aggregation browser"
@@ -291,7 +292,6 @@ class AggregationBrowser(Extensible, abstract=True):
         * `drilldown` – `Drilldown` instance
         * `split` – `Cell` instance
         * `order` – list of tuples: (`attribute`, `order`)
-
         """
         raise NotImplementedError(
             "{} does not provide aggregate functionality.".format(str(type(self)))
@@ -352,8 +352,11 @@ class AggregationBrowser(Extensible, abstract=True):
     def prepare_order(
         self, order: Optional[Collection[_OrderArgType]], is_aggregate: bool = False
     ) -> Collection[_OrderType]:
-        """Prepares an order list. Returns list of tuples (`attribute`,
-        `order_direction`). `attribute` is cube's attribute object."""
+        """Prepares an order list.
+
+        Returns list of tuples (`attribute`, `order_direction`).
+        `attribute` is cube's attribute object.
+        """
 
         order = order or []
         new_order: List[_OrderType] = []
@@ -413,13 +416,14 @@ class AggregationBrowser(Extensible, abstract=True):
 
     def is_builtin_function(self, function_name: str) -> bool:
         """Returns `True` if function `function_name` is bult-in. Returns
-        `False` if the browser can not compute the function and
-        post-aggregation calculation should be used.
+        `False` if the browser can not compute the function and post-
+        aggregation calculation should be used.
 
         Default implementation returns `True` for all unctions except those in
         :func:`available_calculators`. Subclasses are reommended to override
         this method if they have their own built-in version of the aggregate
-        functions."""
+        functions.
+        """
 
         return function_name in available_calculators()
 
@@ -432,11 +436,13 @@ class AggregationBrowser(Extensible, abstract=True):
         page_size: int = None,
         fact_list: List[ValueType] = None,
     ) -> Facts:
-        """Return an iterable object with of all facts within cell.
-        `fields` is list of fields to be considered in the output.
+        """Return an iterable object with of all facts within cell. `fields` is
+        list of fields to be considered in the output.
 
-        Subclasses overriding this method sould return a :class:`Facts` object
-        and set it's `attributes` to the list of selected attributes."""
+        Subclasses overriding this method sould return a :class:`Facts`
+        object and set it's `attributes` to the list of selected
+        attributes.
+        """
         raise NotImplementedError(
             "{} does not provide facts functionality.".format(str(type(self)))
         )
@@ -462,9 +468,11 @@ class AggregationBrowser(Extensible, abstract=True):
         page_size: int = None,
         **options: Any,
     ) -> Iterable[_RecordType]:
-        """Return members of `dimension` with level depth `depth`. If `depth`
-        is ``None``, all levels are returned. If no `hierarchy` is specified,
-        then default dimension hierarchy is used.
+        """Return members of `dimension` with level depth `depth`.
+
+        If `depth` is ``None``, all levels are returned. If no
+        `hierarchy` is specified, then default dimension hierarchy is
+        used.
         """
         prepared_order = self.prepare_order(order, is_aggregate=False)
 
@@ -524,8 +532,11 @@ class AggregationBrowser(Extensible, abstract=True):
 
     # FIXME: [important] Properly annotate this one
     def test(self, aggregate: bool = False) -> None:
-        """Tests whether the cube can be used. Refer to the backend's
-        documentation for more information about what is being tested."""
+        """Tests whether the cube can be used.
+
+        Refer to the backend's documentation for more information about
+        what is being tested.
+        """
         raise NotImplementedError(
             "{} does not provide test functionality.".format(str(type(self)))
         )
@@ -715,7 +726,6 @@ class AggregationBrowser(Extensible, abstract=True):
         * `SetCut` - list of `PointCut` results, one per path in the set
         * `RangeCut` - `PointCut`-like results for lower range (from) and
           upper range (to)
-
         """
 
         details: Any
@@ -787,9 +797,12 @@ class AggregationBrowser(Extensible, abstract=True):
     def path_details(
         self, dimension: Dimension, path: HierarchyPath, hierarchy: Hierarchy
     ) -> Optional[_RecordType]:
-        """Returns empty path details. Default fall-back for backends that do
-        not support the path details. The level key and label are the same
-        derived from the key."""
+        """Returns empty path details.
+
+        Default fall-back for backends that do not support the path
+        details. The level key and label are the same derived from the
+        key.
+        """
 
         detail: Dict[str, Optional[str]] = {}
         for level, key in zip(hierarchy.levels, path):

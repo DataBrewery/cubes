@@ -9,8 +9,9 @@ from datetime import datetime
 
 # TODO: use the data.py version
 def create_table(engine, md, desc):
-    """Create a table according to description `desc`. The description
-    contains keys:
+    """Create a table according to description `desc`. The description contains
+    keys:
+
     * `name` – table name
     * `columns` – list of column names
     * `types` – list of column types. If not specified, then `string` is

@@ -47,9 +47,12 @@ OPTION_TYPES = {
 
 
 def sqlalchemy_options(options, prefix="sqlalchemy_"):
-    """Return converted `options` to match SQLAlchemy create_engine options
-    and their types. The `options` are expected to have prefix
-    ``sqlalchemy_``, which will be removed."""
+    """Return converted `options` to match SQLAlchemy create_engine options and
+    their types.
+
+    The `options` are expected to have prefix ``sqlalchemy_``, which
+    will be removed.
+    """
 
     sa_keys = [key for key in options.keys() if key.startswith(prefix)]
     sa_options = {}
@@ -109,8 +112,7 @@ class SQLStore(Store, name="sql"):
         metadata: sa.MetaData = None,
         **options: OptionValue,
     ) -> None:
-        """
-        The options are:
+        """The options are:
 
         Required (one of the two, `engine` takes precedence):
 
@@ -181,8 +183,10 @@ class SQLStore(Store, name="sql"):
 
     # TODO: make a separate SQL utils function
     def _drop_table(self, table, schema, force=False):
-        """Drops `table` in `schema`. If table exists, exception is raised
-        unless `force` is ``True``"""
+        """Drops `table` in `schema`.
+
+        If table exists, exception is raised unless `force` is ``True``
+        """
 
         view_name = str(table)
         preparer = self.connectable.dialect.preparer(self.connectable.dialect)
@@ -220,7 +224,6 @@ class SQLStore(Store, name="sql"):
         * ``no_table`` - there is no table for attribute
         * ``no_column`` - there is no column for attribute
         * ``duplicity`` - attribute is found more than once
-
         """
         issues = []
 
@@ -434,7 +437,6 @@ class SQLStore(Store, name="sql"):
         * ``no_table`` - there is no table for attribute
         * ``no_column`` - there is no column for attribute
         * ``duplicity`` - attribute is found more than once
-
         """
         issues = []
 
@@ -531,10 +533,12 @@ class SQLStore(Store, name="sql"):
         dimension_suffix=None,
         replace=False,
     ):
-        """Extract multiple dimensions from a snowflake. See
-        `extract_dimension()` for more information. `grain` is a dictionary
-        where keys are dimension names and values are levels, if level is
-        ``None`` then all levels are considered."""
+        """Extract multiple dimensions from a snowflake.
+
+        See `extract_dimension()` for more information. `grain` is a
+        dictionary where keys are dimension names and values are levels,
+        if level is ``None`` then all levels are considered.
+        """
 
         grain = grain or {}
 

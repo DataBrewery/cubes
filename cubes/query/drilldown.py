@@ -91,8 +91,10 @@ class Drilldown(Iterable, Sized):
 
     def items_as_strings(self) -> List[str]:
         """Returns drilldown items as strings: ``dimension@hierarchy:level``.
-        If hierarchy is dimension's default hierarchy, then it is not included
-        in the string: ``dimension:level``"""
+
+        If hierarchy is dimension's default hierarchy, then it is not
+        included in the string: ``dimension:level``
+        """
 
         strings = []
 
@@ -147,8 +149,11 @@ class Drilldown(Iterable, Sized):
         hierarchy: str = None,
     ) -> bool:
         """Returns `True` if one of the cuts contains `level` of dimension
-        `dim`. If `hierarchy` is not specified, then dimension's default
-        hierarchy is used."""
+        `dim`.
+
+        If `hierarchy` is not specified, then dimension's default
+        hierarchy is used.
+        """
 
         dim = self.cube.dimension(dimension)
         hierarchy_obj = dim.hierarchy(hierarchy)
@@ -166,8 +171,8 @@ class Drilldown(Iterable, Sized):
         return False
 
     def high_cardinality_levels(self, cell: Cell) -> List[Level]:
-        """Returns list of levels in the drilldown that are of high
-        cardinality and there is no cut for that level in the `cell`."""
+        """Returns list of levels in the drilldown that are of high cardinality
+        and there is no cut for that level in the `cell`."""
 
         not_contained: List[Level] = []
 
@@ -192,7 +197,8 @@ class Drilldown(Iterable, Sized):
         list of level names for the drilldown. Use this method to populate the
         result levels attribute.
 
-        If `include_split` is `True` then split dimension is included."""
+        If `include_split` is `True` then split dimension is included.
+        """
         result = {}
 
         for item in self.drilldown:
@@ -212,9 +218,9 @@ class Drilldown(Iterable, Sized):
 
     @property
     def key_attributes(self) -> List[Attribute]:
-        """Returns only key attributes of all levels in the drilldown. Order
-        is by the drilldown item, then by the levels and finally by the
-        attribute in the level.
+        """Returns only key attributes of all levels in the drilldown. Order is
+        by the drilldown item, then by the levels and finally by the attribute
+        in the level.
 
         .. versionadded:: 1.1
         """
@@ -226,9 +232,11 @@ class Drilldown(Iterable, Sized):
 
     @property
     def all_attributes(self) -> Collection[Attribute]:
-        """Returns attributes of all levels in the drilldown. Order is by the
-        drilldown item, then by the levels and finally by the attribute in the
-        level."""
+        """Returns attributes of all levels in the drilldown.
+
+        Order is by the drilldown item, then by the levels and finally
+        by the attribute in the level.
+        """
         attributes: List[Attribute] = []
         for item in self.drilldown:
             for level in item.levels:
@@ -239,9 +247,11 @@ class Drilldown(Iterable, Sized):
     # FIXME: [typing] See #395
     @property
     def natural_order(self) -> List[Tuple[Attribute, str]]:
-        """Return a natural order for the drill-down. This order can be merged
-        with user-specified order. Returns a list of tuples:
-        (`attribute_name`, `order`)."""
+        """Return a natural order for the drill-down.
+
+        This order can be merged with user-specified order. Returns a
+        list of tuples: (`attribute_name`, `order`).
+        """
 
         order = []
 

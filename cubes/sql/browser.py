@@ -1,5 +1,5 @@
 # -*- encoding=utf -*-
-"""SQL Browser"""
+"""SQL Browser."""
 
 
 import collections
@@ -53,8 +53,8 @@ __all__ = ["SQLBrowser"]
 
 class SQLBrowser(AggregationBrowser, name="sql"):
     """SnowflakeBrowser is a SQL-based AggregationBrowser implementation that
-    can aggregate star and snowflake schemas without need of having
-    explicit view or physical denormalized table.
+    can aggregate star and snowflake schemas without need of having explicit
+    view or physical denormalized table.
 
     Attributes:
 
@@ -84,7 +84,6 @@ class SQLBrowser(AggregationBrowser, name="sql"):
 
     * only one locale can be used for browsing at a time
     * locale is implemented as denormalized: one column for each language
-
     """
 
     extension_desc = """
@@ -236,9 +235,11 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         self.hierarchies = self.cube.distilled_hierarchies
 
     def features(self) -> BrowserFeatures:
-        """Return SQL features. Currently they are all the same for every
-        cube, however in the future they might depend on the SQL engine or
-        other factors."""
+        """Return SQL features.
+
+        Currently they are all the same for every cube, however in the
+        future they might depend on the SQL engine or other factors.
+        """
 
         features = BrowserFeatures(
             actions=[
@@ -265,7 +266,8 @@ class SQLBrowser(AggregationBrowser, name="sql"):
     ) -> Optional[_RecordType]:
         """Get a single fact with key `key_value` from cube.
 
-        Number of SQL queries: 1."""
+        Number of SQL queries: 1.
+        """
 
         attributes: Collection[AttributeBase]
         attributes = fields or self.cube.all_fact_attributes
@@ -333,11 +335,13 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         return Facts(ResultIterator(cursor, labels), attributes=labels)
 
     def test(self, aggregate: bool = False) -> None:
-        """Tests whether the statement can be constructed and executed. Does
-        not return anything, but raises an exception if there are issues with
-        the generated statements. By default it tests only denormalized
-        statement by fetching one row. If `aggregate` is `True` then test also
-        aggregation."""
+        """Tests whether the statement can be constructed and executed.
+
+        Does not return anything, but raises an exception if there are
+        issues with the generated statements. By default it tests only
+        denormalized statement by fetching one row. If `aggregate` is
+        `True` then test also aggregation.
+        """
 
         statement: sa.Select
         (statement, _) = self.denormalized_statement(
@@ -401,8 +405,8 @@ class SQLBrowser(AggregationBrowser, name="sql"):
     def path_details(
         self, dimension: Dimension, path: HierarchyPath, hierarchy: Hierarchy = None
     ) -> Optional[_RecordType]:
-        """Returns details for `path` in `dimension`. Can be used for
-        multi-dimensional "breadcrumbs" in a used interface.
+        """Returns details for `path` in `dimension`. Can be used for multi-
+        dimensional "breadcrumbs" in a used interface.
 
         Number of SQL queries: 1.
         """
@@ -440,8 +444,10 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         return member
 
     def execute(self, statement: sa.Select, label: str = None) -> sa.ResultProxy:
-        """Execute the `statement`, optionally log it. Returns the result
-        cursor."""
+        """Execute the `statement`, optionally log it.
+
+        Returns the result cursor.
+        """
         self._log_statement(statement, label)
         return self.connectable.execute(statement)
 
@@ -489,7 +495,6 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         Notes:
 
         * measures can be only in the fact table
-
         """
 
         cells: Optional[ResultIterator] = None
@@ -575,8 +580,11 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         return result
 
     def _create_context(self, attributes: Collection[AttributeBase]) -> QueryContext:
-        """Create a query context for `attributes`. The `attributes` should
-        contain all attributes that will be somehow involved in the query."""
+        """Create a query context for `attributes`.
+
+        The `attributes` should contain all attributes that will be
+        somehow involved in the query.
+        """
 
         collected = self.cube.collect_dependencies(attributes)
         return QueryContext(
@@ -593,10 +601,12 @@ class SQLBrowser(AggregationBrowser, name="sql"):
         include_fact_key: bool = False,
     ) -> Tuple[sa.Select, List[str]]:
         """Returns a tuple (`statement`, `labels`) representing denormalized
-        star statement restricted by `cell`. If `attributes` is not specified,
-        then all cube's attributes are selected. The returned `labels` are
-        correct labels to be applied to the iterated result in case of
-        `safe_labels`."""
+        star statement restricted by `cell`.
+
+        If `attributes` is not specified, then all cube's attributes are
+        selected. The returned `labels` are correct labels to be applied
+        to the iterated result in case of `safe_labels`.
+        """
 
         selection: List[sa.ColumnElement]
 
@@ -739,9 +749,7 @@ class SQLBrowser(AggregationBrowser, name="sql"):
 
 # TODO: Rename to batch result iterator
 class ResultIterator(Iterable[_RecordType]):
-    """
-    Iterator that returns SQLAlchemy ResultProxy rows as dictionaries
-    """
+    """Iterator that returns SQLAlchemy ResultProxy rows as dictionaries."""
 
     # FIXME: [typing] this is SA row proxy
     result: sa.ResultProxy

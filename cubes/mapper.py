@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Logical to Physical Mappers"""
+"""Logical to Physical Mappers."""
 
 # TODO: This should be moved under query sub-module
 
@@ -17,8 +17,7 @@ __all__ = ("Mapper",)
 
 class Mapper:
     """Mapper is core class for translating logical model to physical database
-    schema.
-    """
+    schema."""
 
     # WARNING: do not put any SQL/engine/connection related stuff into this
     # class yet. It might be moved to the cubes as one of top-level modules
@@ -31,15 +30,14 @@ class Mapper:
     attributes: Dict[str, AttributeBase]
 
     def __init__(self, cube: Cube, locale: str = None, **naming: Any) -> None:
-        """Abstract class for mappers which maps logical references to
-        physical references (tables and columns).
+        """Abstract class for mappers which maps logical references to physical
+        references (tables and columns).
 
         Attributes:
 
         * `cube` - mapped cube
         * `fact_name` – fact name, if not specified then `cube.name` is used
         * `schema` – default database schema
-
         """
 
         self.logger = get_logger()
@@ -56,6 +54,7 @@ class Mapper:
     def _collect_attributes(self) -> None:
         """Collect all cube attributes and create a dictionary where keys are
         logical references and values are `cubes.model.Attribute` objects.
+
         This method should be used after each cube or mappings change.
         """
 
@@ -66,7 +65,7 @@ class Mapper:
 
     # FIXME: This is mutating (see #416)
     def set_locale(self, locale: str) -> None:
-        """Change the mapper's locale"""
+        """Change the mapper's locale."""
         self.locale = locale
         self._collect_attributes()
 
@@ -88,8 +87,11 @@ class Mapper:
         return reference
 
     def split_logical(self, reference: str) -> Tuple[Optional[str], str]:
-        """Returns tuple (`dimension`, `attribute`) from `logical_reference` string. Syntax
-        of the string is: ``dimensions.attribute``."""
+        """Returns tuple (`dimension`, `attribute`) from `logical_reference`
+        string.
+
+        Syntax of the string is: ``dimensions.attribute``.
+        """
 
         split = reference.split(".")
 

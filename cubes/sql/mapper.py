@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""Logical to Physical Mappers"""
+"""Logical to Physical Mappers."""
 
 import re
 from typing import (
@@ -139,7 +139,10 @@ class Mapper:
 
     def __init__(self, cube: Cube, naming: NamingDict, locale: str = None) -> None:
         """Creates a mapping for `cube` using `naming` conventions within
-        optional `locale`. `naming` is a dictionary of naming conventions.  """
+        optional `locale`.
+
+        `naming` is a dictionary of naming conventions.
+        """
 
         self.cube = cube
 
@@ -209,10 +212,12 @@ class Mapper:
 
     def __getitem__(self, attribute: AttributeBase) -> ColumnReference:
         """Returns implicit physical column reference for `attribute`, which
-        should be an instance of :class:`cubes.model.Attribute`. If there is
-        no dimension specified in attribute, then fact table is assumed. The
-        returned reference has attributes `schema`, `table`, `column`,
-        `extract`.  """
+        should be an instance of :class:`cubes.model.Attribute`.
+
+        If there is no dimension specified in attribute, then fact table
+        is assumed. The returned reference has attributes `schema`,
+        `table`, `column`, `extract`.
+        """
 
         column_name = attribute.name
 
@@ -252,8 +257,10 @@ class Mapper:
 
     def map_base_attributes(self) -> Mapping[str, ColumnReference]:
         """Map all base attributes of `cube` using mapping function `mapper`.
+
         `naming` is a naming convention object. Returns  a dictionary of
-        attribute references and their physical column references."""
+        attribute references and their physical column references.
+        """
 
         mapped = {
             attr.ref: self[attr] for attr in self.cube.all_attributes if attr.is_base

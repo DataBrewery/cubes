@@ -50,8 +50,8 @@ class SQLExpressionTestCase(SQLTestCase):
 
     def assertExpressionEqual(self, left, right):
         """Asserts that the `left` and `right` statement expressions are equal
-        by pulling out the data from the table and testing whether the
-        returned sequences are equal."""
+        by pulling out the data from the table and testing whether the returned
+        sequences are equal."""
 
         stmt = sa.select([left.label("value")], from_obj=self.table)
         result = self.engine.execute(stmt)

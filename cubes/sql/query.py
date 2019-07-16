@@ -378,8 +378,9 @@ class StarSchema:
         return table
 
     def column(self, logical: str) -> sa.ColumnElement:
-        """Return a column for `logical` reference. The returned column will
-        have a label same as the `logical`.
+        """Return a column for `logical` reference.
+
+        The returned column will have a label same as the `logical`.
         """
         # IMPORTANT
         #
@@ -443,13 +444,13 @@ class StarSchema:
         return column
 
     def _master_key(self, join: Join) -> _TableKey:
-        """Generate join master key, use schema defaults"""
+        """Generate join master key, use schema defaults."""
         return _TableKey(
             join.master.schema or self.schema, join.master.table or self.fact_name
         )
 
     def _detail_key(self, join: Join) -> _TableKey:
-        """Generate join detail key, use schema defaults"""
+        """Generate join detail key, use schema defaults."""
         # Note: we don't include fact as detail table by default. Fact can not
         # be detail (at least for now, we don't have a case where it could be)
         detail_table: str
@@ -462,8 +463,9 @@ class StarSchema:
 
     def required_tables(self, attributes: Collection[str]) -> List[_TableRef]:
         """Get all tables that are required to be joined to get `attributes`.
-        `attributes` is a list of `StarSchema` attributes (or objects with
-        same kind of attributes).
+
+        `attributes` is a list of `StarSchema` attributes (or objects
+        with same kind of attributes).
         """
 
         # Attribute: (schema, table, column)
@@ -557,10 +559,9 @@ class StarSchema:
     # ==========================
 
     def get_star(self, attributes: Collection[str]) -> sa.FromClause:
-        """The main method for generating underlying star schema joins.
-        Returns a denormalized JOIN expression that includes all relevant
-        tables containing base `attributes` (attributes representing actual
-        columns).
+        """The main method for generating underlying star schema joins. Returns
+        a denormalized JOIN expression that includes all relevant tables
+        containing base `attributes` (attributes representing actual columns).
 
         Example use:
 
@@ -763,7 +764,6 @@ class QueryContext:
         Note: in the future the `hierarchies` dictionary might change just to
         a hierarchy name (a string), since hierarchies and dimensions will be
         both top-level objects.
-
         """
 
         # Note on why attributes have to be sorted: We don'd have enough
@@ -815,11 +815,13 @@ class QueryContext:
                 self.label_attributes[attr.ref] = attr.ref
 
     def column(self, ref: str) -> sa.ColumnElement:
-        """Get a column expression for attribute with reference `ref`. Column
-        has the same label as the attribute reference, unless `safe_labels` is
-        provided to the query context. If `safe_labels` translation is
-        provided, then the column has label according to the translation
-        dictionary."""
+        """Get a column expression for attribute with reference `ref`.
+
+        Column has the same label as the attribute reference, unless
+        `safe_labels` is provided to the query context. If `safe_labels`
+        translation is provided, then the column has label according to
+        the translation dictionary.
+        """
 
         try:
             return self._columns[ref]
@@ -834,9 +836,11 @@ class QueryContext:
             )
 
     def get_labels(self, columns: Collection[sa.ColumnElement]) -> List[str]:
-        """Returns real attribute labels for columns `columns`. It is highly
-        recommended that the owner of the context uses this method before
-        iterating over statement result."""
+        """Returns real attribute labels for columns `columns`.
+
+        It is highly recommended that the owner of the context uses this
+        method before iterating over statement result.
+        """
 
         if self.safe_labels:
             return [
@@ -847,21 +851,24 @@ class QueryContext:
             return [col.name for col in columns]
 
     def get_columns(self, refs: Collection[str]) -> List[sa.ColumnElement]:
-        """Get columns for attribute references `refs`.  """
+        """Get columns for attribute references `refs`."""
 
         return [self._columns[ref] for ref in refs]
 
     def condition_for_cell(self, cell: Cell) -> sa.ColumnElement:
-        """Returns a condition for cell `cell`. If cell is empty or cell is
-        `None` then returns `None`."""
+        """Returns a condition for cell `cell`.
+
+        If cell is empty or cell is `None` then returns `None`.
+        """
 
         condition = sa.and_(*self.conditions_for_cuts(cell.cuts))
 
         return condition
 
     def conditions_for_cuts(self, cuts: List[Cut]) -> List[sa.ColumnElement]:
-        """Constructs conditions for all cuts in the `cell`. Returns a list of
-        SQL conditional expressions.
+        """Constructs conditions for all cuts in the `cell`.
+
+        Returns a list of SQL conditional expressions.
         """
 
         conditions: List[sa.ColumnElement]
@@ -908,10 +915,12 @@ class QueryContext:
         hierarchy: Optional[str] = None,
         invert: bool = False,
     ) -> sa.ColumnElement:
-        """Returns a `Condition` tuple (`attributes`, `conditions`,
-        `group_by`) dimension `dim` point at `path`. It is a compound
+        """Returns a `Condition` tuple (`attributes`, `conditions`, `group_by`)
+        dimension `dim` point at `path`. It is a compound.
+
         condition - one equality condition for each path element in form:
-        ``level[i].key = path[i]``"""
+        ``level[i].key = path[i]``
+        """
 
         conditions: List[sa.ColumnElement]
         conditions = []
@@ -940,7 +949,10 @@ class QueryContext:
         invert: bool = False,
     ) -> sa.ColumnElement:
         """Return a condition for a hierarchical range (`from_path`,
-        `to_path`). Return value is a `Condition` tuple."""
+        `to_path`).
+
+        Return value is a `Condition` tuple.
+        """
 
         assert (
             from_path is not None or to_path is not None
@@ -978,10 +990,12 @@ class QueryContext:
         bound: int,
         first: bool = True,
     ) -> Optional[sa.ColumnElement]:
-        """Return a `Condition` tuple for a boundary condition. If `bound` is
-        1 then path is considered to be upper bound (operators < and <= are
-        used), otherwise path is considered as lower bound (operators > and >=
-        are used )"""
+        """Return a `Condition` tuple for a boundary condition.
+
+        If `bound` is 1 then path is considered to be upper bound
+        (operators < and <= are used), otherwise path is considered as
+        lower bound (operators > and >= are used )
+        """
         # TODO: make this non-recursive
 
         column: sa.ColumnElement
@@ -1022,8 +1036,8 @@ class QueryContext:
     def level_keys(
         self, dimension: str, hierarchy: Optional[str], path: HierarchyPath
     ) -> List[str]:
-        """Return list of key attributes of levels for `path` in `hierarchy`
-        of `dimension`."""
+        """Return list of key attributes of levels for `path` in `hierarchy` of
+        `dimension`."""
 
         # Note: If something does not work here, make sure that hierarchies
         # contains "default hierarchy", that is (dimension, None) tuple.

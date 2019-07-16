@@ -1,4 +1,4 @@
-"""OLAP Cubes"""
+"""OLAP Cubes."""
 
 __version__ = "1.1"
 

@@ -131,8 +131,11 @@ def _window_function_factory(
     drilldown: Optional[Drilldown],
     split_cell: Cell,
 ) -> _UnknownType:
-    """Returns a moving average window function. `aggregate` is the target
-    aggergate. `window_function` is concrete window function."""
+    """Returns a moving average window function.
+
+    `aggregate` is the target aggergate. `window_function` is concrete
+    window function.
+    """
 
     # If the level we're drilling to doesn't have aggregation_units configured,
     # we're not doing any calculations
@@ -237,9 +240,12 @@ class WindowFunction:
 
     # TODO: This modifies object in place. It should return modified copy
     def __call__(self, record: Any) -> None:
-        """Collects the source value. If the window for the `window_key` is
-        filled, then apply the window function and store the value in the
-        `record` to key `target_attribute`."""
+        """Collects the source value.
+
+        If the window for the `window_key` is filled, then apply the
+        window function and store the value in the `record` to key
+        `target_attribute`.
+        """
 
         key = get_key(record, self.window_key)
 

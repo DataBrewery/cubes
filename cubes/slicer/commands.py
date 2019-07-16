@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""Slicer – Cubes command-line tool
+"""Slicer – Cubes command-line tool.
 
 For more information run: slicer --help
 
@@ -92,7 +92,7 @@ def serve(ctx, config, visualizer):
 )
 @click.pass_context
 def extension_info(ctx, extension_type, extension_name, try_import):
-    """Show info about Cubes extensions"""
+    """Show info about Cubes extensions."""
     types: List[str]
 
     if extension_type == "all":
@@ -159,7 +159,7 @@ def _try_import(registry: ExtensionRegistry, name: str) -> Optional[str]:
 )
 @click.pass_context
 def list(ctx, config, verbose):
-    """List cubes"""
+    """List cubes."""
     ws = Workspace(config)
 
     for cube in ws.list_cubes():
@@ -193,7 +193,7 @@ def model(ctx):
 )
 @click.argument("model_path", metavar="MODEL")
 def validate(show_defaults, show_warnings, model_path):
-    """Validate model metadata"""
+    """Validate model metadata."""
 
     click.echo("Reading model %s" % model_path)
     model = cubes.read_model_metadata(model_path)
@@ -266,7 +266,7 @@ def validate(show_defaults, show_warnings, model_path):
 @click.argument("config", default=DEFAULT_CONFIG)
 @click.argument("cube", nargs=-1)
 def test(aggregate, exclude_stores, include_stores, config, cube):
-    """Test every cube in the model"""
+    """Test every cube in the model."""
     workspace = cubes.Workspace(config)
 
     errors = []
@@ -373,7 +373,7 @@ def read_config(cfg):
     help="Name of slicer.ini configuration file",
 )
 def sql(ctx, store, config):
-    """SQL store commands"""
+    """SQL store commands."""
     ctx.obj.workspace = cubes.Workspace(config)
     ctx.obj.store = ctx.obj.workspace.get_store(store)
 
@@ -534,7 +534,7 @@ def aggregate(
     on_rows,
     on_columns,
 ):
-    """Aggregate a cube"""
+    """Aggregate a cube."""
     config = read_config(config)
     workspace = Workspace(config)
     browser = workspace.browser(cube_name)
@@ -602,7 +602,7 @@ def aggregate(
 @click.argument("dim_name", metavar="DIMENSION")
 @click.pass_context
 def members(ctx, config, cube_name, cuts, dim_name, output_format):
-    """Aggregate a cube"""
+    """Aggregate a cube."""
     config = read_config(config)
     workspace = Workspace(config)
     browser = workspace.browser(cube_name)

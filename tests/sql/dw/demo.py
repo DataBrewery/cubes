@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Database for testing the SQL browser – schema and data.
 
-
 Contains:
 
 * star schema
@@ -12,7 +11,6 @@ Contains:
 * measure fields that can be used for expressions
 * dimension with more than one attribute
 * folows a naming convention (ft_, dim_, _key, ...)
-
 """
 #
 # See: https://github.com/DataBrewery/cubes/issues/255
@@ -176,6 +174,7 @@ class TinyDemoDataWarehouse:
     def create_table(self, desc, name=None):
         """Create a table according to description `desc`. The description
         contains keys:
+
         * `name` – table name
         * `columns` – list of column names
         * `types` – list of column types. If not specified, then `string` is
@@ -236,7 +235,7 @@ class TinyDemoDataWarehouse:
         return table
 
     def create_date_dimension(self):
-        """Creates and populates the date dimension"""
+        """Creates and populates the date dimension."""
 
         table = sa.Table(
             "dim_date",
@@ -286,11 +285,12 @@ class TinyDemoDataWarehouse:
         return sa.Table(name, self.md, autoload=True)
 
     def mapping_from_table(self, table_name, key_name, values):
-        """Returns a dictionary constructed from table `table_name` where
-        `key` is name of the key column (presumably unique) and `value` is
-        name of a mapping values.
+        """Returns a dictionary constructed from table `table_name` where `key`
+        is name of the key column (presumably unique) and `value` is name of a
+        mapping values.
 
-        Keys are ordered for nicer debugging."""
+        Keys are ordered for nicer debugging.
+        """
 
         mapping = OrderedDict()
 
@@ -320,8 +320,10 @@ class TinyDemoDataWarehouse:
         return mapping
 
     def rows(self, table_name, columns=None):
-        """Return an interable of rows from table `table_name`. If `columns`
-        is specified then yield only those columns."""
+        """Return an interable of rows from table `table_name`.
+
+        If `columns` is specified then yield only those columns.
+        """
 
         table = self.table(table_name)
         if columns:

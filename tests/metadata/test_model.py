@@ -47,17 +47,17 @@ class ModelTestCaseBase(unittest.TestCase):
 
 
 class AttributeTestCase(unittest.TestCase):
-    """docstring for AttributeTestCase"""
+    """docstring for AttributeTestCase."""
 
     def test_basics(self):
-        """Attribute creation and attribute references"""
+        """Attribute creation and attribute references."""
         attr = Attribute("foo")
         self.assertEqual("foo", attr.name)
         self.assertEqual("foo", str(attr))
         self.assertEqual("foo", attr.ref)
 
     def test_locale(self):
-        """References to localizable attributes"""
+        """References to localizable attributes."""
 
         attr = Attribute("foo")
         self.assertRaises(ArgumentError, attr.localized_ref, locale="xx")
@@ -189,7 +189,7 @@ class MeasuresTestsCase(CubesTestCaseBase):
 
     def test_empty2(self):
         """No measures in metadata should yield count measure with record
-        count"""
+        count."""
         cube = self.cube("empty")
         self.assertIsInstance(cube, Cube)
         self.assertEqual(0, len(cube.measures))
@@ -201,7 +201,7 @@ class MeasuresTestsCase(CubesTestCaseBase):
         self.assertIsNone(aggregate.measure)
 
     def test_amount_default(self):
-        """Plain measure definition should yield measure_sum aggregate"""
+        """Plain measure definition should yield measure_sum aggregate."""
         cube = self.cube("amount_default")
         measures = cube.measures
         self.assertEqual(1, len(measures))
@@ -318,14 +318,14 @@ class MeasuresTestsCase(CubesTestCaseBase):
 
 
 class LevelTestCase(unittest.TestCase):
-    """docstring for LevelTestCase"""
+    """docstring for LevelTestCase."""
 
     def test_initialization(self):
-        """Empty attribute list for new level should raise an exception """
+        """Empty attribute list for new level should raise an exception."""
         self.assertRaises(ModelError, Level, "month", [])
 
     def test_has_details(self):
-        """Level "has_details" flag"""
+        """Level "has_details" flag."""
         attrs = [Attribute("year")]
         level = Level("year", attrs)
         self.assertFalse(level.has_details)
@@ -335,12 +335,12 @@ class LevelTestCase(unittest.TestCase):
         self.assertTrue(level.has_details)
 
     def test_operators(self):
-        """Level to string conversion"""
+        """Level to string conversion."""
         attrs = [Attribute("foo")]
         self.assertEqual("date", str(Level("date", attrs)))
 
     def test_create(self):
-        """Create level from a dictionary"""
+        """Create level from a dictionary."""
         desc = "year"
         level = Level.from_metadata(desc)
         self.assertIsInstance(level, Level)
@@ -432,7 +432,7 @@ class LevelTestCase(unittest.TestCase):
         self.assertEqual("Product Type", attr.label)
 
     def test_comparison(self):
-        """Comparison of level instances"""
+        """Comparison of level instances."""
 
         attrs = [Attribute("info"), Attribute("code"), Attribute("name")]
         level1 = Level("product", attrs, key="code", label_attribute="name")
@@ -476,7 +476,7 @@ class HierarchyTestCase(unittest.TestCase):
 
     @unittest.skip("fix this")
     def test_operators(self):
-        """Hierarchy operators len(), hier[] and level in hier"""
+        """Hierarchy operators len(), hier[] and level in hier."""
         # __len__
         self.assertEqual(3, len(self.hierarchy))
 
@@ -489,7 +489,7 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertFalse("flower" in self.hierarchy)
 
     def test_levels_for(self):
-        """Levels for depth"""
+        """Levels for depth."""
         levels = self.hierarchy.levels_for_depth(0)
         self.assertEqual([], levels)
 
@@ -518,14 +518,14 @@ class HierarchyTestCase(unittest.TestCase):
         self.assertRaises(HierarchyError, self.hierarchy.level_index, self.levels[3])
 
     def test_base_path(self):
-        """Test base paths"""
+        """Test base paths."""
         self.assertTrue(self.hierarchy.path_is_base([2012, 1, 5]))
         self.assertFalse(self.hierarchy.path_is_base([2012, 1]))
         self.assertFalse(self.hierarchy.path_is_base([2012]))
         self.assertFalse(self.hierarchy.path_is_base([]))
 
     def test_attributes(self):
-        """Collecting attributes and keys"""
+        """Collecting attributes and keys."""
         keys = [a.name for a in self.hierarchy.key_attributes()]
         self.assertEqual(["year", "month", "day"], keys)
 
@@ -572,7 +572,7 @@ class DimensionTestCase(unittest.TestCase):
         self.hierarchy = Hierarchy("default", levels)
 
     def test_create(self):
-        """Dimension from a dictionary"""
+        """Dimension from a dictionary."""
         dim = Dimension.from_metadata("year")
         self.assertIsInstance(dim, Dimension)
         self.assertEqual("year", dim.name)
@@ -613,7 +613,7 @@ class DimensionTestCase(unittest.TestCase):
         self.assertEqual(1, len(dim.hierarchies))
 
     def test_flat_dimension(self):
-        """Flat dimension and 'has details' flags"""
+        """Flat dimension and 'has details' flags."""
         dim = Dimension.from_metadata("foo")
         self.assertTrue(dim.is_flat)
         self.assertFalse(dim.has_details)
@@ -630,7 +630,7 @@ class DimensionTestCase(unittest.TestCase):
         self.assertEqual("foo", attr.name)
 
     def test_comparisons(self):
-        """Comparison of dimension instances"""
+        """Comparison of dimension instances."""
 
         dim1 = Dimension.from_metadata(DIM_DATE_DESC)
         dim2 = Dimension.from_metadata(DIM_DATE_DESC)

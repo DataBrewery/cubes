@@ -68,11 +68,13 @@ def _store_option(
     allowed=None,
     section: str = "server",
 ) -> None:
-    """Copies the `option` into the application config dictionary. `default`
-    is a default value, if there is no such option in `config`. `type_` can be
-    `bool`, `int` or `string` (default). If `allowed` is specified, then the
-    option should be only from the list of allowed options, otherwise a
-    `ConfigurationError` exception is raised.
+    """Copies the `option` into the application config dictionary.
+
+    `default` is a default value, if there is no such option in
+    `config`. `type_` can be `bool`, `int` or `string` (default). If
+    `allowed` is specified, then the option should be only from the list
+    of allowed options, otherwise a `ConfigurationError` exception is
+    raised.
     """
 
     if config.has_option(section, option):

@@ -26,8 +26,11 @@ T = TypeVar("T", "AttributeBase", "Attribute", "Measure", "MeasureAggregate")
 
 
 def expand_attribute_metadata(metadata: JSONType) -> JSONType:
-    """Fixes metadata of an attribute. If `metadata` is a string it will be
-    converted into a dictionary with key `"name"` set to the string value."""
+    """Fixes metadata of an attribute.
+
+    If `metadata` is a string it will be converted into a dictionary
+    with key `"name"` set to the string value.
+    """
     if isinstance(metadata, str):
         metadata = {"name": metadata}
 
@@ -35,8 +38,7 @@ def expand_attribute_metadata(metadata: JSONType) -> JSONType:
 
 
 class AttributeBase(ModelObject):
-    """Base class for dimension attributes, measures and measure
-    aggregates.
+    """Base class for dimension attributes, measures and measure aggregates.
 
     Attributes:
 
@@ -84,8 +86,7 @@ class AttributeBase(ModelObject):
     @classmethod
     def from_metadata(cls, metadata: JSONType) -> "AttributeBase":
         """Create an attribute from `metadata` which can be a dictionary or a
-        string representing the attribute name.
-        """
+        string representing the attribute name."""
 
         attribute: AttributeBase
 
@@ -196,8 +197,7 @@ class AttributeBase(ModelObject):
         return not self.expression
 
     def localized_ref(self, locale: Optional[str]) -> str:
-        """Returns localized attribute reference for locale `locale`.
-        """
+        """Returns localized attribute reference for locale `locale`."""
         if locale is not None:
             if not self.locales:
                 raise ArgumentError(
@@ -218,13 +218,14 @@ class AttributeBase(ModelObject):
 
     @property
     def dependencies(self) -> Set[str]:
-        """Set of attributes that the `attribute` depends on. If the
-        `attribute` is an expresion, then returns the direct dependencies from
-        the expression. If the attribute is an aggregate with an unary
-        function operating on a measure, then the measure is considered as a
-        dependency.  Attribute can't have both expression and measure
-        specified, since you can have only expression or an function, not
-        both.
+        """Set of attributes that the `attribute` depends on.
+
+        If the `attribute` is an expresion, then returns the direct
+        dependencies from the expression. If the attribute is an
+        aggregate with an unary function operating on a measure, then
+        the measure is considered as a dependency.  Attribute can't have
+        both expression and measure specified, since you can have only
+        expression or an function, not both.
         """
         if not self.expression:
             return set()
@@ -456,9 +457,11 @@ class Measure(AttributeBase):
 
     def default_aggregates(self) -> List["MeasureAggregate"]:
         """Creates default measure aggregates from a list of receiver's
-        measures. This is just a convenience function, correct models should
-        contain explicit list of aggregates. If no aggregates are specified,
-        then the only aggregate `sum` is assumed.
+        measures.
+
+        This is just a convenience function, correct models should
+        contain explicit list of aggregates. If no aggregates are
+        specified, then the only aggregate `sum` is assumed.
         """
 
         aggregates = []
@@ -516,7 +519,7 @@ class MeasureAggregate(AttributeBase):
         window_size: Optional[int] = None,
         **kwargs: Any,
     ) -> None:
-        """Masure aggregate
+        """Masure aggregate.
 
         Attributes:
 
@@ -594,13 +597,14 @@ class MeasureAggregate(AttributeBase):
 
     @property
     def dependencies(self) -> Set[str]:
-        """Set of attributes that the `attribute` depends on. If the
-        `attribute` is an expresion, then returns the direct dependencies from
-        the expression. If the attribute is an aggregate with an unary
-        function operating on a measure, then the measure is considered as a
-        dependency.  Attribute can't have both expression and measure
-        specified, since you can have only expression or an function, not
-        both.
+        """Set of attributes that the `attribute` depends on.
+
+        If the `attribute` is an expresion, then returns the direct
+        dependencies from the expression. If the attribute is an
+        aggregate with an unary function operating on a measure, then
+        the measure is considered as a dependency.  Attribute can't have
+        both expression and measure specified, since you can have only
+        expression or an function, not both.
         """
         if self.measure:
             if self.expression:
@@ -624,10 +628,13 @@ def create_list_of(class_: Type[T], objects: Collection[JSONType]) -> List[T]:
 
 # FIXME: [typing] Reconsider this from type perspective
 def collect_attributes(attributes: Collection[T], *containers: Any) -> List[T]:
-    """Collect attributes from arguments. `containers` are objects with
-    method `all_attributes` or might be `Nulls`. Returns a list of attributes.
-    Note that the function does not check whether the attribute is an actual
-    attribute object or a string."""
+    """Collect attributes from arguments.
+
+    `containers` are objects with method `all_attributes` or might be
+    `Nulls`. Returns a list of attributes. Note that the function does
+    not check whether the attribute is an actual attribute object or a
+    string.
+    """
     # Method for decreasing noise/boilerplate
 
     collected: List[T] = []
@@ -645,9 +652,10 @@ def collect_attributes(attributes: Collection[T], *containers: Any) -> List[T]:
 def collect_dependencies(
     attributes: Collection[T], all_attributes: Collection[T]
 ) -> List[str]:
-    """Collect all original and dependant cube attributes for
-    `attributes`, sorted by their dependency: starting with attributes
-    that don't depend on anything. For exapmle, if the `attributes` is [a,
+    """Collect all original and dependant cube attributes for `attributes`,
+    sorted by their dependency: starting with attributes that don't depend on
+    anything. For exapmle, if the `attributes` is [a,
+
     b] and a = c * 2, then the result list would be [b, c, a] or [c, b,
     a].
 
@@ -679,7 +687,8 @@ def depsort_attributes(
     attributes in attribute's expression, for example). `all_dependencies`
     should contain all known attributes, variables and constants.
 
-    Raises an exception when a circular dependecy is detected."""
+    Raises an exception when a circular dependecy is detected.
+    """
 
     bases: Set[str] = set()
 

@@ -108,7 +108,8 @@ class RequestLogger:
                 )
 
     def _stringify_record(self, record):
-        """Return a log rectord with object attributes converted to unicode strings"""
+        """Return a log rectord with object attributes converted to unicode
+        strings."""
         record = dict(record)
 
         record["cube"] = str(record["cube"])
@@ -211,8 +212,11 @@ class XLSXFileRequestLogHandler(RequestLogHandler, name="xlsx"):
 
 class JSONRequestLogHandler(RequestLogHandler, name="json"):
     def __init__(self, path=None, **options):
-        """Creates a JSON logger which logs requests in a JSON lines. It
-        includes two lists: `cell_dimensions` and `drilldown_dimensions`."""
+        """Creates a JSON logger which logs requests in a JSON lines.
+
+        It includes two lists: `cell_dimensions` and
+        `drilldown_dimensions`.
+        """
         self.path = path
 
     def write_record(self, cube, cell, record):

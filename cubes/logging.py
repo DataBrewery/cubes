@@ -11,7 +11,7 @@ logger: Optional[Logger] = None
 
 # TODO: make name first
 def get_logger(path: str = None, format_: str = None, name: str = None) -> Logger:
-    """Get brewery default logger"""
+    """Get brewery default logger."""
     global logger
 
     if logger:
@@ -21,7 +21,7 @@ def get_logger(path: str = None, format_: str = None, name: str = None) -> Logge
 
 
 def create_logger(path: str = None, format_: str = None, name: str = None) -> Logger:
-    """Create a default logger"""
+    """Create a default logger."""
     global logger
     logger = getLogger(name or DEFAULT_LOGGER_NAME)
     logger.propagate = False

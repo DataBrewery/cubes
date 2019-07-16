@@ -154,9 +154,7 @@ class _JSONLinesIterator:
 
 
 class SlicerModelProvider(ModelProvider, name="slicer"):
-    """
-    Uses external Slicer server as a model provider.
-    """
+    """Uses external Slicer server as a model provider."""
 
     def requires_store(self):
         return True

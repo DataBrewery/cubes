@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""Metadata validation
-"""
+"""Metadata validation."""
 
 import json
 import pkgutil

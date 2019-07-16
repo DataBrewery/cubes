@@ -40,10 +40,10 @@ class Namespace:
     def namespace(
         self, path: Union[str, List[str]], create: bool = False
     ) -> Tuple["Namespace", Optional[str]]:
-        """Returns a tuple (`namespace`, `remainder`) where `namespace` is
-        the deepest namespace in the namespace hierarchy and `remainder` is
-        the remaining part of the path that has no namespace (is an object
-        name or contains part of external namespace).
+        """Returns a tuple (`namespace`, `remainder`) where `namespace` is the
+        deepest namespace in the namespace hierarchy and `remainder` is the
+        remaining part of the path that has no namespace (is an object name or
+        contains part of external namespace).
 
         If path is empty or not provided then returns self.
 
@@ -97,7 +97,8 @@ class Namespace:
         is namespace ``slicer`` then that namespace is returned and the
         `basename` will be ``nested.cube``.
 
-        Raises `NoSuchCubeError` when there is no cube with given reference.
+        Raises `NoSuchCubeError` when there is no cube with given
+        reference.
         """
 
         path: List[str]
@@ -136,8 +137,8 @@ class Namespace:
         return (namespace, provider, basename)
 
     def list_cubes(self, recursive: bool = False) -> List[JSONType]:
-        """Retursn a list of cube info dictionaries with keys: `name`,
-        `label`, `description`, `category` and `info`."""
+        """Retursn a list of cube info dictionaries with keys: `name`, `label`,
+        `description`, `category` and `info`."""
 
         all_cubes: List[JSONType]
         all_cubes = []
@@ -210,9 +211,12 @@ class Namespace:
         trans.update(translation)
 
     def translation_lookup(self, lang: str) -> List[JSONType]:
-        """Returns translation in language `lang` for model object `obj`
-        within `context` (cubes, dimensions, attributes, ...).  Looks in
-        parent if current namespace does not have the translation."""
+        """Returns translation in language `lang` for model object `obj` within
+        `context` (cubes, dimensions, attributes, ...).
+
+        Looks in parent if current namespace does not have the
+        translation.
+        """
 
         lookup: List[JSONType]
         lookup = []

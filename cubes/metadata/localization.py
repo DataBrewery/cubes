@@ -101,8 +101,11 @@ class LocalizationContext:
 
     def _get_translation(self, obj, type_):
         """Returns translation in language `lang` for model object `obj` of
-        type `type_`. The type can be: ``cube`` or ``dimension``. Looks in
-        parent if current namespace does not have the translation."""
+        type `type_`.
+
+        The type can be: ``cube`` or ``dimension``. Looks in parent if
+        current namespace does not have the translation.
+        """
 
         lookup = []
         visited = set()

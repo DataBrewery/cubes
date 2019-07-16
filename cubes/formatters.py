@@ -42,13 +42,16 @@ __all__ = [
 
 
 def create_formatter(type_, *args, **kwargs):
-    """Creates a formatter of type `type`. Passes rest of the arguments to the
-    formatters initialization method."""
+    """Creates a formatter of type `type`.
+
+    Passes rest of the arguments to the formatters initialization
+    method.
+    """
     return ext.formatter(type_, *args, **kwargs)
 
 
 def _jinja_env():
-    """Create and return cubes jinja2 environment"""
+    """Create and return cubes jinja2 environment."""
     loader = jinja2.PackageLoader("cubes", "templates")
     env = jinja2.Environment(loader=loader)
     return env
@@ -107,8 +110,8 @@ class JSONLinesGenerator:
 
 class SlicerJSONEncoder(json.JSONEncoder):
     def __init__(self, *args, **kwargs) -> None:
-        """Creates a JSON encoder that will convert some data values and also allows
-        iterables to be used in the object graph.
+        """Creates a JSON encoder that will convert some data values and also
+        allows iterables to be used in the object graph.
 
         :Attributes:
         * `iterator_limit` - limits number of objects to be fetched from
@@ -148,8 +151,10 @@ class SlicerJSONEncoder(json.JSONEncoder):
 
 
 class Formatter(ext.Extensible, abstract=True):
-    """Empty class for the time being. Currently used only for finding all
-    built-in subclasses"""
+    """Empty class for the time being.
+
+    Currently used only for finding all built-in subclasses
+    """
 
     __extension_type__ = "formatter"
 
@@ -169,8 +174,7 @@ CrossTable = namedtuple("CrossTable", ["columns", "rows", "data"])
 
 
 def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
-    """
-    Creates a cross table from a drilldown (might be any list of records).
+    """Creates a cross table from a drilldown (might be any list of records).
     `onrows` contains list of attribute names to be placed at rows and
     `oncolumns` contains list of attribute names to be placet at columns.
     `aggregates_on` specifies where the aggregates will be incuded:
@@ -190,7 +194,6 @@ def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
       values of attributes in `onrows`.
     * `data` - list of aggregate data per row. Each row is a list of
       aggregate tuples.
-
     """
 
     if not result.drilldown:
@@ -252,9 +255,11 @@ def make_cross_table(result, onrows=None, oncolumns=None, aggregates_on=None):
 
 
 def coalesce_table_labels(attributes, onrows, oncolumns):
-    """Returns a tuple 9`onrows`, `oncolumns`) containing `attributes`. If
-    both are empty, all attributes will be put on rows. If one of the two is
-    empty, the rest of attributes is put on that axis."""
+    """Returns a tuple 9`onrows`, `oncolumns`) containing `attributes`.
+
+    If both are empty, all attributes will be put on rows. If one of the
+    two is empty, the rest of attributes is put on that axis.
+    """
     if not onrows or not oncolumns:
         onrows = onrows or []
         oncolumns = oncolumns or []
@@ -319,8 +324,10 @@ class HTMLCrossTableFormatter(CrossTableFormatter, name="html_cross_table"):
     mime_type = "text/html"
 
     def __init__(self, table_style=None):
-        """Create a simple HTML table formatter. See `CrossTableFormatter` for
-        information about arguments."""
+        """Create a simple HTML table formatter.
+
+        See `CrossTableFormatter` for information about arguments.
+        """
 
         self.env = _jinja_env()
         self.template = self.env.get_template("cross_table.html")

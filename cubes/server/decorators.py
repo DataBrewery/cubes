@@ -64,7 +64,9 @@ def requires_cube(f: Callable) -> Callable:
 
 def requires_browser(f: Callable) -> Callable:
     """Prepares three global variables: `g.cube`, `g.browser` and `g.cell`.
-    Also athorizes the cube using `authorize()`."""
+
+    Also athorizes the cube using `authorize()`.
+    """
 
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -122,7 +124,10 @@ def requires_browser(f: Callable) -> Callable:
 
 
 def authorized_cube(cube_name, locale):
-    """Returns a cube `cube_name`. Handle cube authorization if required."""
+    """Returns a cube `cube_name`.
+
+    Handle cube authorization if required.
+    """
 
     try:
         cube = workspace.cube(cube_name, g.auth_identity, locale=locale)

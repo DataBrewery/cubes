@@ -21,9 +21,12 @@ from .errors import *
 
 
 def str_to_bool(string):
-    """Convert a `string` to bool value. Returns ``True`` if `string` is
-    one of ``["true", "yes", "1", "on"]``, returns ``False`` if `string` is
-    one of  ``["false", "no", "0", "off"]``, otherwise returns ``None``."""
+    """Convert a `string` to bool value.
+
+    Returns ``True`` if `string` is one of ``["true", "yes", "1",
+    "on"]``, returns ``False`` if `string` is one of  ``["false", "no",
+    "0", "off"]``, otherwise returns ``None``.
+    """
 
     if string is not None:
         if string.lower() in ["true", "yes", "1", "on"]:
@@ -70,8 +73,8 @@ class CustomDict(dict):
 
 
 def jsonify(obj: Dict[str, Union[str, int]]) -> Response:
-    """Returns a ``application/json`` `Response` object with `obj` converted
-    to JSON."""
+    """Returns a ``application/json`` `Response` object with `obj` converted to
+    JSON."""
 
     if g.prettyprint:
         indent = 4
@@ -86,9 +89,11 @@ def jsonify(obj: Dict[str, Union[str, int]]) -> Response:
 
 
 def formatted_response(response, fields, labels, iterable=None):
-    """Wraps request which returns response that can be formatted. The
-    `data_attribute` is name of data attribute or key in the response that
-    contains formateable data."""
+    """Wraps request which returns response that can be formatted.
+
+    The `data_attribute` is name of data attribute or key in the
+    response that contains formateable data.
+    """
 
     output_format = validated_parameter(
         request.args,

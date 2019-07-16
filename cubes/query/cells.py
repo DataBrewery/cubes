@@ -94,8 +94,10 @@ class Cut:
         self.hidden = hidden
 
     def to_dict(self) -> JSONType:
-        """Returns dictionary representation fo the receiver. The keys are:
-        `dimension`."""
+        """Returns dictionary representation fo the receiver.
+
+        The keys are: `dimension`.
+        """
         d: JSONType = OrderedDict()
 
         # Placeholder for 'type' to be at the beginning of the list
@@ -110,8 +112,10 @@ class Cut:
         return d
 
     def level_depth(self) -> int:
-        """Returns deepest level number. Subclasses should implement this
-        method"""
+        """Returns deepest level number.
+
+        Subclasses should implement this method
+        """
         raise NotImplementedError
 
     def __repr__(self) -> str:
@@ -120,7 +124,7 @@ class Cut:
 
 class PointCut(Cut):
     """Object describing way of slicing a cube (cell) through point in a
-    dimension"""
+    dimension."""
 
     path: HierarchyPath
 
@@ -136,8 +140,10 @@ class PointCut(Cut):
         self.path = path
 
     def to_dict(self) -> JSONType:
-        """Returns dictionary representation of the receiver. The keys are:
-        `dimension`, `type`=``point`` and `path`."""
+        """Returns dictionary representation of the receiver.
+
+        The keys are: `dimension`, `type`=``point`` and `path`.
+        """
         d = super().to_dict()
         d["type"] = "point"
         d["path"] = self.path
@@ -149,7 +155,7 @@ class PointCut(Cut):
 
     def __str__(self) -> str:
         """Return string representation of point cut, you can use it in
-        URLs"""
+        URLs."""
         path_str = string_from_path(self.path)
         dim_str = string_from_hierarchy(self.dimension, self.hierarchy)
         string = (
@@ -178,8 +184,10 @@ class PointCut(Cut):
 
 class RangeCut(Cut):
     """Object describing way of slicing a cube (cell) between two points of a
-    dimension that has ordered points. For dimensions with unordered points
-    behaviour is unknown."""
+    dimension that has ordered points.
+
+    For dimensions with unordered points behaviour is unknown.
+    """
 
     from_path: Optional[HierarchyPath]
     to_path: Optional[HierarchyPath]
@@ -198,8 +206,11 @@ class RangeCut(Cut):
         self.to_path = to_path
 
     def to_dict(self) -> JSONType:
-        """Returns dictionary representation of the receiver. The keys are:
-        `dimension`, `type`=``range``, `from` and `to` paths."""
+        """Returns dictionary representation of the receiver.
+
+        The keys are: `dimension`, `type`=``range``, `from` and `to`
+        paths.
+        """
         d = super().to_dict()
         d["type"] = "range"
         d["from"] = self.from_path
@@ -222,7 +233,7 @@ class RangeCut(Cut):
 
     def __str__(self) -> str:
         """Return string representation of point cut, you can use it in
-        URLs"""
+        URLs."""
         if self.from_path:
             from_path_str = string_from_path(self.from_path)
         else:
@@ -263,8 +274,10 @@ class RangeCut(Cut):
 
 class SetCut(Cut):
     """Object describing way of slicing a cube (cell) between two points of a
-    dimension that has ordered points. For dimensions with unordered points
-    behaviour is unknown."""
+    dimension that has ordered points.
+
+    For dimensions with unordered points behaviour is unknown.
+    """
 
     paths: List[HierarchyPath]
 
@@ -281,8 +294,11 @@ class SetCut(Cut):
         self.paths = paths
 
     def to_dict(self) -> JSONType:
-        """Returns dictionary representation of the receiver. The keys are:
-        `dimension`, `type`=``range`` and `set` as a list of paths."""
+        """Returns dictionary representation of the receiver.
+
+        The keys are: `dimension`, `type`=``range`` and `set` as a list
+        of paths.
+        """
         d = super().to_dict()
         d["type"] = "set"
         d["paths"] = self.paths
@@ -294,7 +310,7 @@ class SetCut(Cut):
         return max([len(path) for path in self.paths])
 
     def __str__(self) -> str:
-        """Return string representation of set cut, you can use it in URLs"""
+        """Return string representation of set cut, you can use it in URLs."""
         path_strings = []
         for path in self.paths:
             path_strings.append(string_from_path(path))
@@ -326,7 +342,10 @@ class SetCut(Cut):
 
 
 class Cell:
-    """Part of a cube determined by slicing dimensions. Immutable object."""
+    """Part of a cube determined by slicing dimensions.
+
+    Immutable object.
+    """
 
     cuts: List[Cut]
 
@@ -334,13 +353,15 @@ class Cell:
         self.cuts = list(cuts) if cuts is not None else []
 
     def __and__(self, other: "Cell") -> "Cell":
-        """Returns a new cell that is a conjunction of the two provided
-        cells. The cube has to match."""
+        """Returns a new cell that is a conjunction of the two provided cells.
+
+        The cube has to match.
+        """
         cuts = self.cuts + other.cuts
         return Cell(cuts=cuts)
 
     def to_dict(self) -> JSONType:
-        """Returns a dictionary representation of the cell"""
+        """Returns a dictionary representation of the cell."""
 
         result = {"cuts": [cut.to_dict() for cut in self.cuts]}
 
@@ -368,9 +389,10 @@ class Cell:
         return list(attributes)
 
     def slice(self, cut: Cut) -> "Cell":
-        """Returns new cell by slicing receiving cell with `cut`. Cut with
-        same dimension as `cut` will be replaced, if there is no cut with the
-        same dimension, then the `cut` will be appended.
+        """Returns new cell by slicing receiving cell with `cut`.
+
+        Cut with same dimension as `cut` will be replaced, if there is
+        no cut with the same dimension, then the `cut` will be appended.
         """
 
         cuts: List[Cut] = self.cuts[:]
@@ -383,8 +405,10 @@ class Cell:
         return Cell(cuts=cuts)
 
     def _dimension_cut_index(self, dimension: str) -> Optional[int]:
-        """Returns index of first occurence of cut for `dimension`. Returns
-        ``None`` if no cut with `dimension` is found."""
+        """Returns index of first occurence of cut for `dimension`.
+
+        Returns ``None`` if no cut with `dimension` is found.
+        """
         names = [cut.dimension for cut in self.cuts]
 
         try:
@@ -394,11 +418,10 @@ class Cell:
             return None
 
     def point_slice(self, dimension: str, path: HierarchyPath) -> "Cell":
-        """
-        Create another cell by slicing receiving cell through `dimension`
-        at `path`. Receiving object is not modified. If cut with dimension
-        exists it is replaced with new one. If path is empty list or is none,
-        then cut for given dimension is removed.
+        """Create another cell by slicing receiving cell through `dimension` at
+        `path`. Receiving object is not modified. If cut with dimension exists
+        it is replaced with new one. If path is empty list or is none, then cut
+        for given dimension is removed.
 
         Example::
 
@@ -411,7 +434,6 @@ class Cell:
 
             Depreiated. Use :meth:`cell.slice` instead with argument
             `PointCut(dimension, path)`
-
         """
 
         cuts = self.cuts_for_dimension(dimension, exclude=True)
@@ -456,8 +478,11 @@ class Cell:
         return Cell(cuts=cuts)
 
     def multi_slice(self, cuts: List[Cut]) -> "Cell":
-        """Create another cell by slicing through multiple slices. `cuts` is a
-        list of `Cut` object instances. See also :meth:`Cell.slice`."""
+        """Create another cell by slicing through multiple slices.
+
+        `cuts` is a list of `Cut` object instances. See also
+        :meth:`Cell.slice`.
+        """
 
         if isinstance(cuts, dict):
             raise CubesError(
@@ -510,8 +535,11 @@ class Cell:
         return depths
 
     def cuts_for_dimension(self, dimension: str, exclude: bool = False) -> List[Cut]:
-        """Returns cuts for `dimension`. If `exclude` is `True` then the
-        effect is reversed: return all cuts except those with `dimension`."""
+        """Returns cuts for `dimension`.
+
+        If `exclude` is `True` then the effect is reversed: return all
+        cuts except those with `dimension`.
+        """
         cuts = []
         for cut in self.cuts:
             cut_dimension = cut.dimension
@@ -522,9 +550,12 @@ class Cell:
         return cuts
 
     def public_cell(self) -> "Cell":
-        """Returns a cell that contains only non-hidden cuts. Hidden cuts are
-        mostly generated cuts by a backend or an extension. Public cell is a
-        cell to be presented to the front-end."""
+        """Returns a cell that contains only non-hidden cuts.
+
+        Hidden cuts are mostly generated cuts by a backend or an
+        extension. Public cell is a cell to be presented to the front-
+        end.
+        """
 
         cuts = [cut for cut in self.cuts if not cut.hidden]
 
@@ -532,8 +563,9 @@ class Cell:
 
     def __eq__(self, other: Any) -> bool:
         """cells are considered equal if:
-            * they refer to the same cube
-            * they have same set of cuts (regardless of their order)
+
+        * they refer to the same cube
+        * they have same set of cuts (regardless of their order)
         """
 
         if len(self.cuts) != len(other.cuts):
@@ -549,13 +581,13 @@ class Cell:
         return not self.__eq__(other)
 
     def to_str(self) -> str:
-        """Return string representation of the cell by using standard
-        cuts-to-string conversion."""
+        """Return string representation of the cell by using standard cuts-to-
+        string conversion."""
         return string_from_cuts(self.cuts)
 
     def __str__(self) -> str:
-        """Return string representation of the cell by using standard
-        cuts-to-string conversion."""
+        """Return string representation of the cell by using standard cuts-to-
+        string conversion."""
         return string_from_cuts(self.cuts)
 
     def __repr__(self) -> str:
@@ -730,9 +762,11 @@ def cut_from_string(
 
 
 def cut_from_dict(desc: JSONType, cube: Cube = None) -> Cut:
-    """Returns a cut from `desc` dictionary. If `cube` is specified, then the
-    dimension is looked up in the cube and set as `Dimension` instances, if
-    specified as strings."""
+    """Returns a cut from `desc` dictionary.
+
+    If `cube` is specified, then the dimension is looked up in the cube
+    and set as `Dimension` instances, if specified as strings.
+    """
 
     cut_type = desc["type"].lower()
 
@@ -780,19 +814,23 @@ def _path_part_unescape(path_part: str) -> Optional[str]:
 
 
 def string_from_cuts(cuts: Collection[Cut]) -> str:
-    """Returns a string represeting `cuts`. String can be used in URLs"""
+    """Returns a string represeting `cuts`.
+
+    String can be used in URLs
+    """
     strings = [str(cut) for cut in cuts]
     string = CUT_STRING_SEPARATOR_CHAR.join(strings)
     return string
 
 
 def string_from_path(path: HierarchyPath) -> str:
-    """Returns a string representing dimension `path`. If `path` is ``None``
-    or empty, then returns empty string. The ptah elements are comma ``,``
+    """Returns a string representing dimension `path`. If `path` is ``None`` or
+    empty, then returns empty string. The ptah elements are comma ``,``
     spearated.
 
-    Raises `ValueError` when path elements contain characters that are not
-    allowed in path element (alphanumeric and underscore ``_``)."""
+    Raises `ValueError` when path elements contain characters that are
+    not allowed in path element (alphanumeric and underscore ``_``).
+    """
 
     if not path:
         return ""

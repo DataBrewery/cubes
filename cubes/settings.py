@@ -154,8 +154,8 @@ def distill_settings(
     does not contain key for a required setting an `ConfigurationError`
     exeption is raised.
 
-    The returned dictionary can be safely used to be passed into an extension's
-    `__init__()` method as key-word arguments.
+    The returned dictionary can be safely used to be passed into an
+    extension's `__init__()` method as key-word arguments.
     """
 
     value: Optional[SettingValue]
@@ -201,9 +201,11 @@ class SettingsDict(Mapping[str, Optional[SettingValue]]):
     def __init__(
         self, mapping: Mapping[str, SettingValue], settings: Collection[Setting]
     ) -> None:
-        """Create a dictionary of settings from `mapping`. Only items specified
-        in the `settings` are going to be included in the new settings
-        dictionary."""
+        """Create a dictionary of settings from `mapping`.
+
+        Only items specified in the `settings` are going to be included
+        in the new settings dictionary.
+        """
 
         self._dict = distill_settings(mapping, settings)
         self._settings = OrderedDict((s.name, s) for s in settings)

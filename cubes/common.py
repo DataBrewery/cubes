@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 """Utility functions for computing combinations of dimensions and hierarchy
-levels"""
+levels."""
 
 import json
 import os.path
@@ -137,9 +137,12 @@ def optional_import(
     source: Optional[str] = None,
     comment: Optional[str] = None,
 ) -> MissingPackage:
-    """Optionally import package `name`. If package does not exist, import a
-    placeholder object, that raises an exception with more detailed
-    description about the missing package."""
+    """Optionally import package `name`.
+
+    If package does not exist, import a placeholder object, that raises
+    an exception with more detailed description about the missing
+    package.
+    """
 
     try:
         return __import__(name)
@@ -149,7 +152,7 @@ def optional_import(
 
 def expand_dictionary(record: Dict[str, Any], separator: str = ".") -> Dict[str, Any]:
     """Return expanded dictionary: treat keys are paths separated by
-    `separator`, create sub-dictionaries as necessary"""
+    `separator`, create sub-dictionaries as necessary."""
 
     result: Dict[str, Any] = {}
 
@@ -167,7 +170,7 @@ def expand_dictionary(record: Dict[str, Any], separator: str = ".") -> Dict[str,
 # TODO: py3: Typecheck `obj` with some protocol
 # TODO: Make this a pure function
 def localize_common(obj: Any, trans: JSONType) -> None:
-    """Localize common attributes: label and description"""
+    """Localize common attributes: label and description."""
 
     if "label" in trans:
         obj.label = trans["label"]
@@ -179,9 +182,12 @@ def localize_common(obj: Any, trans: JSONType) -> None:
 def localize_attributes(
     attribs: Dict[str, Any], translations: Dict[str, JSONType]
 ) -> None:
-    """Localize list of attributes. `translations` should be a dictionary with
-    keys as attribute names, values are dictionaries with localizable
-    attribute metadata, such as ``label`` or ``description``."""
+    """Localize list of attributes.
+
+    `translations` should be a dictionary with keys as attribute names,
+    values are dictionaries with localizable attribute metadata, such as
+    ``label`` or ``description``.
+    """
 
     for (name, atrans) in translations.items():
         attrib = attribs[name]
@@ -219,9 +225,11 @@ def to_identifier(name: str) -> str:
 
 
 def to_label(name: str, capitalize: bool = True) -> str:
-    """Converts `name` into label by replacing underscores by spaces. If
-    `capitalize` is ``True`` (default) then the first letter of the label is
-    capitalized."""
+    """Converts `name` into label by replacing underscores by spaces.
+
+    If `capitalize` is ``True`` (default) then the first letter of the
+    label is capitalized.
+    """
 
     label = name.replace("_", " ")
     if capitalize:
@@ -232,9 +240,10 @@ def to_label(name: str, capitalize: bool = True) -> str:
 
 # FIXME: type: Fix the type
 def coalesce_option_value(value: Any, value_type: str, label: str = None) -> Any:
-    """Convert string into an object value of `value_type`. The type might be:
-        `string` (no conversion), `integer`, `float`, `list` – comma separated
-        list of strings.
+    """Convert string into an object value of `value_type`.
+
+    The type might be: `string` (no conversion), `integer`, `float`,
+    `list` – comma separated list of strings.
     """
     return_value: Union[str, List[str], float, int, bool]
     value_type = value_type.lower()
@@ -275,9 +284,11 @@ def coalesce_option_value(value: Any, value_type: str, label: str = None) -> Any
 
 # FIXME: type: Fix the types
 def coalesce_options(options: Any, types: Any) -> Any:
-    """Coalesce `options` dictionary according to types dictionary. Keys in
-    `types` refer to keys in `options`, values of `types` are value types:
-    string, list, float, integer or bool."""
+    """Coalesce `options` dictionary according to types dictionary.
+
+    Keys in `types` refer to keys in `options`, values of `types` are
+    value types: string, list, float, integer or bool.
+    """
 
     out = {}
 
@@ -291,8 +302,11 @@ def coalesce_options(options: Any, types: Any) -> Any:
 
 
 def read_json_file(path: str, kind: str = None) -> JSONType:
-    """Read a JSON from `path`. This is convenience function that provides
-    more descriptive exception handling."""
+    """Read a JSON from `path`.
+
+    This is convenience function that provides more descriptive
+    exception handling.
+    """
 
     kind = "%s " % str(kind) if kind else ""
 
@@ -316,9 +330,9 @@ def read_json_file(path: str, kind: str = None) -> JSONType:
 
 # FIXME: type: fix the type
 def sorted_dependencies(graph: Any) -> Any:
-    """Return keys from `deps` ordered by dependency (topological sort).
-    `deps` is a dictionary where keys are strings and values are list of
-    strings where keys is assumed to be dependant on values.
+    """Return keys from `deps` ordered by dependency (topological sort). `deps`
+    is a dictionary where keys are strings and values are list of strings where
+    keys is assumed to be dependant on values.
 
     Example::
 

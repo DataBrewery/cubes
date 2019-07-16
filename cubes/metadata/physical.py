@@ -1,4 +1,4 @@
-"""Physical Metadata"""
+"""Physical Metadata."""
 
 from enum import Enum
 from typing import Any, Hashable, List, Optional

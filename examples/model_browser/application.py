@@ -3,7 +3,6 @@
 Use:
 
     python application.py [slicer.ini]
-
 """
 
 import argparse

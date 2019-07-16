@@ -125,7 +125,7 @@ class ExtensionRegistry:
         return extension
 
     def names(self) -> Collection[str]:
-        """Return extension `type_` names"""
+        """Return extension `type_` names."""
         names: List[str]
         names = list(set(self.classes.keys()) | set(self.modules.keys()))
         return sorted(names)

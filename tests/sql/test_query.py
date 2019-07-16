@@ -70,7 +70,7 @@ class SchemaBasicsTestCase(SQLTestCase):
 
     # TODO: do the same for a joined table and aliased joined table
     def test_physical_table(self):
-        """Test denormalized table selection of few columns"""
+        """Test denormalized table selection of few columns."""
         # Test passing fact by table object
         star = StarSchema("star", self.md, {}, self.test_fact)
         self.assertIs(star.physical_table("test"), self.test_fact)
@@ -90,7 +90,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             star.physical_table("imaginary")
 
     def test_collected_tables_fact_only(self):
-        """Test single table references"""
+        """Test single table references."""
         key = (None, "test")
 
         star = StarSchema("star", self.md, {}, self.test_fact)
@@ -152,7 +152,7 @@ class SchemaBasicsTestCase(SQLTestCase):
             column = star.column("category")
 
     def test_mapping_extract(self):
-        """Test that mapping.extract works"""
+        """Test that mapping.extract works."""
         mappings = {"year": Column(None, "test", "date", "year", None)}
 
         star = StarSchema("star", self.md, mappings, self.test_fact)
@@ -184,7 +184,7 @@ class SchemaBasicsTestCase(SQLTestCase):
 
     def test_star_basic(self):
         """Test selection from the very basic star – no joins, just one
-        table"""
+        table."""
         mappings = {
             "category": Column(None, "test", "category", None, None),
             "total": Column(None, "test", "amount", None, None),
@@ -221,7 +221,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.dim_size = create_table(self.engine, self.md, DIM_SIZE)
 
     def test_required_tables(self):
-        """Test master-detail-detail snowflake chain joins"""
+        """Test master-detail-detail snowflake chain joins."""
         joins = [
             Join.from_dict(("test.category", "dim_category.category")),
             Join.from_dict(("dim_category.size", "dim_size.size")),
@@ -271,7 +271,7 @@ class SchemaJoinsTestCase(SQLTestCase):
             StarSchema("star", self.md, {}, self.fact, joins=joins)
 
     def test_join(self):
-        """Test single join, two joins"""
+        """Test single join, two joins."""
         joins = [Join.from_dict(("test.category", "dim_category.category"))]
         mappings = {
             "category": Column(None, "test", "category", None, None),
@@ -300,7 +300,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertColumnEqual(schema.column("size"), self.dim_category.columns["size"])
 
     def test_compound_join_key(self):
-        """Test compound (multi-column) join key"""
+        """Test compound (multi-column) join key."""
         joins = [
             Join.from_dict(
                 (
@@ -339,7 +339,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         schema.get_star(["category_label"])
 
     def test_compound_join_different_length(self):
-        """Test compound (multi-column) join key"""
+        """Test compound (multi-column) join key."""
         joins = [
             Join.from_dict(
                 (
@@ -363,8 +363,8 @@ class SchemaJoinsTestCase(SQLTestCase):
             schema.get_star(["category_label"])
 
     def test_join_alias(self):
-        """Test single aliased join, test two joins on same table, one aliased
-        """
+        """Test single aliased join, test two joins on same table, one
+        aliased."""
         joins = [
             Join.from_dict(("test.category", "dim_category.category", "dim_fruit"))
         ]
@@ -400,8 +400,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertCountEqual(sizes, [2, 1, 4, 1])
 
     def test_fact_is_included(self):
-        """Test whether the fact will be included in the star schema
-        """
+        """Test whether the fact will be included in the star schema."""
         joins = [
             Join.from_dict(("test.category", "dim_category.category", "dim_fruit"))
         ]
@@ -422,7 +421,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertCountEqual(sizes, [2, 1, 4, 1])
 
     def test_snowflake_joins(self):
-        """Test master-detail-detail snowflake chain joins"""
+        """Test master-detail-detail snowflake chain joins."""
         joins = [
             Join.from_dict(
                 {"master": "test.category", "detail": "dim_category.category"}
@@ -449,7 +448,7 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
 
     def test_snowflake_aliased_joins(self):
-        """Test master-detail-detail snowflake chain joins"""
+        """Test master-detail-detail snowflake chain joins."""
         joins = [
             Join.from_dict(
                 {
@@ -490,16 +489,16 @@ class SchemaJoinsTestCase(SQLTestCase):
         self.assertCountEqual(sizes, ["medium", "small", "large", "small"])
 
     def test_join_method_detail(self):
-        """Test 'detail' join method"""
+        """Test 'detail' join method."""
 
     def test_join_method_master(self):
-        """Test 'detail' join master"""
+        """Test 'detail' join master."""
 
     def test_unary(self):
-        """Test that mapping.unary works"""
+        """Test that mapping.unary works."""
 
     def test_statement_table(self):
-        """Test using a statement as a table"""
+        """Test using a statement as a table."""
         joins = [Join.from_dict(("test.category", "dim_category.category"))]
 
         mappings = {

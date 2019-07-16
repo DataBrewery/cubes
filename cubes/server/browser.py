@@ -13,8 +13,7 @@ class SlicerBrowser(AggregationBrowser, name="slicer"):
     """Aggregation browser for Cubes Slicer OLAP server."""
 
     def __init__(self, cube, store, locale=None, **options):
-        """Browser for another Slicer server.
-        """
+        """Browser for another Slicer server."""
         super().__init__(cube, store, locale)
 
         self.logger = get_logger()

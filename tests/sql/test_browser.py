@@ -78,7 +78,7 @@ class SQLStatementsTestCase(SQLQueryContextTestCase):
         self.context = self.create_context(attrs)
 
     def select(self, attrs, whereclause=None):
-        """Returns a select statement from the star view"""
+        """Returns a select statement from the star view."""
         columns = [self.star.column(attr) for attr in attrs]
 
         return sa.select(columns, from_obj=self.context.star, whereclause=whereclause)
@@ -135,7 +135,7 @@ class SQLStatementsTestCase(SQLQueryContextTestCase):
 
     @unittest.skip("Test missing")
     def test_range_condition(self):
-        """"Test Browser.range_condition"""
+        """"Test Browser.range_condition."""
         # Test single level paths
         # Test multi-level paths
         # Test uneven paths
@@ -149,30 +149,30 @@ class SQLAggregateTestCase(SQLQueryContextTestCase):
         super(self, SQLAggregateTestCase).setUp(self)
 
     def test_aggregate_base(self):
-        """Aggregate all aggregates without any cell and no drilldown"""
+        """Aggregate all aggregates without any cell and no drilldown."""
 
     def test_aggregate_point(self):
-        """Aggregate with point cut"""
+        """Aggregate with point cut."""
 
     def test_aggregate_set(self):
-        """Aggregate with set cut"""
+        """Aggregate with set cut."""
 
     def test_aggregate_range(self):
-        """Aggregate with range cut"""
+        """Aggregate with range cut."""
 
     def test_aggregate_multiple(self):
-        """Aggregate with multiple cuts"""
+        """Aggregate with multiple cuts."""
 
     def test_aggregate_negative(self):
         """Aggregate with negative cut (point, set, range)"""
 
     def test_drilldown(self):
-        """Test basic drilldown"""
+        """Test basic drilldown."""
         # Test 1 dimension, no cell
         # Test 2-3 dimensions
 
     def test_drilldown_implicit(self):
-        """Test implicit level from drilldown and cell"""
+        """Test implicit level from drilldown and cell."""
 
     def test_drilldown_explicit(self):
-        """Test drilldown with explicit hierarchy level"""
+        """Test drilldown with explicit hierarchy level."""

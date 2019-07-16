@@ -24,8 +24,10 @@ ALL_CUBES_WILDCARD = "*"
 
 
 class AuthorizationError(UserError):
-    """Raised when there is any authorization-related error. Use
-    more specific `NotAuthorized` when access right is denied."""
+    """Raised when there is any authorization-related error.
+
+    Use more specific `NotAuthorized` when access right is denied.
+    """
 
     pass
 
@@ -50,9 +52,11 @@ class Authorizer(Extensible, abstract=True):
 
     def restricted_cell(self, token, cube, cell=None):
         """Restricts the `cell` for `cube` according to authorization by
-        `token`. If no cell is provided or the cell is empty then returns
-        the restriction cell. If there is no restriction, returns the original
-        `cell` if provided or `None`.
+        `token`.
+
+        If no cell is provided or the cell is empty then returns the
+        restriction cell. If there is no restriction, returns the
+        original `cell` if provided or `None`.
         """
         return cell
 
@@ -118,7 +122,8 @@ class _SimpleAccessRight:
         * `allowed_cubes` are merged (union)
         * `denied_cubes` are merged (union)
         * `cell_restrictions` from `other` with same cube replace restrictions
-          from the receiver"""
+          from the receiver
+        """
 
         self.roles |= other.roles
         self.allowed_cubes |= other.allowed_cubes
@@ -244,9 +249,11 @@ class SimpleAuthorizer(Authorizer, name="simple"):
         guest=None,
         **options
     ) -> None:
-        """Creates a simple JSON-file based authorizer. Reads data from
-        `rights_file` and `roles_file` and merge them with `roles` and
-        `rights` dictionaries respectively."""
+        """Creates a simple JSON-file based authorizer.
+
+        Reads data from `rights_file` and `roles_file` and merge them
+        with `roles` and `rights` dictionaries respectively.
+        """
 
         super().__init__()
 
@@ -315,7 +322,9 @@ class SimpleAuthorizer(Authorizer, name="simple"):
             self.identity_hierarchy = None
 
     def expand_roles(self, info):
-        """Merge `right` with its roles. `right` has to be a dictionary.
+        """Merge `right` with its roles.
+
+        `right` has to be a dictionary.
         """
         right = right_from_dict(info)
         for role_name in list(right.roles):
