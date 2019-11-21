@@ -1,0 +1,15 @@
+version: "3"
+
+services:
+  cubes:
+    build: .
+    environment:
+      - PYTHONDONTWRITEBYTECODE=true
+      - PYTHONPATH=.
+    volumes:
+      # mount current directory so that changes in files are reflected
+      # in the running environment
+      - .:/app
+    # Open up 5005, hopefully not in conflict with any other you may be running
+    ports:
+      - "5005:5000"
