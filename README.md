@@ -86,6 +86,16 @@ Build the documentation like so. ::
 
 Outputs will go in ``doc/_*``.
 
+**Developing in Docker**
+
+You can run and develop in a docker container.  Install docker.  Then:
+
+    docker-compose build
+    docker-compose run --service-ports cubes /bin/bash
+
+In that bash shell, you can run the examples.  The cubes server on
+port 5000 inside the container will be accessible on port 5005 outside
+(see docker-compose.yaml).
 
 Requirements
 ------------
