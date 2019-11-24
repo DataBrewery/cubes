@@ -448,11 +448,25 @@ Example for request ``/aggregate?drilldown=date&cut=item:a``:
 
 
 If pagination is used, then ``drilldown`` will not contain more than
-``pagesize`` cells.
+``pagesize`` cells for a page. Pages start from 0 and ``page=0`` gives the first page.
 
 Note that not all backengs might implement ``total_cell_count`` or
 providing this information can be configurable therefore might be disabled
 (for example for performance reasons).
+
+Example for ``order``
+
+``..aggregate?order=amount``
+
+Default is ascending order you can specify ordering method by ``asc`` or ``desc`` as below.
+
+``..aggregate?order=amount:desc``
+
+Pagination and ordering can be collectively used to get top lists.
+
+For example (Top five amounts)
+``..aggregate?order=amount:desc&pagesize=5&page=0``
+
     
 
 Facts
