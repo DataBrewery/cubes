@@ -367,10 +367,10 @@ Parameters:
   example: ``aggregates=amount_sum|discount_avg|count``
 * `measures` – list of measures for which their respecive aggregates will be
   computed (see below). Separated by ``|``, for
-  example: ``aggregates=proce|discount``
+  example: ``aggregates=price|discount``
 * `page` - page number for paginated results
 * `pagesize` - size of a page for paginated results
-* `order` - list of attributes to be ordered by
+* `order` - list of attributes to be ordered by, along with optional direction (ascending or descending).  For example: ``order=price:desc``
 * `split` – split cell, same syntax as the `cut`, defines virtual binary
   (flag) dimension that inticates whether a cell belongs to the `split` cut
   (`true`) or not (`false`). The dimension attribute is called
