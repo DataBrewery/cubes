@@ -40,9 +40,9 @@
                     "function": "count"
                 },    
                 {
-                    "name": "amount_sma",
-                    "function": "sma",
-                    "measure": "amount_sum"
+                    "name": "amount_sum",
+                    "function": "sum",
+                    "measure": "amount"
                 }    
             ],
             "fact": "facts"
