@@ -66,5 +66,5 @@ class AggregatesTestCase(CubesTestCaseBase):
         result = browser.aggregate(drilldown=["year"])
         cells = list(result.cells)
         aggregates = sorted(cells[0].keys())
-        self.assertSequenceEqual(['amount', 'amount_sum', 'count', 'year'],
+        self.assertSequenceEqual(['amount_sum', 'count', 'year'],
                                  aggregates)
