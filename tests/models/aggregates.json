@@ -42,7 +42,7 @@
                 {
                     "name": "amount_sum",
                     "function": "sum",
-                    "measure": "amount_sma"
+                    "measure": "amount"
                 }    
             ],
             "fact": "facts"

@@ -192,7 +192,10 @@ def get_aggregate_function(name):
     SQL expression."""
 
     _create_function_dict()
-    return _function_dict[name]
+    if name in _function_dict.keys():
+        return _function_dict[name]
+    else:
+        raise ArgumentError("Unknown sql function")
 
 
 def available_aggregate_functions():
