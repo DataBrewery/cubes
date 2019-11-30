@@ -51,7 +51,7 @@ class CubesTestCaseBase(unittest.TestCase):
         class has an engine or `sql_engine` set, then the existing engine will
         be used as the default SQL store."""
 
-        #raise NotImplementedError("Depreciated in this context")
+        # raise NotImplementedError("Depreciated in this context")
         workspace = Workspace()
 
         if store:
