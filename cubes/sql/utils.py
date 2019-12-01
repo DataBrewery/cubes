@@ -154,7 +154,7 @@ def order_query(statement, order, natural_order=None, labels=None):
     # Collect natural order for selected columns that have no explicit
     # ordering
     for (name, column) in columns.items():
-        if name in natural_order and name not in order_by:
+        if name in natural_order and name not in final_order.keys():
             final_order[name] = order_column(column, natural_order[name])
 
     statement = statement.order_by(*final_order.values())

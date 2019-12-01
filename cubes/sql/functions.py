@@ -3,7 +3,7 @@
 # TODO: Remove this module or rewrite using expressions (or named expressions
 # called `formulas`) once implemented.  There is no need for complexity of
 # this type.
-
+from ..errors import *
 try:
     import sqlalchemy.sql as sql
     from sqlalchemy.sql.functions import ReturnTypeFromArgs
@@ -192,7 +192,10 @@ def get_aggregate_function(name):
     SQL expression."""
 
     _create_function_dict()
-    return _function_dict[name]
+    if name in _function_dict.keys():
+        return _function_dict[name]
+    else:
+        raise ArgumentError("Unknown sql function")
 
 
 def available_aggregate_functions():

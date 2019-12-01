@@ -228,7 +228,7 @@ def validate(show_defaults, show_warnings, model_path):
 @click.argument('cube', nargs=-1)
 def test(aggregate, exclude_stores, include_stores, config, cube):
     """Test every cube in the model"""
-    workspace = cubes.Workspace(config)
+    workspace = Workspace(config)
 
     errors = []
 
@@ -324,7 +324,7 @@ def read_config(cfg):
               help="Name of slicer.ini configuration file")
 def sql(ctx, store, config):
     """SQL store commands"""
-    ctx.obj.workspace = cubes.Workspace(config)
+    ctx.obj.workspace = Workspace(config)
     ctx.obj.store = ctx.obj.workspace.get_store(store)
 
 ################################################################################

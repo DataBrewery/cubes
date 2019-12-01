@@ -47,11 +47,11 @@ class CubesTestCaseBase(unittest.TestCase):
     def create_workspace(self, store=None, model=None):
         """Create shared workspace. Add default store specified in `store` as
         a dictionary and `model` which can be a filename relative to
-        ``tests/models`` or a moel dictionary. If no store is provided but
+        ``tests/models`` or a model dictionary. If no store is provided but
         class has an engine or `sql_engine` set, then the existing engine will
         be used as the default SQL store."""
 
-        raise NotImplementedError("Depreciated in this context")
+        # raise NotImplementedError("Depreciated in this context")
         workspace = Workspace()
 
         if store:
