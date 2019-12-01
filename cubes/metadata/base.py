@@ -64,7 +64,7 @@ class ModelObject(object):
         """Returns a copy of the cube translated with `translation`"""
 
         acopy = self.__class__.__new__(self.__class__)
-        acopy.__dict__ = self.__dict__.copy()
+        acopy.__dict__ = self.__dict__.deepcopy()
 
         d = acopy.__dict__
 
@@ -78,8 +78,8 @@ class ModelObject(object):
                 for obj in getattr(acopy, attr):
                     obj_context = context.object_localization(attr, obj.name)
                     list_copy.append(obj.localized(obj_context))
-                    #setattr(acopy, attr, list_copy)
-                    acopy[attr] = list_copy
+                    setattr(acopy, attr, list_copy)
+                    #acopy[attr] = list_copy
 
         return acopy
 
