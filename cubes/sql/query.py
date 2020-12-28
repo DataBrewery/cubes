@@ -431,7 +431,7 @@ class StarSchema(object):
         # provided explicitly for the snowflake schema.
 
 
-        # Collect details for duplicate verification. It sohuld not be
+        # Collect details for duplicate verification. It should not be
         # possible to join one detail multiple times with the same name. Alias
         # has to be used.
         details = set()
