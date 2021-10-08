@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 from .errors import NoSuchCubeError, NoSuchDimensionError, ModelError
 from .common import read_json_file
@@ -131,7 +131,7 @@ class Namespace(object):
             all_cubes += cubes
 
         if recursive:
-            for name, ns in self.namespaces.items():
+            for name, ns in list(self.namespaces.items()):
                 cubes = ns.list_cubes(recursive=True)
                 for cube in cubes:
                     cube["name"] = "%s.%s" % (name, cube["name"])

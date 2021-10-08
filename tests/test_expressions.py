@@ -1,5 +1,5 @@
 # -*- encoding=utf -*-
-from __future__ import absolute_import
+
 
 import unittest
 
@@ -25,7 +25,7 @@ class ExpressionUnitTestCase(unittest.TestCase):
 
         self.attrs = {attr["name"]:Attribute.from_metadata(attr) for attr in attrs}
         self.deps = {name:attr.dependencies
-                     for name, attr in self.attrs.items()}
+                     for name, attr in list(self.attrs.items())}
 
     def attributes(self, *attrs):
         return [self.attrs[attr] for attr in attrs]

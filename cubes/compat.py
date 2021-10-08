@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """Pytho compatibility utilities"""
 
-from __future__ import absolute_import
+
 
 import sys
 
@@ -34,31 +34,31 @@ if py3k:
         return open(filename, encoding="utf-8")
 
 else:
-    string_type = basestring
+    string_type = str
     binary_type = str
-    text_type = unicode
-    int_types = int, long
+    text_type = str
+    int_types = int, int
 
-    from urlparse import urlparse
-    from urllib2 import urlopen, build_opener
-    from urllib2 import HTTPPasswordMgrWithDefaultRealm
-    from urllib2 import HTTPBasicAuthHandler
-    from urllib import urlencode
-    from ConfigParser import SafeConfigParser as ConfigParser
-    from StringIO import StringIO
-    from Queue import Queue
+    from urllib.parse import urlparse
+    from urllib.request import urlopen, build_opener
+    from urllib.request import HTTPPasswordMgrWithDefaultRealm
+    from urllib.request import HTTPBasicAuthHandler
+    from urllib.parse import urlencode
+    from configparser import SafeConfigParser as ConfigParser
+    from io import StringIO
+    from queue import Queue
     reduce = reduce
 
     def to_str(b):
         return b
 
     def to_unicode(s):
-        if isinstance(s, unicode):
+        if isinstance(s, str):
             return s
         s = str(s)
         for enc in ('utf8', 'latin-1'):
             try:
-                return unicode(s, enc)
+                return str(s, enc)
             except UnicodeDecodeError:
                 pass
 

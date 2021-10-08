@@ -18,7 +18,7 @@ Contains:
 # See: https://github.com/DataBrewery/cubes/issues/255
 #
 
-from __future__ import print_function
+
 
 import sqlalchemy as sa
 import os

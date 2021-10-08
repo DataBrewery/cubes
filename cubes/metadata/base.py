@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 """Cube logical model"""
 
-from __future__ import absolute_import
+
 
 import json
 import os

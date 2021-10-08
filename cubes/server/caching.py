@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import json
-import logging
+from . import logging
 from functools import update_wrapper, wraps
 from datetime import datetime, timedelta
 from exceptions import BaseException
-import cPickle as pickle
+import pickle as pickle
 import types
 
 from werkzeug.routing import Rule
@@ -17,7 +17,7 @@ def _make_key_str(name, *args, **kwargs):
     if args:
         key_str += '::' + '::'.join([str(a) for a in args])
     if kwargs:
-        key_str += '::' + '::'.join(['%s=%s' % (str(k), str(v)) for k, v in sorted(kwargs.items(), key=lambda x: x[0])])
+        key_str += '::' + '::'.join(['%s=%s' % (str(k), str(v)) for k, v in sorted(list(kwargs.items()), key=lambda x: x[0])])
 
     return key_str
 
@@ -69,7 +69,7 @@ def cacheable(fn):
         cache_impl = self.cache
 
         name = '%s.%s' % (self.__class__.__name__, fn.__name__)
-        key = _make_key_str(name, *args, **dict(additional_args.items() + kwargs.items()))
+        key = _make_key_str(name, *args, **dict(list(additional_args.items()) + list(kwargs.items())))
 
         try:
             v = cache_impl.get(key)

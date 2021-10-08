@@ -7,7 +7,7 @@ Use:
 """
 
 import argparse
-import ConfigParser
+import configparser
 
 from cubes import Workspace
 from flask import Flask, render_template
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     parser.add_argument('cube', nargs='?', default=None, help='cube name')
     args = parser.parse_args()
 
-    config = ConfigParser.SafeConfigParser()
+    config = configparser.SafeConfigParser()
     try:
         config.read(args.config)
     except Exception as e:

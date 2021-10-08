@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 import copy
 import re
@@ -84,7 +84,7 @@ class Dimension(Conceptual):
             hierarchies = []
             level_dict = dict((level.name, level) for level in levels)
 
-            for hier in template._hierarchies.values():
+            for hier in list(template._hierarchies.values()):
                 hier_levels = [level_dict[level.name] for level in hier.levels]
                 hier_copy = Hierarchy(hier.name,
                                       hier_levels,
@@ -298,7 +298,7 @@ class Dimension(Conceptual):
         default_roles = _DEFAULT_LEVEL_ROLES.get(self.role)
 
         # Set default roles
-        for level in self._levels.values():
+        for level in list(self._levels.values()):
             if default_roles and level.name in default_roles:
                 level.role = level.name
 
@@ -369,7 +369,7 @@ class Dimension(Conceptual):
         if self.master:
             return self.master.has_details
 
-        return any([level.has_details for level in self._levels.values()])
+        return any([level.has_details for level in list(self._levels.values())])
 
     @property
     def levels(self):
@@ -460,7 +460,7 @@ class Dimension(Conceptual):
         """Return all dimension key attributes, regardless of hierarchy. Order
         is not guaranteed, use a hierarchy to have known order."""
 
-        return [level.key for level in self._levels.values()]
+        return [level.key for level in list(self._levels.values())]
 
     @property
     def attributes(self):
@@ -496,11 +496,11 @@ class Dimension(Conceptual):
                 linked.append(self.hierarchy(name))
         elif exclude_hierarchies:
             linked = []
-            for hierarchy in self._hierarchies.values():
+            for hierarchy in list(self._hierarchies.values()):
                 if hierarchy.name not in exclude_hierarchies:
                     linked.append(hierarchy)
         else:
-            linked = self._hierarchies.values()
+            linked = list(self._hierarchies.values())
 
         hierarchies = [copy.deepcopy(hier) for hier in linked]
 
@@ -576,7 +576,7 @@ class Dimension(Conceptual):
         # Collect hierarchies and apply hierarchy depth restrictions
         hierarchies = []
         hierarchy_limits = hierarchy_limits or {}
-        for name, hierarchy in self._hierarchies.items():
+        for name, hierarchy in list(self._hierarchies.items()):
             if name in hierarchy_limits:
                 level = hierarchy_limits[name]
                 if level:
@@ -640,7 +640,7 @@ class Dimension(Conceptual):
         attributes = set()
         first_occurence = {}
 
-        for level_name, level in self._levels.items():
+        for level_name, level in list(self._levels.items()):
             if not level.attributes:
                 results.append(('error',
                                 "Level '%s' in dimension '%s' has no "
@@ -710,7 +710,7 @@ class Dimension(Conceptual):
         hdict = {}
         locale["hierarchies"] = hdict
 
-        for hier in self._hierarchies.values():
+        for hier in list(self._hierarchies.values()):
             hdict[hier.name] = hier.localizable_dictionary()
 
         return locale
@@ -784,7 +784,7 @@ class Hierarchy(Conceptual):
                          label=self.label,
                          description=self.description,
                          info=copy.deepcopy(self.info, memo),
-                         levels=copy.deepcopy(self._levels.values(), memo))
+                         levels=copy.deepcopy(list(self._levels.values()), memo))
 
     @property
     def levels(self):

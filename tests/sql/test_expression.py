@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-from __future__ import absolute_import
+
 
 import sqlalchemy as sa
 from sqlalchemy.sql.expression import ColumnElement

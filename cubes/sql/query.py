@@ -15,7 +15,7 @@ Star/snowflake schema query construction structures
 # similar attributes. No calls to Cubes object functions should be allowed
 # here.
 
-from __future__ import absolute_import
+
 
 import logging
 from collections import namedtuple
@@ -652,7 +652,7 @@ class StarSchema(object):
         sorted_tables = [fact]
 
         while required:
-            details = [table for table in required.values()
+            details = [table for table in list(required.values())
                        if table.join
                        and self._master_key(table.join) in masters]
 
@@ -667,7 +667,7 @@ class StarSchema(object):
 
         if len(required) > 1:
             keys = [_format_key(table.key)
-                    for table in required.values()
+                    for table in list(required.values())
                     if table.key != fact_key]
 
             raise ModelError("Some tables are not joined: {}"

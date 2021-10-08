@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+
 from .. import compat
 # Global Context – top level namespace and objects in other namespaces
 # Local Context - within object being translated

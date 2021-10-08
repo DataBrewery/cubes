@@ -4,7 +4,7 @@
 # objects into this test case
 #
 
-from __future__ import absolute_import
+
 
 import unittest
 import sqlalchemy as sa
@@ -677,7 +677,7 @@ class QueryTestCase(SQLTestCase):
         }
 
         self.schema = StarSchema("star", self.md, mappings, self.fact)
-        self.base_attributes = create_list_of(Attribute, mappings.keys())
+        self.base_attributes = create_list_of(Attribute, list(mappings.keys()))
         # self.base_attributes = list(mappings.keys())
         self.base_deps = {attr:[] for attr in self.base_attributes}
 

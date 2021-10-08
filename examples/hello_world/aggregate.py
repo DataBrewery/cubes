@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 from cubes import Workspace, Cell, PointCut
 
 # 1. Create a workspace

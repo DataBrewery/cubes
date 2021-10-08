@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """Cube logical model"""
 
-from __future__ import absolute_import
+
 
 from collections import OrderedDict, defaultdict
 
@@ -31,12 +31,12 @@ DEFAULT_FACT_COUNT_AGGREGATE = {
 
 # TODO: make this configurable
 IMPLICIT_AGGREGATE_LABELS = {
-    "sum": u"Sum of {measure}",
-    "count": u"Record Count",
-    "count_nonempty": u"Non-empty count of {measure}",
-    "min": u"{measure} Minimum",
-    "max": u"{measure} Maximum",
-    "avg": u"Average of {measure}",
+    "sum": "Sum of {measure}",
+    "count": "Record Count",
+    "count_nonempty": "Non-empty count of {measure}",
+    "min": "{measure} Minimum",
+    "max": "{measure} Maximum",
+    "avg": "Average of {measure}",
 }
 
 
@@ -584,7 +584,7 @@ class Cube(ModelObject):
         for dim in self.dimensions:
             for hier in dim.hierarchies:
                 key = (dim.name, hier.name)
-                levels = [hier_key.ref for hier_key in hier.keys()]
+                levels = [hier_key.ref for hier_key in list(hier.keys())]
 
                 hierarchies[key] = levels
 
@@ -806,7 +806,7 @@ def expand_cube_metadata(metadata):
 
         if dim_hiers:
             raise ModelError("There are hierarchies specified for non-linked "
-                             "dimensions: %s." % (dim_hiers.keys()))
+                             "dimensions: %s." % (list(dim_hiers.keys())))
 
     nonadditive = metadata.pop("nonadditive", None)
     if "measures" in metadata:

@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """Date and time utilities."""
 
-from __future__ import absolute_import
+
 
 import re
 
