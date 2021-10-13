@@ -10,6 +10,7 @@ from .metadata import read_model_metadata, find_dimension
 from .metadata import LocalizationContext
 from .auth import NotAuthorized
 from .common import read_json_file
+from .config_parser import read_slicer_config
 from .errors import ConfigurationError, ArgumentError, CubesError
 from .logging import get_logger
 from .calendar import Calendar
@@ -77,14 +78,7 @@ class Workspace(object):
         # FIXME: **_options is temporary solution/workaround before we get
         # better configuration. Used internally. Don't use!
 
-        # Expect to get ConfigParser instance
-        if config is not None and not isinstance(config, ConfigParser):
-            raise ConfigurationError("config should be a ConfigParser instance,"
-                                     " but is %r" % (type(config),))
-        
-        if not config:
-            # Read ./slicer.ini
-            config = ConfigParser()
+        config = read_slicer_config(config)
 
         self.store_infos = {}
         self.stores = {}

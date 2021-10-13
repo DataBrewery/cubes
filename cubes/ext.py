@@ -49,6 +49,7 @@ _BUILTIN_EXTENSIONS = {
     "formatters": {
         "cross_table": "cubes.formatters:CrossTableFormatter",
         "csv": "cubes.formatters:CSVFormatter",
+        'xlsx': 'cubes.formatters:XLSXFormatter',
         "html_cross_table": "cubes.formatters:HTMLCrossTableFormatter",
     },
     "providers": {
@@ -56,10 +57,11 @@ _BUILTIN_EXTENSIONS = {
         "slicer":"cubes.server.store:SlicerModelProvider",
     },
     "request_log_handlers": {
-        "default":"cubes.server.logging:DefaultRequestLogHandler",
-        "csv":"cubes.server.logging:CSVFileRequestLogHandler",
-        "json":"cubes.server.logging:JSONRequestLogHandler",
-        "sql":"cubes.sql.logging:SQLRequestLogger",
+        "default": "cubes.server.logging:DefaultRequestLogHandler",
+        "csv": "cubes.server.logging:CSVFileRequestLogHandler",
+        'xlsx': 'cubes.server.logging:XLSXFileRequestLogHandler',
+        "json": "cubes.server.logging:JSONRequestLogHandler",
+        "sql": "cubes.sql.logging:SQLRequestLogger",
     },
     "stores": {
         "sql":"cubes.sql.store:SQLStore",

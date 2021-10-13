@@ -7,7 +7,7 @@ This chapter describes step-by-step how to use the Cubes. You will learn:
 * model preparation
 * measure aggregation
 * drill-down through dimensions
-* how to slice&dice the dube
+* how to slice & dice the cube
 
 The tutorial contains examples for both: standard tool use and Python use. You
 don't need to know Python to follow this tutorial.
@@ -82,8 +82,13 @@ In Python, a workspace can be configured using the `ini` configuration:
 .. code-block:: python
 
     from cubes import Workspace
-
-    workspace = Workspace(config="slicer.ini")
+    
+    # initialize configparser and read "slicer.ini" configuration
+    from configparser import ConfigParser
+    config = ConfigParser()
+    config.read("./slicer.ini")
+    
+    workspace = Workspace(config)
 
 or programatically:
 

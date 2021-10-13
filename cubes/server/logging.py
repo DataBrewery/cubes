@@ -24,6 +24,7 @@ __all__ = [
     "RequestLogHandler",
     "DefaultRequestLogHandler",
     "CSVFileRequestLogHandler",
+    'XLSXFileRequestLogHandler',
     "QUERY_LOG_ITEMS"
 ]
 
@@ -177,6 +178,25 @@ class CSVFileRequestLogHandler(RequestLogHandler):
         with io.open(self.path, 'ab') as f:
             writer = csv.writer(f)
             writer.writerow(out)
+
+
+class XLSXFileRequestLogHandler(RequestLogHandler):
+    def __init__(self, path=None, **options):
+        self.path = path
+
+    def write_record(self, cube, cell, record):
+        out = []
+
+        for key in REQUEST_LOG_ITEMS:
+            item = record.get(key)
+            if item is not None:
+                item = compat.text_type(item)
+            out.append(item)
+
+        with io.open(self.path, 'ab') as f:
+            writer = csv.writer(f)
+            writer.writerow(out)
+
 
 class JSONRequestLogHandler(RequestLogHandler):
     def __init__(self, path=None, **options):

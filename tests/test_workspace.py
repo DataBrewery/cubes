@@ -2,7 +2,7 @@ import unittest
 import os
 import json
 import re
-from cubes.errors import NoSuchCubeError, NoSuchDimensionError
+from cubes.errors import ConfigurationError, NoSuchCubeError, NoSuchDimensionError
 from cubes.errors import NoSuchAttributeError
 from cubes.workspace import Workspace
 from cubes.stores import Store
@@ -21,6 +21,23 @@ class WorkspaceTestCaseBase(CubesTestCaseBase):
         return ws
 
 class WorkspaceModelTestCase(WorkspaceTestCaseBase):
+    def test_init(self):
+        valid_configs = [
+            read_slicer_config(None),   # Allow empty configuration object
+            'slicer.ini',               # Allow file to be loaded
+            None,                       # Allow no file
+            'abc/de/F',                 # Allow wrong path
+        ]
+        invalid_configs = [Workspace, 2]
+        for config in valid_configs:
+            Workspace(config=config)
+        for config in invalid_configs:
+            with self.assertRaises(
+                ConfigurationError,
+                msg='Expect to raise for config = "%s"' % config
+            ):
+                Workspace(config=config)
+
     def test_get_cube(self):
         ws = self.default_workspace()
         cube = ws.cube("contracts")

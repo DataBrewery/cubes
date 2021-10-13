@@ -215,7 +215,7 @@ class SQLBrowser(AggregationBrowser):
 
         (statement, labels) = self.denormalized_statement(attributes=fields,
                                                           include_fact_key=True)
-        condition = statement.columns[FACT_KEY_LABEL] == key_value
+        condition = self.star.fact_key_column == key_value
         statement = statement.where(condition)
 
         cursor = self.execute(statement, "fact")

@@ -77,8 +77,8 @@ class AttributeTestCase(unittest.TestCase):
         self.assertEqual("name", attr.name)
 
         # Simplified -> dimension name
-        self.assertEqual("group", str(attr))
-        self.assertEqual("group", attr.ref)
+        self.assertEqual("group.name", str(attr))
+        self.assertEqual("group.name", attr.ref)
 
         level = Level("name", attributes=[Attribute("key"), Attribute("name")])
         dim = Dimension("group", levels=[level])
@@ -602,7 +602,7 @@ class DimensionTestCase(unittest.TestCase):
         dim = Dimension.from_metadata("year")
         self.assertIsInstance(dim, Dimension)
         self.assertEqual("year", dim.name)
-        self.assertEqual(["year"], [str(a) for a in dim.attributes])
+        self.assertEqual(["year.year"], [str(a) for a in dim.attributes])
 
         # Test default: explicit level attributes
         desc = {"name": "date", "levels": ["year"]}
@@ -614,7 +614,7 @@ class DimensionTestCase(unittest.TestCase):
 
         # Dimension string is a reference and is equal to dimension name if
         # dimension is flat
-        self.assertEqual(["date"], [str(a) for a in dim.attributes])
+        self.assertEqual(["date.year"], [str(a) for a in dim.attributes])
 
         desc = {"name": "date", "levels": ["year", "month", "day"]}
         dim = Dimension.from_metadata(desc)
@@ -649,7 +649,7 @@ class DimensionTestCase(unittest.TestCase):
         self.assertIsInstance(level, Level)
         self.assertEqual("foo", level.name)
         self.assertEqual(1, len(level.attributes))
-        self.assertEqual("foo", str(level.key))
+        self.assertEqual("foo.foo", str(level.key))
 
         attr = level.attributes[0]
         self.assertIsInstance(attr, Attribute)
@@ -809,7 +809,7 @@ class CubeTestCase(unittest.TestCase):
             'product.key',
             'product.name',
             'product.description',
-            'flag',
+            'flag.flag',
             'detail',
             'amount',
             'discount']

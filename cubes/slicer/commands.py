@@ -19,12 +19,12 @@ from .. import compat
 
 from ..datastructures import AttributeDict
 from ..errors import InconsistencyError, ArgumentError, InternalError, UserError
-from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator
-from ..metadata import read_model_metadata, write_model_metadata_bundle
+from ..formatters import csv_generator, SlicerJSONEncoder, JSONLinesGenerator, xlsx_generator
+from ..metadata import read_model_metadata, write_model_metadata_bundle, validate_model
 from ..workspace import Workspace
 from ..errors import CubesError
 from ..server import run_server
-from ..server.base import read_slicer_config
+from ..config_parser import read_slicer_config
 
 from .. import ext
 
@@ -159,10 +159,10 @@ def validate(show_defaults, show_warnings, model_path):
     """Validate model metadata"""
 
     click.echo("Reading model %s" % model_path)
-    model = cubes.read_model_metadata(model_path)
+    model = read_model_metadata(model_path)
 
     click.echo("Validating model...")
-    result = cubes.providers.validate_model(model)
+    result = validate_model(model)
 
     error_count = 0
     warning_count = 0
@@ -521,7 +521,7 @@ def aggregate(ctx, config, cube_name, aggregates, cuts, drilldown, formatter_nam
               help="Cell cut")
 
 @click.option('--format', "-f", "output_format", default="json",
-              type=click.Choice(["json", "csv", "json_lines" ]),
+              type=click.Choice(["json", "csv", "json_lines", 'xlsx']),
               help="Output format")
 
 @click.argument('cube_name', metavar='CUBE')
@@ -574,6 +574,13 @@ def members(ctx, config, cube_name, cuts, dim_name, output_format):
                                fields,
                                include_header=True,
                                header=labels)
+    elif output_format == 'xlsx':
+        result = xlsx_generator(
+            values,
+            fields,
+            include_header=True,
+            header=labels
+        )
 
     out = click.get_text_stream('stdout')
     for row in result:

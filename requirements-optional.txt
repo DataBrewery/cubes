@@ -5,3 +5,4 @@ werkzeug
 jinja2
 python-dateutil
 jsonschema
+openpyxl

@@ -10,6 +10,7 @@ parts
 sdist
 develop-eggs
 tmp
+venv
 
 # Installer logs
 pip-log.txt
@@ -20,6 +21,7 @@ pip-log.txt
 *.swp
 doc/_build/
 .vim
+.python-version
 
 # Local sandbox/playground
 /sandbox
