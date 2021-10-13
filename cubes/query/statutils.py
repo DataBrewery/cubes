@@ -230,7 +230,7 @@ CALCULATED_AGGREGATIONS = {
 
 def available_calculators():
     """Returns a list of available calculators."""
-    return CALCULATED_AGGREGATIONS.keys()
+    return list(CALCULATED_AGGREGATIONS.keys())
 
 def aggregate_calculator_labels():
-    return dict([(k, v.keywords['label']) for k, v in CALCULATED_AGGREGATIONS.items()])
+    return dict([(k, v.keywords['label']) for k, v in list(CALCULATED_AGGREGATIONS.items())])

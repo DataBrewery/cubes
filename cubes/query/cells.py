@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 import copy
 import re
@@ -309,7 +309,7 @@ class Cell(object):
                 new_cuts.append(cut)
 
         elif isinstance(self.drilldown, dict):
-            for (dim_name, level_name) in rollup.items():
+            for (dim_name, level_name) in list(rollup.items()):
                 cut = cuts[dim_name]
                 if not cut:
                     raise ArgumentError("No cut to roll-up for dimension '%s'" % dim_name)
@@ -459,7 +459,7 @@ class Cell(object):
     def __repr__(self):
         return 'Cell(%s: %s)' % (str(self.cube), self.to_str() or 'All')
 
-    def __nonzero__(self):
+    def __bool__(self):
         """Returns `True` if the cell contains cuts."""
         return bool(self.cuts)
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Data preparation for the hello_world example
-from __future__ import print_function
+
 
 from sqlalchemy import create_engine
 from cubes.tutorial.sql import create_table_from_csv

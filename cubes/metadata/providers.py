@@ -40,7 +40,7 @@ def link_cube(cube, locale, provider=None, namespace=None,
 
     linked = set()
 
-    for dim_name in cube.dimension_links.keys():
+    for dim_name in list(cube.dimension_links.keys()):
         if dim_name in linked:
             raise ModelError("Dimension '{}' linked twice"
                              .format(dim_name))

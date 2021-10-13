@@ -66,7 +66,7 @@ class Mapper(object):
         """Return a list of all attributes of a cube. If `expand_locales` is
         ``True``, then localized logical reference is returned for each
         attribute's locale."""
-        return self.attributes.values()
+        return list(self.attributes.values())
 
     # TODO: depreciate in favor of Cube.attribute
     def attribute(self, name):

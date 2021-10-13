@@ -1,7 +1,7 @@
 # -*- coding=utf -*-
 
 import json
-import logging
+from . import logging
 from ..logging import get_logger
 from ..query import *
 

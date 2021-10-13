@@ -198,5 +198,5 @@ def get_aggregate_function(name):
 def available_aggregate_functions():
     """Returns a list of available aggregate function names."""
     _create_function_dict()
-    return _function_dict.keys()
+    return list(_function_dict.keys())
 

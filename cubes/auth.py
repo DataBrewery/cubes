@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 import os.path
 from collections import defaultdict
@@ -67,7 +67,7 @@ class _SimpleAccessRight(object):
         self.hierarchy_limits = defaultdict(list)
 
         if hierarchy_limits:
-            for cube, limits in hierarchy_limits.items():
+            for cube, limits in list(hierarchy_limits.items()):
                 for limit in limits:
                     if isinstance(limit, compat.string_type):
                         limit = string_to_dimension_level(limit)
@@ -109,13 +109,13 @@ class _SimpleAccessRight(object):
         self.allowed_cubes |= other.allowed_cubes
         self.denied_cubes |= other.denied_cubes
 
-        for cube, restrictions in other.cell_restrictions.items():
+        for cube, restrictions in list(other.cell_restrictions.items()):
             if not cube in self.cell_restrictions:
                 self.cell_restrictions[cube] = restrictions
             else:
                 self.cell_restrictions[cube] += restrictions
 
-        for cube, limits  in other.hierarchy_limits.items():
+        for cube, limits  in list(other.hierarchy_limits.items()):
             if not cube in self.hierarchy_limits:
                 self.hierarchy_limits[cube] = limits
             else:
@@ -257,11 +257,11 @@ class SimpleAuthorizer(Authorizer):
             raise ConfigurationError("Unknown allow/deny order: %s" % order)
 
         # Process the roles
-        for key, info in roles.items():
+        for key, info in list(roles.items()):
             role = right_from_dict(info)
             self.roles[key] = role
 
-        deps = dict((name, role.roles) for name, role in self.roles.items())
+        deps = dict((name, role.roles) for name, role in list(self.roles.items()))
         order = sorted_dependencies(deps)
 
         for name in order:
@@ -271,7 +271,7 @@ class SimpleAuthorizer(Authorizer):
                 role.merge(parent)
 
         # Process rights
-        for key, info in rights.items():
+        for key, info in list(rights.items()):
             right = right_from_dict(info)
             self.rights[key] = right
 

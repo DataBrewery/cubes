@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 from collections import namedtuple
 
@@ -465,7 +465,7 @@ class AggregationBrowser(object):
 
         report_result = {}
 
-        for result_name, query in queries.items():
+        for result_name, query in list(queries.items()):
             query_type = query.get("query")
             if not query_type:
                 raise ArgumentError("No report query for '%s'" % result_name)
@@ -1032,7 +1032,7 @@ class Drilldown(object):
     def __iter__(self):
         return self.drilldown.__iter__()
 
-    def __nonzero__(self):
+    def __bool__(self):
         return len(self.drilldown) > 0
 
 DrilldownItem = namedtuple("DrilldownItem",
@@ -1071,7 +1071,7 @@ def levels_from_drilldown(cell, drilldown):
         logger = get_logger()
         logger.warn("drilldown as dictionary is depreciated. Use a list of: "
                     "(dim, hierarchy, level) instead")
-        drilldown = [(dim, None, level) for dim, level in drilldown.items()]
+        drilldown = [(dim, None, level) for dim, level in list(drilldown.items())]
 
     for obj in drilldown:
         if isinstance(obj, compat.string_type):

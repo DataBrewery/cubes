@@ -1,6 +1,6 @@
 # -*- coding=utf -*-
 
-from __future__ import absolute_import
+
 
 from ...server.logging import RequestLogHandler, REQUEST_LOG_ITEMS
 from sqlalchemy import create_engine, Table, MetaData, Column

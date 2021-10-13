@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 import copy
 
@@ -380,11 +380,11 @@ class Measure(AttributeBase):
 
         for agg in self.aggregates or ["sum"]:
             if agg == "identity":
-                name = u"%s" % self.name
+                name = "%s" % self.name
                 measure = None
                 function = None
             else:
-                name = u"%s_%s" % (self.name, agg)
+                name = "%s_%s" % (self.name, agg)
                 measure = self.name
                 function = agg
 
@@ -588,7 +588,7 @@ def depsort_attributes(attributes, all_dependencies):
         base = bases.pop()
         sorted_deps.append(base)
 
-        dependants = [attr for attr, deps in remaining.items()
+        dependants = [attr for attr, deps in list(remaining.items())
                       if base in deps]
 
         for attr in dependants:

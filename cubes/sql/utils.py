@@ -131,7 +131,7 @@ def order_query(statement, order, natural_order=None, labels=None):
     # Get logical attributes from column labels (see logical_labels
     # description for more information why this step is necessary)
 
-    columns = OrderedDict(zip(labels, statement.columns))
+    columns = OrderedDict(list(zip(labels, statement.columns)))
 
     # Normalize order
     # ---------------
@@ -153,11 +153,11 @@ def order_query(statement, order, natural_order=None, labels=None):
 
     # Collect natural order for selected columns that have no explicit
     # ordering
-    for (name, column) in columns.items():
+    for (name, column) in list(columns.items()):
         if name in natural_order and name not in order_by:
             final_order[name] = order_column(column, natural_order[name])
 
-    statement = statement.order_by(*final_order.values())
+    statement = statement.order_by(*list(final_order.values()))
 
     return statement
 

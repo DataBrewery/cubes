@@ -1,7 +1,7 @@
 # -*- encoding=utf -*-
 """SQL Browser"""
 
-from __future__ import absolute_import
+
 
 import collections
 
@@ -223,7 +223,7 @@ class SQLBrowser(AggregationBrowser):
 
         if row:
             # Convert SQLAlchemy object into a dictionary
-            record = dict(zip(labels, row))
+            record = dict(list(zip(labels, row)))
         else:
             record = None
 
@@ -336,7 +336,7 @@ class SQLBrowser(AggregationBrowser):
         row = cursor.fetchone()
 
         if row:
-            member = dict(zip(labels, row))
+            member = dict(list(zip(labels, row)))
         else:
             member = None
 
@@ -407,7 +407,7 @@ class SQLBrowser(AggregationBrowser):
 
             if row:
                 # Convert SQLAlchemy object into a dictionary
-                record = dict(zip(labels, row))
+                record = dict(list(zip(labels, row)))
             else:
                 record = None
 
@@ -617,4 +617,4 @@ class ResultIterator(object):
                     and any(row[agg] is None for agg in self.exclude_if_null):
                 continue
 
-            yield dict(zip(self.labels, row))
+            yield dict(list(zip(self.labels, row)))

@@ -7,8 +7,8 @@ To enable full user exception debugging set the ``CUBES_ERROR_DEBUG``
 environment variable.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+
+
 
 import json
 import os
@@ -75,7 +75,7 @@ def extension_info(ctx, extension_type, extension_name):
     """Show info about Cubes extensions"""
 
     if extension_type == 'all':
-        types = ext.EXTENSION_TYPES.items()
+        types = list(ext.EXTENSION_TYPES.items())
     else:
         label = ext.EXTENSION_TYPES[extension_type]
         types = [(extension_type, label)]
@@ -94,7 +94,7 @@ def extension_info(ctx, extension_type, extension_name):
         if extension.options:
             click.echo("Configuration options:\n")
 
-            for option in extension.options.values():
+            for option in list(extension.options.values()):
                 name = option.get("name")
                 desc = option.get("description", option.get("label"))
                 desc = " - {}".format(desc) if desc else ""
@@ -359,7 +359,7 @@ def denormalize(ctx, force, materialize, index, schema, cube, target):
         names = workspace.cube_names()
         targets = [store.naming.denormalized_table_name(name)
                    for name in names]
-        cubes = zip(names, targets)
+        cubes = list(zip(names, targets))
 
     for cube_name, target in cubes:
         cube = workspace.cube(cube_name)
@@ -423,7 +423,7 @@ def sql_aggregate(ctx, force, index, schema, cube, target, dimensions):
         names = workspace.cube_names()
         targets = [store.naming.aggregated_table_name(name)
                    for name in names]
-        cubes = zip(names, targets)
+        cubes = list(zip(names, targets))
 
     for cube_name, target in cubes:
         cube = workspace.cube(cube_name)

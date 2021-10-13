@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """Logical to Physical Mappers"""
 
-from __future__ import absolute_import
+
 
 import re
 
@@ -65,7 +65,7 @@ NAMING_DEFAULTS = {
 
 def distill_naming(dictionary):
     """Distill only keys and values related to the naming conventions."""
-    d = {key: value for key, value in dictionary.items()
+    d = {key: value for key, value in list(dictionary.items())
          if key in NAMING_DEFAULTS}
 
     return Naming(d)
@@ -128,7 +128,7 @@ class Naming(AttributeDict):
         super(Naming, self).__init__(*args, **kwargs)
 
         # Set the defaults
-        for key, value in NAMING_DEFAULTS.items():
+        for key, value in list(NAMING_DEFAULTS.items()):
             if key not in self:
                 self[key] = value
 

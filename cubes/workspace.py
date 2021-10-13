@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 import os.path
 
@@ -177,7 +177,7 @@ class Workspace(object):
                                           dict(store_config.items(store)))
 
         elif isinstance(stores, dict):
-            for name, store in stores.items():
+            for name, store in list(stores.items()):
                 self._register_store_dict(name, store)
 
         elif stores is not None:

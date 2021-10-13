@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
+
 
 import codecs
 import csv
@@ -145,7 +145,7 @@ class JSONLinesGenerator(object):
     def __iter__(self):
         for obj in self.iterable:
             string = self.encoder.encode(obj)
-            yield u"{}{}".format(string, self.separator)
+            yield "{}{}".format(string, self.separator)
 
 
 class SlicerJSONEncoder(json.JSONEncoder):

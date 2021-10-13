@@ -202,7 +202,7 @@ class ExtensionFinder(object):
             self.discover()
 
         names = list(self.builtins.keys())
-        names += self.extensions.keys()
+        names += list(self.extensions.keys())
 
         return sorted(names)
 

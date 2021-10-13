@@ -3,7 +3,7 @@
 """Utility functions for computing combinations of dimensions and hierarchy
 levels"""
 
-from __future__ import absolute_import
+
 
 import re
 import os.path
@@ -41,7 +41,7 @@ class IgnoringDictionary(OrderedDict):
 
     def __repr__(self):
         items = []
-        for key, value in self.items():
+        for key, value in list(self.items()):
             item = '%s: %s' % (repr(key), repr(value))
             items.append(item)
 
@@ -120,7 +120,7 @@ def expand_dictionary(record, separator='.'):
     `separator`, create sub-dictionaries as necessary"""
 
     result = {}
-    for key, value in record.items():
+    for key, value in list(record.items()):
         current = result
         path = key.split(separator)
         for part in path[:-1]:
@@ -143,7 +143,7 @@ def localize_attributes(attribs, translations):
     keys as attribute names, values are dictionaries with localizable
     attribute metadata, such as ``label`` or ``description``."""
 
-    for (name, atrans) in translations.items():
+    for (name, atrans) in list(translations.items()):
         attrib = attribs[name]
         localize_common(attrib, atrans)
 
@@ -234,7 +234,7 @@ def coalesce_options(options, types):
 
     out = {}
 
-    for key, value in options.items():
+    for key, value in list(options.items()):
         if key in types:
             out[key] = coalesce_option_value(value, types[key], key)
         else:
@@ -283,13 +283,13 @@ def sorted_dependencies(graph):
     Will be: ``{"A": ["B"], "B": ["C", "D"], "D": ["E"],"E": []}``
     """
 
-    graph = dict((key, set(value)) for key, value in graph.items())
+    graph = dict((key, set(value)) for key, value in list(graph.items()))
 
     # L ← Empty list that will contain the sorted elements
     L = []
 
     # S ← Set of all nodes with no dependencies (incoming edges)
-    S = set(parent for parent, req in graph.items() if not req)
+    S = set(parent for parent, req in list(graph.items()) if not req)
 
     while S:
         # remove a node n from S
@@ -299,7 +299,7 @@ def sorted_dependencies(graph):
 
         # for each node m with an edge e from n to m do
         #                         (n that depends on m)
-        parents = [parent for parent, req in graph.items() if n in req]
+        parents = [parent for parent, req in list(graph.items()) if n in req]
 
         for parent in parents:
             graph[parent].remove(n)
@@ -309,7 +309,7 @@ def sorted_dependencies(graph):
                 S.add(parent)
 
     # if graph has edges then -> error
-    nonempty = [k for k, v in graph.items() if v]
+    nonempty = [k for k, v in list(graph.items()) if v]
 
     if nonempty:
         raise ArgumentError("Cyclic dependency of: %s"

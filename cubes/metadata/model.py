@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """Logical model."""
 
-from __future__ import absolute_import
+
 
 import re
 import copy

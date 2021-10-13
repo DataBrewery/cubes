@@ -87,5 +87,5 @@ def create_table_from_csv(connectable, file_name, table_name, fields,
     insert_command = table.insert()
 
     for row in reader:
-        record = dict(zip(field_names, row))
+        record = dict(list(zip(field_names, row)))
         insert_command.execute(record)

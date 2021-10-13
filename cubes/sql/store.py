@@ -1,6 +1,6 @@
 # -*- encoding=utf -*-
 
-from __future__ import absolute_import
+
 
 try:
     import sqlalchemy as sa
@@ -62,7 +62,7 @@ def sqlalchemy_options(options, prefix="sqlalchemy_"):
     and their types. The `options` are expected to have prefix
     ``sqlalchemy_``, which will be removed."""
 
-    sa_keys = [key for key in options.keys() if key.startswith(prefix)]
+    sa_keys = [key for key in list(options.keys()) if key.startswith(prefix)]
     sa_options = {}
     for key in sa_keys:
         sa_key = key[11:]

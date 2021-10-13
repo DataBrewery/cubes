@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 
-from __future__ import absolute_import
+
 
 import unittest
 import sqlalchemy as sa
@@ -33,8 +33,8 @@ def create_table(engine, md, desc):
     if not types:
         types = ["string"] * len(desc["columns"])
 
-    col_types = dict(zip(desc["columns"], desc["types"]))
-    for name, type_ in col_types.items():
+    col_types = dict(list(zip(desc["columns"], desc["types"])))
+    for name, type_ in list(col_types.items()):
         real_type = TYPES[type_]
         if type_ == 'id':
             col = sa.Column(name, real_type, primary_key=True)
