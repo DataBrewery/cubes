@@ -4,6 +4,12 @@ from __future__ import print_function
 
 from sqlalchemy import create_engine
 from cubes.tutorial.sql import create_table_from_csv
+from pathlib import Path
+
+
+cur_folder = Path(__file__).parent
+csv_path = cur_folder / 'data.csv'
+sqlite_path = cur_folder / 'data.sqlite'
 
 # 1. Prepare SQL data in memory
 
@@ -11,10 +17,10 @@ FACT_TABLE = "irbd_balance"
 
 print("preparing data...")
 
-engine = create_engine('sqlite:///data.sqlite')
+engine = create_engine(f'sqlite:///{sqlite_path}')
 
 create_table_from_csv(engine,
-                      "data.csv",
+                      str(csv_path),
                       table_name=FACT_TABLE,
                       fields=[
                             ("category", "string"),
